@@ -37,6 +37,11 @@ const LAUNCH_INTERVAL_S := 240.0  # one airframe at a time, not the whole hangar
 const SEARCH_RADIUS_NM := 11.0
 const SEARCH_STEP_DEG := 55.0
 const DIP_DURATION_S := 180.0
+const PATROL_ARRIVAL_NM := 4.0
+## A ship at 30 kn turning at 3 deg/s eats a quarter of a mile getting ninety degrees round, so an
+## avoidance bearing has to look further ahead than that or it orders a turn that cannot be made.
+const COAST_LOOKAHEAD_S := 120.0  # GAMEPLAY_ESTIMATE
+const STANDOFF_ARC_DEG: Array[float] = [0.0, 25.0, 50.0, 75.0, 100.0, 130.0, 160.0]
 
 var faction := ""
 var unit_manager: UnitManager
@@ -362,7 +367,7 @@ func _do_defend(u: Unit, b: Dictionary, inbound: Array, now: float) -> void:
 		var w: Weapon = entry["weapon"]
 		mean += (w.position - u.position).normalized()
 	var away := Geo.vector_to_heading(-mean) if mean.length() > 0.001 else u.heading_deg
-	_command(u, b, away, u.spec.max_speed_kn, now)
+	_command(u, b, _open_bearing(u, away), u.spec.max_speed_kn, now)
 
 
 func _do_withdraw(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
@@ -372,7 +377,7 @@ func _do_withdraw(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
 		from = _nearest(u, hostiles).position
 	if from == Vector2.INF:
 		return
-	_command(u, b, Geo.vector_to_heading(u.position - from), u.spec.max_speed_kn, now)
+	_command(u, b, _open_bearing(u, Geo.vector_to_heading(u.position - from)), u.spec.max_speed_kn, now)
 
 
 func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: float) -> void:
@@ -390,7 +395,7 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 		_command(u, b, u.heading_deg, u.spec.cruise_speed_kn, now)  # on station, hold
 		return
 	# Approach along the bearing, stopping at the standoff distance.
-	_move_to(u, b, t.position + (u.position - t.position).normalized() * standoff_nm, now)
+	_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
 
 
 ## With nothing to prosecute, an ASW aircraft flies a search rather than orbiting its parent.
@@ -420,10 +425,11 @@ func _do_air_search(u: Unit, b: Dictionary, now: float) -> void:
 
 ## An aircraft closes right over the contact, then either stops to dip or lays a buoy field.
 func _prosecute(u: Unit, b: Dictionary, t: Track, range_nm: float, now: float) -> void:
-	if u.sonobuoys > 0 and range_nm <= BUOY_DROP_RANGE_NM and now - float(b.get("last_buoy", -10000.0)) > BUOY_INTERVAL_S:
+	var over_water := not Terrain.is_land(u.position)
+	if over_water and u.sonobuoys > 0 and range_nm <= BUOY_DROP_RANGE_NM and now - float(b.get("last_buoy", -10000.0)) > BUOY_INTERVAL_S:
 		b["last_buoy"] = now
 		unit_manager.issue_order(u, Order.deploy_sonobuoy())
-	if u.spec.can_hover and range_nm <= DIP_STANDOFF_NM:
+	if over_water and u.spec.can_hover and range_nm <= DIP_STANDOFF_NM:
 		_manage_altitude(u, true)
 		_command(u, b, u.heading_deg, 0.0, now)  # stop and listen
 		return
@@ -459,10 +465,13 @@ func _do_patrol(u: Unit, b: Dictionary, now: float) -> void:
 	if absf(u.ordered_speed_kn - wanted_speed) > 0.5:
 		unit_manager.issue_order(u, Order.set_speed(wanted_speed))
 	var idx: int = b["patrol_index"] % u.patrol_route.size()
-	var leg: Vector2 = u.patrol_route[idx]
-	if u.position.distance_to(leg) < 4.0:
+	# A leg an author placed ashore is stood off into the nearest water, and arrival is judged
+	# against that point. Judging it against the original would leave the route stuck on a leg
+	# the ship can never reach, and the unit steaming at the coast for the whole scenario.
+	var leg := _sea_room(u, u.patrol_route[idx])
+	if u.position.distance_to(leg) < PATROL_ARRIVAL_NM:
 		b["patrol_index"] = idx + 1
-		leg = u.patrol_route[(idx + 1) % u.patrol_route.size()]
+		leg = _sea_room(u, u.patrol_route[(idx + 1) % u.patrol_route.size()])
 	_move_to(u, b, leg, now)
 
 
@@ -481,7 +490,8 @@ func _nearest(u: Unit, tracks: Array) -> Track:
 
 ## Issues a MOVE only when the destination has meaningfully changed, so the order log stays
 ## readable and units are not re-tasked every cycle.
-func _move_to(u: Unit, b: Dictionary, goal: Vector2, now: float) -> void:
+func _move_to(u: Unit, b: Dictionary, wanted: Vector2, now: float) -> void:
+	var goal := _sea_room(u, wanted)
 	var previous: Vector2 = b["goal"]
 	# Re-task only when the destination has actually moved, or when the ship has arrived and is
 	# sitting there with nothing to do. Anything else fills the order log with noise.
@@ -493,6 +503,38 @@ func _move_to(u: Unit, b: Dictionary, goal: Vector2, now: float) -> void:
 	unit_manager.issue_order(u, Order.move(goal))
 	if u.ordered_speed_kn < u.spec.cruise_speed_kn:
 		unit_manager.issue_order(u, Order.set_speed(u.spec.cruise_speed_kn))
+
+
+## A destination a hull cannot reach is no destination at all: a MOVE onto land is refused, and a
+## refused MOVE leaves the waypoint list empty, which defeats the re-task guard above and has the
+## AI issuing the same rejected order every cycle while the ship sits still. So the goal is moved
+## into the water before it is ordered, never after. Tracks carry position error, so a contact
+## hugging a coast routinely produces a datum a mile inland; that is normal traffic, not a fault.
+func _sea_room(u: Unit, goal: Vector2) -> Vector2:
+	if not u.needs_sea_room():
+		return goal
+	return Terrain.nearest_water(goal, u.position)
+
+
+## A shadower wants to sit at a set range from its contact. When the point on its own bearing is
+## ashore, the range is what matters, so the point slides around the ring rather than in towards
+## the beach.
+func _standoff_point(u: Unit, target_pos: Vector2, standoff_nm: float) -> Vector2:
+	var offset := (u.position - target_pos).normalized() * standoff_nm
+	if Terrain.is_empty():
+		return target_pos + offset
+	for step: float in STANDOFF_ARC_DEG:
+		for side: float in [1.0, -1.0]:
+			var candidate := target_pos + offset.rotated(deg_to_rad(step * side))
+			if not Terrain.is_land(candidate):
+				return candidate
+	return target_pos + offset
+
+
+func _open_bearing(u: Unit, wanted_deg: float) -> float:
+	if not u.needs_sea_room() or Terrain.is_empty():
+		return wanted_deg
+	return Terrain.open_bearing_deg(u.position, wanted_deg, maxf(u.spec.max_speed_kn, 10.0) * COAST_LOOKAHEAD_S / 3600.0)
 
 
 func _command(u: Unit, b: Dictionary, course_deg: float, speed_kn: float, now: float) -> void:

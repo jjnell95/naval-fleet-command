@@ -77,6 +77,7 @@ func load_scenario(path: String) -> bool:
 	map_center = Vector2(c[0], c[1])
 	map_extent_nm = float(m.get("extent_nm", 200.0))
 	Detection.set_environment(scenario.get("environment", {}))
+	Terrain.load_from(scenario)
 	track_manager.neutral_factions = PackedStringArray()
 	for f in scenario.get("neutral_factions", []):
 		track_manager.neutral_factions.append(str(f))

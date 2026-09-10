@@ -85,6 +85,8 @@ func _sonar_pass(observer: Unit, now: float) -> void:
 		if target == observer or not target.is_engageable() or target.faction == observer.faction or target.is_aircraft():
 			continue
 		var d := observer.position.distance_to(target.position)
+		if Detection.acoustic_path_blocked(observer, target):
+			continue  # sound does not go through rock, pinging or listening
 		if active_reach > 0.0 and d <= active_reach:
 			_report_active(observer, target, d, rate, now)
 			continue
@@ -161,6 +163,8 @@ func _esm_pass(observer: Unit, now: float) -> void:
 		var d := observer.position.distance_to(emitter.position)
 		if d > reach:
 			continue
+		if Detection.terrain_masks(observer, emitter):
+			continue  # the horizon this set already respects is not the only thing in the way
 		_report_esm(observer, emitter, d, reach, sensor, now)
 
 
@@ -204,6 +208,8 @@ func _buoy_pass(now: float) -> void:
 				continue
 			var reach := b.reach_against(target)
 			if reach <= 0.0 or b.position.distance_to(target.position) > reach:
+				continue
+			if Terrain.blocks_path(b.position, target.position):
 				continue
 			if not holds.has(b.faction):
 				holds[b.faction] = {}
@@ -267,5 +273,8 @@ func _detect_weapons(now: float) -> void:
 					r = Detection.torpedo_detection_nm(observer, w.spec)
 			elif radar_up:
 				r = Detection.best_weapon_detection_nm(observer, w.spec) * Detection.weapon_clutter_factor(w.spec) * Detection.jam_penalty(observer, w.position)
-			if r > 0.0 and observer.position.distance_to(w.position) <= r:
-				threat_manager.mark_detected(observer.faction, w, now)
+			if r <= 0.0 or observer.position.distance_to(w.position) > r:
+				continue
+			if Detection.terrain_hides_weapon(observer, w):
+				continue
+			threat_manager.mark_detected(observer.faction, w, now)

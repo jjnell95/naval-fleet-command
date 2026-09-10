@@ -161,9 +161,11 @@ func _on_selected(i: int) -> void:
 			subs += 1
 	var env: Dictionary = sc.get("environment", {})
 	var sea := int(env.get("sea_state", 0))
+	var coasts: int = sc.get("terrain", {}).get("land", []).size()
 	var lines := PackedStringArray()
 	lines.append("[b][color=#ffffff]%s[/color][/b]" % e["name"])
-	lines.append("[color=%s]%d own units · %d aircraft · %d submarine%s · sea state %d (%s)[/color]\n" % [UITheme.HEX_DIM, own, air, subs, "" if subs == 1 else "s", sea, Detection.SEA_STATE_NAMES[clampi(sea, 0, 6)]])
+	var water := "open ocean" if coasts == 0 else ("coastal · %d landmass%s" % [coasts, "" if coasts == 1 else "es"])
+	lines.append("[color=%s]%d own units · %d aircraft · %d submarine%s · sea state %d (%s) · %s[/color]\n" % [UITheme.HEX_DIM, own, air, subs, "" if subs == 1 else "s", sea, Detection.SEA_STATE_NAMES[clampi(sea, 0, 6)], water])
 	lines.append("[color=%s][b]FORCES[/b][/color]" % UITheme.HEX_ACCENT)
 	lines.append("%s\n" % e["forces"])
 	lines.append("[color=%s][b]SITUATION[/b][/color]" % UITheme.HEX_ACCENT)

@@ -130,7 +130,7 @@ func refresh() -> void:
 		out.append("\n[color=%s][b]MISSION FAILS IF[/b][/color]" % UITheme.HEX_ACCENT)
 		for o in mission_manager.loss_objectives:
 			out.append(_line(o))
-	out.append("\n[color=%s]Left click selects. Right click on water orders a move, on a contact selects it. Wheel zooms, middle or right drag pans. Space pauses, 1 to 6 sets time acceleration, R toggles radar, E emissions control, P active sonar. F1 shows this board, F2 the symbol key, F4 sensor rings, F5 trails, M sound.[/color]" % UITheme.HEX_MUTED)
+	out.append("\n[color=%s]Left click selects. Right click on water orders a move, on a contact selects it. Wheel zooms, middle or right drag pans. Space pauses, 1 to 6 sets time acceleration, R toggles radar, E emissions control, P active sonar. F1 shows this board, F2 the symbol key, F4 sensor rings, F5 trails, F6 the land layer, M sound. Land is charted where a scenario has any: ships cannot enter it, and it masks radar, ESM and sonar the way the horizon does.[/color]" % UITheme.HEX_MUTED)
 	_body.text = "\n".join(out)
 
 

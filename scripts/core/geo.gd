@@ -25,6 +25,18 @@ static func knots_to_nm_per_s(kn: float) -> float:
 	return kn / 3600.0
 
 
+## How far the sea surface falls away below the straight line joining two points, in metres, for
+## a point d1 nm from one and d2 nm from the other. Same 4/3-earth model as the radar horizon in
+## Detection: a height h metres has a horizon of HORIZON_K * sqrt(h) nm, so the drop at range d
+## is d * d / HORIZON_K^2. Terrain masking uses it to decide whether ground stands above a sight
+## line, which is the same question the horizon answers for an empty sea.
+const EARTH_BULGE_K2 := 4.9729  # Detection.HORIZON_K squared
+
+
+static func earth_bulge_m(d1_nm: float, d2_nm: float) -> float:
+	return maxf(d1_nm, 0.0) * maxf(d2_nm, 0.0) / EARTH_BULGE_K2
+
+
 ## Signed shortest rotation from one heading to another, in (-180, 180].
 static func heading_delta(from_deg: float, to_deg: float) -> float:
 	return wrapf(to_deg - from_deg, -180.0, 180.0)

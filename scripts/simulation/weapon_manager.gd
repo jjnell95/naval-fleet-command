@@ -146,6 +146,11 @@ func _step(w: Weapon, dt: float) -> void:
 		w.dead_reason = "RANGE EXHAUSTED"
 		return
 
+	if _hits_terrain(w, travel):
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "TERRAIN"
+		return
+
 	if w.phase == Weapon.Phase.CRUISE:
 		if w.spec.is_torpedo():
 			# A torpedo runs out before its seeker comes on, then searches the whole way in.
@@ -160,6 +165,22 @@ func _step(w: Weapon, dt: float) -> void:
 	var impact := maxf(IMPACT_MIN_NM, travel)
 	if w.acquired != null and w.position.distance_to(w.acquired.position) <= impact:
 		_resolve_impact(w)
+
+
+## A round that has to stay low ends against the first ground it meets: the sea-skimmer into the
+## headland, the torpedo into the shoal. It is not a defensive success and is never credited as
+## one, so it dies here rather than through defeat_weapon(). Interceptors are exempt — they are
+## fired upward at something closing head-on and the engagement resolves within a mile or two.
+func _hits_terrain(w: Weapon, travel: float) -> bool:
+	if Terrain.is_empty() or not Combat.profile_is_surface_bound(w.spec):
+		return false
+	if Terrain.is_land(w.position):
+		return true
+	# A fast round covers enough ground in one tick to step over a narrow spit, so above a
+	# fraction of the chart resolution the whole step is tested rather than its end point.
+	if travel <= Terrain.CELL_NM * 0.25:
+		return false
+	return Terrain.first_land_contact(w.position - Geo.heading_to_vector(w.heading_deg) * travel, w.position) >= 0.0
 
 
 func _step_interceptor(w: Weapon, dt: float) -> void:

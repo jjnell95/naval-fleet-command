@@ -182,6 +182,31 @@ The sources below establish system names, platform associations and broad roles 
 
 The Nimitz carrier and its compressed 12-airframe capacity are gameplay abstractions. Carrier Resolute is a fictional callsign. The generic navigation radar is a placeholder for carrier surveillance; it does not model the actual carrier radar suite. All recognition profiles are original schematic vectors, not class-specific blueprints.
 
+## Coastlines (Milestone 12)
+
+Every coastline in `data/scenarios/*.json` is invented. The shapes are stylised fictional geometry
+drawn to evoke the water each scenario names — a Baltic archipelago, the Iceland-Faroes gap, the
+Norwegian and Kola coasts — and none of it is derived from survey data, charts or any geographic
+dataset. Nothing in the game reads a real coordinate: the map is a local nautical-mile grid.
+
+| Scenario | Charted as | Landmasses | Elevations (m) |
+|---|---|---|---|
+| baltic_sentinel | a southern shore and three low islands | 4 | 40–90 |
+| giuk_passage | a coast to the north-west and banks to the south-east | 3 | 310–650 |
+| northern_sentry | an island under Andøya, a shore under Severomorsk | 2 | 520–780 |
+| arctic_shield | a peninsula carrying both Russian air bases, plus one island | 2 | 300–560 |
+| aegis_bastion | one distant cape under the Russian air station | 1 | 460 |
+| atlantic_gate | a western approach and an outer skerry | 2 | 210–380 |
+| sandbox_m1 | one island, clear of the engagement axis, to experiment against | 1 | 260 |
+
+`north_atlantic_shadow_line` and `northern_shield` are mid-ocean and are charted as open water.
+
+Elevation is one number standing in for a whole landmass, chosen so the masking behaves plausibly
+rather than to describe real ground: Baltic islands are low enough to matter only to a masthead,
+Norwegian and Icelandic coasts are high enough to hide anything below an aircraft. The three shore
+air stations that already existed in `aegis_bastion`, `arctic_shield` and `northern_sentry` are now
+inside land, which is what they always implied.
+
 ## Milestone 11 additions (designation and broad role only; every number is GAMEPLAY_ESTIMATE)
 
 | id | System / platform | Public figures used | Notes |

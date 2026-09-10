@@ -7,15 +7,23 @@ extends PanelContainer
 signal play_requested(path: String)
 signal closed()
 
-enum Mode { PLACE, MOVE, PATROL, AREA }
+enum Mode { PLACE, MOVE, PATROL, AREA, COAST }
 
 const FACTIONS := ["BLUE", "RED", "NEUTRAL"]
 const OBJECTIVE_KINDS := ["Hold position for a time", "Destroy every hostile unit", "Reach an area"]
+## Coastline vertices are snapped much finer than units: half a mile either way is nothing to a
+## ship's start position and everything to the shape of a headland.
+const COAST_SNAP_NM := 0.1
 
 var scenario: Dictionary = {}
 var selected_index := -1
 var mode: Mode = Mode.PLACE
 var palette_platform := ""
+## The coastline being drawn or edited, and a live model of every coastline in the scenario. The
+## editor keeps its own Landmass list rather than pushing into the static Terrain, which belongs
+## to whatever mission is loaded behind this screen.
+var coast_index := -1
+var _land: Array[Landmass] = []
 
 var _chart: Chart
 var _palette: ItemList
@@ -44,6 +52,9 @@ var _json_popup: PopupPanel
 var _json_text: TextEdit
 var _load_menu: OptionButton
 var _syncing := false
+var _coast_name: LineEdit
+var _coast_elevation: SpinBox
+var _coast_title: Label
 
 
 func _ready() -> void:
@@ -116,7 +127,7 @@ func _ready() -> void:
 	var modes := HBoxContainer.new()
 	modes.add_theme_constant_override("separation", 4)
 	left.add_child(modes)
-	for entry in [["PLACE", Mode.PLACE], ["MOVE", Mode.MOVE], ["PATROL", Mode.PATROL], ["AREA", Mode.AREA]]:
+	for entry in [["PLACE", Mode.PLACE], ["MOVE", Mode.MOVE], ["PATROL", Mode.PATROL], ["AREA", Mode.AREA], ["COAST", Mode.COAST]]:
 		var b := Button.new()
 		b.text = entry[0]
 		b.toggle_mode = true
@@ -126,7 +137,7 @@ func _ready() -> void:
 		modes.add_child(b)
 		_mode_buttons.append(b)
 	var hint := Label.new()
-	hint.text = "Wheel zooms · right drag pans · Delete removes the selected unit"
+	hint.text = "Wheel zooms · right drag pans · Delete removes the selected unit, or the last coastline point in COAST mode"
 	hint.theme_type_variation = "DimLabel"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 10)
@@ -225,6 +236,19 @@ func _ready() -> void:
 			scenario["units"][selected_index].erase("patrol_nm")
 			_chart.queue_redraw())
 	_button(patrol_row, "DELETE UNIT", delete_selected)
+
+	_section(props, "COASTLINE")
+	_coast_title = Label.new()
+	_coast_title.theme_type_variation = "DimLabel"
+	_coast_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	props.add_child(_coast_title)
+	_coast_name = _line(props, "Landmass name", func(t: String) -> void: _coast_set_name(t))
+	_coast_elevation = _spin(props, "Elevation (m)", 0, 3000, 20, func(v: float) -> void: _coast_set_elevation(v))
+	var coast_row := HBoxContainer.new()
+	props.add_child(coast_row)
+	_button(coast_row, "FINISH", func() -> void: finish_coast())
+	_button(coast_row, "UNDO POINT", func() -> void: undo_coast_point())
+	_button(coast_row, "DELETE", func() -> void: delete_coast())
 
 	_status = Label.new()
 	_status.theme_type_variation = "DimLabel"
@@ -334,6 +358,8 @@ func _set_mode(m: Mode) -> void:
 			_say("PATROL: click the chart to add legs to the selected unit's route", false)
 		Mode.AREA:
 			_say("AREA: click the chart to set the objective area", false)
+		Mode.COAST:
+			_say("COAST: click the chart to trace a coastline. FINISH closes it and starts the next one; click inside a finished coast to edit it.", false)
 
 
 func _spec_name(id: String) -> String:
@@ -360,10 +386,13 @@ func new_scenario() -> void:
 		"neutral_factions": ["NEUTRAL"],
 		"environment": {"sea_state": 2},
 		"map": {"center_nm": [0, 0], "extent_nm": 160},
+		"terrain": {"land": []},
 		"objectives": {"text": "Hold the task group for 30 minutes.", "victory": [{"id": "hold", "type": "time_elapsed", "seconds": 1800, "text": "Hold for 30 minutes"}], "loss": []},
 		"units": [],
 	}
 	selected_index = -1
+	coast_index = -1
+	_rebuild_land()
 	_sync_from_model()
 	_refresh_load_menu()
 	_chart.fit()
@@ -383,12 +412,19 @@ func load_dict(d: Dictionary) -> void:
 		scenario["objectives"]["victory"] = []
 	if not scenario.has("units"):
 		scenario["units"] = []
+	if typeof(scenario.get("terrain")) != TYPE_DICTIONARY:
+		scenario["terrain"] = {"land": []}
+	if typeof(scenario["terrain"].get("land")) != TYPE_ARRAY:
+		scenario["terrain"]["land"] = []
 	selected_index = -1
+	coast_index = -1
+	_rebuild_land()
 	_sync_from_model()
 	_chart.fit()
 
 
 func _sync_from_model() -> void:
+	_sync_coast()
 	_syncing = true
 	_name.text = str(scenario.get("name", ""))
 	_description.text = str(scenario.get("description", ""))
@@ -437,6 +473,9 @@ func _apply_objective() -> void:
 func set_area(world: Vector2) -> void:
 	_objective_kind.select(2)
 	_apply_objective()
+	if on_land(world):
+		_say("An objective area on land cannot be reached by a ship", true)
+		return
 	for o in scenario["objectives"]["victory"]:
 		if o.get("type", "") == "reach_area":
 			o["center_nm"] = [snappedf(world.x, 0.5), snappedf(world.y, 0.5)]
@@ -461,6 +500,9 @@ func place(world: Vector2) -> void:
 			return
 		ud["home"] = home
 	else:
+		if spec.domain != "land" and on_land(world):
+			_say("%s cannot start on land. Place it in the water, or use COAST to reshape the coastline." % spec.short_name, true)
+			return
 		ud["position_nm"] = [snappedf(world.x, 0.5), snappedf(world.y, 0.5)]
 		ud["heading_deg"] = 0
 		ud["speed_kn"] = spec.cruise_speed_kn
@@ -529,9 +571,13 @@ func move_selected(world: Vector2) -> void:
 	if selected_index < 0:
 		return
 	var u: Dictionary = scenario["units"][selected_index]
-	if u.has("position_nm"):
-		u["position_nm"] = [snappedf(world.x, 0.5), snappedf(world.y, 0.5)]
-		_chart.queue_redraw()
+	if not u.has("position_nm"):
+		return
+	var spec := DataDB.platform(u.get("platform", ""))
+	if spec != null and spec.domain != "land" and spec.domain != "air" and on_land(world):
+		return  # a hull is simply not draggable onto the beach
+	u["position_nm"] = [snappedf(world.x, 0.5), snappedf(world.y, 0.5)]
+	_chart.queue_redraw()
 
 
 func add_patrol_leg(world: Vector2) -> void:
@@ -539,10 +585,131 @@ func add_patrol_leg(world: Vector2) -> void:
 		_say("Select a unit first", true)
 		return
 	var u: Dictionary = scenario["units"][selected_index]
+	var spec := DataDB.platform(u.get("platform", ""))
+	if spec != null and (spec.domain == "surface" or spec.domain == "subsurface") and on_land(world):
+		_say("A ship cannot be routed onto land", true)
+		return
 	if not u.has("patrol_nm"):
 		u["patrol_nm"] = []
 	u["patrol_nm"].append([snappedf(world.x, 0.5), snappedf(world.y, 0.5)])
 	_chart.queue_redraw()
+
+
+# --- Coastlines --------------------------------------------------------------------------
+
+## The working Landmass list is rebuilt from the model, and written back after every edit, so the
+## scenario dictionary stays the single source of truth that save, export and play all read.
+func _rebuild_land() -> void:
+	_land.clear()
+	for entry in scenario.get("terrain", {}).get("land", []):
+		if typeof(entry) == TYPE_DICTIONARY:
+			_land.append(Landmass.from_dict(entry))
+
+
+func _write_land() -> void:
+	var out: Array = []
+	for l in _land:
+		out.append(l.to_dict())
+	scenario["terrain"] = {"land": out}
+	_sync_coast()
+	_chart.queue_redraw()
+
+
+func add_coast_point(world: Vector2) -> void:
+	if coast_index < 0 or coast_index >= _land.size():
+		var fresh := Landmass.new()
+		fresh.name = "Landmass %d" % (_land.size() + 1)
+		fresh.id = _slug(fresh.name)
+		_land.append(fresh)
+		coast_index = _land.size() - 1
+	var l := _land[coast_index]
+	l.points.append(Vector2(snappedf(world.x, COAST_SNAP_NM), snappedf(world.y, COAST_SNAP_NM)))
+	l.recompute()
+	_say("%s: %d points — FINISH closes it" % [l.name, l.points.size()], false)
+	_write_land()
+
+
+func select_coast(i: int) -> void:
+	coast_index = i
+	_say("Editing %s" % _land[i].name, false)
+	_sync_coast()
+	_chart.queue_redraw()
+
+
+## A finished coastline is simply one that is no longer being added to; the polygon is always
+## closed, so there is no open state to resolve.
+func finish_coast() -> void:
+	if coast_index < 0 or coast_index >= _land.size():
+		return
+	var l := _land[coast_index]
+	if not l.valid():
+		_land.remove_at(coast_index)
+		_say("A coastline needs at least three points", true)
+	else:
+		_say("%s closed with %d points" % [l.name, l.points.size()], false)
+	coast_index = -1
+	_write_land()
+
+
+func undo_coast_point() -> void:
+	if coast_index < 0 or coast_index >= _land.size():
+		return
+	var l := _land[coast_index]
+	if l.points.is_empty():
+		return
+	l.points.remove_at(l.points.size() - 1)
+	l.recompute()
+	_write_land()
+
+
+func delete_coast() -> void:
+	if coast_index < 0 or coast_index >= _land.size():
+		_say("Click a coastline to select it first", true)
+		return
+	_say("Removed %s" % _land[coast_index].name, false)
+	_land.remove_at(coast_index)
+	coast_index = -1
+	_write_land()
+
+
+func coast_at(world: Vector2) -> int:
+	for i in _land.size():
+		if _land[i].valid() and _land[i].contains(world):
+			return i
+	return -1
+
+
+func on_land(world: Vector2) -> bool:
+	return coast_at(world) >= 0
+
+
+func _coast_set_name(t: String) -> void:
+	if coast_index < 0 or coast_index >= _land.size():
+		return
+	_land[coast_index].name = t
+	_land[coast_index].id = _slug(t)
+	_write_land()
+
+
+func _coast_set_elevation(v: float) -> void:
+	if coast_index < 0 or coast_index >= _land.size():
+		return
+	_land[coast_index].elevation_m = v
+	_write_land()
+
+
+func _sync_coast() -> void:
+	_syncing = true
+	if coast_index >= 0 and coast_index < _land.size():
+		var l := _land[coast_index]
+		_coast_title.text = "%s · %d points · %.0f m" % [l.name, l.points.size(), l.elevation_m]
+		_coast_name.text = l.name
+		_coast_elevation.value = l.elevation_m
+	else:
+		_coast_title.text = "%d coastline%s. Choose COAST and click the chart to trace one; ships cannot enter land and it masks radar, ESM and sonar." % [_land.size(), "" if _land.size() == 1 else "s"]
+		_coast_name.text = ""
+		_coast_elevation.value = Landmass.DEFAULT_ELEVATION_M
+	_syncing = false
 
 
 func delete_selected() -> void:
@@ -693,7 +860,35 @@ func validate() -> String:
 		return "Place at least one %s unit for the player to command" % player
 	if scenario["objectives"]["victory"].is_empty():
 		return "Choose an objective"
+	return _validate_terrain()
+
+
+## Terrain is checked against the editor's own coastlines, never against the static Terrain, which
+## holds whatever mission is loaded behind this screen.
+func _validate_terrain() -> String:
+	for l in _land:
+		if not l.valid():
+			return "%s needs at least three points" % (l.name if l.name != "" else "A coastline")
+	if _land.is_empty():
+		return ""
+	for u in scenario["units"]:
+		var spec := DataDB.platform(u.get("platform", ""))
+		if spec == null or (spec.domain != "surface" and spec.domain != "subsurface"):
+			continue
+		var cs: String = u.get("callsign", "")
+		if u.has("position_nm") and on_land(_pair(u["position_nm"])):
+			return "%s starts on land" % cs
+		for leg in u.get("patrol_nm", []):
+			if on_land(_pair(leg)):
+				return "%s has a patrol leg on land" % cs
+	for o in scenario["objectives"]["victory"]:
+		if o.get("type", "") == "reach_area" and on_land(_pair(o.get("center_nm", [0, 0]))):
+			return "The objective area is on land"
 	return ""
+
+
+func _pair(a: Array) -> Vector2:
+	return Vector2(float(a[0]), float(a[1])) if a.size() >= 2 else Vector2.ZERO
 
 
 func to_json() -> String:
@@ -796,7 +991,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	var k := event as InputEventKey
-	if k != null and k.pressed and k.keycode == KEY_DELETE and selected_index >= 0 and not _callsign.has_focus():
+	if k == null or not k.pressed or k.keycode != KEY_DELETE or _callsign.has_focus() or _coast_name.has_focus():
+		return
+	if mode == Mode.COAST and coast_index >= 0:
+		undo_coast_point()
+		get_viewport().set_input_as_handled()
+	elif selected_index >= 0:
 		delete_selected()
 		get_viewport().set_input_as_handled()
 
@@ -901,6 +1101,15 @@ class Chart extends Control:
 					editor.add_patrol_leg(s2w(p))
 			ScenarioEditor.Mode.AREA:
 				editor.set_area(s2w(p))
+			ScenarioEditor.Mode.COAST:
+				var world := s2w(p)
+				var existing := editor.coast_at(world)
+				# Clicking inside a finished coast picks it up; anything else extends the one
+				# being drawn, or starts a new one.
+				if editor.coast_index < 0 and existing >= 0:
+					editor.select_coast(existing)
+				else:
+					editor.add_coast_point(world)
 
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color("081320"))
@@ -926,6 +1135,7 @@ class Chart extends Control:
 			draw_line(Vector2(0, sy), Vector2(size.x, sy), Color(UITheme.COL_BORDER, 0.5), 1.0)
 			draw_string(_font, Vector2(4, sy - 3), Geo.format_axis(y, "N", "S"), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)
 			y += step
+		_draw_land()
 		# Chart extent as the mission will frame it.
 		var c: Array = editor.scenario["map"]["center_nm"]
 		var half := float(editor.scenario["map"].get("extent_nm", 160.0)) * 0.5
@@ -986,4 +1196,25 @@ class Chart extends Control:
 			if i == editor.selected_index or not is_air:
 				draw_string(_font, draw_at + Vector2(14, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(col, 0.9))
 		draw_string(_font, Vector2(10, 16), "%s  ·  %d units  ·  sea state %d" % [str(editor.scenario.get("name", "")).to_upper(), units.size(), int(editor.scenario["environment"].get("sea_state", 0))], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_ACCENT)
-		draw_string(_font, Vector2(10, size.y - 20), "★ protected · dashed: patrol route · box: mission chart extent", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)
+		draw_string(_font, Vector2(10, size.y - 20), "★ protected · dashed: patrol route · box: mission chart extent · filled: land", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)
+
+
+	## Coastlines as they will appear in the mission, plus the vertices while one is being traced.
+	func _draw_land() -> void:
+		for i in editor._land.size():
+			var l: Landmass = editor._land[i]
+			var pts := PackedVector2Array()
+			for p in l.points:
+				pts.append(w2s(p))
+			if pts.size() >= 3:
+				draw_colored_polygon(pts, TacticalMap.COL_LAND)
+			var editing := i == editor.coast_index
+			if pts.size() >= 2:
+				var ring := pts.duplicate()
+				ring.append(pts[0])
+				draw_polyline(ring, Color(TacticalMap.COL_COAST, 1.0 if editing else 0.75), 1.5, true)
+			if editing or editor.mode == ScenarioEditor.Mode.COAST:
+				for sp in pts:
+					draw_rect(Rect2(sp - Vector2(2.5, 2.5), Vector2(5, 5)), Color(TacticalMap.COL_COAST, 0.9 if editing else 0.5), not editing, 1.0)
+			if l.name != "" and pts.size() >= 3:
+				draw_string(_font, w2s(l.centroid) + Vector2(-l.name.length() * 3.0, 0.0), l.name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, TacticalMap.COL_LAND_LABEL)

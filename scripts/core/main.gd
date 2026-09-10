@@ -180,7 +180,8 @@ func start_scenario(path: String) -> void:
 	_report.hide()
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}))
 	_briefing.set_mode(true)
-	top_bar.flash("%s loaded — sea state %d, %s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name()])
+	var coast := "" if Terrain.is_empty() else ", %d landmass%s charted" % [Terrain.landmasses.size(), "" if Terrain.landmasses.size() == 1 else "es"]
+	top_bar.flash("%s loaded — sea state %d, %s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), coast])
 
 
 func restart_scenario() -> void:
@@ -282,6 +283,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			map.show_rings = not map.show_rings
 		KEY_F5:
 			map.show_trails = not map.show_trails
+		KEY_F6:
+			map.show_terrain = not map.show_terrain
+			if Terrain.is_empty():
+				top_bar.flash("No charted land in this area")
 		KEY_F3:
 			Debug.toggle()
 		KEY_M:
@@ -442,14 +447,29 @@ func _on_move_order_requested(world_pos: Vector2, append: bool) -> void:
 	_apply_order_to_selection(Order.move(world_pos, append))
 
 
+## One order goes to every selected unit, so a mixed selection can have it accepted by the
+## helicopter and refused by the destroyer. The flash reports the refusal only when nothing at all
+## could take it; otherwise the order simply went to the units it suited.
 func _apply_order_to_selection(order: Order) -> void:
 	var any := false
+	var refused := 0
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
-			simulation.unit_manager.issue_order(u, order)
-			any = true
+			if simulation.unit_manager.issue_order(u, order):
+				any = true
+			else:
+				refused += 1
 	if any:
 		SoundFx.play("click", 0.05)
+		if order.type == Order.Type.MOVE and not Terrain.is_empty():
+			for u in map.selected:
+				if u.faction == simulation.player_faction and u.needs_sea_room() and Terrain.first_land_contact(u.position, order.target_pos) >= 0.0:
+					top_bar.flash("%s: land on that course — it will follow the coast" % u.callsign, "warn")
+					break
+	elif refused > 0:
+		top_bar.flash("That is land — pick a point in the water", "warn")
+		if order.type == Order.Type.MOVE:
+			map.add_effect(order.target_pos, "refused")
 
 
 func _toggle_radar_on_selection() -> void:

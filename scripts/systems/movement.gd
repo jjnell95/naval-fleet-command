@@ -15,6 +15,8 @@ static func step(u: Unit, dt: float) -> void:
 		u.altitude_m = 0.0
 		return
 	var desired := u.ordered_heading_deg
+	if u.needs_sea_room():
+		_drop_stranded_waypoints(u)
 	if not u.waypoints.is_empty():
 		var wp: Vector2 = u.waypoints[0]
 		var arrive := maxf(ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
@@ -36,9 +38,31 @@ static func step(u: Unit, dt: float) -> void:
 	var max_dv := u.spec.accel_kn_s * dt
 	u.speed_kn += clampf(target_speed - u.speed_kn, -max_dv, max_dv)
 
-	u.position += Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn) * dt
+	var advance := Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn) * dt
+	if u.needs_sea_room():
+		# The one guarantee that holds however the heading was chosen: by an order, by station
+		# keeping, by a turn-away under fire. The step is projected along the shore rather than
+		# refused outright, so a ship pressed onto a coast follows it instead of grinding at it.
+		u.position = Terrain.constrain_step(u.position, u.position + advance)
+	else:
+		u.position += advance
 	_step_depth(u, dt)
 	_step_altitude(u, dt)
+
+
+## A hull cannot arrive at a waypoint that is on dry land, and without this it would steer at the
+## beach for the rest of the scenario. Aircraft keep theirs: they overfly, and a land-based one is
+## recovering to a field that is ashore on purpose.
+static func _drop_stranded_waypoints(u: Unit) -> void:
+	if Terrain.is_empty() or u.waypoints.is_empty():
+		return
+	var dropped := false
+	while not u.waypoints.is_empty() and Terrain.is_land(u.waypoints[0]):
+		u.waypoints.pop_front()
+		dropped = true
+	if dropped and u.waypoints.is_empty():
+		u.ordered_heading_deg = u.heading_deg
+		u.ordered_speed_kn = 0.0
 
 
 ## Aircraft climb and descend at a fixed rate. Anything that cannot fly stays on the surface.

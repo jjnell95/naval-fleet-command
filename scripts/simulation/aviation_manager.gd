@@ -64,6 +64,8 @@ func request_return(a: Unit) -> void:
 func deploy_sonobuoy(a: Unit, now: float) -> Sonobuoy:
 	if not a.airborne() or a.sonobuoys <= 0 or a.spec.sonobuoy_sensitivity_nm <= 0.0:
 		return null
+	if Terrain.is_land(a.position):
+		return null  # a hydrophone in a field hears nothing, and the buoy is not spent
 	a.sonobuoys -= 1
 	var b := Sonobuoy.new()
 	b.id = _next_buoy_id
