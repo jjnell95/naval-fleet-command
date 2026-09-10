@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "an_alq_249"
+display_name = "AN/ALQ-249 Next Generation Jammer"
+kind = "jammer"
+emits = true
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 5.0
+classify_rate = 0.0
+jam_range_nm = 70.0
+jam_strength = 1.6
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

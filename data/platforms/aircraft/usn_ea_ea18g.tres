@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "usn_ea_ea18g"
+display_name = "EA-18G Growler"
+short_name = "EA-18G"
+nation = "USA"
+category = "electronic attack"
+domain = "air"
+max_speed_kn = 950.0
+cruise_speed_kn = 600.0
+turn_rate_deg_s = 6.0
+accel_kn_s = 6.0
+length_m = 18.3
+displacement_t = 30.0
+health = 30.0
+signature_factor = 0.7
+sensor_ids = PackedStringArray("an_apg_79", "an_alq_249", "an_alq_218")
+cruise_altitude_m = 9000.0
+max_altitude_m = 13000.0
+altitude_rate_m_s = 30.0
+endurance_s = 9000.0
+launch_time_s = 90.0
+recovery_time_s = 120.0
+fire_control_channels = 0
+decoy_count = 8
+weapon_loadout = {"aim120_family": 2}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

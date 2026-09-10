@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_ddg_udaloy"
+domain = "surface"
+display_name = "Udaloy-class destroyer (Project 1155)"
+short_name = "DDG Udaloy"
+nation = "Russia"
+category = "destroyer"
+max_speed_kn = 29.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.22
+length_m = 163.0
+displacement_t = 7900.0
+health = 105.0
+signature_factor = 1.0
+sensor_ids = PackedStringArray("fregat_mae", "mgk_400em", "nato_esm_suite")
+mast_height_m = 30.0
+aircraft_capacity = 2
+fire_control_channels = 4
+decoy_count = 12
+weapon_loadout = {"kh35_uran": 8, "redut_family": 32, "a190_100mm_gun": 300, "ak630_ciws": 120, "ugst_torpedo": 8}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

@@ -6,7 +6,33 @@ class_name Damage
 const COMPONENT_HIT_SCALE := 1.6  # chance of a subsystem hit, per fraction of hull lost
 const COMPONENT_LOSS_SCALE := 1.3  # how hard that subsystem is knocked about
 
+## Damage control. Crews restore knocked-out subsystems over time, but a jury-rigged repair at
+## sea never gets a system back to new, and the hull itself is not patched. GAMEPLAY_ESTIMATE.
+const REPAIR_RATE_PER_S := 1.0 / 1500.0  # a subsystem climbs from 0 to the cap in ~25 minutes
+const REPAIR_CAP := 0.85
+
 static var rng := RandomNumberGenerator.new()
+
+
+## Damage-control tick for every living unit. Aircraft carry no repair parties.
+static func tick(units: Array, dt: float) -> void:
+	for u: Unit in units:
+		if not u.alive or u.is_aircraft():
+			continue
+		for name in Unit.COMPONENTS:
+			var v := u.component(name)
+			if v < REPAIR_CAP:
+				u.components[name] = minf(v + REPAIR_RATE_PER_S * dt, REPAIR_CAP)
+
+
+## True when any subsystem is being worked on right now.
+static func repairing(u: Unit) -> bool:
+	if not u.alive or u.is_aircraft():
+		return false
+	for name in Unit.COMPONENTS:
+		if u.component(name) < REPAIR_CAP:
+			return true
+	return false
 
 
 ## Applies damage and returns true if the unit was destroyed by this hit.

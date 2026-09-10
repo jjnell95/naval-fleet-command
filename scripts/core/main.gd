@@ -1,10 +1,10 @@
 class_name Main
 extends Control
 ## Main entry point. Wires the simulation layer to the presentation layer and handles
-## global hotkeys. Dev flags (after `--`): --smoke (auto-order + run) and --screenshot=PATH.
+## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M10 — AEGIS Command"
+const BUILD_MILESTONE := "M11 — AEGIS Command II"
 const DEFAULT_SCENARIO := "res://data/scenarios/aegis_bastion.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
@@ -17,12 +17,14 @@ const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-on
 @onready var orders_panel: OrdersPanel = %OrdersPanel
 @onready var contact_panel: ContactPanel = %ContactPanel
 
-var _banner: Label
+var _report: AfterAction
 var _menu: ScenarioMenu
 var _briefing: BriefingPanel
 var _objective_accum := 0.0
 var _dev: DevHarness
-var _stats := {"launched": 0, "intercepted": 0, "decoyed": 0, "hits": 0, "leaked": 0}
+var _stats := {}
+var _losses: PackedStringArray = []
+var _kills: PackedStringArray = []
 
 
 func _ready() -> void:
@@ -45,6 +47,7 @@ func _ready() -> void:
 	contact_panel.track_chosen.connect(map.select_track)
 	map.track_selected.connect(_on_track_selected)
 	orders_panel.weapon_selection_changed.connect(func(spec: WeaponSpec) -> void: map.weapon_ring = spec)
+	top_bar.logged.connect(unit_panel.add_event)
 	simulation.weapon_manager.weapon_launched.connect(_on_weapon_launched)
 	simulation.weapon_manager.weapon_impact.connect(_on_weapon_impact)
 	simulation.weapon_manager.unit_destroyed.connect(_on_unit_destroyed)
@@ -54,7 +57,9 @@ func _ready() -> void:
 	simulation.threat_manager.threat_detected.connect(_on_threat_detected)
 	simulation.aviation_manager.aircraft_launched.connect(func(a: Unit, parent: Unit) -> void:
 		if a.faction == simulation.player_faction:
-			top_bar.flash("%s airborne from %s" % [a.callsign, parent.callsign if parent != null else "base"])
+			_stats["sorties"] = int(_stats.get("sorties", 0)) + 1
+			top_bar.flash("%s airborne from %s" % [a.callsign, parent.callsign if parent != null else "base"], "good")
+			SoundFx.play("click")
 		print("[Air] %s launched" % a.callsign))
 	simulation.aviation_manager.aircraft_recovered.connect(func(a: Unit, _p: Unit) -> void:
 		if a.faction == simulation.player_faction:
@@ -62,21 +67,21 @@ func _ready() -> void:
 	simulation.aviation_manager.aircraft_bingo.connect(func(a: Unit) -> void:
 		if a.faction == simulation.player_faction:
 			SimClock.drop_to_realtime()
-			top_bar.flash("%s at bingo fuel, returning" % a.callsign))
+			top_bar.flash("%s at bingo fuel, returning" % a.callsign, "warn"))
 	simulation.aviation_manager.aircraft_lost.connect(func(a: Unit, reason: String) -> void:
 		if a.faction == simulation.player_faction:
 			SimClock.drop_to_realtime()
-			top_bar.flash("%s LOST — %s" % [a.callsign, reason])
+			_losses.append(a.callsign)
+			top_bar.flash("%s LOST — %s" % [a.callsign, reason], "alert")
 		print("[Air] %s lost: %s" % [a.callsign, reason]))
 	simulation.aviation_manager.launch_rejected.connect(func(parent: Unit, reason: String) -> void:
 		if parent.faction == simulation.player_faction:
-			top_bar.flash("%s cannot launch: %s" % [parent.callsign, reason]))
+			top_bar.flash("%s cannot launch: %s" % [parent.callsign, reason], "warn"))
 	simulation.mission_manager.mission_ended.connect(_on_mission_ended)
 	simulation.mission_manager.objective_completed.connect(func(o: MissionObjective, is_loss: bool) -> void:
 		if not is_loss:
-			top_bar.flash("OBJECTIVE COMPLETE — %s" % o.text)
+			top_bar.flash("OBJECTIVE COMPLETE — %s" % o.text, "good")
 		print("[Mission] objective %s: %s" % ["failed" if is_loss else "complete", o.text]))
-	_build_banner()
 	_build_screens()
 	top_bar.briefing_pressed.connect(_show_briefing)
 	top_bar.restart_pressed.connect(restart_scenario)
@@ -104,6 +109,8 @@ func _ready() -> void:
 	if seed_value >= 0:
 		simulation.seed_override = seed_value
 		print("[Dev] seed pinned to %d" % seed_value)
+	if scripted:
+		SoundFx.enabled = false
 	start_scenario(start_path)
 	if args.has("--brief"):
 		_show_briefing()
@@ -122,6 +129,20 @@ func _process(delta: float) -> void:
 		return
 	_objective_accum = 0.0
 	top_bar.set_objective_text(_objective_summary())
+	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction)
+	if threats.is_empty():
+		top_bar.set_alert("")
+	else:
+		var torpedo := false
+		var ballistic := false
+		for entry: Dictionary in threats:
+			var w: Weapon = entry["weapon"]
+			if w.spec.is_torpedo():
+				torpedo = true
+			elif w.threat_class() == "ballistic":
+				ballistic = true
+		var label := "TORPEDO IN THE WATER" if torpedo else ("BALLISTIC INBOUND" if ballistic else "MISSILE INBOUND")
+		top_bar.set_alert("%s  ·  %d" % [label, threats.size()])
 
 
 func _objective_summary() -> String:
@@ -142,17 +163,23 @@ func start_scenario(path: String) -> void:
 	SimClock.set_speed_index(0)
 	map.clear_selection()
 	map.weapon_ring = null
+	map.reset_presentation()
 	map.fit_to(simulation.map_center, simulation.map_extent_nm)
 	top_bar.set_scenario_name(simulation.scenario_name)
 	top_bar.set_objective_text("")
+	top_bar.set_alert("")
 	unit_panel.set_units([])
+	unit_panel.clear_events()
 	orders_panel.set_units([], false)
 	orders_panel.set_target_track(null)
 	contact_panel.refresh()
-	_stats = {"launched": 0, "intercepted": 0, "decoyed": 0, "hits": 0, "leaked": 0}
-	_banner.hide()
-	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""))
+	_stats = {"launched": 0, "intercepted": 0, "decoyed": 0, "hits": 0, "leaked": 0, "hostile_rounds": 0, "hits_taken": 0, "own_rounds": 0, "hits_scored": 0, "decoys_used": 0, "contacts": 0, "classified": 0, "sorties": 0}
+	_losses = PackedStringArray()
+	_kills = PackedStringArray()
+	_report.hide()
+	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}))
 	_briefing.set_mode(true)
+	top_bar.flash("%s loaded — sea state %d, %s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name()])
 
 
 func restart_scenario() -> void:
@@ -180,9 +207,17 @@ func _build_screens() -> void:
 	add_child(_briefing)
 	_briefing.hide()
 
+	_report = AfterAction.new()
+	_report.name = "AfterAction"
+	_report.review_pressed.connect(func() -> void: _report.hide())
+	_report.restart_pressed.connect(restart_scenario)
+	_report.menu_pressed.connect(_show_menu)
+	add_child(_report)
+
 
 func _show_menu() -> void:
 	_briefing.hide()
+	_report.hide()
 	_menu.allow_back(simulation.scenario_path != "")
 	_menu.refresh(simulation.scenario_path)
 	_menu.show()
@@ -191,6 +226,7 @@ func _show_menu() -> void:
 
 func _show_briefing() -> void:
 	_menu.hide()
+	_report.hide()
 	_briefing.set_mode(SimClock.sim_time <= 0.0)
 	_briefing.refresh()
 	_briefing.show()
@@ -210,15 +246,22 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_SPACE:
 			SimClock.toggle_pause()
 		KEY_ESCAPE:
-			map.clear_selection()
+			if _report.visible:
+				_report.hide()
+			else:
+				map.clear_selection()
 		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
 			SimClock.set_speed_index(k.keycode - KEY_1)
 		KEY_F2:
 			map.show_key = not map.show_key
 		KEY_F4:
 			map.show_rings = not map.show_rings
+		KEY_F5:
+			map.show_trails = not map.show_trails
 		KEY_F3:
 			Debug.toggle()
+		KEY_M:
+			top_bar.flash("Sound %s" % ("on" if SoundFx.toggle() else "off"))
 		KEY_R:
 			_toggle_radar_on_selection()
 		KEY_P:
@@ -239,23 +282,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
-func _build_banner() -> void:
-	_banner = Label.new()
-	_banner.name = "MissionBanner"
-	_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_banner.anchor_left = 0.5
-	_banner.anchor_right = 0.5
-	_banner.offset_left = -420.0
-	_banner.offset_right = 420.0
-	_banner.offset_top = 120.0
-	_banner.offset_bottom = 200.0
-	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_banner.add_theme_font_size_override("font_size", 26)
-	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_banner.hide()
-	add_child(_banner)
-
-
 func _on_selection_changed(units: Array) -> void:
 	unit_panel.set_units(units)
 	orders_panel.set_units(units, _all_controllable(units))
@@ -270,7 +296,13 @@ func _on_track_selected(t: Track) -> void:
 func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
 	SimClock.drop_to_realtime()
 	var own := shooter.faction == simulation.player_faction
-	top_bar.flash("%s %s — %d x %s at %s" % ["LAUNCH" if own else "HOSTILE LAUNCH", shooter.callsign if own else "unknown", rounds, spec.display_name, t.id])
+	if own:
+		_stats["own_rounds"] += rounds
+		map.add_effect(shooter.position, "launch")
+		SoundFx.play("launch")
+		top_bar.flash("%s — %d x %s at %s" % [shooter.callsign, rounds, spec.display_name, t.id], "good")
+	else:
+		top_bar.flash("HOSTILE LAUNCH — %d x %s at %s" % [rounds, spec.display_name, t.id], "alert")
 	print("[Combat] %s launches %d x %s at %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, t.id, shooter.position.distance_to(t.position)])
 
 
@@ -278,9 +310,11 @@ func _on_threat_detected(faction: String, w: Weapon) -> void:
 	if faction != simulation.player_faction:
 		return
 	SimClock.drop_to_realtime()
+	_stats["hostile_rounds"] += 1
 	var seconds := int(w.time_to_reach_s(_nearest_own_unit_pos(w)))
-	var label := "TORPEDO IN THE WATER" if w.spec.is_torpedo() else "INCOMING"
-	top_bar.flash("%s — %s, impact in ~%d s" % [label, w.spec.display_name, seconds])
+	var label := "TORPEDO IN THE WATER" if w.spec.is_torpedo() else ("BALLISTIC INBOUND" if w.threat_class() == "ballistic" else "INCOMING")
+	top_bar.flash("%s — %s, impact in ~%d s" % [label, w.spec.display_name, seconds], "alert")
+	SoundFx.play("torpedo" if w.spec.is_torpedo() else "alarm", 1.0)
 	print("[Defence] inbound %s detected at %.1f nm" % [w.spec.display_name, w.position.distance_to(_nearest_own_unit_pos(w))])
 
 
@@ -303,53 +337,77 @@ func _nearest_own_unit_pos(w: Weapon) -> Vector2:
 
 
 func _on_interceptor_launched(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int) -> void:
-	_stats["launched"] += rounds
+	if shooter.faction == simulation.player_faction:
+		_stats["launched"] += rounds
+		map.add_effect(shooter.position, "launch")
+		SoundFx.play("launch", 0.4)
 	print("[Defence] %s fires %d x %s at inbound %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, threat.spec.display_name, shooter.position.distance_to(threat.position)])
 
 
 func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
-	if reason == "INTERCEPTED":
-		_stats["intercepted"] += 1
-	elif reason == "DECOYED":
-		_stats["decoyed"] += 1
-	var defender := by_unit.callsign if by_unit != null else "?"
-	if by_unit != null and by_unit.faction == simulation.player_faction:
-		top_bar.flash("%s %s by %s" % [threat.spec.display_name, reason, defender])
-	print("[Defence] %s %s by %s" % [threat.spec.display_name, reason, defender])
+	var own_defence := by_unit != null and by_unit.faction == simulation.player_faction
+	if own_defence:
+		if reason == "INTERCEPTED":
+			_stats["intercepted"] += 1
+		elif reason == "DECOYED":
+			_stats["decoyed"] += 1
+			_stats["decoys_used"] += 1
+		map.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy")
+		SoundFx.play("intercept", 0.3)
+		top_bar.flash("%s %s by %s" % [threat.spec.display_name, reason, by_unit.callsign], "good")
+	print("[Defence] %s %s by %s" % [threat.spec.display_name, reason, by_unit.callsign if by_unit != null else "?"])
 
 
 func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
+	var own_target := target.faction == simulation.player_faction
 	if hit:
 		_stats["hits"] += 1
+		if own_target:
+			_stats["hits_taken"] += 1
+		elif faction == simulation.player_faction:
+			_stats["hits_scored"] += 1
 	_stats["leaked"] += 1
 	if not hit:
+		map.add_effect(target.position, "miss")
 		print("[Combat] %s miss on %s" % [spec.display_name, target.callsign])
 		return
 	SimClock.drop_to_realtime()
-	if target.faction == simulation.player_faction:
-		top_bar.flash("%s HIT — %s" % [target.callsign, Damage.condition_text(target)])
+	map.add_effect(target.position, "hit")
+	SoundFx.play("impact", 0.2)
+	if own_target:
+		top_bar.flash("%s HIT — %s" % [target.callsign, Damage.condition_text(target)], "alert")
 	else:
-		top_bar.flash("HIT on %s — %.0f%% remaining" % [target.callsign, Damage.health_fraction(target) * 100.0])
+		top_bar.flash("HIT on %s — %.0f%% remaining" % [target.callsign, Damage.health_fraction(target) * 100.0], "good")
 	print("[Combat] %s hit %s (%s, %.0f%%)" % [spec.display_name, target.callsign, Damage.condition_text(target), Damage.health_fraction(target) * 100.0])
 
 
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 	SimClock.drop_to_realtime()
-	top_bar.flash("%s DESTROYED" % u.callsign)
+	map.add_effect(u.position, "destroyed")
+	SoundFx.play("impact", 0.0)
+	if u.faction == simulation.player_faction:
+		_losses.append(u.callsign)
+		top_bar.flash("%s DESTROYED" % u.callsign, "alert")
+	else:
+		if killer_faction == simulation.player_faction:
+			_kills.append(u.callsign)
+		top_bar.flash("%s DESTROYED" % u.callsign, "good")
 	print("[Combat] %s destroyed by %s" % [u.callsign, killer_faction])
 
 
 func _on_engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String) -> void:
 	if shooter.faction == simulation.player_faction:
-		top_bar.flash("%s cannot fire %s: %s" % [shooter.callsign, spec.display_name, reason])
+		top_bar.flash("%s cannot fire %s: %s" % [shooter.callsign, spec.display_name, reason], "warn")
 
 
 func _on_mission_ended(result: String, summary: String) -> void:
 	SimClock.set_paused(true)
-	_banner.text = "%s\n%s\n\nF10 restart     F9 scenarios" % [result, summary]
-	_banner.modulate = Color(0.5, 1.0, 0.6) if result == "VICTORY" else Color(1.0, 0.5, 0.45)
-	_banner.show()
-	top_bar.flash(result)
+	var mm := simulation.mission_manager
+	var objectives: Array = []
+	objectives.append_array(mm.victory_objectives)
+	_report.show_report(result, summary, _stats, objectives, _losses, _kills, SimClock.sim_time)
+	top_bar.flash(result, "good" if result == "VICTORY" else "alert")
+	SoundFx.play("victory" if result == "VICTORY" else "defeat")
 	print("[Mission] %s — %s" % [result, summary])
 	_briefing.set_mode(false)
 
@@ -359,9 +417,13 @@ func _on_move_order_requested(world_pos: Vector2, append: bool) -> void:
 
 
 func _apply_order_to_selection(order: Order) -> void:
+	var any := false
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
 			simulation.unit_manager.issue_order(u, order)
+			any = true
+	if any:
+		SoundFx.play("click", 0.05)
 
 
 func _toggle_radar_on_selection() -> void:
@@ -379,11 +441,11 @@ func _apply_formation(pattern: String) -> void:
 		if u.faction == simulation.player_faction and not u.is_aircraft():
 			own.append(u)
 	if own.size() < 2:
-		top_bar.flash("Select a leader and at least one consort to form up")
+		top_bar.flash("Select a leader and at least one consort to form up", "warn")
 		return
 	for entry: Dictionary in Formation.assign(own, pattern):
 		simulation.unit_manager.issue_order(entry["unit"], entry["order"])
-	top_bar.flash("%s formed on %s" % [pattern.to_upper(), own[0].callsign])
+	top_bar.flash("%s formed on %s" % [pattern.to_upper(), own[0].callsign], "good")
 
 
 func _toggle_emcon_on_selection() -> void:
@@ -400,13 +462,19 @@ func _toggle_sonar_on_selection() -> void:
 		if u.active_sonar_on:
 			any_on = true
 	_apply_order_to_selection(Order.passive_sonar() if any_on else Order.active_sonar())
+	for u in map.selected:
+		if u.active_sonar_on:
+			SoundFx.play("ping", 0.5)
+			break
 
 
 func _on_track_added(faction: String, t: Track) -> void:
 	if faction != simulation.player_faction:
 		return
 	SimClock.drop_to_realtime()
-	top_bar.flash("NEW CONTACT %s" % t.id)
+	_stats["contacts"] += 1
+	top_bar.flash("NEW CONTACT %s (%s)" % [t.id, t.source.to_upper().replace("_", " ")], "warn")
+	SoundFx.play("contact", 0.5)
 	contact_panel.refresh()
 	print("[Contact] %s gained on %s at %.1f nm from the nearest of ours" % [t.id, t.source, _nearest_own_distance(t.position)])
 
@@ -416,7 +484,10 @@ func _on_track_classified(faction: String, t: Track) -> void:
 		return
 	if t.classification == Track.Classification.CLASS_KNOWN:
 		SimClock.drop_to_realtime()
-		top_bar.flash("%s CLASSIFIED %s — %s" % [t.id, t.known_class, t.identity])
+		if t.identity == "HOSTILE":
+			_stats["classified"] += 1
+		top_bar.flash("%s CLASSIFIED %s — %s" % [t.id, t.known_class, t.identity], "alert" if t.identity == "HOSTILE" else "info")
+		SoundFx.play("classified", 0.5)
 		print("[Contact] %s classified as %s (%s)" % [t.id, t.known_class, t.identity])
 	elif t.classification == Track.Classification.IDENTIFIED:
 		top_bar.flash("%s IDENTIFIED AS %s" % [t.id, t.known_callsign])
@@ -424,7 +495,7 @@ func _on_track_classified(faction: String, t: Track) -> void:
 
 func _on_track_lost(faction: String, t: Track) -> void:
 	if faction == simulation.player_faction:
-		top_bar.flash("TRACK %s LOST" % t.id)
+		top_bar.flash("TRACK %s LOST" % t.id, "warn")
 
 
 func _all_controllable(units: Array) -> bool:

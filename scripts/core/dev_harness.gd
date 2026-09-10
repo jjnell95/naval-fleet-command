@@ -15,6 +15,7 @@ extends RefCounted
 ##   --defence-once / --engage-once   fire one salvo and stop with rounds still in the air
 ##   --ping                      player surface ships go active on sonar at the start
 ##   --select / --form           select the player's ships, optionally in a screen formation
+##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
 ##   --brief                     open the briefing board
 ##   --no-ai                     disable every AI controller
 ##   --reload-check              fight a while, restart, and report that state was cleared
@@ -69,6 +70,16 @@ func handle_flags() -> void:
 		if args.has("--form"):
 			main._apply_formation("screen")
 			main.map.select_units([own[0]] if not own.is_empty() else [])
+	for a in args:
+		if a.begins_with("--pick="):
+			var wanted := a.get_slice("=", 1)
+			for u in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+				if u.callsign == wanted:
+					main.map.select_units([u])
+					var tracks: Array = main.simulation.track_manager.get_tracks(main.simulation.player_faction)
+					if not tracks.is_empty():
+						main.map.select_track(tracks[0])
+					print("[Dev] picked %s" % wanted)
 	if args.has("--reload-check"):
 		_run_reload_check()
 	if args.has("--combat"):

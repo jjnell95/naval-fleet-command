@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Milestone 9 (operational depth). Emissions, the network, posture and damage all cost something.
+Status: Milestone 11 (Aegis Command II). Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something.
 
 Presentation work should start from `HANDOFF.md`, which says what may be changed and what may not.
 
@@ -103,6 +103,12 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | MapSymbols | scripts/ui/map_symbols.gd | symbol drawing helpers |
 | UITheme | scripts/ui/ui_theme.gd | programmatic dark theme |
 | TopBar / UnitPanel / OrdersPanel | scripts/ui/*.gd | HUD panels (children built in code) |
+| AfterAction | scripts/ui/after_action.gd | end-of-mission report built from Main's statistics |
+| ReadinessBars | scripts/ui/readiness_bars.gd | hull / subsystem / fuel / decoy bars for the unit panel |
+| DefenceBoard | scripts/ui/defence_board.gd | threat evaluation and weapons assignment view |
+| ScenarioPreview | scripts/ui/scenario_preview.gd | own-force disposition chart for the mission menu |
+| PlatformPortrait | scripts/ui/platform_portrait.gd | category-specific vector recognition silhouettes |
+| SoundFx | scripts/ui/sound_fx.gd | autoload; synthesised cues, no audio files |
 | TestCase | tests/test_case.gd | assertion base; runner tests/run_tests.gd |
 
 ## Sensor / track pipeline
@@ -331,3 +337,19 @@ mechanically privileged.
 TacticalMap draws everything in one `_draw()` (no per-unit nodes). Hit-testing is manual
 (nearest symbol within 14 px). Symbol sizes are fixed in pixels; world→screen via
 `center_nm` + `ppn` (pixels per nm), y flipped.
+
+## Milestone 11 systems
+- **Ballistic profiles.** `WeaponSpec.profile = "ballistic"` makes `Weapon.threat_class()` return
+  `ballistic`; `AirDefence._can_intercept` matches that class against the interceptor's
+  `target_types`. `Combat.intercept_probability` gives an `exoatmospheric` interceptor an advantage
+  against a ballistic round (`BMD_INTERCEPTOR_ADVANTAGE`).
+- **Electronic attack.** `SensorSpec.kind = "jammer"` with `jam_range_nm` / `jam_strength`.
+  `SensorManager.run_cycle` refreshes `Detection.jammers`; `Detection.jam_penalty(observer, pos)`
+  scales radar reach toward a point inside `JAM_CONE_DEG` of a hostile jammer within reach. Applied
+  in `radar_quality` and in weapon detection. `Detection.emitted_radar_power` lets ESM hear a jammer.
+- **Environment.** `Simulation.load_scenario` calls `Detection.set_environment(scenario.environment)`.
+  `sonar_environment_factor`, `clutter_factor` and `weapon_clutter_factor` read `Detection.sea_state`.
+- **Damage control.** `Damage.tick(units, dt)` is called from `Simulation._on_tick`; subsystems climb
+  at `REPAIR_RATE_PER_S` to `REPAIR_CAP`. Aircraft are excluded.
+- **Presentation memory.** `TacticalMap` keeps trails and transient effects of its own; Main feeds
+  effects from simulation signals via `add_effect()`. Nothing in the simulation knows about them.

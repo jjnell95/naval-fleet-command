@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "p1000_vulkan"
+display_name = "P-1000 Vulkan family"
+family = "Vulkan"
+type = "asm"
+guidance = "inertial_active"
+profile = "high"
+target_types = PackedStringArray("surface")
+max_range_nm = 300.0
+min_range_nm = 10.0
+speed_kn = 1450.0
+turn_rate_deg_s = 10.0
+seeker_range_nm = 14.0
+damage = 95.0
+base_pk = 0.78
+salvo_default = 4
+launch_interval_s = 2.0
+defensive_difficulty = 1.35
+signature_factor = 0.6
+altitude_m = 8000.0
+soft_kill_resistance = 1.2
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

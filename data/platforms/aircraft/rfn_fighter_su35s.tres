@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_fighter_su35s"
+display_name = "Su-35S multirole fighter"
+short_name = "Su-35S"
+nation = "Russia"
+category = "fighter"
+domain = "air"
+max_speed_kn = 1300.0
+cruise_speed_kn = 650.0
+turn_rate_deg_s = 8.0
+accel_kn_s = 9.0
+length_m = 21.9
+displacement_t = 34.5
+health = 25.0
+signature_factor = 0.75
+sensor_ids = PackedStringArray("irbis_e")
+cruise_altitude_m = 9000.0
+max_altitude_m = 18000.0
+altitude_rate_m_s = 50.0
+endurance_s = 7200.0
+launch_time_s = 240.0
+recovery_time_s = 600.0
+fire_control_channels = 0
+decoy_count = 8
+decoy_effectiveness = 0.3
+weapon_loadout = {"r77_family": 4, "kh35_uran": 2}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

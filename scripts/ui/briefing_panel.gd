@@ -10,6 +10,7 @@ signal menu_pressed()
 var mission_manager: MissionManager
 var unit_manager: UnitManager
 
+var _eyebrow: Label
 var _title: Label
 var _body: RichTextLabel
 var _start: Button
@@ -19,42 +20,56 @@ var _accum := 0.0
 var _scenario_name := ""
 var _forces := ""
 var _situation := ""
+var _environment: Dictionary = {}
 
 
 func _ready() -> void:
+	theme_type_variation = "OverlayPanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 110)
 	margin.add_theme_constant_override("margin_right", 110)
-	margin.add_theme_constant_override("margin_top", 55)
-	margin.add_theme_constant_override("margin_bottom", 55)
+	margin.add_theme_constant_override("margin_top", 48)
+	margin.add_theme_constant_override("margin_bottom", 44)
 	add_child(margin)
 
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	margin.add_child(v)
 
+	_eyebrow = Label.new()
+	_eyebrow.text = "MISSION BRIEFING"
+	_eyebrow.theme_type_variation = "HeaderLabel"
+	v.add_child(_eyebrow)
 	_title = Label.new()
-	_title.add_theme_font_size_override("font_size", 22)
+	_title.add_theme_font_size_override("font_size", 32)
+	_title.add_theme_color_override("font_color", Color.WHITE)
 	v.add_child(_title)
 
+	var card := PanelContainer.new()
+	card.theme_type_variation = "CardPanel"
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(card)
 	_body = RichTextLabel.new()
 	_body.bbcode_enabled = true
 	_body.fit_content = false
 	_body.scroll_active = true
-	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(_body)
+	_body.add_theme_font_size_override("normal_font_size", 15)
+	_body.add_theme_font_size_override("bold_font_size", 15)
+	card.add_child(_body)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
 	v.add_child(buttons)
 	_start = Button.new()
 	_start.text = "TAKE COMMAND"
+	_start.theme_type_variation = "PrimaryButton"
 	_start.focus_mode = Control.FOCUS_NONE
 	_start.pressed.connect(func() -> void:
 		SimClock.set_paused(false)
+		SoundFx.play("click")
 		start_pressed.emit())
 	buttons.add_child(_start)
 	_restart = Button.new()
@@ -63,16 +78,17 @@ func _ready() -> void:
 	_restart.pressed.connect(func() -> void: restart_pressed.emit())
 	buttons.add_child(_restart)
 	_menu = Button.new()
-	_menu.text = "SCENARIOS"
+	_menu.text = "MISSIONS"
 	_menu.focus_mode = Control.FOCUS_NONE
 	_menu.pressed.connect(func() -> void: menu_pressed.emit())
 	buttons.add_child(_menu)
 
 
-func configure(scenario_name: String, forces: String, situation: String) -> void:
+func configure(scenario_name: String, forces: String, situation: String, environment: Dictionary = {}) -> void:
 	_scenario_name = scenario_name
 	_forces = forces
 	_situation = situation
+	_environment = environment
 	refresh()
 
 
@@ -91,29 +107,40 @@ func refresh() -> void:
 	_title.text = _scenario_name
 	var out := PackedStringArray()
 	if _forces != "":
-		out.append("[color=#8fb6c9]%s[/color]\n" % _forces)
-	out.append("[b]SITUATION[/b]")
+		out.append("[color=%s]%s[/color]\n" % [UITheme.HEX_DIM, _forces])
+	out.append("[color=%s][b]SITUATION[/b][/color]" % UITheme.HEX_ACCENT)
 	out.append(_situation + "\n")
 	if mission_manager.briefing != "":
-		out.append("[b]MISSION[/b]")
+		out.append("[color=%s][b]MISSION[/b][/color]" % UITheme.HEX_ACCENT)
 		out.append(mission_manager.briefing + "\n")
-	out.append("[b]VICTORY[/b]")
+	var sea := int(_environment.get("sea_state", 0))
+	out.append("[color=%s][b]ENVIRONMENT[/b][/color]" % UITheme.HEX_ACCENT)
+	var env_line := "Sea state %d (%s)" % [sea, Detection.SEA_STATE_NAMES[clampi(sea, 0, 6)]]
+	if _environment.has("wind_kn"):
+		env_line += " · wind %d kn" % int(_environment["wind_kn"])
+	if _environment.has("visibility_nm"):
+		env_line += " · visibility %d nm" % int(_environment["visibility_nm"])
+	if sea >= 3:
+		env_line += "\n[color=%s]Passive sonar reach is reduced and sea-skimming missiles are harder to pick out of clutter.[/color]" % UITheme.HEX_AMBER
+	out.append(env_line + "\n")
+	out.append("[color=%s][b]VICTORY[/b][/color]" % UITheme.HEX_ACCENT)
 	for o in mission_manager.victory_objectives:
 		out.append(_line(o))
 	if not mission_manager.loss_objectives.is_empty():
-		out.append("\n[b]MISSION FAILS IF[/b]")
+		out.append("\n[color=%s][b]MISSION FAILS IF[/b][/color]" % UITheme.HEX_ACCENT)
 		for o in mission_manager.loss_objectives:
 			out.append(_line(o))
-	out.append("\n[color=#6d8494]Left click selects. Right click on water orders a move, on a contact selects it. Wheel zooms, middle or right drag pans. Space pauses, 1 to 6 sets time acceleration, R toggles radar, F1 shows this board, F3 shows debug truth.[/color]")
+	out.append("\n[color=%s]Left click selects. Right click on water orders a move, on a contact selects it. Wheel zooms, middle or right drag pans. Space pauses, 1 to 6 sets time acceleration, R toggles radar, E emissions control, P active sonar. F1 shows this board, F2 the symbol key, F4 sensor rings, F5 trails, M sound.[/color]" % UITheme.HEX_MUTED)
 	_body.text = "\n".join(out)
 
 
 func _line(o: MissionObjective) -> String:
-	var mark := "[color=#7fd08a]DONE[/color]" if o.complete else "[color=#c8a24a]OPEN[/color]"
+	var mark := "[color=%s]DONE[/color]" % UITheme.HEX_GREEN if o.complete else "[color=%s]OPEN[/color]" % UITheme.HEX_AMBER
 	var detail := o.progress(unit_manager, SimClock.sim_time) if unit_manager != null else ""
-	return "  %s  %s   [color=#6d8494]%s[/color]" % [mark, o.text, detail]
+	return "  %s  %s   [color=%s]%s[/color]" % [mark, o.text, UITheme.HEX_DIM, detail]
 
 
 ## Before the mission starts the board is a briefing; afterwards it is a status screen.
 func set_mode(pre_mission: bool) -> void:
 	_start.text = "TAKE COMMAND" if pre_mission else "RESUME"
+	_eyebrow.text = "MISSION BRIEFING" if pre_mission else "MISSION STATUS"

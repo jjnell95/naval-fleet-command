@@ -26,4 +26,12 @@ extends Resource
 ## the radar needs it out and back, so it hears further than the radar reaches, and it does not
 ## care how small the emitter is. What it gives back is a bearing, not a position.
 @export var esm_gain := 2.0  # multiplier on the emitter's radar power
+
+## Electronic attack. A `kind = "jammer"` set radiates noise into hostile radars. Any enemy radar
+## within `jam_range_nm` of the jammer loses part of its reach against targets that lie in the
+## jammer's direction, which is how a stand-off jammer screens a strike package. Jamming is itself
+## an emission and is heard by ESM further out than the radar it is protecting against.
+## Both values are GAMEPLAY_ESTIMATE abstractions, not a claim about any real system.
+@export var jam_range_nm := 0.0
+@export var jam_strength := 0.0  # 1.0 halves an affected radar's reach; 3.0 quarters it
 @export var source_status := ""

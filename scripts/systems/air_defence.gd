@@ -134,7 +134,7 @@ static func _channels_in_use(weapon_manager: WeaponManager) -> Dictionary:
 ## Data decides what an interceptor can shoot at. Nothing currently lists "torpedo" as a target
 ## type, so a torpedo cannot be shot down and has to be defeated by decoys or by manoeuvre.
 static func _can_intercept(spec: WeaponSpec, threat: Weapon) -> bool:
-	return spec.target_types.has("torpedo") if threat.spec.is_torpedo() else spec.target_types.has("missile")
+	return spec.target_types.has(threat.threat_class())
 
 
 static func _ship_engages(weapon_manager: WeaponManager, u: Unit, threat: Weapon) -> bool:

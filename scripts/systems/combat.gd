@@ -4,6 +4,7 @@ class_name Combat
 const LEAD_MAX_ITER := 4
 const AIR_TARGET_BONUS := 1.5
 const TORPEDO_EVASION_BENEFIT := 0.45
+const BMD_INTERCEPTOR_ADVANTAGE := 0.45  # GAMEPLAY_ESTIMATE
 
 
 ## Lead intercept point against a track's estimated motion. Falls back to the raw track position
@@ -62,8 +63,13 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> D
 static func intercept_probability(interceptor: WeaponSpec, threat: WeaponSpec) -> float:
 	if interceptor.base_pk <= 0.0:
 		return 0.0  # a weapon with no listed effectiveness cannot intercept
+	var difficulty := threat.defensive_difficulty
+	# A ballistic round is a very hard problem for a missile built for the atmosphere, and a
+	# tractable one for an interceptor built to meet it outside it.
+	if threat.profile == "ballistic" and interceptor.profile == "exoatmospheric":
+		difficulty *= BMD_INTERCEPTOR_ADVANTAGE
 	# The floor keeps very difficult rounds from becoming outright immune.
-	return clampf(interceptor.base_pk / maxf(threat.defensive_difficulty, 0.1), 0.05, 0.95)
+	return clampf(interceptor.base_pk / maxf(difficulty, 0.1), 0.05, 0.95)
 
 
 ## Hit probability once the seeker has acquired a real unit. Milestone 4 will subtract the

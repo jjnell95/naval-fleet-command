@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_cg_slava"
+domain = "surface"
+display_name = "Slava-class cruiser (Project 1164)"
+short_name = "CG Slava"
+nation = "Russia"
+category = "cruiser"
+max_speed_kn = 32.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.6
+accel_kn_s = 0.2
+length_m = 186.0
+displacement_t = 11500.0
+health = 140.0
+signature_factor = 1.3
+sensor_ids = PackedStringArray("fregat_mae", "mgk_400em", "nato_esm_suite")
+mast_height_m = 34.0
+aircraft_capacity = 1
+fire_control_channels = 6
+decoy_count = 12
+weapon_loadout = {"p1000_vulkan": 16, "s300f_fort": 64, "a190_100mm_gun": 300, "ak630_ciws": 120, "ugst_torpedo": 10}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

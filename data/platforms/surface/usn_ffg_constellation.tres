@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "usn_ffg_constellation"
+domain = "surface"
+display_name = "Constellation-class frigate"
+short_name = "FFG Constellation"
+nation = "USA"
+category = "frigate"
+max_speed_kn = 26.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 3.2
+accel_kn_s = 0.24
+length_m = 151.0
+displacement_t = 7300.0
+health = 95.0
+signature_factor = 0.75
+sensor_ids = PackedStringArray("an_spy_6_v3", "captas_mk2", "an_slq_32")
+mast_height_m = 26.0
+aircraft_capacity = 1
+fire_control_channels = 4
+decoy_count = 14
+weapon_loadout = {"sm2_family": 16, "essm_family": 32, "nsm_strike_missile": 16, "ram_block2": 21, "oto_76mm_gun": 200, "mk54_lwt": 6}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

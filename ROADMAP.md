@@ -12,7 +12,8 @@
 | 7 | Submarines & Sonar — depth, passive/active sonar, torpedoes, ASW | **DONE** |
 | 8 | Aviation — aircraft, launch/recovery, fuel, roles, MPA, helicopters | **DONE** |
 | 9 | Operational Depth — ESM, datalinks, EMCON, radar horizon, EW, formations, ROE, damage | **DONE** |
-| 10 | Presentation — graphics, audio, menus, briefings, tooltips, polish | TODO |
+| 10 | Presentation — graphics, audio, menus, briefings, tooltips, polish | **DONE** |
+| 11 | Aegis Command II — BMD, electronic attack, sea state, damage control, 11 actors, visual rebuild | **DONE** |
 
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.

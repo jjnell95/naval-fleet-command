@@ -1,0 +1,473 @@
+{
+  "id": "arctic_shield",
+  "order": 1,
+  "name": "ARCTIC SHIELD",
+  "forces": "BLUE: carrier, Aegis BMD cruiser, Flight III destroyer, Constellation frigate, Type 45, Virginia SSN, E-2D, 2 fighters, EA-18G Growler, MH-60R / RED: Slava cruiser group, Yasen-M SSN, 4 Tu-22M3 with Kh-32, 2 MiG-31K with Kinzhal, 2 Su-35S, Tu-142 / two neutral merchants",
+  "description": "Fictional Norwegian Sea exercise in a rough sea. A carrier group with an Aegis BMD cruiser holds station for one hour while a cruiser group, a nuclear submarine and a regimental air raid converge. The raid arrives high and fast: supersonic Kh-32s from the bombers and aero-ballistic Kinzhals from MiG-31Ks that only the SM-3 layer can meet outside the atmosphere. Launch the E-2D early, put the Growler between the raid axis and the task group to jam the bombers' search radars, keep the fighters on the northeast axis, and hold the cruiser inside the screen with its SM-3 magazine intact for the ballistic shots. Sea state 4 shortens every sonar and hides sea-skimmers in clutter. Public platform families, deliberately estimated combat parameters.",
+  "start_time_utc": "2027-11-14T05:40:00",
+  "player_faction": "BLUE",
+  "neutral_factions": [
+    "NEUTRAL"
+  ],
+  "environment": {
+    "sea_state": 4,
+    "wind_kn": 28,
+    "visibility_nm": 4
+  },
+  "map": {
+    "center_nm": [
+      30,
+      30
+    ],
+    "extent_nm": 260
+  },
+  "objectives": {
+    "text": "Hold the task group for 60 minutes. Keep the carrier and the BMD cruiser alive through the regimental raid.",
+    "victory": [
+      {
+        "id": "hold",
+        "type": "time_elapsed",
+        "seconds": 3600,
+        "text": "Hold station for 60 minutes"
+      }
+    ],
+    "loss": [
+      {
+        "id": "carrier_lost",
+        "type": "unit_lost",
+        "callsigns": [
+          "Carrier Resolute"
+        ],
+        "text": "Carrier lost"
+      },
+      {
+        "id": "cg_lost",
+        "type": "unit_lost",
+        "callsigns": [
+          "USS Gettysburg"
+        ],
+        "text": "BMD cruiser lost"
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "usn_cvn_nimitz",
+      "callsign": "Carrier Resolute",
+      "faction": "BLUE",
+      "position_nm": [
+        -14,
+        -10
+      ],
+      "heading_deg": 40,
+      "speed_kn": 16
+    },
+    {
+      "platform": "usn_cg_ticonderoga",
+      "callsign": "USS Gettysburg",
+      "faction": "BLUE",
+      "position_nm": [
+        -4,
+        -2
+      ],
+      "heading_deg": 40,
+      "speed_kn": 18
+    },
+    {
+      "platform": "usn_ddg_burke_iii",
+      "callsign": "USS Jack H. Lucas",
+      "faction": "BLUE",
+      "position_nm": [
+        8,
+        10
+      ],
+      "heading_deg": 40,
+      "speed_kn": 18
+    },
+    {
+      "platform": "usn_ffg_constellation",
+      "callsign": "USS Constellation",
+      "faction": "BLUE",
+      "position_nm": [
+        -22,
+        2
+      ],
+      "heading_deg": 40,
+      "speed_kn": 16
+    },
+    {
+      "platform": "rn_ddg_type45",
+      "callsign": "HMS Dragon",
+      "faction": "BLUE",
+      "position_nm": [
+        2,
+        -20
+      ],
+      "heading_deg": 40,
+      "speed_kn": 18
+    },
+    {
+      "platform": "usn_ssn_virginia",
+      "callsign": "USS Delaware",
+      "faction": "BLUE",
+      "position_nm": [
+        18,
+        30
+      ],
+      "speed_kn": 7,
+      "depth_m": 140,
+      "radar_on": false
+    },
+    {
+      "platform": "usn_aew_e2d",
+      "callsign": "Overlord 12",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          10,
+          45
+        ],
+        [
+          45,
+          45
+        ]
+      ]
+    },
+    {
+      "platform": "usn_fighter_fa18e",
+      "callsign": "Raven 21",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          40,
+          60
+        ],
+        [
+          70,
+          70
+        ]
+      ]
+    },
+    {
+      "platform": "usn_fighter_fa18e",
+      "callsign": "Raven 22",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          40,
+          60
+        ],
+        [
+          70,
+          70
+        ]
+      ]
+    },
+    {
+      "platform": "usn_ea_ea18g",
+      "callsign": "Grizzly 51",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          35,
+          40
+        ],
+        [
+          55,
+          55
+        ]
+      ]
+    },
+    {
+      "platform": "usn_helo_mh60r",
+      "callsign": "Seahawk 32",
+      "faction": "BLUE",
+      "home": "USS Constellation"
+    },
+    {
+      "platform": "rfn_cg_slava",
+      "callsign": "Marshal Ustinov",
+      "faction": "RED",
+      "position_nm": [
+        125,
+        95
+      ],
+      "heading_deg": 225,
+      "speed_kn": 18,
+      "patrol_nm": [
+        [
+          60,
+          45
+        ],
+        [
+          20,
+          15
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_ddg_udaloy",
+      "callsign": "Vice-Admiral Kulakov",
+      "faction": "RED",
+      "position_nm": [
+        132,
+        88
+      ],
+      "heading_deg": 225,
+      "speed_kn": 18,
+      "patrol_nm": [
+        [
+          62,
+          40
+        ],
+        [
+          20,
+          15
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Stoiky",
+      "faction": "RED",
+      "position_nm": [
+        118,
+        104
+      ],
+      "heading_deg": 225,
+      "speed_kn": 20,
+      "patrol_nm": [
+        [
+          55,
+          50
+        ],
+        [
+          15,
+          20
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_ssn_yasen_m",
+      "callsign": "Kazan",
+      "faction": "RED",
+      "position_nm": [
+        48,
+        66
+      ],
+      "speed_kn": 8,
+      "depth_m": 180,
+      "radar_on": false,
+      "patrol_nm": [
+        [
+          10,
+          20
+        ],
+        [
+          -10,
+          -5
+        ],
+        [
+          25,
+          -10
+        ]
+      ]
+    },
+    {
+      "platform": "shore_air_station",
+      "callsign": "Olenya Air Base",
+      "faction": "RED",
+      "position_nm": [
+        175,
+        165
+      ],
+      "radar_on": false
+    },
+    {
+      "platform": "shore_air_station",
+      "callsign": "Monchegorsk Air Base",
+      "faction": "RED",
+      "position_nm": [
+        190,
+        150
+      ],
+      "radar_on": false
+    },
+    {
+      "platform": "rfn_mpa_tu142",
+      "callsign": "Bear 71",
+      "faction": "RED",
+      "home": "Olenya Air Base",
+      "patrol_nm": [
+        [
+          90,
+          70
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          70,
+          20
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_bomber_tu22m3",
+      "callsign": "Backfire 21",
+      "faction": "RED",
+      "home": "Olenya Air Base",
+      "patrol_nm": [
+        [
+          120,
+          110
+        ],
+        [
+          60,
+          50
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_bomber_tu22m3",
+      "callsign": "Backfire 22",
+      "faction": "RED",
+      "home": "Olenya Air Base",
+      "patrol_nm": [
+        [
+          120,
+          110
+        ],
+        [
+          60,
+          50
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_bomber_tu22m3",
+      "callsign": "Backfire 23",
+      "faction": "RED",
+      "home": "Olenya Air Base",
+      "patrol_nm": [
+        [
+          125,
+          100
+        ],
+        [
+          65,
+          45
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_bomber_tu22m3",
+      "callsign": "Backfire 24",
+      "faction": "RED",
+      "home": "Olenya Air Base",
+      "patrol_nm": [
+        [
+          125,
+          100
+        ],
+        [
+          65,
+          45
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_mig31k",
+      "callsign": "Foxhound 31",
+      "faction": "RED",
+      "home": "Monchegorsk Air Base",
+      "patrol_nm": [
+        [
+          140,
+          120
+        ],
+        [
+          90,
+          80
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_mig31k",
+      "callsign": "Foxhound 32",
+      "faction": "RED",
+      "home": "Monchegorsk Air Base",
+      "patrol_nm": [
+        [
+          140,
+          120
+        ],
+        [
+          90,
+          80
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fighter_su35s",
+      "callsign": "Flanker 41",
+      "faction": "RED",
+      "home": "Monchegorsk Air Base",
+      "patrol_nm": [
+        [
+          110,
+          100
+        ],
+        [
+          70,
+          70
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fighter_su35s",
+      "callsign": "Flanker 42",
+      "faction": "RED",
+      "home": "Monchegorsk Air Base",
+      "patrol_nm": [
+        [
+          110,
+          100
+        ],
+        [
+          70,
+          70
+        ]
+      ]
+    },
+    {
+      "platform": "civ_merchant_bulk",
+      "callsign": "MV Arctic Voyager",
+      "faction": "NEUTRAL",
+      "position_nm": [
+        60,
+        -20
+      ],
+      "heading_deg": 270,
+      "speed_kn": 12,
+      "radar_on": true
+    },
+    {
+      "platform": "civ_merchant_bulk",
+      "callsign": "MV Nordkapp Star",
+      "faction": "NEUTRAL",
+      "position_nm": [
+        -30,
+        70
+      ],
+      "heading_deg": 120,
+      "speed_kn": 11,
+      "radar_on": true
+    }
+  ]
+}
