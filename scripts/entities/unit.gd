@@ -225,6 +225,12 @@ func is_submarine() -> bool:
 	return spec.domain == "subsurface"
 
 
+## Anything that has to stay in the water. Aircraft overfly a coast and a shore installation is
+## standing on one, so neither can run aground; a hull and a boat can.
+func needs_sea_room() -> bool:
+	return spec.domain == "surface" or spec.domain == "subsurface"
+
+
 ## Deep enough that masts and antennas are under water. A boat at periscope depth is not
 ## submerged for this purpose: it can look and be seen.
 func submerged() -> bool:

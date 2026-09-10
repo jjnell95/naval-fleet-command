@@ -14,6 +14,7 @@
 | 9 | Operational Depth — ESM, datalinks, EMCON, radar horizon, EW, formations, ROE, damage | **DONE** |
 | 10 | Presentation — graphics, audio, menus, briefings, tooltips, polish | **DONE** |
 | 11 | Aegis Command II — BMD, electronic attack, sea state, damage control, 11 actors, visual rebuild | **DONE** |
+| 12 | Coastlines — land polygons, terrain masking, grounding, coastal AI, chart rendering, editor | **DONE** |
 
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.

@@ -61,9 +61,26 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 			u.magazines[wid] = int(loadout[wid])
 		um.add_unit(u)
 	_link_aircraft(um)
+	_check_sea_room(um)
 	var sensor_count := 0
 	for u in um.units: sensor_count += u.sensors.size()
 	print("[Scenario] %d actors / %d sensor installations" % [um.units.size(), sensor_count])
+
+
+## A hull placed ashore, or sent to a patrol leg ashore, is the first thing a scenario author gets
+## wrong once coastlines exist: the ship never arrives and the route never advances. The AI stands
+## such a leg off into open water at run time, but saying so at load is what makes it findable.
+static func _check_sea_room(um: UnitManager) -> void:
+	if Terrain.is_empty():
+		return
+	for u in um.units:
+		if not u.needs_sea_room():
+			continue
+		if Terrain.is_land(u.position):
+			push_warning("ScenarioLoader: %s starts ashore at %s" % [u.callsign, u.position])
+		for leg in u.patrol_route:
+			if Terrain.is_land(leg):
+				push_warning("ScenarioLoader: %s has a patrol leg ashore at %s" % [u.callsign, leg])
 
 
 ## Aircraft name their parent by callsign, so the link is resolved once every unit exists.

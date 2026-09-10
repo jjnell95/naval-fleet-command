@@ -196,6 +196,8 @@ static func radar_quality(observer: Unit, target: Unit) -> float:
 	var d := observer.position.distance_to(target.position)
 	if d > r:
 		return 0.0
+	if terrain_masks(observer, target):
+		return 0.0  # in range, but there is a hill in the way
 	return clampf(1.0 - d / r, 0.0, 1.0)
 
 
@@ -380,3 +382,43 @@ static func nominal_esm_ring_nm(listener: Unit) -> float:
 		var horizon := radar_horizon_nm(observer_height_m(listener, s), BASELINE_TARGET_HEIGHT_M)
 		best = maxf(best, minf(30.0 * s.esm_gain, horizon))
 	return best
+
+
+# --- Terrain ------------------------------------------------------------------------------
+
+## How high something stands above the sea, for terrain masking: an aircraft's altitude, nothing
+## at all for a submerged boat, otherwise the masthead. The same number serves for both ends of a
+## path, because a ship's antennas sit on the mast it is measured by.
+static func mast_or_altitude_m(u: Unit) -> float:
+	if u.airborne():
+		return u.altitude_m
+	if u.submerged():
+		return 0.0
+	return maxf(u.spec.mast_height_m, 1.0)
+
+
+## True when the ground between two units blocks a radar or ESM path. This is what makes a
+## corvette in the lee of an island disappear while the aircraft above it stays in view.
+static func terrain_masks(observer: Unit, target: Unit) -> bool:
+	if Terrain.is_empty():
+		return false
+	return Terrain.masks_line_of_sight(observer.position, mast_or_altitude_m(observer), target.position, mast_or_altitude_m(target))
+
+
+## True when land lies between two units on an acoustic path. Sound does not climb a hill, so
+## depth and altitude are irrelevant here: either the water is continuous or it is not.
+static func acoustic_path_blocked(observer: Unit, target: Unit) -> bool:
+	if Terrain.is_empty():
+		return false
+	return Terrain.blocks_path(observer.position, target.position)
+
+
+## Whether the ground hides a round in flight. A torpedo is an acoustic path; anything above the
+## water is a sight line flown at the round's own cruise altitude, which is why a sea-skimmer
+## vanishes behind a headland and a round at 8000 m does not.
+static func terrain_hides_weapon(observer: Unit, w: Weapon) -> bool:
+	if Terrain.is_empty():
+		return false
+	if w.spec.is_torpedo():
+		return Terrain.blocks_path(observer.position, w.position)
+	return Terrain.masks_line_of_sight(observer.position, mast_or_altitude_m(observer), w.position, w.spec.altitude_m)

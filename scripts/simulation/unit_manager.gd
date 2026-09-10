@@ -24,11 +24,17 @@ func tick(dt: float) -> void:
 		Movement.step(u, dt)
 
 
-func issue_order(u: Unit, order: Order) -> void:
+## Returns false when the order could not be carried out, so the caller can tell the player why.
+## The only order terrain can refuse is a MOVE: everything else either names no destination or
+## belongs to something that overflies a coast.
+func issue_order(u: Unit, order: Order) -> bool:
 	if not u.alive:
-		return
+		return false
+	if order.type == Order.Type.MOVE and u.needs_sea_room() and Terrain.is_land(order.target_pos):
+		return false
 	u.apply_order(order)
 	order_issued.emit(u, order)
+	return true
 
 
 func get_faction_units(faction: String) -> Array[Unit]:

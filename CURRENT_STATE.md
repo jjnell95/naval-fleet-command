@@ -1,8 +1,17 @@
-# Current State — M11 Aegis Command II
+# Current State — M12 Coastlines
 
 The current setup, controls, validation and limitations are documented in README.md.
 
-Completed since M10: ballistic missile defence (flight profiles, SM-3, Kinzhal), electronic attack
+Completed since M11: coastlines and land masking. `Terrain` and `Landmass` (scripts/systems) hold a
+scenario's land as closed polygons with a height, exact for point and course queries and rasterised
+to an elevation grid for the sensor cycle. Land stops hulls (Movement slides them along a shore
+rather than grounding them), masks radar, ESM and sonar above the sight line, refuses a shot that
+has to stay low, kills a sea-skimmer or torpedo that meets ground, and steers the AI off a lee shore.
+Seven scenarios are charted; the five shore air stations now stand on land. The tactical map, the
+mission-menu disposition chart and the scenario editor all draw it, and the editor has a COAST mode
+that traces, names and validates a coastline. F6 toggles the land layer.
+
+Completed in M11: ballistic missile defence (flight profiles, SM-3, Kinzhal), electronic attack
 (directional jamming, EA-18G Growler, ESM hears jammers), scenario environment (sea state affects
 sonar and clutter), damage control (subsystem repair to a cap), eleven new platforms, nine new
 weapons, eleven new sensors and the Arctic Shield mission. The visual layer was rebuilt: APP-6/NTDS
@@ -15,10 +24,12 @@ user://scenarios, imports and exports JSON and plays the result; custom missions
 A second graphics pass adds procedural water, curved weapon trails, hull silhouettes at close zoom,
 an air-search ring, a firing-solution marker and a hit flash.
 
-146 tests pass. Nine scenario smoke runs pass without script failures. Aegis Bastion and
+171 tests pass. Nine scenario smoke runs pass without script failures and with no unit aground; every
+outcome matches the same sweep run on the pre-coastline commit. Aegis Bastion and
 Arctic Shield reach victory under AI-vs-AI at seed 2, with the Kinzhal / SM-3 exchange exercised.
 
-Known limitations: no terrain, radar scheduling, replenishment or save games. Datalink and
+Known limitations: no bathymetry, no routing around a peninsula, no seeker or interceptor terrain
+masking, no radar scheduling, replenishment or save games. Datalink and
 engagement-channel accounting remain simplified. Jamming, ballistic flight and sea state are
 abstractions. Engine/test shutdown reports reference-cycle leaks; no recurring gameplay script
 failures were observed. See README.md for the full boundary.

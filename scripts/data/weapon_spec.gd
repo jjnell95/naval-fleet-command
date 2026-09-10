@@ -10,7 +10,7 @@ extends Resource
 @export var family := ""
 @export var type := "asm"  # asm | sam | ciws | gun | torpedo
 @export var guidance := "inertial_active"  # abstraction label only
-@export var profile := "sea_skimming"  # sea_skimming | high
+@export var profile := "sea_skimming"  # sea_skimming | high | direct | subsurface | ballistic | exoatmospheric
 @export var target_types: PackedStringArray = ["surface"]
 @export var max_range_nm := 60.0
 @export var min_range_nm := 2.0

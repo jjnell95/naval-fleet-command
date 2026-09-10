@@ -21,6 +21,27 @@ static func intercept_point(launch_pos: Vector2, weapon_speed_kn: float, track_p
 	return aim
 
 
+## Flight profiles that have to get there over the water. A sea-skimmer, a gun round on a flat
+## trajectory and a torpedo all stop at a coastline; a cruise missile at 8000 m, a ballistic round
+## and an exoatmospheric interceptor do not. GAMEPLAY_ESTIMATE: the split is by profile alone,
+## because a round carries no altitude of its own — the simplification is that every "high"
+## weapon clears every hill.
+const SURFACE_BOUND_PROFILES := ["sea_skimming", "direct", "subsurface"]
+
+
+static func profile_is_surface_bound(spec: WeaponSpec) -> bool:
+	return SURFACE_BOUND_PROFILES.has(spec.profile)
+
+
+## Whether the path a round would actually fly crosses land. Tested against the lead point rather
+## than the track, so the check and the firing solution drawn on the map agree.
+static func crosses_land(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
+	if Terrain.is_empty() or not profile_is_surface_bound(spec):
+		return false
+	var aim := intercept_point(shooter.position, spec.speed_kn, track.position, track.course_deg, track.speed_kn, track.has_kinematics)
+	return Terrain.blocks_path(shooter.position, aim)
+
+
 ## Whether `shooter` may fire `spec` at `track` right now. Returns {ok, reason, range_nm}.
 static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> Dictionary:
 	var out := {"ok": false, "reason": "", "range_nm": 0.0}
@@ -52,6 +73,9 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> D
 		return out
 	if d < spec.min_range_nm:
 		out["reason"] = "TOO CLOSE"
+		return out
+	if crosses_land(shooter, spec, track):
+		out["reason"] = "NO LINE OF FIRE"
 		return out
 	out["ok"] = true
 	out["reason"] = "IN ENVELOPE"

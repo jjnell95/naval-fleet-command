@@ -19,7 +19,7 @@ scripts/core/             main.gd (wiring only), dev_harness.gd (command-line sc
 scripts/simulation/       SimulationClock, World, UnitManager, SensorManager, TrackManager,
                           WeaponManager, MissionManager
 scripts/entities/         Unit → SurfaceShip / Submarine / Aircraft; Weapon
-scripts/systems/          Movement, Detection, Combat, Damage, AI
+scripts/systems/          Movement, Detection, Combat, Damage, AI, Terrain + Landmass
 scripts/ui/               TacticalMap, UnitPanel, ContactPanel, OrdersPanel, TimeControls
 data/platforms/{surface,submarines,aircraft,helicopters}/   platform specs (nation is a field,
                           not a directory)
@@ -94,7 +94,9 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | Formation | scripts/systems/formation.gd | station keeping in the leader's frame, and the named patterns |
 | BriefingPanel | scripts/ui/briefing_panel.gd | briefing and live mission-status board |
 | Unit | scripts/entities/unit.gd | RefCounted ground truth: pos, hdg, spd, orders, waypoints |
-| Movement | scripts/systems/movement.gd | static kinematics per tick (turn rate, accel, waypoints) |
+| Movement | scripts/systems/movement.gd | static kinematics per tick (turn rate, accel, waypoints, sea room) |
+| Landmass | scripts/systems/landmass.gd | one closed coastline in nm, its height, bounds and shore normal |
+| Terrain | scripts/systems/terrain.gd | static per-scenario land: is_land, masking, blocked paths, sea room |
 | SimClock | scripts/simulation/sim_clock.gd | autoload clock; tick/speed_changed/paused_changed |
 | UnitManager | scripts/simulation/unit_manager.gd | owns units; unit_added, order_issued |
 | ScenarioLoader | scripts/simulation/scenario_loader.gd | JSON → units |
@@ -354,3 +356,60 @@ TacticalMap draws everything in one `_draw()` (no per-unit nodes). Hit-testing i
   at `REPAIR_RATE_PER_S` to `REPAIR_CAP`. Aircraft are excluded.
 - **Presentation memory.** `TacticalMap` keeps trails and transient effects of its own; Main feeds
   effects from simulation signals via `add_effect()`. Nothing in the simulation knows about them.
+
+## Terrain
+`Terrain` is a static class in the same shape as `Detection`: scenario state installed once by
+`Simulation.load_scenario` (`Terrain.load_from(scenario)`, immediately after
+`Detection.set_environment`) and reachable from any system without being plumbed through a manager.
+`load_from` clears first, so a scenario with no `terrain` block wipes the previous coastline, and an
+empty `Terrain` behaves exactly as open ocean — which is what keeps every test that builds managers
+by hand, and every scenario written before land existed, unchanged.
+
+Scenario JSON:
+```jsonc
+"terrain": { "land": [ { "id": "gotska", "name": "Gotska", "elevation_m": 70,
+                         "points_nm": [[-22, 26], [-10, 30], [-4, 24]] } ] }
+```
+The ring is implicitly closed; do not repeat the first point. Coordinates are the same world space as
+`position_nm` and `patrol_nm`.
+
+Two representations, because the queries have very different call rates:
+- **Polygons** answer *is this point ashore* and *where does this course hit the beach*
+  (`is_land`, `land_at`, `first_land_contact`, `distance_to_land_nm`, `nearest_water`,
+  `constrain_step`). Exact, `Rect2`-culled, asked a few dozen times a tick by movement and once per
+  click by the UI.
+- **A rasterised elevation grid**, scanline-filled once at load, answers *how high is the ground
+  along this line* (`masks_line_of_sight`, `blocks_path`, `open_bearing_deg`). The sensor cycle asks
+  this for every observer/target pair that has already passed its range test, so the walk is clipped
+  to the stretch of the segment that can touch land and the grid lookup is written out inline.
+
+Masking model: a sight line is blocked when ground stands above the line joining two heights, less
+the earth bulge (`Geo.earth_bulge_m`, the same 4/3-earth constant as `Detection.HORIZON_K`). Heights
+are `Detection.mast_or_altitude_m`: an aircraft's altitude, zero for a submerged boat, otherwise the
+masthead. Sound ignores height entirely — `blocks_path` asks only whether any land is in the way.
+
+Where it is read:
+| Site | Rule |
+|---|---|
+| `Detection.radar_quality` | after the range test, `terrain_masks` zeroes the detection |
+| `SensorManager._esm_pass` | after the reach test, a masked bearing is not reported |
+| `SensorManager._sonar_pass` | `acoustic_path_blocked` skips the target, pinging or listening |
+| `SensorManager._buoy_pass` | a buoy hears round a headland no better than a hull does |
+| `SensorManager._detect_weapons` | radar LOS at the round's cruise altitude; sonar path for a torpedo |
+| `Combat.check_engagement` | `crosses_land` → `NO LINE OF FIRE` for a surface-bound profile |
+| `WeaponManager._step` | `_hits_terrain` → `dead_reason = "TERRAIN"`, never through `defeat_weapon` |
+| `Movement.step` | `constrain_step` slides a hull along the shore; stranded waypoints are dropped |
+| `UnitManager.issue_order` | returns `false` for a MOVE onto land by a hull |
+| `Formation.station_for` | an inland station is reflected into water |
+| `AIController` | `_sea_room`, `_standoff_point`, `_open_bearing`; no buoy or dip over land |
+| `TacticalMap._draw_land` | fill, shelf band and coastline, under the graticule and everything else |
+| `ScenarioEditor` | COAST mode; its own `Array[Landmass]`, never the static, which the game owns |
+
+A weapon is terrain-bound by `WeaponSpec.profile`: `sea_skimming`, `direct` and `subsurface` stop at
+ground, `high`, `ballistic` and `exoatmospheric` clear it. That is a deliberate simplification — a
+round carries no altitude of its own, so every "high" weapon clears every hill. Interceptors are
+exempt: they are fired at something closing head-on and the engagement resolves within a mile or two.
+
+Deliberately out of scope, and stated so in README: bathymetry, routing around a peninsula, seeker
+masking and terrain-aware interceptor geometry. Datalink is unchanged — `Track.networked` is a single
+bool, and making it a pairwise reachability test is a data-model change, not an insertion.

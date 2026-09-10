@@ -235,6 +235,12 @@ func _dump_state() -> void:
 		if u.is_aircraft() and u.faction == main.simulation.player_faction:
 			print("[Dev] air %s state=%d alt=%.0f fuel=%.0f%% buoys=%d alive=%s" % [u.callsign, u.flight_state, u.altitude_m, u.fuel_fraction() * 100.0, u.sonobuoys, u.alive])
 	print("[Dev] sonobuoys in the water=%d" % main.simulation.aviation_manager.sonobuoys.size())
+	if not Terrain.is_empty():
+		var aground := PackedStringArray()
+		for u in main.simulation.unit_manager.units:
+			if u.alive and u.needs_sea_room() and Terrain.is_land(u.position):
+				aground.append(u.callsign)
+		print("[Dev] terrain: %d landmasses, %d aground%s" % [Terrain.landmasses.size(), aground.size(), " (%s)" % ", ".join(aground) if not aground.is_empty() else ""])
 	print("[Dev] defence stats=%s" % main._stats)
 	print("[Dev] weapons in flight=%d  mission=%s  sim_time=%.1f s" % [main.simulation.weapon_manager.in_flight.size(), main.simulation.mission_manager.result, SimClock.sim_time])
 

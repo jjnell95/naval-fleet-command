@@ -10,6 +10,7 @@ var _font: Font
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip_contents = true  # a coastline runs past the edge of a chart this small
 	_font = get_theme_default_font()
 
 
@@ -29,6 +30,20 @@ func _draw() -> void:
 	var extent := float(m.get("extent_nm", 200.0))
 	var ppn := minf(size.x, size.y) / maxf(extent, 1.0) * 0.9
 	var mid := size * 0.5
+	# Land comes from the scenario being previewed, not from Terrain, which holds whatever
+	# scenario is actually loaded. Geography is the one thing this chart shows in full.
+	for entry in scenario.get("terrain", {}).get("land", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var l := Landmass.from_dict(entry)
+		if not l.valid():
+			continue
+		var pts := PackedVector2Array()
+		for p in l.points:
+			pts.append(mid + Vector2((p.x - center.x) * ppn, -(p.y - center.y) * ppn))
+		draw_colored_polygon(pts, TacticalMap.COL_LAND)
+		pts.append(pts[0])
+		draw_polyline(pts, Color(TacticalMap.COL_COAST, 0.7), 1.0, true)
 	var step := 50.0 if extent > 150.0 else 20.0
 	var n := int(extent / step) + 2
 	for i in range(-n, n + 1):

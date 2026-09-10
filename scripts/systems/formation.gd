@@ -19,7 +19,12 @@ static func station_for(u: Unit) -> Vector2:
 	var leader := u.formation_leader
 	var ahead := Geo.heading_to_vector(leader.heading_deg)
 	var starboard := Geo.heading_to_vector(leader.heading_deg + 90.0)
-	return leader.position + ahead * u.formation_offset.y + starboard * u.formation_offset.x
+	var station := leader.position + ahead * u.formation_offset.y + starboard * u.formation_offset.x
+	if not u.needs_sea_room():
+		return station
+	# A screen station reaches seven miles abeam, so it falls ashore as soon as the group closes a
+	# coast. A consort holding a degraded station is worth more than one steaming at a beach.
+	return Terrain.nearest_water(station, leader.position)
 
 
 ## Steers one unit toward its station. Runs before Movement each tick.
