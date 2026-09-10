@@ -19,12 +19,17 @@ symbology with glyphs, own-ship-centred range rings, sweeps and pulses, historie
 threat vectors, effects, hover cards, TEWA defence board, readiness bars, event log, new front end
 with disposition chart, after-action report, and procedural sound.
 
+Platform recognition art is rendered from original Blender models (`tools/blender/build_platform_art.py`,
+PNGs under `assets/platforms`, loaded through `PlatformArt`): a tinted profile on the unit panel's card and
+a plan-view silhouette on the map at close zoom, with the code-drawn shapes kept as the fallback for any
+platform without a file. `tests/test_art.gd` keeps the art in step with `data/platforms`.
+
 An in-game scenario editor (F8) places platforms, routes, objectives and environment, saves to
 user://scenarios, imports and exports JSON and plays the result; custom missions appear in the menu.
 A second graphics pass adds procedural water, curved weapon trails, hull silhouettes at close zoom,
 an air-search ring, a firing-solution marker and a hit flash.
 
-171 tests pass. Nine scenario smoke runs pass without script failures and with no unit aground; every
+174 tests pass. Nine scenario smoke runs pass without script failures and with no unit aground; every
 outcome matches the same sweep run on the pre-coastline commit. Aegis Bastion and
 Arctic Shield reach victory under AI-vs-AI at seed 2, with the Kinzhal / SM-3 exchange exercised.
 

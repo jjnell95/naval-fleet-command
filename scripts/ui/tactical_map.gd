@@ -16,7 +16,7 @@ signal move_order_requested(world_pos: Vector2, append: bool)
 enum DragMode { NONE, PAN, BOX }
 
 const MIN_PPN := 0.2
-const MAX_PPN := 300.0
+const MAX_PPN := 900.0
 const ZOOM_STEP := 1.25
 const CLICK_RADIUS_PX := 14.0
 const DRAG_THRESHOLD_PX := 5.0
@@ -968,12 +968,26 @@ func _draw_units() -> void:
 
 
 ## Close in, the symbol sits on an oriented silhouette scaled to the hull's real length, so a
-## carrier and a corvette stop looking the same size.
+## carrier and a corvette stop looking the same size. The silhouette is the platform's rendered
+## plan view from assets/platforms when one exists, tinted with the unit colour; the polygon
+## below is the fallback for a platform without art.
 func _draw_silhouette(u: Unit, sp: Vector2, col: Color) -> void:
 	var length_px := maxf(u.spec.length_m / 1852.0 * ppn, 16.0)
 	var dir := Geo.heading_to_vector(u.heading_deg)
 	var f := Vector2(dir.x, -dir.y)
 	var s := f.orthogonal()
+	var plan: Texture2D = PlatformArt.plan(u.spec.id)
+	if plan != null:
+		if u.spec.domain == "land":
+			# A base has no length in its spec; the render is 1,800 m across and drawn to scale.
+			length_px = maxf(1800.0 / 1852.0 * ppn, 16.0)
+		var scale := length_px * PlatformArt.PLAN_MARGIN / maxf(float(plan.get_width()), 1.0)
+		var tex_size := Vector2(plan.get_size())
+		var alpha := clampf((length_px - 12.0) / 30.0, 0.35, 0.9)
+		draw_set_transform(sp, f.angle(), Vector2(scale, scale))
+		draw_texture_rect(plan, Rect2(-tex_size * 0.5, tex_size), false, Color(col, alpha))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	var pts := PackedVector2Array()
 	if u.is_aircraft():
 		var w := length_px * 0.9
