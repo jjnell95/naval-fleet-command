@@ -36,7 +36,7 @@ func _ready() -> void:
 	v.add_child(_subtitle)
 	_portrait = PlatformPortrait.new()
 	_portrait.panel = self
-	_portrait.custom_minimum_size.y = 104
+	_portrait.custom_minimum_size.y = 128
 	v.add_child(_portrait)
 	_bars = ReadinessBars.new()
 	_bars.custom_minimum_size.y = 0

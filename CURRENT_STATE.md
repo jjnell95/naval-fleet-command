@@ -22,7 +22,8 @@ with disposition chart, after-action report, and procedural sound.
 Platform recognition art is rendered from original Blender models (`tools/blender/build_platform_art.py`,
 PNGs under `assets/platforms`, loaded through `PlatformArt`): a tinted profile on the unit panel's card and
 a plan-view silhouette on the map at close zoom, with the code-drawn shapes kept as the fallback for any
-platform without a file. `tests/test_art.gd` keeps the art in step with `data/platforms`.
+platform without a file. `tests/test_art.gd` keeps the art in step with `data/platforms`. The art also appears on the map's
+hover card for own units and as a preview under the scenario editor's platform palette.
 
 An in-game scenario editor (F8) places platforms, routes, objectives and environment, saves to
 user://scenarios, imports and exports JSON and plays the result; custom missions appear in the menu.
