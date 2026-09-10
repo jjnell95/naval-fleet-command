@@ -393,6 +393,18 @@ func _on_engage() -> void:
 	_rebuild_weapons()
 
 
+## Fires the currently selected weapon at the current target if the shot is legal right now.
+## Used by the tactical map's quick-engage gesture (ctrl+right-click a contact) so a shooter and
+## target already lined up in this panel can be committed without reaching for the ENGAGE button.
+## Returns false without effect if there is no controllable shooter, no target, or nothing in
+## envelope, so the caller can tell the player why nothing happened.
+func try_engage() -> bool:
+	if _engage_btn.disabled:
+		return false
+	_on_engage()
+	return true
+
+
 func _emit(order: Order) -> void:
 	if _controllable:
 		order_requested.emit(order)
