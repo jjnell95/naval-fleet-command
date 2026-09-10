@@ -10,6 +10,7 @@ short_name = "F/A-18E"
 nation = "USA"
 category = "fighter"
 domain = "air"
+length_m = 18.3
 max_speed_kn = 1000.0
 cruise_speed_kn = 650.0
 turn_rate_deg_s = 7.0

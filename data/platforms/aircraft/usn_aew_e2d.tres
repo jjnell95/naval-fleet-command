@@ -10,6 +10,7 @@ short_name = "E-2D"
 nation = "USA"
 category = "airborne early warning"
 domain = "air"
+length_m = 17.6
 max_speed_kn = 340.0
 cruise_speed_kn = 221.0
 turn_rate_deg_s = 7.0

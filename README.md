@@ -51,6 +51,8 @@ Milestone 11 added four systems and eleven actors:
 
 New actors: Ticonderoga-class cruiser (Aegis BMD, SM-3, Tomahawk), Constellation-class frigate (SPY-6(V)3), Type 45 (SAMPSON, Aster 30), EA-18G Growler, Slava-class cruiser (Vulkan, Fort), Udaloy-class destroyer, Yasen-M SSN (Kalibr, Zircon), Tu-22M3 with Kh-32, MiG-31K with Kinzhal, Su-35S with R-77, Tu-142 maritime patrol.
 
+A third graphics pass replaces the code-drawn platform pictures with renders of original 3D models built in Blender (`tools/blender/build_platform_art.py`): every one of the 30 platforms has an elevated profile for the recognition card and a plan view for the map, drawn as monochrome line-and-shade and tinted in the display colours, and the map now zooms in far enough to show hull shape at true scale. The models are parametric stand-ins that evoke a class, not blueprints. See `assets/README.md`.
+
 A second graphics pass adds living water (a procedural noise surface that grows with sea state), curved fading missile and torpedo trails, hull silhouettes scaled to real length at close zoom, an air-search ring for radars that reach further against aircraft, a firing-solution marker with time of flight when a weapon and a contact are both selected, a stale-track marker, and a red screen-edge flash when one of your ships is hit.
 
 The visual layer was rebuilt: APP-6/NTDS-style frames with platform glyphs, own-ship-centred range rings, animated radar sweeps and sonar pulses, plot histories and trails, engagement and threat vectors with time to impact, transient impact and intercept effects, hover cards, a threat-evaluation defence board, readiness bars, a redesigned front end with an own-force disposition chart, and an after-action report. All sound is synthesised at start-up.
@@ -75,7 +77,7 @@ Install the official matching web export templates, then run `godot --headless -
 
 ## Validation
 
-171 tests pass, including a custom-scenario round trip through user storage, ballistic-vs-BMD interceptor selection, directional jamming, sea-state effects, damage-control repair, full actor resolution for the new scenario, and twenty-five terrain tests covering point-in-polygon against a concave cape, elevation-aware masking, acoustic blocking, the launch refusal, a hull driven at a coast, a screen station reflected off it and the reset between scenarios.
+174 tests pass, including a custom-scenario round trip through user storage, ballistic-vs-BMD interceptor selection, directional jamming, sea-state effects, damage-control repair, full actor resolution for the new scenario, and twenty-five terrain tests covering point-in-polygon against a concave cape, elevation-aware masking, acoustic blocking, the launch refusal, a hull driven at a coast, a screen station reflected off it and the reset between scenarios.
 
 Nine scenarios were advanced 30,000 simulated seconds with AI on both sides, seed 2, without script failures and with no unit aground. Every outcome is unchanged from before coastlines existed, checked against the same sweep run on the previous commit: Aegis Bastion, Arctic Shield, Northern Sentry, North Atlantic Shadow Line and the sandbox reach victory; in Arctic Shield the MiG-31Ks fire Kinzhal from standoff, the cruiser detects the rounds at about 95 nm and meets both with SM-3. Atlantic Gate reaches defeat; Baltic Sentinel, GIUK Passage and Northern Shield remain undecided. This is a regression smoke test, not a balance study.
 

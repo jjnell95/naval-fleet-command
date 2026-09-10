@@ -1,7 +1,9 @@
 class_name PlatformPortrait
 extends Control
-## Original vector recognition illustration, never an exact platform blueprint. The silhouette
-## follows the platform category so a carrier, a cruiser, a boat and a jet read differently.
+## Recognition card for the selected unit. The picture is the platform's rendered profile from
+## assets/platforms (an original Blender model, never an exact blueprint), tinted in the display
+## ink over a graticule. A platform without a render falls back to the code-drawn category
+## silhouette below, so a carrier, a cruiser, a boat and a jet still read differently.
 var panel: UnitPanel
 var _font: Font
 
@@ -32,7 +34,10 @@ func _draw() -> void:
 	var w := minf(size.x * 0.78, 620.0)
 	var x := (size.x - w) * 0.5
 	var y := size.y * 0.66
-	if domain == "air":
+	var render: Texture2D = PlatformArt.profile(unit.spec.id) if unit != null else null
+	if render != null:
+		_draw_render(render, domain, ink)
+	elif domain == "air":
 		_draw_aircraft(Vector2(size.x * 0.5, size.y * 0.5), category, ink)
 	elif domain == "subsurface":
 		_draw_submarine(x, y, w, ink)
@@ -44,12 +49,35 @@ func _draw() -> void:
 		_draw_merchant(x, y, w, ink)
 	else:
 		_draw_combatant(x, y, w, ink, category.contains("cruiser"))
-	if domain != "air":
+	if domain != "air" and render == null:
 		draw_line(Vector2(x - 12, y + 12), Vector2(x + w + 12, y + 12), Color(ink, 0.35), 1)
 	var caption := "AEGIS / MULTI-DOMAIN COMMAND" if unit == null else unit.spec.short_name.to_upper()
 	draw_string(_font, Vector2(10, 15), caption, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 20), 10, ink)
 	var tag := "RECOGNITION PROFILE" if unit == null else "%s · %s" % [unit.spec.category.to_upper(), unit.spec.nation.to_upper()]
 	draw_string(_font, Vector2(10, size.y - 6), tag, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 20), 9, UITheme.COL_DIM)
+
+
+## Fit the render inside the card. A ship sits on a drawn waterline; an aircraft or a base is
+## simply centred. Rendered faces are mid-grey and the outline white, so one tint does the rest.
+func _draw_render(tex: Texture2D, domain: String, ink: Color) -> void:
+	var aspect := float(tex.get_width()) / maxf(float(tex.get_height()), 1.0)
+	var w := minf(size.x * 0.84, 640.0)
+	var h := w / aspect
+	var max_h := size.y - 34.0
+	if h > max_h:
+		h = max_h
+		w = h * aspect
+	var x := (size.x - w) * 0.5
+	if domain == "surface" or domain == "subsurface":
+		var waterline_y := size.y - 20.0
+		var top := waterline_y - h * PlatformArt.WATERLINE
+		draw_texture_rect(tex, Rect2(x, top, w, h), false, ink)
+		draw_line(Vector2(x - 12, waterline_y), Vector2(x + w + 12, waterline_y), Color(ink, 0.35), 1)
+		# A faint reflection under the hull: the water the profile stands on.
+		draw_rect(Rect2(x - 12, waterline_y + 1, w + 24, 5), Color(ink, 0.05))
+	else:
+		var top := 18.0 + (size.y - 30.0 - h) * 0.5
+		draw_texture_rect(tex, Rect2(x, top, w, h), false, ink)
 
 
 func _hull(x: float, y: float, w: float, ink: Color, bow_sharp := true) -> void:
