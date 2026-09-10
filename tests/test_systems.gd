@@ -143,3 +143,41 @@ func test_arctic_shield_scenario_resolves_every_actor() -> void:
 	assert_eq(bmd, 1, "one BMD shooter")
 	assert_eq(int(sc["environment"]["sea_state"]), 4, "rough sea declared")
 	um.free()
+
+
+func test_custom_scenario_round_trips_through_user_storage() -> void:
+	ScenarioIndex.ensure_user_dir()
+	var sc := {
+		"id": "custom_test_ring", "name": "Test Ring", "player_faction": "BLUE", "neutral_factions": ["NEUTRAL"],
+		"environment": {"sea_state": 3}, "map": {"center_nm": [5, 5], "extent_nm": 120},
+		"objectives": {"text": "Hold", "victory": [{"id": "hold", "type": "time_elapsed", "seconds": 600, "text": "Hold 10 min"}],
+			"loss": [{"id": "protect", "type": "unit_lost", "callsigns": ["USS Test"], "text": "lost"}]},
+		"units": [
+			{"platform": "usn_cg_ticonderoga", "callsign": "USS Test", "faction": "BLUE", "position_nm": [0, 0], "heading_deg": 90, "speed_kn": 12},
+			{"platform": "usn_helo_mh60r", "callsign": "Test Helo", "faction": "BLUE", "home": "USS Test"},
+			{"platform": "rfn_ssk_kilo", "callsign": "Test Kilo", "faction": "RED", "position_nm": [20, 20], "depth_m": 80, "radar_on": false},
+		],
+	}
+	var path := ScenarioIndex.custom_path("custom_test_ring")
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	assert_true(f != null, "user://scenarios is writable")
+	f.store_string(JSON.stringify(sc, "  "))
+	f.close()
+	var found: Dictionary = {}
+	for e in ScenarioIndex.list_all():
+		if e["id"] == "custom_test_ring":
+			found = e
+	assert_true(not found.is_empty(), "the menu index sees the custom scenario")
+	assert_true(bool(found.get("custom", false)), "and marks it custom")
+	var um := UnitManager.new()
+	ScenarioLoader.populate(um, ScenarioLoader.load_file(path))
+	assert_eq(um.units.size(), 3, "custom scenario populates")
+	assert_true(um.units[1].home == um.units[0], "aircraft resolves its deck")
+	var mm := MissionManager.new()
+	mm.player_faction = "BLUE"
+	mm.configure(ScenarioLoader.load_file(path))
+	assert_eq(mm.victory_objectives.size(), 1, "victory objective built")
+	assert_eq(mm.loss_objectives.size(), 1, "protect condition built")
+	mm.free()
+	um.free()
+	DirAccess.remove_absolute(path)

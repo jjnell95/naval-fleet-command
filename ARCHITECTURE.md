@@ -109,6 +109,7 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | ScenarioPreview | scripts/ui/scenario_preview.gd | own-force disposition chart for the mission menu |
 | PlatformPortrait | scripts/ui/platform_portrait.gd | category-specific vector recognition silhouettes |
 | SoundFx | scripts/ui/sound_fx.gd | autoload; synthesised cues, no audio files |
+| ScenarioEditor | scripts/ui/scenario_editor.gd | in-game mission builder; writes the scenario JSON schema to user://scenarios |
 | TestCase | tests/test_case.gd | assertion base; runner tests/run_tests.gd |
 
 ## Sensor / track pipeline

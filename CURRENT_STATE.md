@@ -10,7 +10,12 @@ symbology with glyphs, own-ship-centred range rings, sweeps and pulses, historie
 threat vectors, effects, hover cards, TEWA defence board, readiness bars, event log, new front end
 with disposition chart, after-action report, and procedural sound.
 
-145 tests pass. Nine scenario smoke runs pass without script failures. Aegis Bastion and
+An in-game scenario editor (F8) places platforms, routes, objectives and environment, saves to
+user://scenarios, imports and exports JSON and plays the result; custom missions appear in the menu.
+A second graphics pass adds procedural water, curved weapon trails, hull silhouettes at close zoom,
+an air-search ring, a firing-solution marker and a hit flash.
+
+146 tests pass. Nine scenario smoke runs pass without script failures. Aegis Bastion and
 Arctic Shield reach victory under AI-vs-AI at seed 2, with the Kinzhal / SM-3 exchange exercised.
 
 Known limitations: no terrain, radar scheduling, replenishment or save games. Datalink and

@@ -5,6 +5,7 @@ extends PanelContainer
 
 signal scenario_chosen(path: String)
 signal dismissed()
+signal editor_requested()
 
 var _list: ItemList
 var _detail: RichTextLabel
@@ -101,6 +102,11 @@ func _ready() -> void:
 	_play.focus_mode = Control.FOCUS_NONE
 	_play.pressed.connect(_on_play)
 	buttons.add_child(_play)
+	var edit := Button.new()
+	edit.text = "SCENARIO EDITOR  F8"
+	edit.focus_mode = Control.FOCUS_NONE
+	edit.pressed.connect(func() -> void: editor_requested.emit())
+	buttons.add_child(edit)
 	_close = Button.new()
 	_close.text = "BACK TO THE PICTURE"
 	_close.focus_mode = Control.FOCUS_NONE
@@ -122,7 +128,7 @@ func refresh(current_path := "") -> void:
 	var select := 0
 	for i in _entries.size():
 		var e: Dictionary = _entries[i]
-		_list.add_item("%02d   %s" % [i + 1, e["name"]])
+		_list.add_item("%02d   %s%s" % [i + 1, e["name"], "   · custom" if e["custom"] else ""])
 		if e["path"] == current_path:
 			select = i
 	if not _entries.is_empty():

@@ -16,6 +16,7 @@ extends RefCounted
 ##   --ping                      player surface ships go active on sonar at the start
 ##   --select / --form           select the player's ships, optionally in a screen formation
 ##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
+##   --open-editor               open the scenario editor on the loaded scenario, for screenshots
 ##   --brief                     open the briefing board
 ##   --no-ai                     disable every AI controller
 ##   --reload-check              fight a while, restart, and report that state was cleared
@@ -80,6 +81,10 @@ func handle_flags() -> void:
 					if not tracks.is_empty():
 						main.map.select_track(tracks[0])
 					print("[Dev] picked %s" % wanted)
+	if args.has("--open-editor"):
+		main._editor.load_dict(main.simulation.scenario)
+		main._show_editor()
+		print("[Dev] editor opened")
 	if args.has("--reload-check"):
 		_run_reload_check()
 	if args.has("--combat"):

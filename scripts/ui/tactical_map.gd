@@ -92,6 +92,9 @@ var _trail_last_s := -1.0e9
 var _effects: Array = []  # {pos, t0, kind, color}
 var _anim := 0.0
 var _threats: Array = []
+var _water: ImageTexture
+var _weapon_trails: Dictionary = {}  # weapon id -> PackedVector2Array of recent positions
+var _hit_flash := 0.0
 
 
 func _ready() -> void:
@@ -99,6 +102,8 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_CLICK
 	clip_contents = true
 	_font = get_theme_default_font()
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	_water = _build_water()
 	mouse_entered.connect(func() -> void: _mouse_inside = true)
 	mouse_exited.connect(func() -> void: _mouse_inside = false)
 	resized.connect(_apply_pending_fit)
@@ -106,10 +111,44 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_anim += delta
+	_hit_flash = maxf(_hit_flash - delta, 0.0)
 	_keyboard_pan(delta)
 	_prune_selection()
 	_record_trails()
+	_record_weapon_trails()
 	queue_redraw()
+
+
+## A seamless noise tile, generated once, gives the water a slow living texture without a
+## single asset. Tiled and scrolled at draw time.
+func _build_water() -> ImageTexture:
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.seed = 7
+	noise.frequency = 0.012
+	noise.fractal_octaves = 4
+	noise.fractal_lacunarity = 2.1
+	var img := noise.get_seamless_image(256, 256)
+	return ImageTexture.create_from_image(img)
+
+
+## Recent positions of every round in flight, so a missile draws a real curved trail rather
+## than a straight stub. Presentation memory only; dropped when the round is gone.
+func _record_weapon_trails() -> void:
+	if weapon_manager == null:
+		return
+	var live: Dictionary = {}
+	for w: Weapon in weapon_manager.in_flight:
+		live[w.id] = true
+		var arr: PackedVector2Array = _weapon_trails.get(w.id, PackedVector2Array())
+		if arr.is_empty() or arr[arr.size() - 1].distance_to(w.position) > 0.02:
+			arr.append(w.position)
+			if arr.size() > 36:
+				arr.remove_at(0)
+			_weapon_trails[w.id] = arr
+	for id in _weapon_trails.keys():
+		if not live.has(id):
+			_weapon_trails.erase(id)
 
 
 ## Presentation-only memory of where own units have been, sampled on simulation time so a
@@ -135,7 +174,9 @@ func _record_trails() -> void:
 
 ## Called by Main when the simulation reports something worth a flash on the map.
 ## kind: "hit", "miss", "intercept", "decoy", "destroyed", "launch", "splash".
-func add_effect(pos: Vector2, kind: String) -> void:
+func add_effect(pos: Vector2, kind: String, own := false) -> void:
+	if own and (kind == "hit" or kind == "destroyed"):
+		_hit_flash = 1.2
 	var col := COL_AMBER
 	match kind:
 		"hit", "destroyed":
@@ -155,7 +196,9 @@ func add_effect(pos: Vector2, kind: String) -> void:
 
 func reset_presentation() -> void:
 	_trails.clear()
+	_weapon_trails.clear()
 	_effects.clear()
+	_hit_flash = 0.0
 	_trail_last_s = -1.0e9
 
 
@@ -418,6 +461,15 @@ func _draw() -> void:
 		_draw_units()
 		_draw_weapons()
 		_draw_effects()
+	if _hit_flash > 0.0:
+		var a := 0.35 * (_hit_flash / 1.2)
+		var clear := Color(1.0, 0.3, 0.25, 0.0)
+		var edge := Color(1.0, 0.3, 0.25, a)
+		var w := 90.0
+		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, w), Vector2(w, size.y - w), Vector2(0, size.y)]), PackedColorArray([edge, clear, clear, edge]))
+		draw_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x - w, size.y - w), Vector2(size.x - w, w)]), PackedColorArray([edge, edge, clear, clear]))
+		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), Vector2(size.x - w, w), Vector2(w, w)]), PackedColorArray([edge, edge, clear, clear]))
+		draw_polygon(PackedVector2Array([Vector2(0, size.y), Vector2(w, size.y - w), Vector2(size.x - w, size.y - w), Vector2(size.x, size.y)]), PackedColorArray([edge, clear, clear, edge]))
 	if _drag_mode == DragMode.BOX and _drag_moved:
 		var r := Rect2(_drag_start, _mouse - _drag_start).abs()
 		draw_rect(r, Color(COL_BOX, 0.08))
@@ -443,6 +495,16 @@ func _draw_ocean() -> void:
 	var pts := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
 	var cols := PackedColorArray([COL_OCEAN_TOP, COL_OCEAN_TOP, COL_OCEAN_BOTTOM, COL_OCEAN_BOTTOM])
 	draw_polygon(pts, cols)
+	if _water != null:
+		# Two layers drifting against each other, scaled with the zoom so the texture reads as
+		# surface rather than wallpaper. A rough sea shows more of it.
+		var strength := 0.05 + 0.012 * Detection.sea_state
+		var scale := clampf(ppn * 0.5, 0.6, 3.0)
+		var tile := 256.0 * scale
+		var off1 := Vector2(fmod(_anim * 4.0 + center_nm.x * ppn, tile), fmod(_anim * 2.5 - center_nm.y * ppn, tile))
+		var off2 := Vector2(fmod(-_anim * 3.0 + center_nm.x * ppn * 0.7, tile), fmod(_anim * 1.5 - center_nm.y * ppn * 0.7, tile))
+		draw_texture_rect(_water, Rect2(-off1 - Vector2(tile, tile), size + Vector2(tile * 2.0, tile * 2.0)), true, Color(0.35, 0.75, 1.0, strength))
+		draw_texture_rect(_water, Rect2(-off2 - Vector2(tile, tile), size + Vector2(tile * 2.0, tile * 2.0)), true, Color(0.2, 0.55, 0.8, strength * 0.7))
 	var rim := Color(0.0, 0.0, 0.0, 0.0)
 	var edge := Color(0.0, 0.01, 0.03, 0.55)
 	var w := minf(size.x * 0.22, 260.0)
@@ -562,6 +624,13 @@ func _draw_sensor_rings() -> void:
 		var r := Detection.nominal_radar_ring_nm(u)
 		if r <= 0.0:
 			continue
+		var air := 0.0
+		for s in u.sensors:
+			if s.kind == "radar":
+				air = maxf(air, s.range_air_nm)
+		if air > r + 1.0 and u.radar_emitting():
+			_draw_dashed_circle(sp, air * ppn, Color(COL_RING, 0.35), 96)
+			draw_string(_font, sp + Vector2(0.0, -air * ppn - 5.0), "AIR SEARCH %s nm" % Geo.format_nm(air), HORIZONTAL_ALIGNMENT_CENTER, -1, 9, Color(COL_RING, 0.7))
 		if u.radar_emitting():
 			draw_arc(sp, r * ppn, 0.0, TAU, 128, COL_RING, 1.0, true)
 			_draw_sweep(sp, r * ppn)
@@ -609,6 +678,18 @@ func _draw_weapon_ring() -> void:
 		if weapon_ring.min_range_nm > 0.5:
 			draw_arc(sp, inner, 0.0, TAU, 48, Color(COL_WEAPON_RING, 0.4), 1.0, true)
 		draw_string(_font, sp + Vector2(0.0, -outer - 5.0), "%s  %s nm" % [weapon_ring.display_name.to_upper(), Geo.format_nm(weapon_ring.max_range_nm)], HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color(COL_WEAPON_RING, 0.9))
+		if selected_track != null and Combat.suits_track(weapon_ring, selected_track):
+			# The firing solution: where the round would meet the contact if it held course.
+			var aim := Combat.intercept_point(u.position, weapon_ring.speed_kn, selected_track.position, selected_track.course_deg, selected_track.speed_kn, selected_track.has_kinematics)
+			var ap := world_to_screen(aim)
+			var check := Combat.check_engagement(u, weapon_ring, selected_track)
+			var lcol := COL_WEAPON_RING if check["ok"] else Color(COL_HOSTILE, 0.7)
+			draw_dashed_line(sp, ap, lcol, 1.0, 6.0)
+			draw_arc(ap, 6.0, 0.0, TAU, 16, lcol, 1.0, true)
+			draw_line(ap + Vector2(-9, 0), ap + Vector2(9, 0), lcol, 1.0)
+			draw_line(ap + Vector2(0, -9), ap + Vector2(0, 9), lcol, 1.0)
+			var tof := Combat.time_of_flight_s(weapon_ring, u.position.distance_to(aim))
+			draw_string(_font, ap + Vector2(10, -8), "%s  %ds" % ["SOLUTION" if check["ok"] else str(check["reason"]), int(tof)], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, lcol)
 
 
 ## Buoys are cheap, numerous and easy to lose track of, so they are drawn plainly.
@@ -677,6 +758,8 @@ func _draw_tracks() -> void:
 				draw_dashed_line(lp, sp, Color(col, 0.35), 1.0, 6.0)
 		if selected_track == t:
 			MapSymbols.draw_selection(self, sp, COL_SELECT, _anim)
+		if stale:
+			draw_string(_font, sp + Vector2(10.0, -12.0), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(col, 0.9))
 		var jammed := ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position)
 		if jammed:
 			draw_string(_font, sp + Vector2(-14.0, -14.0), "J", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_JAM)
@@ -750,6 +833,8 @@ func _draw_units() -> void:
 		var health := Damage.health_fraction(u)
 		var ucol := COL_FRIENDLY.lerp(Color(1.0, 0.4, 0.3), 1.0 - health)
 		var domain := "air" if u.airborne() else ("subsurface" if u.submerged() else u.spec.domain)
+		if ppn >= 30.0:
+			_draw_silhouette(u, sp, ucol)
 		MapSymbols.draw_symbol(self, sp, ucol, MapSymbols.Frame.FRIENDLY, domain, u.heading_deg, true, MapSymbols.category_glyph(u.spec.category, u.spec.domain), _font)
 		if selected.has(u):
 			MapSymbols.draw_selection(self, sp, COL_SELECT, _anim)
@@ -766,6 +851,28 @@ func _draw_units() -> void:
 		if health < 0.99:
 			sub += " · hull %d%%" % int(health * 100.0)
 		_place_label(sp, name, COL_TEXT if selected.has(u) else Color(COL_TEXT, 0.85), selected.has(u), sub)
+
+
+## Close in, the symbol sits on an oriented silhouette scaled to the hull's real length, so a
+## carrier and a corvette stop looking the same size.
+func _draw_silhouette(u: Unit, sp: Vector2, col: Color) -> void:
+	var length_px := maxf(u.spec.length_m / 1852.0 * ppn, 16.0)
+	var dir := Geo.heading_to_vector(u.heading_deg)
+	var f := Vector2(dir.x, -dir.y)
+	var s := f.orthogonal()
+	var pts := PackedVector2Array()
+	if u.is_aircraft():
+		var w := length_px * 0.9
+		pts = PackedVector2Array([sp + f * length_px * 0.5, sp + f * length_px * 0.05 + s * w * 0.5, sp - f * length_px * 0.3 + s * w * 0.15, sp - f * length_px * 0.5 + s * w * 0.3, sp - f * length_px * 0.5 - s * w * 0.3, sp - f * length_px * 0.3 - s * w * 0.15, sp + f * length_px * 0.05 - s * w * 0.5])
+	elif u.is_submarine():
+		var w := length_px * 0.12
+		pts = PackedVector2Array([sp + f * length_px * 0.5, sp + f * length_px * 0.35 + s * w, sp - f * length_px * 0.4 + s * w, sp - f * length_px * 0.5, sp - f * length_px * 0.4 - s * w, sp + f * length_px * 0.35 - s * w])
+	else:
+		var w := length_px * (0.16 if u.spec.category.contains("carrier") else 0.12)
+		pts = PackedVector2Array([sp + f * length_px * 0.5, sp + f * length_px * 0.25 + s * w, sp - f * length_px * 0.5 + s * w * 0.8, sp - f * length_px * 0.5 - s * w * 0.8, sp + f * length_px * 0.25 - s * w])
+	draw_colored_polygon(pts, Color(col, 0.18))
+	pts.append(pts[0])
+	draw_polyline(pts, Color(col, 0.6), 1.0, true)
 
 
 ## A row of small lamps under the symbol: emitting, on the link, weapons posture, damage,
@@ -828,8 +935,12 @@ func _draw_weapons() -> void:
 			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.3), 1.0, 5.0)
 		if not own and detected and not w.is_interceptor():
 			draw_arc(sp, 10.0, 0.0, TAU, 20, Color(col, 0.55), 1.0, true)
-		var trail := clampf(w.spec.speed_kn / 60.0, 6.0, 26.0)
-		MapSymbols.draw_round(self, sp, w.heading_deg, col, trail, w.spec.is_torpedo())
+		if _weapon_trails.has(w.id):
+			var arr: PackedVector2Array = _weapon_trails[w.id]
+			for i in range(1, arr.size()):
+				var f := float(i) / float(arr.size())
+				draw_line(world_to_screen(arr[i - 1]), world_to_screen(arr[i]), Color(col, 0.05 + 0.45 * f), 1.5 if f > 0.6 else 1.0, true)
+		MapSymbols.draw_round(self, sp, w.heading_deg, col, 5.0, w.spec.is_torpedo())
 		if w.spec.profile == "ballistic" and not w.is_interceptor():
 			draw_string(_font, sp + Vector2(8.0, -6.0), "BM", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, col)
 		if Debug.enabled:

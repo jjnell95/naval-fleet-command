@@ -18,6 +18,7 @@ const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-on
 @onready var contact_panel: ContactPanel = %ContactPanel
 
 var _report: AfterAction
+var _editor: ScenarioEditor
 var _menu: ScenarioMenu
 var _briefing: BriefingPanel
 var _objective_accum := 0.0
@@ -194,8 +195,18 @@ func _build_screens() -> void:
 		start_scenario(path)
 		_show_briefing())
 	_menu.dismissed.connect(_hide_screens)
+	_menu.editor_requested.connect(_show_editor)
 	add_child(_menu)
 	_menu.hide()
+
+	_editor = ScenarioEditor.new()
+	_editor.name = "ScenarioEditor"
+	_editor.play_requested.connect(func(path: String) -> void:
+		start_scenario(path)
+		_show_briefing())
+	_editor.closed.connect(_show_menu)
+	add_child(_editor)
+	_editor.hide()
 
 	_briefing = BriefingPanel.new()
 	_briefing.name = "BriefingPanel"
@@ -215,9 +226,18 @@ func _build_screens() -> void:
 	add_child(_report)
 
 
+func _show_editor() -> void:
+	_menu.hide()
+	_briefing.hide()
+	_report.hide()
+	_editor.show()
+	SimClock.set_paused(true)
+
+
 func _show_menu() -> void:
 	_briefing.hide()
 	_report.hide()
+	_editor.hide()
 	_menu.allow_back(simulation.scenario_path != "")
 	_menu.refresh(simulation.scenario_path)
 	_menu.show()
@@ -227,6 +247,7 @@ func _show_menu() -> void:
 func _show_briefing() -> void:
 	_menu.hide()
 	_report.hide()
+	_editor.hide()
 	_briefing.set_mode(SimClock.sim_time <= 0.0)
 	_briefing.refresh()
 	_briefing.show()
@@ -236,12 +257,15 @@ func _show_briefing() -> void:
 func _hide_screens() -> void:
 	_menu.hide()
 	_briefing.hide()
+	_editor.hide()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
 		return
+	if _editor.visible and k.keycode != KEY_F8 and k.keycode != KEY_F9:
+		return  # the editor owns the keyboard while it is open
 	match k.keycode:
 		KEY_SPACE:
 			SimClock.toggle_pause()
@@ -275,6 +299,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				_show_briefing()
 		KEY_F9:
 			_show_menu()
+		KEY_F8:
+			_show_editor()
 		KEY_F10:
 			restart_scenario()
 		_:
@@ -372,7 +398,7 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 		print("[Combat] %s miss on %s" % [spec.display_name, target.callsign])
 		return
 	SimClock.drop_to_realtime()
-	map.add_effect(target.position, "hit")
+	map.add_effect(target.position, "hit", own_target)
 	SoundFx.play("impact", 0.2)
 	if own_target:
 		top_bar.flash("%s HIT — %s" % [target.callsign, Damage.condition_text(target)], "alert")
@@ -383,7 +409,7 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 	SimClock.drop_to_realtime()
-	map.add_effect(u.position, "destroyed")
+	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
 	SoundFx.play("impact", 0.0)
 	if u.faction == simulation.player_faction:
 		_losses.append(u.callsign)

@@ -26,6 +26,19 @@ static func weapon(id: String) -> WeaponSpec:
 	return _weapons.get(id)
 
 
+## Every platform, sorted by domain then nation then name, for the scenario editor's palette.
+static func all_platforms() -> Array:
+	_ensure_loaded()
+	var out: Array = _platforms.values()
+	out.sort_custom(func(a: PlatformSpec, b: PlatformSpec) -> bool:
+		if a.domain != b.domain:
+			return a.domain < b.domain
+		if a.nation != b.nation:
+			return a.nation < b.nation
+		return a.display_name < b.display_name)
+	return out
+
+
 static func _ensure_loaded() -> void:
 	if _loaded:
 		return
