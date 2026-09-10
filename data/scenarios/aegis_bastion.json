@@ -3,7 +3,7 @@
   "order": 0,
   "name": "AEGIS BASTION",
   "forces": "BLUE: carrier, 2 destroyers, frigate, submarine, replenishment ship, E-2D, 2 fighters, MH-60R / RED: surface group, submarine, 4 strike aircraft / neutral merchant",
-  "description": "Fictional North Atlantic exercise. Hold the task group together for 45 minutes under a converging surface, subsurface and air threat. Command the Flight III destroyer and launch Overlord from the carrier to extend the radar horizon. Fighters can engage classified air tracks with AMRAAM; the MH-60R and Virginia cover the underwater approach. Keep the carrier and Maud alive. Select a host ship, choose its aircraft and launch; select an airborne fighter and an air track to assign weapons. Unknown traffic includes a neutral merchant: classification matters. Public platform families, deliberately estimated combat parameters.",
+  "description": "Fictional North Atlantic exercise. Hold the task group together for 45 minutes under a converging surface, subsurface and air threat. Command the Flight III destroyer and launch Overlord from the carrier to extend the radar horizon. Fighters can engage classified air tracks with AMRAAM; the MH-60R and Virginia cover the underwater approach. Keep the carrier and Maud alive. Select a host ship, press Launch for its next ready aircraft; select an airborne fighter and an air track to assign weapons. Unknown traffic includes a neutral merchant: classification matters. Public platform families, deliberately estimated combat parameters.",
   "start_time_utc": "2027-04-02T03:10:00",
   "player_faction": "BLUE",
   "map": {

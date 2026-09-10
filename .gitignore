@@ -1,4 +1,6 @@
 .godot/
 .DS_Store
 *.tmp
-export_presets.cfg
+
+
+docs/play/*.import
