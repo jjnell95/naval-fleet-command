@@ -34,6 +34,14 @@ func speed_nm_per_s() -> float:
 
 
 
+## What kind of defensive problem this round poses: a torpedo is heard and outrun, a missile is
+## shot down, a ballistic round needs an interceptor built for the job.
+func threat_class() -> String:
+	if spec.is_torpedo():
+		return "torpedo"
+	return "ballistic" if spec.profile == "ballistic" else "missile"
+
+
 func is_interceptor() -> bool:
 	return intercept_target != null
 

@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "zircon_3m22"
+display_name = "3M22 Zircon (hypersonic)"
+family = "Zircon"
+type = "asm"
+guidance = "inertial_active"
+profile = "high"
+target_types = PackedStringArray("surface")
+max_range_nm = 400.0
+min_range_nm = 15.0
+speed_kn = 4500.0
+turn_rate_deg_s = 6.0
+seeker_range_nm = 10.0
+damage = 85.0
+base_pk = 0.68
+salvo_default = 2
+launch_interval_s = 4.0
+defensive_difficulty = 2.8
+signature_factor = 0.3
+altitude_m = 25000.0
+soft_kill_resistance = 3.0
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

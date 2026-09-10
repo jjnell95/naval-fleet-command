@@ -38,6 +38,7 @@ func tick(dt: float) -> void:
 
 func run_cycle(now: float) -> void:
 	_update_manoeuvre()
+	Detection.refresh_jammers(unit_manager.units)
 	for observer in unit_manager.units:
 		if not observer.is_engageable():
 			continue
@@ -265,6 +266,6 @@ func _detect_weapons(now: float) -> void:
 				if sonar_up:
 					r = Detection.torpedo_detection_nm(observer, w.spec)
 			elif radar_up:
-				r = Detection.best_weapon_detection_nm(observer, w.spec)
+				r = Detection.best_weapon_detection_nm(observer, w.spec) * Detection.weapon_clutter_factor(w.spec) * Detection.jam_penalty(observer, w.position)
 			if r > 0.0 and observer.position.distance_to(w.position) <= r:
 				threat_manager.mark_detected(observer.faction, w, now)

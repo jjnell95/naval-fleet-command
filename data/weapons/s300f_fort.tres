@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "s300f_fort"
+display_name = "S-300F Fort (SA-N-6) family"
+family = "Fort"
+type = "sam"
+guidance = "track_via_missile"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 50.0
+min_range_nm = 3.0
+speed_kn = 2000.0
+turn_rate_deg_s = 45.0
+seeker_range_nm = 5.0
+damage = 40.0
+base_pk = 0.42
+salvo_default = 2
+launch_interval_s = 3.0
+defensive_difficulty = 1.0
+signature_factor = 0.2
+altitude_m = 8000.0
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

@@ -185,6 +185,18 @@ func radar_emitting() -> bool:
 	return radar_on and has_radar() and not submerged()
 
 
+func has_jammer() -> bool:
+	for s in sensors:
+		if s.kind == "jammer":
+			return true
+	return false
+
+
+## An electronic-attack set follows the radar switch: silent means silent for every emitter aboard.
+func jamming() -> bool:
+	return is_engageable() and radar_on and has_jammer() and not submerged()
+
+
 func has_esm() -> bool:
 	for s in sensors:
 		if s.kind == "esm":

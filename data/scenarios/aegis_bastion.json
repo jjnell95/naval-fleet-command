@@ -329,5 +329,13 @@
         ]
       ]
     }
-  ]
+  ],
+  "neutral_factions": [
+    "NEUTRAL"
+  ],
+  "environment": {
+    "sea_state": 2,
+    "wind_kn": 14,
+    "visibility_nm": 8
+  }
 }

@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "usn_cg_ticonderoga"
+domain = "surface"
+display_name = "Ticonderoga-class cruiser (Aegis BMD)"
+short_name = "CG Ticonderoga"
+nation = "USA"
+category = "cruiser"
+max_speed_kn = 30.0
+cruise_speed_kn = 18.0
+turn_rate_deg_s = 2.8
+accel_kn_s = 0.22
+length_m = 173.0
+displacement_t = 9800.0
+health = 130.0
+signature_factor = 1.1
+sensor_ids = PackedStringArray("an_spy_1b", "an_sqs_53c", "an_slq_32")
+mast_height_m = 32.0
+aircraft_capacity = 2
+fire_control_channels = 8
+decoy_count = 18
+weapon_loadout = {"sm3_family": 8, "sm6_family": 16, "sm2_family": 40, "essm_family": 32, "tomahawk_block_v": 8, "rgm_139_vla": 8, "rgm_84_harpoon": 8, "mk45_mod4_gun": 500, "phalanx_ciws": 90}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

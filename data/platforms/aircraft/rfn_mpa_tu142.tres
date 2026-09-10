@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_mpa_tu142"
+display_name = "Tu-142 maritime patrol aircraft"
+short_name = "Tu-142"
+nation = "Russia"
+category = "maritime patrol"
+domain = "air"
+max_speed_kn = 500.0
+cruise_speed_kn = 380.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 3.0
+length_m = 53.0
+displacement_t = 185.0
+health = 45.0
+signature_factor = 1.6
+sensor_ids = PackedStringArray("korshun_k", "nato_esm_suite")
+cruise_altitude_m = 7000.0
+max_altitude_m = 12000.0
+altitude_rate_m_s = 15.0
+endurance_s = 36000.0
+launch_time_s = 420.0
+recovery_time_s = 600.0
+sonobuoy_count = 24
+sonobuoy_sensitivity_nm = 7.0
+sonobuoy_life_s = 2400.0
+fire_control_channels = 0
+decoy_count = 6
+decoy_effectiveness = 0.25
+weapon_loadout = {"ugst_torpedo": 4}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

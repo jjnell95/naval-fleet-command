@@ -21,6 +21,82 @@ const CAVITATION_DEPTH_M := 200.0  # depth at which the deep threshold applies
 const SELF_NOISE_EXPONENT := 1.5
 const RADAR_PERISCOPE_SIGNATURE := 0.05  # a raised mast is a very small radar target
 
+## Environment. Sea state is the one weather variable that touches every sensor at once: a rough
+## sea is loud, which shortens passive sonar, and it throws back clutter that hides small and
+## low-flying radar targets. All coefficients are GAMEPLAY_ESTIMATE.
+const SEA_STATE_NAMES := ["calm", "smooth", "slight", "moderate", "rough", "very rough", "high"]
+const SONAR_LOSS_PER_SEA_STATE := 0.07
+const CLUTTER_LOSS_PER_SEA_STATE := 0.05
+const SKIMMER_CLUTTER_LOSS_PER_SEA_STATE := 0.06
+const SMALL_TARGET_SIGNATURE := 0.5
+const SKIMMER_ALTITUDE_M := 60.0
+static var sea_state := 0
+static var environment: Dictionary = {}
+
+## Electronic attack. A jammer degrades every hostile radar within its reach, but only against
+## targets lying roughly in the jammer's direction: the noise comes down one bearing.
+const JAM_CONE_DEG := 35.0
+static var jammers: Array = []
+
+
+static func set_environment(env: Dictionary) -> void:
+	environment = env.duplicate()
+	sea_state = clampi(int(env.get("sea_state", 0)), 0, SEA_STATE_NAMES.size() - 1)
+
+
+static func sea_state_name() -> String:
+	return SEA_STATE_NAMES[clampi(sea_state, 0, SEA_STATE_NAMES.size() - 1)]
+
+
+static func sonar_environment_factor() -> float:
+	return clampf(1.0 - SONAR_LOSS_PER_SEA_STATE * sea_state, 0.4, 1.0)
+
+
+## Clutter loss against a surface target: a small craft in a big sea is hard to pick out.
+static func clutter_factor(target_signature: float) -> float:
+	if target_signature >= SMALL_TARGET_SIGNATURE:
+		return 1.0
+	return clampf(1.0 - CLUTTER_LOSS_PER_SEA_STATE * sea_state, 0.5, 1.0)
+
+
+## Clutter loss against a round in flight: a sea-skimmer rides in the wave returns.
+static func weapon_clutter_factor(wspec: WeaponSpec) -> float:
+	if wspec.altitude_m > SKIMMER_ALTITUDE_M:
+		return 1.0
+	return clampf(1.0 - SKIMMER_CLUTTER_LOSS_PER_SEA_STATE * sea_state, 0.5, 1.0)
+
+
+## Called once per sensor cycle so the per-lookup cost of jamming stays small.
+static func refresh_jammers(units: Array) -> void:
+	jammers.clear()
+	for u: Unit in units:
+		if u.jamming():
+			jammers.append(u)
+
+
+## Multiplier on an observer's radar reach toward `target_pos`, 1.0 when unjammed.
+static func jam_penalty(observer: Unit, target_pos: Vector2) -> float:
+	if jammers.is_empty():
+		return 1.0
+	var factor := 1.0
+	var brg_target := Geo.bearing_deg(observer.position, target_pos)
+	for j: Unit in jammers:
+		if j.faction == observer.faction:
+			continue
+		var d := observer.position.distance_to(j.position)
+		for s in j.sensors:
+			if s.kind != "jammer" or s.jam_range_nm < d:
+				continue
+			if absf(Geo.heading_delta(brg_target, Geo.bearing_deg(observer.position, j.position))) > JAM_CONE_DEG:
+				continue
+			factor = minf(factor, 1.0 / (1.0 + s.jam_strength))
+	return factor
+
+
+## Whether a radar's picture toward that point is currently degraded, for the display.
+static func is_jammed_toward(observer: Unit, target_pos: Vector2) -> bool:
+	return jam_penalty(observer, target_pos) < 0.999
+
 
 static func radar_horizon_nm(h1_m: float, h2_m: float) -> float:
 	return HORIZON_K * (sqrt(maxf(h1_m, 0.0)) + sqrt(maxf(h2_m, 0.0)))
@@ -113,7 +189,8 @@ static func radar_quality(observer: Unit, target: Unit) -> float:
 	if signature <= 0.0:
 		return 0.0
 	var r := best_radar_air_range_nm(observer, signature, target.altitude_m) if target.airborne() \
-		else best_radar_range_nm(observer, signature, target.spec.mast_height_m)
+		else best_radar_range_nm(observer, signature, target.spec.mast_height_m) * clutter_factor(signature)
+	r *= jam_penalty(observer, target.position)
 	if r <= 0.0:
 		return 0.0
 	var d := observer.position.distance_to(target.position)
@@ -170,7 +247,7 @@ static func passive_sonar_range_nm(observer: Unit, sensor: SensorSpec, target: U
 	var noise := acoustic_noise(target)
 	if noise <= 0.0:
 		return 0.0
-	return sensor.passive_sensitivity_nm * sqrt(noise) * self_noise_factor(observer, sensor) * observer.sensor_efficiency()
+	return sensor.passive_sensitivity_nm * sqrt(noise) * self_noise_factor(observer, sensor) * observer.sensor_efficiency() * sonar_environment_factor()
 
 
 ## Best passive range across the observer's arrays, with the sensor that achieved it.
@@ -238,7 +315,7 @@ static func torpedo_detection_nm(listener: Unit, wspec: WeaponSpec) -> float:
 	for s in listener.sensors:
 		if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0:
 			best = maxf(best, s.passive_sensitivity_nm * sqrt(maxf(wspec.acoustic_signature, 0.01)) * self_noise_factor(listener, s))
-	return best
+	return best * sonar_environment_factor()
 
 
 # --- Electronic support -------------------------------------------------------------------
@@ -256,12 +333,15 @@ static func emitter_height_m(emitter: Unit) -> float:
 
 ## The strongest radar the emitter is actually transmitting on, as a power proxy.
 static func emitted_radar_power(emitter: Unit) -> float:
-	if not emitter.radar_emitting():
-		return 0.0
 	var best := 0.0
-	for s in emitter.sensors:
-		if s.kind == "radar":
-			best = maxf(best, s.range_surface_nm)
+	if emitter.radar_emitting():
+		for s in emitter.sensors:
+			if s.kind == "radar":
+				best = maxf(best, s.range_surface_nm)
+	if emitter.jamming():
+		for s in emitter.sensors:
+			if s.kind == "jammer":
+				best = maxf(best, s.jam_range_nm)  # a jammer is the loudest thing on the air
 	return best
 
 

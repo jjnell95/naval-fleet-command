@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "tomahawk_block_v"
+display_name = "Tomahawk Block Va (maritime strike)"
+family = "Tomahawk"
+type = "asm"
+guidance = "inertial_active"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 250.0
+min_range_nm = 8.0
+speed_kn = 480.0
+turn_rate_deg_s = 12.0
+seeker_range_nm = 12.0
+damage = 55.0
+base_pk = 0.82
+salvo_default = 2
+launch_interval_s = 5.0
+defensive_difficulty = 1.0
+signature_factor = 0.15
+altitude_m = 15.0
+soft_kill_resistance = 1.3
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "zaslon_m"
+display_name = "Zaslon-M phased array"
+kind = "radar"
+emits = true
+range_surface_nm = 40.0
+range_air_nm = 170.0
+antenna_height_m = 5.0
+classify_rate = 1.1
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "kinzhal_family"
+display_name = "Kh-47M2 Kinzhal (aero-ballistic)"
+family = "Kinzhal"
+type = "asm"
+guidance = "inertial_terminal"
+profile = "ballistic"
+target_types = PackedStringArray("surface")
+max_range_nm = 480.0
+min_range_nm = 40.0
+speed_kn = 5500.0
+turn_rate_deg_s = 5.0
+seeker_range_nm = 10.0
+damage = 95.0
+base_pk = 0.6
+salvo_default = 1
+launch_interval_s = 6.0
+defensive_difficulty = 2.4
+signature_factor = 0.5
+altitude_m = 40000.0
+soft_kill_resistance = 6.0
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

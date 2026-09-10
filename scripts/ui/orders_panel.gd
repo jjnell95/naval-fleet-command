@@ -40,6 +40,7 @@ func _ready() -> void:
 	add_child(v)
 	_status = Label.new()
 	_status.clip_text = true
+	_status.theme_type_variation = "HeaderLabel"
 	v.add_child(_status)
 
 	var row := HBoxContainer.new()
@@ -91,6 +92,7 @@ func _ready() -> void:
 
 	_engage_btn = Button.new()
 	_engage_btn.text = "ENGAGE"
+	_engage_btn.theme_type_variation = "PrimaryButton"
 	_engage_btn.focus_mode = Control.FOCUS_NONE
 	_engage_btn.pressed.connect(_on_engage)
 	wrow.add_child(_engage_btn)
@@ -168,14 +170,14 @@ func set_units(units: Array, controllable: bool) -> void:
 		b.disabled = not _controllable
 	_heading.editable = _controllable
 	if units.is_empty():
-		_status.text = "ORDERS — no selection"
+		_status.text = "ORDERS  ·  no selection"
 	elif not controllable:
-		_status.text = "ORDERS — selection is not under your command"
+		_status.text = "ORDERS  ·  selection is not under your command"
 	elif units.size() == 1:
-		_status.text = "ORDERS — %s" % units[0].callsign
+		_status.text = "ORDERS  ·  %s" % units[0].callsign.to_upper()
 		_heading.value = roundf(units[0].ordered_heading_deg)
 	else:
-		_status.text = "ORDERS — %d units" % units.size()
+		_status.text = "ORDERS  ·  %d UNITS" % units.size()
 	_refresh_row_visibility()
 	_rebuild_weapons()
 
@@ -405,7 +407,8 @@ func _add_button(parent: Node, text: String, on_pressed: Callable) -> Button:
 func _label(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.modulate = Color(0.6, 0.75, 0.85)
+	l.theme_type_variation = "DimLabel"
+	l.add_theme_font_size_override("font_size", 10)
 	return l
 
 

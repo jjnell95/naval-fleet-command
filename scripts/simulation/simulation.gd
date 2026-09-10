@@ -76,6 +76,7 @@ func load_scenario(path: String) -> bool:
 	var c: Array = m.get("center_nm", [0, 0])
 	map_center = Vector2(c[0], c[1])
 	map_extent_nm = float(m.get("extent_nm", 200.0))
+	Detection.set_environment(scenario.get("environment", {}))
 	track_manager.neutral_factions = PackedStringArray()
 	for f in scenario.get("neutral_factions", []):
 		track_manager.neutral_factions.append(str(f))
@@ -156,6 +157,7 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 
 func _on_tick(dt: float) -> void:
 	unit_manager.tick(dt)
+	Damage.tick(unit_manager.units, dt)
 	sensor_manager.tick(dt)
 	weapon_manager.tick(dt, SimClock.sim_time)
 	aviation_manager.tick(dt, SimClock.sim_time)

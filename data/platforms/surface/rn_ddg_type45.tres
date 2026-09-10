@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rn_ddg_type45"
+domain = "surface"
+display_name = "Type 45 (Daring-class) destroyer"
+short_name = "DDG Type 45"
+nation = "UK"
+category = "destroyer"
+max_speed_kn = 30.0
+cruise_speed_kn = 18.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.24
+length_m = 152.0
+displacement_t = 8500.0
+health = 110.0
+signature_factor = 0.8
+sensor_ids = PackedStringArray("sampson_mfr", "nato_esm_suite")
+mast_height_m = 38.0
+aircraft_capacity = 1
+fire_control_channels = 10
+decoy_count = 16
+weapon_loadout = {"aster30_family": 32, "essm_family": 16, "rgm_84_harpoon": 8, "oto_76mm_gun": 200, "phalanx_ciws": 60}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_ssn_yasen_m"
+display_name = "Yasen-M-class submarine (Project 885M)"
+short_name = "SSN Yasen-M"
+nation = "Russia"
+category = "nuclear attack submarine"
+domain = "subsurface"
+max_speed_kn = 31.0
+cruise_speed_kn = 10.0
+turn_rate_deg_s = 2.2
+accel_kn_s = 0.2
+length_m = 130.0
+displacement_t = 13800.0
+health = 60.0
+signature_factor = 0.3
+sensor_ids = PackedStringArray("irtysh_amfora")
+mast_height_m = 9.0
+acoustic_signature = 0.08
+max_depth_m = 450.0
+patrol_depth_m = 150.0
+depth_rate_m_s = 2.0
+fire_control_channels = 0
+decoy_count = 8
+decoy_effectiveness = 0.3
+has_datalink = true
+weapon_loadout = {"kalibr_asm": 16, "zircon_3m22": 8, "ugst_torpedo": 20}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

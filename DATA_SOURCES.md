@@ -181,3 +181,24 @@ The sources below establish system names, platform associations and broad roles 
 - [US Navy Standard Missile](https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2169011/standard-missile/): SM-2 and SM-6 air-defence roles.
 
 The Nimitz carrier and its compressed 12-airframe capacity are gameplay abstractions. Carrier Resolute is a fictional callsign. The generic navigation radar is a placeholder for carrier surveillance; it does not model the actual carrier radar suite. All recognition profiles are original schematic vectors, not class-specific blueprints.
+
+## Milestone 11 additions (designation and broad role only; every number is GAMEPLAY_ESTIMATE)
+
+| id | System / platform | Public figures used | Notes |
+|---|---|---|---|
+| usn_cg_ticonderoga | Ticonderoga-class cruiser | ~173 m, ~9,800 t, 30+ kn; Aegis BMD role | SM-3 magazine is a gameplay abstraction of the BMD fit |
+| usn_ffg_constellation | Constellation-class frigate | ~151 m, ~7,300 t, 26 kn; EASR fit | in service dates are fictional for the scenario year |
+| rn_ddg_type45 | Type 45 destroyer | ~152 m, ~8,500 t, 30 kn; SAMPSON, Aster 30 | Harpoon fit is a scenario simplification |
+| rfn_cg_slava | Slava-class cruiser | ~186 m, ~11,500 t, 32 kn; Vulkan, Fort | |
+| rfn_ddg_udaloy | Udaloy-class destroyer | ~163 m, ~7,900 t, 29 kn | Uran fit reflects the modernised ship |
+| rfn_ssn_yasen_m | Yasen-M submarine | ~130 m, ~13,800 t submerged, 31 kn; Kalibr, Oniks/Zircon | acoustic figures are not public and are not claimed |
+| usn_ea_ea18g | EA-18G Growler | ~18.3 m; NGJ role | jam range/strength are abstractions |
+| rfn_bomber_tu22m3 | Tu-22M3 | ~42.5 m; Kh-22/Kh-32 role | |
+| rfn_mpa_tu142 | Tu-142 | ~53 m; long endurance maritime patrol | |
+| rfn_strike_mig31k | MiG-31K | ~22.7 m; Kinzhal carrier | |
+| rfn_fighter_su35s | Su-35S | ~21.9 m; Irbis-E, R-77 | |
+| sm3_family / kinzhal_family / zircon_3m22 / kh32_family / p1000_vulkan / aster30_family / s300f_fort / tomahawk_block_v / r77_family | weapon families | family, role, broad public range band | ballistic and hypersonic behaviour is a profile label with tuning numbers |
+| an_spy_1b, an_spy_6_v3, sampson_mfr, an_alq_249, an_alq_218, fregat_mae, zaslon_m, pn_a_leninets, korshun_k, irbis_e, irtysh_amfora | sensors | designation and role | ranges, gains, jam values estimated |
+
+Sea state effects follow the general shape of public open-literature discussion (ambient noise and
+sea clutter rise with sea state); the coefficients are game tuning, not measurements.

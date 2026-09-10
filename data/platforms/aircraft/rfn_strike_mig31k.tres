@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_strike_mig31k"
+display_name = "MiG-31K (Kinzhal carrier)"
+short_name = "MiG-31K"
+nation = "Russia"
+category = "strike aircraft"
+domain = "air"
+max_speed_kn = 1500.0
+cruise_speed_kn = 750.0
+turn_rate_deg_s = 5.0
+accel_kn_s = 10.0
+length_m = 22.7
+displacement_t = 46.0
+health = 25.0
+signature_factor = 0.9
+sensor_ids = PackedStringArray("zaslon_m")
+cruise_altitude_m = 13000.0
+max_altitude_m = 20000.0
+altitude_rate_m_s = 60.0
+endurance_s = 6000.0
+launch_time_s = 300.0
+recovery_time_s = 600.0
+fire_control_channels = 0
+decoy_count = 6
+decoy_effectiveness = 0.3
+weapon_loadout = {"kinzhal_family": 1}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

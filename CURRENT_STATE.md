@@ -1,19 +1,26 @@
-# Current State — M10 Aegis Command
+# Current State — M11 Aegis Command II
 
 The current setup, controls, validation and limitations are documented in README.md.
 
-Completed: tactical bearing display, label collision avoidance, shape legend, vector profiles,
-scrollable panels, mission selector, live defence board, timestamped event history,
-Flight III / SPY-6, Nimitz carrier abstraction, E-2D, F/A-18E, SM-6, AMRAAM and Aegis Bastion.
+Completed since M10: ballistic missile defence (flight profiles, SM-3, Kinzhal), electronic attack
+(directional jamming, EA-18G Growler, ESM hears jammers), scenario environment (sea state affects
+sonar and clutter), damage control (subsystem repair to a cap), eleven new platforms, nine new
+weapons, eleven new sensors and the Arctic Shield mission. The visual layer was rebuilt: APP-6/NTDS
+symbology with glyphs, own-ship-centred range rings, sweeps and pulses, histories and trails,
+threat vectors, effects, hover cards, TEWA defence board, readiness bars, event log, new front end
+with disposition chart, after-action report, and procedural sound.
 
-139 tests pass. Eight scenario smoke runs pass without script failures. Aegis Bastion,
-Shadow Line and Northern Sentry reach victory; Atlantic Gate reaches defeat. Three missions
-remain undecided after 30,000 seconds at seed 2. The sandbox is free play.
-Browser export tested separately; ResourceLoader scanning and text-resource export are required.
+An in-game scenario editor (F8) places platforms, routes, objectives and environment, saves to
+user://scenarios, imports and exports JSON and plays the result; custom missions appear in the menu.
+A second graphics pass adds procedural water, curved weapon trails, hull silhouettes at close zoom,
+an air-search ring, a firing-solution marker and a hit flash.
 
-Known limitations: no active jamming, weather propagation, BMD, damage control, save games or
-geographic chart. Datalink and engagement-channel accounting remain simplified. Engine/test
-shutdown reports reference-cycle leaks; no recurring gameplay script failures were observed.
-The carrier's radar and compressed air wing are placeholders. See README.md for the full boundary.
+146 tests pass. Nine scenario smoke runs pass without script failures. Aegis Bastion and
+Arctic Shield reach victory under AI-vs-AI at seed 2, with the Kinzhal / SM-3 exchange exercised.
+
+Known limitations: no terrain, radar scheduling, replenishment or save games. Datalink and
+engagement-channel accounting remain simplified. Jamming, ballistic flight and sea state are
+abstractions. Engine/test shutdown reports reference-cycle leaks; no recurring gameplay script
+failures were observed. See README.md for the full boundary.
 
 HANDOFF.md is an archived M9 presentation brief; it is no longer the current task specification.

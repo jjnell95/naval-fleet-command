@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "kh32_family"
+display_name = "Kh-32 family (air-launched)"
+family = "Kh-22/Kh-32"
+type = "asm"
+guidance = "inertial_active"
+profile = "high"
+target_types = PackedStringArray("surface")
+max_range_nm = 320.0
+min_range_nm = 15.0
+speed_kn = 2300.0
+turn_rate_deg_s = 8.0
+seeker_range_nm = 12.0
+damage = 90.0
+base_pk = 0.72
+salvo_default = 2
+launch_interval_s = 3.0
+defensive_difficulty = 1.7
+signature_factor = 0.55
+altitude_m = 30000.0
+soft_kill_resistance = 1.1
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

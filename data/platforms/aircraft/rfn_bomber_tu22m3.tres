@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_bomber_tu22m3"
+display_name = "Tu-22M3 long-range bomber"
+short_name = "Tu-22M3"
+nation = "Russia"
+category = "maritime strike bomber"
+domain = "air"
+max_speed_kn = 1100.0
+cruise_speed_kn = 500.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 5.0
+length_m = 42.5
+displacement_t = 126.0
+health = 40.0
+signature_factor = 1.4
+sensor_ids = PackedStringArray("pn_a_leninets")
+cruise_altitude_m = 10000.0
+max_altitude_m = 13000.0
+altitude_rate_m_s = 25.0
+endurance_s = 10800.0
+launch_time_s = 300.0
+recovery_time_s = 600.0
+fire_control_channels = 0
+decoy_count = 8
+decoy_effectiveness = 0.3
+weapon_loadout = {"kh32_family": 2}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
