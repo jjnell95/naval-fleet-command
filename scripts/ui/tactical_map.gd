@@ -25,7 +25,7 @@ const KEY_PAN_PX_PER_S := 700.0
 const NICE_STEPS_NM: Array[float] = [0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
 
 const COL_OCEAN := Color(0.024, 0.055, 0.086)
-const COL_GRID := Color(0.20, 0.42, 0.55, 0.28)
+const COL_GRID := Color(0.20, 0.42, 0.55, 0.13)
 const COL_GRID_TEXT := Color(0.35, 0.60, 0.72, 0.75)
 const COL_TEXT := Color(0.72, 0.86, 0.95)
 const COL_SELECT := Color(1.0, 1.0, 1.0, 0.9)
@@ -68,6 +68,9 @@ var _pending_fit := false
 var _fit_center := Vector2.ZERO
 var _fit_extent := 0.0
 var _font: Font
+var _label_rects: Array[Rect2] = []
+var show_key := true
+var show_rings := true
 
 
 func _ready() -> void:
@@ -318,9 +321,12 @@ func _prune_selection() -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), COL_OCEAN)
+	_label_rects.clear()
 	_draw_grid()
+	_draw_scope()
 	if unit_manager != null:
-		_draw_sensor_rings()
+		if show_rings:
+			_draw_sensor_rings()
 		_draw_weapon_ring()
 		if Debug.enabled:
 			_draw_truth()
@@ -331,6 +337,7 @@ func _draw() -> void:
 		draw_rect(Rect2(_drag_start, _mouse - _drag_start).abs(), COL_BOX, false, 1.0)
 	_draw_scale_bar()
 	_draw_readout()
+	_draw_key()
 
 
 func _nice_step(min_px: float) -> float:
@@ -465,15 +472,11 @@ func _draw_tracks() -> void:
 		if selected_track == t:
 			MapSymbols.draw_selection(self, sp, COL_SELECT)
 		var text := t.label()
-		if t.source == "esm":
-			text += "  ESM"
-		elif t.is_bearing_only():
-			text += "  BRG ONLY"
-		if not t.networked:
-			text += "  OFF LINK"
-		if t.status == Track.Status.STALE:
-			text += "  " + t.status_text(now)
-		draw_string(_font, sp + Vector2(12.0, -10.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
+		if t.is_bearing_only(): text += " / BRG"
+		if not t.networked: text += " / LOCAL"
+		if t.status == Track.Status.STALE: text += " / STALE"
+		_place_label(sp, text, col, selected_track == t)
+
 
 
 ## Uncertainty is an ellipse. For a passive sonar contact it is a long thin sliver lying along
@@ -519,27 +522,14 @@ func _draw_units() -> void:
 		if selected.has(u):
 			MapSymbols.draw_selection(self, sp, COL_SELECT)
 		var name := u.callsign
-		if u.is_aircraft():
-			name += "  %.0f m  %.0f%%" % [u.altitude_m, u.fuel_fraction() * 100.0]
-			if u.returning:
-				name += " [RTB]"
-			elif u.is_hovering():
-				name += " [DIPPING]"
-		elif u.is_submarine():
-			name += "  %.0f m" % u.depth_m
-			if Detection.is_cavitating(u):
-				name += " [CAVITATING]"
-		elif not u.radar_emitting():
-			name += " [EMCON]"
-		if u.active_sonar_emitting():
-			name += " [PINGING]"
+		if selected.has(u):
+			name += " / %03d° · %02d kn" % [int(u.heading_deg), int(u.speed_kn)]
+		# Two state lamps: emissions and link; details remain in the unit panel.
+		draw_circle(sp + Vector2(-5, 19), 2.0, COL_BUOY if u.radar_emitting() else COL_GRID_TEXT)
 		if not u.datalink_connected():
-			name += " [OFF LINK]"
-		if u.in_formation():
-			name += " [ST]"
-		if u.roe == Unit.Roe.HOLD:
-			name += " [HOLD]"
-		draw_string(_font, sp + Vector2(12.0, -10.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COL_TEXT)
+			draw_line(sp + Vector2(2, 17), sp + Vector2(7, 22), COL_UNKNOWN, 2.0)
+		_place_label(sp, name, COL_TEXT, selected.has(u))
+
 
 
 func _draw_scale_bar() -> void:
@@ -563,4 +553,61 @@ func _draw_readout() -> void:
 		text += "    FROM %s:  BRG %s  RNG %.1f nm" % [u.callsign, Geo.format_bearing(Geo.bearing_deg(u.position, w)), Geo.distance_nm(u.position, w)]
 	if Debug.enabled:
 		text += "    [DEBUG]"
-	draw_string(_font, Vector2(10.0, 18.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COL_TEXT)
+	draw_string(_font, Vector2(16.0, 57.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COL_TEXT)
+
+
+func _place_label(sp: Vector2, text: String, color: Color, important: bool) -> void:
+	if not Rect2(Vector2(0, 65), size - Vector2(0, 160)).has_point(sp): return
+	var width := minf(_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16, 255)
+	for attempt in 18:
+		var row := (attempt + 1) / 2
+		var offset := Vector2(20, -25 + row * 23 * (1 if attempt % 2 == 0 else -1))
+		var r := Rect2(sp + offset, Vector2(width, 21))
+		if r.end.x > size.x - 12: r.position.x = sp.x - width - 22
+		if r.position.y < 67 or r.end.y > size.y - 100: continue
+		var overlaps := false
+		for used in _label_rects:
+			if used.grow(3).intersects(r):
+				overlaps = true
+				break
+		if overlaps: continue
+		_label_rects.append(r)
+		draw_line(sp, r.get_center(), Color(color, 0.3), 1)
+		draw_rect(r, Color("0b1a26"))
+		if important: draw_rect(r, Color(color, 0.6), false, 1)
+		draw_string(_font, r.position + Vector2(8, 15), text, HORIZONTAL_ALIGNMENT_LEFT, int(width - 16), 12, color)
+		return
+
+
+func _draw_scope() -> void:
+	var c := size * 0.5
+	var radius := minf(size.x, size.y) * 0.44
+	for i in range(1, 5):
+		draw_arc(c, radius * i / 4, 0, TAU, 128, Color(0.24, 0.56, 0.65, 0.10), 1, true)
+	for deg in range(0, 360, 5):
+		var d := Vector2(sin(deg_to_rad(deg)), -cos(deg_to_rad(deg)))
+		var major := deg % 30 == 0
+		draw_line(c + d * radius, c + d * (radius + (9 if major else 4)), Color(0.4, 0.7, 0.8, 0.25), 1, true)
+		if major:
+			draw_string(_font, c + d * (radius + 21) + Vector2(-10, 4), "%03d" % deg, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
+	draw_rect(Rect2(0, 0, size.x, 36), Color("0d202d"))
+	draw_string(_font, Vector2(16, 23), "TACTICAL PICTURE  /  LOCAL NM GRID", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("70e2d3"))
+	draw_string(_font, Vector2(size.x - 206, 23), "NORTH   ·   F2 KEY   ·   F4 RINGS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_TEXT)
+	if simulation != null:
+		for o in simulation.mission_manager.victory_objectives:
+			if o.kind == MissionObjective.Kind.REACH_AREA:
+				var sp := world_to_screen(o.center)
+				draw_arc(sp, o.radius_nm * ppn, 0, TAU, 80, Color(COL_WAYPOINT, 0.5), 2, true)
+				_place_label(sp, "OBJECTIVE / RENDEZVOUS", COL_WAYPOINT, false)
+
+
+func _draw_key() -> void:
+	if not show_key: return
+	var y := size.y - 85
+	draw_rect(Rect2(12, y, 385, 60), Color("101f2c"))
+	MapSymbols.draw_surface(self, Vector2(26, y + 14), COL_FRIENDLY, false, 0)
+	MapSymbols.draw_track(self, Vector2(143, y + 14), COL_HOSTILE, true, false, 0)
+	MapSymbols.draw_track(self, Vector2(255, y + 14), COL_UNKNOWN, false, false, 0)
+	draw_string(_font, Vector2(42, y + 19), "FRIENDLY       HOSTILE       UNKNOWN", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COL_TEXT)
+	draw_string(_font, Vector2(25, y + 37), "Arc above: air · below: submarine · ellipse: uncertainty", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_GRID_TEXT)
+	draw_string(_font, Vector2(25, y + 52), "Rings: radar blue / sonar green / ESM violet / weapon amber", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)

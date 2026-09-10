@@ -36,17 +36,12 @@ static func _ensure_loaded() -> void:
 
 
 static func _scan(dir_path: String) -> void:
-	var dir := DirAccess.open(dir_path)
-	if dir == null:
-		push_warning("DataDB: cannot open %s" % dir_path)
-		return
-	dir.list_dir_begin()
-	var name := dir.get_next()
-	while name != "":
+	# ResourceLoader exposes original names after export remaps .tres resources.
+	# DirAccess sees .tres.remap in a PCK and silently misses the whole database.
+	for name in ResourceLoader.list_directory(dir_path):
 		var path := dir_path.path_join(name)
-		if dir.current_is_dir():
-			if not name.begins_with("."):
-				_scan(path)
+		if name.ends_with("/"):
+			_scan(path.trim_suffix("/"))
 		elif name.ends_with(".tres") or name.ends_with(".res"):
 			var res := load(path)
 			if res is PlatformSpec:
@@ -55,5 +50,3 @@ static func _scan(dir_path: String) -> void:
 				_sensors[res.id] = res
 			elif res is WeaponSpec:
 				_weapons[res.id] = res
-		name = dir.get_next()
-	dir.list_dir_end()

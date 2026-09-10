@@ -8,6 +8,7 @@ signal menu_pressed()
 
 const FLASH_S := 12.0
 
+var history: Array[String] = []
 var _title: Label
 var _objective: Label
 var _event: Label
@@ -27,7 +28,9 @@ func _ready() -> void:
 	# Every label up here clips rather than growing, or a long mission name or event message
 	# widens the whole window and pushes the side panels off screen.
 	_title.clip_text = true
-	_title.custom_minimum_size.x = 250
+	_title.custom_minimum_size.x = 205
+	_title.add_theme_font_size_override("font_size", 18)
+	_title.add_theme_color_override("font_color", Color("70e2d3"))
 	h.add_child(_title)
 
 	_objective = Label.new()
@@ -46,7 +49,7 @@ func _ready() -> void:
 
 	_time = Label.new()
 	_time.clip_text = true
-	_time.custom_minimum_size.x = 175
+	_time.custom_minimum_size.x = 155
 	h.add_child(_time)
 
 	_pause_btn = Button.new()
@@ -86,13 +89,18 @@ func _process(delta: float) -> void:
 
 
 func flash(msg: String) -> void:
-	_event.text = "▶ " + msg
+	history.push_front(SimClock.datetime_string() + "  " + msg)
+	if history.size() > 40:
+		history.resize(40)
+	_event.tooltip_text = "\n".join(history)
+	_event.text = "> " + msg
 	_event.modulate.a = 1.0
 	_flash_left = FLASH_S
 
 
 func set_scenario_name(scenario_name: String) -> void:
-	_title.text = "NAVAL FLEET COMMAND  —  %s" % scenario_name
+	_title.text = "AEGIS / COMMAND"
+	_title.tooltip_text = scenario_name
 
 
 func set_objective_text(text: String) -> void:

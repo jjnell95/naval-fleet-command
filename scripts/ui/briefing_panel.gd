@@ -53,7 +53,9 @@ func _ready() -> void:
 	_start = Button.new()
 	_start.text = "TAKE COMMAND"
 	_start.focus_mode = Control.FOCUS_NONE
-	_start.pressed.connect(func() -> void: start_pressed.emit())
+	_start.pressed.connect(func() -> void:
+		SimClock.set_paused(false)
+		start_pressed.emit())
 	buttons.add_child(_start)
 	_restart = Button.new()
 	_restart.text = "RESTART"

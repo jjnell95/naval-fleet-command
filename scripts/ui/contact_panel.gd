@@ -24,7 +24,7 @@ func _ready() -> void:
 	_header.text = "CONTACTS"
 	v.add_child(_header)
 	_list = ItemList.new()
-	_list.custom_minimum_size.y = 240
+	_list.custom_minimum_size.y = 155
 	_list.focus_mode = Control.FOCUS_NONE
 	_list.item_selected.connect(_on_item_selected)
 	v.add_child(_list)
@@ -32,7 +32,15 @@ func _ready() -> void:
 	_detail.clip_text = true
 	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(_detail)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(scroll)
+	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_detail)
+	var board := DefenceBoard.new()
+	board.contacts = self
+	board.custom_minimum_size.y = 180
+	v.add_child(board)
 
 
 func _process(delta: float) -> void:
@@ -50,7 +58,7 @@ func refresh() -> void:
 	var tracks: Array = track_manager.get_tracks(player_faction).duplicate()
 	tracks.sort_custom(func(a: Track, b: Track) -> bool: return a.id < b.id)
 	_rows = tracks
-	_header.text = "CONTACTS (%d)" % tracks.size()
+	_header.text = "TRACK FILE / %02d" % tracks.size()
 	_list.clear()
 	var sel_idx := -1
 	for i in tracks.size():
@@ -84,7 +92,7 @@ func _reference_unit() -> Unit:
 
 func _detail_text(t: Track, ref: Unit, now: float) -> String:
 	if t == null:
-		return "Click a contact on the map or in the list.\n\nUnknown contacts classify with observation time: UNK → SURF → class → identity."
+		return "Click a contact on the map or in the list.\n\nUnknown contacts classify with observation time: UNK > SURF > class > identity."
 	var lines := PackedStringArray()
 	lines.append("%s — %s" % [t.id, t.description()])
 	lines.append("IDENTITY   %s" % t.identity)

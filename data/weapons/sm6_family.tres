@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "sm6_family"
+display_name = "SM-6 family"
+family = "SM-6 family"
+type = "sam"
+guidance = "inertial_active"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 100.0
+min_range_nm = 1.5
+speed_kn = 2100.0
+turn_rate_deg_s = 65.0
+seeker_range_nm = 6.0
+damage = 45.0
+base_pk = 0.55
+salvo_default = 2
+launch_interval_s = 2.0
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

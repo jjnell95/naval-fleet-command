@@ -4,8 +4,8 @@ extends Control
 ## global hotkeys. Dev flags (after `--`): --smoke (auto-order + run) and --screenshot=PATH.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M9 — Operational Depth"
-const DEFAULT_SCENARIO := "res://data/scenarios/north_atlantic_shadow_line.json"
+const BUILD_MILESTONE := "M10 — AEGIS Command"
+const DEFAULT_SCENARIO := "res://data/scenarios/aegis_bastion.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
 const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select"]
@@ -213,6 +213,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			map.clear_selection()
 		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
 			SimClock.set_speed_index(k.keycode - KEY_1)
+		KEY_F2:
+			map.show_key = not map.show_key
+		KEY_F4:
+			map.show_rings = not map.show_rings
 		KEY_F3:
 			Debug.toggle()
 		KEY_R:

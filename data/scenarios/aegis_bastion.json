@@ -1,0 +1,333 @@
+{
+  "id": "aegis_bastion",
+  "order": 0,
+  "name": "AEGIS BASTION",
+  "forces": "BLUE: carrier, 2 destroyers, frigate, submarine, replenishment ship, E-2D, 2 fighters, MH-60R / RED: surface group, submarine, 4 strike aircraft / neutral merchant",
+  "description": "Fictional North Atlantic exercise. Hold the task group together for 45 minutes under a converging surface, subsurface and air threat. Command the Flight III destroyer and launch Overlord from the carrier to extend the radar horizon. Fighters can engage classified air tracks with AMRAAM; the MH-60R and Virginia cover the underwater approach. Keep the carrier and Maud alive. Select a host ship, choose its aircraft and launch; select an airborne fighter and an air track to assign weapons. Unknown traffic includes a neutral merchant: classification matters. Public platform families, deliberately estimated combat parameters.",
+  "start_time_utc": "2027-04-02T03:10:00",
+  "player_faction": "BLUE",
+  "map": {
+    "center_nm": [
+      12,
+      12
+    ],
+    "extent_nm": 140
+  },
+  "objectives": {
+    "text": "Protect the carrier and Maud for 45 minutes. Establish airborne surveillance and layered defence.",
+    "victory": [
+      {
+        "id": "hold",
+        "type": "time_elapsed",
+        "seconds": 2700,
+        "text": "Maintain the protective screen for 45 minutes"
+      }
+    ],
+    "loss": [
+      {
+        "id": "carrier_lost",
+        "type": "unit_lost",
+        "callsigns": [
+          "Carrier Resolute"
+        ],
+        "text": "Carrier lost"
+      },
+      {
+        "id": "maud_lost",
+        "type": "unit_lost",
+        "callsigns": [
+          "HNoMS Maud"
+        ],
+        "text": "Replenishment ship lost"
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "usn_ddg_burke_iii",
+      "callsign": "USS Jack H. Lucas",
+      "faction": "BLUE",
+      "position_nm": [
+        0,
+        0
+      ],
+      "heading_deg": 45,
+      "speed_kn": 18
+    },
+    {
+      "platform": "usn_cvn_nimitz",
+      "callsign": "Carrier Resolute",
+      "faction": "BLUE",
+      "position_nm": [
+        -12,
+        -12
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16
+    },
+    {
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Roosevelt",
+      "faction": "BLUE",
+      "position_nm": [
+        8,
+        -12
+      ],
+      "heading_deg": 45,
+      "speed_kn": 18
+    },
+    {
+      "platform": "rnon_ffg_fridtjof_nansen",
+      "callsign": "HNoMS Nansen",
+      "faction": "BLUE",
+      "position_nm": [
+        -15,
+        4
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16
+    },
+    {
+      "platform": "rnon_aux_maud",
+      "callsign": "HNoMS Maud",
+      "faction": "BLUE",
+      "position_nm": [
+        -15,
+        -18
+      ],
+      "speed_kn": 14
+    },
+    {
+      "platform": "usn_ssn_virginia",
+      "callsign": "USS North Dakota",
+      "faction": "BLUE",
+      "position_nm": [
+        5,
+        15
+      ],
+      "depth_m": 120,
+      "speed_kn": 6,
+      "radar_on": false
+    },
+    {
+      "platform": "usn_aew_e2d",
+      "callsign": "Overlord 11",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          -10,
+          20
+        ],
+        [
+          15,
+          20
+        ]
+      ]
+    },
+    {
+      "platform": "usn_fighter_fa18e",
+      "callsign": "Raven 21",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          15,
+          25
+        ],
+        [
+          35,
+          35
+        ]
+      ]
+    },
+    {
+      "platform": "usn_fighter_fa18e",
+      "callsign": "Raven 22",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          15,
+          25
+        ],
+        [
+          35,
+          35
+        ]
+      ]
+    },
+    {
+      "platform": "usn_helo_mh60r",
+      "callsign": "Seahawk 31",
+      "faction": "BLUE",
+      "home": "USS Jack H. Lucas"
+    },
+    {
+      "platform": "rfn_ffg_admiral_gorshkov",
+      "callsign": "Admiral Gorshkov",
+      "faction": "RED",
+      "position_nm": [
+        50,
+        45
+      ],
+      "heading_deg": 225,
+      "speed_kn": 20,
+      "patrol_nm": [
+        [
+          10,
+          15
+        ],
+        [
+          -5,
+          5
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Soobrazitelny",
+      "faction": "RED",
+      "position_nm": [
+        58,
+        34
+      ],
+      "heading_deg": 225,
+      "speed_kn": 20,
+      "patrol_nm": [
+        [
+          15,
+          10
+        ],
+        [
+          -5,
+          5
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_ssk_kilo",
+      "callsign": "Kilo Contact",
+      "faction": "RED",
+      "position_nm": [
+        20,
+        25
+      ],
+      "depth_m": 80,
+      "speed_kn": 5,
+      "radar_on": false,
+      "patrol_nm": [
+        [
+          -10,
+          -10
+        ],
+        [
+          20,
+          15
+        ]
+      ]
+    },
+    {
+      "platform": "shore_air_station",
+      "callsign": "Red Air Station",
+      "faction": "RED",
+      "position_nm": [
+        105,
+        85
+      ],
+      "radar_on": false
+    },
+    {
+      "platform": "civ_merchant_bulk",
+      "callsign": "MV Northern Trader",
+      "faction": "NEUTRAL",
+      "position_nm": [
+        25,
+        -15
+      ],
+      "heading_deg": 90,
+      "speed_kn": 12,
+      "radar_on": true
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 11",
+      "faction": "RED",
+      "home": "Red Air Station",
+      "patrol_nm": [
+        [
+          40,
+          30
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          50,
+          30
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 12",
+      "faction": "RED",
+      "home": "Red Air Station",
+      "patrol_nm": [
+        [
+          40,
+          30
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          50,
+          30
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 13",
+      "faction": "RED",
+      "home": "Red Air Station",
+      "patrol_nm": [
+        [
+          40,
+          30
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          50,
+          30
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 14",
+      "faction": "RED",
+      "home": "Red Air Station",
+      "patrol_nm": [
+        [
+          40,
+          30
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          50,
+          30
+        ]
+      ]
+    }
+  ]
+}

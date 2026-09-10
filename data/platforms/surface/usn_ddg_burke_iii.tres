@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "usn_ddg_burke_iii"
+display_name = "Arleigh Burke-class destroyer (Flight III)"
+short_name = "DDG Burke III"
+nation = "USA"
+category = "destroyer"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 18.0
+length_m = 155.0
+displacement_t = 9700.0
+health = 120.0
+sensor_ids = PackedStringArray("an_spy_6", "an_sqs_53c", "an_slq_32")
+mast_height_m = 30.0
+aircraft_capacity = 2
+fire_control_channels = 8
+decoy_count = 16
+weapon_loadout = {"sm6_family": 24, "sm2_family": 24, "essm_family": 32, "rgm_139_vla": 8, "mk45_mod4_gun": 250, "phalanx_ciws": 60}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

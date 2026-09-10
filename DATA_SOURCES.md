@@ -168,3 +168,16 @@ fit differs by ship.
 Gain multiplies the emitter's radar power to give a detection range, then the radio horizon caps
 it. Component damage thresholds, formation station offsets and rules-of-engagement behaviour are
 all gameplay constructs with no source beyond the design.
+
+## M10 Aegis expansion (2026-09-10)
+
+The sources below establish system names, platform associations and broad roles only. All added numerical values and magazine allocations are GAMEPLAY_ESTIMATE. No BMD, real radar waveform, classified signature, or operational firing doctrine is represented.
+
+- [US Navy Aegis Weapon System](https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2166739/aegis-weapon-system/): Aegis and SPY-1 association.
+- [US Navy Flight III program](https://www.navy.mil/Press-Office/Press-Releases/display-pressreleases/Article/2423252/arleigh-burke-class-destroyer-flight-iii-progressing-on-schedule/): Flight III / AN-SPY-6 association. Its real BMD role is not implemented here.
+- [NAVAIR E-2D fact sheet](https://www.navair.navy.mil/sites/g/files/jejdrs536/files/2018-12/E-2D%20Advanced%20Hawkeye%20slick%20sheet.pdf): APY-9 airborne surveillance role.
+- [US Navy Super Hornet](https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2383479/fa-18a-d-hornet-and-fa-18ef-super-hornet-strike-fighter/): fighter platform and AMRAAM/Harpoon weapon families.
+- [US Navy AIM-120](https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2168352/aim-120-advanced-medium-range-air-to-air-missile-amraam/): air-to-air role.
+- [US Navy Standard Missile](https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2169011/standard-missile/): SM-2 and SM-6 air-defence roles.
+
+The Nimitz carrier and its compressed 12-airframe capacity are gameplay abstractions. Carrier Resolute is a fictional callsign. The generic navigation radar is a placeholder for carrier surveillance; it does not model the actual carrier radar suite. All recognition profiles are original schematic vectors, not class-specific blueprints.

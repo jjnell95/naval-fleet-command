@@ -2,7 +2,7 @@ class_name MapSymbols
 ## Original vector symbology, NATO-inspired: friendly surface = circle, hostile = diamond,
 ## unknown = square. Sizes are in screen pixels and independent of zoom.
 
-const RADIUS := 7.0
+const RADIUS := 9.0
 const HEADING_TICK := 8.0
 
 

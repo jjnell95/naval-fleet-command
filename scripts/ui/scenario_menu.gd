@@ -29,14 +29,18 @@ func _ready() -> void:
 	margin.add_child(v)
 
 	var title := Label.new()
-	title.text = "NAVAL FLEET COMMAND"
-	title.add_theme_font_size_override("font_size", 24)
+	title.text = "FLEET COMMAND"
+	title.add_theme_font_size_override("font_size", 52)
 	v.add_child(title)
 
 	var sub := Label.new()
-	sub.text = "Select a scenario. All situations are fictional."
+	sub.text = "AEGIS COMMAND EXPERIENCE   /   NORTH ATLANTIC THEATER   /   FICTIONAL OPERATIONS"
+	sub.add_theme_font_size_override("font_size", 15)
 	sub.modulate = Color(0.55, 0.68, 0.78)
 	v.add_child(sub)
+	var art := PlatformPortrait.new()
+	art.custom_minimum_size.y = 150
+	v.add_child(art)
 
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 16)
@@ -44,7 +48,7 @@ func _ready() -> void:
 	v.add_child(body)
 
 	_list = ItemList.new()
-	_list.custom_minimum_size = Vector2(330, 0)
+	_list.custom_minimum_size = Vector2(390, 0)
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.focus_mode = Control.FOCUS_NONE
 	_list.item_selected.connect(_on_selected)
@@ -56,6 +60,7 @@ func _ready() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(scroll)
 	_detail = Label.new()
+	_detail.add_theme_font_size_override("font_size", 18)
 	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_detail)

@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "usn_cvn_nimitz"
+display_name = "Nimitz-class aircraft carrier"
+short_name = "CVN Nimitz"
+nation = "USA"
+category = "carrier"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 18.0
+turn_rate_deg_s = 1.0
+accel_kn_s = 0.1
+length_m = 333.0
+displacement_t = 100000.0
+health = 400.0
+signature_factor = 3.0
+sensor_ids = PackedStringArray("civil_nav_radar", "an_slq_32")
+mast_height_m = 50.0
+aircraft_capacity = 12
+fire_control_channels = 2
+decoy_count = 24
+weapon_loadout = {"essm_family": 24, "ram_block2": 42, "phalanx_ciws": 120}
+source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

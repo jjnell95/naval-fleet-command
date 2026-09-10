@@ -61,6 +61,9 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 			u.magazines[wid] = int(loadout[wid])
 		um.add_unit(u)
 	_link_aircraft(um)
+	var sensor_count := 0
+	for u in um.units: sensor_count += u.sensors.size()
+	print("[Scenario] %d actors / %d sensor installations" % [um.units.size(), sensor_count])
 
 
 ## Aircraft name their parent by callsign, so the link is resolved once every unit exists.

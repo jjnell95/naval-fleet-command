@@ -13,12 +13,22 @@ func _ready() -> void:
 	add_child(v)
 	_header = Label.new()
 	_header.text = "SELECTED UNIT"
+	_header.add_theme_font_size_override("font_size", 19)
+	_header.clip_text = true
 	v.add_child(_header)
+	var portrait := PlatformPortrait.new()
+	portrait.panel = self
+	portrait.custom_minimum_size.y = 118
+	v.add_child(portrait)
 	_body = Label.new()
 	_body.clip_text = true
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(_body)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(scroll)
+	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_body)
 	set_units([])
 
 
