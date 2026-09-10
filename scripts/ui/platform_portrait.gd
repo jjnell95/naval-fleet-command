@@ -5,6 +5,7 @@ extends Control
 ## ink over a graticule. A platform without a render falls back to the code-drawn category
 ## silhouette below, so a carrier, a cruiser, a boat and a jet still read differently.
 var panel: UnitPanel
+var spec_override: PlatformSpec  # shown instead of the panel's selection (editor palette preview)
 var _font: Font
 
 
@@ -29,12 +30,13 @@ func _draw() -> void:
 	var unit: Unit = null
 	if panel != null and not panel._units.is_empty():
 		unit = panel._units[0]
-	var domain := unit.spec.domain if unit != null else "surface"
-	var category := unit.spec.category.to_lower() if unit != null else "destroyer"
+	var spec: PlatformSpec = spec_override if spec_override != null else (unit.spec if unit != null else null)
+	var domain := spec.domain if spec != null else "surface"
+	var category := spec.category.to_lower() if spec != null else "destroyer"
 	var w := minf(size.x * 0.78, 620.0)
 	var x := (size.x - w) * 0.5
 	var y := size.y * 0.66
-	var render: Texture2D = PlatformArt.profile(unit.spec.id) if unit != null else null
+	var render: Texture2D = PlatformArt.profile(spec.id) if spec != null else null
 	if render != null:
 		_draw_render(render, domain, ink)
 	elif domain == "air":
@@ -51,9 +53,11 @@ func _draw() -> void:
 		_draw_combatant(x, y, w, ink, category.contains("cruiser"))
 	if domain != "air" and render == null:
 		draw_line(Vector2(x - 12, y + 12), Vector2(x + w + 12, y + 12), Color(ink, 0.35), 1)
-	var caption := "AEGIS / MULTI-DOMAIN COMMAND" if unit == null else unit.spec.short_name.to_upper()
+	var caption := "AEGIS / MULTI-DOMAIN COMMAND" if spec == null else spec.short_name.to_upper()
 	draw_string(_font, Vector2(10, 15), caption, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 20), 10, ink)
-	var tag := "RECOGNITION PROFILE" if unit == null else "%s · %s" % [unit.spec.category.to_upper(), unit.spec.nation.to_upper()]
+	var tag := "RECOGNITION PROFILE" if spec == null else "%s · %s" % [spec.category.to_upper(), spec.nation.to_upper()]
+	if spec != null and spec.length_m > 0.0:
+		tag += " · %d m" % int(spec.length_m)
 	draw_string(_font, Vector2(10, size.y - 6), tag, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 20), 9, UITheme.COL_DIM)
 
 
@@ -61,9 +65,9 @@ func _draw() -> void:
 ## simply centred. Rendered faces are mid-grey and the outline white, so one tint does the rest.
 func _draw_render(tex: Texture2D, domain: String, ink: Color) -> void:
 	var aspect := float(tex.get_width()) / maxf(float(tex.get_height()), 1.0)
-	var w := minf(size.x * 0.84, 640.0)
+	var w := minf(size.x * 0.92, 700.0)
 	var h := w / aspect
-	var max_h := size.y - 34.0
+	var max_h := size.y - 36.0
 	if h > max_h:
 		h = max_h
 		w = h * aspect

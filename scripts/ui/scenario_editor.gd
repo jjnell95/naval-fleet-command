@@ -27,6 +27,7 @@ var _land: Array[Landmass] = []
 
 var _chart: Chart
 var _palette: ItemList
+var _preview: PlatformPortrait
 var _palette_specs: Array = []
 var _status: Label
 var _name: LineEdit
@@ -122,8 +123,13 @@ func _ready() -> void:
 	_palette.add_theme_constant_override("v_separation", 5)
 	_palette.item_selected.connect(func(i: int) -> void:
 		palette_platform = _palette_specs[i].id
+		_preview.spec_override = _palette_specs[i]
 		_set_mode(Mode.PLACE))
 	left.add_child(_palette)
+	# Recognition preview of the platform about to be placed.
+	_preview = PlatformPortrait.new()
+	_preview.custom_minimum_size.y = 96
+	left.add_child(_preview)
 	var modes := HBoxContainer.new()
 	modes.add_theme_constant_override("separation", 4)
 	left.add_child(modes)
@@ -343,6 +349,7 @@ func _fill_palette() -> void:
 	if not _palette_specs.is_empty():
 		_palette.select(0)
 		palette_platform = _palette_specs[0].id
+		_preview.spec_override = _palette_specs[0]
 
 
 func _set_mode(m: Mode) -> void:

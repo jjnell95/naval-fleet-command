@@ -1085,6 +1085,8 @@ func _draw_silhouette(u: Unit, sp: Vector2, col: Color) -> void:
 	var f := Vector2(dir.x, -dir.y)
 	var s := f.orthogonal()
 	var plan: Texture2D = PlatformArt.plan(u.spec.id)
+	if plan != null and length_px < MapSymbols.RADIUS * 2.2:
+		return  # entirely under the symbol frame: nothing to see, nothing to draw
 	if plan != null:
 		if u.spec.domain == "land":
 			# A base has no length in its spec; the render is 1,800 m across and drawn to scale.
@@ -1320,7 +1322,7 @@ func _draw_key() -> void:
 	if not show_key:
 		return
 	var w := 352.0
-	var h := 182.0
+	var h := 198.0
 	var x := 12.0
 	var y := size.y - h - 34.0
 	draw_rect(Rect2(x, y, w, h), Color("0b1721", 0.94))
@@ -1347,7 +1349,9 @@ func _draw_key() -> void:
 	cy += 16.0
 	draw_string(_font, Vector2(x + 12, cy + 4), "Land: masks radar, ESM and sonar · ships cannot enter it", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 	cy += 16.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Ctrl+right-click a contact: engage · right-click a waypoint: drop it · dbl-click: recentre", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
+	draw_string(_font, Vector2(x + 12, cy + 4), "Ctrl+right-click a contact: engage · right-click a waypoint: drop that leg", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
+	cy += 16.0
+	draw_string(_font, Vector2(x + 12, cy + 4), "Double-click: recentre · Home: fit fleet · C: centre selection · +/−: zoom", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 
 
 ## Hovering over a symbol shows what the console knows about it, without a click.
@@ -1371,6 +1375,8 @@ func _draw_hover_card() -> void:
 		lines.append(u.spec.display_name)
 		lines.append("%s  ·  %s" % [Damage.condition_text(u), Damage.damage_report(u)])
 		lines.append(u.status_line())
+		_draw_card(lines, col, PlatformArt.profile(u.spec.id))
+		return
 	else:
 		var t := _track_at(_mouse)
 		if t == null:
@@ -1396,12 +1402,18 @@ func _draw_hover_card() -> void:
 	_draw_card(lines, col)
 
 
-func _draw_card(lines: PackedStringArray, col: Color) -> void:
+## A hover card: text lines, and for an own unit its recognition profile across the top so the
+## class is recognisable before the name is read.
+func _draw_card(lines: PackedStringArray, col: Color, art: Texture2D = null) -> void:
 	var width := 0.0
 	for l in lines:
 		width = maxf(width, _font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x)
 	width += 20.0
-	var height := 12.0 + lines.size() * 15.0
+	var art_h := 0.0
+	if art != null:
+		width = maxf(width, 200.0)
+		art_h = (width - 20.0) * float(art.get_height()) / maxf(float(art.get_width()), 1.0) + 6.0
+	var height := 12.0 + lines.size() * 15.0 + art_h
 	var pos := _mouse + Vector2(18.0, 18.0)
 	if pos.x + width > size.x:
 		pos.x = _mouse.x - width - 12.0
@@ -1409,5 +1421,7 @@ func _draw_card(lines: PackedStringArray, col: Color) -> void:
 		pos.y = _mouse.y - height - 12.0
 	draw_rect(Rect2(pos, Vector2(width, height)), Color("0b1721", 0.96))
 	draw_rect(Rect2(pos, Vector2(width, height)), Color(col, 0.6), false, 1.0)
+	if art != null:
+		draw_texture_rect(art, Rect2(pos + Vector2(10.0, 8.0), Vector2(width - 20.0, art_h - 6.0)), false, col)
 	for i in lines.size():
-		draw_string(_font, pos + Vector2(10.0, 16.0 + i * 15.0), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col if i == 0 else Color(COL_TEXT, 0.85))
+		draw_string(_font, pos + Vector2(10.0, 16.0 + art_h + i * 15.0), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col if i == 0 else Color(COL_TEXT, 0.85))
