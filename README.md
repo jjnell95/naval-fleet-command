@@ -52,6 +52,6 @@ Install the official matching web export templates, then run `godot --headless -
 
 ## Validation
 
-145 tests pass, including ballistic-vs-BMD interceptor selection, directional jamming, sea-state effects, damage-control repair and full actor resolution for the new scenario. Nine scenarios were advanced 30,000 simulated seconds with AI on both sides, seed 2, without script failures. Aegis Bastion reaches victory; Arctic Shield is a defeat when the AI commands the player's side, which is where the hardest mission should sit. This is a regression smoke test, not a balance study.
+145 tests pass, including ballistic-vs-BMD interceptor selection, directional jamming, sea-state effects, damage-control repair and full actor resolution for the new scenario. Nine scenarios were advanced 30,000 simulated seconds with AI on both sides, seed 2, without script failures. Aegis Bastion and Arctic Shield reach victory; in Arctic Shield the MiG-31Ks fire Kinzhal from standoff, the cruiser detects the rounds at about 95 nm and meets both with SM-3. Atlantic Gate reaches defeat; Baltic Sentinel, GIUK Passage and Northern Shield remain undecided. This is a regression smoke test, not a balance study. The web build was loaded in headless Chromium and boots to the mission menu.
 
 Godot engine licensing is in `docs/play/GODOT-LICENSE.txt`. Source ownership remains with the project author; no new license grant is inferred.

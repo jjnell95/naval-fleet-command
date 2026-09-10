@@ -10,8 +10,8 @@ symbology with glyphs, own-ship-centred range rings, sweeps and pulses, historie
 threat vectors, effects, hover cards, TEWA defence board, readiness bars, event log, new front end
 with disposition chart, after-action report, and procedural sound.
 
-145 tests pass. Nine scenario smoke runs pass without script failures. Aegis Bastion reaches
-victory; Arctic Shield is a defeat under AI-vs-AI at seed 2.
+145 tests pass. Nine scenario smoke runs pass without script failures. Aegis Bastion and
+Arctic Shield reach victory under AI-vs-AI at seed 2, with the Kinzhal / SM-3 exchange exercised.
 
 Known limitations: no terrain, radar scheduling, replenishment or save games. Datalink and
 engagement-channel accounting remain simplified. Jamming, ballistic flight and sea state are
