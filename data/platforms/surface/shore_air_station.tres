@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "shore_air_station"
+display_name = "Shore air station"
+short_name = "Air station"
+nation = ""
+category = "shore base"
+domain = "land"
+max_speed_kn = 0.0
+cruise_speed_kn = 0.0
+turn_rate_deg_s = 0.0
+accel_kn_s = 0.0
+length_m = 0.0
+displacement_t = 0.0
+source_status = "An abstraction, not a real installation. A fixed point on the map that land-based aircraft fly from and return to. GAMEPLAY_ESTIMATE: everything."
+sensor_ids = PackedStringArray()
+signature_factor = 3.0
+mast_height_m = 40.0
+health = 400.0
+aircraft_capacity = 6
+fire_control_channels = 0
+decoy_count = 0
+decoy_effectiveness = 0.0
+weapon_loadout = {
+}

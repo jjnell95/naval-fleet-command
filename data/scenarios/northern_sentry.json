@@ -1,0 +1,182 @@
+{
+  "id": "northern_sentry",
+  "order": 6,
+  "name": "NORTHERN SENTRY",
+  "forces": "NATO: 1 destroyer, 1 frigate, 2 embarked helicopters, 1 maritime patrol aircraft  \u00b7  Russia: 1 submarine, 2 strike aircraft",
+  "description": "Fictional near-future escalation off northern Norway. A Russian diesel boat is working southwest and your two ships cannot hear far enough to find her from their own hulls. Both carry a helicopter, and a Poseidon is available from the shore station at Andoya. Aircraft are the only way to put a sensor somewhere other than where your ships are: a helicopter can fly out twenty miles and dip, and the Poseidon can lay a field of buoys across the corridor. Fuel is the limit on all of it. Russian strike aircraft are also within range of you, so the same ships that are hunting will have to defend themselves.",
+  "start_time_utc": "2027-06-19T04:40:00",
+  "player_faction": "BLUE",
+  "map": {
+    "center_nm": [
+      0,
+      0
+    ],
+    "extent_nm": 130
+  },
+  "objectives": {
+    "text": "Find and sink the Russian submarine. Keep your two warships afloat.",
+    "victory": [
+      {
+        "id": "kill_sub",
+        "type": "unit_lost",
+        "callsigns": [
+          "Novorossiysk"
+        ],
+        "text": "Sink the Russian submarine"
+      }
+    ],
+    "loss": [
+      {
+        "id": "ships_lost",
+        "type": "all_units_lost",
+        "callsigns": [
+          "USS Roosevelt",
+          "HNoMS Roald Amundsen"
+        ],
+        "text": "Both warships lost"
+      },
+      {
+        "id": "escaped",
+        "type": "reach_area",
+        "faction": "RED",
+        "callsigns": [
+          "Novorossiysk"
+        ],
+        "center_nm": [
+          -30,
+          -22
+        ],
+        "radius_nm": 14,
+        "text": "The submarine cleared the area"
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Roosevelt",
+      "faction": "BLUE",
+      "position_nm": [
+        -10,
+        5
+      ],
+      "heading_deg": 45,
+      "speed_kn": 12,
+      "radar_on": true
+    },
+    {
+      "platform": "rnon_ffg_fridtjof_nansen",
+      "callsign": "HNoMS Roald Amundsen",
+      "faction": "BLUE",
+      "position_nm": [
+        -2,
+        -6
+      ],
+      "heading_deg": 45,
+      "speed_kn": 8,
+      "radar_on": false
+    },
+    {
+      "platform": "usn_helo_mh60r",
+      "callsign": "Nighthawk 01",
+      "faction": "BLUE",
+      "home": "USS Roosevelt"
+    },
+    {
+      "platform": "usn_helo_mh60r",
+      "callsign": "Nighthawk 02",
+      "faction": "BLUE",
+      "home": "HNoMS Roald Amundsen"
+    },
+    {
+      "platform": "shore_air_station",
+      "callsign": "Andoya",
+      "faction": "BLUE",
+      "position_nm": [
+        -62,
+        34
+      ],
+      "heading_deg": 0,
+      "speed_kn": 0,
+      "radar_on": false
+    },
+    {
+      "platform": "usn_mpa_p8a",
+      "callsign": "Pelican 21",
+      "faction": "BLUE",
+      "home": "Andoya"
+    },
+    {
+      "platform": "rfn_ssk_kilo",
+      "callsign": "Novorossiysk",
+      "faction": "RED",
+      "position_nm": [
+        20,
+        15
+      ],
+      "heading_deg": 225,
+      "speed_kn": 6,
+      "radar_on": false,
+      "depth_m": 90,
+      "ai_posture": "breakout",
+      "patrol_nm": [
+        [
+          -30,
+          -22
+        ]
+      ]
+    },
+    {
+      "platform": "shore_air_station",
+      "callsign": "Severomorsk",
+      "faction": "RED",
+      "position_nm": [
+        66,
+        48
+      ],
+      "heading_deg": 0,
+      "speed_kn": 0,
+      "radar_on": false
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 11",
+      "faction": "RED",
+      "home": "Severomorsk",
+      "patrol_nm": [
+        [
+          30,
+          20
+        ],
+        [
+          -10,
+          -5
+        ],
+        [
+          30,
+          20
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 12",
+      "faction": "RED",
+      "home": "Severomorsk",
+      "patrol_nm": [
+        [
+          30,
+          20
+        ],
+        [
+          -10,
+          -5
+        ],
+        [
+          30,
+          20
+        ]
+      ]
+    }
+  ]
+}

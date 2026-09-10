@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "mk45_mod4_gun"
+display_name = "Mk 45 127 mm gun"
+family = "Mk 45"
+type = "gun"
+guidance = "unguided"
+profile = "direct"
+target_types = PackedStringArray("surface")
+max_range_nm = 13.0
+min_range_nm = 0.5
+speed_kn = 1600.0
+turn_rate_deg_s = 15.0
+seeker_range_nm = 0.0
+damage = 10.0
+base_pk = 0.55
+salvo_default = 6
+launch_interval_s = 2.0
+defensive_difficulty = 1.0
+source_status = "PUBLIC: weapon family, role, broad range band. GAMEPLAY_ESTIMATE: every numeric value here is a tuning parameter, not a performance claim."

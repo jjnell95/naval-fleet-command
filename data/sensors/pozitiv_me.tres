@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "pozitiv_me"
+display_name = "Pozitiv-ME1 surveillance radar"
+kind = "radar"
+emits = true
+range_surface_nm = 26.0
+range_air_nm = 70.0
+antenna_height_m = 16.0
+classify_rate = 0.85
+source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges, antenna height, classify_rate."

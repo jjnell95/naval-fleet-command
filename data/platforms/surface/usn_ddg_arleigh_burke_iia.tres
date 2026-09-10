@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "usn_ddg_arleigh_burke_iia"
+display_name = "Arleigh Burke-class destroyer (Flight IIA)"
+short_name = "DDG Burke IIA"
+nation = "USA"
+category = "destroyer"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 18.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.25
+length_m = 155.0
+displacement_t = 9200.0
+source_status = "PUBLIC: length, displacement, max speed band. GAMEPLAY_ESTIMATE: cruise_speed_kn, turn_rate_deg_s, accel_kn_s."
+sensor_ids = PackedStringArray("an_spy_1d_v", "an_sqs_53c", "an_slq_32")
+signature_factor = 1.0
+mast_height_m = 30.0
+health = 110.0
+weapon_loadout = {
+"rgm_139_vla": 8,
+"rgm_84_harpoon": 8,
+"mk45_mod4_gun": 250,
+"sm2_family": 24,
+"essm_family": 32,
+"phalanx_ciws": 60
+}
+aircraft_capacity = 1
+fire_control_channels = 6
+decoy_count = 12
+decoy_effectiveness = 0.35

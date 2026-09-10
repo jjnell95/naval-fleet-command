@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "usn_ssn_virginia"
+display_name = "Virginia-class attack submarine"
+short_name = "SSN Virginia"
+nation = "USA"
+category = "nuclear attack submarine"
+domain = "subsurface"
+max_speed_kn = 25.0
+cruise_speed_kn = 8.0
+turn_rate_deg_s = 2.2
+accel_kn_s = 0.20
+length_m = 115.0
+displacement_t = 7900.0
+source_status = "PUBLIC: length, submerged displacement, broad speed band, role. GAMEPLAY_ESTIMATE: acoustic signature, depths, health, decoys and all sensor and weapon values. Real signature and diving figures are not public and are not claimed here."
+sensor_ids = PackedStringArray("an_bqq_10")
+signature_factor = 0.25
+mast_height_m = 8.0
+health = 70.0
+acoustic_signature = 0.08
+max_depth_m = 300.0
+patrol_depth_m = 120.0
+depth_rate_m_s = 2.0
+fire_control_channels = 0
+decoy_count = 8
+decoy_effectiveness = 0.30
+weapon_loadout = {
+"mk48_adcap": 20
+}

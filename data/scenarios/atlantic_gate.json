@@ -1,0 +1,141 @@
+{
+  "id": "atlantic_gate",
+  "order": 4,
+  "name": "ATLANTIC GATE",
+  "forces": "NATO: 1 destroyer, 2 frigates  \u00b7  Russia: 1 frigate, 1 corvette, 1 small missile ship",
+  "description": "Fictional near-future escalation. A Russian surface action group is attempting to pass southwest into the open Atlantic and onto the NATO reinforcement routes. A thin picket is all that stands in the gate. The Russian group is not looking for a battle of annihilation: it is trying to get past you, and it will keep going while it shoots. Your magazines will run out before the clock does, so this is a delaying action. Hold the gate until the relief force arrives.",
+  "start_time_utc": "2027-04-18T11:25:00",
+  "player_faction": "BLUE",
+  "map": {
+    "center_nm": [
+      0,
+      0
+    ],
+    "extent_nm": 150
+  },
+  "objectives": {
+    "text": "Hold the gate for three hours. Do not let any Russian unit reach the breakout point to the southwest.",
+    "victory": [
+      {
+        "id": "hold",
+        "type": "time_elapsed",
+        "seconds": 10800,
+        "text": "Hold the gate for three hours"
+      }
+    ],
+    "loss": [
+      {
+        "id": "breakout",
+        "type": "reach_area",
+        "faction": "RED",
+        "center_nm": [
+          -45,
+          -30
+        ],
+        "radius_nm": 18,
+        "text": "A Russian unit broke out into the Atlantic"
+      },
+      {
+        "id": "picket_lost",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "The picket was destroyed"
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Roosevelt",
+      "faction": "BLUE",
+      "position_nm": [
+        -14,
+        -6
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16,
+      "radar_on": true
+    },
+    {
+      "platform": "rnon_ffg_fridtjof_nansen",
+      "callsign": "HNoMS Roald Amundsen",
+      "faction": "BLUE",
+      "position_nm": [
+        -7,
+        -15
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16,
+      "radar_on": false
+    },
+    {
+      "platform": "dnk_ffg_iver_huitfeldt",
+      "callsign": "HDMS Niels Juel",
+      "faction": "BLUE",
+      "position_nm": [
+        -20,
+        -14
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16,
+      "radar_on": false
+    },
+    {
+      "platform": "rfn_ffg_admiral_gorshkov",
+      "callsign": "Admiral Gorshkov",
+      "faction": "RED",
+      "position_nm": [
+        20,
+        14
+      ],
+      "heading_deg": 225,
+      "speed_kn": 18,
+      "radar_on": true,
+      "patrol_nm": [
+        [
+          -45,
+          -30
+        ]
+      ],
+      "ai_posture": "breakout"
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Stoikiy",
+      "faction": "RED",
+      "position_nm": [
+        27,
+        7
+      ],
+      "heading_deg": 225,
+      "speed_kn": 18,
+      "radar_on": false,
+      "patrol_nm": [
+        [
+          -45,
+          -30
+        ]
+      ],
+      "ai_posture": "breakout"
+    },
+    {
+      "platform": "rfn_fsg_buyan_m",
+      "callsign": "Grad",
+      "faction": "RED",
+      "position_nm": [
+        30,
+        19
+      ],
+      "heading_deg": 225,
+      "speed_kn": 16,
+      "radar_on": false,
+      "patrol_nm": [
+        [
+          -45,
+          -30
+        ]
+      ],
+      "ai_posture": "breakout"
+    }
+  ]
+}

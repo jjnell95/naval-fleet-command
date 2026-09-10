@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "oto_76mm_gun"
+display_name = "76 mm naval gun"
+family = "76 mm"
+type = "gun"
+guidance = "unguided"
+profile = "direct"
+target_types = PackedStringArray("surface")
+max_range_nm = 8.0
+min_range_nm = 0.3
+speed_kn = 1600.0
+turn_rate_deg_s = 15.0
+seeker_range_nm = 0.0
+damage = 6.0
+base_pk = 0.50
+salvo_default = 8
+launch_interval_s = 1.5
+defensive_difficulty = 1.0
+source_status = "PUBLIC: weapon family, role, broad range band. GAMEPLAY_ESTIMATE: every numeric value here is a tuning parameter, not a performance claim."

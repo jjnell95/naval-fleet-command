@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rnon_aux_maud"
+display_name = "Maud-class logistics support vessel"
+short_name = "AOR Maud"
+nation = "Norway"
+category = "auxiliary"
+domain = "surface"
+max_speed_kn = 18.0
+cruise_speed_kn = 14.0
+turn_rate_deg_s = 1.6
+accel_kn_s = 0.12
+length_m = 183.0
+displacement_t = 27500.0
+source_status = "PUBLIC: length, displacement, max speed band. GAMEPLAY_ESTIMATE: cruise speed, turn rate, acceleration, signature, health, channels, decoys."
+sensor_ids = PackedStringArray("civil_nav_radar")
+signature_factor = 1.3
+mast_height_m = 30.0
+health = 130.0
+fire_control_channels = 0
+decoy_count = 6
+decoy_effectiveness = 0.25
+weapon_loadout = {
+}

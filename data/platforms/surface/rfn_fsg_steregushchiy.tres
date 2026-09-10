@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rfn_fsg_steregushchiy"
+display_name = "Steregushchiy-class corvette (Project 20380)"
+short_name = "FSG Steregushchiy"
+nation = "Russia"
+category = "corvette"
+domain = "surface"
+max_speed_kn = 27.0
+cruise_speed_kn = 14.0
+turn_rate_deg_s = 3.5
+accel_kn_s = 0.25
+length_m = 104.5
+displacement_t = 2200.0
+source_status = "PUBLIC: length, displacement, max speed band. GAMEPLAY_ESTIMATE: cruise_speed_kn, turn_rate_deg_s, accel_kn_s."
+sensor_ids = PackedStringArray("furke_2", "mp_405")
+signature_factor = 0.7
+mast_height_m = 25.0
+health = 60.0
+weapon_loadout = {
+"kh35_uran": 8,
+"oto_76mm_gun": 350,
+"redut_family": 12,
+"ak630_ciws": 80
+}
+fire_control_channels = 2
+decoy_count = 8
+decoy_effectiveness = 0.3

@@ -1,0 +1,105 @@
+{
+  "id": "north_atlantic_shadow_line",
+  "name": "NORTH ATLANTIC \u2014 SHADOW LINE",
+  "description": "Fictional near-future NATO-Russia escalation. A NATO surface action group patrols the Norwegian Sea while a Russian surface group pushes southwest toward the North Atlantic. The Russian force is under its own command and will search, close, shoot and withdraw on its own judgement. Neither side knows the other's exact position.",
+  "start_time_utc": "2027-03-14T05:30:00",
+  "player_faction": "BLUE",
+  "map": {
+    "center_nm": [
+      0,
+      0
+    ],
+    "extent_nm": 120
+  },
+  "objectives": {
+    "text": "Locate and destroy the Russian surface group without losing your own ships.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy the Russian surface group"
+      }
+    ],
+    "loss": [
+      {
+        "id": "lose_all",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "NATO surface action group destroyed"
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Roosevelt",
+      "faction": "BLUE",
+      "position_nm": [
+        -24,
+        -14
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16,
+      "radar_on": true
+    },
+    {
+      "platform": "rnon_ffg_fridtjof_nansen",
+      "callsign": "HNoMS Roald Amundsen",
+      "faction": "BLUE",
+      "position_nm": [
+        -18,
+        -22
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16,
+      "radar_on": false
+    },
+    {
+      "platform": "rfn_ffg_admiral_gorshkov",
+      "callsign": "Admiral Gorshkov",
+      "faction": "RED",
+      "position_nm": [
+        22,
+        16
+      ],
+      "heading_deg": 225,
+      "speed_kn": 14,
+      "radar_on": true,
+      "patrol_nm": [
+        [
+          -30,
+          -20
+        ],
+        [
+          30,
+          20
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Stoikiy",
+      "faction": "RED",
+      "position_nm": [
+        28,
+        9
+      ],
+      "heading_deg": 225,
+      "speed_kn": 14,
+      "radar_on": true,
+      "patrol_nm": [
+        [
+          -24,
+          -28
+        ],
+        [
+          36,
+          14
+        ]
+      ]
+    }
+  ],
+  "order": 1,
+  "forces": "NATO: 1 destroyer, 1 frigate  \u00b7  Russia: 1 frigate, 1 corvette"
+}

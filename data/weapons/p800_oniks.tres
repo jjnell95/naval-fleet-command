@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "p800_oniks"
+display_name = "P-800 Oniks family"
+family = "Oniks"
+type = "asm"
+guidance = "active_radar_homing"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 130.0
+min_range_nm = 4.0
+speed_kn = 1100.0
+turn_rate_deg_s = 15.0
+seeker_range_nm = 10.0
+damage = 65.0
+base_pk = 0.82
+salvo_default = 4
+launch_interval_s = 1.5
+defensive_difficulty = 1.5
+source_status = "PUBLIC: weapon family, role, broad range band. GAMEPLAY_ESTIMATE: every numeric value here is a tuning parameter, not a performance claim."
+signature_factor = 0.22
+altitude_m = 12.0
+soft_kill_resistance = 1.4

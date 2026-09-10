@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "civil_nav_radar"
+display_name = "Civil navigation radar"
+kind = "radar"
+emits = true
+range_surface_nm = 14.0
+range_air_nm = 10.0
+antenna_height_m = 25.0
+classify_rate = 0.4
+source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges, antenna height, classify_rate."

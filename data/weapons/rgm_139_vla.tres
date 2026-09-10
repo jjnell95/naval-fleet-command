@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "rgm_139_vla"
+display_name = "Vertical-launch ASROC"
+family = "ASROC"
+type = "torpedo"
+guidance = "acoustic_homing"
+profile = "subsurface"
+target_types = PackedStringArray("surface", "subsurface")
+max_range_nm = 12.0
+min_range_nm = 0.4
+speed_kn = 240.0
+turn_rate_deg_s = 12.0
+seeker_range_nm = 1.5
+damage = 55.0
+base_pk = 0.68
+salvo_default = 2
+launch_interval_s = 20.0
+run_to_enable_nm = 0.3
+acoustic_signature = 0.60
+source_status = "PUBLIC: weapon family and role. GAMEPLAY_ESTIMATE: every numeric value is a tuning parameter. Rocket delivery for the ship-launched round is abstracted into its speed rather than modelled as a separate phase."
+soft_kill_resistance = 0.7

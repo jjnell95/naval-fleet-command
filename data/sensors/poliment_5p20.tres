@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "poliment_5p20"
+display_name = "Poliment 5P-20 multifunction radar"
+kind = "radar"
+emits = true
+range_surface_nm = 35.0
+range_air_nm = 150.0
+antenna_height_m = 20.0
+classify_rate = 1.0
+source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges, antenna height, classify_rate."

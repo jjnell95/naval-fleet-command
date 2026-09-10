@@ -1,0 +1,85 @@
+{
+  "id": "sandbox_m1",
+  "name": "TACTICAL SANDBOX",
+  "description": "A free-play testbed in the Norwegian Sea for trying movement, emissions and weapons without a mission. Both sides are armed and the Russian ships are under AI command.",
+  "start_time_utc": "2027-03-14T05:30:00",
+  "player_faction": "BLUE",
+  "map": {
+    "center_nm": [
+      0,
+      0
+    ],
+    "extent_nm": 160
+  },
+  "units": [
+    {
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Roosevelt",
+      "faction": "BLUE",
+      "position_nm": [
+        -36,
+        -10
+      ],
+      "heading_deg": 60,
+      "speed_kn": 15,
+      "radar_on": true
+    },
+    {
+      "platform": "rnon_ffg_fridtjof_nansen",
+      "callsign": "HNoMS Roald Amundsen",
+      "faction": "BLUE",
+      "position_nm": [
+        -33,
+        -18
+      ],
+      "heading_deg": 60,
+      "speed_kn": 15,
+      "radar_on": false
+    },
+    {
+      "platform": "rfn_ffg_admiral_gorshkov",
+      "callsign": "Admiral Gorshkov",
+      "faction": "RED",
+      "position_nm": [
+        36,
+        12
+      ],
+      "heading_deg": 245,
+      "speed_kn": 12,
+      "radar_on": true
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Stoikiy",
+      "faction": "RED",
+      "position_nm": [
+        41,
+        4
+      ],
+      "heading_deg": 245,
+      "speed_kn": 12,
+      "radar_on": true
+    }
+  ],
+  "order": 99,
+  "forces": "Free-play testbed: 2 NATO, 2 Russian",
+  "objectives": {
+    "text": "No formal mission. Experiment freely.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy the Russian ships"
+      }
+    ],
+    "loss": [
+      {
+        "id": "lose_all",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "Both NATO ships lost"
+      }
+    ]
+  }
+}

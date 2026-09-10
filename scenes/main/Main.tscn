@@ -1,0 +1,66 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/simulation/simulation.gd" id="2_sim"]
+[ext_resource type="Script" path="res://scripts/ui/top_bar.gd" id="3_top"]
+[ext_resource type="Script" path="res://scripts/ui/unit_panel.gd" id="4_unit"]
+[ext_resource type="Script" path="res://scripts/ui/tactical_map.gd" id="5_map"]
+[ext_resource type="Script" path="res://scripts/ui/orders_panel.gd" id="6_orders"]
+[ext_resource type="Script" path="res://scripts/ui/contact_panel.gd" id="7_contacts"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Simulation" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_sim")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="TopBar" type="PanelContainer" parent="Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+script = ExtResource("3_top")
+
+[node name="Middle" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="UnitPanel" type="PanelContainer" parent="Layout/Middle"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(270, 0)
+layout_mode = 2
+script = ExtResource("4_unit")
+
+[node name="TacticalMap" type="Control" parent="Layout/Middle"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("5_map")
+
+[node name="ContactPanel" type="PanelContainer" parent="Layout/Middle"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(270, 0)
+layout_mode = 2
+script = ExtResource("7_contacts")
+
+[node name="OrdersPanel" type="PanelContainer" parent="Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 190)
+layout_mode = 2
+script = ExtResource("6_orders")

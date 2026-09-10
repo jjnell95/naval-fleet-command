@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "redut_family"
+display_name = "Poliment-Redut family"
+family = "Redut"
+type = "sam"
+guidance = "fire_control_directed"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 40.0
+min_range_nm = 1.5
+speed_kn = 2000.0
+turn_rate_deg_s = 60.0
+seeker_range_nm = 4.0
+damage = 38.0
+base_pk = 0.48
+salvo_default = 2
+launch_interval_s = 2.0
+source_status = "PUBLIC: weapon family and role. GAMEPLAY_ESTIMATE: every numeric value is a tuning parameter, not a performance claim."

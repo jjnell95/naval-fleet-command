@@ -1,0 +1,141 @@
+{
+  "id": "baltic_sentinel",
+  "order": 3,
+  "name": "BALTIC SENTINEL",
+  "forces": "NATO: 1 Danish frigate, 1 German corvette  \u00b7  Russia: 1 corvette, 1 small missile ship  \u00b7  Neutral merchant traffic",
+  "description": "Fictional near-future crisis in the Baltic. A NATO multinational group is holding a patrol line in crowded, confined water. Two Russian units are operating in the same box. Commercial traffic has not stopped: neutral merchant ships are transiting the same lane, they look much like a warship on radar until classified, and sinking one is a strategic defeat. Ranges here are short, the horizon comes quickly, and there is very little time between detection and decision.",
+  "start_time_utc": "2027-04-11T21:40:00",
+  "player_faction": "BLUE",
+  "neutral_factions": [
+    "WHITE"
+  ],
+  "map": {
+    "center_nm": [
+      0,
+      0
+    ],
+    "extent_nm": 110
+  },
+  "objectives": {
+    "text": "Clear the patrol box of Russian combatants. Do not fire on neutral shipping.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy both Russian combatants"
+      }
+    ],
+    "loss": [
+      {
+        "id": "neutral_sunk",
+        "type": "unit_lost",
+        "callsigns": [
+          "MV Baltic Trader",
+          "MV Gotland Star"
+        ],
+        "text": "A neutral merchant was sunk"
+      },
+      {
+        "id": "lose_all",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "NATO patrol destroyed"
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "dnk_ffg_iver_huitfeldt",
+      "callsign": "HDMS Peter Willemoes",
+      "faction": "BLUE",
+      "position_nm": [
+        -28,
+        -10
+      ],
+      "heading_deg": 75,
+      "speed_kn": 14,
+      "radar_on": true
+    },
+    {
+      "platform": "deu_fsg_braunschweig",
+      "callsign": "FGS Magdeburg",
+      "faction": "BLUE",
+      "position_nm": [
+        -22,
+        -20
+      ],
+      "heading_deg": 75,
+      "speed_kn": 14,
+      "radar_on": false
+    },
+    {
+      "platform": "rfn_fsg_buyan_m",
+      "callsign": "Grad",
+      "faction": "RED",
+      "position_nm": [
+        30,
+        16
+      ],
+      "heading_deg": 250,
+      "speed_kn": 12,
+      "radar_on": false,
+      "patrol_nm": [
+        [
+          26,
+          14
+        ],
+        [
+          -6,
+          -14
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Sovershennyy",
+      "faction": "RED",
+      "position_nm": [
+        34,
+        4
+      ],
+      "heading_deg": 250,
+      "speed_kn": 14,
+      "radar_on": true,
+      "patrol_nm": [
+        [
+          30,
+          2
+        ],
+        [
+          -10,
+          -6
+        ]
+      ]
+    },
+    {
+      "platform": "civ_merchant_bulk",
+      "callsign": "MV Baltic Trader",
+      "faction": "WHITE",
+      "position_nm": [
+        18,
+        -6
+      ],
+      "heading_deg": 260,
+      "speed_kn": 13,
+      "radar_on": true
+    },
+    {
+      "platform": "civ_merchant_bulk",
+      "callsign": "MV Gotland Star",
+      "faction": "WHITE",
+      "position_nm": [
+        8,
+        10
+      ],
+      "heading_deg": 80,
+      "speed_kn": 12,
+      "radar_on": true
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "trs_3d"
+display_name = "TRS-3D air/surface search radar"
+kind = "radar"
+emits = true
+range_surface_nm = 28.0
+range_air_nm = 90.0
+antenna_height_m = 20.0
+classify_rate = 0.9
+source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges, antenna height, classify_rate."

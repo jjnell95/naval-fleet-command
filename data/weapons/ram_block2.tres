@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "ram_block2"
+display_name = "RAM family"
+family = "RAM"
+type = "sam"
+guidance = "fire_control_directed"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 5.0
+min_range_nm = 0.3
+speed_kn = 2200.0
+turn_rate_deg_s = 120.0
+seeker_range_nm = 4.0
+damage = 20.0
+base_pk = 0.60
+salvo_default = 2
+launch_interval_s = 1.0
+source_status = "PUBLIC: weapon family and role. GAMEPLAY_ESTIMATE: every numeric value is a tuning parameter, not a performance claim."

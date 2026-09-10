@@ -1,0 +1,133 @@
+{
+  "id": "northern_shield",
+  "order": 2,
+  "name": "NORTHERN SHIELD",
+  "forces": "NATO: 1 destroyer, 1 frigate, 1 replenishment ship  \u00b7  Russia: 1 frigate, 1 corvette",
+  "description": "Fictional near-future crisis. Norwegian maritime infrastructure is being reinforced by sea. The logistics vessel HNoMS Maud must reach the replenishment area off the Lofoten approaches. A Russian surface group is operating somewhere to the northeast and has been ordered to stop her. Maud is unarmed, slow and carries no interceptors. She survives only inside the umbrella of her escorts, so the tactical problem is where to put two warships relative to one that cannot defend itself.",
+  "start_time_utc": "2027-04-02T03:10:00",
+  "player_faction": "BLUE",
+  "map": {
+    "center_nm": [
+      0,
+      0
+    ],
+    "extent_nm": 160
+  },
+  "objectives": {
+    "text": "Escort HNoMS Maud to the replenishment area to the southwest. She must arrive intact.",
+    "victory": [
+      {
+        "id": "maud_arrives",
+        "type": "reach_area",
+        "faction": "BLUE",
+        "callsigns": [
+          "HNoMS Maud"
+        ],
+        "center_nm": [
+          -45,
+          -32
+        ],
+        "radius_nm": 14,
+        "text": "Bring HNoMS Maud to the replenishment area"
+      }
+    ],
+    "loss": [
+      {
+        "id": "maud_lost",
+        "type": "unit_lost",
+        "callsigns": [
+          "HNoMS Maud"
+        ],
+        "text": "HNoMS Maud sunk"
+      },
+      {
+        "id": "escorts_lost",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "Escort force destroyed"
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "rnon_aux_maud",
+      "callsign": "HNoMS Maud",
+      "faction": "BLUE",
+      "position_nm": [
+        15,
+        18
+      ],
+      "heading_deg": 225,
+      "speed_kn": 14,
+      "radar_on": true
+    },
+    {
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Roosevelt",
+      "faction": "BLUE",
+      "position_nm": [
+        9,
+        25
+      ],
+      "heading_deg": 225,
+      "speed_kn": 14,
+      "radar_on": true
+    },
+    {
+      "platform": "rnon_ffg_fridtjof_nansen",
+      "callsign": "HNoMS Roald Amundsen",
+      "faction": "BLUE",
+      "position_nm": [
+        21,
+        11
+      ],
+      "heading_deg": 225,
+      "speed_kn": 14,
+      "radar_on": false
+    },
+    {
+      "platform": "rfn_ffg_admiral_gorshkov",
+      "callsign": "Admiral Gorshkov",
+      "faction": "RED",
+      "position_nm": [
+        35,
+        25
+      ],
+      "heading_deg": 225,
+      "speed_kn": 16,
+      "radar_on": true,
+      "patrol_nm": [
+        [
+          2,
+          -16
+        ],
+        [
+          -28,
+          12
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Stoikiy",
+      "faction": "RED",
+      "position_nm": [
+        27,
+        35
+      ],
+      "heading_deg": 215,
+      "speed_kn": 16,
+      "radar_on": false,
+      "patrol_nm": [
+        [
+          12,
+          -6
+        ],
+        [
+          -20,
+          20
+        ]
+      ]
+    }
+  ]
+}

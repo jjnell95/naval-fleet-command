@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "an_spy_1d_v"
+display_name = "AN/SPY-1D(V) multifunction radar"
+kind = "radar"
+emits = true
+range_surface_nm = 40.0
+range_air_nm = 200.0
+antenna_height_m = 20.0
+classify_rate = 1.2
+source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges, antenna height, classify_rate."

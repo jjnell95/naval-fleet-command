@@ -1,0 +1,29 @@
+; Engine configuration file.
+; Modern Naval Fleet Command — Godot 4.x project
+
+config_version=5
+
+[application]
+
+config/name="Naval Fleet Command"
+config/description="Modern naval warfare tactical simulation (NATO vs Russia, fictional near-future)."
+run/main_scene="res://scenes/main/Main.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/size/resizable=true
+window/stretch/mode="disabled"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=1
+environment/defaults/default_clear_color=Color(0.03, 0.05, 0.08, 1)
+
+[autoload]
+
+SimClock="*res://scripts/simulation/sim_clock.gd"
+Debug="*res://scripts/core/debug.gd"

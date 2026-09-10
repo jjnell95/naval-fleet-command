@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "bars_radar"
+display_name = "N011M Bars radar"
+kind = "radar"
+emits = true
+range_surface_nm = 80.0
+range_air_nm = 120.0
+antenna_height_m = 3.0
+classify_rate = 1.0
+source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges. For an airborne set the detection horizon uses the aircraft's altitude, not this antenna height."

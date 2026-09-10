@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rnon_ffg_fridtjof_nansen"
+display_name = "Fridtjof Nansen-class frigate"
+short_name = "FFG Nansen"
+nation = "Norway"
+category = "frigate"
+domain = "surface"
+max_speed_kn = 26.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.22
+length_m = 134.0
+displacement_t = 5290.0
+source_status = "PUBLIC: length, displacement, max speed band. GAMEPLAY_ESTIMATE: cruise_speed_kn, turn_rate_deg_s, accel_kn_s."
+sensor_ids = PackedStringArray("an_spy_1f", "captas_mk2", "nato_esm_suite")
+signature_factor = 0.85
+mast_height_m = 28.0
+health = 85.0
+weapon_loadout = {
+"mk54_lwt": 6,
+"nsm_strike_missile": 8,
+"oto_76mm_gun": 350,
+"essm_family": 32
+}
+aircraft_capacity = 1
+fire_control_channels = 4
+decoy_count = 12
+decoy_effectiveness = 0.35

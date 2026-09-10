@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rfn_fsg_buyan_m"
+display_name = "Buyan-M-class corvette (Project 21631)"
+short_name = "FSG Buyan-M"
+nation = "Russia"
+category = "corvette"
+domain = "surface"
+max_speed_kn = 25.0
+cruise_speed_kn = 12.0
+turn_rate_deg_s = 3.8
+accel_kn_s = 0.26
+length_m = 74.0
+displacement_t = 950.0
+source_status = "PUBLIC: length, displacement, max speed band. GAMEPLAY_ESTIMATE: cruise speed, turn rate, acceleration, signature, health, channels, decoys."
+sensor_ids = PackedStringArray("pozitiv_me", "mp_405")
+signature_factor = 0.55
+mast_height_m = 18.0
+health = 45.0
+fire_control_channels = 2
+decoy_count = 8
+decoy_effectiveness = 0.28
+weapon_loadout = {
+"kalibr_asm": 8,
+"a190_100mm_gun": 250,
+"ak630_ciws": 60
+}

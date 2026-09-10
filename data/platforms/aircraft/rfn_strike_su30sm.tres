@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rfn_strike_su30sm"
+display_name = "Su-30SM"
+short_name = "Su-30SM"
+nation = "Russia"
+category = "strike aircraft"
+domain = "air"
+max_speed_kn = 900.0
+cruise_speed_kn = 450.0
+turn_rate_deg_s = 8.0
+accel_kn_s = 8.0
+length_m = 21.9
+displacement_t = 34.0
+source_status = "PUBLIC: length, maximum take-off mass, broad speed and altitude bands, role. GAMEPLAY_ESTIMATE: endurance, signature, health, sensor and weapon values, deck cycle times."
+sensor_ids = PackedStringArray("bars_radar")
+signature_factor = 0.80
+mast_height_m = 5.0
+health = 25.0
+acoustic_signature = 0.0
+cruise_altitude_m = 7000.0
+max_altitude_m = 15000.0
+altitude_rate_m_s = 40.0
+endurance_s = 7200.0
+can_hover = false
+launch_time_s = 300.0
+recovery_time_s = 600.0
+sonobuoy_count = 0
+sonobuoy_sensitivity_nm = 0.0
+sonobuoy_life_s = 0.0
+fire_control_channels = 0
+decoy_count = 6
+decoy_effectiveness = 0.30
+weapon_loadout = {
+"kh35_uran": 4
+}

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "phalanx_ciws"
+display_name = "Phalanx close-in weapon system"
+family = "Phalanx"
+type = "ciws"
+guidance = "fire_control_directed"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 1.2
+min_range_nm = 0.05
+speed_kn = 3000.0
+turn_rate_deg_s = 180.0
+seeker_range_nm = 4.0
+damage = 15.0
+base_pk = 0.4
+salvo_default = 1
+launch_interval_s = 0.5
+source_status = "Magazine counts engagement bursts, not rounds. PUBLIC: weapon family and role. GAMEPLAY_ESTIMATE: every numeric value is a tuning parameter, not a performance claim."

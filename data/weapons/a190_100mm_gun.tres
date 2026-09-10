@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "a190_100mm_gun"
+display_name = "A-190 100 mm gun"
+family = "A-190"
+type = "gun"
+guidance = "unguided"
+profile = "direct"
+target_types = PackedStringArray("surface")
+max_range_nm = 10.0
+min_range_nm = 0.4
+speed_kn = 1600.0
+turn_rate_deg_s = 15.0
+seeker_range_nm = 0.0
+damage = 8.0
+base_pk = 0.52
+salvo_default = 6
+launch_interval_s = 2.0
+defensive_difficulty = 1.0
+source_status = "PUBLIC: weapon family, role, broad range band. GAMEPLAY_ESTIMATE: every numeric value here is a tuning parameter, not a performance claim."

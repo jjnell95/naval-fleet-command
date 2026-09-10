@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "usn_mpa_p8a"
+display_name = "P-8A Poseidon"
+short_name = "P-8A"
+nation = "USA"
+category = "maritime patrol aircraft"
+domain = "air"
+max_speed_kn = 490.0
+cruise_speed_kn = 380.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 4.0
+length_m = 39.5
+displacement_t = 85.0
+source_status = "PUBLIC: length, maximum take-off mass, broad speed and altitude bands, role. GAMEPLAY_ESTIMATE: endurance, signature, health, sensor and weapon values, deck cycle times."
+sensor_ids = PackedStringArray("an_apy_10", "an_alq_240")
+signature_factor = 0.90
+mast_height_m = 5.0
+health = 30.0
+acoustic_signature = 0.0
+cruise_altitude_m = 8000.0
+max_altitude_m = 12500.0
+altitude_rate_m_s = 15.0
+endurance_s = 14400.0
+can_hover = false
+launch_time_s = 300.0
+recovery_time_s = 600.0
+sonobuoy_count = 60
+sonobuoy_sensitivity_nm = 24.0
+sonobuoy_life_s = 3600.0
+fire_control_channels = 0
+decoy_count = 6
+decoy_effectiveness = 0.30
+weapon_loadout = {
+"mk54_lwt": 6,
+"rgm_84_harpoon": 2
+}

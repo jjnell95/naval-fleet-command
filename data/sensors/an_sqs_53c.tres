@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "an_sqs_53c"
+display_name = "AN/SQS-53C hull sonar"
+kind = "sonar"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 0.0
+classify_rate = 0.90
+passive_sensitivity_nm = 13.0
+active_range_nm = 12.0
+bearing_accuracy_deg = 2.0
+self_noise_tolerance = 0.35
+source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges, bearing accuracy and self-noise tolerance are tuning parameters, not performance claims."

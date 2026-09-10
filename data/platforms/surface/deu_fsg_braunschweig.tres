@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "deu_fsg_braunschweig"
+display_name = "Braunschweig-class corvette (K130)"
+short_name = "FSG Braunschweig"
+nation = "Germany"
+category = "corvette"
+domain = "surface"
+max_speed_kn = 26.0
+cruise_speed_kn = 15.0
+turn_rate_deg_s = 3.6
+accel_kn_s = 0.26
+length_m = 89.0
+displacement_t = 1840.0
+source_status = "PUBLIC: length, displacement, max speed band. GAMEPLAY_ESTIMATE: cruise speed, turn rate, acceleration, signature, health, channels, decoys."
+sensor_ids = PackedStringArray("trs_3d", "nato_esm_suite")
+signature_factor = 0.65
+mast_height_m = 22.0
+health = 55.0
+fire_control_channels = 2
+decoy_count = 10
+decoy_effectiveness = 0.33
+weapon_loadout = {
+"rbs15_mk3": 8,
+"oto_76mm_gun": 300,
+"ram_block2": 21
+}
