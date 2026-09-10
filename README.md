@@ -17,7 +17,7 @@ Desktop/laptop with keyboard and mouse, WebGL 2 browser. The initial engine down
 
 ## What is implemented
 
-Nine missions including a free-play sandbox; 30 platform types, 30 weapon families and 34 sensor definitions. Arctic Shield deploys 28 actors across air, surface, subsurface and neutral traffic in a sea state 4.
+Nine missions including a free-play sandbox; 30 platform types, 30 weapon families and 34 sensor definitions. Arctic Shield deploys 29 actors across air, surface, subsurface and neutral traffic in a sea state 4.
 
 Radar horizon, passive/active sonar, ESM bearings, uncertain tracks, classification, stale tracks, target-motion analysis, layered missile interception, decoys, fire-control channel limits, gunfire, torpedoes, component damage, ROE, emissions control, datalinks, formations, aircraft launch/recovery/fuel, sonobuoys and opposing AI.
 

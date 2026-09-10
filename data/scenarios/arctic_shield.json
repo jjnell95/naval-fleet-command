@@ -2,7 +2,7 @@
   "id": "arctic_shield",
   "order": 1,
   "name": "ARCTIC SHIELD",
-  "forces": "BLUE: carrier, Aegis BMD cruiser, Flight III destroyer, Constellation frigate, Type 45, Virginia SSN, E-2D, 2 fighters, EA-18G Growler, MH-60R / RED: Slava cruiser group, Yasen-M SSN, 4 Tu-22M3 with Kh-32, 2 MiG-31K with Kinzhal, 2 Su-35S, Tu-142 / two neutral merchants",
+  "forces": "BLUE: carrier, Aegis BMD cruiser, Flight III destroyer, Constellation frigate, Type 45, Virginia SSN, E-2D, 2 fighters, EA-18G Growler, MH-60R / RED: Slava cruiser group, Yasen-M SSN, 4 Tu-22M3 with Kh-32, 2 MiG-31K with Kinzhal, 2 Su-35S, 2 Tu-142 / two neutral merchants",
   "description": "Fictional Norwegian Sea exercise in a rough sea. A carrier group with an Aegis BMD cruiser holds station for one hour while a cruiser group, a nuclear submarine and a regimental air raid converge. The raid arrives high and fast: supersonic Kh-32s from the bombers and aero-ballistic Kinzhals from MiG-31Ks that only the SM-3 layer can meet outside the atmosphere. Launch the E-2D early, put the Growler between the raid axis and the task group to jam the bombers' search radars, keep the fighters on the northeast axis, and hold the cruiser inside the screen with its SM-3 magazine intact for the ballistic shots. Sea state 4 shortens every sonar and hides sea-skimmers in clutter. Public platform families, deliberately estimated combat parameters.",
   "start_time_utc": "2027-11-14T05:40:00",
   "player_faction": "BLUE",
@@ -304,15 +304,35 @@
       "home": "Olenya Air Base",
       "patrol_nm": [
         [
-          90,
-          70
+          150,
+          60
         ],
         [
-          40,
-          40
+          125,
+          15
         ],
         [
-          70,
+          150,
+          -20
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_mpa_tu142",
+      "callsign": "Bear 72",
+      "faction": "RED",
+      "home": "Olenya Air Base",
+      "patrol_nm": [
+        [
+          95,
+          75
+        ],
+        [
+          45,
+          45
+        ],
+        [
+          75,
           20
         ]
       ]
@@ -385,33 +405,13 @@
       "platform": "rfn_strike_mig31k",
       "callsign": "Foxhound 31",
       "faction": "RED",
-      "home": "Monchegorsk Air Base",
-      "patrol_nm": [
-        [
-          140,
-          120
-        ],
-        [
-          90,
-          80
-        ]
-      ]
+      "home": "Monchegorsk Air Base"
     },
     {
       "platform": "rfn_strike_mig31k",
       "callsign": "Foxhound 32",
       "faction": "RED",
-      "home": "Monchegorsk Air Base",
-      "patrol_nm": [
-        [
-          140,
-          120
-        ],
-        [
-          90,
-          80
-        ]
-      ]
+      "home": "Monchegorsk Air Base"
     },
     {
       "platform": "rfn_fighter_su35s",

@@ -125,7 +125,7 @@ func test_arctic_shield_scenario_resolves_every_actor() -> void:
 	var um := UnitManager.new()
 	var sc := ScenarioLoader.load_file("res://data/scenarios/arctic_shield.json")
 	ScenarioLoader.populate(um, sc)
-	assert_eq(um.units.size(), 28, "all scenario actors spawn")
+	assert_eq(um.units.size(), 29, "all scenario actors spawn")
 	var jammers := 0
 	var bmd := 0
 	for u in um.units:
