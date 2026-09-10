@@ -5,21 +5,29 @@ extends Control
 ## Own units are drawn from ground truth; other factions are drawn ONLY as Tracks
 ## (except under Debug.enabled, which overlays true positions).
 ##
-## Controls: wheel = zoom at cursor, middle/right drag = pan, left click = select unit/track,
-## shift+click = add/remove unit, left drag = box select, right click water = move order
-## (shift = append), right click track = select track, arrow keys / WASD = pan.
+## Controls: wheel or +/- = zoom at cursor, middle/right drag = pan, left click = select
+## unit/track, shift+click = add/remove unit, left drag = box select, double-click a unit or
+## track = recentre on it without changing zoom, right click water = move order (shift = append),
+## right click a track = select it as target (ctrl/cmd = also engage with the selected weapon),
+## right click a waypoint marker = drop that one leg from the route, arrow keys / WASD = pan,
+## Home = fit the whole fleet in view, C = recentre on the current selection.
 
 signal selection_changed(units: Array)
 signal track_selected(track: Track)
 signal move_order_requested(world_pos: Vector2, append: bool)
+signal engage_requested(track: Track)
+signal waypoint_delete_requested(unit: Unit, index: int)
 
 enum DragMode { NONE, PAN, BOX }
 
 const MIN_PPN := 0.2
 const MAX_PPN := 900.0
 const ZOOM_STEP := 1.25
+const KEYBOARD_ZOOM_RATE := 4.0
 const CLICK_RADIUS_PX := 14.0
+const WAYPOINT_HIT_PX := 9.0
 const DRAG_THRESHOLD_PX := 5.0
+const DOUBLE_CLICK_MS := 350
 const LEADER_MINUTES := 30.0
 const KEY_PAN_PX_PER_S := 700.0
 const HEADER_H := 36.0
@@ -94,6 +102,8 @@ var _drag_start := Vector2.ZERO
 var _drag_moved := false
 var _mouse := Vector2.ZERO
 var _mouse_inside := false
+var _last_click_ms: int = -1000000
+var _last_click_pos := Vector2.ZERO
 var _pending_fit := false
 var _fit_center := Vector2.ZERO
 var _fit_extent := 0.0
@@ -127,6 +137,7 @@ func _process(delta: float) -> void:
 	_anim += delta
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
 	_keyboard_pan(delta)
+	_keyboard_zoom(delta)
 	_prune_selection()
 	_record_trails()
 	_record_weapon_trails()
@@ -252,6 +263,43 @@ func _zoom_at(screen_pos: Vector2, factor: float) -> void:
 	center_nm = Vector2(anchor.x - (screen_pos.x - size.x * 0.5) / ppn, anchor.y + (screen_pos.y - size.y * 0.5) / ppn)
 
 
+## Recentres the view on a point without touching zoom. Used to snap back to a unit or track
+## the player has lost track of on a spread-out picture, without re-fitting the whole scale.
+func center_on(world_pos: Vector2) -> void:
+	center_nm = world_pos
+
+
+## Recentres on the current selection (or the selected track, lacking a unit selection), holding
+## zoom steady. Bound to C so the picture can be re-found after panning away.
+func center_on_selection() -> void:
+	if selected.is_empty():
+		if selected_track != null:
+			center_on(selected_track.position)
+		else:
+			fit_to_fleet()
+		return
+	var sum := Vector2.ZERO
+	for u in selected:
+		sum += u.position
+	center_on(sum / selected.size())
+
+
+## Fits the whole own-force to the view, the way the scenario's initial picture does. Recovers
+## the display after the fleet has spread out or the view has been panned away from it.
+func fit_to_fleet() -> void:
+	var own := _own_units()
+	if own.is_empty():
+		return
+	var lo := own[0].position
+	var hi := own[0].position
+	for u in own:
+		lo.x = minf(lo.x, u.position.x)
+		lo.y = minf(lo.y, u.position.y)
+		hi.x = maxf(hi.x, u.position.x)
+		hi.y = maxf(hi.y, u.position.y)
+	fit_to((lo + hi) * 0.5, maxf(hi.x - lo.x, hi.y - lo.y) * 1.3 + 6.0)
+
+
 func _keyboard_pan(delta: float) -> void:
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus != null and focus != self:
@@ -267,6 +315,21 @@ func _keyboard_pan(delta: float) -> void:
 		dir.y -= 1.0
 	if dir != Vector2.ZERO:
 		center_nm += dir * KEY_PAN_PX_PER_S * delta / ppn
+
+
+## +/- (and the numpad equivalents) zoom on the screen centre, for a wheel-free way to work the
+## scale — smooth and continuous while held, matching the feel of the wheel step.
+func _keyboard_zoom(delta: float) -> void:
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus != null and focus != self:
+		return
+	var dir := 0.0
+	if Input.is_key_pressed(KEY_EQUAL) or Input.is_key_pressed(KEY_KP_ADD):
+		dir += 1.0
+	if Input.is_key_pressed(KEY_MINUS) or Input.is_key_pressed(KEY_KP_SUBTRACT):
+		dir -= 1.0
+	if dir != 0.0:
+		_zoom_at(size * 0.5, pow(ZOOM_STEP, dir * delta * KEYBOARD_ZOOM_RATE))
 
 
 # --- Input ------------------------------------------------------------------------------
@@ -297,6 +360,7 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 					_box_select(Rect2(_drag_start, e.position - _drag_start).abs(), e.shift_pressed)
 				else:
 					_click_select(e.position, e.shift_pressed)
+					_check_double_click(e.position)
 				_end_drag()
 		MOUSE_BUTTON_MIDDLE:
 			if e.pressed:
@@ -308,11 +372,18 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 				_begin_drag(DragMode.PAN, e)
 			elif _drag_button == MOUSE_BUTTON_RIGHT:
 				if not _drag_moved:
-					var t := _track_at(e.position)
-					if t != null:
-						select_track(t)
+					var wp := _waypoint_at(e.position)
+					if not wp.is_empty():
+						waypoint_delete_requested.emit(wp["unit"], wp["index"])
 					else:
-						move_order_requested.emit(screen_to_world(e.position), e.shift_pressed)
+						var t := _track_at(e.position)
+						if t != null:
+							if e.ctrl_pressed or e.meta_pressed:
+								engage_requested.emit(t)
+							else:
+								select_track(t)
+						else:
+							move_order_requested.emit(screen_to_world(e.position), e.shift_pressed)
 				_end_drag()
 
 
@@ -382,6 +453,39 @@ func _track_at(screen_pos: Vector2) -> Track:
 			best = t
 			best_d = d
 	return best
+
+
+## The nearest own waypoint marker to the cursor, if any is close enough to act on. Shared by the
+## right-click handler (delete that leg) and the hover card (hint that it is clickable).
+func _waypoint_at(screen_pos: Vector2) -> Dictionary:
+	var best := {}
+	var best_d := WAYPOINT_HIT_PX
+	for u in _own_units():
+		for i in u.waypoints.size():
+			var d := world_to_screen(u.waypoints[i]).distance_to(screen_pos)
+			if d <= best_d:
+				best = {"unit": u, "index": i}
+				best_d = d
+	return best
+
+
+## A second click on the same unit or track within the window recentres the view on it, without
+## touching zoom or selection — the "find the ship again" gesture on a spread-out picture.
+func _check_double_click(screen_pos: Vector2) -> void:
+	var now := Time.get_ticks_msec()
+	var is_double := now - _last_click_ms <= DOUBLE_CLICK_MS and screen_pos.distance_to(_last_click_pos) <= DRAG_THRESHOLD_PX
+	if is_double:
+		var u := _unit_at(screen_pos)
+		if u != null:
+			center_on(u.position)
+		else:
+			var t := _track_at(screen_pos)
+			if t != null:
+				center_on(t.position)
+		_last_click_ms = -1000000
+	else:
+		_last_click_ms = now
+		_last_click_pos = screen_pos
 
 
 func _click_select(screen_pos: Vector2, additive: bool) -> void:
@@ -932,7 +1036,11 @@ func _draw_units() -> void:
 					draw_line(beach - Vector2(4, -4), beach + Vector2(4, -4), COL_HOSTILE, 1.5)
 				else:
 					draw_dashed_line(prev, wsp, COL_WAYPOINT, 1.0, 6.0)
-				draw_rect(Rect2(wsp - Vector2(3.0, 3.0), Vector2(6.0, 6.0)), COL_WAYPOINT, false, 1.0)
+				var hovered := _mouse_inside and _drag_mode == DragMode.NONE and wsp.distance_to(_mouse) <= WAYPOINT_HIT_PX
+				if hovered:
+					draw_rect(Rect2(wsp - Vector2(5.5, 5.5), Vector2(11.0, 11.0)), COL_SELECT, false, 1.5)
+				else:
+					draw_rect(Rect2(wsp - Vector2(3.0, 3.0), Vector2(6.0, 6.0)), COL_WAYPOINT, false, 1.0)
 				prev = wsp
 				prev_world = wp
 		if u.in_formation():
@@ -1134,7 +1242,7 @@ func _draw_header() -> void:
 		x = _chip(x, "%s  %d INBOUND" % ["TORPEDO" if torp else "MISSILE", _threats.size()], Color(COL_HOSTILE, blink))
 	if Debug.enabled:
 		x = _chip(x, "DEBUG TRUTH", COL_TRUTH)
-	var right := "N UP  ·  F2 KEY  ·  F4 RINGS  ·  F5 TRAILS"
+	var right := "N UP  ·  F2 KEY  ·  F4 RINGS  ·  F5 TRAILS  ·  HOME FIT  ·  C CENTRE"
 	var rw := _font.get_string_size(right, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
 	draw_string(_font, Vector2(size.x - rw - 14.0, 23), right, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(COL_TEXT, 0.7))
 
@@ -1212,7 +1320,7 @@ func _draw_key() -> void:
 	if not show_key:
 		return
 	var w := 352.0
-	var h := 166.0
+	var h := 182.0
 	var x := 12.0
 	var y := size.y - h - 34.0
 	draw_rect(Rect2(x, y, w, h), Color("0b1721", 0.94))
@@ -1238,11 +1346,21 @@ func _draw_key() -> void:
 	draw_string(_font, Vector2(x + 12, cy + 4), "Lamps: radiating · link · weapons posture · pinging · repairing", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 	cy += 16.0
 	draw_string(_font, Vector2(x + 12, cy + 4), "Land: masks radar, ESM and sonar · ships cannot enter it", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
+	cy += 16.0
+	draw_string(_font, Vector2(x + 12, cy + 4), "Ctrl+right-click a contact: engage · right-click a waypoint: drop it · dbl-click: recentre", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 
 
 ## Hovering over a symbol shows what the console knows about it, without a click.
 func _draw_hover_card() -> void:
 	if not _mouse_inside or _drag_mode != DragMode.NONE:
+		return
+	var wp := _waypoint_at(_mouse)
+	if not wp.is_empty():
+		var wu: Unit = wp["unit"]
+		var lines := PackedStringArray()
+		lines.append("%s WAYPOINT %d/%d" % [wu.callsign, int(wp["index"]) + 1, wu.waypoints.size()])
+		lines.append("right-click to remove this leg")
+		_draw_card(lines, COL_WAYPOINT)
 		return
 	var lines := PackedStringArray()
 	var col := COL_TEXT

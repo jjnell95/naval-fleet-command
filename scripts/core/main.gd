@@ -43,6 +43,8 @@ func _ready() -> void:
 
 	map.selection_changed.connect(_on_selection_changed)
 	map.move_order_requested.connect(_on_move_order_requested)
+	map.engage_requested.connect(_on_engage_requested)
+	map.waypoint_delete_requested.connect(_on_waypoint_delete_requested)
 	orders_panel.order_requested.connect(_apply_order_to_selection)
 	orders_panel.formation_requested.connect(_apply_formation)
 	contact_panel.track_chosen.connect(map.select_track)
@@ -308,6 +310,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_show_editor()
 		KEY_F10:
 			restart_scenario()
+		KEY_HOME:
+			map.fit_to_fleet()
+		KEY_C:
+			map.center_on_selection()
 		_:
 			return
 	get_viewport().set_input_as_handled()
@@ -445,6 +451,36 @@ func _on_mission_ended(result: String, summary: String) -> void:
 
 func _on_move_order_requested(world_pos: Vector2, append: bool) -> void:
 	_apply_order_to_selection(Order.move(world_pos, append))
+
+
+## Ctrl/cmd + right-click on a contact: select it as the target and, if a shooter and a legal
+## weapon are already lined up in the orders panel, fire immediately. Tells the player why nothing
+## happened when it can't, rather than firing silently into nothing.
+func _on_engage_requested(t: Track) -> void:
+	map.select_track(t)
+	if orders_panel.try_engage():
+		return
+	if map.selected.is_empty():
+		top_bar.flash("Select a shooter before you engage", "warn")
+	else:
+		top_bar.flash("No weapon in envelope for %s" % t.id, "warn")
+
+
+## Right-click on a waypoint marker drops just that leg. Order objects only carry "set a new
+## route" or "append one more leg", so the remaining route is rebuilt as a fresh sequence of
+## those two rather than needing a new order type.
+func _on_waypoint_delete_requested(u: Unit, index: int) -> void:
+	if u.faction != simulation.player_faction or index < 0 or index >= u.waypoints.size():
+		return
+	var remaining := u.waypoints.duplicate()
+	remaining.remove_at(index)
+	if remaining.is_empty():
+		simulation.unit_manager.issue_order(u, Order.clear_waypoints())
+	else:
+		simulation.unit_manager.issue_order(u, Order.move(remaining[0], false))
+		for i in range(1, remaining.size()):
+			simulation.unit_manager.issue_order(u, Order.move(remaining[i], true))
+	SoundFx.play("click", 0.05)
 
 
 ## One order goes to every selected unit, so a mixed selection can have it accepted by the
