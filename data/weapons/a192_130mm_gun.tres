@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "a192_130mm_gun"
+display_name = "A-192M 130 mm gun"
+family = "A-192M"
+type = "gun"
+guidance = "unguided"
+profile = "direct"
+target_types = PackedStringArray("surface")
+max_range_nm = 12.0
+min_range_nm = 0.4
+speed_kn = 1600.0
+turn_rate_deg_s = 15.0
+seeker_range_nm = 0.0
+damage = 11.0
+base_pk = 0.52
+salvo_default = 6
+launch_interval_s = 2.0
+defensive_difficulty = 1.0
+source_status = "PUBLIC: system identity and platform association; see docs/REALISM_M16.md. GAMEPLAY_ESTIMATE: all performance, damage, timing and magazine quantities."

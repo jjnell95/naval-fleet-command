@@ -21,14 +21,7 @@ sensor_ids = PackedStringArray("an_spy_1d_v", "an_sqs_53c", "an_slq_32")
 signature_factor = 1.0
 mast_height_m = 30.0
 health = 110.0
-weapon_loadout = {
-"rgm_139_vla": 8,
-"rgm_84_harpoon": 8,
-"mk45_mod4_gun": 250,
-"sm2_family": 24,
-"essm_family": 32,
-"phalanx_ciws": 60
-}
+weapon_loadout = {"rgm_139_vla": 8, "mk45_mod4_gun": 250, "sm2_family": 24, "essm_family": 32, "phalanx_ciws": 60}
 aircraft_capacity = 2
 fire_control_channels = 6
 decoy_count = 12
@@ -38,5 +31,5 @@ vls_cells = 96
 
 role = "Multimission escort • area air defence • ASW"
 
-service_note = "Representative Flight IIA fit; deck Harpoon fit varies by hull."
-default_air_wing = {"usn_helo_mh60r": 1, "usn_helo_mh60s": 1}
+service_note = "Flight IIA baseline: 96 Mk 41 cells and two helicopter hangars; no deck Harpoon launchers. Only the scenario missile allocation is loaded."
+default_air_wing = {"usn_helo_mh60r": 2}

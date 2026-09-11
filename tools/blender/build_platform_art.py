@@ -263,10 +263,11 @@ def lattice_mast(x, y, z0, z1, base=3.0, top=1.0):
     cbox(x, y, z1, top * 1.6, top * 1.6, 0.4, name="platform")
 
 
-def gun(x, y, z, big=True):
+def gun(x, y, z, big=True, twin=False):
     s = 1.0 if big else 0.6
     cbox(x, y, z + 1.6 * s, 6.0 * s, 4.0 * s, 3.0 * s, name="turret")
-    cylinder(y, z + 2.4 * s, x + 3.0 * s, x + 9.5 * s, 0.25 * s, segs=6, axis="x", name="barrel")
+    for offset in (-.65, .65) if twin else (0,):
+        cylinder(y + offset*s, z + 2.4 * s, x + 3.0 * s, x + 9.5 * s, 0.25 * s, segs=6, axis="x", name="barrel")
 
 
 def vls(x0, x1, y, z, w, rows=2):
@@ -485,7 +486,7 @@ def build_slava(L):
     dome(x(0.26), 0, d(0.26) + 12.0, 3.4)
     lattice_mast(x(0.33), 0, d(0.3) + 6.5, d(0.3) + 22.0, base=3.5, top=1.2)
     hangar(x(0.08), x(0.20), B, d(0.14), 5.5)
-    gun(x(0.80), 0, d(0.80), big=True)
+    gun(x(0.80), 0, d(0.80), big=True, twin=True)
     for i in range(8):
         cylinder(x(0.08 + (i % 4) * 0.03), (-1 if i < 4 else 1) * B * 0.3, d(0.1) + 5.5, d(0.1) + 6.3, 1.1, segs=8, name="sam_silo")
 
@@ -935,6 +936,7 @@ BUILDERS = {
     "usn_cvn_nimitz": lambda s: build_carrier(s["length_m"]),
     "civ_merchant_bulk": lambda s: build_merchant(s["length_m"]),
     "rnon_aux_maud": lambda s: build_replenishment(s["length_m"]),
+    "rfn_ssk_kilo_877": lambda s: build_submarine(s["length_m"], "kilo"),
     "rfn_ssk_kilo": lambda s: build_submarine(s["length_m"], "kilo"),
     "rfn_ssn_yasen_m": lambda s: build_submarine(s["length_m"], "yasen"),
     "usn_ssn_virginia": lambda s: build_submarine(s["length_m"], "virginia"),

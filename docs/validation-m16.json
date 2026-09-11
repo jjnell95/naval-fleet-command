@@ -1,0 +1,216 @@
+{
+  "milestone": "M16 geographic charts and mission fidelity",
+  "date": "2026-09-11",
+  "engine": "Godot 4.7.2",
+  "regression": {
+    "tests": 208,
+    "failed": 0
+  },
+  "catalogue": {
+    "platforms": 56,
+    "weapons": 58,
+    "sensors": 65,
+    "missions": 10,
+    "presentation_models": 114
+  },
+  "web": {
+    "startup": true,
+    "briefing": true,
+    "take_command": true,
+    "pause": true,
+    "zoom": true,
+    "gallery_search": true,
+    "weapon_inspection": true,
+    "observed_console_errors": 0,
+    "observed_console_warnings": 0,
+    "pack_sha256": "bdeb7353b114195207475bde3631f767501b970a237d1214ff62572e208031c6"
+  },
+  "smoke": [
+    {
+      "scenario": "aegis_bastion",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 38.3
+    },
+    {
+      "scenario": "arctic_shield",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 91.5
+    },
+    {
+      "scenario": "atlantic_gate",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 5.1
+    },
+    {
+      "scenario": "baltic_sentinel",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 13.3
+    },
+    {
+      "scenario": "giuk_passage",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 5.4
+    },
+    {
+      "scenario": "north_atlantic_shadow_line",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 2.6
+    },
+    {
+      "scenario": "northern_sentry",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 5.6
+    },
+    {
+      "scenario": "northern_shield",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 2.9
+    },
+    {
+      "scenario": "northern_vigil",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 205.1
+    },
+    {
+      "scenario": "sandbox_m1",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 2.7
+    },
+    {
+      "scenario": "aegis_bastion",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 40.5
+    },
+    {
+      "scenario": "arctic_shield",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 94.9
+    },
+    {
+      "scenario": "atlantic_gate",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 5.2
+    },
+    {
+      "scenario": "baltic_sentinel",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 12.6
+    },
+    {
+      "scenario": "giuk_passage",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 5.4
+    },
+    {
+      "scenario": "north_atlantic_shadow_line",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 2.6
+    },
+    {
+      "scenario": "northern_sentry",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 5.9
+    },
+    {
+      "scenario": "northern_shield",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 3.0
+    },
+    {
+      "scenario": "northern_vigil",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 185.0
+    },
+    {
+      "scenario": "sandbox_m1",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 2.0
+    }
+  ],
+  "limits": [
+    "6,000-second smoke checks do not prove completion of four-to-eight-hour objectives. Objective semantics are covered by deterministic regression tests.",
+    "Native test shutdown retains pre-existing ObjectDB/resource cleanup warnings.",
+    "Desktop-oriented Godot UI is letterboxed in narrow browser panels.",
+    "Browser pack was rebuilt with --export-pack; the repository matching Godot 4.7.2 JavaScript/WASM loader was reused."
+  ]
+}

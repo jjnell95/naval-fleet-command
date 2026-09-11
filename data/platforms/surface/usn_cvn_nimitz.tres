@@ -28,8 +28,8 @@ source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPL
 
 role = "CATOBAR aviation • carrier strike group"
 
-service_note = "Representative air-search radar fit. Air wing capacity compressed for play."
+service_note = "Representative conventional carrier air detachment, reduced for play. No operational MQ-25 detachment or F-35 integration is assumed. Capacity is not a claim of aircraft embarked on a particular deployment."
 launch_spots = 4
 recovery_spots = 1
 turnaround_s = 2700.0
-default_air_wing = {"usn_fighter_fa18e": 10, "usn_fighter_fa18f": 4, "usn_ea_ea18g": 3, "usn_aew_e2d": 3, "usn_uav_mq25": 2, "usn_helo_mh60r": 4, "usn_helo_mh60s": 2}
+default_air_wing = {"usn_fighter_fa18e": 10, "usn_fighter_fa18f": 4, "usn_ea_ea18g": 3, "usn_aew_e2d": 3, "usn_helo_mh60r": 4, "usn_helo_mh60s": 2}

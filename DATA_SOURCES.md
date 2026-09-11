@@ -1,3 +1,7 @@
+# Current source review
+
+See [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; M16 supersedes their conflicting fit and coastline claims.
+
 # Data Sources
 
 Concise source log for real platforms/weapons/sensors in `data/`. Research only what the current

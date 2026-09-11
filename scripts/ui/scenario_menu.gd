@@ -186,12 +186,14 @@ func _on_selected(i: int) -> void:
 	var coasts: int = sc.get("terrain", {}).get("land", []).size()
 	var lines := PackedStringArray()
 	lines.append("[b][color=#ffffff]%s[/color][/b]" % e["name"])
-	var water := "open ocean" if coasts == 0 else ("coastal · %d landmass%s" % [coasts, "" if coasts == 1 else "es"])
+	var water := "open ocean" if coasts == 0 else "Natural Earth chart"
 	lines.append("[color=%s]%d own units · %d aircraft · %d submarine%s · sea state %d (%s) · %s[/color]\n" % [UITheme.HEX_DIM, own, air, subs, "" if subs == 1 else "s", sea, Detection.SEA_STATE_NAMES[clampi(sea, 0, 6)], water])
 	lines.append("[color=%s][b]FORCES[/b][/color]" % UITheme.HEX_ACCENT)
 	lines.append("%s\n" % e["forces"])
 	lines.append("[color=%s][b]SITUATION[/b][/color]" % UITheme.HEX_ACCENT)
 	lines.append(e["description"])
+	if sc.has("force_note"):
+		lines.append("\n[color=%s]%s[/color]" % [UITheme.HEX_DIM, sc["force_note"]])
 	var obj: Dictionary = sc.get("objectives", {})
 	if obj.has("text"):
 		lines.append("\n[color=%s][b]MISSION[/b][/color]" % UITheme.HEX_ACCENT)

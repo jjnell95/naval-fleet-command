@@ -37,17 +37,14 @@ const EFFECT_LIFE_S := 2.2
 const NICE_STEPS_NM: Array[float] = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
 
 const COL_OCEAN := Color(0.024, 0.055, 0.086)
-const COL_OCEAN_TOP := Color(0.034, 0.090, 0.125)
-const COL_OCEAN_BOTTOM := Color(0.019, 0.048, 0.080)
+const COL_OCEAN_TOP := Color("102b3a")
+const COL_OCEAN_BOTTOM := Color("0b202e")
 # Land is a chart tint, not a photograph: a shade above the water in luminance, pulled off the
 # blue so it separates without ever competing with a contact symbol drawn on top of it.
-const COL_LAND := Color(0.10, 0.14, 0.15)
-const COL_LAND_HIGH := Color(0.16, 0.21, 0.20)
-const COL_COAST := Color(0.42, 0.62, 0.66, 0.85)
-const COL_SHELF := Color(0.20, 0.45, 0.52, 0.11)
+const COL_LAND := Color("344943")
+const COL_LAND_HIGH := Color("344943")
+const COL_COAST := Color("a0b4a0")
 const COL_LAND_LABEL := Color(0.55, 0.68, 0.66, 0.75)
-const LAND_HIGH_ELEVATION_M := 600.0  # elevation at which the interior reaches its lightest tint
-const SHELF_NM := 2.5  # width of the shallow-water band drawn outside the coast
 const COAST_MIN_STEP_PX := 1.2  # coastline detail finer than this is dropped as it is invisible
 const LAND_LABEL_MIN_PX := 90.0
 const COL_GRID := Color(0.20, 0.42, 0.55, 0.11)
@@ -119,7 +116,8 @@ var _threats: Array = []
 var _water: ImageTexture
 var _weapon_trails: Dictionary = {}  # weapon id -> PackedVector2Array of recent positions
 var _hit_flash := 0.0
-var _land_shelves: Dictionary = {}  # Landmass -> Array[PackedVector2Array], the shallow-water band
+var _land_meshes: Dictionary = {}  # Landmass -> cached triangulated fill
+var show_range_grid := false
 var _land_generation := -1
 
 
@@ -142,13 +140,13 @@ func _build_plot_controls() -> void:
 	h.position = Vector2(14, -55)
 	h.add_theme_constant_override("separation", 4)
 	add_child(h)
-	for item in [["−", "zoom_out"], ["+", "zoom_in"], ["FIT FLEET", "fleet"], ["CENTER", "center"],  ["SENSORS", "sensors"], ["VECTORS", "vectors"]]:
+	for item in [["−", "zoom_out"], ["+", "zoom_in"], ["FIT FLEET", "fleet"], ["THEATRE", "theatre"], ["CENTER", "center"],  ["SENSORS", "sensors"], ["VECTORS", "vectors"], ["RANGE GRID", "range_grid"]]:
 		var button := Button.new()
 		button.text = item[0]
 		button.add_theme_font_size_override("font_size", 10)
 		button.custom_minimum_size.y = 28
 		button.focus_mode = Control.FOCUS_NONE
-		if item[1] in ["sensors", "vectors"]:
+		if item[1] in ["sensors", "vectors", "range_grid"]:
 			button.toggle_mode = true
 		button.pressed.connect(_plot_action.bind(item[1]))
 		h.add_child(button)
@@ -162,6 +160,11 @@ func _plot_action(action: String) -> void:
 			_zoom_at(size * .5, ZOOM_STEP)
 		"fleet":
 			fit_to_fleet()
+		"theatre":
+			if simulation != null:
+				fit_to(simulation.map_center, simulation.map_extent_nm)
+		"range_grid":
+			show_range_grid = not show_range_grid
 		"center":
 			center_on_selection()
 		"sensors":
@@ -267,7 +270,7 @@ func add_effect(pos: Vector2, kind: String, own := false) -> void:
 
 
 func reset_presentation() -> void:
-	_land_shelves.clear()
+	_land_meshes.clear()
 	_land_generation = -1
 	_trails.clear()
 	_weapon_trails.clear()
@@ -615,10 +618,11 @@ func _draw() -> void:
 	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
 	_draw_ocean()
 	_draw_land()
-	_draw_vignette()
 	_draw_grid()
-	_draw_range_rings()
+	if show_range_grid:
+		_draw_range_rings()
 	_draw_compass()
+	_draw_chart_labels()
 	_draw_objectives()
 	if unit_manager != null:
 		if show_rings:
@@ -689,36 +693,29 @@ func _draw_vignette() -> void:
 	draw_polygon(PackedVector2Array([Vector2(0, size.y - h), Vector2(size.x, size.y - h), Vector2(size.x, size.y), Vector2(0, size.y)]), PackedColorArray([rim, rim, edge, edge]))
 
 
-## Land: a shallow-water band, an opaque fill that takes the animated water out from under the
-## coast, and the coastline itself as the crispest line on the chart. Everything below this in
-## the draw order overprints it, the way a chart's graticule and symbols overprint its land tint.
+## Geographic land fill and coastline casing, shared with movement geometry.
+## The casing has a constant pixel width and carries no bathymetric meaning.
 func _draw_land() -> void:
 	if not show_terrain or Terrain.is_empty():
 		return
-	var tl := screen_to_world(Vector2.ZERO)
-	var br := screen_to_world(size)
-	var view := Rect2(tl, Vector2.ZERO).expand(br)
-	if not Terrain.bounds.grow(SHELF_NM).intersects(view):
-		return
+	var view := Rect2(screen_to_world(Vector2.ZERO), Vector2.ZERO).expand(screen_to_world(size))
 	if _land_generation != Terrain.generation:
 		_rebuild_land_cache()
-	var detail := ppn >= 0.7
+	var transform := Transform2D(Vector2(ppn, 0), Vector2(0, ppn), world_to_screen(Vector2.ZERO))
 	for l: Landmass in Terrain.landmasses:
-		if not l.bounds.grow(SHELF_NM).intersects(view):
+		if not l.bounds.intersects(view):
 			continue
-		if detail:
-			for shelf: PackedVector2Array in _land_shelves.get(l, []):
-				var band := _project_coast(shelf)
-				if band.size() >= 3:
-					draw_colored_polygon(band, COL_SHELF)
-		var pts := _project_coast(l.points)
-		if pts.size() < 3:
+		var mesh: ArrayMesh = _land_meshes.get(l)
+		if mesh != null:
+			draw_mesh(mesh, null, transform, COL_LAND)
+		var ring := _project_coast(l.points)
+		if ring.size() < 2:
 			continue
-		draw_colored_polygon(pts, COL_LAND.lerp(COL_LAND_HIGH, clampf(l.elevation_m / LAND_HIGH_ELEVATION_M, 0.0, 1.0)))
-		var ring := pts.duplicate()
-		ring.append(pts[0])
-		draw_polyline(ring, COL_COAST, 1.6 if detail else 1.0, true)
-		if detail and l.name != "":
+		ring.append(ring[0])
+		# A fixed-pixel coastal casing, not an invented shallow-water contour.
+		draw_polyline(ring, Color("1e3a40"), 4.0, true)
+		draw_polyline(ring, COL_COAST, 1.1, true)
+		if l.name != "":
 			_draw_land_name(l, view)
 
 
@@ -757,13 +754,41 @@ func _project_coast(world: PackedVector2Array) -> PackedVector2Array:
 	return out
 
 
-## The shallow-water band is an outward offset of each coastline, computed once per scenario
-## rather than per frame.
+## Triangulate once per terrain generation, rather than for every frame and zoom level.
 func _rebuild_land_cache() -> void:
-	_land_shelves.clear()
+	_land_meshes.clear()
 	for l: Landmass in Terrain.landmasses:
-		_land_shelves[l] = Geometry2D.offset_polygon(l.points, SHELF_NM)
+		_land_meshes[l] = ChartMesh.build(l.points)
 	_land_generation = Terrain.generation
+
+
+func _geo_map() -> Dictionary:
+	return simulation.scenario.get("map", {}) if simulation != null else {}
+
+
+func _draw_chart_labels() -> void:
+	var m := _geo_map()
+	var safe := Rect2(Vector2(50, HEADER_H + 30), size - Vector2(110, HEADER_H + 130))
+	var occupied: Array[Rect2] = []
+	for entry in m.get("labels", []):
+		var p: Array = entry["position_nm"]
+		var at := world_to_screen(Vector2(p[0], p[1]))
+		var text := str(entry["text"])
+		var water: bool = entry.get("kind", "land") == "water"
+		var font_size := 13 if water else 11
+		var width := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		var rect := Rect2(at - Vector2(width / 2, 12), Vector2(width, 18))
+		if not safe.encloses(rect):
+			continue
+		var collision := false
+		for other in occupied:
+			if other.grow(10).intersects(rect): collision = true
+		if collision: continue
+		occupied.append(rect)
+		draw_string(_font, at - Vector2(width/2, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("567e90") if water else Color("c0c9b3"))
+	if m.has("anchor_lat"):
+		draw_rect(Rect2(0, size.y - 23, size.x, 23), COL_HEADER)
+		draw_string(_font, Vector2(14, size.y - 8), "NATURAL EARTH 1:10m  ·  LOCAL PROJECTION  ·  NO DEPTH DATA", HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 160), 9, COL_GRID_TEXT)
 
 
 func _chart_axis(value: float, positive: String, negative: String) -> String:
@@ -773,6 +798,9 @@ func _chart_axis(value: float, positive: String, negative: String) -> String:
 
 
 func _draw_grid() -> void:
+	if _geo_map().has("anchor_lat"):
+		_draw_graticule()
+		return
 	var step := _nice_step(110.0)
 	var minor := step / 5.0
 	var tl := screen_to_world(Vector2.ZERO)
@@ -827,33 +855,60 @@ func _draw_range_rings() -> void:
 		draw_line(c + d * 24.0, c + d * max_r, Color(COL_RINGS, 0.055), 1.0, true)
 
 
+func _draw_graticule() -> void:
+	var m := _geo_map()
+	var lat0 := float(m["anchor_lat"])
+	var lon0 := float(m["anchor_lon"])
+	var tl := Geo.world_to_latlon(screen_to_world(Vector2.ZERO), lat0, lon0)
+	var br := Geo.world_to_latlon(screen_to_world(size), lat0, lon0)
+	var coslat := cos(deg_to_rad(lat0))
+	var steps := [0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+	var lat_step := 30.0
+	var lon_step := 30.0
+	for step: float in steps:
+		if step * 60 * ppn >= 100:
+			lat_step = step
+			break
+	for step: float in steps:
+		if step * 60 * coslat * ppn >= 130:
+			lon_step = step
+			break
+	var lat := ceilf(br.x / lat_step) * lat_step
+	while lat <= tl.x:
+		var y := world_to_screen(Vector2(0, (lat - lat0)*60)).y
+		if y > HEADER_H + 22 and y < size.y - 85:
+			draw_line(Vector2(0, y), Vector2(size.x, y), COL_GRID, 1)
+			draw_string(_font, Vector2(7, y-5), Geo.format_latlon(lat), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
+		lat += lat_step
+	var lon := ceilf(tl.y / lon_step) * lon_step
+	while lon <= br.y:
+		var x := world_to_screen(Vector2((lon-lon0)*60*coslat, 0)).x
+		draw_line(Vector2(x, HEADER_H), Vector2(x, size.y-23), COL_GRID, 1)
+		if x > 90 and x < size.x-100:
+			draw_string(_font, Vector2(x+4, HEADER_H+15), Geo.format_latlon(lon, false), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
+		lon += lon_step
+
+
 func _draw_compass() -> void:
-	var c := size * 0.5
-	var radius := minf(size.x, size.y) * 0.47
-	for deg in range(0, 360, 5):
-		var d := Vector2(sin(deg_to_rad(deg)), -cos(deg_to_rad(deg)))
-		var major := deg % 30 == 0
-		var tick := 9.0 if major else 4.0
-		var p0 := c + d * (radius - tick)
-		var p1 := c + d * radius
-		if p0.y < HEADER_H + 4.0 or p1.y < HEADER_H + 4.0:
-			continue
-		draw_line(p0, p1, Color(0.4, 0.7, 0.8, 0.28), 1.0, true)
-		if major:
-			var lp := c + d * (radius - 22.0) + Vector2(-10, 4)
-			draw_string(_font, lp, "%03d" % deg, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(COL_GRID_TEXT, 0.8))
+	var c := Vector2(size.x - 31, HEADER_H + 53)
+	draw_line(c + Vector2(0, 15), c - Vector2(0, 12), COL_COAST, 1.5, true)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -16), c + Vector2(-4, -6), c + Vector2(4, -6)]), COL_COAST)
+	draw_string(_font, c + Vector2(-4, -22), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_TEXT)
 
 
 func _draw_objectives() -> void:
 	if simulation == null:
 		return
-	for o in simulation.mission_manager.victory_objectives:
+	var mission := simulation.mission_manager
+	for o in mission.victory_objectives + mission.loss_objectives:
 		if o.kind == MissionObjective.Kind.REACH_AREA:
 			var sp := world_to_screen(o.center)
 			var r := o.radius_nm * ppn
-			draw_circle(sp, r, Color(COL_WAYPOINT, 0.05))
-			draw_arc(sp, r, 0.0, TAU, 80, Color(COL_WAYPOINT, 0.6), 2.0, true)
-			_place_label(sp, "OBJECTIVE AREA", COL_WAYPOINT, false, "")
+			var danger: bool = mission.loss_objectives.has(o)
+			var col := COL_AMBER if danger else COL_WAYPOINT
+			draw_circle(sp, r, Color(col, 0.07))
+			draw_arc(sp, r, 0.0, TAU, 80, Color(col, 0.65), 1.5, true)
+			_place_label(sp, "DENY EXIT" if danger else "RENDEZVOUS", col, false, "")
 
 
 func _draw_sensor_rings() -> void:
@@ -1335,7 +1390,7 @@ func _draw_scale_bar() -> void:
 	var nm := _nice_step(80.0)
 	var px := nm * ppn
 	var right := size.x - 16.0
-	var y := size.y - 24.0
+	var y := size.y - 36.0
 	draw_line(Vector2(right - px, y), Vector2(right, y), COL_TEXT, 2.0)
 	draw_line(Vector2(right - px, y - 4.0), Vector2(right - px, y + 4.0), COL_TEXT, 2.0)
 	draw_line(Vector2(right, y - 4.0), Vector2(right, y + 4.0), COL_TEXT, 2.0)
@@ -1347,13 +1402,17 @@ func _draw_readout() -> void:
 		return
 	var w := screen_to_world(_mouse)
 	var text := "CURSOR  %s  %s" % [Geo.format_axis(w.x, "E", "W"), Geo.format_axis(w.y, "N", "S")]
+	var m := _geo_map()
+	if m.has("anchor_lat"):
+		var ll := Geo.world_to_latlon(w, float(m["anchor_lat"]), float(m["anchor_lon"]))
+		text = "%s  %s" % [Geo.format_latlon(ll.x), Geo.format_latlon(ll.y, false)]
 	var ref := reference_unit()
 	if ref != null:
 		text += "    FROM %s:  BRG %s  RNG %.1f nm" % [ref.callsign, Geo.format_bearing(Geo.bearing_deg(ref.position, w)), Geo.distance_nm(ref.position, w)]
-	draw_string(_font, Vector2(16.0, HEADER_H + 20.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(COL_TEXT, 0.85))
+	draw_string(_font, Vector2(16.0, HEADER_H + 35.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(COL_TEXT, 0.85))
 	if not Terrain.is_empty() and Terrain.is_land(w):
 		var wide := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-		draw_string(_font, Vector2(16.0 + wide + 14.0, HEADER_H + 20.0), "LAND", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_AMBER)
+		draw_string(_font, Vector2(16.0 + wide + 14.0, HEADER_H + 35.0), "LAND", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_AMBER)
 
 
 ## Labels: a dark pill with an identity bar, a primary line and an optional secondary line, placed
@@ -1461,7 +1520,7 @@ func _draw_hover_card() -> void:
 			col = COL_LAND_LABEL
 			lines.append(l.name if l.name != "" else "LAND")
 			lines.append("coastline · masks radar, ESM and sonar")
-			lines.append("elevation %d m" % int(l.elevation_m))
+			lines.append("masking height %d m (game estimate)" % int(l.elevation_m))
 			lines.append("%s  %s" % [Geo.format_axis(lw.x, "E", "W"), Geo.format_axis(lw.y, "N", "S")])
 			_draw_card(lines, col)
 			return

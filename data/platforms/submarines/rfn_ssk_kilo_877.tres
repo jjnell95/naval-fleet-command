@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rfn_ssk_kilo_877"
+display_name = "Kilo-class submarine (Project 877)"
+short_name = "SSK Kilo 877"
+nation = "Russia"
+category = "diesel-electric submarine"
+domain = "subsurface"
+max_speed_kn = 20.0
+cruise_speed_kn = 6.0
+turn_rate_deg_s = 2.4
+accel_kn_s = 0.18
+length_m = 72.6
+displacement_t = 3076.0
+source_status = "PUBLIC: length, submerged displacement, broad speed band, role. GAMEPLAY_ESTIMATE: acoustic signature, depths, health, decoys and all sensor and weapon values. Real signature and diving figures are not public and are not claimed here."
+sensor_ids = PackedStringArray("mgk_400em")
+signature_factor = 0.25
+mast_height_m = 8.0
+health = 45.0
+acoustic_signature = 0.05
+max_depth_m = 240.0
+patrol_depth_m = 90.0
+depth_rate_m_s = 1.6
+fire_control_channels = 0
+decoy_count = 6
+decoy_effectiveness = 0.30
+weapon_loadout = {
+"ugst_torpedo": 14
+}
+
+role = "Diesel-Electric Submarine • maritime operations"
+
+service_note = "Older Project 877 family for Kaluga, Vladikavkaz and Magnitogorsk. Separate from Improved Kilo Project 636.3; acoustic and endurance values remain game estimates."
