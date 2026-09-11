@@ -30,3 +30,7 @@ weapon_loadout = {
 fire_control_channels = 4
 decoy_count = 12
 decoy_effectiveness = 0.33
+
+role = "Frigate • maritime operations"
+
+aircraft_capacity = 1

@@ -43,7 +43,7 @@ theme_override_constants/separation = 5
 
 [node name="UnitPanel" type="PanelContainer" parent="Layout/Middle"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(290, 0)
+custom_minimum_size = Vector2(310, 0)
 layout_mode = 2
 script = ExtResource("4_unit")
 
@@ -55,12 +55,12 @@ script = ExtResource("5_map")
 
 [node name="ContactPanel" type="PanelContainer" parent="Layout/Middle"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(290, 0)
+custom_minimum_size = Vector2(310, 0)
 layout_mode = 2
 script = ExtResource("7_contacts")
 
 [node name="OrdersPanel" type="PanelContainer" parent="Layout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 190)
+custom_minimum_size = Vector2(0, 116)
 layout_mode = 2
 script = ExtResource("6_orders")

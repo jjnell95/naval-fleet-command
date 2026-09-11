@@ -9,16 +9,21 @@ extends Node
 
 signal threat_detected(faction: String, weapon: Weapon)
 
+var _observers: Dictionary = {}
 var _detected: Dictionary = {}  # faction -> Dictionary[int weapon_id, Weapon]
 var _first_seen: Dictionary = {}  # faction -> Dictionary[int weapon_id, float]
 
 
 func begin_cycle() -> void:
+	_observers.clear()
 	for faction in _detected.keys():
 		_detected[faction] = {}
 
 
-func mark_detected(faction: String, w: Weapon, now: float) -> void:
+func mark_detected(faction: String, w: Weapon, now: float, observer: Unit = null) -> void:
+	if not _observers.has(w.id):
+		_observers[w.id] = []
+	_observers[w.id].append(observer)
 	if not _detected.has(faction):
 		_detected[faction] = {}
 	if not _first_seen.has(faction):
@@ -41,7 +46,19 @@ func is_detected(faction: String, w: Weapon) -> bool:
 	return _detected.get(faction, {}).has(w.id)
 
 
+func visible_to(u: Unit, w: Weapon) -> bool:
+	if not is_detected(u.faction, w):
+		return false
+	for observer: Unit in _observers.get(w.id, []):
+		if observer == u:
+			return true
+		if u.datalink_connected() and (observer == null or (observer.faction == u.faction and observer.datalink_connected())):
+			return true
+	return false
+
+
 func forget(w: Weapon) -> void:
+	_observers.erase(w.id)
 	for faction in _detected.keys():
 		_detected[faction].erase(w.id)
 	for faction in _first_seen.keys():
@@ -49,5 +66,6 @@ func forget(w: Weapon) -> void:
 
 
 func clear() -> void:
+	_observers.clear()
 	_detected.clear()
 	_first_seen.clear()

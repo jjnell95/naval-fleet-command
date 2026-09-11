@@ -1,15 +1,19 @@
-# Naval Fleet Command — Aegis Command II
+# Naval Fleet Command — Aegis Combat Information Center
 
 [Play in your browser](https://jjnell95.github.io/naval-fleet-command/play/) · [Launch page](https://jjnell95.github.io/naval-fleet-command/)
 
 A modern naval command simulation in Godot 4.7.2. Command a task group through an Aegis-inspired combat information display: build an uncertain picture, manage emissions, hold the screen together and decide when to shoot. Original vector graphics, procedural sound and fictional scenarios; no Jane's assets or affiliation.
+
+## M13 update
+
+The command screen now has a watch overview, clickable fleet roster, domain filters, command tabs and a searchable platform library (**F7**). Try **Northern Vigil** for the new 34-actor joint task group. Read [the fidelity review and sources](docs/REALISM.md) for the 12 new platforms, deck compatibility, protected neutral identities, independent local tracks, unified SAM channels, corrected aircraft art and BMD altitude gates.
 
 ## Play
 
 Desktop/laptop with keyboard and mouse, WebGL 2 browser. The initial engine download is approximately 38 MB. Pick **Aegis Bastion** for the first watch and **Arctic Shield** for the regimental raid, then **Brief and Deploy** and **Take Command**. The game starts at real time. Space pauses; 1–6 changes time speed. Combat events drop acceleration to real time.
 
 - Select a friendly symbol; right-click water to order movement. Shift appends waypoints, and right-clicking a waypoint marker on the route drops just that leg. A ship will not take an order onto land, and a leg that crosses a coast is drawn in red from the beach onward. Wheel or +/- zooms; middle/right drag pans; double-click a unit or track to recentre on it without changing zoom; Home fits the whole fleet in view and C recentres on the current selection. Hover over any symbol, waypoint, or land for a quick card.
-- Select the carrier and press **Launch** to launch the next ready aircraft (E-2D first, then the fighters and the Growler). Select an airborne aircraft to direct it.
+- Select the carrier, open **AVIATION + ASW**, and press **Launch** to launch the next ready aircraft (E-2D first, then the fighters and the Growler). Select an airborne aircraft to direct it.
 - Select a friendly shooter, then a contact; choose an appropriate weapon and salvo, and **Engage**. Or hold ctrl/cmd and right-click a contact to select it and fire the currently selected weapon in one move. Unknown contact classification matters, and neutral traffic is out there.
 - Ship missile defence is automatic, subject to detection, weapon range, channels, ammunition, damage and weapons-hold settings. Ballistic rounds are only met by interceptors built for them.
 - R toggles radar; P sonar; E emissions control. F2 toggles the symbol key; F4 sensor rings; F5 trails; F6 the land layer; M sound. F1 briefing; F8 scenario editor; F9 missions; F10 restart. F3 is an explicitly optional debug truth overlay.
@@ -21,7 +25,7 @@ Press **Scenario Editor** on the mission menu (or F8). Pick a platform from the 
 
 ## What is implemented
 
-Nine missions including a free-play sandbox; 30 platform types, 30 weapon families and 34 sensor definitions. Arctic Shield deploys 29 actors across air, surface, subsurface and neutral traffic in a sea state 4.
+Ten missions including a free-play sandbox; 42 platform types, 41 weapon definitions and 51 sensor definitions. Arctic Shield deploys 29 actors across air, surface, subsurface and neutral traffic in a sea state 4.
 
 Radar horizon, passive/active sonar, ESM bearings, uncertain tracks, classification, stale tracks, target-motion analysis, layered missile interception, decoys, fire-control channel limits, gunfire, torpedoes, component damage, ROE, emissions control, datalinks, formations, aircraft launch/recovery/fuel, sonobuoys and opposing AI.
 
@@ -44,7 +48,7 @@ landmasses as closed polygons in nautical miles, each with a height, and the who
 
 Milestone 11 added four systems and eleven actors:
 
-- **Ballistic missile defence.** Rounds carry a flight profile; an aero-ballistic Kinzhal is a different defensive problem from a sea-skimmer and only interceptors that list `ballistic` (SM-3, and SM-6 as a terminal fallback) can meet it. The exoatmospheric interceptor gets the better shot.
+- **Ballistic missile defence.** Rounds carry a flight profile; an aero-ballistic Kinzhal is a different defensive problem from a sea-skimmer and only suitable BMD interceptors can meet it. M13 adds altitude gates: SM-3 cannot engage the existing low aero-ballistic Kinzhal profile.
 - **Electronic attack.** A jammer set on the EA-18G Growler degrades every hostile radar within its reach against targets lying in its direction, and is itself the loudest emitter on the air for ESM. The display marks jammed bearings with a `J`.
 - **Environment.** Scenarios declare a sea state. A rough sea shortens passive sonar and hides small and sea-skimming radar targets in clutter. The briefing, the header strip and the sonar readouts show it.
 - **Damage control.** Ships restore knocked-out subsystems over time to a cap; the hull is not patched. Repair shows as a lamp on the map and a mark on the readiness bars.
@@ -61,7 +65,7 @@ The visual layer was rebuilt: APP-6/NTDS-style frames with platform glyphs, own-
 
 An ambitious game foundation, not a high-fidelity replica of real Aegis software. Public names and broad roles are sourced in DATA_SOURCES.md; numerical performance and loadouts are estimates. Carrier air group capacity is deliberately compressed. Carrier sensors are simplified. The map is a local nautical-mile grid, not a geographic chart, and every coastline in it is a stylised fictional shape drawn to evoke the water a scenario names — not survey data. Terrain masking is a straight line over a plateau of one height, not a height field and not a diffraction model. Jamming, ballistic flight and sea-state effects are abstractions with no claim to any real system's behaviour.
 
-Still absent: bathymetry and shoal depth (land is a wall, the water beside it has no bottom), routing around a peninsula (a ship follows a coast, it does not plan a way round one), terrain-aware interceptor geometry and seeker masking, detailed radar scheduling/illumination, logistics/replenishment, save games, weather beyond sea state. Datalink isolation is incomplete: player tracks and automatic defence still use a faction-wide picture. Aircraft SAM shots do not share the complete automatic interceptor channel accounting. No claim of operational fidelity or calibrated combat probability is made.
+Still absent: bathymetry and shoal depth (land is a wall, the water beside it has no bottom), routing around a peninsula (a ship follows a coast, it does not plan a way round one), terrain-aware interceptor geometry and seeker masking, detailed radar scheduling/illumination, logistics/replenishment, save games, weather beyond sea state. Private observer histories and automatic defence now respect datalink access; manual and automatic SAM engagements share one channel budget. The network has no range, latency, or relay topology. No claim of operational fidelity or calibrated combat probability is made.
 
 ## Develop
 
@@ -77,7 +81,10 @@ Install the official matching web export templates, then run `godot --headless -
 
 ## Validation
 
-174 tests pass, including a custom-scenario round trip through user storage, ballistic-vs-BMD interceptor selection, directional jamming, sea-state effects, damage-control repair, full actor resolution for the new scenario, and twenty-five terrain tests covering point-in-polygon against a concave cape, elevation-aware masking, acoustic blocking, the launch refusal, a hull driven at a coast, a screen station reflected off it and the reset between scenarios.
+M13: 185 tests pass. All ten missions passed two 6,000-second AI smoke runs (seeds 2 and 13). Native UI inspected; browser verification blocked by the approval service usage limit. The prior milestone validation below is historical.
+
+
+185 tests pass, including a custom-scenario round trip through user storage, ballistic-vs-BMD interceptor selection, directional jamming, sea-state effects, damage-control repair, full actor resolution for the new scenario, and twenty-five terrain tests covering point-in-polygon against a concave cape, elevation-aware masking, acoustic blocking, the launch refusal, a hull driven at a coast, a screen station reflected off it and the reset between scenarios.
 
 Nine scenarios were advanced 30,000 simulated seconds with AI on both sides, seed 2, without script failures and with no unit aground. Every outcome is unchanged from before coastlines existed, checked against the same sweep run on the previous commit: Aegis Bastion, Arctic Shield, Northern Sentry, North Atlantic Shadow Line and the sandbox reach victory; in Arctic Shield the MiG-31Ks fire Kinzhal from standoff, the cruiser detects the rounds at about 95 nm and meets both with SM-3. Atlantic Gate reaches defeat; Baltic Sentinel, GIUK Passage and Northern Shield remain undecided. This is a regression smoke test, not a balance study.
 

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "an_asq_239"
+display_name = "AN/ASQ-239 electronic warfare suite"
+kind = "esm"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 3.0
+classify_rate = 1.4
+esm_gain = 2.0
+bearing_accuracy_deg = 1.5
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."

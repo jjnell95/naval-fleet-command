@@ -38,3 +38,5 @@ decoy_effectiveness = 0.30
 weapon_loadout = {
 "kh35_uran": 4
 }
+
+role = "Strike Aircraft • maritime operations"

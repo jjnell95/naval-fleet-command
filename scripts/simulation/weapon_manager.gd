@@ -26,6 +26,9 @@ func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: floa
 	if not check["ok"]:
 		engagement_rejected.emit(shooter, spec, check["reason"])
 		return false
+	if spec.type == "sam" and track.domain == "air" and not channel_available(shooter, track):
+		engagement_rejected.emit(shooter, spec, "FIRE CONTROL SATURATED")
+		return false
 	var rounds := clampi(salvo, 1, shooter.magazine_count(spec.id))
 	shooter.consume_magazine(spec.id, rounds)
 	for i in rounds:
@@ -40,7 +43,14 @@ func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: floa
 ## Fires interceptors at a weapon already in flight. Used by the automatic air-defence system,
 ## never by a direct player order. Returns the number of rounds launched.
 func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int, now: float) -> int:
-	if not shooter.alive or threat.phase == Weapon.Phase.DEAD:
+	if not shooter.alive or not shooter.can_fire() or shooter.roe == Unit.Roe.HOLD or threat.phase == Weapon.Phase.DEAD:
+		return 0
+	if not AirDefence._can_intercept(spec, threat):
+		return 0
+	var distance := shooter.position.distance_to(threat.position)
+	if distance < spec.min_range_nm or distance > spec.max_range_nm:
+		return 0
+	if spec.type == "sam" and not channel_available(shooter, threat):
 		return 0
 	var available := mini(rounds, shooter.magazine_count(spec.id))
 	if available <= 0:
@@ -122,7 +132,7 @@ func _step(w: Weapon, dt: float) -> void:
 		_step_interceptor(w, dt)
 		return
 	# Mid-course updates only while the track is still being observed.
-	if w.phase == Weapon.Phase.CRUISE and w.target_track != null and w.target_track.status == Track.Status.ACTIVE:
+	if w.phase == Weapon.Phase.CRUISE and w.target_track != null and w.target_track.status == Track.Status.ACTIVE and w.target_track.visible_to(w.shooter):
 		w.aim_point = _aim_for(w)
 
 	var goal := w.aim_point
@@ -257,3 +267,36 @@ func _resolve_impact(w: Weapon) -> void:
 			unit_destroyed.emit(target, w.faction)
 	else:
 		weapon_impact.emit(w.faction, w.spec, target, false)
+
+
+## One abstract guidance channel per distinct air target, across manual and automatic shots.
+## Self-contained CIWS and air-to-air missiles do not reserve ship SAM channels.
+func channel_targets(shooter: Unit) -> Dictionary:
+	var targets := {}
+	for w in in_flight:
+		if w.shooter != shooter or w.phase == Weapon.Phase.DEAD or w.spec.type != "sam":
+			continue
+		if w.intercept_target != null and w.intercept_target.phase != Weapon.Phase.DEAD:
+			targets[w.intercept_target] = true
+		elif w.target_track != null and w.target_track.domain == "air":
+			targets[w.target_track] = true
+	for p: Dictionary in _pending:
+		if p["shooter"] == shooter and p["spec"].type == "sam" and p["track"].domain == "air":
+			targets[p["track"]] = true
+	return targets
+
+
+func channel_available(shooter: Unit, target: RefCounted) -> bool:
+	var targets := channel_targets(shooter)
+	return targets.has(target) or targets.size() < shooter.spec.fire_control_channels
+
+
+func channel_loads() -> Dictionary:
+	var loads := {}
+	for w in in_flight:
+		if w.shooter != null and not loads.has(w.shooter):
+			loads[w.shooter] = channel_targets(w.shooter).size()
+	for p: Dictionary in _pending:
+		if not loads.has(p["shooter"]):
+			loads[p["shooter"]] = channel_targets(p["shooter"]).size()
+	return loads

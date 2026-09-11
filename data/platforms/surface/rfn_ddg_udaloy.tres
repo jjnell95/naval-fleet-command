@@ -25,3 +25,5 @@ fire_control_channels = 4
 decoy_count = 12
 weapon_loadout = {"kh35_uran": 8, "redut_family": 32, "a190_100mm_gun": 300, "ak630_ciws": 120, "ugst_torpedo": 8}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+role = "Destroyer • maritime operations"

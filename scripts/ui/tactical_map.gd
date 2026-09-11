@@ -37,12 +37,12 @@ const EFFECT_LIFE_S := 2.2
 const NICE_STEPS_NM: Array[float] = [0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
 
 const COL_OCEAN := Color(0.024, 0.055, 0.086)
-const COL_OCEAN_TOP := Color(0.035, 0.085, 0.125)
+const COL_OCEAN_TOP := Color(0.027, 0.073, 0.100)
 const COL_OCEAN_BOTTOM := Color(0.016, 0.036, 0.062)
 # Land is a chart tint, not a photograph: a shade above the water in luminance, pulled off the
 # blue so it separates without ever competing with a contact symbol drawn on top of it.
-const COL_LAND := Color(0.058, 0.070, 0.072)
-const COL_LAND_HIGH := Color(0.088, 0.098, 0.092)
+const COL_LAND := Color(0.10, 0.14, 0.15)
+const COL_LAND_HIGH := Color(0.16, 0.21, 0.20)
 const COL_COAST := Color(0.42, 0.62, 0.66, 0.85)
 const COL_SHELF := Color(0.20, 0.45, 0.52, 0.11)
 const COL_LAND_LABEL := Color(0.55, 0.68, 0.66, 0.75)
@@ -91,8 +91,8 @@ var center_nm := Vector2.ZERO
 var ppn := 4.0  # pixels per nautical mile
 var selected: Array[Unit] = []
 var selected_track: Track = null
-var show_key := true
-var show_rings := true
+var show_key := false
+var show_rings := false
 var show_trails := true
 var show_terrain := true
 
@@ -135,6 +135,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_anim += delta
+	if selected_track != null and not selected_track.visible_to(reference_unit()):
+		select_track(null)
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
 	_keyboard_pan(delta)
 	_keyboard_zoom(delta)
@@ -430,7 +432,8 @@ func _own_units() -> Array[Unit]:
 func _visible_tracks() -> Array:
 	if track_manager == null:
 		return []
-	return track_manager.get_tracks(player_faction)
+	var ref := reference_unit()
+	return track_manager.tracks_for(ref) if ref != null else track_manager.get_tracks(player_faction)
 
 
 func _unit_at(screen_pos: Vector2) -> Unit:
@@ -566,7 +569,7 @@ func reference_unit() -> Unit:
 
 func _draw() -> void:
 	_label_rects.clear()
-	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction) if unit_manager != null and threat_manager != null else []
+	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
 	_draw_ocean()
 	_draw_land()
 	_draw_vignette()
@@ -622,7 +625,7 @@ func _draw_ocean() -> void:
 	if _water != null:
 		# Two layers drifting against each other, scaled with the zoom so the texture reads as
 		# surface rather than wallpaper. A rough sea shows more of it.
-		var strength := 0.05 + 0.012 * Detection.sea_state
+		var strength := 0.02 + 0.004 * Detection.sea_state
 		var scale := clampf(ppn * 0.5, 0.6, 3.0)
 		var tile := 256.0 * scale
 		var off1 := Vector2(fmod(_anim * 4.0 + center_nm.x * ppn, tile), fmod(_anim * 2.5 - center_nm.y * ppn, tile))
@@ -1069,7 +1072,7 @@ func _draw_units() -> void:
 		if u.is_submarine():
 			sub += " · %.0f m" % u.depth_m
 		elif u.is_aircraft():
-			sub += " · FL%02d · fuel %d%%" % [int(u.altitude_m / 304.8 / 10.0), int(u.fuel_fraction() * 100.0)]
+			sub += " · FL%03d · fuel %d%%" % [int(u.altitude_m / 30.48), int(u.fuel_fraction() * 100.0)]
 		if health < 0.99:
 			sub += " · hull %d%%" % int(health * 100.0)
 		_place_label(sp, name, COL_TEXT if selected.has(u) else Color(COL_TEXT, 0.85), selected.has(u), sub)
@@ -1160,7 +1163,7 @@ func _draw_weapons() -> void:
 		return
 	for w: Weapon in weapon_manager.in_flight:
 		var own := w.faction == player_faction
-		var detected := threat_manager != null and threat_manager.is_detected(player_faction, w)
+		var detected := threat_manager != null and threat_manager.visible_to(reference_unit(), w) if reference_unit() != null else false
 		if not own and not detected and not Debug.enabled:
 			continue  # an undetected round is invisible, which is the whole problem
 		var sp := world_to_screen(w.position)
@@ -1221,32 +1224,13 @@ func _draw_effects() -> void:
 
 func _draw_header() -> void:
 	draw_rect(Rect2(0, 0, size.x, HEADER_H), COL_HEADER)
-	draw_line(Vector2(0, HEADER_H), Vector2(size.x, HEADER_H), Color(0.16, 0.30, 0.38, 0.8), 1.0)
-	draw_string(_font, Vector2(16, 23), "TACTICAL PICTURE", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, COL_ACCENT)
-	var x := 150.0
+	draw_line(Vector2(0, HEADER_H), Vector2(size.x, HEADER_H), Color(COL_ACCENT, 0.35), 1)
+	draw_string(_font, Vector2(14, 23), "TACTICAL PLOT", HORIZONTAL_ALIGNMENT_LEFT, 125, 12, COL_ACCENT)
 	var ref := reference_unit()
 	if ref != null:
-		x = _chip(x, "CENTRE %s" % ref.callsign.to_upper(), COL_TEXT)
-	var radiating := 0
-	var own := _own_units()
-	for u in own:
-		if u.radar_emitting():
-			radiating += 1
-	x = _chip(x, "EMISSIONS %d/%d RADIATING" % [radiating, own.size()], COL_BUOY if radiating > 0 else Color(0.5, 0.6, 0.65))
-	if Detection.sea_state > 0:
-		x = _chip(x, "SEA STATE %d %s" % [Detection.sea_state, Detection.sea_state_name().to_upper()], COL_AMBER if Detection.sea_state >= 4 else COL_TEXT)
-	if not _threats.is_empty():
-		var blink := 0.6 + 0.4 * sin(_anim * 8.0)
-		var torp := false
-		for entry: Dictionary in _threats:
-			if (entry["weapon"] as Weapon).spec.is_torpedo():
-				torp = true
-		x = _chip(x, "%s  %d INBOUND" % ["TORPEDO" if torp else "MISSILE", _threats.size()], Color(COL_HOSTILE, blink))
-	if Debug.enabled:
-		x = _chip(x, "DEBUG TRUTH", COL_TRUTH)
-	var right := "N UP  ·  F2 KEY  ·  F4 RINGS  ·  F5 TRAILS  ·  HOME FIT  ·  C CENTRE"
-	var rw := _font.get_string_size(right, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	draw_string(_font, Vector2(size.x - rw - 14.0, 23), right, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(COL_TEXT, 0.7))
+		draw_string(_font, Vector2(143, 23), "%s  /  %s" % [ref.callsign.to_upper(), "LINKED" if ref.datalink_connected() else "LOCAL SENSORS"], HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 375), 11, COL_TEXT)
+	var text := "N UP  /  F4 SENSORS  /  F2 KEY"
+	draw_string(_font, Vector2(size.x - 218, 23), text, HORIZONTAL_ALIGNMENT_LEFT, 210, 10, UITheme.COL_DIM)
 
 
 func _chip(x: float, text: String, col: Color) -> float:

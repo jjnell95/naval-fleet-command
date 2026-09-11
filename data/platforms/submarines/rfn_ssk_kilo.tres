@@ -31,3 +31,5 @@ decoy_effectiveness = 0.30
 weapon_loadout = {
 "ugst_torpedo": 14
 }
+
+role = "Diesel-Electric Submarine • maritime operations"

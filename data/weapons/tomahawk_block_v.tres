@@ -25,3 +25,5 @@ signature_factor = 0.15
 altitude_m = 15.0
 soft_kill_resistance = 1.3
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+vls_pack = 1

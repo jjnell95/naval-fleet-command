@@ -6,6 +6,7 @@ extends PanelContainer
 signal scenario_chosen(path: String)
 signal dismissed()
 signal editor_requested()
+signal library_requested()
 
 var _list: ItemList
 var _detail: RichTextLabel
@@ -32,20 +33,24 @@ func _ready() -> void:
 	margin.add_child(v)
 
 	var eyebrow := Label.new()
-	eyebrow.text = "NORTH ATLANTIC   ·   FICTIONAL OPERATIONS   ·   AEGIS COMMAND"
+	eyebrow.text = "AEGIS / COMBAT INFORMATION CENTER     •     OPERATIONS DESK"
 	eyebrow.theme_type_variation = "HeaderLabel"
 	v.add_child(eyebrow)
 	var title := Label.new()
-	title.text = "NAVAL FLEET COMMAND"
+	title.text = "THE OCEAN IS A BATTLESPACE."
 	title.add_theme_font_size_override("font_size", 46)
 	title.add_theme_color_override("font_color", Color.WHITE)
 	v.add_child(title)
 	var sub := Label.new()
-	sub.text = "Build the picture. Manage the shield. Decide when to shoot."
+	sub.text = "Naval Fleet Command   /   Search. Classify. Coordinate. Protect the force."
 	sub.theme_type_variation = "DimLabel"
 	sub.add_theme_font_size_override("font_size", 15)
 	v.add_child(sub)
 
+	var hero := PlatformPortrait.new()
+	hero.spec_override = DataDB.platform("usn_ddg_burke_iii")
+	hero.custom_minimum_size.y = 155
+	v.add_child(hero)
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 18)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -107,6 +112,10 @@ func _ready() -> void:
 	edit.focus_mode = Control.FOCUS_NONE
 	edit.pressed.connect(func() -> void: editor_requested.emit())
 	buttons.add_child(edit)
+	var library := Button.new()
+	library.text = "PLATFORM LIBRARY  F7"
+	library.pressed.connect(func() -> void: library_requested.emit())
+	buttons.add_child(library)
 	_close = Button.new()
 	_close.text = "BACK TO THE PICTURE"
 	_close.focus_mode = Control.FOCUS_NONE

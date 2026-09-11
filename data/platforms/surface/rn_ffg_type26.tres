@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rn_ffg_type26"
+domain = "surface"
+display_name = "Type 26 City-class frigate (future fit)"
+short_name = "FFG Type 26"
+nation = "UK"
+category = "frigate"
+max_speed_kn = 26.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 3.2
+accel_kn_s = 0.24
+length_m = 149.9
+displacement_t = 8000.0
+health = 95.0
+signature_factor = 0.75
+sensor_ids = PackedStringArray("artisan_997", "sonar_2087", "nato_esm_suite")
+mast_height_m = 26.0
+aircraft_capacity = 1
+fire_control_channels = 4
+decoy_count = 14
+weapon_loadout = {"sea_ceptor": 48, "mk45_mod4_gun": 250, "phalanx_ciws": 60}
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+
+vls_cells = 24
+
+role = "Antisubmarine escort • quiet ocean surveillance"
+
+service_note = "Future scenario fit. 24 Mk 41 cells unallocated; 48 CAMM in separate launchers."

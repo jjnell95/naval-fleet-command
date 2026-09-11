@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "sea_ceptor"
+display_name = "Sea Ceptor / CAMM"
+family = "CAMM"
+type = "sam"
+guidance = "active_radar"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 14.0
+min_range_nm = 1.0
+speed_kn = 2400.0
+turn_rate_deg_s = 90.0
+seeker_range_nm = 4.0
+damage = 35.0
+base_pk = 0.55
+salvo_default = 2
+launch_interval_s = 1.5
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."

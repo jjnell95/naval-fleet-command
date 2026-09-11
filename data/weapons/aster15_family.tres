@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "aster15_family"
+display_name = "Aster 15"
+family = "Aster 15"
+type = "sam"
+guidance = "inertial_active"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 16.0
+min_range_nm = 1.5
+speed_kn = 2400.0
+turn_rate_deg_s = 70.0
+seeker_range_nm = 5.0
+damage = 40.0
+base_pk = 0.6
+salvo_default = 2
+launch_interval_s = 2.0
+defensive_difficulty = 1.0
+signature_factor = 0.15
+altitude_m = 8000.0
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+
+vls_pack = 1

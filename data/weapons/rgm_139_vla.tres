@@ -24,3 +24,5 @@ run_to_enable_nm = 0.3
 acoustic_signature = 0.60
 source_status = "PUBLIC: weapon family and role. GAMEPLAY_ESTIMATE: every numeric value is a tuning parameter. Rocket delivery for the ship-launched round is abstracted into its speed rather than modelled as a separate phase."
 soft_kill_resistance = 0.7
+
+vls_pack = 1

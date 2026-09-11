@@ -58,9 +58,11 @@ static func threatened_unit(unit_manager: UnitManager, faction: String, w: Weapo
 
 
 ## Detected rounds threatening this faction, most urgent first.
-static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatManager, faction: String) -> Array:
+static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatManager, faction: String, observer: Unit = null) -> Array:
 	var out: Array = []
 	for w in threat_manager.get_threats(faction):
+		if observer != null and not threat_manager.visible_to(observer, w):
+			continue
 		var victim := threatened_unit(unit_manager, faction, w)
 		if victim != null:
 			out.append({"weapon": w, "target": victim, "time_s": w.time_to_reach_s(victim.position)})
@@ -86,10 +88,10 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 		var inbound: Array = by_faction[u.faction]
 		for entry: Dictionary in inbound:
 			var w: Weapon = entry["weapon"]
-			if w.phase == Weapon.Phase.DEAD:
+			if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
 				continue
 			_try_decoy(u, w, weapon_manager)
-			if w.phase == Weapon.Phase.DEAD:
+			if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
 				continue
 			var already: int = committed.get(w.id, 0)
 			var in_use: int = channels.get(u, 0)
@@ -118,23 +120,14 @@ static func _count_committed(weapon_manager: WeaponManager) -> Dictionary:
 ## more simultaneous engagements than it has fire-control channels, which is what lets a large
 ## enough salvo get through a good escort.
 static func _channels_in_use(weapon_manager: WeaponManager) -> Dictionary:
-	var per_ship: Dictionary = {}
-	for w in weapon_manager.in_flight:
-		if w.intercept_target == null or w.shooter == null:
-			continue
-		if not per_ship.has(w.shooter):
-			per_ship[w.shooter] = {}
-		per_ship[w.shooter][w.intercept_target.id] = true
-	var out: Dictionary = {}
-	for ship in per_ship:
-		out[ship] = per_ship[ship].size()
-	return out
+	return weapon_manager.channel_loads()
+
 
 
 ## Data decides what an interceptor can shoot at. Nothing currently lists "torpedo" as a target
 ## type, so a torpedo cannot be shot down and has to be defeated by decoys or by manoeuvre.
 static func _can_intercept(spec: WeaponSpec, threat: Weapon) -> bool:
-	return spec.target_types.has(threat.threat_class())
+	return spec.target_types.has(threat.threat_class()) and threat.spec.altitude_m >= spec.intercept_min_altitude_m and threat.spec.altitude_m <= spec.intercept_max_altitude_m
 
 
 static func _ship_engages(weapon_manager: WeaponManager, u: Unit, threat: Weapon) -> bool:

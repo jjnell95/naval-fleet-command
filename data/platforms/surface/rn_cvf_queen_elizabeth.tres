@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rn_cvf_queen_elizabeth"
+display_name = "Queen Elizabeth-class aircraft carrier"
+short_name = "CV Queen Elizabeth"
+nation = "UK"
+category = "carrier"
+domain = "surface"
+max_speed_kn = 25.0
+cruise_speed_kn = 18.0
+turn_rate_deg_s = 1.0
+accel_kn_s = 0.1
+length_m = 280.0
+displacement_t = 65000.0
+health = 310.0
+signature_factor = 3.0
+sensor_ids = PackedStringArray("artisan_997", "nato_esm_suite")
+mast_height_m = 50.0
+aircraft_capacity = 12
+fire_control_channels = 0
+decoy_count = 24
+weapon_loadout = {"phalanx_ciws": 90}
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+
+role = "STOVL aviation • F-35B carrier operations"
+
+service_note = "F-35B and helicopters; no catapult aircraft. Air wing compressed."
+
+aviation_facility = "stovl"

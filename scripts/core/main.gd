@@ -4,7 +4,7 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M11 — AEGIS Command II"
+const BUILD_MILESTONE := "M13 — AEGIS / Combat Information Center"
 const DEFAULT_SCENARIO := "res://data/scenarios/aegis_bastion.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
@@ -17,6 +17,7 @@ const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-on
 @onready var orders_panel: OrdersPanel = %OrdersPanel
 @onready var contact_panel: ContactPanel = %ContactPanel
 
+var _library: PlatformLibrary
 var _report: AfterAction
 var _editor: ScenarioEditor
 var _menu: ScenarioMenu
@@ -30,6 +31,13 @@ var _kills: PackedStringArray = []
 
 func _ready() -> void:
 	theme = UITheme.build()
+	unit_panel.roster.map = map
+	var overview := CommandOverview.new()
+	overview.map = map
+	overview.custom_minimum_size.y = 80
+	$Layout.add_child(overview)
+	$Layout.move_child(overview, 1)
+	orders_panel.weapon_manager = simulation.weapon_manager
 	map.unit_manager = simulation.unit_manager
 	map.track_manager = simulation.track_manager
 	map.weapon_manager = simulation.weapon_manager
@@ -94,6 +102,7 @@ func _ready() -> void:
 	simulation.track_manager.track_lost.connect(_on_track_lost)
 	simulation.unit_manager.order_issued.connect(func(u: Unit, o: Order) -> void: print("[Order] %s: %s" % [u.callsign, o.describe()]))
 
+	move_child(_library, get_child_count() - 1)
 	var args := OS.get_cmdline_user_args()
 	var scripted := false
 	for f in SCRIPTED_FLAGS:
@@ -132,7 +141,7 @@ func _process(delta: float) -> void:
 		return
 	_objective_accum = 0.0
 	top_bar.set_objective_text(_objective_summary())
-	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction)
+	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, map.reference_unit())
 	if threats.is_empty():
 		top_bar.set_alert("")
 	else:
@@ -175,6 +184,9 @@ func start_scenario(path: String) -> void:
 	unit_panel.clear_events()
 	orders_panel.set_units([], false)
 	orders_panel.set_target_track(null)
+	var own := simulation.unit_manager.get_faction_units(simulation.player_faction)
+	if not own.is_empty():
+		map.select_units([own[0]])
 	contact_panel.refresh()
 	_stats = {"launched": 0, "intercepted": 0, "decoyed": 0, "hits": 0, "leaked": 0, "hostile_rounds": 0, "hits_taken": 0, "own_rounds": 0, "hits_scored": 0, "decoys_used": 0, "contacts": 0, "classified": 0, "sorties": 0}
 	_losses = PackedStringArray()
@@ -192,6 +204,10 @@ func restart_scenario() -> void:
 
 
 func _build_screens() -> void:
+	_library = PlatformLibrary.new()
+	_library.closed.connect(func() -> void: _library.hide())
+	add_child(_library)
+	_library.hide()
 	_menu = ScenarioMenu.new()
 	_menu.name = "ScenarioMenu"
 	_menu.scenario_chosen.connect(func(path: String) -> void:
@@ -199,6 +215,7 @@ func _build_screens() -> void:
 		_show_briefing())
 	_menu.dismissed.connect(_hide_screens)
 	_menu.editor_requested.connect(_show_editor)
+	_menu.library_requested.connect(_toggle_library)
 	add_child(_menu)
 	_menu.hide()
 
@@ -263,6 +280,12 @@ func _hide_screens() -> void:
 	_editor.hide()
 
 
+func _toggle_library() -> void:
+	_library.visible = not _library.visible
+	if _library.visible:
+		SimClock.set_paused(true)
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
@@ -270,6 +293,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if _editor.visible and k.keycode != KEY_F8 and k.keycode != KEY_F9:
 		return  # the editor owns the keyboard while it is open
 	match k.keycode:
+		KEY_F7:
+			_toggle_library()
 		KEY_SPACE:
 			SimClock.toggle_pause()
 		KEY_ESCAPE:
@@ -320,6 +345,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _on_selection_changed(units: Array) -> void:
+	if map.selected_track != null and not map.selected_track.visible_to(map.reference_unit()):
+		map.select_track(null)
 	unit_panel.set_units(units)
 	orders_panel.set_units(units, _all_controllable(units))
 	orders_panel.set_target_track(map.selected_track)
@@ -338,13 +365,12 @@ func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int)
 		map.add_effect(shooter.position, "launch")
 		SoundFx.play("launch")
 		top_bar.flash("%s — %d x %s at %s" % [shooter.callsign, rounds, spec.display_name, t.id], "good")
-	else:
-		top_bar.flash("HOSTILE LAUNCH — %d x %s at %s" % [rounds, spec.display_name, t.id], "alert")
+
 	print("[Combat] %s launches %d x %s at %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, t.id, shooter.position.distance_to(t.position)])
 
 
 func _on_threat_detected(faction: String, w: Weapon) -> void:
-	if faction != simulation.player_faction:
+	if faction != simulation.player_faction or (map.reference_unit() != null and not simulation.threat_manager.visible_to(map.reference_unit(), w)):
 		return
 	SimClock.drop_to_realtime()
 	_stats["hostile_rounds"] += 1
@@ -551,7 +577,7 @@ func _toggle_sonar_on_selection() -> void:
 
 
 func _on_track_added(faction: String, t: Track) -> void:
-	if faction != simulation.player_faction:
+	if faction != simulation.player_faction or (map.reference_unit() != null and not t.visible_to(map.reference_unit())):
 		return
 	SimClock.drop_to_realtime()
 	_stats["contacts"] += 1

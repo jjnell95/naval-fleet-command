@@ -54,7 +54,7 @@ func class_short() -> String:
 		Classification.UNKNOWN:
 			return "UNK"
 		Classification.SURFACE:
-			return "SUB" if domain == "subsurface" else "SURF"
+			return "SUB" if domain == "subsurface" else ("AIR" if domain == "air" else "SURF")
 	return known_class
 
 
@@ -71,7 +71,7 @@ func description() -> String:
 		Classification.CLASS_KNOWN:
 			return known_class
 		Classification.SURFACE:
-			return "SUBSURFACE CONTACT" if domain == "subsurface" else "SURFACE CONTACT"
+			return "SUBSURFACE CONTACT" if domain == "subsurface" else ("AIR CONTACT" if domain == "air" else "SURFACE CONTACT")
 	return "UNKNOWN CONTACT"
 
 
@@ -83,16 +83,18 @@ func label() -> String:
 		Classification.CLASS_KNOWN:
 			return "%s %s" % [id, known_class]
 		Classification.SURFACE:
-			return "%s %s" % [id, "SUB" if domain == "subsurface" else "SURF"]
+			return "%s %s" % [id, "SUB" if domain == "subsurface" else ("AIR" if domain == "air" else "SURF")]
 	return "%s UNK" % id
 
 
 ## Whether this unit knows about the contact: because it found it, or because someone on the
 ## network did and this unit is on the network too.
 func visible_to(u: Unit) -> bool:
-	if contributors.has(u):
-		return true
-	return networked and u.datalink_connected()
+	if u == null or (owner_faction != "" and u.faction != owner_faction):
+		return false
+	if not networked:
+		return contributors.has(u)
+	return u.datalink_connected()
 
 
 func status_short(now: float) -> String:

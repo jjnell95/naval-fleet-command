@@ -21,6 +21,8 @@ const TMA_DECAY_PER_S := 0.0008  # a solution goes off while contact is lost
 ## which is what makes identification a decision rather than a formality.
 var neutral_factions: PackedStringArray = []
 var _tracks: Dictionary = {}  # faction -> Array[Track]
+var _local_keys: Dictionary = {}
+var _track_ids: Dictionary = {}
 var _next_number: Dictionary = {}  # faction -> int
 
 
@@ -30,11 +32,18 @@ func get_tracks(faction: String) -> Array:
 
 ## The picture as one unit actually has it, rather than the faction's whole plot.
 func tracks_for(u: Unit) -> Array:
-	var out: Array = []
-	for t: Track in get_tracks(u.faction):
-		if t.visible_to(u):
-			out.append(t)
-	return out
+	if u == null:
+		return []
+	if u.datalink_connected():
+		return get_tracks(u.faction)
+	return _tracks.get(_local_keys.get(u, ""), [])
+
+
+func find_for(u: Unit, target: Unit) -> Track:
+	for t: Track in tracks_for(u):
+		if t.truth == target:
+			return t
+	return null
 
 
 func find_track(faction: String, target: Unit) -> Track:
@@ -50,19 +59,31 @@ func observe(faction: String, target: Unit, observed_pos: Vector2, quality: floa
 
 
 func observe_contact(faction: String, c: SensorContact, now: float, dt: float) -> void:
+	if c.observer != null:
+		if not _local_keys.has(c.observer):
+			_local_keys[c.observer] = "local:%s" % c.observer.get_instance_id()
+		_observe_picture(_local_keys[c.observer], faction, c, now, dt, false)
+	if c.observer == null or c.observer.datalink_connected():
+		_observe_picture(faction, faction, c, now, dt, true)
+
+
+func _observe_picture(key: String, faction: String, c: SensorContact, now: float, dt: float, shared: bool) -> void:
 	var target := c.target
-	var t := find_track(faction, target)
+	var t := find_track(key, target)
 	var is_new := t == null
 	if is_new:
 		t = Track.new()
 		t.owner_faction = faction
 		t.truth = target
-		t.id = "T%d" % _next_id(faction)
+		var identity_key := "%s:%s" % [faction, target.get_instance_id()]
+		if not _track_ids.has(identity_key):
+			_track_ids[identity_key] = "T%d" % _next_id(faction)
+		t.id = _track_ids[identity_key]
 		t.position = c.position
 		t.first_seen_time = now
-		if not _tracks.has(faction):
-			_tracks[faction] = []
-		_tracks[faction].append(t)
+		if not _tracks.has(key):
+			_tracks[key] = []
+		_tracks[key].append(t)
 	var already_this_cycle := (not is_new) and is_equal_approx(t.last_seen_time, now)
 	var blend := BEARING_BLEND if c.bearing_only else FIRM_BLEND
 	t.position = c.position if is_new else t.position.lerp(c.position, blend)
@@ -76,7 +97,7 @@ func observe_contact(faction: String, c: SensorContact, now: float, dt: float) -
 	t.source = c.source
 	if c.observer != null:
 		t.contributors[c.observer] = now
-	t.networked = c.observer == null or c.observer.datalink_connected() or _any_contributor_linked(t)
+	t.networked = shared
 	t.status = Track.Status.ACTIVE
 	t.last_seen_time = now
 	if not already_this_cycle:
@@ -89,7 +110,7 @@ func observe_contact(faction: String, c: SensorContact, now: float, dt: float) -
 		_update_classification(faction, t)
 		if not t.bearing_only or t.tma_quality >= TMA_FOR_KINEMATICS:
 			_update_kinematics(t, now)
-	if is_new:
+	if is_new and shared:
 		track_added.emit(faction, t)
 
 
@@ -144,7 +165,8 @@ func _update_classification(faction: String, t: Track) -> void:
 			t.identity = "HOSTILE"
 	if level >= Track.Classification.IDENTIFIED:
 		t.known_callsign = t.truth.callsign
-	track_classified.emit(faction, t)
+	if t.networked:
+		track_classified.emit(faction, t)
 
 
 func _update_kinematics(t: Track, now: float) -> void:
@@ -185,4 +207,6 @@ func _next_id(faction: String) -> int:
 
 func clear() -> void:
 	_tracks.clear()
+	_local_keys.clear()
+	_track_ids.clear()
 	_next_number.clear()

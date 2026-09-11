@@ -32,6 +32,9 @@ extends Resource
 @export var run_to_enable_nm := 0.0
 @export var acoustic_signature := 0.6  # how loud the weapon itself is while running
 @export var source_status := ""
+@export var vls_pack := 0  # rounds per VLS cell; 0 = not modelled as a VLS round
+@export var intercept_min_altitude_m := 0.0
+@export var intercept_max_altitude_m := 1000000.0
 
 
 func is_gun() -> bool:

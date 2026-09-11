@@ -10,6 +10,7 @@ var track_manager: TrackManager
 var player_faction := "BLUE"
 var map: TacticalMap
 
+var _filter := "ALL"
 var _header: Label
 var _summary: Label
 var _list: ItemList
@@ -34,8 +35,21 @@ func _ready() -> void:
 	_summary.theme_type_variation = "DimLabel"
 	_summary.clip_text = true
 	v.add_child(_summary)
+	var filters := HBoxContainer.new()
+	filters.add_theme_constant_override("separation", 3)
+	v.add_child(filters)
+	var group := ButtonGroup.new()
+	for domain in ["ALL", "AIR", "SURF", "SUB"]:
+		var b := Button.new()
+		b.text = domain
+		b.toggle_mode = true
+		b.button_group = group
+		b.button_pressed = domain == "ALL"
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(func() -> void: _filter = domain; refresh())
+		filters.add_child(b)
 	_list = ItemList.new()
-	_list.custom_minimum_size.y = 150
+	_list.custom_minimum_size.y = 110
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.size_flags_stretch_ratio = 1.1
 	_list.focus_mode = Control.FOCUS_NONE
@@ -47,7 +61,7 @@ func _ready() -> void:
 	_detail.scroll_active = true
 	_detail.selection_enabled = false
 	_detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_detail.custom_minimum_size.y = 130
+	_detail.custom_minimum_size.y = 95
 	v.add_child(_detail)
 	var board := DefenceBoard.new()
 	board.contacts = self
@@ -67,7 +81,10 @@ func refresh() -> void:
 		return
 	var now := SimClock.sim_time
 	var ref := _reference_unit()
-	var tracks: Array = track_manager.get_tracks(player_faction).duplicate()
+	var tracks: Array = (track_manager.tracks_for(ref) if ref != null else track_manager.get_tracks(player_faction)).duplicate()
+	if _filter != "ALL":
+		var domain: String = {"AIR": "air", "SURF": "surface", "SUB": "subsurface"}[_filter]
+		tracks = tracks.filter(func(t: Track) -> bool: return t.domain == domain)
 	tracks.sort_custom(func(a: Track, b: Track) -> bool:
 		if (a.identity == "HOSTILE") != (b.identity == "HOSTILE"):
 			return a.identity == "HOSTILE"

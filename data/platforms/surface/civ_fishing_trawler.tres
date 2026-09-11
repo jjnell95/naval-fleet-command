@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "civ_fishing_trawler"
+display_name = "Civilian fishing trawler"
+short_name = "Fishing vessel"
+nation = "Civil"
+category = "fishing vessel"
+domain = "surface"
+max_speed_kn = 12.0
+cruise_speed_kn = 7.0
+turn_rate_deg_s = 1.2
+accel_kn_s = 0.10
+length_m = 42.0
+displacement_t = 550.0
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+sensor_ids = PackedStringArray("civil_nav_radar")
+signature_factor = 0.35
+mast_height_m = 32.0
+health = 22.0
+has_datalink = false
+fire_control_channels = 0
+decoy_count = 0
+decoy_effectiveness = 0.0
+weapon_loadout = {}
+
+role = "Neutral traffic • identification challenge"
+
+service_note = "Generic civilian design; fictional identity. Weapons must remain inhibited after neutral identification."

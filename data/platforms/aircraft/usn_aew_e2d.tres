@@ -28,3 +28,5 @@ fire_control_channels = 0
 decoy_count = 8
 weapon_loadout = {}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+role = "Airborne Early Warning • maritime operations"

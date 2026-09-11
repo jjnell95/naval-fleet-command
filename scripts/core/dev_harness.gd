@@ -120,6 +120,9 @@ func handle_flags() -> void:
 		main._apply_order_to_selection(Order.move(Vector2(0.0, 20.0)))
 		SimClock.set_speed_index(5)
 		SimClock.set_paused(false)
+	if args.has("--open-library"):
+		main._toggle_library()
+		main._library._filter("F-35")
 	if args.has("--dump"):
 		_dump_state()
 		main.get_tree().quit()

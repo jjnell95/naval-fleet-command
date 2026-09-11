@@ -27,3 +27,5 @@ decoy_count = 0
 decoy_effectiveness = 0.0
 weapon_loadout = {
 }
+
+role = "Shore Base • maritime operations"

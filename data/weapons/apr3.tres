@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "apr3"
+display_name = "APR-3E lightweight torpedo"
+family = "APR-3E"
+type = "torpedo"
+guidance = "acoustic_homing"
+profile = "subsurface"
+target_types = PackedStringArray("surface", "subsurface")
+max_range_nm = 6.0
+min_range_nm = 0.4
+speed_kn = 40.0
+turn_rate_deg_s = 12.0
+seeker_range_nm = 1.5
+damage = 55.0
+base_pk = 0.70
+salvo_default = 2
+launch_interval_s = 20.0
+run_to_enable_nm = 0.5
+acoustic_signature = 0.60
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+soft_kill_resistance = 0.7

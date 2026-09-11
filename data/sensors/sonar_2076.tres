@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "sonar_2076"
+display_name = "Sonar 2076 integrated sonar suite"
+kind = "sonar"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 0.0
+classify_rate = 1.30
+passive_sensitivity_nm = 30.0
+active_range_nm = 14.0
+bearing_accuracy_deg = 0.8
+self_noise_tolerance = 0.65
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."

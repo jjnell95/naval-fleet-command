@@ -14,11 +14,11 @@ config/icon="res://icon.svg"
 [display]
 
 window/size/viewport_width=1600
-window/size/viewport_height=900
+window/size/viewport_height=1000
 window/size/resizable=true
 window/stretch/mode="canvas_items"
-window/size/window_width_override=1440
-window/size/window_height_override=810
+window/size/window_width_override=1600
+window/size/window_height_override=1000
 
 [rendering]
 

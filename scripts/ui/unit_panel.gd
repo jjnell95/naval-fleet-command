@@ -14,6 +14,7 @@ var _log_header: Label
 var _units: Array = []
 var _events: PackedStringArray = []
 var _accum := 0.0
+var roster: FleetRoster
 var _portrait: PlatformPortrait
 
 
@@ -22,9 +23,12 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 6)
 	add_child(v)
 	var hl := Label.new()
-	hl.text = "SELECTED UNIT"
+	hl.text = "TASK GROUP  /  SELECT TO COMMAND"
 	hl.theme_type_variation = "HeaderLabel"
 	v.add_child(hl)
+	roster = FleetRoster.new()
+	roster.custom_minimum_size.y = 122
+	v.add_child(roster)
 	_header = Label.new()
 	_header.text = "—"
 	_header.theme_type_variation = "TitleLabel"
@@ -36,24 +40,30 @@ func _ready() -> void:
 	v.add_child(_subtitle)
 	_portrait = PlatformPortrait.new()
 	_portrait.panel = self
-	_portrait.custom_minimum_size.y = 128
+	_portrait.custom_minimum_size.y = 132
 	v.add_child(_portrait)
 	_bars = ReadinessBars.new()
 	_bars.custom_minimum_size.y = 0
 	v.add_child(_bars)
+	var tabs := TabContainer.new()
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(tabs)
 	_body = RichTextLabel.new()
+	_body.name = "PLATFORM"
 	_body.bbcode_enabled = true
 	_body.fit_content = false
 	_body.scroll_active = true
 	_body.selection_enabled = false
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.size_flags_stretch_ratio = 1.6
-	v.add_child(_body)
+	tabs.add_child(_body)
 	_log_header = Label.new()
 	_log_header.text = "EVENT LOG"
 	_log_header.theme_type_variation = "HeaderLabel"
+	_log_header.hide()
 	v.add_child(_log_header)
 	_log = RichTextLabel.new()
+	_log.name = "EVENT LOG"
 	_log.bbcode_enabled = true
 	_log.fit_content = false
 	_log.scroll_active = true
@@ -62,7 +72,7 @@ func _ready() -> void:
 	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_log.custom_minimum_size.y = 120
 	_log.add_theme_font_size_override("normal_font_size", 11)
-	v.add_child(_log)
+	tabs.add_child(_log)
 	set_units([])
 
 
@@ -173,6 +183,11 @@ func _refresh() -> void:
 		if Damage.repairing(u):
 			chips.append(_chip("DAMAGE CONTROL", UITheme.HEX_AMBER))
 		lines.append(" ".join(chips))
+		lines.append("[color=%s]%s[/color]" % [UITheme.HEX_DIM, u.spec.role])
+		if u.spec.vls_cells > 0:
+			lines.append(_kv("VLS", "%d / %d cells allocated" % [u.spec.occupied_vls_cells(), u.spec.vls_cells]))
+		if u.spec.aircraft_capacity > 0:
+			lines.append(_kv("DECK", u.spec.flight_facility().to_upper()))
 		lines.append(_h("NAVIGATION"))
 		lines.append(_kv("POS", "%s  %s" % [Geo.format_axis(u.position.x, "E", "W"), Geo.format_axis(u.position.y, "N", "S")]))
 		lines.append(_kv("HDG", "%s   ordered %s" % [Geo.format_bearing(u.heading_deg), Geo.format_bearing(u.ordered_heading_deg)]))

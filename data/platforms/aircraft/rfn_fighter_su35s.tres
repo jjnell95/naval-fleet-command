@@ -30,3 +30,5 @@ decoy_count = 8
 decoy_effectiveness = 0.3
 weapon_loadout = {"r77_family": 4, "kh35_uran": 2}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+role = "Fighter • maritime operations"
