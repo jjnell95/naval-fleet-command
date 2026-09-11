@@ -1,9 +1,8 @@
 class_name PlatformPortrait
 extends Control
-## Recognition card for the selected unit. The picture is the platform's rendered profile from
-## assets/platforms (an original Blender model, never an exact blueprint), tinted in the display
-## ink over a graticule. A platform without a render falls back to the code-drawn category
-## silhouette below, so a carrier, a cruiser, a boat and a jet still read differently.
+## Lit recognition card for an owned unit or a public catalogue entry. Falls back to the
+## legacy profile, then a code-drawn category silhouette when presentation art is unavailable.
+var show_captions := true
 var panel: UnitPanel
 var spec_override: PlatformSpec  # shown instead of the panel's selection (editor palette preview)
 var _font: Font
@@ -11,7 +10,8 @@ var _font: Font
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_font = get_theme_default_font()
+	clip_contents = true
+	_font = UITheme.body_font()
 
 
 func _process(_delta: float) -> void:
@@ -20,13 +20,12 @@ func _process(_delta: float) -> void:
 
 func _draw() -> void:
 	var ink := UITheme.COL_ACCENT
-	var dim := Color("294552")
-	draw_rect(Rect2(Vector2.ZERO, size), Color("091420"))
-	draw_rect(Rect2(Vector2.ZERO, size), UITheme.COL_BORDER, false, 1.0)
-	for x in range(0, int(size.x), 24):
-		draw_line(Vector2(x, 0), Vector2(size.x - size.x + x, size.y), Color(dim, 0.22))
-	for y in range(0, int(size.y), 24):
-		draw_line(Vector2(0, y), Vector2(size.x, y), Color(dim, 0.22))
+	var pts := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
+	draw_polygon(pts, PackedColorArray([Color("172d40"), Color("101f2f"), Color("091521"), Color("102435")]))
+	for i in range(1, 5):
+		var r := size.x * (0.18 + i * 0.16)
+		draw_arc(Vector2(size.x * .55, size.y * .6), r, 0, TAU, 72, Color(.36, .63, .72, .07), 1, true)
+	draw_line(Vector2(14, size.y - 26), Vector2(size.x - 14, size.y - 26), Color(.4, .68, .77, .16), 1)
 	var unit: Unit = null
 	if panel != null and not panel._units.is_empty():
 		unit = panel._units[0]
@@ -36,8 +35,15 @@ func _draw() -> void:
 	var w := minf(size.x * 0.78, 620.0)
 	var x := (size.x - w) * 0.5
 	var y := size.y * 0.66
+	var beauty: Texture2D = PlatformArt.beauty(spec.id) if spec != null else null
 	var render: Texture2D = PlatformArt.profile(spec.id) if spec != null else null
-	if render != null:
+	if beauty != null:
+		var area := size - Vector2(12, 20 if show_captions else 0)
+		var image_height := beauty.get_height() * (1.0 if show_captions else 0.72)
+		var scale := minf(area.x / beauty.get_width(), area.y / image_height)
+		var wh := beauty.get_size() * scale
+		draw_texture_rect(beauty, Rect2((size - wh) * .5, wh), false)
+	elif render != null:
 		_draw_render(render, domain, ink)
 	elif domain == "air":
 		_draw_aircraft(Vector2(size.x * 0.5, size.y * 0.5), category, ink)
@@ -53,9 +59,11 @@ func _draw() -> void:
 		_draw_combatant(x, y, w, ink, category.contains("cruiser"))
 	if domain != "air" and render == null:
 		draw_line(Vector2(x - 12, y + 12), Vector2(x + w + 12, y + 12), Color(ink, 0.35), 1)
+	if not show_captions:
+		return
 	var caption := "AEGIS / MULTI-DOMAIN COMMAND" if spec == null else spec.short_name.to_upper()
 	draw_string(_font, Vector2(10, 15), caption, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 20), 10, ink)
-	var tag := "RECOGNITION PROFILE" if spec == null else "%s · %s" % [spec.category.to_upper(), spec.nation.to_upper()]
+	var tag := "PLATFORM RECOGNITION" if spec == null else "%s · %s" % [spec.category.to_upper(), spec.nation.to_upper()]
 	if spec != null and spec.length_m > 0.0:
 		tag += " · %d m" % int(spec.length_m)
 	draw_string(_font, Vector2(10, size.y - 6), tag, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 20), 9, UITheme.COL_DIM)

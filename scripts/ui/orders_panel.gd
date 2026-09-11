@@ -3,6 +3,7 @@ extends PanelContainer
 ## Bottom panel: movement, sensor and weapon orders for the current selection.
 ## Emits Order objects only; Main routes them to UnitManager for controllable units.
 
+signal inspect_requested(weapon_id: String)
 signal order_requested(order: Order)
 signal weapon_selection_changed(spec: WeaponSpec)
 signal formation_requested(pattern: String)
@@ -10,6 +11,8 @@ signal formation_requested(pattern: String)
 const SPEED_PRESETS: Array[float] = [5.0, 10.0, 15.0, 20.0, 25.0]
 
 var weapon_manager: WeaponManager
+var _weapon_art: TextureRect
+var _inspect_weapon: Button
 var _status: Label
 var _buttons: Array[Button] = []
 var _heading: SpinBox
@@ -89,6 +92,19 @@ func _ready() -> void:
 	_weapon_option.clip_text = true
 	_weapon_option.item_selected.connect(func(_i: int) -> void: _refresh_envelope())
 	wrow.add_child(_weapon_option)
+	_weapon_art = TextureRect.new()
+	_weapon_art.custom_minimum_size = Vector2(90, 40)
+	_weapon_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_weapon_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	wrow.add_child(_weapon_art)
+	_inspect_weapon = Button.new()
+	_inspect_weapon.text = "3D"
+	_inspect_weapon.tooltip_text = "Inspect this weapon system"
+	_inspect_weapon.pressed.connect(func() -> void:
+		var spec := current_weapon_spec()
+		if spec != null:
+			inspect_requested.emit(spec.id))
+	wrow.add_child(_inspect_weapon)
 
 	wrow.add_child(_label("SALVO"))
 	_salvo = SpinBox.new()
@@ -353,6 +369,8 @@ func _rebuild_weapons() -> void:
 func _refresh_envelope() -> void:
 	var spec := current_weapon_spec()
 	weapon_selection_changed.emit(spec)
+	_weapon_art.texture = PlatformArt.thumbnail(spec.id, true) if spec != null else null
+	_inspect_weapon.disabled = spec == null
 	if not _controllable or spec == null:
 		_engage_btn.disabled = true
 		_envelope.text = ""

@@ -181,3 +181,39 @@ func test_every_shipped_aircraft_has_compatible_home_and_capacity() -> void:
 				assert_true(not Terrain.is_land(u.position), u.callsign + " afloat")
 		um.free()
 	Terrain.clear()
+
+
+func test_weapon_trails_do_not_reveal_unobserved_history() -> void:
+	var observer := _unit("usn_ddg_burke_iii")
+	observer.spec = observer.spec.duplicate()
+	observer.spec.has_datalink = false
+	var other := _unit("usn_ddg_burke_iii")
+	var map := TacticalMap.new()
+	var tm := ThreatManager.new()
+	var wm := WeaponManager.new()
+	var w := Weapon.new()
+	w.id = 12
+	w.spec = DataDB.weapon("kalibr_asm")
+	w.faction = "RED"
+	wm.in_flight.append(w)
+	map.weapon_manager = wm
+	map.threat_manager = tm
+	map.selected = [observer]
+	map._record_weapon_trails()
+	assert_true(map._weapon_trails.is_empty(), "undetected weapon history is not recorded")
+	w.position = Vector2(12, 8)
+	tm.mark_detected("BLUE", w, 1, observer)
+	map._record_weapon_trails()
+	assert_eq(map._weapon_trails[w.id].size(), 1, "first detection has one observed point")
+	assert_eq(map._weapon_trails[w.id][0], w.position, "no pre-detection launch position appears")
+	map.selected = [other]
+	map._record_weapon_trails()
+	assert_true(map._weapon_trails.is_empty(), "switching consoles clears a private trail")
+	map.selected = [observer]
+	map._record_weapon_trails()
+	tm.begin_cycle()
+	map._record_weapon_trails()
+	assert_true(map._weapon_trails.is_empty(), "lost detection drops the live weapon trail")
+	map.free()
+	tm.free()
+	wm.free()

@@ -2,7 +2,15 @@
 
 [Play in your browser](https://jjnell95.github.io/naval-fleet-command/play/) · [Launch page](https://jjnell95.github.io/naval-fleet-command/)
 
-A modern naval command simulation in Godot 4.7.2. Command a task group through an Aegis-inspired combat information display: build an uncertain picture, manage emissions, hold the screen together and decide when to shoot. Original vector graphics, procedural sound and fictional scenarios; no Jane's assets or affiliation.
+A modern naval command simulation in Godot 4.7.2. Command a task group through an Aegis-inspired combat information display: build an uncertain picture, manage emissions, hold the screen together and decide when to shoot. Original 3D fleet art, tactical vector graphics, procedural sound and fictional scenarios; no Jane's assets or affiliation.
+
+## M14 visual overhaul
+
+**42 platforms and 41 weapons now have original, inspectable 3D models.** Open **Fleet + Ordnance Gallery (F7)**, or use **Inspect Platform / 3D** on a selected unit. Drag to orbit, scroll to zoom, use the profile/plan presets, or enable auto rotation. Click a fitted weapon to inspect it, then click a carrying platform to return. The gallery pauses the mission and restores its previous pause state on exit.
+
+The fleet has coloured hulls, decks, glazing, radar faces and metalwork; revised Burke and F-35 geometry; flight-deck markings; launcher hatches; and distinct missile, torpedo and gun forms. The interface has new typography, rendered unit cards, weapon previews, a redesigned mission menu and quieter map lines. Zoom closer for colour hull and aircraft silhouettes; moving surface ships leave visual wakes. These are illustrative game models, not exact technical replicas. See [the art pipeline](assets/README.md).
+
+![Interactive ship inspection and linked loadouts](docs/library.png)
 
 ## M13 update
 
@@ -10,13 +18,13 @@ The command screen now has a watch overview, clickable fleet roster, domain filt
 
 ## Play
 
-Desktop/laptop with keyboard and mouse, WebGL 2 browser. The initial engine download is approximately 38 MB. Pick **Aegis Bastion** for the first watch and **Arctic Shield** for the regimental raid, then **Brief and Deploy** and **Take Command**. The game starts at real time. Space pauses; 1–6 changes time speed. Combat events drop acceleration to real time.
+Desktop/laptop with keyboard and mouse, WebGL 2 browser. The engine download is approximately 38 MB, plus the game and fleet-art package. Pick **Aegis Bastion** for the first watch and **Arctic Shield** for the regimental raid, then **Brief and Deploy** and **Take Command**. The game starts at real time. Space pauses; 1–6 changes time speed. Combat events drop acceleration to real time.
 
 - Select a friendly symbol; right-click water to order movement. Shift appends waypoints, and right-clicking a waypoint marker on the route drops just that leg. A ship will not take an order onto land, and a leg that crosses a coast is drawn in red from the beach onward. Wheel or +/- zooms; middle/right drag pans; double-click a unit or track to recentre on it without changing zoom; Home fits the whole fleet in view and C recentres on the current selection. Hover over any symbol, waypoint, or land for a quick card.
 - Select the carrier, open **AVIATION + ASW**, and press **Launch** to launch the next ready aircraft (E-2D first, then the fighters and the Growler). Select an airborne aircraft to direct it.
 - Select a friendly shooter, then a contact; choose an appropriate weapon and salvo, and **Engage**. Or hold ctrl/cmd and right-click a contact to select it and fire the currently selected weapon in one move. Unknown contact classification matters, and neutral traffic is out there.
 - Ship missile defence is automatic, subject to detection, weapon range, channels, ammunition, damage and weapons-hold settings. Ballistic rounds are only met by interceptors built for them.
-- R toggles radar; P sonar; E emissions control. F2 toggles the symbol key; F4 sensor rings; F5 trails; F6 the land layer; M sound. F1 briefing; F8 scenario editor; F9 missions; F10 restart. F3 is an explicitly optional debug truth overlay.
+- R toggles radar; P sonar; E emissions control. F2 toggles the symbol key; F4 sensor rings; F5 trails; F6 the land layer; M sound. F1 briefing; F7 fleet and ordnance gallery; F8 scenario editor; F9 missions; F10 restart. F3 is an explicitly optional debug truth overlay.
 - The event log lives under the unit panel. The defence board on the right is the threat-evaluation view: inbound rounds, their targets, time to impact, interceptors up and channel load per ship.
 
 ## Build your own missions
@@ -80,6 +88,8 @@ godot --path .
 Install the official matching web export templates, then run `godot --headless --path . --export-release Web`. Pages serves `main:/docs`. Commit the updated `docs/play` build after changes. The engine uses Compatibility rendering, no web threads, and text resources to preserve all sensor/target arrays during export. Any script that declares a new `class_name` needs the import step before a headless run will see it.
 
 ## Validation
+
+M14: **190 tests pass**, including all 83 imported models, thumbnails, close-scale labels and weapon-trail privacy. **18 native gallery interaction checks pass**. The command screen, mission menu, aircraft and weapon galleries were captured from the running game. See [M14 verification](docs/VISUALS.md).
 
 M13: 185 tests pass. All ten missions passed two 6,000-second AI smoke runs (seeds 2 and 13). Native UI inspected; browser verification blocked by the approval service usage limit. The prior milestone validation below is historical.
 

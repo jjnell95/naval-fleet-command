@@ -3,39 +3,70 @@ class_name UITheme
 ## One palette for every panel: deep navy grounds, cyan accent for the machine's own voice,
 ## amber for warnings, red for hostile and damage, green for good news.
 
-const COL_TEXT := Color("d3e3ec")
+const COL_TEXT := Color("e4edf2")
 const COL_DIM := Color("9aafbd")
 const COL_MUTED := Color("718998")
-const COL_ACCENT := Color("63e6d2")
+const COL_ACCENT := Color("72dbc9")
 const COL_AMBER := Color("ffbe77")
 const COL_RED := Color("ff8a7a")
 const COL_GREEN := Color("8fd99a")
 const COL_BLUE := Color("6cb9ff")
-const COL_PANEL := Color("0b1924")
-const COL_PANEL_DEEP := Color("091421")
-const COL_BORDER := Color("22384a")
+const COL_PANEL := Color("101e2b")
+const COL_PANEL_DEEP := Color("0b1722")
+const COL_BORDER := Color("293d4e")
 const COL_BORDER_LIGHT := Color("2f4c60")
 
-const HEX_TEXT := "#d3e3ec"
+const HEX_TEXT := "#e4edf2"
 const HEX_DIM := "#9aafbd"
 const HEX_MUTED := "#718998"
-const HEX_ACCENT := "#63e6d2"
+const HEX_ACCENT := "#72dbc9"
 const HEX_AMBER := "#ffbe77"
 const HEX_RED := "#ff8a7a"
 const HEX_GREEN := "#8fd99a"
 const HEX_BLUE := "#6cb9ff"
 
 
+static var _heading: Font = null
+static var _body: Font = null
+static var _mono: Font = null
+
+static func heading_font() -> Font:
+	if _heading == null:
+		_heading = load("res://assets/fonts/BarlowCondensed-SemiBold.ttf")
+	return _heading
+
+static func body_font() -> Font:
+	if _body == null:
+		var font := FontVariation.new()
+		font.base_font = load("res://assets/fonts/IBMPlexSans.ttf")
+		font.variation_opentype = {"wght": 450.0, "wdth": 100.0}
+		_body = font
+	return _body
+
+static func mono_font() -> Font:
+	if _mono == null:
+		_mono = load("res://assets/fonts/IBMPlexMono-Regular.ttf")
+	return _mono
+
+
 static func build() -> Theme:
 	var t := Theme.new()
 	t.default_font_size = 13
+	t.default_font = body_font()
+	t.set_font("font", "TitleLabel", heading_font())
+	t.set_font("font", "HeaderLabel", heading_font())
+	t.set_font("normal_font", "RichTextLabel", body_font())
+	var bold := FontVariation.new()
+	bold.base_font = load("res://assets/fonts/IBMPlexSans.ttf")
+	bold.variation_opentype = {"wght": 650.0}
+	t.set_font("bold_font", "RichTextLabel", bold)
 
 	var panel := StyleBoxFlat.new()
 	panel.bg_color = COL_PANEL
 	panel.border_color = COL_BORDER
 	panel.set_border_width_all(1)
 	panel.set_content_margin_all(12)
-	panel.set_corner_radius_all(3)
+	panel.set_corner_radius_all(5)
 	t.set_stylebox("panel", "PanelContainer", panel)
 
 	var overlay := panel.duplicate()
@@ -73,15 +104,20 @@ static func build() -> Theme:
 	t.set_stylebox("hover", "Button", hover)
 	t.set_stylebox("pressed", "Button", pressed)
 	t.set_stylebox("disabled", "Button", disabled)
-	t.set_stylebox("focus", "Button", pressed)
+	var focus := StyleBoxFlat.new()
+	focus.bg_color = Color.TRANSPARENT
+	focus.border_color = COL_ACCENT
+	focus.set_border_width_all(2)
+	focus.set_corner_radius_all(3)
+	t.set_stylebox("focus", "Button", focus)
 	t.set_color("font_color", "Button", COL_TEXT)
 	t.set_color("font_hover_color", "Button", Color.WHITE)
 	t.set_color("font_pressed_color", "Button", Color.WHITE)
-	t.set_color("font_disabled_color", "Button", Color("445866"))
+	t.set_color("font_disabled_color", "Button", Color("71818d"))
 	t.set_font_size("font_size", "Button", 12)
 
 	var primary := pressed.duplicate()
-	primary.bg_color = Color("1c6f78")
+	primary.bg_color = Color("247a77")
 	primary.border_color = COL_ACCENT
 	primary.content_margin_left = 18
 	primary.content_margin_right = 18
@@ -100,13 +136,13 @@ static func build() -> Theme:
 	t.set_color("font_color", "Label", COL_TEXT)
 	t.set_font_size("font_size", "Label", 13)
 	t.set_type_variation("HeaderLabel", "Label")
-	t.set_font_size("font_size", "HeaderLabel", 11)
+	t.set_font_size("font_size", "HeaderLabel", 15)
 	t.set_color("font_color", "HeaderLabel", COL_ACCENT)
 	t.set_type_variation("DimLabel", "Label")
 	t.set_color("font_color", "DimLabel", COL_DIM)
 	t.set_font_size("font_size", "DimLabel", 12)
 	t.set_type_variation("TitleLabel", "Label")
-	t.set_font_size("font_size", "TitleLabel", 20)
+	t.set_font_size("font_size", "TitleLabel", 25)
 	t.set_color("font_color", "TitleLabel", Color.WHITE)
 
 	var field := btn.duplicate()

@@ -32,25 +32,38 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 10)
 	margin.add_child(v)
 
+	var hero_row := HBoxContainer.new()
+	hero_row.custom_minimum_size.y = 310
+	hero_row.add_theme_constant_override("separation", 24)
+	v.add_child(hero_row)
+	var hero_copy := VBoxContainer.new()
+	hero_copy.custom_minimum_size.x = 410
+	hero_copy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hero_row.add_child(hero_copy)
 	var eyebrow := Label.new()
-	eyebrow.text = "AEGIS / COMBAT INFORMATION CENTER     •     OPERATIONS DESK"
+	eyebrow.text = "AEGIS  /  COMBAT INFORMATION CENTER"
 	eyebrow.theme_type_variation = "HeaderLabel"
-	v.add_child(eyebrow)
+	hero_copy.add_child(eyebrow)
 	var title := Label.new()
-	title.text = "THE OCEAN IS A BATTLESPACE."
-	title.add_theme_font_size_override("font_size", 46)
+	title.text = "NAVAL\nFLEET COMMAND"
+	title.add_theme_font_override("font", UITheme.heading_font())
+	title.add_theme_font_size_override("font_size", 70)
 	title.add_theme_color_override("font_color", Color.WHITE)
-	v.add_child(title)
+	hero_copy.add_child(title)
 	var sub := Label.new()
-	sub.text = "Naval Fleet Command   /   Search. Classify. Coordinate. Protect the force."
+	sub.text = "Search. Classify. Coordinate. Protect the force."
 	sub.theme_type_variation = "DimLabel"
 	sub.add_theme_font_size_override("font_size", 15)
-	v.add_child(sub)
-
+	hero_copy.add_child(sub)
 	var hero := PlatformPortrait.new()
 	hero.spec_override = DataDB.platform("usn_ddg_burke_iii")
-	hero.custom_minimum_size.y = 155
-	v.add_child(hero)
+	hero.show_captions = false
+	hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hero_row.add_child(hero)
+	var catalogue := Label.new()
+	catalogue.text = "%d PLATFORM CLASSES   /   %d WEAPON SYSTEMS   /   %d OPERATIONS" % [DataDB.all_platforms().size(), DataDB.all_weapons().size(), ScenarioIndex.list_all().size()]
+	catalogue.theme_type_variation = "HeaderLabel"
+	v.add_child(catalogue)
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 18)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -113,7 +126,7 @@ func _ready() -> void:
 	edit.pressed.connect(func() -> void: editor_requested.emit())
 	buttons.add_child(edit)
 	var library := Button.new()
-	library.text = "PLATFORM LIBRARY  F7"
+	library.text = "FLEET + ORDNANCE GALLERY  F7"
 	library.pressed.connect(func() -> void: library_requested.emit())
 	buttons.add_child(library)
 	_close = Button.new()

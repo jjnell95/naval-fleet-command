@@ -3,6 +3,8 @@ extends PanelContainer
 ## Left panel: details of the selected unit(s), and the event log underneath. Refreshed from
 ## ground truth for player-owned units (the player has perfect knowledge of their own ships).
 
+signal inspect_requested(platform_id: String)
+
 const MAX_EVENTS := 60
 
 var _header: Label
@@ -27,7 +29,7 @@ func _ready() -> void:
 	hl.theme_type_variation = "HeaderLabel"
 	v.add_child(hl)
 	roster = FleetRoster.new()
-	roster.custom_minimum_size.y = 122
+	roster.custom_minimum_size.y = 100
 	v.add_child(roster)
 	_header = Label.new()
 	_header.text = "—"
@@ -40,8 +42,15 @@ func _ready() -> void:
 	v.add_child(_subtitle)
 	_portrait = PlatformPortrait.new()
 	_portrait.panel = self
-	_portrait.custom_minimum_size.y = 132
+	_portrait.custom_minimum_size.y = 182
 	v.add_child(_portrait)
+	var inspect := Button.new()
+	inspect.text = "INSPECT PLATFORM  /  3D"
+	inspect.add_theme_font_size_override("font_size", 11)
+	inspect.pressed.connect(func() -> void:
+		if not _units.is_empty():
+			inspect_requested.emit(_units[0].spec.id))
+	v.add_child(inspect)
 	_bars = ReadinessBars.new()
 	_bars.custom_minimum_size.y = 0
 	v.add_child(_bars)

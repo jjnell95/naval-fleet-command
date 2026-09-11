@@ -9,7 +9,7 @@ var _font: Font
 
 
 func _ready() -> void:
-	_font = get_theme_default_font()
+	_font = UITheme.body_font()
 	tooltip_text = "Detected inbound weapons only. Channel load counts anti-aircraft and missile interception engagements. Magazine counts are rounds, not VLS cells. Emissions and damage affect readiness."
 
 

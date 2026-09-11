@@ -1,21 +1,26 @@
 class_name PlatformArt
-## Recognition art rendered from the original Blender models built by
-## tools/blender/build_platform_art.py. Every image is greyscale on alpha: faces carry a
-## mid-grey shade and the outline is white, so a draw call tints the whole thing with the
-## identity or damage colour and it still reads as a command display, not a photograph.
-##
-## Two views exist per platform under assets/platforms:
-##   <id>_profile.png  an elevated side view, bow to the right, waterline at WATERLINE (ships)
-##                     or a three-quarter view from ahead and above (aircraft, the air station)
-##   <id>_plan.png     straight down, bow to the right, the hull spanning 1 / PLAN_MARGIN of
-##                     the width so the map can scale it to the real length
-## Anything without a file falls back to the code-drawn shapes, so a new data file never breaks
-## the display; it just looks plainer until the art is built.
+## Original procedural fleet art: colour beauty/plan renders, lightweight thumbnails, and
+## monochrome fallback profiles. The 3D gallery uses the matching models under assets/models.
+## See assets/README.md and tools/blender/build_presentation_assets.py for the pipeline.
 
 const WATERLINE := 0.80  # fraction of the profile height at which a ship's waterline lies
 const PLAN_MARGIN := 1.10  # the plan render frames the hull with this much slack
 
 static var _cache: Dictionary = {}
+
+static func beauty(asset_id: String, weapon := false) -> Texture2D:
+	var key := ("weapon:" if weapon else "beauty:") + asset_id
+	if not _cache.has(key):
+		var path := "res://assets/%s/%s_beauty.png" % ["weapons" if weapon else "platforms", asset_id]
+		_cache[key] = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	return _cache[key]
+
+static func thumbnail(asset_id: String, weapon := false) -> Texture2D:
+	var key := ("weapon-thumb:" if weapon else "thumb:") + asset_id
+	if not _cache.has(key):
+		var path := "res://assets/%s/%s_thumb.png" % ["weapons" if weapon else "platforms", asset_id]
+		_cache[key] = load(path) as Texture2D if ResourceLoader.exists(path) else beauty(asset_id, weapon)
+	return _cache[key]
 
 
 static func profile(platform_id: String) -> Texture2D:

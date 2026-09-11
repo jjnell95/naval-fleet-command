@@ -2,6 +2,7 @@ class_name TopBar
 extends PanelContainer
 ## Mission status, simulation time, pause and time-acceleration controls, and the event ticker.
 
+signal library_pressed()
 signal briefing_pressed()
 signal restart_pressed()
 signal menu_pressed()
@@ -33,11 +34,12 @@ func _ready() -> void:
 	title_box.custom_minimum_size.x = 190
 	h.add_child(title_box)
 	_title = Label.new()
-	_title.text = "AEGIS COMMAND"
+	_title.text = "FLEET COMMAND"
+	_title.add_theme_font_override("font", UITheme.heading_font())
 	# Every label up here clips rather than growing, or a long mission name or event message
 	# widens the whole window and pushes the side panels off screen.
 	_title.clip_text = true
-	_title.add_theme_font_size_override("font_size", 16)
+	_title.add_theme_font_size_override("font_size", 27)
 	_title.add_theme_color_override("font_color", UITheme.COL_ACCENT)
 	title_box.add_child(_title)
 	_mission = Label.new()
@@ -77,7 +79,8 @@ func _ready() -> void:
 	_time.clip_text = true
 	_time.custom_minimum_size.x = 150
 	_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_time.add_theme_font_size_override("font_size", 14)
+	_time.add_theme_font_size_override("font_size", 12)
+	_time.add_theme_font_override("font", UITheme.mono_font())
 	h.add_child(_time)
 
 	_pause_btn = Button.new()
@@ -104,7 +107,7 @@ func _ready() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size.x = 6
 	h.add_child(spacer)
-	for entry in [["BRIEF  F1", briefing_pressed], ["RESTART", restart_pressed], ["MISSIONS", menu_pressed]]:
+	for entry in [["LIBRARY F7", library_pressed], ["BRIEF F1", briefing_pressed], ["RESTART", restart_pressed], ["MISSIONS", menu_pressed]]:
 		var b := Button.new()
 		b.text = entry[0]
 		b.focus_mode = Control.FOCUS_NONE

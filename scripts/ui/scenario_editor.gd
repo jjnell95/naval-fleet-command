@@ -1031,7 +1031,7 @@ class Chart extends Control:
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		clip_contents = true
-		_font = get_theme_default_font()
+		_font = UITheme.body_font()
 		resized.connect(func() -> void:
 			if _auto_fit:
 				fit())
