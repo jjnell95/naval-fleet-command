@@ -39,6 +39,13 @@ static func all_platforms() -> Array:
 	return out
 
 
+static func all_weapons() -> Array:
+	_ensure_loaded()
+	var out: Array = _weapons.values()
+	out.sort_custom(func(a: WeaponSpec, b: WeaponSpec) -> bool: return a.display_name < b.display_name)
+	return out
+
+
 static func _ensure_loaded() -> void:
 	if _loaded:
 		return

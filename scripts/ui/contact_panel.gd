@@ -102,6 +102,7 @@ func refresh() -> void:
 			stale += 1
 	_header.text = "%d contact%s" % [tracks.size(), "" if tracks.size() == 1 else "s"]
 	_summary.text = "%d hostile · %d unknown · %d stale" % [hostile, unknown, stale]
+	var scroll := _list.get_v_scroll_bar().value
 	_list.clear()
 	var sel_idx := -1
 	for i in tracks.size():
@@ -127,6 +128,7 @@ func refresh() -> void:
 			sel_idx = i
 	if sel_idx >= 0:
 		_list.select(sel_idx)
+	_list.get_v_scroll_bar().set_deferred("value", scroll)
 	_detail.text = _detail_text(map.selected_track if map != null else null, ref, now)
 
 

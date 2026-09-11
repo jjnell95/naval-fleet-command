@@ -4,7 +4,7 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M13 — AEGIS / Combat Information Center"
+const BUILD_MILESTONE := "M14 — Fleet Presentation"
 const DEFAULT_SCENARIO := "res://data/scenarios/aegis_bastion.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
@@ -18,6 +18,7 @@ const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-on
 @onready var contact_panel: ContactPanel = %ContactPanel
 
 var _library: PlatformLibrary
+var _library_was_paused := true
 var _report: AfterAction
 var _editor: ScenarioEditor
 var _menu: ScenarioMenu
@@ -32,9 +33,12 @@ var _kills: PackedStringArray = []
 func _ready() -> void:
 	theme = UITheme.build()
 	unit_panel.roster.map = map
+	unit_panel.inspect_requested.connect(_inspect_asset)
+	orders_panel.inspect_requested.connect(func(id: String) -> void: _inspect_asset(id, true))
+	top_bar.library_pressed.connect(_toggle_library)
 	var overview := CommandOverview.new()
 	overview.map = map
-	overview.custom_minimum_size.y = 80
+	overview.custom_minimum_size.y = 90
 	$Layout.add_child(overview)
 	$Layout.move_child(overview, 1)
 	orders_panel.weapon_manager = simulation.weapon_manager
@@ -205,7 +209,7 @@ func restart_scenario() -> void:
 
 func _build_screens() -> void:
 	_library = PlatformLibrary.new()
-	_library.closed.connect(func() -> void: _library.hide())
+	_library.closed.connect(_close_library)
 	add_child(_library)
 	_library.hide()
 	_menu = ScenarioMenu.new()
@@ -281,14 +285,30 @@ func _hide_screens() -> void:
 
 
 func _toggle_library() -> void:
-	_library.visible = not _library.visible
 	if _library.visible:
+		_close_library()
+	else:
+		_library_was_paused = SimClock.paused
+		_library.show()
 		SimClock.set_paused(true)
+
+
+func _close_library() -> void:
+	_library.hide()
+	SimClock.set_paused(_library_was_paused)
+
+
+func _inspect_asset(id: String, weapon := false) -> void:
+	if not _library.visible:
+		_toggle_library()
+	_library.inspect(id, weapon)
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
+		return
+	if _library.visible and k.keycode not in [KEY_F7, KEY_ESCAPE]:
 		return
 	if _editor.visible and k.keycode != KEY_F8 and k.keycode != KEY_F9:
 		return  # the editor owns the keyboard while it is open
@@ -298,7 +318,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_SPACE:
 			SimClock.toggle_pause()
 		KEY_ESCAPE:
-			if _report.visible:
+			if _library.visible:
+				_close_library()
+			elif _report.visible:
 				_report.hide()
 			else:
 				map.clear_selection()

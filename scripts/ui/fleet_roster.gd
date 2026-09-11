@@ -19,15 +19,23 @@ func _process(delta: float) -> void:
 	if _timer < 0.5 or map == null or map.unit_manager == null:
 		return
 	_timer = 0.0
-	clear()
-	_rows.clear()
-	for u in map.unit_manager.get_faction_units(map.player_faction):
-		if not u.alive:
-			continue
-		_rows.append(u)
+	var next: Array[Unit] = []
+	for u: Unit in map.unit_manager.get_faction_units(map.player_faction):
+		if u.alive:
+			next.append(u)
+	if next != _rows:
+		var scroll := get_v_scroll_bar().value
+		clear()
+		_rows = next
+		for u: Unit in _rows:
+			add_item(u.callsign)
+		get_v_scroll_bar().set_deferred("value", scroll)
+	deselect_all()
+	for i in _rows.size():
+		var u := _rows[i]
 		var state := "AIR" if u.airborne() else ("DECK" if u.is_aircraft() else ("SUB" if u.submerged() else "SURF"))
-		add_item("%s  %s" % [state, u.callsign])
-		set_item_tooltip(item_count - 1, "%s\n%s\nDouble-click to center" % [u.spec.display_name, u.spec.role])
-		set_item_custom_fg_color(item_count - 1, UITheme.COL_BLUE if not u.is_aircraft() else (UITheme.COL_ACCENT if u.airborne() else UITheme.COL_DIM))
+		set_item_text(i, "%s  /  %s" % [state, u.callsign])
+		set_item_tooltip(i, "%s\n%s\nDouble-click to center" % [u.spec.display_name, u.spec.role])
+		set_item_custom_fg_color(i, UITheme.COL_BLUE if not u.is_aircraft() else (UITheme.COL_ACCENT if u.airborne() else UITheme.COL_DIM))
 		if map.selected.has(u):
-			select(item_count - 1, false)
+			select(i, false)

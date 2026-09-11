@@ -6,7 +6,7 @@ var _font: Font
 var _elapsed := 0.0
 
 func _ready() -> void:
-	_font = get_theme_default_font()
+	_font = UITheme.body_font()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _process(delta: float) -> void:
@@ -52,7 +52,9 @@ func _draw() -> void:
 	for i in 6:
 		var x := width * i
 		draw_rect(Rect2(x + 2, 0, width - 4, size.y), UITheme.COL_PANEL)
-		draw_line(Vector2(x + 16, 0), Vector2(x + width - 16, 0), Color(cols[i], 0.6), 2)
-		draw_string(_font, Vector2(x + 16, 20), labels[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 10, UITheme.COL_DIM)
-		draw_string(_font, Vector2(x + 16, 50), values[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 28, cols[i])
-		draw_string(_font, Vector2(x + 16, 69), captions[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 10, UITheme.COL_DIM)
+		draw_rect(Rect2(x + 16, 34, 3, 23), Color(cols[i], 0.0))
+		draw_line(Vector2(x + width - 1, 12), Vector2(x + width - 1, size.y - 12), Color(UITheme.COL_BORDER, .65), 1)
+		draw_circle(Vector2(x + width - 22, 18), 3, cols[i])
+		draw_string(UITheme.heading_font(), Vector2(x + 16, 20), labels[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 13, UITheme.COL_DIM)
+		draw_string(UITheme.heading_font(), Vector2(x + 16, 59), values[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 38, cols[i])
+		draw_string(_font, Vector2(x + 16, 79), captions[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 10, UITheme.COL_DIM)

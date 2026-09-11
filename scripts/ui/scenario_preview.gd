@@ -11,7 +11,7 @@ var _font: Font
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip_contents = true  # a coastline runs past the edge of a chart this small
-	_font = get_theme_default_font()
+	_font = UITheme.body_font()
 
 
 func set_scenario(sc: Dictionary) -> void:

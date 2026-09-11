@@ -21,7 +21,7 @@ signal waypoint_delete_requested(unit: Unit, index: int)
 enum DragMode { NONE, PAN, BOX }
 
 const MIN_PPN := 0.2
-const MAX_PPN := 900.0
+const MAX_PPN := 6000.0
 const ZOOM_STEP := 1.25
 const KEYBOARD_ZOOM_RATE := 4.0
 const CLICK_RADIUS_PX := 14.0
@@ -34,11 +34,11 @@ const HEADER_H := 36.0
 const TRAIL_INTERVAL_S := 60.0
 const TRAIL_LENGTH := 24
 const EFFECT_LIFE_S := 2.2
-const NICE_STEPS_NM: Array[float] = [0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
+const NICE_STEPS_NM: Array[float] = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
 
 const COL_OCEAN := Color(0.024, 0.055, 0.086)
-const COL_OCEAN_TOP := Color(0.027, 0.073, 0.100)
-const COL_OCEAN_BOTTOM := Color(0.016, 0.036, 0.062)
+const COL_OCEAN_TOP := Color(0.034, 0.090, 0.125)
+const COL_OCEAN_BOTTOM := Color(0.019, 0.048, 0.080)
 # Land is a chart tint, not a photograph: a shade above the water in luminance, pulled off the
 # blue so it separates without ever competing with a contact symbol drawn on top of it.
 const COL_LAND := Color(0.10, 0.14, 0.15)
@@ -104,6 +104,8 @@ var _mouse := Vector2.ZERO
 var _mouse_inside := false
 var _last_click_ms: int = -1000000
 var _last_click_pos := Vector2.ZERO
+var show_vectors := false
+var _trail_reference: Unit
 var _pending_fit := false
 var _fit_center := Vector2.ZERO
 var _fit_extent := 0.0
@@ -125,12 +127,47 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_CLICK
 	clip_contents = true
-	_font = get_theme_default_font()
+	_font = UITheme.body_font()
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	_water = _build_water()
 	mouse_entered.connect(func() -> void: _mouse_inside = true)
 	mouse_exited.connect(func() -> void: _mouse_inside = false)
 	resized.connect(_apply_pending_fit)
+	_build_plot_controls()
+
+
+func _build_plot_controls() -> void:
+	var h := HBoxContainer.new()
+	h.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	h.position = Vector2(14, -55)
+	h.add_theme_constant_override("separation", 4)
+	add_child(h)
+	for item in [["−", "zoom_out"], ["+", "zoom_in"], ["FIT FLEET", "fleet"], ["CENTER", "center"],  ["SENSORS", "sensors"], ["VECTORS", "vectors"]]:
+		var button := Button.new()
+		button.text = item[0]
+		button.add_theme_font_size_override("font_size", 10)
+		button.custom_minimum_size.y = 28
+		button.focus_mode = Control.FOCUS_NONE
+		if item[1] in ["sensors", "vectors"]:
+			button.toggle_mode = true
+		button.pressed.connect(_plot_action.bind(item[1]))
+		h.add_child(button)
+
+
+func _plot_action(action: String) -> void:
+	match action:
+		"zoom_out":
+			_zoom_at(size * .5, 1.0 / ZOOM_STEP)
+		"zoom_in":
+			_zoom_at(size * .5, ZOOM_STEP)
+		"fleet":
+			fit_to_fleet()
+		"center":
+			center_on_selection()
+		"sensors":
+			show_rings = not show_rings
+		"vectors":
+			show_vectors = not show_vectors
 
 
 func _process(delta: float) -> void:
@@ -164,8 +201,14 @@ func _build_water() -> ImageTexture:
 func _record_weapon_trails() -> void:
 	if weapon_manager == null:
 		return
+	var ref := reference_unit()
+	if _trail_reference != ref:
+		_weapon_trails.clear()
+		_trail_reference = ref
 	var live: Dictionary = {}
 	for w: Weapon in weapon_manager.in_flight:
+		if w.faction != player_faction and not Debug.enabled and (threat_manager == null or ref == null or not threat_manager.visible_to(ref, w)):
+			continue
 		live[w.id] = true
 		var arr: PackedVector2Array = _weapon_trails.get(w.id, PackedVector2Array())
 		if arr.is_empty() or arr[arr.size() - 1].distance_to(w.position) > 0.02:
@@ -625,7 +668,7 @@ func _draw_ocean() -> void:
 	if _water != null:
 		# Two layers drifting against each other, scaled with the zoom so the texture reads as
 		# surface rather than wallpaper. A rough sea shows more of it.
-		var strength := 0.02 + 0.004 * Detection.sea_state
+		var strength := 0.045 + 0.004 * Detection.sea_state
 		var scale := clampf(ppn * 0.5, 0.6, 3.0)
 		var tile := 256.0 * scale
 		var off1 := Vector2(fmod(_anim * 4.0 + center_nm.x * ppn, tile), fmod(_anim * 2.5 - center_nm.y * ppn, tile))
@@ -723,6 +766,12 @@ func _rebuild_land_cache() -> void:
 	_land_generation = Terrain.generation
 
 
+func _chart_axis(value: float, positive: String, negative: String) -> String:
+	if ppn < 1000.0:
+		return Geo.format_axis(value, positive, negative)
+	return "%s %.3f" % [positive if value >= 0 else negative, absf(value)]
+
+
 func _draw_grid() -> void:
 	var step := _nice_step(110.0)
 	var minor := step / 5.0
@@ -744,7 +793,7 @@ func _draw_grid() -> void:
 	while x <= br.x:
 		var sx := world_to_screen(Vector2(x, 0.0)).x
 		draw_line(Vector2(sx, HEADER_H), Vector2(sx, size.y), COL_GRID, 1.0)
-		var label := Geo.format_axis(x, "E", "W")
+		var label := _chart_axis(x, "E", "W")
 		draw_string(_font, Vector2(sx + 4.0, size.y - 8.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
 		x += step
 	var y := floorf(br.y / step) * step
@@ -752,7 +801,7 @@ func _draw_grid() -> void:
 		var sy := world_to_screen(Vector2(0.0, y)).y
 		if sy > HEADER_H + 6.0:
 			draw_line(Vector2(0.0, sy), Vector2(size.x, sy), COL_GRID, 1.0)
-			draw_string(_font, Vector2(5.0, sy - 4.0), Geo.format_axis(y, "N", "S"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
+			draw_string(_font, Vector2(5.0, sy - 4.0), _chart_axis(y, "N", "S"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
 		y += step
 
 
@@ -763,7 +812,7 @@ func _draw_range_rings() -> void:
 	if ref == null:
 		return
 	var c := world_to_screen(ref.position)
-	var step := _nice_step(70.0)
+	var step := _nice_step(140.0)
 	var max_r := maxf(size.x, size.y) * 1.2
 	var i := 1
 	while step * i * ppn < max_r and i <= 12:
@@ -771,11 +820,11 @@ func _draw_range_rings() -> void:
 		draw_arc(c, r, 0.0, TAU, 160, COL_RINGS, 1.0, true)
 		var lp := c + Vector2(sin(deg_to_rad(45.0)), -cos(deg_to_rad(45.0))) * r
 		if Rect2(Vector2(0, HEADER_H), size - Vector2(0, HEADER_H)).has_point(lp):
-			draw_string(_font, lp + Vector2(3.0, -3.0), "%s" % Geo.format_nm(step * i), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_GRID_TEXT, 0.7))
+			draw_string(_font, lp + Vector2(3.0, -3.0), ("%d m" % int(roundf(step * i * 1852.0))) if step < 0.5 else Geo.format_nm(step * i), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_GRID_TEXT, 0.7))
 		i += 1
-	for deg in range(0, 360, 30):
+	for deg in range(0, 360, 90):
 		var d := Vector2(sin(deg_to_rad(deg)), -cos(deg_to_rad(deg)))
-		draw_line(c + d * 24.0, c + d * max_r, Color(COL_RINGS, 0.55), 1.0, true)
+		draw_line(c + d * 24.0, c + d * max_r, Color(COL_RINGS, 0.055), 1.0, true)
 
 
 func _draw_compass() -> void:
@@ -887,7 +936,7 @@ func _draw_weapon_ring() -> void:
 		if weapon_ring.min_range_nm > 0.5:
 			draw_arc(sp, inner, 0.0, TAU, 48, Color(COL_WEAPON_RING, 0.4), 1.0, true)
 		draw_string(_font, sp + Vector2(0.0, -outer - 5.0), "%s  %s nm" % [weapon_ring.display_name.to_upper(), Geo.format_nm(weapon_ring.max_range_nm)], HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color(COL_WEAPON_RING, 0.9))
-		if selected_track != null and Combat.suits_track(weapon_ring, selected_track):
+		if selected_track != null and Combat.suits_track(weapon_ring, selected_track) and Combat.check_engagement(u, weapon_ring, selected_track)["ok"]:
 			# The firing solution: where the round would meet the contact if it held course.
 			var aim := Combat.intercept_point(u.position, weapon_ring.speed_kn, selected_track.position, selected_track.course_deg, selected_track.speed_kn, selected_track.has_kinematics)
 			var ap := world_to_screen(aim)
@@ -952,7 +1001,7 @@ func _draw_tracks() -> void:
 		_draw_uncertainty(sp, t, col)
 		if show_trails:
 			_draw_track_history(t, col)
-		if t.has_kinematics and t.speed_kn > 0.5:
+		if t.has_kinematics and t.speed_kn > 0.5 and (show_vectors or selected_track == t):
 			var tip := world_to_screen(t.position + Geo.heading_to_vector(t.course_deg) * t.speed_kn * LEADER_MINUTES / 60.0)
 			draw_dashed_line(sp, tip, Color(col, 0.6), 1.0, 4.0)
 			draw_circle(tip, 1.5, Color(col, 0.7))
@@ -1016,7 +1065,8 @@ func _draw_uncertainty(sp: Vector2, t: Track, col: Color) -> void:
 
 func _draw_units() -> void:
 	var zoomed_out := ppn < 0.7
-	for u in _own_units():
+	var own := _own_units()
+	for u in own:
 		var sp := world_to_screen(u.position)
 		if show_trails and _trails.has(u):
 			var arr: PackedVector2Array = _trails[u]
@@ -1050,7 +1100,7 @@ func _draw_units() -> void:
 			var station := world_to_screen(Formation.station_for(u))
 			draw_dashed_line(sp, station, Color(COL_FRIENDLY, 0.3), 1.0, 3.0)
 			draw_rect(Rect2(station - Vector2(2.5, 2.5), Vector2(5, 5)), Color(COL_FRIENDLY, 0.5), false, 1.0)
-		if u.speed_kn > 0.05:
+		if u.speed_kn > 0.05 and (show_vectors or selected.has(u)):
 			var lead_nm := u.speed_kn * LEADER_MINUTES / 60.0
 			var tip := world_to_screen(u.position + Geo.heading_to_vector(u.heading_deg) * lead_nm)
 			draw_line(sp, tip, Color(COL_FRIENDLY, 0.6), 1.0, true)
@@ -1059,6 +1109,8 @@ func _draw_units() -> void:
 		var ucol := COL_FRIENDLY.lerp(Color(1.0, 0.4, 0.3), 1.0 - health)
 		var domain := "air" if u.airborne() else ("subsurface" if u.submerged() else u.spec.domain)
 		if ppn >= 30.0:
+			if u.spec.domain == "surface" and u.speed_kn > 1.0 and ppn > 160.0:
+				_draw_wake(u, sp)
 			_draw_silhouette(u, sp, ucol)
 		MapSymbols.draw_symbol(self, sp, ucol, MapSymbols.Frame.FRIENDLY, domain, u.heading_deg, true, MapSymbols.category_glyph(u.spec.category, u.spec.domain), _font)
 		if selected.has(u):
@@ -1075,7 +1127,24 @@ func _draw_units() -> void:
 			sub += " · FL%03d · fuel %d%%" % [int(u.altitude_m / 30.48), int(u.fuel_fraction() * 100.0)]
 		if health < 0.99:
 			sub += " · hull %d%%" % int(health * 100.0)
+		if own.size() > 8 and not selected.has(u):
+			sub = ""
 		_place_label(sp, name, COL_TEXT if selected.has(u) else Color(COL_TEXT, 0.85), selected.has(u), sub)
+
+
+func _draw_wake(u: Unit, sp: Vector2) -> void:
+	var h := Geo.heading_to_vector(u.heading_deg)
+	var f := Vector2(h.x, -h.y)
+	var side := f.orthogonal()
+	var length := u.spec.length_m / 1852.0 * ppn
+	var stern := sp - f * length * .47
+	var wake_length := length * clampf(u.speed_kn / 18.0, .3, 1.5)
+	for j in range(5):
+		var t := float(j) / 5.0
+		var alpha := .12 * (1.0 - t)
+		for sign in [-1.0, 1.0]:
+			draw_line(stern - f * wake_length * t + side * sign * length * .035, stern - f * wake_length + side * sign * length * (.17 + t*.06), Color(.68,.86,.91,alpha), 1.4, true)
+	draw_line(stern, stern - f * wake_length * .8, Color(.64,.86,.9,.13), maxf(2, length*.04), true)
 
 
 ## Close in, the symbol sits on an oriented silhouette scaled to the hull's real length, so a
@@ -1098,7 +1167,7 @@ func _draw_silhouette(u: Unit, sp: Vector2, col: Color) -> void:
 		var tex_size := Vector2(plan.get_size())
 		var alpha := clampf((length_px - 12.0) / 30.0, 0.35, 0.9)
 		draw_set_transform(sp, f.angle(), Vector2(scale, scale))
-		draw_texture_rect(plan, Rect2(-tex_size * 0.5, tex_size), false, Color(col, alpha))
+		draw_texture_rect(plan, Rect2(-tex_size * 0.5, tex_size), false, Color(1, 1, 1, alpha))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
 	var pts := PackedVector2Array()
@@ -1181,11 +1250,32 @@ func _draw_weapons() -> void:
 			for i in range(1, arr.size()):
 				var f := float(i) / float(arr.size())
 				draw_line(world_to_screen(arr[i - 1]), world_to_screen(arr[i]), Color(col, 0.05 + 0.45 * f), 1.5 if f > 0.6 else 1.0, true)
-		MapSymbols.draw_round(self, sp, w.heading_deg, col, 5.0, w.spec.is_torpedo())
+		_draw_weapon_sprite(w, sp, col)
 		if w.spec.profile == "ballistic" and not w.is_interceptor():
 			draw_string(_font, sp + Vector2(8.0, -6.0), "BM", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, col)
 		if Debug.enabled:
 			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.4), 1.0, 5.0)
+
+
+func _draw_weapon_sprite(w: Weapon, sp: Vector2, col: Color) -> void:
+	var direction := Geo.heading_to_vector(w.heading_deg)
+	var forward := Vector2(direction.x, -direction.y)
+	var side := forward.orthogonal()
+	var torpedo := w.spec.is_torpedo()
+	var radius := 6.0 if torpedo else 7.0
+	if not torpedo:
+		# Layered exhaust is a visual treatment for a detected weapon, never a new detection.
+		for j in range(3, 0, -1):
+			draw_line(sp - forward * 4, sp - forward * (13 + j * 5), Color(col, .055 * (4 - j)), j * 2.3, true)
+		draw_line(sp - forward * 4, sp - forward * 15, Color("ffe6b0"), 1.8, true)
+	else:
+		draw_arc(sp - forward * 5, 6, forward.angle() + 1.3, forward.angle() + 5.0, 16, Color(col, .3), 1, true)
+	var body := PackedVector2Array([sp + forward * radius, sp + side * 1.6, sp - forward * radius + side * 1.4, sp - forward * radius - side * 1.4, sp - side * 1.6])
+	draw_colored_polygon(body, Color("e1eced"))
+	for sign in [-1.0, 1.0]:
+		var fin := PackedVector2Array([sp - forward * 2, sp - forward * 6 + side * 4 * sign, sp - forward * 6])
+		draw_colored_polygon(fin, col)
+	draw_circle(sp, 1.3, col)
 
 
 func _draw_effects() -> void:
@@ -1229,8 +1319,8 @@ func _draw_header() -> void:
 	var ref := reference_unit()
 	if ref != null:
 		draw_string(_font, Vector2(143, 23), "%s  /  %s" % [ref.callsign.to_upper(), "LINKED" if ref.datalink_connected() else "LOCAL SENSORS"], HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 375), 11, COL_TEXT)
-	var text := "N UP  /  F4 SENSORS  /  F2 KEY"
-	draw_string(_font, Vector2(size.x - 218, 23), text, HORIZONTAL_ALIGNMENT_LEFT, 210, 10, UITheme.COL_DIM)
+	var text := "N UP  ·  F4 SENSORS  ·  SCROLL ZOOM"
+	draw_string(_font, Vector2(size.x - 236, 23), text, HORIZONTAL_ALIGNMENT_LEFT, 228, 10, UITheme.COL_DIM)
 
 
 func _chip(x: float, text: String, col: Color) -> float:
@@ -1249,7 +1339,7 @@ func _draw_scale_bar() -> void:
 	draw_line(Vector2(right - px, y), Vector2(right, y), COL_TEXT, 2.0)
 	draw_line(Vector2(right - px, y - 4.0), Vector2(right - px, y + 4.0), COL_TEXT, 2.0)
 	draw_line(Vector2(right, y - 4.0), Vector2(right, y + 4.0), COL_TEXT, 2.0)
-	draw_string(_font, Vector2(right - px, y - 7.0), "%s nm" % Geo.format_nm(nm), HORIZONTAL_ALIGNMENT_CENTER, int(px), 11, COL_TEXT)
+	draw_string(_font, Vector2(right - px, y - 7.0), (("%d m" % int(roundf(nm * 1852.0))) if nm < 0.5 else "%s nm" % Geo.format_nm(nm)), HORIZONTAL_ALIGNMENT_CENTER, int(px), 11, COL_TEXT)
 
 
 func _draw_readout() -> void:
@@ -1325,7 +1415,7 @@ func _draw_key() -> void:
 	cy += 26.0
 	draw_string(_font, Vector2(x + 12, cy + 4), "Glyph: CV carrier · CG cruiser · DD · FF · SS/SN sub · F fighter · E AEW · EA jammer", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 	cy += 18.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Ellipse: uncertainty · dashed line: 30 min leader · dots: plot history", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
+	draw_string(_font, Vector2(x + 12, cy + 4), "Ellipse: uncertainty · vectors: 30 min (selection, or VECTORS) · dots: history", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 	cy += 16.0
 	draw_string(_font, Vector2(x + 12, cy + 4), "Rings: radar blue · sonar green · ESM violet · jammer magenta · weapon amber", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 	cy += 16.0

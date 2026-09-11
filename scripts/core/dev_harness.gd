@@ -122,13 +122,31 @@ func handle_flags() -> void:
 		SimClock.set_paused(false)
 	if args.has("--open-library"):
 		main._toggle_library()
+		main._library._search.text = "F-35"
 		main._library._filter("F-35")
+	for a in args:
+		if a.begins_with("--inspect="):
+			main._inspect_asset(a.get_slice("=", 1), args.has("--weapon"))
+		elif a.begins_with("--view="):
+			main._library._stage.set_view(a.get_slice("=", 1))
+		elif a.begins_with("--zoom="):
+			_zoom_after_layout(float(a.get_slice("=", 1)))
+	if args.has("--visual-smoke"):
+		_visual_smoke()
+		return
 	if args.has("--dump"):
 		_dump_state()
 		main.get_tree().quit()
 		return
 	if shot != "":
 		_screenshot_after(shot, arg(args, "--hold=", 3.0))
+
+
+func _zoom_after_layout(value: float) -> void:
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	main.map.ppn = clampf(value, TacticalMap.MIN_PPN, TacticalMap.MAX_PPN)
+	main.map.center_on_selection()
 
 
 ## Dev helper: drives the whole Milestone 3 loop headlessly and deterministically — close until
@@ -258,3 +276,82 @@ func _screenshot_after(path: String, seconds: float) -> void:
 	print("[Dev] screenshot %s -> %s" % [path, error_string(err)])
 	_dump_state()
 	main.get_tree().quit()
+
+
+## UI integration smoke in the actual application tree, including the live 3D stage.
+func _visual_smoke() -> void:
+	var checks: Dictionary = {}
+	main._hide_screens()
+	if main._library.visible:
+		main._close_library()
+	SimClock.set_paused(false)
+	main._toggle_library()
+	await main.get_tree().process_frame
+	checks["gallery pauses a running mission"] = SimClock.paused
+	var library := main._library
+	library._filter("")
+	checks["empty query restores complete catalogue"] = library._specs.size() == DataDB.all_platforms().size()
+	library._search.text = "F-35"
+	library._filter("F-35")
+	var matched_ids: Array = library._specs.map(func(p: PlatformSpec) -> String: return p.id)
+	checks["search finds both Lightning variants"] = matched_ids.has("usn_fighter_f35c") and matched_ids.has("rn_fighter_f35b") and library._specs.size() < DataDB.all_platforms().size()
+	library._filter("no-such-platform")
+	checks["empty results clear the model"] = library._specs.is_empty() and library._stage._model == null
+	library.inspect("usn_ddg_burke_iii")
+	await main.get_tree().process_frame
+	checks["ship model and fitted weapons appear"] = library._stage._model != null and library._loadout.get_child_count() > 0
+	checks["visible stage renders"] = library._stage._viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS
+	var button := library._loadout.get_child(0) as Button
+	button.pressed.emit()
+	await main.get_tree().process_frame
+	checks["loadout card opens weapon inspection"] = library._weapons and library._stage._model != null
+	checks["weapon has linked platforms"] = library._loadout.get_child_count() > 0
+	(library._loadout.get_child(0) as Button).pressed.emit()
+	checks["carrier card returns to platform inspection"] = not library._weapons
+	var stage := library._stage
+	stage.set_view("profile")
+	checks["profile preset"] = absf(stage._pitch - .03) < .001
+	stage.set_view("plan")
+	checks["plan preset"] = absf(stage._pitch - 1.54) < .001
+	stage.reset_view()
+	var yaw := stage._yaw
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	stage._gui_input(down)
+	var motion := InputEventMouseMotion.new()
+	motion.relative = Vector2(60, 20)
+	stage._gui_input(motion)
+	checks["drag orbits the model"] = stage._yaw != yaw
+	down.pressed = false
+	stage._gui_input(down)
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	for i in 80:
+		stage._gui_input(wheel)
+	checks["zoom clamps safely"] = stage._zoom >= 7.5 and stage._zoom <= 24
+	stage.reset_view()
+	checks["reset restores framing"] = stage._zoom == 13.5 and stage._yaw == 0
+	library.inspect("phalanx_ciws", true)
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	var fits := true
+	var screen := Rect2(Vector2.ZERO, Vector2(stage._viewport.size))
+	for i in 8:
+		fits = fits and screen.has_point(stage._camera.unproject_position(stage._model_bounds.get_endpoint(i)))
+	checks["tall gun mount fits inside the viewport"] = fits
+	main._close_library()
+	checks["closing restores a running mission"] = not SimClock.paused
+	checks["hidden gallery stops rendering"] = stage._viewport.render_target_update_mode == SubViewport.UPDATE_DISABLED
+	SimClock.set_paused(true)
+	main._toggle_library()
+	main._close_library()
+	checks["closing preserves an existing pause"] = SimClock.paused
+	var failed := 0
+	for label in checks:
+		print("[Visual smoke] %s %s" % ["PASS" if checks[label] else "FAIL", label])
+		if not checks[label]:
+			failed += 1
+	print("[Visual smoke] %d checks, %d failed" % [checks.size(), failed])
+	main.get_tree().quit(1 if failed else 0)
