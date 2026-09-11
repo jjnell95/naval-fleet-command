@@ -33,8 +33,13 @@ const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not a
 const BUOY_DROP_RANGE_NM := 9.0
 const BUOY_INTERVAL_S := 150.0
 const HOVER_ALTITUDE_M := 50.0
-const LAUNCH_INTERVAL_S := 240.0  # one airframe at a time, not the whole hangar at once
-const SEARCH_RADIUS_NM := 11.0
+## Time between launch decisions on one deck, divided by how many spots that deck works. A
+## frigate gets an airframe off every four minutes; a carrier with four catapults gets a section
+## off every minute, which is the difference a big deck is supposed to make.
+const LAUNCH_INTERVAL_S := 240.0
+const PACKAGE_MAX := 4  # largest section the AI will commit to one target at once
+const SEARCH_RADIUS_NM := 11.0  # around a datum: the thing is near there
+const WIDE_SEARCH_MAX_NM := 260.0  # the most a surveillance aircraft will range on a blank plot
 const SEARCH_STEP_DEG := 55.0
 const DIP_DURATION_S := 180.0
 const PATROL_ARRIVAL_NM := 4.0
@@ -139,23 +144,79 @@ func _update_unit(u: Unit, now: float) -> void:
 	_act(u, b, hostiles, unknowns, inbound, now)
 
 
-## A ship with a helicopter in the hangar and a submarine contact it cannot reach should put the
-## helicopter up. That is the entire reason the airframe is aboard.
+## What a deck puts up, and when. Four separate reasons, in the order a duty officer would work
+## through them, because they are genuinely different decisions:
+##   * an airframe with a standing route flies it;
+##   * early warning and surveillance go up before anything is wrong, which is the point of them;
+##   * a tanker follows receivers into the air, because give is useless on the deck;
+##   * armed airframes go when there is something to prosecute, as a section rather than singly.
 func _consider_launch(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, now: float) -> void:
-	if u.spec.aircraft_capacity <= 0 or u.stowed_aircraft().is_empty():
+	if u.spec.aircraft_capacity <= 0:
 		return
-	if now - float(b.get("last_launch", -10000.0)) < LAUNCH_INTERVAL_S:
+	var ready := u.stowed_aircraft()
+	if ready.is_empty():
 		return
-	for a: Unit in u.stowed_aircraft():
-		if not a.patrol_route.is_empty():
-			b["last_launch"] = now
-			unit_manager.issue_order(u, Order.launch_aircraft(a.callsign))
+	var spots := maxi(u.spec.launch_capacity(), 1)
+	if now - float(b.get("last_launch", -10000.0)) < LAUNCH_INTERVAL_S / float(spots):
+		return
+
+	for a: Unit in ready:
+		if a.patrol_route.is_empty():
+			continue
+		# A raid or a barrier is flown by a formation. Send as many of that type as the deck can
+		# work at once, rather than trickling them out one at a time down the same route.
+		var same := 0
+		for other: Unit in ready:
+			if other.spec.id == a.spec.id and not other.patrol_route.is_empty():
+				same += 1
+		_send(u, b, a.callsign, mini(mini(same, spots), PACKAGE_MAX), now)
+		return
+
+	# Eyes first. An early warning aircraft that is still in the hangar when the raid arrives was
+	# never worth carrying, so one goes up as a matter of course and is replaced as it comes back.
+	for a: Unit in ready:
+		if a.is_sensor_aircraft() and not _has_airborne(u, func(x: Unit) -> bool: return x.is_sensor_aircraft()):
+			_send(u, b, a.callsign, 1, now)
 			return
+
+	# Give follows the receivers. A tanker on the deck does nothing for an aircraft at bingo.
+	var receivers := _has_airborne(u, func(x: Unit) -> bool: return x.spec.can_refuel)
+	if receivers:
+		for a: Unit in ready:
+			if a.spec.tanker_offload_s > 0.0 and not _has_airborne(u, func(x: Unit) -> bool: return x.is_tanker()):
+				_send(u, b, a.callsign, 1, now)
+				return
+
+	# Something to prosecute. A submarine contact gets whatever can hunt it; anything else gets a
+	# section sized to the deck, because a single aircraft against a defended ship is a gift.
 	for t: Track in hostiles + unknowns:
-		if t.domain == "subsurface" or t.identity == "HOSTILE":
-			b["last_launch"] = now
-			unit_manager.issue_order(u, Order.launch_aircraft())
-			return
+		if t.domain != "subsurface" and t.identity != "HOSTILE":
+			continue
+		var wanted := 1 if t.domain == "subsurface" else mini(spots, PACKAGE_MAX)
+		var pick := ""
+		for a: Unit in ready:
+			if a.can_engage_domain(t.domain):
+				pick = a.callsign
+				break
+		if pick == "":
+			continue
+		_send(u, b, pick, wanted, now)
+		return
+
+
+func _send(u: Unit, b: Dictionary, callsign: String, count: int, now: float) -> void:
+	b["last_launch"] = now
+	if count <= 1:
+		unit_manager.issue_order(u, Order.launch_aircraft(callsign))
+		return
+	unit_manager.issue_order(u, Order.launch_flight(callsign, count))
+
+
+func _has_airborne(host: Unit, predicate: Callable) -> bool:
+	for a: Unit in host.embarked:
+		if a.alive and a.flight_state in [Unit.FlightState.LAUNCHING, Unit.FlightState.AIRBORNE] and predicate.call(a):
+			return true
+	return false
 
 
 ## A torpedo running through the water is the best clue anyone gets about where a submarine is.
@@ -297,10 +358,21 @@ func _act(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inbound: Arr
 ## mid-course updates. So the AI closes far enough to keep the contact, and no further.
 func _shadow_standoff(u: Unit) -> float:
 	var by_weapon := ENGAGE_STANDOFF_FRACTION * _best_strike_range(u)
+	# A strike aircraft does not need its own radar on the target: it is shooting on the group's
+	# picture, and closing to where it could see the ship for itself means closing to where the
+	# ship can shoot it. Its stand-off is set by the weapon alone.
+	if u.is_aircraft() and not _is_asw_airframe(u):
+		return maxf(by_weapon, 8.0)
 	var by_sensor := 0.85 * (Detection.nominal_passive_ring_nm(u) if u.is_submarine() else Detection.nominal_radar_ring_nm(u))
 	if by_sensor <= 0.0:
 		return maxf(by_weapon, 8.0)
 	return maxf(minf(by_weapon, by_sensor), 8.0)
+
+
+## An airframe whose sensors only work over the contact: a dipping set has to be in the water and
+## a sonobuoy has to be dropped on top of the datum. Everything else is better off standing off.
+func _is_asw_airframe(u: Unit) -> bool:
+	return u.spec.sonobuoy_count > 0 or (u.spec.can_hover and u.has_sonar())
 
 
 ## Submarines hold a patrol depth and stay quiet. They come shallow only to shoot, because a
@@ -388,8 +460,17 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 	_manage_depth(u, false)
 	_manage_emissions(u, true)
 	var range_nm := u.position.distance_to(t.position)
+	if u.is_aircraft() and _is_asw_airframe(u):
+		_prosecute(u, b, t, range_nm, now)  # sonar work happens over the contact or not at all
+		return
 	if u.is_aircraft():
-		_prosecute(u, b, t, range_nm, now)
+		# A strike aircraft holds outside the envelope of what it is shooting at. Flying overhead
+		# to look at the ship it just fired a two-hundred-mile missile at is how a wing is spent.
+		_manage_altitude(u, false)
+		if range_nm <= standoff_nm:
+			_command(u, b, Geo.vector_to_heading(u.position - t.position), u.spec.cruise_speed_kn, now)
+			return
+		_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
 		return
 	if standoff_nm <= 0.0 or range_nm <= standoff_nm:
 		_command(u, b, u.heading_deg, u.spec.cruise_speed_kn, now)  # on station, hold
@@ -398,12 +479,25 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 	_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
 
 
+## The reach an aircraft searching open water should be using. Around a datum — a torpedo heard,
+## a contact lost — a tight pattern is right, because the thing is near there. With no datum at
+## all, a surveillance aircraft is looking for something that could be anywhere, and an eleven-mile
+## ring around its own airfield finds nothing on a four-hundred-mile chart. So the sweep is sized
+## to the airframe: a quarter of how far it could fly before it has to come back.
+func _search_radius(u: Unit, has_datum: bool) -> float:
+	if has_datum or _is_asw_airframe(u):
+		return SEARCH_RADIUS_NM
+	var reach := 0.25 * u.spec.cruise_speed_kn * (u.spec.endurance_s / 3600.0)
+	return clampf(reach, SEARCH_RADIUS_NM, WIDE_SEARCH_MAX_NM)
+
+
 ## With nothing to prosecute, an ASW aircraft flies a search rather than orbiting its parent.
 ## Fly to a point, stop and dip if it can, lay a buoy if it carries them, then move on. The anchor
 ## is the last place anything was heard, or the parent ship if nothing has been.
 func _do_air_search(u: Unit, b: Dictionary, now: float) -> void:
 	var anchor: Vector2 = b["last_contact"]
-	if anchor == Vector2.INF:
+	var has_datum := anchor != Vector2.INF
+	if not has_datum:
 		anchor = u.home.position if u.home != null else u.position
 	if now < float(b.get("dip_until", -1.0)):
 		_manage_altitude(u, true)
@@ -414,7 +508,7 @@ func _do_air_search(u: Unit, b: Dictionary, now: float) -> void:
 	var index := int(b.get("search_index", 0))
 	b["search_index"] = index + 1
 	var bearing := fmod(float(index) * SEARCH_STEP_DEG, 360.0)
-	var leg := anchor + Geo.heading_to_vector(bearing) * SEARCH_RADIUS_NM
+	var leg := anchor + Geo.heading_to_vector(bearing) * _search_radius(u, has_datum)
 	if u.sonobuoys > 0:
 		unit_manager.issue_order(u, Order.deploy_sonobuoy())
 	if u.spec.can_hover and index > 0:

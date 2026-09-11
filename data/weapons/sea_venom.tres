@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "sea_venom"
+display_name = "Sea Venom / ANL"
+family = "Sea Venom"
+type = "asm"
+guidance = "imaging_infrared"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 11.0
+min_range_nm = 0.8
+speed_kn = 560.0
+turn_rate_deg_s = 18.0
+seeker_range_nm = 3.0
+damage = 26.0
+base_pk = 0.8
+salvo_default = 2
+launch_interval_s = 4.0
+defensive_difficulty = 1.2
+signature_factor = 0.05
+altitude_m = 15.0
+soft_kill_resistance = 1.7
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Helicopter-launched light anti-ship missile sized for corvettes and fast attack craft."

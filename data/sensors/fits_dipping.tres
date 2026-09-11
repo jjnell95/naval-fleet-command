@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "fits_dipping"
+display_name = "FLASH-family dipping sonar (NH90)"
+kind = "sonar"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 0.0
+classify_rate = 1.0
+passive_sensitivity_nm = 26.0
+active_range_nm = 13.0
+bearing_accuracy_deg = 2.0
+self_noise_tolerance = 1.0
+requires_hover = true
+source_status = "PUBLIC: system designation and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: every range, gain and classification figure here is a tuning value, not a performance claim. A dipping set only works with the aircraft stopped and low, which is the whole helicopter ASW cycle."

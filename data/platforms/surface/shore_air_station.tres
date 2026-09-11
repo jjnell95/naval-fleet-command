@@ -21,7 +21,7 @@ sensor_ids = PackedStringArray()
 signature_factor = 3.0
 mast_height_m = 40.0
 health = 400.0
-aircraft_capacity = 6
+aircraft_capacity = 24
 fire_control_channels = 0
 decoy_count = 0
 decoy_effectiveness = 0.0
@@ -29,3 +29,6 @@ weapon_loadout = {
 }
 
 role = "Shore Base • maritime operations"
+launch_spots = 4
+recovery_spots = 3
+turnaround_s = 3600.0

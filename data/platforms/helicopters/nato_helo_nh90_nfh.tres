@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "nato_helo_nh90_nfh"
+display_name = "NH90 NFH"
+short_name = "NH90"
+nation = "Multinational"
+category = "ASW helicopter"
+domain = "air"
+max_speed_kn = 160.0
+cruise_speed_kn = 120.0
+turn_rate_deg_s = 7.0
+accel_kn_s = 4.0
+length_m = 16.1
+health = 18.0
+signature_factor = 0.24
+sensor_ids = PackedStringArray("fits_dipping", "enr_nh90")
+cruise_altitude_m = 600.0
+max_altitude_m = 3500.0
+altitude_rate_m_s = 8.0
+endurance_s = 12600.0
+can_hover = true
+launch_time_s = 100.0
+recovery_time_s = 130.0
+launch_requirement = "helicopter"
+sonobuoy_count = 12
+sonobuoy_sensitivity_nm = 24.0
+sonobuoy_life_s = 2400.0
+weapon_loadout = {"mu90": 2}
+decoy_count = 10
+fire_control_channels = 1
+role = "Embarked ASW / ASuW • dipping sonar"
+service_note = "The common European shipborne ASW helicopter. Flown from Norwegian, French, German, Danish and other decks; fits and standards differ by operator and are not modelled separately."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

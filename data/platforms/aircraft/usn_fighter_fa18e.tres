@@ -22,11 +22,13 @@ cruise_altitude_m = 10000.0
 max_altitude_m = 15000.0
 altitude_rate_m_s = 35.0
 endurance_s = 9000.0
-launch_time_s = 90.0
-recovery_time_s = 120.0
+launch_time_s = 45.0
+recovery_time_s = 60.0
 fire_control_channels = 0
 decoy_count = 8
-weapon_loadout = {"aim120_family": 6, "aim9x_family": 2, "agm_84_harpoon": 2}
+weapon_loadout = {"aim120_family": 6, "aim9x_air": 2, "agm_158c_lrasm": 2}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
 
 role = "Fighter • maritime operations"
+can_refuel = true
+service_note = "Representative counter-air and anti-surface fit. The deck Harpoon has given way to a longer-range low-observable round in this catalogue; a real load depends entirely on the mission."

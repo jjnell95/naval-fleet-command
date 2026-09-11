@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "jsm_missile"
+display_name = "Joint Strike Missile (JSM)"
+family = "NSM/JSM"
+type = "asm"
+guidance = "imaging_infrared"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 150.0
+min_range_nm = 4.0
+speed_kn = 520.0
+turn_rate_deg_s = 12.0
+seeker_range_nm = 12.0
+damage = 50.0
+base_pk = 0.78
+salvo_default = 2
+launch_interval_s = 5.0
+defensive_difficulty = 1.6
+signature_factor = 0.06
+altitude_m = 10.0
+soft_kill_resistance = 2.0
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Internally carried low-observable anti-ship missile with a passive imaging seeker, so chaff does very little against it here."

@@ -20,7 +20,7 @@ health = 400.0
 signature_factor = 3.0
 sensor_ids = PackedStringArray("ford_dbr", "an_slq_32")
 mast_height_m = 50.0
-aircraft_capacity = 12
+aircraft_capacity = 75
 fire_control_channels = 2
 decoy_count = 24
 weapon_loadout = {"essm_family": 24, "ram_block2": 42, "phalanx_ciws": 120}
@@ -28,4 +28,8 @@ source_status = "PUBLIC: platform identity and broad system roles; see docs/REAL
 
 role = "CATOBAR aviation • carrier strike group"
 
-service_note = "CVN-78 radar configuration; later ships differ. Air wing compressed."
+service_note = "CVN-78 radar configuration; later ships differ. Capacity is the physical figure for the class; the embarked wing is a representative strike-group composition, not a specific deployed air wing."
+launch_spots = 4
+recovery_spots = 1
+turnaround_s = 2400.0
+default_air_wing = {"usn_fighter_fa18e": 8, "usn_fighter_fa18f": 4, "usn_fighter_f35c": 6, "usn_ea_ea18g": 3, "usn_aew_e2d": 3, "usn_uav_mq25": 3, "usn_helo_mh60r": 4, "usn_helo_mh60s": 2}

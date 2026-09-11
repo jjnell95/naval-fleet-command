@@ -1,544 +1,628 @@
 {
   "id": "aegis_bastion",
-  "order": 0,
-  "name": "AEGIS BASTION",
-  "forces": "BLUE: carrier, 2 destroyers, frigate, submarine, replenishment ship, E-2D, 2 fighters, MH-60R / RED: surface group, submarine, 4 strike aircraft / neutral merchant",
-  "description": "Fictional North Atlantic exercise. Hold the task group together for 45 minutes under a converging surface, subsurface and air threat. Command the Flight III destroyer and launch Overlord from the carrier to extend the radar horizon. Fighters can engage classified air tracks with AMRAAM; the MH-60R and Virginia cover the underwater approach. Keep the carrier and Maud alive. Select a host ship, press Launch for its next ready aircraft; select an airborne fighter and an air track to assign weapons. Unknown traffic includes a neutral merchant: classification matters. Public platform families, deliberately estimated combat parameters.",
-  "start_time_utc": "2027-04-02T03:10:00",
+  "name": "NORTH CAPE \u2014 BALLISTIC MISSILE DEFENCE",
+  "description": "Monchegorsk has MiG-31s with Kinzhal and the strike group is inside their reach. A Flight III Burke and a BMD cruiser are stationed as a picket to the east of the carrier, which is the only place their interceptors are worth anything. The Hawkeyes are what turn a launch warning into a firing solution; everything else depends on how early the picket sees the shot. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "start_time_utc": "2027-03-19T11:05:00",
   "player_faction": "BLUE",
   "map": {
     "center_nm": [
-      12,
-      12
+      35.2,
+      -63.5
     ],
-    "extent_nm": 140
+    "extent_nm": 378,
+    "anchor_lat": 71.0,
+    "anchor_lon": 26.0,
+    "anchor_note": "World coordinates are nautical miles about this point; one minute of latitude is one mile and longitude is scaled by the cosine of the anchor latitude."
+  },
+  "environment": {
+    "sea_state": 3,
+    "wind_kn": 15,
+    "visibility_nm": 9
   },
   "terrain": {
     "land": [
       {
-        "id": "northern_cape",
-        "name": "Northern cape",
-        "elevation_m": 460,
+        "id": "kola_peninsula",
+        "name": "Kola Peninsula",
+        "elevation_m": 520,
         "points_nm": [
           [
-            78.0,
-            110.0
+            82.04,
+            -73.2
           ],
           [
-            80.89,
-            108.52
+            94.74,
+            -70.8
           ],
           [
-            83.46,
-            106.55
+            106.46,
+            -77.4
           ],
           [
-            85.73,
-            104.23
+            111.73,
+            -64.8
           ],
           [
-            88.44,
-            102.44
+            118.18,
+            -62.4
           ],
           [
-            89.86,
-            99.52
+            125.8,
+            -75.0
           ],
           [
-            91.89,
-            96.98
+            134.79,
+            -87.0
           ],
           [
-            93.8,
-            94.38
+            142.99,
+            -99.6
           ],
           [
-            96.0,
-            92.0
+            144.94,
+            -117.0
           ],
           [
-            97.87,
-            88.71
+            137.72,
+            -126.0
           ],
           [
-            99.97,
-            85.58
+            128.92,
+            -115.2
           ],
           [
-            102.05,
-            82.41
+            124.04,
+            -104.4
           ],
           [
-            103.77,
-            79.05
+            134.79,
+            -97.2
           ],
           [
-            107.25,
-            77.4
+            147.48,
+            -92.4
           ],
           [
-            110.4,
-            75.17
+            158.23,
+            -102.0
           ],
           [
-            114.21,
-            74.65
+            178.35,
+            -108.6
           ],
           [
-            118.0,
-            74.0
+            197.29,
+            -117.0
           ],
           [
-            122.16,
-            73.93
+            220.74,
+            -136.8
           ],
           [
-            126.31,
-            73.56
+            246.13,
+            -154.8
           ],
           [
-            130.38,
-            72.69
+            268.59,
+            -171.0
           ],
           [
-            134.41,
-            71.66
+            284.22,
+            -204.0
           ],
           [
-            138.23,
-            69.94
+            294.96,
+            -237.0
           ],
           [
-            142.35,
-            69.21
+            281.29,
+            -264.0
           ],
           [
-            146.18,
-            67.63
+            244.18,
+            -276.0
           ],
           [
-            150.0,
-            66.0
+            207.06,
+            -267.0
           ],
           [
-            151.54,
-            75.97
+            167.99,
+            -252.0
           ],
           [
-            151.54,
-            86.06
+            128.92,
+            -231.0
           ],
           [
-            150.43,
-            96.07
+            103.53,
+            -204.0
           ],
           [
-            148.87,
-            106.01
+            80.09,
+            -168.0
           ],
           [
-            155.72,
-            113.44
+            65.44,
+            -126.0
           ],
           [
-            160.43,
-            122.38
-          ],
-          [
-            164.85,
-            131.39
-          ],
-          [
-            170.0,
-            140.0
-          ],
-          [
-            160.14,
-            136.01
-          ],
-          [
-            149.65,
-            134.24
-          ],
-          [
-            139.03,
-            134.95
-          ],
-          [
-            128.53,
-            133.22
-          ],
-          [
-            118.91,
-            137.48
-          ],
-          [
-            109.49,
-            142.14
-          ],
-          [
-            100.24,
-            147.3
-          ],
-          [
-            90.0,
-            150.0
-          ],
-          [
-            89.47,
-            144.67
-          ],
-          [
-            89.37,
-            139.32
-          ],
-          [
-            86.39,
-            134.85
-          ],
-          [
-            84.26,
-            129.92
-          ],
-          [
-            84.35,
-            124.54
-          ],
-          [
-            83.4,
-            119.25
-          ],
-          [
-            80.98,
-            114.46
+            70.32,
+            -96.0
           ]
         ]
-      }
-    ]
-  },
-  "objectives": {
-    "text": "Protect the carrier and Maud for 45 minutes. Establish airborne surveillance and layered defence.",
-    "victory": [
-      {
-        "id": "hold",
-        "type": "time_elapsed",
-        "seconds": 2700,
-        "text": "Maintain the protective screen for 45 minutes"
-      }
-    ],
-    "loss": [
-      {
-        "id": "carrier_lost",
-        "type": "unit_lost",
-        "callsigns": [
-          "Carrier Resolute"
-        ],
-        "text": "Carrier lost"
       },
       {
-        "id": "maud_lost",
-        "type": "unit_lost",
-        "callsigns": [
-          "HNoMS Maud"
-        ],
-        "text": "Replenishment ship lost"
+        "id": "northern_norway",
+        "name": "Northern Norway",
+        "elevation_m": 760,
+        "points_nm": [
+          [
+            79.11,
+            -76.8
+          ],
+          [
+            99.82,
+            -37.8
+          ],
+          [
+            82.04,
+            -21.0
+          ],
+          [
+            44.93,
+            -4.8
+          ],
+          [
+            32.23,
+            -27.0
+          ],
+          [
+            11.72,
+            -1.2
+          ],
+          [
+            -4.3,
+            10.2
+          ],
+          [
+            -15.63,
+            -15.0
+          ],
+          [
+            -33.21,
+            -6.0
+          ],
+          [
+            -41.02,
+            -42.0
+          ],
+          [
+            -45.32,
+            -20.4
+          ],
+          [
+            -72.28,
+            -27.0
+          ],
+          [
+            -97.67,
+            -51.0
+          ],
+          [
+            -119.16,
+            -61.2
+          ],
+          [
+            -138.3,
+            -79.2
+          ],
+          [
+            -160.18,
+            -102.0
+          ],
+          [
+            -192.61,
+            -102.6
+          ],
+          [
+            -209.01,
+            -129.0
+          ],
+          [
+            -226.6,
+            -156.0
+          ],
+          [
+            -248.08,
+            -177.0
+          ],
+          [
+            -260.19,
+            -200.4
+          ],
+          [
+            -246.13,
+            -213.0
+          ],
+          [
+            -227.18,
+            -223.2
+          ],
+          [
+            -242.22,
+            -243.0
+          ],
+          [
+            -253.94,
+            -282.0
+          ],
+          [
+            -269.57,
+            -312.0
+          ],
+          [
+            -271.52,
+            -342.0
+          ],
+          [
+            -253.94,
+            -360.0
+          ],
+          [
+            -226.6,
+            -324.0
+          ],
+          [
+            -210.97,
+            -276.0
+          ],
+          [
+            -189.48,
+            -228.0
+          ],
+          [
+            -148.46,
+            -174.0
+          ],
+          [
+            -113.3,
+            -126.0
+          ],
+          [
+            -58.6,
+            -102.0
+          ],
+          [
+            0.0,
+            -114.0
+          ],
+          [
+            62.51,
+            -84.0
+          ]
+        ]
       }
     ]
   },
   "units": [
     {
       "platform": "usn_ddg_burke_iii",
-      "callsign": "USS Jack H. Lucas",
+      "callsign": "USS Jack H. Lucas (DDG 125)",
       "faction": "BLUE",
       "position_nm": [
-        0,
-        0
+        58.6,
+        18.0
       ],
-      "heading_deg": 45,
-      "speed_kn": 18
+      "heading_deg": 90,
+      "speed_kn": 16,
+      "patrol_nm": [
+        [
+          87.9,
+          0.0
+        ],
+        [
+          29.3,
+          36.0
+        ]
+      ]
+    },
+    {
+      "platform": "usn_cg_ticonderoga",
+      "callsign": "USS Gettysburg (CG 64)",
+      "faction": "BLUE",
+      "position_nm": [
+        42.97,
+        30.0
+      ],
+      "heading_deg": 90,
+      "speed_kn": 16,
+      "patrol_nm": [
+        [
+          74.23,
+          12.0
+        ],
+        [
+          15.63,
+          48.0
+        ]
+      ]
     },
     {
       "platform": "usn_cvn_nimitz",
-      "callsign": "Carrier Resolute",
+      "callsign": "USS Dwight D. Eisenhower (CVN 69)",
       "faction": "BLUE",
       "position_nm": [
-        -12,
-        -12
+        -35.16,
+        36.0
       ],
-      "heading_deg": 45,
-      "speed_kn": 16
+      "heading_deg": 60,
+      "speed_kn": 18,
+      "air_wing": [
+        {
+          "platform": "usn_fighter_fa18e",
+          "count": 4,
+          "squadron": "VFA-83",
+          "callsign": "Rampager",
+          "first_modex": 301
+        },
+        {
+          "platform": "usn_fighter_fa18f",
+          "count": 2,
+          "squadron": "VFA-32",
+          "callsign": "Gypsy",
+          "first_modex": 101
+        },
+        {
+          "platform": "usn_ea_ea18g",
+          "count": 1,
+          "squadron": "VAQ-130",
+          "callsign": "Zapper",
+          "first_modex": 501
+        },
+        {
+          "platform": "usn_aew_e2d",
+          "count": 2,
+          "squadron": "VAW-123",
+          "callsign": "Screwtop",
+          "first_modex": 601
+        },
+        {
+          "platform": "usn_uav_mq25",
+          "count": 2,
+          "squadron": "VUQ-10",
+          "callsign": "Fire Hawk",
+          "first_modex": 701
+        },
+        {
+          "platform": "usn_helo_mh60r",
+          "count": 2,
+          "squadron": "HSM-74",
+          "callsign": "Swamp Fox",
+          "first_modex": 701
+        },
+        {
+          "platform": "usn_helo_mh60s",
+          "count": 1,
+          "squadron": "HSC-7",
+          "callsign": "Dusty Dog",
+          "first_modex": 611
+        }
+      ]
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
-      "callsign": "USS Roosevelt",
+      "callsign": "USS Truxtun (DDG 103)",
       "faction": "BLUE",
       "position_nm": [
-        8,
-        -12
+        -23.44,
+        24.0
       ],
-      "heading_deg": 45,
+      "heading_deg": 60,
       "speed_kn": 18
     },
     {
       "platform": "rnon_ffg_fridtjof_nansen",
-      "callsign": "HNoMS Nansen",
+      "callsign": "HNoMS Fridtjof Nansen (F 310)",
       "faction": "BLUE",
       "position_nm": [
-        -15,
-        4
+        -46.88,
+        42.0
       ],
-      "heading_deg": 45,
-      "speed_kn": 16
+      "heading_deg": 60,
+      "speed_kn": 18
     },
     {
       "platform": "rnon_aux_maud",
-      "callsign": "HNoMS Maud",
+      "callsign": "HNoMS Maud (A 530)",
       "faction": "BLUE",
       "position_nm": [
-        -15,
-        -18
+        -62.51,
+        30.0
       ],
-      "speed_kn": 14
+      "heading_deg": 60,
+      "speed_kn": 16
     },
     {
       "platform": "usn_ssn_virginia",
-      "callsign": "USS North Dakota",
+      "callsign": "USS North Dakota (SSN 784)",
       "faction": "BLUE",
       "position_nm": [
-        5,
-        15
+        31.25,
+        54.0
       ],
-      "depth_m": 120,
-      "speed_kn": 6,
+      "heading_deg": 110,
+      "speed_kn": 9,
+      "depth_m": 140,
       "radar_on": false
     },
     {
-      "platform": "usn_aew_e2d",
-      "callsign": "Overlord 11",
-      "faction": "BLUE",
-      "home": "Carrier Resolute",
-      "patrol_nm": [
-        [
-          -10,
-          20
-        ],
-        [
-          15,
-          20
-        ]
-      ]
-    },
-    {
-      "platform": "usn_fighter_fa18e",
-      "callsign": "Raven 21",
-      "faction": "BLUE",
-      "home": "Carrier Resolute",
-      "patrol_nm": [
-        [
-          15,
-          25
-        ],
-        [
-          35,
-          35
-        ]
-      ]
-    },
-    {
-      "platform": "usn_fighter_fa18e",
-      "callsign": "Raven 22",
-      "faction": "BLUE",
-      "home": "Carrier Resolute",
-      "patrol_nm": [
-        [
-          15,
-          25
-        ],
-        [
-          35,
-          35
-        ]
-      ]
-    },
-    {
-      "platform": "usn_helo_mh60r",
-      "callsign": "Seahawk 31",
-      "faction": "BLUE",
-      "home": "USS Jack H. Lucas"
-    },
-    {
       "platform": "rfn_ffg_admiral_gorshkov",
-      "callsign": "Admiral Gorshkov",
+      "callsign": "Admiral Kasatonov (461)",
       "faction": "RED",
       "position_nm": [
-        50,
-        45
+        136.74,
+        -24.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 20,
+      "heading_deg": 290,
+      "speed_kn": 17,
       "patrol_nm": [
         [
-          10,
-          15
+          70.32,
+          12.0
         ],
         [
-          -5,
-          5
+          156.27,
+          -42.0
         ]
       ]
     },
     {
       "platform": "rfn_fsg_steregushchiy",
-      "callsign": "Soobrazitelny",
+      "callsign": "Gremyashchiy (337)",
       "faction": "RED",
       "position_nm": [
-        58,
-        34
+        152.37,
+        -36.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 20,
+      "heading_deg": 290,
+      "speed_kn": 17,
       "patrol_nm": [
         [
-          15,
-          10
+          85.95,
+          0.0
         ],
         [
-          -5,
-          5
+          167.99,
+          -54.0
         ]
       ]
     },
     {
       "platform": "rfn_ssk_kilo",
-      "callsign": "Kilo Contact",
+      "callsign": "Kaluga (B-800)",
       "faction": "RED",
       "position_nm": [
-        20,
-        25
+        105.48,
+        24.0
       ],
-      "depth_m": 80,
+      "heading_deg": 260,
       "speed_kn": 5,
-      "radar_on": false,
       "patrol_nm": [
         [
-          -10,
-          -10
+          50.79,
+          18.0
         ],
         [
-          20,
-          15
+          125.02,
+          30.0
         ]
-      ]
+      ],
+      "depth_m": 120,
+      "radar_on": false
     },
     {
       "platform": "shore_air_station",
-      "callsign": "Red Air Station",
+      "callsign": "Monchegorsk Air Base",
       "faction": "RED",
       "position_nm": [
-        105,
-        85
+        133.48,
+        -180.96
       ],
-      "radar_on": false
+      "heading_deg": 0,
+      "speed_kn": 0,
+      "air_wing": [
+        {
+          "platform": "rfn_strike_mig31k",
+          "count": 3,
+          "squadron": "174 IAP",
+          "callsign": "Foxhound",
+          "first_modex": 31,
+          "patrol_nm": [
+            [
+              58.6,
+              30.0
+            ],
+            [
+              -29.3,
+              42.0
+            ]
+          ]
+        },
+        {
+          "platform": "rfn_fighter_su35s",
+          "count": 4,
+          "squadron": "159 IAP",
+          "callsign": "Flanker",
+          "first_modex": 41
+        },
+        {
+          "platform": "rfn_uav_orlan10",
+          "count": 1,
+          "squadron": "UAV det",
+          "callsign": "Orlan",
+          "first_modex": 71,
+          "patrol_nm": [
+            [
+              87.9,
+              24.0
+            ],
+            [
+              -19.53,
+              36.0
+            ],
+            [
+              39.07,
+              -12.0
+            ]
+          ]
+        }
+      ]
     },
     {
       "platform": "civ_merchant_bulk",
       "callsign": "MV Northern Trader",
       "faction": "NEUTRAL",
       "position_nm": [
-        25,
-        -15
+        -7.81,
+        6.0
       ],
-      "heading_deg": 90,
-      "speed_kn": 12,
-      "radar_on": true
-    },
-    {
-      "platform": "rfn_strike_su30sm",
-      "callsign": "Sokol 11",
-      "faction": "RED",
-      "home": "Red Air Station",
+      "heading_deg": 95,
+      "speed_kn": 13,
       "patrol_nm": [
         [
-          40,
-          30
+          -97.67,
+          -6.0
         ],
         [
-          10,
-          5
-        ],
-        [
-          50,
-          30
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_strike_su30sm",
-      "callsign": "Sokol 12",
-      "faction": "RED",
-      "home": "Red Air Station",
-      "patrol_nm": [
-        [
-          40,
-          30
-        ],
-        [
-          10,
-          5
-        ],
-        [
-          50,
-          30
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_strike_su30sm",
-      "callsign": "Sokol 13",
-      "faction": "RED",
-      "home": "Red Air Station",
-      "patrol_nm": [
-        [
-          40,
-          30
-        ],
-        [
-          10,
-          5
-        ],
-        [
-          50,
-          30
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_strike_su30sm",
-      "callsign": "Sokol 14",
-      "faction": "RED",
-      "home": "Red Air Station",
-      "patrol_nm": [
-        [
-          40,
-          30
-        ],
-        [
-          10,
-          5
-        ],
-        [
-          50,
-          30
+          78.14,
+          24.0
         ]
       ]
     }
   ],
+  "order": 7,
   "neutral_factions": [
     "NEUTRAL"
   ],
-  "environment": {
-    "sea_state": 2,
-    "wind_kn": 14,
-    "visibility_nm": 8
-  }
+  "objectives": {
+    "text": "Hold the picket line and keep the carrier alive under ballistic attack.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy the Russian surface units, submarine and strike aircraft"
+      }
+    ],
+    "loss": [
+      {
+        "id": "lose_blue",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "Task group destroyed"
+      }
+    ]
+  },
+  "forces": "NATO: 1 carrier (CVW-3 det), 1 BMD cruiser, 2 destroyers, 1 frigate, 1 replenishment ship, 1 submarine  \u00b7  Russia: 1 frigate, 1 corvette, 1 submarine, Monchegorsk fighter regiment"
 }

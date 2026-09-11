@@ -1,835 +1,467 @@
 {
   "id": "baltic_sentinel",
-  "order": 3,
-  "name": "BALTIC SENTINEL",
-  "forces": "NATO: 1 Danish frigate, 1 German corvette  \u00b7  Russia: 1 corvette, 1 small missile ship  \u00b7  Neutral merchant traffic",
-  "description": "Fictional near-future crisis in the Baltic. A NATO multinational group is holding a patrol line in crowded, confined water. Two Russian units are operating in the same box. Commercial traffic has not stopped: neutral merchant ships are transiting the same lane, they look much like a warship on radar until classified, and sinking one is a strategic defeat. Ranges here are short, the horizon comes quickly, and there is very little time between detection and decision.",
-  "start_time_utc": "2027-04-11T21:40:00",
+  "name": "GOTLAND BASIN",
+  "description": "The Baltic is small, shallow, crowded and watched from every shore. Two NATO escorts are covering the shipping lane east of Gotland while Baltic Fleet units work the same water. Merchant traffic is dense, the land is close enough to hide behind, and everything anybody does is inside somebody's missile envelope. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "start_time_utc": "2027-02-18T14:20:00",
   "player_faction": "BLUE",
-  "neutral_factions": [
-    "WHITE"
-  ],
   "map": {
     "center_nm": [
-      0,
-      0
+      19.7,
+      -12.0
     ],
-    "extent_nm": 110
+    "extent_nm": 279,
+    "anchor_lat": 56.8,
+    "anchor_lon": 18.5,
+    "anchor_note": "World coordinates are nautical miles about this point; one minute of latitude is one mile and longitude is scaled by the cosine of the anchor latitude."
+  },
+  "environment": {
+    "sea_state": 2,
+    "wind_kn": 10,
+    "visibility_nm": 12
   },
   "terrain": {
     "land": [
       {
-        "id": "pomeranian_shore",
-        "name": "Southern shore",
-        "elevation_m": 90,
+        "id": "gotland",
+        "name": "Gotland",
+        "elevation_m": 60,
         "points_nm": [
           [
-            -95.0,
-            -95.0
+            -11.17,
+            7.2
           ],
           [
-            -71.09,
-            -92.86
-          ],
-          [
-            -47.22,
-            -90.25
-          ],
-          [
-            -23.68,
-            -94.99
-          ],
-          [
-            0.0,
-            -98.98
-          ],
-          [
-            24.28,
-            -100.47
-          ],
-          [
-            47.89,
-            -106.32
-          ],
-          [
-            71.42,
-            -100.54
-          ],
-          [
-            95.0,
-            -95.0
-          ],
-          [
-            95.04,
-            -87.83
-          ],
-          [
-            95.61,
-            -80.68
-          ],
-          [
-            94.55,
-            -73.59
-          ],
-          [
-            93.5,
-            -66.5
-          ],
-          [
-            94.98,
-            -59.37
-          ],
-          [
-            97.07,
-            -52.4
-          ],
-          [
-            96.12,
-            -45.19
-          ],
-          [
-            95.0,
-            -38.0
-          ],
-          [
-            90.02,
-            -39.19
-          ],
-          [
-            85.22,
-            -40.95
-          ],
-          [
-            80.11,
-            -41.61
-          ],
-          [
-            75.01,
-            -40.91
-          ],
-          [
-            70.19,
-            -39.17
-          ],
-          [
-            65.99,
-            -36.25
-          ],
-          [
-            61.71,
-            -33.49
-          ],
-          [
-            58.0,
-            -30.0
-          ],
-          [
-            53.9,
-            -29.59
-          ],
-          [
-            49.86,
-            -28.73
-          ],
-          [
-            45.85,
-            -29.68
-          ],
-          [
-            41.95,
-            -31.02
-          ],
-          [
-            37.98,
-            -32.16
-          ],
-          [
-            34.21,
-            -33.87
-          ],
-          [
-            30.13,
-            -33.2
-          ],
-          [
-            26.0,
-            -33.0
-          ],
-          [
-            22.79,
-            -32.2
-          ],
-          [
-            19.49,
-            -32.14
-          ],
-          [
-            16.6,
-            -30.56
-          ],
-          [
-            13.97,
-            -28.58
-          ],
-          [
-            10.92,
-            -27.58
-          ],
-          [
-            7.81,
-            -26.74
-          ],
-          [
-            4.78,
-            -25.64
-          ],
-          [
-            2.0,
-            -24.0
-          ],
-          [
-            -1.84,
-            -25.91
-          ],
-          [
-            -5.57,
-            -28.05
-          ],
-          [
-            -9.36,
-            -30.13
-          ],
-          [
-            -13.54,
-            -31.23
-          ],
-          [
-            -17.8,
-            -32.14
-          ],
-          [
-            -22.16,
-            -32.25
-          ],
-          [
-            -26.33,
-            -33.6
-          ],
-          [
-            -30.0,
-            -36.0
-          ],
-          [
-            -32.99,
-            -33.25
-          ],
-          [
-            -36.37,
-            -30.99
-          ],
-          [
-            -40.43,
-            -30.6
-          ],
-          [
-            -44.31,
-            -29.34
-          ],
-          [
-            -48.23,
-            -29.78
-          ],
-          [
-            -52.14,
-            -30.28
-          ],
-          [
-            -56.02,
-            -31.14
-          ],
-          [
-            -60.0,
-            -31.0
-          ],
-          [
-            -64.45,
-            -30.37
-          ],
-          [
-            -68.92,
-            -29.98
-          ],
-          [
-            -73.36,
-            -30.84
-          ],
-          [
-            -77.48,
-            -32.68
-          ],
-          [
-            -81.92,
-            -32.51
-          ],
-          [
-            -86.34,
-            -32.03
-          ],
-          [
-            -90.6,
-            -33.34
-          ],
-          [
-            -95.0,
-            -34.0
-          ],
-          [
-            -95.55,
-            -41.73
-          ],
-          [
-            -95.16,
-            -49.47
-          ],
-          [
-            -94.16,
-            -57.18
-          ],
-          [
-            -91.51,
-            -64.5
-          ],
-          [
-            -94.45,
-            -71.81
-          ],
-          [
-            -96.73,
-            -79.35
-          ],
-          [
-            -94.9,
-            -87.07
-          ]
-        ]
-      },
-      {
-        "id": "gotska_island",
-        "name": "Gotska",
-        "elevation_m": 70,
-        "points_nm": [
-          [
-            -20.0,
-            16.0
-          ],
-          [
-            -18.54,
-            16.38
-          ],
-          [
-            -17.1,
-            16.84
-          ],
-          [
-            -15.69,
-            17.39
-          ],
-          [
-            -14.28,
-            17.93
-          ],
-          [
-            -12.89,
-            17.32
-          ],
-          [
-            -11.61,
-            16.51
-          ],
-          [
-            -10.34,
-            15.7
-          ],
-          [
-            -9.0,
-            15.0
-          ],
-          [
-            -8.41,
-            16.34
-          ],
-          [
-            -8.2,
-            17.79
-          ],
-          [
-            -8.53,
-            19.21
-          ],
-          [
-            -8.6,
-            20.67
-          ],
-          [
-            -7.32,
-            21.33
-          ],
-          [
-            -6.01,
-            21.93
-          ],
-          [
-            -5.05,
-            23.01
-          ],
-          [
-            -4.0,
+            -13.14,
             24.0
           ],
           [
-            -5.06,
-            24.44
+            -6.57,
+            49.8
           ],
           [
-            -6.08,
-            24.95
+            9.86,
+            66.0
           ],
           [
-            -7.22,
-            25.21
+            19.71,
+            69.0
           ],
           [
-            -8.22,
-            25.78
+            14.78,
+            48.0
           ],
           [
-            -8.45,
-            26.91
+            6.57,
+            27.0
           ],
           [
-            -8.78,
-            28.03
-          ],
-          [
-            -9.47,
-            28.96
-          ],
-          [
-            -10.0,
-            30.0
-          ],
-          [
-            -11.7,
-            30.26
-          ],
-          [
-            -13.43,
-            30.39
-          ],
-          [
-            -15.15,
-            30.45
-          ],
-          [
-            -16.87,
-            30.6
-          ],
-          [
-            -18.42,
-            29.72
-          ],
-          [
-            -20.06,
-            29.0
-          ],
-          [
-            -21.12,
-            27.56
-          ],
-          [
-            -22.0,
-            26.0
-          ],
-          [
-            -22.09,
-            24.68
-          ],
-          [
-            -21.84,
-            23.37
-          ],
-          [
-            -21.19,
-            22.23
-          ],
-          [
-            -20.52,
-            21.1
-          ],
-          [
-            -20.15,
-            19.86
-          ],
-          [
-            -19.95,
-            18.58
-          ],
-          [
-            -19.94,
-            17.29
+            0.0,
+            12.0
           ]
         ]
       },
       {
-        "id": "sandon_island",
-        "name": "Sand\u00f6n",
-        "elevation_m": 55,
-        "points_nm": [
-          [
-            11.0,
-            28.0
-          ],
-          [
-            11.51,
-            26.86
-          ],
-          [
-            11.64,
-            25.61
-          ],
-          [
-            12.32,
-            24.57
-          ],
-          [
-            13.23,
-            23.72
-          ],
-          [
-            14.34,
-            23.18
-          ],
-          [
-            15.56,
-            23.0
-          ],
-          [
-            16.78,
-            23.17
-          ],
-          [
-            18.0,
-            23.0
-          ],
-          [
-            19.29,
-            23.07
-          ],
-          [
-            20.58,
-            23.22
-          ],
-          [
-            21.81,
-            22.83
-          ],
-          [
-            23.1,
-            22.69
-          ],
-          [
-            24.28,
-            23.26
-          ],
-          [
-            25.39,
-            23.95
-          ],
-          [
-            26.24,
-            24.94
-          ],
-          [
-            27.0,
-            26.0
-          ],
-          [
-            26.45,
-            26.95
-          ],
-          [
-            26.19,
-            28.01
-          ],
-          [
-            26.16,
-            29.1
-          ],
-          [
-            25.95,
-            30.17
-          ],
-          [
-            25.45,
-            31.13
-          ],
-          [
-            24.8,
-            31.99
-          ],
-          [
-            24.37,
-            32.99
-          ],
-          [
-            24.0,
-            34.0
-          ],
-          [
-            22.44,
-            34.26
-          ],
-          [
-            20.89,
-            34.57
-          ],
-          [
-            19.4,
-            33.99
-          ],
-          [
-            17.81,
-            33.85
-          ],
-          [
-            16.29,
-            34.2
-          ],
-          [
-            14.88,
-            34.87
-          ],
-          [
-            13.47,
-            35.5
-          ],
-          [
-            12.0,
-            36.0
-          ],
-          [
-            11.38,
-            35.11
-          ],
-          [
-            10.94,
-            34.12
-          ],
-          [
-            10.57,
-            33.11
-          ],
-          [
-            10.0,
-            32.19
-          ],
-          [
-            10.36,
-            31.16
-          ],
-          [
-            10.39,
-            30.07
-          ],
-          [
-            10.54,
-            28.99
-          ]
-        ]
-      },
-      {
-        "id": "varde_skerries",
-        "name": "Varde skerries",
+        "id": "oland",
+        "name": "Oland",
         "elevation_m": 40,
         "points_nm": [
           [
-            -48.0,
-            4.0
+            -68.99,
+            -36.0
           ],
           [
-            -46.71,
-            2.89
+            -67.35,
+            -12.0
           ],
           [
-            -45.27,
-            1.97
+            -50.92,
+            15.0
           ],
           [
-            -43.78,
-            0.99
+            -46.65,
+            33.6
           ],
           [
-            -42.0,
-            1.0
+            -44.35,
+            30.0
           ],
           [
-            -40.12,
-            1.75
+            -50.92,
+            6.0
           ],
           [
-            -38.33,
-            2.71
+            -60.78,
+            -18.0
           ],
           [
-            -36.31,
-            3.33
+            -65.71,
+            -37.2
+          ]
+        ]
+      },
+      {
+        "id": "bornholm",
+        "name": "Bornholm",
+        "elevation_m": 120,
+        "points_nm": [
+          [
+            -124.84,
+            -108.6
           ],
           [
-            -35.0,
-            5.0
+            -125.5,
+            -102.0
           ],
           [
-            -35.18,
-            6.96
+            -122.22,
+            -90.0
           ],
           [
-            -36.31,
-            8.58
+            -110.06,
+            -91.2
           ],
           [
-            -36.89,
-            10.42
+            -111.7,
+            -105.0
           ],
           [
-            -38.0,
+            -118.27,
+            -109.2
+          ]
+        ]
+      },
+      {
+        "id": "south_sweden",
+        "name": "Southern Sweden",
+        "elevation_m": 140,
+        "points_nm": [
+          [
+            -185.62,
+            -87.6
+          ],
+          [
+            -153.76,
+            -82.2
+          ],
+          [
+            -136.34,
+            -69.0
+          ],
+          [
+            -95.6,
+            -38.4
+          ],
+          [
+            -72.28,
+            -9.0
+          ],
+          [
+            -60.78,
+            30.0
+          ],
+          [
+            -55.85,
+            66.0
+          ],
+          [
+            -49.28,
+            96.0
+          ],
+          [
+            -29.57,
+            114.0
+          ],
+          [
+            -82.13,
+            108.0
+          ],
+          [
+            -131.42,
+            72.0
+          ],
+          [
+            -174.13,
             12.0
           ],
           [
-            -40.06,
-            11.23
+            -188.91,
+            -36.0
           ],
           [
-            -42.19,
-            11.75
-          ],
-          [
-            -44.1,
-            10.9
-          ],
-          [
-            -46.0,
-            10.0
-          ],
-          [
-            -46.43,
-            8.48
-          ],
-          [
-            -46.96,
-            6.99
-          ],
-          [
-            -47.07,
-            5.35
+            -190.55,
+            -72.0
           ]
         ]
-      }
-    ]
-  },
-  "objectives": {
-    "text": "Clear the patrol box of Russian combatants. Do not fire on neutral shipping.",
-    "victory": [
-      {
-        "id": "kill_red",
-        "type": "force_destroyed",
-        "faction": "RED",
-        "text": "Destroy both Russian combatants"
-      }
-    ],
-    "loss": [
-      {
-        "id": "neutral_sunk",
-        "type": "unit_lost",
-        "callsigns": [
-          "MV Baltic Trader",
-          "MV Gotland Star"
-        ],
-        "text": "A neutral merchant was sunk"
       },
       {
-        "id": "lose_all",
-        "type": "force_destroyed",
-        "faction": "BLUE",
-        "text": "NATO patrol destroyed"
+        "id": "baltic_east_shore",
+        "name": "Eastern Baltic shore",
+        "elevation_m": 90,
+        "points_nm": [
+          [
+            83.78,
+            -111.0
+          ],
+          [
+            84.43,
+            -66.0
+          ],
+          [
+            82.13,
+            -30.0
+          ],
+          [
+            82.46,
+            -17.4
+          ],
+          [
+            100.2,
+            12.0
+          ],
+          [
+            103.49,
+            45.0
+          ],
+          [
+            134.7,
+            57.0
+          ],
+          [
+            197.12,
+            93.0
+          ],
+          [
+            183.98,
+            132.0
+          ],
+          [
+            205.34,
+            158.4
+          ],
+          [
+            262.83,
+            162.0
+          ],
+          [
+            292.4,
+            144.0
+          ],
+          [
+            295.68,
+            72.0
+          ],
+          [
+            213.55,
+            -18.0
+          ],
+          [
+            141.27,
+            -96.0
+          ],
+          [
+            108.42,
+            -126.0
+          ]
+        ]
+      },
+      {
+        "id": "baltic_south_shore",
+        "name": "Southern Baltic shore",
+        "elevation_m": 60,
+        "points_nm": [
+          [
+            37.78,
+            -127.2
+          ],
+          [
+            46.32,
+            -129.0
+          ],
+          [
+            29.57,
+            -144.0
+          ],
+          [
+            4.93,
+            -147.0
+          ],
+          [
+            1.64,
+            -123.0
+          ],
+          [
+            -32.85,
+            -118.2
+          ],
+          [
+            -54.21,
+            -132.0
+          ],
+          [
+            -95.28,
+            -156.0
+          ],
+          [
+            -139.63,
+            -165.0
+          ],
+          [
+            -210.26,
+            -159.0
+          ],
+          [
+            -246.4,
+            -174.0
+          ],
+          [
+            -197.12,
+            -192.0
+          ],
+          [
+            -114.99,
+            -198.0
+          ],
+          [
+            -32.85,
+            -180.0
+          ],
+          [
+            49.28,
+            -168.0
+          ],
+          [
+            68.99,
+            -144.0
+          ]
+        ]
+      },
+      {
+        "id": "estonian_isles",
+        "name": "Saaremaa and Hiiumaa",
+        "elevation_m": 50,
+        "points_nm": [
+          [
+            110.06,
+            66.0
+          ],
+          [
+            108.42,
+            84.0
+          ],
+          [
+            110.06,
+            105.0
+          ],
+          [
+            116.63,
+            129.0
+          ],
+          [
+            137.99,
+            135.0
+          ],
+          [
+            154.41,
+            120.0
+          ],
+          [
+            157.7,
+            99.0
+          ],
+          [
+            134.7,
+            78.0
+          ],
+          [
+            121.56,
+            69.0
+          ]
+        ]
       }
     ]
   },
   "units": [
     {
       "platform": "dnk_ffg_iver_huitfeldt",
-      "callsign": "HDMS Peter Willemoes",
+      "callsign": "HDMS Peter Willemoes (F 362)",
       "faction": "BLUE",
       "position_nm": [
-        -28,
-        -10
+        29.57,
+        12.0
       ],
-      "heading_deg": 75,
+      "heading_deg": 160,
       "speed_kn": 14,
-      "radar_on": true
+      "patrol_nm": [
+        [
+          42.71,
+          -36.0
+        ],
+        [
+          23.0,
+          48.0
+        ]
+      ]
     },
     {
       "platform": "deu_fsg_braunschweig",
-      "callsign": "FGS Magdeburg",
+      "callsign": "FGS Magdeburg (F 261)",
       "faction": "BLUE",
       "position_nm": [
-        -22,
-        -20
+        13.14,
+        -24.0
       ],
-      "heading_deg": 75,
+      "heading_deg": 20,
       "speed_kn": 14,
-      "radar_on": false
-    },
-    {
-      "platform": "rfn_fsg_buyan_m",
-      "callsign": "Grad",
-      "faction": "RED",
-      "position_nm": [
-        30,
-        16
-      ],
-      "heading_deg": 250,
-      "speed_kn": 12,
-      "radar_on": false,
       "patrol_nm": [
         [
-          26,
-          14
+          -3.29,
+          -60.0
         ],
         [
-          -6,
-          -14
+          36.14,
+          24.0
         ]
       ]
     },
     {
       "platform": "rfn_fsg_steregushchiy",
-      "callsign": "Sovershennyy",
+      "callsign": "Soobrazitelny (531)",
       "faction": "RED",
       "position_nm": [
-        34,
-        4
+        55.85,
+        -54.0
       ],
-      "heading_deg": 250,
-      "speed_kn": 14,
-      "radar_on": true,
+      "heading_deg": 340,
+      "speed_kn": 16,
       "patrol_nm": [
         [
-          30,
-          2
+          62.42,
+          6.0
         ],
         [
-          -10,
-          -6
+          29.57,
+          -84.0
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fsg_buyan_m",
+      "callsign": "Zelyony Dol (602)",
+      "faction": "RED",
+      "position_nm": [
+        49.28,
+        -84.0
+      ],
+      "heading_deg": 340,
+      "speed_kn": 14,
+      "patrol_nm": [
+        [
+          68.99,
+          -24.0
+        ],
+        [
+          42.71,
+          -108.0
         ]
       ]
     },
@@ -838,24 +470,87 @@
       "callsign": "MV Baltic Trader",
       "faction": "WHITE",
       "position_nm": [
-        18,
-        -6
+        16.43,
+        -12.0
       ],
-      "heading_deg": 260,
-      "speed_kn": 13,
-      "radar_on": true
+      "heading_deg": 200,
+      "speed_kn": 12,
+      "patrol_nm": [
+        [
+          -16.43,
+          -96.0
+        ],
+        [
+          49.28,
+          60.0
+        ]
+      ]
     },
     {
       "platform": "civ_merchant_bulk",
       "callsign": "MV Gotland Star",
       "faction": "WHITE",
       "position_nm": [
-        8,
-        10
+        13.14,
+        24.0
       ],
-      "heading_deg": 80,
-      "speed_kn": 12,
-      "radar_on": true
+      "heading_deg": 170,
+      "speed_kn": 13,
+      "patrol_nm": [
+        [
+          23.0,
+          -84.0
+        ],
+        [
+          29.57,
+          84.0
+        ]
+      ]
+    },
+    {
+      "platform": "civ_fishing_trawler",
+      "callsign": "FV Stormfagel",
+      "faction": "WHITE",
+      "position_nm": [
+        6.57,
+        6.0
+      ],
+      "heading_deg": 90,
+      "speed_kn": 6,
+      "patrol_nm": [
+        [
+          36.14,
+          -18.0
+        ],
+        [
+          -29.57,
+          24.0
+        ]
+      ]
     }
-  ]
+  ],
+  "order": 2,
+  "neutral_factions": [
+    "WHITE"
+  ],
+  "objectives": {
+    "text": "Keep the lane open. Merchant traffic is protected and the shore is watching.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy the Russian units in the basin"
+      }
+    ],
+    "loss": [
+      {
+        "id": "lose_blue",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "NATO escort group destroyed"
+      }
+    ]
+  },
+  "forces": "NATO: 1 frigate, 1 corvette (drone det)  \u00b7  Russia: 1 corvette, 1 missile ship  \u00b7  Neutral: dense merchant traffic"
 }

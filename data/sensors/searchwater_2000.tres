@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "searchwater_2000"
+display_name = "Searchwater 2000 (Crowsnest AEW)"
+kind = "radar"
+emits = true
+range_surface_nm = 90.0
+range_air_nm = 180.0
+antenna_height_m = 4.0
+classify_rate = 0.95
+source_status = "PUBLIC: system designation and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: every range, gain and classification figure here is a tuning value, not a performance claim. Roll-on airborne surveillance radar carried by an ASW helicopter airframe. Horizon comes from the aircraft's altitude, not this antenna height."

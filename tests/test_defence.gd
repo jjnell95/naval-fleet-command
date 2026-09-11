@@ -165,6 +165,41 @@ func test_closest_approach_distinguishes_inbound_from_passing() -> void:
 	passing.position = Vector2(20.0, 10.0)
 	passing.heading_deg = 0.0  # heading north, 20 nm to the east
 	assert_true(not AirDefence.is_inbound(u, passing), "a round passing 20 nm clear is not my problem")
+
+	# A round pointed straight at the ship from beyond its own maximum range is not inbound on
+	# anything. This is what an air-to-air missile fired at an aircraft a long way off looks like
+	# geometrically, and counting it fills the threat board and spends the defensive cycle on a
+	# round that was never coming.
+	var far_shot := Weapon.new()
+	far_shot.id = 902
+	far_shot.spec = _asm()
+	far_shot.faction = "RED"
+	far_shot.position = Vector2(0.0, far_shot.spec.max_range_nm + 40.0)
+	far_shot.heading_deg = 180.0  # aimed right down the throat
+	assert_true(not AirDefence.is_inbound(u, far_shot), "a round that cannot reach me is not inbound")
+	far_shot.position = Vector2(0.0, far_shot.spec.max_range_nm - 5.0)
+	assert_true(AirDefence.is_inbound(u, far_shot), "the same round inside its own reach is")
+	_cleanup(h)
+
+
+func test_a_round_locked_on_an_aircraft_is_not_charged_to_a_ship() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO)
+	var jet := _ship("BLUE", Vector2(0.0, 30.0))
+	jet.spec = jet.spec.duplicate()
+	jet.spec.domain = "air"
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	var h := _harness([ship, jet])
+	var aam := _asm()
+	aam.max_range_nm = 45.0
+	var shot := _incoming(h[2], aam, "RED", Vector2(0.0, 60.0), jet, 903)
+	assert_eq(AirDefence.threatened_unit(h[0], "BLUE", shot), jet,
+		"the round is going for what it locked onto")
+	# Nothing locked yet, and both friendlies are well outside the round's legs: it threatens
+	# nobody. Before this, the geometry alone charged it to whichever ship it happened to point at.
+	shot.acquired = null
+	shot.position = Vector2(0.0, 200.0)
+	assert_true(AirDefence.threatened_unit(h[0], "BLUE", shot) == null,
+		"and an unlocked round from 200 nm threatens nothing it cannot reach")
 	_cleanup(h)
 
 

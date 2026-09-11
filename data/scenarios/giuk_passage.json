@@ -1,562 +1,255 @@
 {
   "id": "giuk_passage",
-  "order": 5,
-  "name": "GIUK PASSAGE",
-  "forces": "NATO: 1 destroyer, 1 frigate, 1 attack submarine  \u00b7  Russia: 1 diesel-electric submarine",
-  "description": "Fictional near-future escalation. A Russian diesel-electric boat is expected to transit the gap southwest into the North Atlantic, where the reinforcement convoys run. Intelligence has narrowed the corridor but not the timing. She is quiet at a crawl and your hull sonar will not hear her until she is very close. Your towed array will do better if you slow down, and active sonar will find her outright at the price of telling her exactly where you are and where you are not. She carries torpedoes and nothing else, so she has to come to you.",
-  "start_time_utc": "2027-05-06T02:15:00",
+  "name": "ICELAND-FAROE GAP",
+  "description": "The Iceland-Faroe Ridge: 270 miles of shallow water between two coastlines, and the eastern half of the gap every Northern Fleet boat bound for the Atlantic has to cross. A Kilo is somewhere in it, running slow and deep on batteries. You have a Virginia holding the northern approach, a barrier force on the surface, and a Poseidon out of Keflavik with sixty buoys. Find it before it is through. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "start_time_utc": "2027-03-02T02:10:00",
   "player_faction": "BLUE",
   "map": {
     "center_nm": [
-      0,
-      0
+      -53.8,
+      -33.0
     ],
-    "extent_nm": 110
+    "extent_nm": 426,
+    "anchor_lat": 63.4,
+    "anchor_lon": -15.0,
+    "anchor_note": "World coordinates are nautical miles about this point; one minute of latitude is one mile and longitude is scaled by the cosine of the anchor latitude."
+  },
+  "environment": {
+    "sea_state": 4,
+    "wind_kn": 22,
+    "visibility_nm": 6
   },
   "terrain": {
     "land": [
       {
-        "id": "iceland_shelf",
-        "name": "Sudurland",
-        "elevation_m": 650,
+        "id": "iceland",
+        "name": "Iceland",
+        "elevation_m": 680,
         "points_nm": [
           [
-            -95.0,
-            52.0
+            -207.13,
+            24.6
           ],
           [
-            -90.73,
-            50.12
+            -204.45,
+            35.4
           ],
           [
-            -86.25,
-            48.8
+            -186.45,
+            45.0
           ],
           [
-            -81.72,
-            49.99
+            -185.37,
+            69.0
           ],
           [
-            -77.03,
-            50.06
+            -204.18,
+            78.0
           ],
           [
-            -72.68,
-            48.8
+            -235.88,
+            88.2
           ],
           [
-            -68.57,
-            46.88
+            -209.55,
+            100.8
           ],
           [
-            -64.43,
-            45.02
+            -256.03,
+            126.0
           ],
           [
-            -60.0,
-            44.0
+            -228.36,
+            144.0
           ],
           [
-            -56.55,
-            43.92
+            -220.3,
+            162.0
           ],
           [
-            -53.17,
-            43.25
+            -199.88,
+            183.0
           ],
           [
-            -50.47,
-            41.1
+            -166.57,
+            168.0
           ],
           [
-            -47.38,
-            39.55
+            -105.04,
+            165.0
           ],
           [
-            -44.77,
-            37.44
+            -61.79,
+            159.0
           ],
           [
-            -42.31,
-            35.15
+            12.63,
+            177.6
           ],
           [
-            -40.43,
-            32.34
+            26.87,
+            132.0
           ],
           [
-            -38.0,
-            30.0
+            37.61,
+            84.0
           ],
           [
-            -37.53,
-            31.88
+            -5.37,
+            51.0
           ],
           [
-            -37.61,
-            33.81
+            -59.1,
+            27.0
           ],
           [
-            -36.83,
-            35.57
+            -107.73,
+            1.2
           ],
           [
-            -35.7,
-            37.13
+            -142.39,
+            6.0
           ],
           [
-            -33.95,
-            37.92
-          ],
-          [
-            -32.35,
-            38.98
-          ],
-          [
-            -31.05,
-            40.4
-          ],
-          [
-            -30.0,
-            42.0
-          ],
-          [
-            -29.26,
-            44.01
-          ],
-          [
-            -28.0,
-            45.74
-          ],
-          [
-            -27.27,
-            47.75
-          ],
-          [
-            -26.12,
-            49.55
-          ],
-          [
-            -23.99,
-            49.76
-          ],
-          [
-            -21.9,
-            50.23
-          ],
-          [
-            -20.07,
-            51.38
-          ],
-          [
-            -18.0,
-            52.0
-          ],
-          [
-            -28.97,
-            54.78
-          ],
-          [
-            -39.87,
-            57.81
-          ],
-          [
-            -50.84,
-            60.67
-          ],
-          [
-            -61.45,
-            64.63
-          ],
-          [
-            -69.51,
-            72.64
-          ],
-          [
-            -78.82,
-            79.16
-          ],
-          [
-            -87.92,
-            86.04
-          ],
-          [
-            -95.0,
-            95.0
-          ],
-          [
-            -93.87,
-            89.11
-          ],
-          [
-            -93.41,
-            83.13
-          ],
-          [
-            -89.19,
-            78.8
-          ],
-          [
-            -86.28,
-            73.5
-          ],
-          [
-            -88.69,
-            68.11
-          ],
-          [
-            -92.25,
-            63.4
-          ],
-          [
-            -93.96,
-            57.78
+            -180.0,
+            15.6
           ]
         ]
-      },
-      {
-        "id": "faroe_bank",
-        "name": "Faroe Bank",
-        "elevation_m": 420,
-        "points_nm": [
-          [
-            16.0,
-            -34.0
-          ],
-          [
-            17.92,
-            -34.24
-          ],
-          [
-            19.7,
-            -35.01
-          ],
-          [
-            21.36,
-            -35.98
-          ],
-          [
-            23.07,
-            -36.84
-          ],
-          [
-            24.97,
-            -37.19
-          ],
-          [
-            26.68,
-            -38.1
-          ],
-          [
-            28.21,
-            -39.28
-          ],
-          [
-            30.0,
-            -40.0
-          ],
-          [
-            30.81,
-            -38.47
-          ],
-          [
-            31.9,
-            -37.13
-          ],
-          [
-            31.95,
-            -35.4
-          ],
-          [
-            32.41,
-            -33.72
-          ],
-          [
-            34.12,
-            -33.35
-          ],
-          [
-            35.71,
-            -32.62
-          ],
-          [
-            36.77,
-            -31.24
-          ],
-          [
-            38.0,
-            -30.0
-          ],
-          [
-            36.69,
-            -29.04
-          ],
-          [
-            35.42,
-            -28.04
-          ],
-          [
-            33.9,
-            -27.44
-          ],
-          [
-            32.61,
-            -26.44
-          ],
-          [
-            32.37,
-            -24.81
-          ],
-          [
-            31.85,
-            -23.26
-          ],
-          [
-            31.9,
-            -21.63
-          ],
-          [
-            32.0,
-            -20.0
-          ],
-          [
-            30.17,
-            -19.83
-          ],
-          [
-            28.43,
-            -19.22
-          ],
-          [
-            26.61,
-            -19.43
-          ],
-          [
-            24.78,
-            -19.47
-          ],
-          [
-            23.05,
-            -20.0
-          ],
-          [
-            21.39,
-            -20.74
-          ],
-          [
-            19.61,
-            -21.15
-          ],
-          [
-            18.0,
-            -22.0
-          ],
-          [
-            18.22,
-            -23.59
-          ],
-          [
-            18.0,
-            -25.17
-          ],
-          [
-            18.32,
-            -26.73
-          ],
-          [
-            18.66,
-            -28.28
-          ],
-          [
-            18.52,
-            -29.9
-          ],
-          [
-            17.9,
-            -31.4
-          ],
-          [
-            16.8,
-            -32.59
-          ]
-        ]
-      },
-      {
-        "id": "munkur_isle",
-        "name": "Munkur",
-        "elevation_m": 310,
-        "points_nm": [
-          [
-            -4.0,
-            -45.0
-          ],
-          [
-            -2.53,
-            -46.07
-          ],
-          [
-            -0.89,
-            -46.84
-          ],
-          [
-            0.5,
-            -47.99
-          ],
-          [
-            2.0,
-            -49.0
-          ],
-          [
-            4.27,
-            -47.94
-          ],
-          [
-            6.76,
-            -48.28
-          ],
-          [
-            9.16,
-            -47.66
-          ],
-          [
-            11.0,
-            -46.0
-          ],
-          [
-            9.79,
-            -44.15
-          ],
-          [
-            8.46,
-            -42.39
-          ],
-          [
-            9.1,
-            -40.24
-          ],
-          [
-            9.0,
-            -38.0
-          ],
-          [
-            6.63,
-            -37.75
-          ],
-          [
-            4.26,
-            -37.93
-          ],
-          [
-            2.45,
-            -39.62
-          ],
-          [
-            0.0,
-            -40.0
-          ],
-          [
-            -1.12,
-            -41.16
-          ],
-          [
-            -1.97,
-            -42.52
-          ],
-          [
-            -2.9,
-            -43.83
-          ]
-        ]
-      }
-    ]
-  },
-  "objectives": {
-    "text": "Find and sink the Russian submarine before she clears the gap to the southwest.",
-    "victory": [
-      {
-        "id": "kill_sub",
-        "type": "force_destroyed",
-        "faction": "RED",
-        "text": "Sink the Russian submarine"
-      }
-    ],
-    "loss": [
-      {
-        "id": "escaped",
-        "type": "reach_area",
-        "faction": "RED",
-        "center_nm": [
-          -46,
-          -34
-        ],
-        "radius_nm": 16,
-        "text": "The submarine cleared the gap"
-      },
-      {
-        "id": "escorts_lost",
-        "type": "force_destroyed",
-        "faction": "BLUE",
-        "text": "NATO hunting group destroyed"
       }
     ]
   },
   "units": [
     {
-      "platform": "usn_ddg_arleigh_burke_iia",
-      "callsign": "USS Roosevelt",
+      "platform": "usn_ssn_virginia",
+      "callsign": "USS Delaware (SSN 791)",
       "faction": "BLUE",
       "position_nm": [
-        -16,
-        4
+        -37.61,
+        30.0
       ],
-      "heading_deg": 45,
-      "speed_kn": 12,
-      "radar_on": true
-    },
-    {
-      "platform": "rnon_ffg_fridtjof_nansen",
-      "callsign": "HNoMS Roald Amundsen",
-      "faction": "BLUE",
-      "position_nm": [
-        -6,
-        -8
-      ],
-      "heading_deg": 45,
+      "heading_deg": 110,
       "speed_kn": 8,
+      "depth_m": 120,
       "radar_on": false
     },
     {
-      "platform": "usn_ssn_virginia",
-      "callsign": "USS Delaware",
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Jason Dunham (DDG 109)",
       "faction": "BLUE",
       "position_nm": [
-        4,
-        10
+        10.75,
+        -6.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 8,
-      "radar_on": false,
-      "depth_m": 120
+      "heading_deg": 75,
+      "speed_kn": 14,
+      "patrol_nm": [
+        [
+          -69.85,
+          -12.0
+        ],
+        [
+          80.6,
+          0.0
+        ]
+      ]
+    },
+    {
+      "platform": "rnon_ffg_fridtjof_nansen",
+      "callsign": "HNoMS Roald Amundsen (F 311)",
+      "faction": "BLUE",
+      "position_nm": [
+        48.36,
+        -30.0
+      ],
+      "heading_deg": 285,
+      "speed_kn": 14,
+      "patrol_nm": [
+        [
+          96.72,
+          -36.0
+        ],
+        [
+          -42.98,
+          -24.0
+        ]
+      ],
+      "radar_on": false
+    },
+    {
+      "platform": "shore_air_station",
+      "callsign": "Keflavik Air Base",
+      "faction": "BLUE",
+      "position_nm": [
+        -204.31,
+        35.1
+      ],
+      "heading_deg": 0,
+      "speed_kn": 0,
+      "air_wing": [
+        {
+          "platform": "usn_mpa_p8a",
+          "count": 2,
+          "squadron": "VP-8",
+          "callsign": "Fighting Tiger",
+          "first_modex": 21
+        },
+        {
+          "platform": "usn_uav_mq4c",
+          "count": 1,
+          "squadron": "VUP-19",
+          "callsign": "Triton",
+          "first_modex": 51
+        }
+      ]
     },
     {
       "platform": "rfn_ssk_kilo",
-      "callsign": "Novorossiysk",
+      "callsign": "Vladikavkaz (B-459)",
       "faction": "RED",
       "position_nm": [
-        34,
-        26
+        37.61,
+        54.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 6,
-      "radar_on": false,
-      "depth_m": 90,
-      "ai_posture": "breakout",
+      "heading_deg": 200,
+      "speed_kn": 5,
       "patrol_nm": [
         [
-          -46,
-          -34
+          16.12,
+          6.0
+        ],
+        [
+          -16.12,
+          -66.0
+        ],
+        [
+          -48.36,
+          -120.0
         ]
-      ]
+      ],
+      "depth_m": 110,
+      "radar_on": false,
+      "ai_posture": "breakout"
     }
-  ]
+  ],
+  "order": 3,
+  "objectives": {
+    "text": "Hold the ridge. The boat does not have to be sunk if it cannot get past you.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy the transiting submarine"
+      }
+    ],
+    "loss": [
+      {
+        "id": "lose_blue",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "Barrier force destroyed"
+      }
+    ]
+  },
+  "forces": "NATO: 1 attack submarine, 1 destroyer, 1 frigate, Keflavik patrol det  \u00b7  Russia: 1 diesel submarine"
 }

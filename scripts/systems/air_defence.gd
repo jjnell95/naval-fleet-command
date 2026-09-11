@@ -29,12 +29,24 @@ static func closest_approach(u: Unit, w: Weapon) -> Dictionary:
 	return {"cpa_nm": (rel_pos + rel_vel * t).length(), "time_s": t}
 
 
+## Whether a round could physically still arrive at this unit. A missile is not a threat to
+## everything its current heading eventually points at: an air-to-air round fired two hundred
+## miles away, at an aircraft, has neither the legs nor the intention to reach a ship, and
+## treating it as inbound wastes the whole defensive cycle on it and fills the player's threat
+## board with rounds that were never coming. Reach is judged from where the round is now, which
+## is generous — it ignores fuel already spent — and that is deliberate.
+static func within_reach(u: Unit, w: Weapon) -> bool:
+	return u.position.distance_to(w.position) <= w.spec.max_range_nm
+
+
 ## True when this round is closing on this ship rather than merely nearby.
 static func is_inbound(u: Unit, w: Weapon) -> bool:
 	if w.faction == u.faction or w.phase == Weapon.Phase.DEAD or w.is_interceptor():
 		return false
 	if w.acquired == u:
 		return true
+	if not within_reach(u, w):
+		return false
 	var cpa := closest_approach(u, w)
 	return cpa["time_s"] > 0.0 and cpa["cpa_nm"] <= CPA_THREAT_NM
 
@@ -48,7 +60,9 @@ static func threatened_unit(unit_manager: UnitManager, faction: String, w: Weapo
 	var best: Unit = null
 	var best_cpa := CPA_THREAT_NM
 	for u in unit_manager.units:
-		if not u.alive or u.faction != faction:
+		if not u.alive or u.faction != faction or not u.is_engageable():
+			continue
+		if not within_reach(u, w):
 			continue
 		var cpa := closest_approach(u, w)
 		if cpa["time_s"] > 0.0 and cpa["cpa_nm"] <= best_cpa:

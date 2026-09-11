@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "martlet_lmm"
+display_name = "Martlet lightweight multirole missile"
+family = "Martlet"
+type = "asm"
+guidance = "semi_active_laser"
+profile = "direct"
+target_types = PackedStringArray("surface", "air")
+max_range_nm = 3.5
+min_range_nm = 0.2
+speed_kn = 950.0
+turn_rate_deg_s = 28.0
+seeker_range_nm = 0.9
+damage = 8.0
+base_pk = 0.72
+salvo_default = 4
+launch_interval_s = 1.5
+defensive_difficulty = 0.8
+signature_factor = 0.02
+altitude_m = 100.0
+soft_kill_resistance = 1.8
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Very light guided round intended against fast inshore craft and slow air targets such as drones."

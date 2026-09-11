@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "deu_uas_skeldar"
+display_name = "Skeldar V-200 shipboard UAS"
+short_name = "Skeldar"
+nation = "Germany"
+category = "shipboard rotary-wing drone"
+domain = "air"
+max_speed_kn = 75.0
+cruise_speed_kn = 55.0
+turn_rate_deg_s = 7.0
+accel_kn_s = 2.0
+length_m = 4.0
+health = 5.0
+signature_factor = 0.05
+sensor_ids = PackedStringArray("skeldar_eo")
+cruise_altitude_m = 1500.0
+max_altitude_m = 3000.0
+altitude_rate_m_s = 5.0
+endurance_s = 18000.0
+can_hover = true
+launch_time_s = 50.0
+recovery_time_s = 90.0
+launch_requirement = "helicopter"
+weapon_loadout = {}
+decoy_count = 0
+fire_control_channels = 1
+role = "Corvette-launched unmanned ISR"
+service_note = "A small rotary drone flown from a corvette's flight deck. Passive optics only, and it exists so a ship with no helicopter still has something to look over the horizon with."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

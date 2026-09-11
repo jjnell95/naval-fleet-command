@@ -34,6 +34,7 @@ var _depth_label: Label
 var _alt_label: Label
 var _sonar_label: Label
 var _launch_btn: Button
+var _flight_btn: Button
 var _rtb_btn: Button
 var _buoy_btn: Button
 var _mag_signature := ""
@@ -147,6 +148,11 @@ func _ready() -> void:
 	_add_alt_button("HIGH", -2.0)
 	_launch_btn = _make_button("LAUNCH", func() -> void: _emit_raw(Order.launch_aircraft()))
 	_subrow.add_child(_launch_btn)
+	# A deck that works several spots should be flyable as one. On a single-spot ship this button
+	# is hidden, because there is no section to send.
+	_flight_btn = _make_button("FLIGHT", func() -> void: _emit_raw(Order.launch_flight("", 4)))
+	_flight_btn.tooltip_text = "Launch a section: as many airframes as the deck has spots."
+	_subrow.add_child(_flight_btn)
 	_rtb_btn = _make_button("RTB", func() -> void: _emit_raw(Order.return_to_base()))
 	_subrow.add_child(_rtb_btn)
 	_buoy_btn = _make_button("BUOY", func() -> void: _emit_raw(Order.deploy_sonobuoy()))
@@ -218,6 +224,7 @@ func _refresh_row_visibility() -> void:
 	var has_sonar := false
 	var is_air := false
 	var can_launch := false
+	var can_launch_flight := false
 	var has_buoys := false
 	for u: Unit in _units:
 		if u.spec.max_depth_m > 0.0:
@@ -230,6 +237,8 @@ func _refresh_row_visibility() -> void:
 				has_buoys = true
 		if u.spec.aircraft_capacity > 0 and not u.stowed_aircraft().is_empty():
 			can_launch = true
+			if u.spec.launch_capacity() > 1 and u.stowed_aircraft().size() > 1:
+				can_launch_flight = true
 	# Individual controls are hidden by capability; the tab remains stable.
 	_depth_label.visible = can_dive
 	for b in _depth_buttons:
@@ -238,6 +247,7 @@ func _refresh_row_visibility() -> void:
 	for b in _alt_buttons:
 		b.visible = is_air
 	_launch_btn.visible = can_launch
+	_flight_btn.visible = can_launch_flight
 	_rtb_btn.visible = is_air
 	_buoy_btn.visible = has_buoys
 	_sonar_label.visible = has_sonar

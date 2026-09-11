@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "agm_158c_lrasm"
+display_name = "AGM-158C LRASM"
+family = "LRASM"
+type = "asm"
+guidance = "autonomous_terminal"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 200.0
+min_range_nm = 5.0
+speed_kn = 550.0
+turn_rate_deg_s = 10.0
+seeker_range_nm = 14.0
+damage = 70.0
+base_pk = 0.8
+salvo_default = 2
+launch_interval_s = 5.0
+defensive_difficulty = 1.7
+signature_factor = 0.07
+altitude_m = 12.0
+soft_kill_resistance = 1.9
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Low-observable, long-range air-launched anti-ship missile. Modelled as hard to see, hard to decoy and long-legged; the numbers are game balance."

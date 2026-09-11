@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "oneway_attack_drone"
+display_name = "Long-range one-way attack drone"
+family = "OWA drone"
+type = "asm"
+guidance = "inertial_terminal"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 350.0
+min_range_nm = 10.0
+speed_kn = 100.0
+turn_rate_deg_s = 6.0
+seeker_range_nm = 6.0
+damage = 22.0
+base_pk = 0.55
+salvo_default = 6
+launch_interval_s = 25.0
+defensive_difficulty = 0.7
+signature_factor = 0.09
+altitude_m = 60.0
+soft_kill_resistance = 1.3
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. A propeller-driven one-way attack drone, modelled as a weapon rather than an aircraft: slow, easy to shoot down, launched in numbers and long-legged enough to be a real nuisance. A generic type, not a specific design."

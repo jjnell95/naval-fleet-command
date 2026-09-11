@@ -81,6 +81,8 @@ func load_scenario(path: String) -> bool:
 	var c: Array = m.get("center_nm", [0, 0])
 	map_center = Vector2(c[0], c[1])
 	map_extent_nm = float(m.get("extent_nm", 200.0))
+	aviation_manager.map_center = map_center
+	aviation_manager.map_extent_nm = map_extent_nm
 	Detection.set_environment(scenario.get("environment", {}))
 	Terrain.load_from(scenario)
 	track_manager.neutral_factions = PackedStringArray()
@@ -154,7 +156,14 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			if spec != null:
 				weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time)
 		Order.Type.LAUNCH_AIRCRAFT:
-			aviation_manager.launch(u, o.aircraft_id)
+			if o.aircraft_count > 1:
+				# A section flies one type. The lead names it, so a mixed hangar does not put a
+				# tanker off the catapult behind three fighters.
+				var lead := aviation_manager.launch(u, o.aircraft_id)
+				if lead != null:
+					aviation_manager.launch_flight(u, o.aircraft_count - 1, lead.spec.id)
+			else:
+				aviation_manager.launch(u, o.aircraft_id)
 		Order.Type.RETURN_TO_BASE:
 			aviation_manager.request_return(u)
 		Order.Type.DEPLOY_SONOBUOY:

@@ -1,214 +1,174 @@
 {
   "id": "sandbox_m1",
-  "name": "TACTICAL SANDBOX",
-  "description": "A free-play testbed in the Norwegian Sea for trying movement, emissions and weapons without a mission. Both sides are armed and the Russian ships are under AI command.",
-  "start_time_utc": "2027-03-14T05:30:00",
+  "name": "VESTFJORDEN EXERCISE AREA",
+  "description": "A quiet range inside the Lofoten wall with one ship on each side and nothing complicated happening. Use it to learn the plot, the orders, the deck cycle and what a helicopter actually buys you before taking any of it somewhere it matters. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "start_time_utc": "2027-01-08T09:00:00",
   "player_faction": "BLUE",
   "map": {
     "center_nm": [
-      0,
-      0
+      8.9,
+      6.0
     ],
-    "extent_nm": 160
+    "extent_nm": 180,
+    "anchor_lat": 68.2,
+    "anchor_lon": 12.0,
+    "anchor_note": "World coordinates are nautical miles about this point; one minute of latitude is one mile and longitude is scaled by the cosine of the anchor latitude."
+  },
+  "environment": {
+    "sea_state": 2,
+    "wind_kn": 8,
+    "visibility_nm": 14
   },
   "terrain": {
     "land": [
       {
-        "id": "testbed_isle",
-        "name": "Testbed Isle",
-        "elevation_m": 260,
+        "id": "northern_norway",
+        "name": "Northern Norway",
+        "elevation_m": 760,
         "points_nm": [
           [
-            -14.0,
-            22.0
+            402.19,
+            91.2
           ],
           [
-            -12.34,
-            21.35
+            425.81,
+            130.2
           ],
           [
-            -10.66,
-            20.76
+            405.53,
+            147.0
           ],
           [
-            -9.21,
-            19.72
+            363.2,
+            163.2
           ],
           [
-            -7.63,
-            18.9
+            348.71,
+            141.0
           ],
           [
-            -7.67,
-            17.1
+            325.32,
+            166.8
           ],
           [
-            -7.19,
-            15.36
+            307.05,
+            178.2
           ],
           [
-            -6.85,
-            13.59
+            294.12,
+            153.0
           ],
           [
-            -6.0,
+            274.07,
+            162.0
+          ],
+          [
+            265.16,
+            126.0
+          ],
+          [
+            260.25,
+            147.6
+          ],
+          [
+            229.51,
+            141.0
+          ],
+          [
+            200.54,
+            117.0
+          ],
+          [
+            176.03,
+            106.8
+          ],
+          [
+            154.19,
+            88.8
+          ],
+          [
+            129.24,
+            66.0
+          ],
+          [
+            92.25,
+            65.4
+          ],
+          [
+            73.53,
+            39.0
+          ],
+          [
+            53.48,
             12.0
           ],
           [
-            -4.23,
-            13.09
+            28.97,
+            -9.0
           ],
           [
-            -2.49,
-            14.22
+            15.15,
+            -32.4
           ],
           [
-            -0.56,
-            15.0
+            31.19,
+            -45.0
           ],
           [
-            1.27,
-            15.99
+            52.81,
+            -55.2
           ],
           [
-            3.22,
-            15.29
+            35.65,
+            -75.0
           ],
           [
-            5.22,
-            14.73
+            22.28,
+            -114.0
           ],
           [
-            7.22,
-            14.1
+            4.46,
+            -144.0
           ],
           [
-            9.0,
-            13.0
+            2.23,
+            -174.0
           ],
           [
-            10.27,
-            14.72
+            22.28,
+            -192.0
           ],
           [
-            11.58,
-            16.42
+            53.48,
+            -156.0
           ],
           [
-            12.99,
-            18.02
+            71.3,
+            -108.0
           ],
           [
-            14.46,
-            19.58
+            95.81,
+            -60.0
           ],
           [
-            14.69,
-            21.75
+            142.61,
+            -6.0
           ],
           [
-            14.55,
-            23.93
+            182.71,
+            42.0
           ],
           [
-            14.08,
-            26.08
+            245.1,
+            66.0
           ],
           [
-            13.0,
-            28.0
+            311.95,
+            54.0
           ],
           [
-            12.51,
-            29.67
-          ],
-          [
-            11.85,
-            31.27
-          ],
-          [
-            11.33,
-            32.94
-          ],
-          [
-            10.44,
-            34.44
-          ],
-          [
-            8.87,
-            35.18
-          ],
-          [
-            7.3,
-            35.92
-          ],
-          [
-            5.56,
-            36.2
-          ],
-          [
-            4.0,
-            37.0
-          ],
-          [
-            2.52,
-            35.54
-          ],
-          [
-            0.89,
-            34.26
-          ],
-          [
-            -1.05,
-            33.51
-          ],
-          [
-            -2.8,
-            32.38
-          ],
-          [
-            -4.84,
-            31.7
-          ],
-          [
-            -6.99,
-            31.53
-          ],
-          [
-            -9.06,
-            32.08
-          ],
-          [
-            -11.0,
-            33.0
-          ],
-          [
-            -10.55,
-            31.55
-          ],
-          [
-            -10.32,
-            30.05
-          ],
-          [
-            -10.55,
-            28.54
-          ],
-          [
-            -11.15,
-            27.13
-          ],
-          [
-            -11.72,
-            25.77
-          ],
-          [
-            -12.51,
-            24.53
-          ],
-          [
-            -13.14,
-            23.2
+            383.25,
+            84.0
           ]
         ]
       }
@@ -217,72 +177,56 @@
   "units": [
     {
       "platform": "usn_ddg_arleigh_burke_iia",
-      "callsign": "USS Roosevelt",
+      "callsign": "USS Arleigh Burke (DDG 51)",
       "faction": "BLUE",
       "position_nm": [
-        -36,
-        -10
+        -17.83,
+        -18.0
       ],
-      "heading_deg": 60,
-      "speed_kn": 15,
-      "radar_on": true
-    },
-    {
-      "platform": "rnon_ffg_fridtjof_nansen",
-      "callsign": "HNoMS Roald Amundsen",
-      "faction": "BLUE",
-      "position_nm": [
-        -33,
-        -18
-      ],
-      "heading_deg": 60,
-      "speed_kn": 15,
-      "radar_on": false
-    },
-    {
-      "platform": "rfn_ffg_admiral_gorshkov",
-      "callsign": "Admiral Gorshkov",
-      "faction": "RED",
-      "position_nm": [
-        36,
-        12
-      ],
-      "heading_deg": 245,
-      "speed_kn": 12,
-      "radar_on": true
+      "heading_deg": 45,
+      "speed_kn": 12
     },
     {
       "platform": "rfn_fsg_steregushchiy",
-      "callsign": "Stoikiy",
+      "callsign": "Exercise target",
       "faction": "RED",
       "position_nm": [
-        41,
-        4
+        22.28,
+        18.0
       ],
-      "heading_deg": 245,
-      "speed_kn": 12,
-      "radar_on": true
+      "heading_deg": 225,
+      "speed_kn": 10,
+      "patrol_nm": [
+        [
+          -8.91,
+          -12.0
+        ],
+        [
+          35.65,
+          30.0
+        ]
+      ]
     }
   ],
-  "order": 99,
-  "forces": "Free-play testbed: 2 NATO, 2 Russian",
+  "order": 10,
   "objectives": {
-    "text": "No formal mission. Experiment freely.",
+    "text": "Nothing is at stake. Sink the target when you feel like it.",
     "victory": [
       {
         "id": "kill_red",
         "type": "force_destroyed",
         "faction": "RED",
-        "text": "Destroy the Russian ships"
+        "text": "Sink the exercise target"
       }
     ],
     "loss": [
       {
-        "id": "lose_all",
+        "id": "lose_blue",
         "type": "force_destroyed",
         "faction": "BLUE",
-        "text": "Both NATO ships lost"
+        "text": "Own ship lost"
       }
     ]
-  }
+  },
+  "forces": "NATO: 1 destroyer (2 embarked helicopters)  \u00b7  Opposing force: 1 corvette"
 }

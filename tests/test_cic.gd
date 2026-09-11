@@ -134,23 +134,58 @@ func test_flight_deck_compatibility() -> void:
 	assert_true(frigate.can_operate(DataDB.platform("rn_helo_merlin_hm2")))
 	assert_true(not frigate.can_operate(DataDB.platform("fra_fighter_rafale_m")))
 
-func test_deck_cycle_serializes_launches_and_rejects_wrong_aircraft() -> void:
+func test_a_big_deck_works_several_spots_and_a_small_one_does_not() -> void:
+	# A carrier is not a frigate with a bigger hangar. It gets a section off together; a ship with
+	# one spot gets one airframe off and then has to wait.
+	var cvn := _unit("usn_cvn_ford")
+	var wing: Array[Unit] = []
+	for i in 6:
+		var f := _unit("usn_fighter_fa18e")
+		f.callsign = "Raven %d" % (i + 1)
+		wing.append(f)
+	cvn.embarked.assign(wing)
+	var am := AviationManager.new()
+	var section := am.launch_flight(cvn, 6)
+	assert_eq(section.size(), cvn.spec.launch_capacity(), "as many as there are catapults, at once")
+	assert_true(section.size() > 1, "and that is more than one")
+
+	var ddg := _unit("usn_ddg_arleigh_burke_iia")
+	var h1 := _unit("usn_helo_mh60r")
+	var h2 := _unit("usn_helo_mh60r")
+	h1.callsign = "Warhawk 610"
+	h2.callsign = "Warhawk 611"
+	ddg.embarked.assign([h1, h2])
+	assert_eq(am.launch_flight(ddg, 2).size(), 1, "one spot means one airframe at a time")
+	am.free()
+
+
+func test_a_deck_taking_an_aircraft_aboard_cannot_launch_and_rejects_wrong_airframes() -> void:
 	var parent := _unit("rn_cvf_queen_elizabeth")
 	var a := _unit("rn_fighter_f35b")
 	var b := _unit("rn_fighter_f35b")
 	a.callsign = "First"
 	b.callsign = "Second"
-	parent.embarked.assign([a,b])
+	parent.embarked.assign([a, b])
 	var am := AviationManager.new()
-	assert_true(am.launch(parent, "First") == a)
-	assert_true(am.launch(parent, "Second") == null, "busy deck rejects second launch")
+	a.flight_state = Unit.FlightState.RECOVERING
+	assert_true(am.launch(parent, "Second") == null, "the same run of deck cannot do both")
 	a.flight_state = Unit.FlightState.AIRBORNE
 	b.spec = DataDB.platform("usn_fighter_f35c")
-	assert_true(am.launch(parent, "Second") == null, "wrong deck rejects even when free")
+	assert_true(am.launch(parent, "Second") == null, "a CATOBAR jet cannot use a ski jump")
 	am.free()
 
+
+func test_an_airframe_that_lands_is_not_immediately_a_sortie_again() -> void:
+	var cvn := _unit("usn_cvn_ford")
+	var jet := _unit("usn_fighter_fa18e")
+	cvn.embarked.assign([jet])
+	jet.flight_state = Unit.FlightState.TURNAROUND
+	assert_true(cvn.stowed_aircraft().is_empty(), "being turned round is not being ready")
+	assert_eq(cvn.turnaround_aircraft().size(), 1)
+	assert_true(cvn.spec.turnaround_time_s() > 0.0, "a big deck takes real time to turn a jet")
+
 func test_all_catalogue_resources_resolve_and_cells_fit() -> void:
-	assert_eq(DataDB.all_platforms().size(), 42)
+	assert_eq(DataDB.all_platforms().size(), 55)
 	for p: PlatformSpec in DataDB.all_platforms():
 		for sid in p.sensor_ids:
 			assert_true(DataDB.sensor(sid) != null, p.id + " sensor " + sid)
@@ -162,6 +197,11 @@ func test_all_catalogue_resources_resolve_and_cells_fit() -> void:
 	assert_true(DataDB.platform("usn_fighter_fa18e").sensor_ids.has("an_alr_67"))
 	assert_true(not DataDB.platform("usn_fighter_fa18e").sensor_ids.has("an_alq_240"))
 	assert_eq(DataDB.platform("usn_uav_mq4c").weapon_loadout.size(), 0)
+	# An unmanned tanker exists to give fuel away, and carries no weapons to do it with.
+	var mq25 := DataDB.platform("usn_uav_mq25")
+	assert_true(mq25.tanker_offload_s > 0.0, "the tanker has give")
+	assert_eq(mq25.weapon_loadout.size(), 0, "and nothing to shoot with")
+	assert_true(DataDB.platform("usn_fighter_fa18e").can_refuel, "and the fighters can take it")
 
 func test_every_shipped_aircraft_has_compatible_home_and_capacity() -> void:
 	for entry: Dictionary in ScenarioIndex.list_all():
@@ -173,10 +213,15 @@ func test_every_shipped_aircraft_has_compatible_home_and_capacity() -> void:
 		ScenarioLoader.populate(um, sc)
 		for u in um.units:
 			if u.is_aircraft():
-				assert_true(u.home != null, entry.name + " / " + u.callsign + " valid home")
+				# An aircraft need not have a deck on the chart: a raid flown from a field four
+				# hundred miles inland is a real thing a 200-mile plot has to be able to show.
+				# What it must never have is a home it cannot actually use.
 				if u.home != null:
-					assert_true(u.home.spec.can_operate(u.spec))
-					assert_true(u.home.embarked.size() <= u.home.spec.aircraft_capacity)
+					assert_true(u.home.spec.can_operate(u.spec), entry.name + " / " + u.callsign + " usable home")
+					assert_true(u.home.embarked.size() <= u.home.spec.aircraft_capacity, entry.name + " / " + u.callsign + " within capacity")
+				else:
+					assert_true(u.flight_state == Unit.FlightState.STOWED or u.airborne(),
+						entry.name + " / " + u.callsign + " off-map based")
 			elif u.spec.domain == "surface":
 				assert_true(not Terrain.is_land(u.position), u.callsign + " afloat")
 		um.free()

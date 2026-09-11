@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rfn_mpa_il38n"
+display_name = "Il-38N maritime patrol aircraft"
+short_name = "Il-38N"
+nation = "Russia"
+category = "maritime patrol aircraft"
+domain = "air"
+max_speed_kn = 350.0
+cruise_speed_kn = 280.0
+turn_rate_deg_s = 4.0
+accel_kn_s = 5.0
+length_m = 40.2
+health = 35.0
+signature_factor = 0.55
+sensor_ids = PackedStringArray("novella_p38", "nato_esm_suite")
+cruise_altitude_m = 6000.0
+max_altitude_m = 10000.0
+altitude_rate_m_s = 12.0
+endurance_s = 39600.0
+can_hover = false
+launch_time_s = 300.0
+recovery_time_s = 360.0
+launch_requirement = "runway"
+sonobuoy_count = 30
+sonobuoy_sensitivity_nm = 22.0
+sonobuoy_life_s = 2400.0
+weapon_loadout = {"ugst_torpedo": 2}
+decoy_count = 12
+fire_control_channels = 1
+role = "Maritime patrol • ASW • surface search"
+service_note = "Turboprop maritime patrol aircraft with an upgraded mission system. Slower and shorter-legged than a Bear, and far more likely to be the aircraft actually overhead."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

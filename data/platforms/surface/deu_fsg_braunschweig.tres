@@ -31,3 +31,6 @@ weapon_loadout = {
 }
 
 role = "Corvette • maritime operations"
+aircraft_capacity = 1
+default_air_wing = {"deu_uas_skeldar": 1}
+service_note = "Corvette with a flight deck sized for a helicopter or a rotary drone. The drone detachment is what this class actually adds to a task group's picture."

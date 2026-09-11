@@ -232,3 +232,76 @@ sea clutter rise with sea state); the coefficients are game tuning, not measurem
 ## M13 corrections and additions
 
 See [docs/REALISM.md](docs/REALISM.md) for the source ledger, variant corrections, new aircraft and ship roles, and limitations. M13 supersedes prior statements suggesting SM-3 can intercept the game’s low-altitude Kinzhal profile.
+
+---
+
+## M15: geography, air wings and drones
+
+### Geography
+
+`tools/scenarios/geography.py` holds the latitude/longitude of every base, port and airfield a
+scenario sites forces on, and coarse closed outlines of every coastline the scenario set uses.
+Positions are drawn from ordinary public geographic reference — these are the coordinates of
+places, not intelligence about them. Outlines are simplified to a few dozen vertices each; they
+are at real positions and are not survey data, and no bathymetry, shoreline detail or elevation
+model is claimed. Each landmass remains one plateau at one height for line-of-sight masking.
+
+Scenario projection: nautical miles on a local plane about each scenario's anchor, with one
+minute of latitude equal to one mile and longitude scaled by the cosine of the anchor latitude.
+At a few hundred miles and these latitudes the distortion is well under a mile.
+
+### Ship names, pennant numbers and squadrons
+
+Scenarios use real ship names with their publicly listed pennant or hull numbers, real air bases,
+and real squadron designations with their radio callsigns. This is standard naval-wargame
+practice for naming pieces. **It carries no claim about where any of these units are, what they
+are doing, or what they are capable of.** The conflict, the deployments and the force
+compositions are fiction assembled to make a tactical problem.
+
+### New air platforms (M15)
+
+Identity, broad role and configuration family are public. Every performance figure — speed,
+endurance, sensor envelope, loadout, signature, deck timing — is a GAMEPLAY_ESTIMATE.
+
+| id | Family | Role as modelled |
+|---|---|---|
+| usn_uav_mq25 | MQ-25 | Unmanned carrier tanker; unarmed, carries transferable fuel |
+| usn_fighter_fa18f | F/A-18F | Two-seat strike fighter, LRASM carrier |
+| usn_helo_mh60s | MH-60S | Armed helicopter, no ASW sensors |
+| usn_uav_mq8c | MQ-8C | Shipboard unmanned helicopter, radar ISR |
+| usn_uas_scaneagle | ScanEagle family | Small shipboard UAS, passive optics only |
+| rn_aew_crowsnest | Merlin HM2 (Crowsnest) | Helicopter-borne AEW for a STOVL carrier |
+| rn_helo_wildcat | AW159 | Light shipborne helicopter, surface warfare fit |
+| nato_helo_nh90_nfh | NH90 NFH | European shipborne ASW helicopter; operator fits differ and are not modelled separately |
+| deu_uas_skeldar | Skeldar V-200 | Corvette-launched rotary UAS, passive optics |
+| rfn_uav_orion | Orion / Inokhodets | Armed medium-altitude UAV |
+| rfn_uav_orlan10 | Orlan-10 | Small tactical UAV, emitter location |
+| rfn_aew_ka31 | Ka-31R | Shipborne AEW helicopter |
+| rfn_mpa_il38n | Il-38N | Maritime patrol aircraft |
+
+### New weapons (M15)
+
+| id | Family | Game values (range nm / speed kn / damage / pk) |
+|---|---|---|
+| agm_158c_lrasm | LRASM | 200 / 550 / 70 / 0.80 |
+| agm_158b_jassm_er | JASSM-ER | 500 / 520 / 65 / 0.72 |
+| jsm_missile | NSM/JSM | 150 / 520 / 50 / 0.78 |
+| agm_114_hellfire | Hellfire | 4.5 / 800 / 14 / 0.85 |
+| apkws_rocket | APKWS | 3 / 900 / 7 / 0.75 |
+| sea_venom | Sea Venom / ANL | 11 / 560 / 26 / 0.80 |
+| martlet_lmm | Martlet | 3.5 / 950 / 8 / 0.72 |
+| kh38_family | Kh-38 | 22 / 1100 / 32 / 0.74 |
+| oneway_attack_drone | Generic OWA drone | 350 / 100 / 22 / 0.55 |
+| aim9x_air | Sidewinder (air fit) | 12 / 1600 / 25 / 0.70 |
+
+`oneway_attack_drone` is a generic type, not a specific design, and is modelled as a weapon
+rather than an aircraft: slow, easy to shoot down, launched in numbers.
+
+### New sensors (M15)
+
+All ranges, gains and classification rates are GAMEPLAY_ESTIMATE. Airborne sets take their
+detection horizon from the aircraft's altitude, not the listed antenna height.
+
+`searchwater_2000`, `e801_oko`, `an_zpy_8`, `mq25_eo_ir`, `scaneagle_eo`, `skeldar_eo`,
+`orion_sar`, `orlan_eo`, `novella_p38`, `seaspray_7400`, `enr_nh90`, `fits_dipping`,
+`an_aqs_13f`, `mq25_esm`.

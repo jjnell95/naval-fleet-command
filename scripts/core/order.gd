@@ -16,6 +16,7 @@ var salvo := 1
 var depth_m := 0.0
 var altitude_m := 0.0
 var aircraft_id := ""
+var aircraft_count := 1
 var emcon_silent := false
 var roe := 2
 var leader: Unit
@@ -74,6 +75,16 @@ static func engage(target_track: Track, weapon: String, rounds: int) -> Order:
 	o.track = target_track
 	o.weapon_id = weapon
 	o.salvo = maxi(rounds, 1)
+	return o
+
+
+## Sends a section off one deck rather than a single airframe. A deck that works several spots
+## should be allowed to use them; a deck that does not will simply launch what it can.
+static func launch_flight(first_aircraft: String, count: int) -> Order:
+	var o := Order.new()
+	o.type = Type.LAUNCH_AIRCRAFT
+	o.aircraft_id = first_aircraft
+	o.aircraft_count = maxi(count, 1)
 	return o
 
 

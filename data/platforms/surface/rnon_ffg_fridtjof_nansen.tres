@@ -33,3 +33,4 @@ decoy_count = 12
 decoy_effectiveness = 0.35
 
 role = "Frigate • maritime operations"
+default_air_wing = {"nato_helo_nh90_nfh": 1}

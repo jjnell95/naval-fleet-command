@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "mq25_esm"
+display_name = "Unmanned tanker electronic-support set"
+kind = "esm"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 3.0
+classify_rate = 0.7
+esm_gain = 1.8
+source_status = "PUBLIC: system designation and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: every range, gain and classification figure here is a tuning value, not a performance claim. A generic receiver abstraction. Bearings on emitters, nothing else."

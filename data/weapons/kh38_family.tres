@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "kh38_family"
+display_name = "Kh-38-family guided missile"
+family = "Kh-38"
+type = "asm"
+guidance = "inertial_terminal"
+profile = "high"
+target_types = PackedStringArray("surface")
+max_range_nm = 22.0
+min_range_nm = 1.5
+speed_kn = 1100.0
+turn_rate_deg_s = 16.0
+seeker_range_nm = 4.0
+damage = 32.0
+base_pk = 0.74
+salvo_default = 2
+launch_interval_s = 4.0
+defensive_difficulty = 1.1
+signature_factor = 0.05
+altitude_m = 6000.0
+soft_kill_resistance = 1.5
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Drone- and aircraft-launched tactical guided weapon. Short-legged compared with a true anti-ship missile."
