@@ -10,7 +10,7 @@ var _font: Font
 
 func _ready() -> void:
 	_font = get_theme_default_font()
-	tooltip_text = "Detected inbound weapons only. Channel load counts active missile interception engagements. Magazine counts are rounds, not VLS cells. Emissions and damage affect readiness."
+	tooltip_text = "Detected inbound weapons only. Channel load counts anti-aircraft and missile interception engagements. Magazine counts are rounds, not VLS cells. Emissions and damage affect readiness."
 
 
 func _process(delta: float) -> void:
@@ -31,11 +31,11 @@ func _short_name(callsign: String) -> String:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("091420"))
 	draw_rect(Rect2(Vector2.ZERO, size), UITheme.COL_BORDER, false, 1.0)
-	draw_string(_font, Vector2(12, 19), "AIR / MISSILE DEFENCE", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_ACCENT)
+	draw_string(_font, Vector2(12, 19), "THREAT EVALUATION", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_ACCENT)
 	if contacts == null or contacts.map == null or contacts.map.unit_manager == null:
 		return
 	var m := contacts.map
-	var threats := AirDefence.inbound_threats(m.unit_manager, m.threat_manager, m.player_faction)
+	var threats := AirDefence.inbound_threats(m.unit_manager, m.threat_manager, m.player_faction, m.reference_unit())
 	var loads := AirDefence._channels_in_use(m.weapon_manager)
 	var rounds := 0
 	var bmd_rounds := 0
@@ -51,11 +51,13 @@ func _draw() -> void:
 			channels += u.spec.fire_control_channels
 		used += int(loads.get(u, 0))
 		for w in u.defensive_weapons():
+			if w.type != "sam":
+				continue
 			rounds += u.magazine_count(w.id)
 			if w.target_types.has("ballistic") and w.type == "sam":
 				bmd_rounds += u.magazine_count(w.id)
 	var status_col := UITheme.COL_AMBER if not threats.is_empty() else UITheme.COL_ACCENT
-	var right := "%d RDS · %d BMD" % [rounds, bmd_rounds]
+	var right := "%d SAM" % rounds
 	var rw := _font.get_string_size(right, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
 	draw_string(_font, Vector2(size.x - rw - 12, 19), right, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_DIM)
 	var y := 38.0

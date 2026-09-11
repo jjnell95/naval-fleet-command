@@ -119,7 +119,7 @@ func _report_active(observer: Unit, target: Unit, d: float, rate: float, now: fl
 
 ## A bearing, and a guess at range that only firms up as the listener manoeuvres against it.
 func _report_passive(observer: Unit, target: Unit, d: float, reach: float, sensor: SensorSpec, rate: float, now: float) -> void:
-	var existing := track_manager.find_track(observer.faction, target)
+	var existing := track_manager.find_for(observer, target)
 	var tma: float = existing.tma_quality if existing != null else 0.0
 	var bearing := Geo.bearing_deg(observer.position, target.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
 	var guess := reach * INITIAL_RANGE_FRACTION
@@ -169,7 +169,7 @@ func _esm_pass(observer: Unit, now: float) -> void:
 
 
 func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: SensorSpec, now: float) -> void:
-	var existing := track_manager.find_track(observer.faction, emitter)
+	var existing := track_manager.find_for(observer, emitter)
 	var tma: float = existing.tma_quality if existing != null else 0.0
 	var bearing := Geo.bearing_deg(observer.position, emitter.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
 	var est_range := lerpf(reach * INITIAL_RANGE_FRACTION, d, tma)
@@ -277,4 +277,4 @@ func _detect_weapons(now: float) -> void:
 				continue
 			if Detection.terrain_hides_weapon(observer, w):
 				continue
-			threat_manager.mark_detected(observer.faction, w, now)
+			threat_manager.mark_detected(observer.faction, w, now, observer)

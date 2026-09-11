@@ -177,7 +177,8 @@ func test_a_contact_found_off_the_link_stays_with_the_finder() -> void:
 	var tm := TrackManager.new()
 	var c := SensorContact.make(target, target.position, 0.5, 0.8, 1.0, 5.0, "sonar_passive", boat)
 	tm.observe_contact("BLUE", c, 1.0, 1.0)
-	var t: Track = tm.get_tracks("BLUE")[0]
+	var t: Track = tm.tracks_for(boat)[0]
+	assert_eq(tm.get_tracks("BLUE").size(), 0, "private detection never enters command network")
 	assert_true(not t.networked, "nothing was relayed")
 	assert_true(t.visible_to(boat), "the boat knows what it heard")
 	assert_true(not t.visible_to(consort), "the ship thirty miles away does not")

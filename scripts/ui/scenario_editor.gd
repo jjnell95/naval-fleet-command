@@ -501,7 +501,7 @@ func place(world: Vector2) -> void:
 		faction = "NEUTRAL"
 	var ud := {"platform": spec.id, "callsign": _unique_callsign(spec), "faction": faction}
 	if spec.domain == "air":
-		var home := _nearest_deck(world, faction)
+		var home := _nearest_deck(world, faction, spec)
 		if home == "":
 			_say("An aircraft needs a ship or air station of its own side to fly from. Place one first.", true)
 			return
@@ -534,14 +534,14 @@ func _unique_callsign(spec: PlatformSpec) -> String:
 	return "%s %d" % [base, n]
 
 
-func _nearest_deck(world: Vector2, faction: String) -> String:
+func _nearest_deck(world: Vector2, faction: String, aircraft: PlatformSpec) -> String:
 	var best := ""
 	var best_d := INF
 	for u in scenario["units"]:
 		if u.get("faction", "") != faction or not u.has("position_nm"):
 			continue
 		var spec := DataDB.platform(u.get("platform", ""))
-		if spec == null or spec.aircraft_capacity <= 0:
+		if spec == null or not spec.can_operate(aircraft):
 			continue
 		var embarked := 0
 		for a in scenario["units"]:
@@ -828,7 +828,7 @@ func _refresh_home_options() -> void:
 	var chosen := -1
 	for h in scenario["units"]:
 		var spec := DataDB.platform(h.get("platform", ""))
-		if spec == null or spec.aircraft_capacity <= 0 or h.get("faction", "") != faction:
+		if spec == null or not spec.can_operate(DataDB.platform(u.get("platform", ""))) or h.get("faction", "") != faction:
 			continue
 		_home.add_item(h.get("callsign", ""))
 		if h.get("callsign", "") == u.get("home", ""):
@@ -860,7 +860,16 @@ func validate() -> String:
 			var home_ok := false
 			for h in scenario["units"]:
 				if h.get("callsign", "") == u.get("home", "") and h.get("faction", "") == u.get("faction", ""):
-					home_ok = true
+					var deck := DataDB.platform(h.get("platform", ""))
+					home_ok = deck != null and deck.can_operate(spec)
+					if not home_ok:
+						return "%s needs a compatible %s deck or airfield" % [cs, spec.flight_requirement()]
+					var count := 0
+					for a in scenario["units"]:
+						if a.get("home", "") == h.get("callsign", ""):
+							count += 1
+					if count > deck.aircraft_capacity:
+						return "%s exceeds its aircraft capacity" % h.get("callsign", "")
 			if not home_ok:
 				return "%s has no ship or base to fly from" % cs
 	if own == 0:

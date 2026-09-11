@@ -47,6 +47,13 @@ func launch(parent: Unit, which := "") -> Unit:
 		for a in available:
 			if a.callsign == which or a.spec.id == which:
 				chosen = a
+	if not parent.spec.can_operate(chosen.spec):
+		launch_rejected.emit(parent, "INCOMPATIBLE FLIGHT DECK")
+		return null
+	for a in parent.embarked:
+		if a.flight_state in [Unit.FlightState.LAUNCHING, Unit.FlightState.RECOVERING]:
+			launch_rejected.emit(parent, "FLIGHT DECK BUSY")
+			return null
 	chosen.flight_state = Unit.FlightState.LAUNCHING
 	chosen.state_timer_s = chosen.spec.launch_time_s
 	chosen.position = parent.position
@@ -132,15 +139,23 @@ func _step_airborne(a: Unit, dt: float) -> void:
 		return
 	# Steer for home and land when close enough. Home moves, so this is refreshed every cycle.
 	var base := a.home
-	if base == null or not base.alive:
+	if base == null or not base.alive or not base.spec.can_operate(a.spec):
 		base = _nearest_deck(a)
 	if base == null:
 		return  # nowhere at all to go; it will fly until the tanks run dry
-	a.home = base
+	if a.home != base:
+		if a.home != null:
+			a.home.embarked.erase(a)
+		a.home = base
+		if not base.embarked.has(a):
+			base.embarked.append(a)
 	a.waypoints.clear()
 	a.waypoints.append(base.position)
 	a.ordered_speed_kn = a.spec.cruise_speed_kn
 	if a.position.distance_to(base.position) <= RECOVERY_RANGE_NM:
+		for other in base.embarked:
+			if other != a and other.flight_state in [Unit.FlightState.LAUNCHING, Unit.FlightState.RECOVERING]:
+				return
 		a.flight_state = Unit.FlightState.RECOVERING
 		a.state_timer_s = a.spec.recovery_time_s
 		a.waypoints.clear()
@@ -168,9 +183,10 @@ func _nearest_deck(a: Unit) -> Unit:
 	for u in unit_manager.units:
 		if not u.alive or u.faction != a.faction or u.spec.aircraft_capacity <= 0 or u == a:
 			continue
+		if not u.spec.can_operate(a.spec) or (not u.embarked.has(a) and u.embarked.filter(func(other: Unit) -> bool: return other.alive).size() >= u.spec.aircraft_capacity):
+			continue
 		var d := a.position.distance_to(u.position)
 		if d < best_d:
 			best_d = d
 			best = u
 	return best
-

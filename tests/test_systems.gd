@@ -33,7 +33,8 @@ func test_ballistic_round_needs_a_bmd_interceptor() -> void:
 	var sm3 := DataDB.weapon("sm3_family")
 	var sm6 := DataDB.weapon("sm6_family")
 	assert_true(not AirDefence._can_intercept(sm2, kinzhal), "SM-2 cannot meet a ballistic round")
-	assert_true(AirDefence._can_intercept(sm3, kinzhal), "SM-3 can")
+	assert_true(not AirDefence._can_intercept(sm3, kinzhal), "SM-3 cannot engage this endoatmospheric profile")
+	assert_true(AirDefence._can_intercept(sm6, kinzhal), "terminal BMD envelope can engage in-game")
 	assert_true(not AirDefence._can_intercept(sm3, kalibr), "SM-3 is useless against a sea-skimmer")
 	assert_true(Combat.intercept_probability(sm3, kinzhal.spec) > Combat.intercept_probability(sm6, kinzhal.spec), "the exoatmospheric interceptor has the better shot")
 
@@ -49,6 +50,8 @@ func test_bmd_cruiser_engages_ballistic_threat_with_sm3_first() -> void:
 	wm.unit_manager = um
 	var tm := ThreatManager.new()
 	var threat := _round("kinzhal_family", "RED")
+	threat.spec = threat.spec.duplicate()
+	threat.spec.altitude_m = 150000.0 # synthetic exoatmospheric test target, not Kinzhal
 	threat.id = 999
 	threat.position = Vector2(0.0, 120.0)
 	threat.heading_deg = 180.0

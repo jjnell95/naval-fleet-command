@@ -9,6 +9,7 @@ signal formation_requested(pattern: String)
 
 const SPEED_PRESETS: Array[float] = [5.0, 10.0, 15.0, 20.0, 25.0]
 
+var weapon_manager: WeaponManager
 var _status: Label
 var _buttons: Array[Button] = []
 var _heading: SpinBox
@@ -42,10 +43,15 @@ func _ready() -> void:
 	_status.clip_text = true
 	_status.theme_type_variation = "HeaderLabel"
 	v.add_child(_status)
+	var tabs := TabContainer.new()
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(tabs)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
-	v.add_child(row)
+	row.name = "NAVIGATION"
+	row.custom_minimum_size.y = 40
+	tabs.add_child(row)
 
 	row.add_child(_label("SPEED"))
 	_add_button(row, "STOP", func() -> void: _emit(Order.stop()))
@@ -72,7 +78,9 @@ func _ready() -> void:
 
 	var wrow := HBoxContainer.new()
 	wrow.add_theme_constant_override("separation", 6)
-	v.add_child(wrow)
+	wrow.name = "ENGAGEMENT"
+	wrow.custom_minimum_size.y = 40
+	tabs.add_child(wrow)
 
 	wrow.add_child(_label("WEAPON"))
 	_weapon_option = OptionButton.new()
@@ -106,7 +114,9 @@ func _ready() -> void:
 
 	_subrow = HBoxContainer.new()
 	_subrow.add_theme_constant_override("separation", 6)
-	v.add_child(_subrow)
+	_subrow.name = "AVIATION + ASW"
+	_subrow.custom_minimum_size.y = 40
+	tabs.add_child(_subrow)
 	_depth_label = _label("DEPTH")
 	_subrow.add_child(_depth_label)
 	_add_depth_button("SURFACE", 0.0)
@@ -134,7 +144,9 @@ func _ready() -> void:
 
 	_cmdrow = HBoxContainer.new()
 	_cmdrow.add_theme_constant_override("separation", 6)
-	v.add_child(_cmdrow)
+	_cmdrow.name = "DOCTRINE + FORMATION"
+	_cmdrow.custom_minimum_size.y = 40
+	tabs.add_child(_cmdrow)
 	_cmdrow.add_child(_label("EMCON"))
 	_add_button(_cmdrow, "RADIATE", func() -> void: _emit_raw(Order.set_emcon(false)))
 	_add_button(_cmdrow, "SILENT", func() -> void: _emit_raw(Order.set_emcon(true)))
@@ -149,6 +161,7 @@ func _ready() -> void:
 		_add_button(_cmdrow, pattern.to_upper(), func() -> void: formation_requested.emit(pattern))
 	_add_button(_cmdrow, "BREAK", func() -> void: _emit_raw(Order.break_formation()))
 
+	tabs.current_tab = 1
 	set_units([], false)
 
 
@@ -201,7 +214,7 @@ func _refresh_row_visibility() -> void:
 				has_buoys = true
 		if u.spec.aircraft_capacity > 0 and not u.stowed_aircraft().is_empty():
 			can_launch = true
-	_subrow.visible = can_dive or has_sonar or is_air or can_launch
+	# Individual controls are hidden by capability; the tab remains stable.
 	_depth_label.visible = can_dive
 	for b in _depth_buttons:
 		b.visible = can_dive
@@ -360,6 +373,9 @@ func _refresh_envelope() -> void:
 			continue
 		carriers += 1
 		var check := Combat.check_engagement(u, spec, _target)
+		if check["ok"] and weapon_manager != null and spec.type == "sam" and _target.domain == "air" and not weapon_manager.channel_available(u, _target):
+			check["ok"] = false
+			check["reason"] = "FIRE CONTROL SATURATED"
 		nearest = minf(nearest, check["range_nm"])
 		farthest = maxf(farthest, check["range_nm"])
 		if check["ok"]:

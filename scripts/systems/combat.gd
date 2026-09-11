@@ -48,6 +48,7 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> D
 	if shooter == null or spec == null or track == null:
 		out["reason"] = "NO TARGET"
 		return out
+	out["range_nm"] = shooter.position.distance_to(track.position)
 	if not shooter.alive:
 		out["reason"] = "UNIT LOST"
 		return out
@@ -62,6 +63,15 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> D
 		return out
 	if track.status == Track.Status.LOST:
 		out["reason"] = "TRACK LOST"
+		return out
+	if not track.visible_to(shooter):
+		out["reason"] = "TRACK NOT HELD / OFF LINK"
+		return out
+	if track.identity in ["NEUTRAL", "FRIENDLY"]:
+		out["reason"] = "PROTECTED IDENTITY"
+		return out
+	if shooter.roe == Unit.Roe.TIGHT and track.identity != "HOSTILE":
+		out["reason"] = "IDENTIFY CONTACT / WEAPONS TIGHT"
 		return out
 	if not suits_track(spec, track):
 		out["reason"] = "WRONG WEAPON FOR CONTACT"

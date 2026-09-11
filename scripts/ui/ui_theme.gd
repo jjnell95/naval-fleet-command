@@ -4,22 +4,22 @@ class_name UITheme
 ## amber for warnings, red for hostile and damage, green for good news.
 
 const COL_TEXT := Color("d3e3ec")
-const COL_DIM := Color("7d96a7")
-const COL_MUTED := Color("55707f")
-const COL_ACCENT := Color("70e2d3")
+const COL_DIM := Color("9aafbd")
+const COL_MUTED := Color("718998")
+const COL_ACCENT := Color("63e6d2")
 const COL_AMBER := Color("ffbe77")
 const COL_RED := Color("ff8a7a")
 const COL_GREEN := Color("8fd99a")
 const COL_BLUE := Color("6cb9ff")
-const COL_PANEL := Color("0d1924")
+const COL_PANEL := Color("0b1924")
 const COL_PANEL_DEEP := Color("091421")
 const COL_BORDER := Color("22384a")
 const COL_BORDER_LIGHT := Color("2f4c60")
 
 const HEX_TEXT := "#d3e3ec"
-const HEX_DIM := "#7d96a7"
-const HEX_MUTED := "#55707f"
-const HEX_ACCENT := "#70e2d3"
+const HEX_DIM := "#9aafbd"
+const HEX_MUTED := "#718998"
+const HEX_ACCENT := "#63e6d2"
 const HEX_AMBER := "#ffbe77"
 const HEX_RED := "#ff8a7a"
 const HEX_GREEN := "#8fd99a"
@@ -157,4 +157,18 @@ static func build() -> Theme:
 	var sep := StyleBoxLine.new()
 	sep.color = COL_BORDER
 	t.set_stylebox("separator", "HSeparator", sep)
+	var tab := StyleBoxFlat.new()
+	tab.bg_color = Color("0a1721")
+	tab.set_content_margin_all(9)
+	var selected := tab.duplicate()
+	selected.bg_color = Color("15303e")
+	selected.border_color = COL_ACCENT
+	selected.border_width_top = 2
+	t.set_stylebox("tab_selected", "TabContainer", selected)
+	t.set_stylebox("tab_unselected", "TabContainer", tab)
+	t.set_stylebox("tab_hovered", "TabContainer", selected)
+	t.set_stylebox("panel", "TabContainer", tab)
+	t.set_color("font_selected_color", "TabContainer", COL_ACCENT)
+	t.set_color("font_unselected_color", "TabContainer", COL_DIM)
+	t.set_font_size("font_size", "TabContainer", 12)
 	return t

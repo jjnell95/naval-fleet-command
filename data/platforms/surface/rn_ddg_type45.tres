@@ -25,3 +25,5 @@ fire_control_channels = 10
 decoy_count = 16
 weapon_loadout = {"aster30_family": 32, "essm_family": 16, "rgm_84_harpoon": 8, "oto_76mm_gun": 200, "phalanx_ciws": 60}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+role = "Destroyer • maritime operations"

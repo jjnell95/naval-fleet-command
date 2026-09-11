@@ -31,3 +31,5 @@ aircraft_capacity = 1
 fire_control_channels = 4
 decoy_count = 12
 decoy_effectiveness = 0.35
+
+role = "Frigate • maritime operations"

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "agm_84_harpoon"
+display_name = "AGM-84 Harpoon (air launch)"
+family = "AGM-84 Harpoon"
+type = "asm"
+guidance = "active_radar_homing"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 70.0
+min_range_nm = 3.0
+speed_kn = 480.0
+turn_rate_deg_s = 15.0
+seeker_range_nm = 8.0
+damage = 40.0
+base_pk = 0.80
+salvo_default = 4
+launch_interval_s = 1.5
+defensive_difficulty = 1.0
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."

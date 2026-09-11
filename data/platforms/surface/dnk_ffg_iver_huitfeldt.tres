@@ -30,3 +30,5 @@ weapon_loadout = {
 "sm2_family": 16,
 "essm_family": 24
 }
+
+role = "Frigate • maritime operations"

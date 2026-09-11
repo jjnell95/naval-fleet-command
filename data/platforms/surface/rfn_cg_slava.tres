@@ -25,3 +25,5 @@ fire_control_channels = 6
 decoy_count = 12
 weapon_loadout = {"p1000_vulkan": 16, "s300f_fort": 64, "a190_100mm_gun": 300, "ak630_ciws": 120, "ugst_torpedo": 10}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+role = "Cruiser • maritime operations"

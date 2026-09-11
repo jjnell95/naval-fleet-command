@@ -38,3 +38,5 @@ decoy_effectiveness = 0.30
 weapon_loadout = {
 "mk54_lwt": 2
 }
+
+role = "Asw Helicopter • maritime operations"

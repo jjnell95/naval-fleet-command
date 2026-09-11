@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rn_helo_merlin_hm2"
+display_name = "Merlin HM2 (ASW)"
+short_name = "Merlin HM2"
+nation = "UK"
+category = "ASW helicopter"
+domain = "air"
+max_speed_kn = 145.0
+cruise_speed_kn = 110.0
+turn_rate_deg_s = 6.0
+accel_kn_s = 2.0
+length_m = 22.8
+displacement_t = 10.0
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+sensor_ids = PackedStringArray("flash_dipping", "blue_kestrel")
+signature_factor = 0.25
+mast_height_m = 5.0
+health = 20.0
+acoustic_signature = 0.0
+cruise_altitude_m = 500.0
+max_altitude_m = 3500.0
+altitude_rate_m_s = 8.0
+endurance_s = 14400.0
+can_hover = true
+launch_time_s = 120.0
+recovery_time_s = 180.0
+sonobuoy_count = 12
+sonobuoy_sensitivity_nm = 24.0
+sonobuoy_life_s = 1800.0
+fire_control_channels = 0
+decoy_count = 4
+decoy_effectiveness = 0.30
+weapon_loadout = {"sting_ray": 4}
+
+role = "Carrier / escort ASW helicopter • dipping sonar"
+
+service_note = "ASW configuration; Crowsnest airborne surveillance is a different mission fit."

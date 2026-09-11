@@ -48,3 +48,51 @@ extends Resource
 @export var fire_control_channels := 4  # simultaneous air-defence engagements (GAMEPLAY_ESTIMATE)
 @export var decoy_count := 12  # chaff / decoy launches carried (GAMEPLAY_ESTIMATE)
 @export var decoy_effectiveness := 0.35  # base chance one salvo of decoys defeats a seeker
+
+## Recognition and configuration metadata. Performance remains estimated; capacity is physical.
+@export var role := ""
+@export var service_note := ""
+@export var aviation_facility := "auto"  # auto | none | helicopter | stovl | catobar | airfield
+@export var launch_requirement := "auto"  # auto | helicopter | stovl | catobar | runway
+@export var vls_cells := 0
+
+
+func flight_facility() -> String:
+	if aviation_facility != "auto":
+		return aviation_facility
+	if aircraft_capacity <= 0:
+		return "none"
+	if domain == "land":
+		return "airfield"
+	return "catobar" if category.contains("carrier") else "helicopter"
+
+
+func flight_requirement() -> String:
+	if launch_requirement != "auto":
+		return launch_requirement
+	if can_hover:
+		return "helicopter"
+	if id in ["usn_aew_e2d", "usn_fighter_fa18e", "usn_ea_ea18g"]:
+		return "catobar"
+	return "runway"
+
+
+func can_operate(aircraft: PlatformSpec) -> bool:
+	if aircraft == null or aircraft_capacity <= 0 or aircraft.domain != "air":
+		return false
+	var facility := flight_facility()
+	var required := aircraft.flight_requirement()
+	if facility == "airfield":
+		return true
+	if required == "helicopter":
+		return facility in ["helicopter", "stovl", "catobar"]
+	return facility == required or (facility == "catobar" and required == "stovl")
+
+
+func occupied_vls_cells() -> int:
+	var count := 0
+	for wid in weapon_loadout:
+		var w := DataDB.weapon(wid)
+		if w != null and w.vls_pack > 0:
+			count += ceili(float(weapon_loadout[wid]) / float(w.vls_pack))
+	return count

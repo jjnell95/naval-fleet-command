@@ -30,3 +30,5 @@ decoy_effectiveness = 0.3
 has_datalink = true
 weapon_loadout = {"kalibr_asm": 16, "zircon_3m22": 8, "ugst_torpedo": 20}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+role = "Nuclear Attack Submarine • maritime operations"

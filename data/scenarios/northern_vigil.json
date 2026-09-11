@@ -1,0 +1,788 @@
+{
+  "id": "northern_vigil",
+  "order": -1,
+  "name": "NORTHERN VIGIL",
+  "forces": "Joint task group: Flight III Aegis, Ford and Queen Elizabeth, Type 45, FREMM, future Type 26, Astute, F-35B/C, E-2D, Merlin and Triton. Opposing surface, air and submarine forces; neutral merchant and fishing traffic.",
+  "description": "Fictional 2030 coalition exercise. Coordinate two aviation groups through a Flight III Aegis console. Launch E-2D from Resolute and F-35B from Queen Elizabeth; the STOVL carrier cannot operate E-2D or F-35C. Deploy Merlin and the submarine screen against acoustic contacts. A Triton at the western field offers persistent radar surveillance but carries no weapons. Hold both carriers and the replenishment ship for 60 minutes. Deep submarines retain a local sensor picture: select their console to see what they hold. Neutral fishing traffic complicates identification. Type 26 uses a prospective fit; all scenario performance is estimated.",
+  "start_time_utc": "2030-05-18T05:30:00",
+  "player_faction": "BLUE",
+  "map": {
+    "center_nm": [
+      12,
+      12
+    ],
+    "extent_nm": 180
+  },
+  "terrain": {
+    "land": [
+      {
+        "id": "northern_cape",
+        "name": "Northern cape",
+        "elevation_m": 460,
+        "points_nm": [
+          [
+            78.0,
+            110.0
+          ],
+          [
+            80.89,
+            108.52
+          ],
+          [
+            83.46,
+            106.55
+          ],
+          [
+            85.73,
+            104.23
+          ],
+          [
+            88.44,
+            102.44
+          ],
+          [
+            89.86,
+            99.52
+          ],
+          [
+            91.89,
+            96.98
+          ],
+          [
+            93.8,
+            94.38
+          ],
+          [
+            96.0,
+            92.0
+          ],
+          [
+            97.87,
+            88.71
+          ],
+          [
+            99.97,
+            85.58
+          ],
+          [
+            102.05,
+            82.41
+          ],
+          [
+            103.77,
+            79.05
+          ],
+          [
+            107.25,
+            77.4
+          ],
+          [
+            110.4,
+            75.17
+          ],
+          [
+            114.21,
+            74.65
+          ],
+          [
+            118.0,
+            74.0
+          ],
+          [
+            122.16,
+            73.93
+          ],
+          [
+            126.31,
+            73.56
+          ],
+          [
+            130.38,
+            72.69
+          ],
+          [
+            134.41,
+            71.66
+          ],
+          [
+            138.23,
+            69.94
+          ],
+          [
+            142.35,
+            69.21
+          ],
+          [
+            146.18,
+            67.63
+          ],
+          [
+            150.0,
+            66.0
+          ],
+          [
+            151.54,
+            75.97
+          ],
+          [
+            151.54,
+            86.06
+          ],
+          [
+            150.43,
+            96.07
+          ],
+          [
+            148.87,
+            106.01
+          ],
+          [
+            155.72,
+            113.44
+          ],
+          [
+            160.43,
+            122.38
+          ],
+          [
+            164.85,
+            131.39
+          ],
+          [
+            170.0,
+            140.0
+          ],
+          [
+            160.14,
+            136.01
+          ],
+          [
+            149.65,
+            134.24
+          ],
+          [
+            139.03,
+            134.95
+          ],
+          [
+            128.53,
+            133.22
+          ],
+          [
+            118.91,
+            137.48
+          ],
+          [
+            109.49,
+            142.14
+          ],
+          [
+            100.24,
+            147.3
+          ],
+          [
+            90.0,
+            150.0
+          ],
+          [
+            89.47,
+            144.67
+          ],
+          [
+            89.37,
+            139.32
+          ],
+          [
+            86.39,
+            134.85
+          ],
+          [
+            84.26,
+            129.92
+          ],
+          [
+            84.35,
+            124.54
+          ],
+          [
+            83.4,
+            119.25
+          ],
+          [
+            80.98,
+            114.46
+          ]
+        ]
+      },
+      {
+        "id": "western_island",
+        "name": "Western airfield island",
+        "elevation_m": 120,
+        "points_nm": [
+          [
+            -108,
+            -76
+          ],
+          [
+            -94,
+            -76
+          ],
+          [
+            -92,
+            -67
+          ],
+          [
+            -102,
+            -64
+          ],
+          [
+            -109,
+            -69
+          ]
+        ]
+      }
+    ]
+  },
+  "objectives": {
+    "text": "Keep both carriers and Maud afloat for 60 minutes. Build a shared air picture and protect the underwater screen.",
+    "victory": [
+      {
+        "id": "hold",
+        "type": "time_elapsed",
+        "seconds": 3600,
+        "text": "Maintain the coalition screen for 60 minutes"
+      }
+    ],
+    "loss": [
+      {
+        "id": "carrier_lost",
+        "type": "unit_lost",
+        "callsigns": [
+          "Carrier Resolute",
+          "HMS Queen Elizabeth"
+        ],
+        "text": "Carrier lost"
+      },
+      {
+        "id": "maud_lost",
+        "type": "unit_lost",
+        "callsigns": [
+          "HNoMS Maud"
+        ],
+        "text": "Replenishment ship lost"
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "usn_ddg_burke_iii",
+      "callsign": "USS Jack H. Lucas",
+      "faction": "BLUE",
+      "position_nm": [
+        0,
+        0
+      ],
+      "heading_deg": 45,
+      "speed_kn": 18
+    },
+    {
+      "platform": "usn_cvn_ford",
+      "callsign": "Carrier Resolute",
+      "faction": "BLUE",
+      "position_nm": [
+        -12,
+        -12
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16
+    },
+    {
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Roosevelt",
+      "faction": "BLUE",
+      "position_nm": [
+        8,
+        -12
+      ],
+      "heading_deg": 45,
+      "speed_kn": 18
+    },
+    {
+      "platform": "fra_ffg_fremm",
+      "callsign": "FS Aquitaine",
+      "faction": "BLUE",
+      "position_nm": [
+        -15,
+        4
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16
+    },
+    {
+      "platform": "rnon_aux_maud",
+      "callsign": "HNoMS Maud",
+      "faction": "BLUE",
+      "position_nm": [
+        -15,
+        -18
+      ],
+      "speed_kn": 14
+    },
+    {
+      "platform": "rn_ssn_astute",
+      "callsign": "HMS Astute",
+      "faction": "BLUE",
+      "position_nm": [
+        5,
+        15
+      ],
+      "depth_m": 120,
+      "speed_kn": 6,
+      "radar_on": false
+    },
+    {
+      "platform": "usn_aew_e2d",
+      "callsign": "Overlord 11",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          -10,
+          20
+        ],
+        [
+          15,
+          20
+        ]
+      ]
+    },
+    {
+      "platform": "usn_fighter_f35c",
+      "callsign": "Black Knight 21",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          15,
+          25
+        ],
+        [
+          35,
+          35
+        ]
+      ]
+    },
+    {
+      "platform": "usn_fighter_f35c",
+      "callsign": "Black Knight 22",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          15,
+          25
+        ],
+        [
+          35,
+          35
+        ]
+      ]
+    },
+    {
+      "platform": "usn_helo_mh60r",
+      "callsign": "Seahawk 31",
+      "faction": "BLUE",
+      "home": "USS Jack H. Lucas"
+    },
+    {
+      "platform": "rfn_ffg_admiral_gorshkov",
+      "callsign": "Admiral Gorshkov",
+      "faction": "RED",
+      "position_nm": [
+        50,
+        45
+      ],
+      "heading_deg": 225,
+      "speed_kn": 20,
+      "patrol_nm": [
+        [
+          10,
+          15
+        ],
+        [
+          -5,
+          5
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Soobrazitelny",
+      "faction": "RED",
+      "position_nm": [
+        58,
+        34
+      ],
+      "heading_deg": 225,
+      "speed_kn": 20,
+      "patrol_nm": [
+        [
+          15,
+          10
+        ],
+        [
+          -5,
+          5
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_ssk_kilo",
+      "callsign": "Kilo Contact",
+      "faction": "RED",
+      "position_nm": [
+        20,
+        25
+      ],
+      "depth_m": 80,
+      "speed_kn": 5,
+      "radar_on": false,
+      "patrol_nm": [
+        [
+          -10,
+          -10
+        ],
+        [
+          20,
+          15
+        ]
+      ]
+    },
+    {
+      "platform": "shore_air_station",
+      "callsign": "Red Air Station",
+      "faction": "RED",
+      "position_nm": [
+        105,
+        85
+      ],
+      "radar_on": false
+    },
+    {
+      "platform": "civ_merchant_bulk",
+      "callsign": "MV Northern Trader",
+      "faction": "NEUTRAL",
+      "position_nm": [
+        25,
+        -15
+      ],
+      "heading_deg": 90,
+      "speed_kn": 12,
+      "radar_on": true
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 11",
+      "faction": "RED",
+      "home": "Red Air Station",
+      "patrol_nm": [
+        [
+          40,
+          30
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          50,
+          30
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 12",
+      "faction": "RED",
+      "home": "Red Air Station",
+      "patrol_nm": [
+        [
+          40,
+          30
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          50,
+          30
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 13",
+      "faction": "RED",
+      "home": "Red Air Station",
+      "patrol_nm": [
+        [
+          40,
+          30
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          50,
+          30
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_strike_su30sm",
+      "callsign": "Sokol 14",
+      "faction": "RED",
+      "home": "Red Air Station",
+      "patrol_nm": [
+        [
+          40,
+          30
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          50,
+          30
+        ]
+      ]
+    },
+    {
+      "platform": "rn_cvf_queen_elizabeth",
+      "callsign": "HMS Queen Elizabeth",
+      "faction": "BLUE",
+      "position_nm": [
+        -28,
+        -8
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16
+    },
+    {
+      "platform": "rn_ddg_type45",
+      "callsign": "HMS Defender",
+      "faction": "BLUE",
+      "position_nm": [
+        -24,
+        8
+      ],
+      "heading_deg": 45,
+      "speed_kn": 18
+    },
+    {
+      "platform": "rn_ffg_type26",
+      "callsign": "HMS Glasgow",
+      "faction": "BLUE",
+      "position_nm": [
+        -4,
+        18
+      ],
+      "heading_deg": 45,
+      "speed_kn": 14
+    },
+    {
+      "platform": "rn_fighter_f35b",
+      "callsign": "Lightning 31",
+      "faction": "BLUE",
+      "home": "HMS Queen Elizabeth",
+      "patrol_nm": [
+        [
+          0,
+          35
+        ],
+        [
+          30,
+          40
+        ]
+      ]
+    },
+    {
+      "platform": "rn_fighter_f35b",
+      "callsign": "Lightning 32",
+      "faction": "BLUE",
+      "home": "HMS Queen Elizabeth",
+      "patrol_nm": [
+        [
+          0,
+          35
+        ],
+        [
+          30,
+          40
+        ]
+      ]
+    },
+    {
+      "platform": "rn_helo_merlin_hm2",
+      "callsign": "Merlin 41",
+      "faction": "BLUE",
+      "home": "HMS Glasgow",
+      "patrol_nm": [
+        [
+          12,
+          22
+        ],
+        [
+          25,
+          12
+        ]
+      ]
+    },
+    {
+      "platform": "usn_helo_mh60r",
+      "callsign": "Seahawk 32",
+      "faction": "BLUE",
+      "home": "FS Aquitaine",
+      "patrol_nm": [
+        [
+          0,
+          15
+        ],
+        [
+          20,
+          20
+        ]
+      ]
+    },
+    {
+      "platform": "shore_air_station",
+      "callsign": "Western Air Station",
+      "faction": "BLUE",
+      "position_nm": [
+        -100,
+        -70
+      ],
+      "radar_on": false
+    },
+    {
+      "platform": "usn_uav_mq4c",
+      "callsign": "Triton 51",
+      "faction": "BLUE",
+      "home": "Western Air Station",
+      "patrol_nm": [
+        [
+          -20,
+          30
+        ],
+        [
+          10,
+          60
+        ]
+      ]
+    },
+    {
+      "platform": "fra_fighter_rafale_m",
+      "callsign": "Marine 61",
+      "faction": "BLUE",
+      "home": "Western Air Station",
+      "patrol_nm": [
+        [
+          15,
+          30
+        ],
+        [
+          40,
+          45
+        ]
+      ]
+    },
+    {
+      "platform": "usn_ea_ea18g",
+      "callsign": "Raven 71",
+      "faction": "BLUE",
+      "home": "Carrier Resolute",
+      "patrol_nm": [
+        [
+          5,
+          28
+        ],
+        [
+          20,
+          40
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_helo_ka27",
+      "callsign": "Helix 81",
+      "faction": "RED",
+      "home": "Admiral Gorshkov",
+      "patrol_nm": [
+        [
+          30,
+          30
+        ],
+        [
+          10,
+          20
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_ssn_yasen_m",
+      "callsign": "Severodvinsk Group",
+      "faction": "RED",
+      "position_nm": [
+        52,
+        8
+      ],
+      "depth_m": 150,
+      "speed_kn": 7,
+      "radar_on": false,
+      "patrol_nm": [
+        [
+          25,
+          5
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "platform": "civ_fishing_trawler",
+      "callsign": "FV North Star",
+      "faction": "NEUTRAL",
+      "position_nm": [
+        12,
+        -8
+      ],
+      "heading_deg": 65,
+      "speed_kn": 5
+    },
+    {
+      "platform": "civ_fishing_trawler",
+      "callsign": "FV Aurora",
+      "faction": "NEUTRAL",
+      "position_nm": [
+        -5,
+        25
+      ],
+      "heading_deg": 110,
+      "speed_kn": 6
+    }
+  ],
+  "neutral_factions": [
+    "NEUTRAL"
+  ],
+  "environment": {
+    "sea_state": 3,
+    "wind_kn": 14,
+    "visibility_nm": 8
+  },
+  "seed": 13
+}

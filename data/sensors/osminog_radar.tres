@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "osminog_radar"
+display_name = "Osminog maritime search radar"
+kind = "radar"
+emits = true
+range_surface_nm = 35.0
+range_air_nm = 30.0
+antenna_height_m = 3.0
+classify_rate = 0.9
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."

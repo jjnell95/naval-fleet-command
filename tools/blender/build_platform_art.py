@@ -351,7 +351,7 @@ def build_aegis_destroyer(L, flight_iii=False):
     mast(x(0.24), 0, d(0.2) + 6.5, d(0.2) + 16.0, r=0.35)
     gun(x(0.76), 0, d(0.76), big=True)
     vls(x(0.64), x(0.72), 0, d(0.68), B * 0.55, rows=3)
-    vls(x(0.02), x(0.09), 0, d(0.05), B * 0.6, rows=3)
+    vls(x(0.25), x(0.32), 0, d(0.28) + 6.1, B * 0.6, rows=4)
     ciws(x(0.235), 0, d(0.2) + 6.5)
     for s in (-1, 1):
         boat(x(0.36), s * B * 0.42, d(0.36))
@@ -663,7 +663,7 @@ def fuselage(L, r, nose=0.22, tail=0.35, segs=14, taper=0.35):
     n = 8
     for i in range(n + 1):
         t = i / n
-        prof.append((L / 2 - L * nose * (1 - t), r * math.sin(t * math.pi / 2) ** 0.8))
+        prof.append((L / 2 - L * nose * t, r * math.sin(t * math.pi / 2) ** 0.8))
     prof.append((-L / 2 + L * tail, r))
     for i in range(1, n + 1):
         t = i / n
@@ -831,7 +831,94 @@ def build_air_station():
     dome(-300, -60, 2.0, 12.0)
 
 
+
+def build_lightning(L, carrier=True):
+    # Single engine, trapezoid wing, two canted fins; the C has a visibly wider wing.
+    fuselage(L, L * 0.065, nose=0.30, tail=0.28, taper=0.5)
+    span = 13.1 if carrier else 10.7
+    for side in (-1, 1):
+        plate([(L*.10, side*.4), (-L*.28, side*.6), (-L*.22, side*span/2), (-L*.02, side*span/2)], -.15, .15, name="trapezoid_wing")
+        plate([(-L*.30,side*.3),(-L*.48,side*.4),(-L*.44,side*L*.23),(-L*.31,side*L*.19)], -.12,.12,name="tailplane")
+        fin(-L*.28,L*.19,L*.065,L*.14,L*.10,y=side*L*.07,cant=-side*.45)
+        cbox(L*.04,side*L*.07,-.3,L*.22,L*.045,L*.065,name="intake")
+    engine_pod(-L*.50,-L*.15,0,-.2,L*.048)
+    cbox(L*.18,0,L*.064,L*.18,L*.07,L*.05,name="canopy")
+    if not carrier:
+        cylinder(0,0,L*.055,L*.075,L*.065,segs=24,axis="z",name="lift_fan_door")
+
+
+def build_rafale(L):
+    fuselage(L,L*.052,nose=.3,tail=.25,taper=.5)
+    for side in (-1,1):
+        plate([(L*.15,side*.3),(-L*.37,side*.4),(-L*.34,side*5.45)],-.12,.12,name="delta_wing")
+        plate([(L*.25,side*.2),(L*.10,side*.2),(L*.12,side*2.2)],.35,.5,name="canard")
+        engine_pod(-L*.5,-L*.08,side*.45,-.15,.45)
+    fin(-L*.27,L*.24,L*.075,L*.21,L*.085,y=0)
+    cbox(L*.20,0,L*.055,L*.19,L*.06,L*.055,name="canopy")
+
+
+def build_triton(L):
+    fuselage(L,L*.085,nose=.28,tail=.40,taper=.6)
+    for side in (-1,1):
+        plate([(L*.03,side*.5),(-L*.18,side*.5),(-L*.25,side*19.95),(-L*.14,side*19.95)],-.14,.14,name="long_span_wing")
+        fin(-L*.30,L*.20,L*.08,L*.22,L*.07,y=side*.55,cant=-side*.75)
+    engine_pod(-L*.43,-L*.04,0,L*.08,L*.05)
+    dome(L*.20,0,L*.045,L*.10)
+
+
+def build_queen_elizabeth(L):
+    B=39.0; z=20.0
+    hull(L,B,10.0,18.0,21.0,fullness=.65,transom=.8)
+    plate([(-L*.49,-B*.78),(L*.48,-B*.72),(L*.50,-B*.4),(L*.50,B*.4),(L*.45,B*.72),(-L*.49,B*.78)],z,z+2,name="straight_flight_deck")
+    # Two distinct islands and the raised bow ramp are the recognition features.
+    for xx in (L*.12,-L*.16):
+        prism(xx-13,xx+13,-B*.70,-B*.44,z+2,z+17,top_inset=1,name="island")
+        mast(xx,-B*.56,z+17,z+29,r=.6,yard=6)
+    vplate([(L*.31,z+2),(L*.49,z+2),(L*.49,z+8),(L*.43,z+6)],-B*.25,B*.26,name="ski_jump")
+    for xx in (-L*.02,-L*.32):
+        box(xx-11,xx+11,-B*.85,-B*.70,z,z+2,name="deck_lift")
+    box(-L*.44,L*.30,-.35,.35,z+2,z+2.15,name="deck_centerline")
+
+
+def build_merlin(L, coaxial=False):
+    # A conventional long-tail Merlin or a compact coaxial Ka-27: no shared silhouette.
+    body=L*.55
+    fuselage(body,body*.13,nose=.22,tail=.25,taper=.5)
+    cbox(-L*.30,0,.2,L*.45,.45,.5,name="tail_boom")
+    cbox(-L*.04,0,body*.12,L*.25,L*.11,L*.07,name="engine_deck")
+    rotor_z=body*.27
+    cylinder(0,0,body*.1,rotor_z,.14,segs=8,axis="z",name="rotor_mast")
+    span=15.9 if coaxial else 18.6
+    for level in range(2 if coaxial else 1):
+        blades=3 if coaxial else 5
+        for i in range(blades):
+            a=i*math.tau/blades+level*.5
+            obj=plate([(0,-.16),(span*.48,-.25),(span*.50,.12),(0,.16)],rotor_z+level*.65,rotor_z+level*.65+.06,name="rotor")
+            obj.rotation_euler.z=a
+    if coaxial:
+        for side in (-1,1):
+            fin(-L*.39,L*.16,L*.10,L*.13,.1,y=side*1.7)
+        plate([(-L*.35,-2.1),(-L*.47,-2.1),(-L*.47,2.1),(-L*.35,2.1)],.4,.55,name="tailplane")
+    else:
+        fin(-L*.38,L*.15,L*.10,L*.20,.1,y=0)
+        for a in (0,math.pi/2):
+            obj=cbox(-L*.43,.45,L*.11,.08,.08,2.8,name="tail_rotor")
+            obj.rotation_euler.y=a
+
+
 BUILDERS = {
+    "usn_fighter_f35c": lambda s: build_lightning(s["length_m"], True),
+    "rn_fighter_f35b": lambda s: build_lightning(s["length_m"], False),
+    "fra_fighter_rafale_m": lambda s: build_rafale(s["length_m"]),
+    "usn_uav_mq4c": lambda s: build_triton(s["length_m"]),
+    "rn_cvf_queen_elizabeth": lambda s: build_queen_elizabeth(s["length_m"]),
+    "rn_helo_merlin_hm2": lambda s: build_merlin(s["length_m"]),
+    "rfn_helo_ka27": lambda s: build_merlin(s["length_m"], True),
+    "fra_ffg_fremm": lambda s: build_constellation(s["length_m"]),
+    "rn_ffg_type26": lambda s: build_european_frigate(s["length_m"], apar=False),
+    "usn_cvn_ford": lambda s: build_carrier(s["length_m"]),
+    "rn_ssn_astute": lambda s: build_submarine(s["length_m"], "virginia"),
+    "civ_fishing_trawler": lambda s: build_merchant(s["length_m"]),
     "usn_ddg_arleigh_burke_iia": lambda s: build_aegis_destroyer(s["length_m"]),
     "usn_ddg_burke_iii": lambda s: build_aegis_destroyer(s["length_m"], flight_iii=True),
     "usn_cg_ticonderoga": lambda s: build_ticonderoga(s["length_m"]),
@@ -1122,7 +1209,8 @@ def render_platform(spec, scene):
 
 
 def main():
-    wanted = [a for a in sys.argv[1:] if not a.startswith("-")]
+    args = sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else sys.argv[1:]
+    wanted = [a for a in args if not a.startswith("-")]
     specs = read_specs()
     os.makedirs(OUT_DIR, exist_ok=True)
     scene = bpy.context.scene

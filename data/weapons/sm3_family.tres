@@ -8,7 +8,7 @@ id = "sm3_family"
 display_name = "SM-3 family (BMD)"
 family = "SM-3 family"
 type = "sam"
-guidance = "inertial_semi_active_kinetic"
+guidance = "inertial_infrared_hit_to_kill"
 profile = "exoatmospheric"
 target_types = PackedStringArray("ballistic")
 max_range_nm = 380.0
@@ -24,3 +24,7 @@ defensive_difficulty = 1.0
 signature_factor = 0.2
 altitude_m = 90000.0
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+vls_pack = 1
+
+intercept_min_altitude_m = 100000.0

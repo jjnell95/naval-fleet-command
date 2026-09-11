@@ -31,3 +31,5 @@ decoy_effectiveness = 0.30
 weapon_loadout = {
 "mk48_adcap": 20
 }
+
+role = "Nuclear Attack Submarine • maritime operations"

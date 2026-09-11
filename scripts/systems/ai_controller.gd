@@ -127,7 +127,7 @@ func _update_unit(u: Unit, now: float) -> void:
 			if mine:
 				unknowns.append(t)
 
-	_note_torpedo_datum(b, now)
+	_note_torpedo_datum(u, b, now)
 	_consider_launch(u, b, all_hostiles, all_unknowns, now)
 	if u.spec.max_speed_kn <= 0.0:
 		return  # a shore station has nothing to do but send aircraft up
@@ -160,11 +160,11 @@ func _consider_launch(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, 
 
 ## A torpedo running through the water is the best clue anyone gets about where a submarine is.
 ## Treating the weapon's position as a search datum is what turns an attack into a prosecution.
-func _note_torpedo_datum(b: Dictionary, now: float) -> void:
+func _note_torpedo_datum(u: Unit, b: Dictionary, now: float) -> void:
 	if threat_manager == null:
 		return
 	for w: Weapon in threat_manager.get_threats(faction):
-		if w.spec.is_torpedo():
+		if w.spec.is_torpedo() and threat_manager.visible_to(u, w):
 			b["last_contact"] = w.position
 			b["last_contact_time"] = now
 			return
@@ -174,7 +174,7 @@ func _inbound_on(u: Unit) -> Array:
 	if threat_manager == null:
 		return []
 	var out: Array = []
-	for entry: Dictionary in AirDefence.inbound_threats(unit_manager, threat_manager, faction):
+	for entry: Dictionary in AirDefence.inbound_threats(unit_manager, threat_manager, faction, u):
 		if entry["target"] == u:
 			out.append(entry)
 	return out

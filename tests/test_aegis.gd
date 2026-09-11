@@ -19,6 +19,7 @@ func test_amraam_engages_air_tracks_but_rejects_surface() -> void:
 	fighter.spec = DataDB.platform("usn_fighter_fa18e")
 	fighter.health = fighter.spec.health
 	fighter.faction = "BLUE"
+	fighter.flight_state = Unit.FlightState.AIRBORNE
 	var aam := DataDB.weapon("aim120_family")
 	fighter.weapons.append(aam)
 	fighter.magazines[aam.id] = 6

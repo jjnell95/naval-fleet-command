@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "fra_fighter_rafale_m"
+display_name = "Rafale M"
+short_name = "Rafale M"
+nation = "France"
+category = "fighter"
+domain = "air"
+length_m = 15.3
+max_speed_kn = 1000.0
+cruise_speed_kn = 480.0
+turn_rate_deg_s = 7.0
+accel_kn_s = 6.0
+health = 30.0
+signature_factor = 0.7
+sensor_ids = PackedStringArray("rbe2_aa", "spectra")
+cruise_altitude_m = 10000.0
+max_altitude_m = 15000.0
+altitude_rate_m_s = 35.0
+endurance_s = 9000.0
+launch_time_s = 90.0
+recovery_time_s = 120.0
+fire_control_channels = 0
+decoy_count = 8
+weapon_loadout = {"mica_em": 6, "am39_exocet": 1}
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+
+launch_requirement = "catobar"
+
+role = "Carrier multirole fighter • maritime strike"
+
+service_note = "MICA EM and AM39 scenario fit; CATOBAR or runway operations."

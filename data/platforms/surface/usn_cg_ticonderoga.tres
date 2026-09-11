@@ -25,3 +25,9 @@ fire_control_channels = 8
 decoy_count = 18
 weapon_loadout = {"sm3_family": 8, "sm6_family": 16, "sm2_family": 40, "essm_family": 32, "tomahawk_block_v": 8, "rgm_139_vla": 8, "rgm_84_harpoon": 8, "mk45_mod4_gun": 500, "phalanx_ciws": 90}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+vls_cells = 122
+
+role = "Area air defence • ballistic missile defence"
+
+service_note = "Legacy BMD-capable cruiser fit; availability depends on scenario era."

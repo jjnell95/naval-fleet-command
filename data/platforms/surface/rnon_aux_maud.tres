@@ -26,3 +26,5 @@ decoy_count = 6
 decoy_effectiveness = 0.25
 weapon_loadout = {
 }
+
+role = "Auxiliary • maritime operations"

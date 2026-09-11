@@ -33,3 +33,5 @@ decoy_count = 6
 decoy_effectiveness = 0.25
 weapon_loadout = {"ugst_torpedo": 4}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+role = "Maritime Patrol • maritime operations"

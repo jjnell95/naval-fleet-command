@@ -1,0 +1,169 @@
+{
+  "tests": 185,
+  "failed": 0,
+  "scenario_runs": [
+    {
+      "scenario": "aegis_bastion",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "arctic_shield",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "atlantic_gate",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "baltic_sentinel",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "giuk_passage",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "north_atlantic_shadow_line",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "northern_sentry",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "northern_shield",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "northern_vigil",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "sandbox_m1",
+      "seed": 2,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "aegis_bastion",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "arctic_shield",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "atlantic_gate",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "baltic_sentinel",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "giuk_passage",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "north_atlantic_shadow_line",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "northern_sentry",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    },
+    {
+      "scenario": "northern_shield",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 2,
+      "aground": 0
+    },
+    {
+      "scenario": "northern_vigil",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0
+    },
+    {
+      "scenario": "sandbox_m1",
+      "seed": 13,
+      "ok": true,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0
+    }
+  ],
+  "native_ui": "inspected",
+  "web_export": "completed",
+  "browser_validation": "blocked: automatic approval service account usage limit"
+}

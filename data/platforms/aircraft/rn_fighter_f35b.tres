@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rn_fighter_f35b"
+display_name = "F-35B Lightning II"
+short_name = "F-35B"
+nation = "UK"
+category = "fighter"
+domain = "air"
+length_m = 15.7
+max_speed_kn = 1000.0
+cruise_speed_kn = 480.0
+turn_rate_deg_s = 7.0
+accel_kn_s = 6.0
+health = 30.0
+signature_factor = 0.22
+sensor_ids = PackedStringArray("an_apg_81", "an_asq_239")
+cruise_altitude_m = 10000.0
+max_altitude_m = 15000.0
+altitude_rate_m_s = 35.0
+endurance_s = 7800.0
+launch_time_s = 90.0
+recovery_time_s = 120.0
+fire_control_channels = 0
+decoy_count = 8
+weapon_loadout = {"aim120_family": 4}
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+
+launch_requirement = "stovl"
+
+role = "STOVL fighter • counter-air"
+
+service_note = "British carrier fighter; supports STOVL decks and airfields."

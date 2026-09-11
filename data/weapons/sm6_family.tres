@@ -21,3 +21,7 @@ base_pk = 0.55
 salvo_default = 2
 launch_interval_s = 2.0
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+vls_pack = 1
+
+intercept_max_altitude_m = 50000.0

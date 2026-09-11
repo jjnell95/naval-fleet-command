@@ -69,6 +69,11 @@ func load_scenario(path: String) -> bool:
 	scenario = ScenarioLoader.load_file(path)
 	if scenario.is_empty():
 		return false
+	_defence_accum = 0.0
+	_ai_accum = 0.0
+	sensor_manager._accum = 0.0
+	sensor_manager._last_heading.clear()
+	sensor_manager._manoeuvre.clear()
 	scenario_path = path
 	scenario_name = scenario.get("name", "UNNAMED")
 	player_faction = scenario.get("player_faction", "BLUE")

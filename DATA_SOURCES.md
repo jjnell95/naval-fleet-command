@@ -227,3 +227,8 @@ inside land, which is what they always implied.
 
 Sea state effects follow the general shape of public open-literature discussion (ambient noise and
 sea clutter rise with sea state); the coefficients are game tuning, not measurements.
+
+
+## M13 corrections and additions
+
+See [docs/REALISM.md](docs/REALISM.md) for the source ledger, variant corrections, new aircraft and ship roles, and limitations. M13 supersedes prior statements suggesting SM-3 can intercept the game’s low-altitude Kinzhal profile.

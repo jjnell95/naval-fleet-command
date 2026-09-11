@@ -21,3 +21,5 @@ base_pk = 0.5
 salvo_default = 2
 launch_interval_s = 2.0
 source_status = "PUBLIC: weapon family and role. GAMEPLAY_ESTIMATE: every numeric value is a tuning parameter, not a performance claim."
+
+vls_pack = 1

@@ -12,7 +12,7 @@ category = "destroyer"
 domain = "surface"
 max_speed_kn = 30.0
 cruise_speed_kn = 18.0
-length_m = 155.0
+length_m = 155.3
 displacement_t = 9700.0
 health = 120.0
 sensor_ids = PackedStringArray("an_spy_6", "an_sqs_53c", "an_slq_32")
@@ -22,3 +22,9 @@ fire_control_channels = 8
 decoy_count = 16
 weapon_loadout = {"sm6_family": 24, "sm2_family": 24, "essm_family": 32, "rgm_139_vla": 8, "mk45_mod4_gun": 250, "phalanx_ciws": 60}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
+
+vls_cells = 96
+
+role = "Integrated air and missile defence • SPY-6(V)1"
+
+service_note = "Flight III / Aegis Baseline 10; magazine is a scenario allocation."

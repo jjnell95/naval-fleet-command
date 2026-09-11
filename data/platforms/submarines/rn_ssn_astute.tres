@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rn_ssn_astute"
+display_name = "Astute-class attack submarine"
+short_name = "SSN Astute"
+nation = "UK"
+category = "nuclear attack submarine"
+domain = "subsurface"
+max_speed_kn = 25.0
+cruise_speed_kn = 8.0
+turn_rate_deg_s = 2.2
+accel_kn_s = 0.20
+length_m = 97.0
+displacement_t = 7400.0
+source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+sensor_ids = PackedStringArray("sonar_2076")
+signature_factor = 0.25
+mast_height_m = 8.0
+health = 70.0
+acoustic_signature = 0.08
+max_depth_m = 300.0
+patrol_depth_m = 120.0
+depth_rate_m_s = 2.0
+fire_control_channels = 0
+decoy_count = 8
+decoy_effectiveness = 0.30
+weapon_loadout = {"spearfish": 24}
+
+role = "Covert sea control • heavyweight torpedoes"
+
+service_note = "Scenario carries torpedoes; land attack is outside this mission fit."

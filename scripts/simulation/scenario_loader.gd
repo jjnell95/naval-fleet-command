@@ -89,7 +89,7 @@ static func _link_aircraft(um: UnitManager) -> void:
 		if not a.is_aircraft() or a.home_callsign == "":
 			continue
 		for candidate in um.units:
-			if candidate.callsign == a.home_callsign:
+			if candidate.callsign == a.home_callsign and candidate.faction == a.faction and candidate.spec.can_operate(a.spec) and candidate.embarked.size() < candidate.spec.aircraft_capacity:
 				a.home = candidate
 				candidate.embarked.append(a)
 				break
