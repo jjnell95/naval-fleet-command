@@ -32,3 +32,4 @@ source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPL
 role = "Fighter • maritime operations"
 can_refuel = true
 service_note = "Representative counter-air and anti-surface fit. The deck Harpoon has given way to a longer-range low-observable round in this catalogue; a real load depends entirely on the mission."
+launch_requirement = "catobar"

@@ -31,3 +31,4 @@ source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPL
 
 role = "Airborne Early Warning • maritime operations"
 can_refuel = true
+launch_requirement = "catobar"

@@ -203,6 +203,31 @@ func test_all_catalogue_resources_resolve_and_cells_fit() -> void:
 	assert_eq(mq25.weapon_loadout.size(), 0, "and nothing to shoot with")
 	assert_true(DataDB.platform("usn_fighter_fa18e").can_refuel, "and the fighters can take it")
 
+func test_every_carrier_aircraft_declares_the_deck_it_needs() -> void:
+	# A carrier aircraft that forgets to declare itself quietly becomes a land-based one and
+	# nothing fails until a scenario refuses to launch it, so the catalogue is checked directly:
+	# anything a carrier in the catalogue is meant to fly must be operable from one.
+	var decks: Array[PlatformSpec] = []
+	for p: PlatformSpec in DataDB.all_platforms():
+		if p.flight_facility() in ["catobar", "stovl"]:
+			decks.append(p)
+	assert_true(decks.size() >= 2, "the catalogue has carriers")
+	for deck: PlatformSpec in decks:
+		var operable := 0
+		for pid in deck.default_air_wing:
+			var air := DataDB.platform(str(pid))
+			assert_true(air != null, deck.id + " air wing entry " + str(pid) + " exists")
+			if air != null:
+				assert_true(deck.can_operate(air), "%s can operate %s" % [deck.id, air.id])
+				operable += 1
+		assert_true(operable > 0, deck.id + " sails with an air wing")
+	# And a helicopter deck is not a carrier: a fixed-wing jet must not fit on a frigate.
+	var frigate := DataDB.platform("rnon_ffg_fridtjof_nansen")
+	assert_true(not frigate.can_operate(DataDB.platform("usn_fighter_fa18e")), "no jets off a frigate")
+	assert_true(frigate.can_operate(DataDB.platform("nato_helo_nh90_nfh")), "but its own helicopter fits")
+	assert_true(frigate.can_operate(DataDB.platform("usn_uav_mq8c")), "and a rotary drone does too")
+
+
 func test_every_shipped_aircraft_has_compatible_home_and_capacity() -> void:
 	for entry: Dictionary in ScenarioIndex.list_all():
 		if entry.custom:

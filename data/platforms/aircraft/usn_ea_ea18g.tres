@@ -32,3 +32,4 @@ source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPL
 
 role = "Electronic Attack • maritime operations"
 can_refuel = true
+launch_requirement = "catobar"

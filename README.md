@@ -33,7 +33,7 @@ Press **Scenario Editor** on the mission menu (or F8). Pick a platform from the 
 
 ## What is implemented
 
-Ten missions including a free-play sandbox; 42 platform types, 41 weapon definitions and 51 sensor definitions. Arctic Shield deploys 29 actors across air, surface, subsurface and neutral traffic in a sea state 4.
+Ten missions including a free-play sandbox; 55 platform types, 51 weapon definitions and 65 sensor definitions. Every mission is sited in real water — the Iceland-Faroe gap, the Faroe-Shetland channel, the Gotland basin, Vestfjorden, the North Cape, the Barents — with coastlines and bases at their real positions. Northern Vigil puts two carrier air wings, a Northern Fleet surface group and the Kola air complex in the same sea: 78 actors. Ships sail with their embarked helicopters and drones automatically.
 
 Radar horizon, passive/active sonar, ESM bearings, uncertain tracks, classification, stale tracks, target-motion analysis, layered missile interception, decoys, fire-control channel limits, gunfire, torpedoes, component damage, ROE, emissions control, datalinks, formations, aircraft launch/recovery/fuel, sonobuoys and opposing AI.
 

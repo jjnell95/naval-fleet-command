@@ -125,13 +125,15 @@ func turnaround_time_s() -> float:
 	return 0.0
 
 
+## What kind of deck this airframe needs. Carrier aircraft say so on their own spec; anything
+## that can hover works off a flight deck, and everything else needs a runway. There is
+## deliberately no list of ids here: a new carrier aircraft that forgot to declare itself would
+## quietly become a land-based one, and nothing would fail until a scenario refused to launch it.
 func flight_requirement() -> String:
 	if launch_requirement != "auto":
 		return launch_requirement
 	if can_hover:
 		return "helicopter"
-	if id in ["usn_aew_e2d", "usn_fighter_fa18e", "usn_ea_ea18g"]:
-		return "catobar"
 	return "runway"
 
 
