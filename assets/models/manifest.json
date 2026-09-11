@@ -5,6 +5,11 @@
     "triangles": 228
   },
   {
+    "id": "a192_130mm_gun",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
     "id": "agm_114_hellfire",
     "kind": "weapon",
     "triangles": 1424
@@ -38,6 +43,16 @@
     "id": "aim9x_family",
     "kind": "weapon",
     "triangles": 1376
+  },
+  {
+    "id": "ak100_gun",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "ak130_gun",
+    "kind": "weapon",
+    "triangles": 320
   },
   {
     "id": "ak630_ciws",
@@ -140,6 +155,11 @@
     "triangles": 1424
   },
   {
+    "id": "kinzhal_naval_sam",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
     "id": "martlet_lmm",
     "kind": "weapon",
     "triangles": 1424
@@ -148,6 +168,11 @@
     "id": "mica_em",
     "kind": "weapon",
     "triangles": 1376
+  },
+  {
+    "id": "mk110_57mm_gun",
+    "kind": "weapon",
+    "triangles": 228
   },
   {
     "id": "mk45_mod4_gun",
@@ -163,6 +188,11 @@
     "id": "mk54_lwt",
     "kind": "weapon",
     "triangles": 1460
+  },
+  {
+    "id": "mk8_114mm_gun",
+    "kind": "weapon",
+    "triangles": 228
   },
   {
     "id": "mm40_exocet",
@@ -220,6 +250,11 @@
     "triangles": 1376
   },
   {
+    "id": "rastrub_asw",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
     "id": "rbs15_mk3",
     "kind": "weapon",
     "triangles": 1424
@@ -242,7 +277,7 @@
   {
     "id": "rfn_cg_slava",
     "kind": "platform",
-    "triangles": 11872
+    "triangles": 12036
   },
   {
     "id": "rfn_ddg_udaloy",
@@ -286,6 +321,11 @@
   },
   {
     "id": "rfn_ssk_kilo",
+    "kind": "platform",
+    "triangles": 1480
+  },
+  {
+    "id": "rfn_ssk_kilo_877",
     "kind": "platform",
     "triangles": 1480
   },

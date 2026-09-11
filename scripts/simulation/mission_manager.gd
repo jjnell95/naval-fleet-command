@@ -1,7 +1,8 @@
 class_name MissionManager
 extends Node
 ## Evaluates scenario objectives. Victory when every objective in the scenario's `victory` list
-## is complete; defeat when any objective in its `loss` list becomes true. Both lists are data,
+## is complete (or any for an explicit victory_mode="any"); defeat when any loss is true.
+## Both lists are data,
 ## so a new scenario needs no code.
 
 signal mission_ended(result: String, summary: String)
@@ -16,10 +17,12 @@ var situation := ""
 var victory_objectives: Array[MissionObjective] = []
 var loss_objectives: Array[MissionObjective] = []
 var result: Result = Result.RUNNING
+var victory_mode := "all"
 
 
 func configure(scenario: Dictionary) -> void:
 	result = Result.RUNNING
+	victory_mode = str(scenario.get("victory_mode", "all"))
 	victory_objectives.clear()
 	loss_objectives.clear()
 	var obj: Dictionary = scenario.get("objectives", {})
@@ -48,7 +51,7 @@ func tick(now: float) -> void:
 			done += 1
 			if not was:
 				objective_completed.emit(o, false)
-	if done > 0 and done == victory_objectives.size():
+	if done > 0 and (victory_mode == "any" or done == victory_objectives.size()):
 		_finish(Result.VICTORY, briefing)
 
 

@@ -21,6 +21,19 @@ static func distance_nm(a: Vector2, b: Vector2) -> float:
 	return a.distance_to(b)
 
 
+## Inverse of the scenario builder's local equirectangular projection. Returns (lat, lon).
+## Geographic display coordinates; simulation distances remain local-plane nautical miles.
+static func world_to_latlon(p: Vector2, anchor_lat: float, anchor_lon: float) -> Vector2:
+	return Vector2(anchor_lat + p.y / 60.0, anchor_lon + p.x / (60.0 * maxf(cos(deg_to_rad(anchor_lat)), 0.001)))
+
+
+static func format_latlon(value: float, latitude := true) -> String:
+	var minutes := roundf(absf(value) * 600.0) / 10.0
+	var degrees := int(floorf(minutes / 60.0))
+	var suffix := ("N" if value >= 0 else "S") if latitude else ("E" if value >= 0 else "W")
+	return "%02d°%04.1f′%s" % [degrees, fmod(minutes, 60.0), suffix]
+
+
 static func knots_to_nm_per_s(kn: float) -> float:
 	return kn / 3600.0
 

@@ -396,13 +396,14 @@ def weapon_model(w):
         else:
             b.cylinder(0,0,-.4,.0,1.6,32,'base')
             b.prism(-2,1.5,-1.5,1.5,0,2.8,.65,'turret')
-            b.cylinder(0,1.6,1.,7.3,.16,24,'barrel','x')
+            for offset in (-.45, .45) if wid=='ak130_gun' else (0,):
+                b.cylinder(offset,1.6,1.,7.3,.16,24,'barrel','x')
         for o in b._objects:
             paint(o,'radome' if o.name.startswith(('dome','radome')) else ('titanium' if o.name.startswith('barrel') else 'naval_paint'))
             if o.name.startswith(('base','radome','barrel')):
                 for p in o.data.polygons:p.use_smooth=len(p.vertices)==4
         return
-    torp=kind=='torpedo' and wid!='rgm_139_vla'
+    torp=kind=='torpedo' and wid not in ('rgm_139_vla','rastrub_asw')
     slim=wid.startswith(('aim','r77','r73','mica','sea_ceptor','ram'))
     L=3.5 if slim else 6.5
     R=.09 if slim else .19
@@ -413,6 +414,7 @@ def weapon_model(w):
     if wid=='aim9x_family':L,R=3.0,.064
     if wid=='aim120_family':L,R=3.65,.089
     if wid=='rgm_139_vla':L,R=4.5,.21
+    if wid=='rastrub_asw':L,R=7.2,.32
     if wid.startswith('aster'):L,R=4.9,.18
     if torp:L,R=(2.7,.16) if any(s in wid for s in ('54','sting','mu90','apr3')) else (6.0,.267)
     if 'lrasm' in wid or 'nsm' in wid:

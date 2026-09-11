@@ -180,7 +180,9 @@ func start_scenario(path: String) -> void:
 	map.clear_selection()
 	map.weapon_ring = null
 	map.reset_presentation()
-	map.fit_to(simulation.map_center, simulation.map_extent_nm)
+	var chart: Dictionary = simulation.scenario.get("map", {})
+	var focus: Array = chart.get("focus_center_nm", [simulation.map_center.x, simulation.map_center.y])
+	map.fit_to(Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
 	top_bar.set_scenario_name(simulation.scenario_name)
 	top_bar.set_objective_text("")
 	top_bar.set_alert("")

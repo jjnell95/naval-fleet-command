@@ -30,7 +30,13 @@ static func step(u: Unit, dt: float) -> void:
 			u.ordered_heading_deg = desired
 
 	var turn_scale := clampf(u.speed_kn / FULL_TURN_SPEED_KN, 0.0, 1.0)
-	var max_turn := u.spec.turn_rate_deg_s * turn_scale * dt
+	var rate := u.spec.turn_rate_deg_s * turn_scale
+	if u.needs_sea_room() and u.spec.length_m > 0:
+		# GAMEPLAY_ESTIMATE: a displacement hull needs a turning circle proportional to
+		# its length. The catalogue rate is a ceiling, not a pivot rate at every speed.
+		var radius_m := u.spec.length_m * (1.5 if u.is_submarine() else 2.5)
+		rate = minf(rate, rad_to_deg(u.speed_kn * 1852.0 / 3600.0 / radius_m))
+	var max_turn := rate * dt
 	var delta := clampf(Geo.heading_delta(u.heading_deg, desired), -max_turn, max_turn)
 	u.heading_deg = fposmod(u.heading_deg + delta, 360.0)
 

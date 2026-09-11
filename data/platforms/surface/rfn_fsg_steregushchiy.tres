@@ -21,14 +21,15 @@ sensor_ids = PackedStringArray("furke_2", "mp_405")
 signature_factor = 0.7
 mast_height_m = 25.0
 health = 60.0
-weapon_loadout = {
-"kh35_uran": 8,
-"oto_76mm_gun": 350,
-"redut_family": 12,
-"ak630_ciws": 80
-}
+weapon_loadout = {"kh35_uran": 8, "a190_100mm_gun": 350, "redut_family": 12, "ak630_ciws": 80}
 fire_control_channels = 2
 decoy_count = 8
 decoy_effectiveness = 0.3
 
 role = "Corvette • maritime operations"
+
+aircraft_capacity = 1
+
+default_air_wing = {"rfn_helo_ka27": 1}
+
+service_note = "Post-lead-ship Project 20380 baseline: A-190 100 mm gun, Redut and one Ka-27. The lead ship and Project 20385 have different fits."

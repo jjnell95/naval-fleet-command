@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "kinzhal_naval_sam"
+display_name = "3K95 Kinzhal / SA-N-9"
+family = "3K95 Kinzhal naval SAM"
+type = "sam"
+guidance = "fire_control_directed"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 6.5
+min_range_nm = 0.8
+speed_kn = 2000.0
+turn_rate_deg_s = 60.0
+seeker_range_nm = 4.0
+damage = 22.0
+base_pk = 0.48
+salvo_default = 2
+launch_interval_s = 2.0
+source_status = "PUBLIC: system identity and platform association; see docs/REALISM_M16.md. GAMEPLAY_ESTIMATE: all performance, damage, timing and magazine quantities. Unrelated to the Kh-47M2 aero-ballistic missile."

@@ -26,12 +26,12 @@ launch_time_s = 45.0
 recovery_time_s = 60.0
 fire_control_channels = 0
 decoy_count = 8
-weapon_loadout = {"aim120_family": 4, "jsm_missile": 2}
+weapon_loadout = {"aim120_family": 4, "aim9x_air": 2}
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
 
 launch_requirement = "catobar"
 
 role = "Low-observable carrier fighter • counter-air"
 
-service_note = "Carried weapons are the internal fit: fewer rounds than a Super Hornet, bought back by being much harder to see."
+service_note = "CATOBAR carrier variant, not the Norwegian F-35A. Scenario counter-air fit; an integrated internal JSM fit is not assumed."
 can_refuel = true

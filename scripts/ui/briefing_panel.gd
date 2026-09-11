@@ -123,7 +123,7 @@ func refresh() -> void:
 	if sea >= 3:
 		env_line += "\n[color=%s]Passive sonar reach is reduced and sea-skimming missiles are harder to pick out of clutter.[/color]" % UITheme.HEX_AMBER
 	out.append(env_line + "\n")
-	out.append("[color=%s][b]VICTORY[/b][/color]" % UITheme.HEX_ACCENT)
+	out.append("[color=%s][b]VICTORY — %s[/b][/color]" % [UITheme.HEX_ACCENT, "COMPLETE EITHER CONDITION" if mission_manager.victory_mode == "any" else "COMPLETE ALL CONDITIONS"])
 	for o in mission_manager.victory_objectives:
 		out.append(_line(o))
 	if not mission_manager.loss_objectives.is_empty():

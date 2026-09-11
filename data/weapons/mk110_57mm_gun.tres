@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "mk110_57mm_gun"
+display_name = "Mk 110 57 mm gun"
+family = "Mk 110"
+type = "gun"
+guidance = "unguided"
+profile = "direct"
+target_types = PackedStringArray("surface")
+max_range_nm = 7.0
+min_range_nm = 0.3
+speed_kn = 1600.0
+turn_rate_deg_s = 15.0
+seeker_range_nm = 0.0
+damage = 4.5
+base_pk = 0.50
+salvo_default = 8
+launch_interval_s = 1.5
+defensive_difficulty = 1.0
+source_status = "PUBLIC: system identity and platform association; see docs/REALISM_M16.md. GAMEPLAY_ESTIMATE: all performance, damage, timing and magazine quantities."

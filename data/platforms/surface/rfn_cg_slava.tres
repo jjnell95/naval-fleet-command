@@ -23,8 +23,10 @@ mast_height_m = 34.0
 aircraft_capacity = 1
 fire_control_channels = 6
 decoy_count = 12
-weapon_loadout = {"p1000_vulkan": 16, "s300f_fort": 64, "a190_100mm_gun": 300, "ak630_ciws": 120, "ugst_torpedo": 10}
+weapon_loadout = {"p1000_vulkan": 16, "s300f_fort": 64, "ak130_gun": 300, "ak630_ciws": 120, "ugst_torpedo": 10}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
 
 role = "Cruiser • maritime operations"
 default_air_wing = {"rfn_helo_ka27": 1}
+
+service_note = "Project 1164 representative fit with a twin 130 mm AK-130 mount. Secondary defensive and ASW systems are simplified."

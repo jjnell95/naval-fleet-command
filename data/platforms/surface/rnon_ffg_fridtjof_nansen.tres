@@ -21,16 +21,13 @@ sensor_ids = PackedStringArray("an_spy_1f", "captas_mk2", "nato_esm_suite")
 signature_factor = 0.85
 mast_height_m = 28.0
 health = 85.0
-weapon_loadout = {
-"mk54_lwt": 6,
-"nsm_strike_missile": 8,
-"oto_76mm_gun": 350,
-"essm_family": 32
-}
+weapon_loadout = {"nsm_strike_missile": 8, "essm_family": 32, "oto_76mm_gun": 250, "sting_ray": 6}
 aircraft_capacity = 1
 fire_control_channels = 4
 decoy_count = 12
 decoy_effectiveness = 0.35
 
 role = "Frigate • maritime operations"
-default_air_wing = {"nato_helo_nh90_nfh": 1}
+default_air_wing = {}
+
+service_note = "Norway terminated NH90 in 2022. The landing facility remains available, but no operational helicopter detachment is assumed. Ship-launched torpedoes use the Sting Ray family."

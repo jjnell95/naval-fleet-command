@@ -68,7 +68,7 @@ func _test(um: UnitManager, now: float) -> bool:
 		Kind.ALL_UNITS_LOST:
 			for name in callsigns:
 				var u := _find(um, name)
-				if u != null and u.alive:
+				if u == null or u.alive:
 					return false
 			return not callsigns.is_empty()
 		Kind.REACH_AREA:

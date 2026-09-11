@@ -4,6 +4,14 @@
 
 A modern naval command simulation in Godot 4.7.2. Command a task group through an Aegis-inspired combat information display: build an uncertain picture, manage emissions, hold the screen together and decide when to shoot. Original 3D fleet art, tactical vector graphics, procedural sound and fictional scenarios; no Jane's assets or affiliation.
 
+## M16 geography and realism
+
+All ten missions now use Natural Earth coastline geometry with separate islands and straits, latitude/longitude grids, geographic labels, and clear mission areas. The theatre control restores the full regional view; range rings are optional.
+
+Escort, submarine-hunt, passage-denial and carrier-defence missions have distinct success and failure conditions. Protected ships and civilians matter, supporting aircraft no longer turn every mission into a hunt for the last enemy, and passage-denial missions end on a breakthrough or a completed watch.
+
+Corrected baseline fits include Flight IIA Burkes, Type 45, Nansen, Udaloy, Slava, Gorshkov and Project 20380. An older Project 877 Kilo is separate from Improved Kilo. Standard scenarios no longer assume MQ-25 detachments or prospective frigates. Read the [corrections, public sources and model limits](docs/REALISM_M16.md).
+
 ## M14 visual overhaul
 
 **42 platforms and 41 weapons now have original, inspectable 3D models.** Open **Fleet + Ordnance Gallery (F7)**, or use **Inspect Platform / 3D** on a selected unit. Drag to orbit, scroll to zoom, use the profile/plan presets, or enable auto rotation. Click a fitted weapon to inspect it, then click a carrying platform to return. The gallery pauses the mission and restores its previous pause state on exit.
@@ -33,11 +41,11 @@ Press **Scenario Editor** on the mission menu (or F8). Pick a platform from the 
 
 ## What is implemented
 
-Ten missions including a free-play sandbox; 55 platform types, 51 weapon definitions and 65 sensor definitions. Every mission is sited in real water — the Iceland-Faroe gap, the Faroe-Shetland channel, the Gotland basin, Vestfjorden, the North Cape, the Barents — with coastlines and bases at their real positions. Northern Vigil puts two carrier air wings, a Northern Fleet surface group and the Kola air complex in the same sea: 78 actors. Ships sail with their embarked helicopters and drones automatically.
+Ten missions including a free-play sandbox; 56 platform types, 58 weapon definitions and 65 sensor definitions. Every mission is sited in real water — the Iceland-Faroe gap, the Faroe-Shetland channel, the Gotland basin, Vestfjorden, the North Cape, the Barents — with coastlines and bases at their real positions. Northern Vigil combines two reduced air wings, a surface group and land-based air detachments at their geographic locations. Default air detachments follow the platform fit; a landing facility does not imply an embarked helicopter.
 
 Radar horizon, passive/active sonar, ESM bearings, uncertain tracks, classification, stale tracks, target-motion analysis, layered missile interception, decoys, fire-control channel limits, gunfire, torpedoes, component damage, ROE, emissions control, datalinks, formations, aircraft launch/recovery/fuel, sonobuoys and opposing AI.
 
-**Coastlines and land masking.** Seven of the nine missions are charted with land. A scenario declares
+**Coastlines and land masking.** All ten missions use geographic land data. A scenario declares
 landmasses as closed polygons in nautical miles, each with a height, and the whole game reads them:
 
 - **Ships stop at the beach.** A hull ordered at a coast follows it rather than grinding into it, and
@@ -101,3 +109,9 @@ Nine scenarios were advanced 30,000 simulated seconds with AI on both sides, see
 Terrain cost was measured on a coastline the size of the largest shipped scenario — six landmasses, 336 edges: 4.2 µs for a masked sight line inside sensor range, 2.1 µs for a point-in-polygon, 11 ms to build the elevation raster at scenario load. The sensor cycle asks for masking only after a pair has already passed its range test. The web build was loaded in headless Chromium and boots to the mission menu.
 
 Godot engine licensing is in `docs/play/GODOT-LICENSE.txt`. Source ownership remains with the project author; no new license grant is inferred.
+
+## Local review build
+
+On this Mac, double-click `Launch Preview.command`, or run `python3 tools/preview.py`. It opens the packaged browser game on an available localhost port. Keep the terminal running while playing. Open `project.godot` in Godot 4.7.2 for the editable native project.
+
+The repository already contains the matching Godot 4.7.2 JavaScript and WASM runtime. Rebuild the data pack with `Godot --headless --path . --export-pack Web docs/play/index.pck`; update `fileSizes["index.pck"]` in the HTML after changing the pack. A full `--export-release Web` also works when the matching web export templates are installed. See `tools/scenarios/requirements.txt` for optional geography-build dependencies.

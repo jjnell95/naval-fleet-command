@@ -6,6 +6,7 @@ extends Control
 
 var scenario: Dictionary = {}
 var _font: Font
+var _coasts: Array = []
 
 
 func _ready() -> void:
@@ -16,6 +17,11 @@ func _ready() -> void:
 
 func set_scenario(sc: Dictionary) -> void:
 	scenario = sc
+	_coasts.clear()
+	for entry in scenario.get("terrain", {}).get("land", []):
+		var land := Landmass.from_dict(entry)
+		if land.valid():
+			_coasts.append({"land": land, "mesh": ChartMesh.build(land.points)})
 	queue_redraw()
 
 
@@ -32,16 +38,14 @@ func _draw() -> void:
 	var mid := size * 0.5
 	# Land comes from the scenario being previewed, not from Terrain, which holds whatever
 	# scenario is actually loaded. Geography is the one thing this chart shows in full.
-	for entry in scenario.get("terrain", {}).get("land", []):
-		if typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var l := Landmass.from_dict(entry)
-		if not l.valid():
-			continue
+	var transform := Transform2D(Vector2(ppn, 0), Vector2(0, ppn), mid + Vector2(-center.x, center.y)*ppn)
+	for cached in _coasts:
+		var l: Landmass = cached["land"]
+		if cached["mesh"] != null:
+			draw_mesh(cached["mesh"], null, transform, TacticalMap.COL_LAND)
 		var pts := PackedVector2Array()
 		for p in l.points:
-			pts.append(mid + Vector2((p.x - center.x) * ppn, -(p.y - center.y) * ppn))
-		draw_colored_polygon(pts, TacticalMap.COL_LAND)
+			pts.append(mid + Vector2((p.x-center.x)*ppn, -(p.y-center.y)*ppn))
 		pts.append(pts[0])
 		draw_polyline(pts, Color(TacticalMap.COL_COAST, 0.7), 1.0, true)
 	var step := 50.0 if extent > 150.0 else 20.0
