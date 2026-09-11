@@ -294,7 +294,7 @@ func _find_tanker(a: Unit) -> Unit:
 	var best: Unit = null
 	var best_d := INF
 	for u in unit_manager.units:
-		if u == a or not u.airborne() or u.faction != a.faction or not u.is_tanker():
+		if u == a or not u.alive or not u.airborne() or u.faction != a.faction or not u.is_tanker():
 			continue
 		var d := a.position.distance_to(u.position)
 		if d > TANKER_SEARCH_NM or d >= best_d:
@@ -312,13 +312,18 @@ func _find_tanker(a: Unit) -> Unit:
 ## so the normal return-to-deck logic stays out of the way.
 func _step_tanking_receiver(a: Unit) -> bool:
 	var t := a.tanking_on
-	if t == null or not t.airborne() or not t.is_tanker() or a.fuel_fraction() >= TANKER_TOPPED_OFF:
-		if a.tanking_on != null and a.fuel_fraction() >= TANKER_TOPPED_OFF:
-			a.tanking_on = null
-			a.returning = false
-			a.waypoints.clear()
-			return false
+	if a.fuel_fraction() >= TANKER_TOPPED_OFF:
+		a.tanking_on = null  # full: unplug and go back to work
+		a.returning = false
+		a.waypoints.clear()
+		return false
+	if t == null or not t.alive or not t.airborne() or not t.is_tanker():
+		# The tanker is gone — shot down, or it gave away everything it had. The receiver is
+		# below bingo and has just spent fuel joining on it, so it goes home now rather than
+		# carrying on as though nothing happened.
 		a.tanking_on = null
+		a.returning = true
+		a.waypoints.clear()
 		return false
 	a.waypoints.clear()
 	a.waypoints.append(t.position)
@@ -331,10 +336,10 @@ func _step_tanking_receiver(a: Unit) -> bool:
 ## home; an aircraft cannot drain the last of someone else's tanks and strand them both.
 func _run_tanking(dt: float) -> void:
 	for a in unit_manager.units:
-		if not a.airborne() or a.tanking_on == null:
+		if not a.alive or not a.airborne() or a.tanking_on == null:
 			continue
 		var t: Unit = a.tanking_on
-		if not t.airborne() or not t.is_tanker():
+		if not t.alive or not t.airborne() or not t.is_tanker():
 			a.tanking_on = null
 			a.returning = true
 			continue

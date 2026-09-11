@@ -557,3 +557,28 @@ func test_an_aircraft_with_no_deck_flies_off_the_chart_rather_than_running_dry()
 	assert_eq(gone.size(), 1, "it left the chart")
 	assert_true(not raider.alive, "and is off the board")
 	h.free_all()
+
+
+func test_losing_the_tanker_sends_the_receiver_home() -> void:
+	var ship := _unit(_carrier_spec(4), "BLUE", Vector2.ZERO)
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 40.0))
+	var tanker := _unit(_tanker_spec(), "BLUE", Vector2(0.0, 42.0))
+	_embark(ship, jet)
+	_embark(ship, tanker)
+	var h := _harness([ship, jet, tanker])
+	h.av.launch(ship)
+	h.av.launch(ship)
+	var now := _run(h, 70.0)
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	tanker.flight_state = Unit.FlightState.AIRBORNE
+	tanker.tanker_offload_s = tanker.spec.tanker_offload_s
+	jet.position = Vector2(0.0, 40.0)
+	tanker.position = Vector2(0.0, 42.0)
+	jet.fuel_s = jet.spec.endurance_s * 0.29
+	now = _run(h, 120.0, now)
+	assert_true(jet.tanking_on == tanker, "joined on the tanker")
+	Damage.apply(tanker, 500.0)  # the tanker is shot down mid-join
+	_run(h, 10.0, now)
+	assert_true(jet.tanking_on == null, "unplugged")
+	assert_true(jet.returning, "and turned for the deck rather than carrying on below bingo")
+	h.free_all()
