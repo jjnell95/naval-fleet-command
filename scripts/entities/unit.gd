@@ -7,7 +7,10 @@ const PERISCOPE_DEPTH_M := 20.0
 const HOVER_SPEED_KN := 12.0  # at or below this a helicopter counts as stopped
 const HOVER_ALTITUDE_M := 200.0
 
-enum FlightState { STOWED, LAUNCHING, AIRBORNE, RECOVERING }
+## STOWED is fit to fly. TURNAROUND is aboard but useless: fuelling, rearming and respotting an
+## airframe that has just landed takes longer than the sortie in many cases, and pretending
+## otherwise is what lets a single deck fly an unlimited war.
+enum FlightState { STOWED, LAUNCHING, AIRBORNE, RECOVERING, TURNAROUND }
 enum Emcon { FREE, SILENT }
 ## What a unit may do without being told. FREE fights, TIGHT defends itself only, HOLD does
 ## nothing automatically at all.
@@ -60,6 +63,12 @@ var home: Unit
 var state_timer_s := 0.0
 var sonobuoys := 0
 var returning := false
+## Squadron or detachment the airframe belongs to, for the roster and the recognition panel.
+var squadron := ""
+## The tanker this aircraft is currently joining on, if any. Set by the aviation layer when a
+## receiver decides it can reach a basket instead of the deck.
+var tanking_on: Unit
+var tanker_offload_s := 0.0  # give remaining, in receiver endurance-seconds
 
 
 func is_aircraft() -> bool:
@@ -68,6 +77,24 @@ func is_aircraft() -> bool:
 
 func airborne() -> bool:
 	return is_aircraft() and flight_state == FlightState.AIRBORNE
+
+
+## Fit to be sent off the deck right now. An airframe still being turned round is aboard and
+## alive but is not a sortie you have.
+func ready_to_launch() -> bool:
+	return alive and is_aircraft() and flight_state == FlightState.STOWED
+
+
+## Carries give for someone else, and still has some left.
+func is_tanker() -> bool:
+	return spec.tanker_offload_s > 0.0 and tanker_offload_s > 0.0
+
+
+## An airframe whose whole contribution is what it can see: early warning aircraft, maritime
+## patrol drones, the small shipboard machines with a camera and nothing else. These are worth
+## launching before anything is wrong, which is the opposite of how an armed airframe is used.
+func is_sensor_aircraft() -> bool:
+	return is_aircraft() and weapons.is_empty() and not sensors.is_empty()
 
 
 ## On the board: something a sensor could find or a weapon could hit. An aircraft in a hangar is
@@ -84,13 +111,49 @@ func fuel_fraction() -> float:
 	return clampf(fuel_s / maxf(spec.endurance_s, 1.0), 0.0, 1.0)
 
 
-## Aircraft still in the hangar and fit to fly.
+## Aircraft still in the hangar and fit to fly. An airframe in turnaround is deliberately not
+## here: it is aboard, but it is not something you can launch.
 func stowed_aircraft() -> Array[Unit]:
 	var out: Array[Unit] = []
 	for a in embarked:
-		if a.alive and a.flight_state == FlightState.STOWED:
+		if a.ready_to_launch():
 			out.append(a)
 	return out
+
+
+## Airframes aboard being refuelled, rearmed and respotted. The deck cycle made visible.
+func turnaround_aircraft() -> Array[Unit]:
+	var out: Array[Unit] = []
+	for a in embarked:
+		if a.alive and a.flight_state == FlightState.TURNAROUND:
+			out.append(a)
+	return out
+
+
+## Airframes off this deck and on the board right now.
+func airborne_aircraft() -> Array[Unit]:
+	var out: Array[Unit] = []
+	for a in embarked:
+		if a.alive and a.flight_state in [FlightState.LAUNCHING, FlightState.AIRBORNE, FlightState.RECOVERING]:
+			out.append(a)
+	return out
+
+
+## Spots in use at each end of the cycle, which is what bounds how fast a deck can work.
+func launch_spots_busy() -> int:
+	var n := 0
+	for a in embarked:
+		if a.alive and a.flight_state == FlightState.LAUNCHING:
+			n += 1
+	return n
+
+
+func recovery_spots_busy() -> int:
+	var n := 0
+	for a in embarked:
+		if a.alive and a.flight_state == FlightState.RECOVERING:
+			n += 1
+	return n
 
 
 var embarked: Array[Unit] = []  # aircraft that call this unit home

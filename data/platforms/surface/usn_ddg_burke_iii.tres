@@ -28,3 +28,4 @@ vls_cells = 96
 role = "Integrated air and missile defence • SPY-6(V)1"
 
 service_note = "Flight III / Aegis Baseline 10; magazine is a scenario allocation."
+default_air_wing = {"usn_helo_mh60r": 2}

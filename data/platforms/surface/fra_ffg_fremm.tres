@@ -31,3 +31,4 @@ vls_cells = 32
 role = "Antisubmarine escort • variable-depth sonar"
 
 service_note = "ASW variant; unmodelled MdCN strike cells remain unallocated."
+default_air_wing = {"nato_helo_nh90_nfh": 1}

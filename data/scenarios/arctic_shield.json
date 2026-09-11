@@ -1,770 +1,687 @@
 {
   "id": "arctic_shield",
-  "order": 1,
-  "name": "ARCTIC SHIELD",
-  "forces": "BLUE: carrier, Aegis BMD cruiser, Flight III destroyer, Constellation frigate, Type 45, Virginia SSN, E-2D, 2 fighters, EA-18G Growler, MH-60R / RED: Slava cruiser group, Yasen-M SSN, 4 Tu-22M3 with Kh-32, 2 MiG-31K with Kinzhal, 2 Su-35S, 2 Tu-142 / two neutral merchants",
-  "description": "Fictional Norwegian Sea exercise in a rough sea. A carrier group with an Aegis BMD cruiser holds station for one hour while a cruiser group, a nuclear submarine and a regimental air raid converge. The raid arrives high and fast: supersonic Kh-32s from the bombers and aero-ballistic Kinzhals from MiG-31Ks that only the SM-3 layer can meet outside the atmosphere. Launch the E-2D early, put the Growler between the raid axis and the task group to jam the bombers' search radars, keep the fighters on the northeast axis, and hold the cruiser inside the screen with its SM-3 magazine intact for the ballistic shots. Sea state 4 shortens every sonar and hides sea-skimmers in clutter. Public platform families, deliberately estimated combat parameters.",
-  "start_time_utc": "2027-11-14T05:40:00",
+  "name": "BARENTS SEA \u2014 ARCTIC SHIELD",
+  "description": "A carrier strike group is operating north of the North Cape, inside the reach of everything the Kola has. Olenya can put Backfires up, Monchegorsk has Foxhounds with Kinzhal, Severomorsk-1 flies the patrol aircraft and the drones, and a Northern Fleet surface group is at sea to the east. The air wing is the only thing that reaches back this far, and the tankers are what let it. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "start_time_utc": "2027-03-21T04:45:00",
   "player_faction": "BLUE",
-  "neutral_factions": [
-    "NEUTRAL"
-  ],
-  "environment": {
-    "sea_state": 4,
-    "wind_kn": 28,
-    "visibility_nm": 4
-  },
   "map": {
     "center_nm": [
-      30,
-      30
+      1.9,
+      -78.5
     ],
-    "extent_nm": 260
+    "extent_nm": 460,
+    "anchor_lat": 71.5,
+    "anchor_lon": 28.0,
+    "anchor_note": "World coordinates are nautical miles about this point; one minute of latitude is one mile and longitude is scaled by the cosine of the anchor latitude."
+  },
+  "environment": {
+    "sea_state": 4,
+    "wind_kn": 24,
+    "visibility_nm": 7
   },
   "terrain": {
     "land": [
       {
         "id": "kola_peninsula",
         "name": "Kola Peninsula",
-        "elevation_m": 560,
+        "elevation_m": 520,
         "points_nm": [
           [
-            96.0,
-            200.0
+            41.88,
+            -103.2
           ],
           [
-            98.57,
-            196.6
+            54.26,
+            -100.8
           ],
           [
-            101.86,
-            193.89
+            65.68,
+            -107.4
           ],
           [
-            103.92,
-            190.19
+            70.82,
+            -94.8
           ],
           [
-            105.46,
-            186.23
+            77.11,
+            -92.4
           ],
           [
-            108.92,
-            183.83
+            84.53,
+            -105.0
           ],
           [
-            112.25,
-            181.27
+            93.29,
+            -117.0
           ],
           [
-            116.04,
-            179.43
+            101.28,
+            -129.6
           ],
           [
-            120.0,
-            178.0
+            103.19,
+            -147.0
           ],
           [
-            122.03,
-            174.18
+            96.14,
+            -156.0
           ],
           [
-            124.94,
-            170.97
+            87.58,
+            -145.2
           ],
           [
-            128.5,
-            168.52
+            82.82,
+            -134.4
           ],
           [
-            131.51,
-            165.43
+            93.29,
+            -127.2
           ],
           [
-            134.92,
-            162.68
+            105.66,
+            -122.4
           ],
           [
-            138.36,
-            159.97
+            116.13,
+            -132.0
           ],
           [
-            140.41,
-            156.09
+            135.74,
+            -138.6
           ],
           [
-            142.0,
-            152.0
+            154.21,
+            -147.0
           ],
           [
-            144.56,
-            148.39
+            177.06,
+            -166.8
           ],
           [
-            146.34,
-            144.34
+            201.81,
+            -184.8
           ],
           [
-            148.83,
-            140.7
+            223.7,
+            -201.0
           ],
           [
-            150.9,
-            136.8
+            238.93,
+            -234.0
           ],
           [
-            154.75,
-            134.49
+            249.4,
+            -267.0
           ],
           [
-            157.99,
-            131.38
+            236.07,
+            -294.0
           ],
           [
-            160.39,
-            127.62
+            199.9,
+            -306.0
           ],
           [
-            163.0,
-            124.0
+            163.73,
+            -297.0
           ],
           [
-            167.54,
-            121.93
+            125.65,
+            -282.0
           ],
           [
-            171.7,
-            119.15
+            87.58,
+            -261.0
           ],
           [
-            176.07,
-            116.77
+            62.83,
+            -234.0
           ],
           [
-            180.51,
-            114.51
+            39.98,
+            -198.0
           ],
           [
-            184.92,
-            112.12
+            25.7,
+            -156.0
           ],
           [
-            188.67,
-            108.78
-          ],
-          [
-            192.68,
-            105.76
-          ],
-          [
-            196.0,
-            102.0
-          ],
-          [
-            201.44,
-            100.32
-          ],
-          [
-            207.12,
-            99.83
-          ],
-          [
-            212.8,
-            100.09
-          ],
-          [
-            218.33,
-            101.43
-          ],
-          [
-            223.76,
-            100.01
-          ],
-          [
-            229.34,
-            99.42
-          ],
-          [
-            234.88,
-            98.37
-          ],
-          [
-            240.0,
-            96.0
-          ],
-          [
-            245.55,
-            109.28
-          ],
-          [
-            250.65,
-            122.75
-          ],
-          [
-            259.9,
-            133.79
-          ],
-          [
-            269.88,
-            144.18
-          ],
-          [
-            267.99,
-            158.24
-          ],
-          [
-            264.63,
-            172.03
-          ],
-          [
-            262.29,
-            186.01
-          ],
-          [
-            260.0,
-            200.0
-          ],
-          [
-            238.67,
-            207.04
-          ],
-          [
-            216.95,
-            212.78
-          ],
-          [
-            197.92,
-            224.73
-          ],
-          [
-            178.0,
-            235.13
-          ],
-          [
-            158.47,
-            224.2
-          ],
-          [
-            138.46,
-            214.16
-          ],
-          [
-            117.39,
-            206.61
+            30.46,
+            -126.0
           ]
         ]
       },
       {
-        "id": "rybachy_isle",
-        "name": "Rybachy",
-        "elevation_m": 300,
+        "id": "northern_norway",
+        "name": "Northern Norway",
+        "elevation_m": 760,
         "points_nm": [
           [
-            93.0,
-            160.0
+            39.03,
+            -106.8
           ],
           [
-            95.51,
-            159.83
+            59.21,
+            -67.8
           ],
           [
-            97.5,
-            158.29
+            41.88,
+            -51.0
           ],
           [
-            99.03,
-            156.42
+            5.71,
+            -34.8
           ],
           [
-            101.0,
-            155.0
+            -6.66,
+            -57.0
           ],
           [
-            103.23,
-            157.1
+            -26.65,
+            -31.2
           ],
           [
-            104.38,
-            159.94
+            -42.26,
+            -19.8
           ],
           [
-            107.34,
-            160.55
+            -53.31,
+            -45.0
           ],
           [
-            110.0,
-            162.0
+            -70.44,
+            -36.0
           ],
           [
-            109.31,
-            164.63
+            -78.06,
+            -72.0
           ],
           [
-            107.89,
-            166.95
+            -82.25,
+            -50.4
           ],
           [
-            107.21,
-            169.58
+            -108.52,
+            -57.0
           ],
           [
-            106.0,
-            172.0
+            -133.27,
+            -81.0
           ],
           [
-            103.37,
-            171.32
+            -154.21,
+            -91.2
           ],
           [
-            101.03,
-            169.94
+            -172.87,
+            -109.2
           ],
           [
-            98.28,
-            169.58
+            -194.19,
+            -132.0
           ],
           [
-            96.0,
-            168.0
+            -225.79,
+            -132.6
           ],
           [
-            94.81,
-            166.2
+            -241.79,
+            -159.0
           ],
           [
-            94.02,
-            164.18
+            -258.92,
+            -186.0
           ],
           [
-            93.27,
-            162.15
+            -279.86,
+            -207.0
+          ],
+          [
+            -291.67,
+            -230.4
+          ],
+          [
+            -277.96,
+            -243.0
+          ],
+          [
+            -259.49,
+            -253.2
+          ],
+          [
+            -274.15,
+            -273.0
+          ],
+          [
+            -285.57,
+            -312.0
+          ],
+          [
+            -300.8,
+            -342.0
+          ],
+          [
+            -302.71,
+            -372.0
+          ],
+          [
+            -285.57,
+            -390.0
+          ],
+          [
+            -258.92,
+            -354.0
+          ],
+          [
+            -243.69,
+            -306.0
+          ],
+          [
+            -222.75,
+            -258.0
+          ],
+          [
+            -182.77,
+            -204.0
+          ],
+          [
+            -148.5,
+            -156.0
+          ],
+          [
+            -95.19,
+            -132.0
+          ],
+          [
+            -38.08,
+            -144.0
+          ],
+          [
+            22.85,
+            -114.0
           ]
         ]
-      }
-    ]
-  },
-  "objectives": {
-    "text": "Hold the task group for 60 minutes. Keep the carrier and the BMD cruiser alive through the regimental raid.",
-    "victory": [
-      {
-        "id": "hold",
-        "type": "time_elapsed",
-        "seconds": 3600,
-        "text": "Hold station for 60 minutes"
-      }
-    ],
-    "loss": [
-      {
-        "id": "carrier_lost",
-        "type": "unit_lost",
-        "callsigns": [
-          "Carrier Resolute"
-        ],
-        "text": "Carrier lost"
-      },
-      {
-        "id": "cg_lost",
-        "type": "unit_lost",
-        "callsigns": [
-          "USS Gettysburg"
-        ],
-        "text": "BMD cruiser lost"
       }
     ]
   },
   "units": [
     {
       "platform": "usn_cvn_nimitz",
-      "callsign": "Carrier Resolute",
+      "callsign": "USS Dwight D. Eisenhower (CVN 69)",
       "faction": "BLUE",
       "position_nm": [
-        -14,
-        -10
+        -76.15,
+        30.0
       ],
-      "heading_deg": 40,
-      "speed_kn": 16
+      "heading_deg": 70,
+      "speed_kn": 20,
+      "air_wing": [
+        {
+          "platform": "usn_fighter_fa18e",
+          "count": 6,
+          "squadron": "VFA-83",
+          "callsign": "Rampager",
+          "first_modex": 301
+        },
+        {
+          "platform": "usn_fighter_fa18f",
+          "count": 2,
+          "squadron": "VFA-32",
+          "callsign": "Gypsy",
+          "first_modex": 101
+        },
+        {
+          "platform": "usn_ea_ea18g",
+          "count": 2,
+          "squadron": "VAQ-130",
+          "callsign": "Zapper",
+          "first_modex": 501
+        },
+        {
+          "platform": "usn_aew_e2d",
+          "count": 2,
+          "squadron": "VAW-123",
+          "callsign": "Screwtop",
+          "first_modex": 601
+        },
+        {
+          "platform": "usn_uav_mq25",
+          "count": 2,
+          "squadron": "VUQ-10",
+          "callsign": "Fire Hawk",
+          "first_modex": 701
+        },
+        {
+          "platform": "usn_helo_mh60r",
+          "count": 3,
+          "squadron": "HSM-74",
+          "callsign": "Swamp Fox",
+          "first_modex": 701
+        },
+        {
+          "platform": "usn_helo_mh60s",
+          "count": 1,
+          "squadron": "HSC-7",
+          "callsign": "Dusty Dog",
+          "first_modex": 611
+        }
+      ]
     },
     {
       "platform": "usn_cg_ticonderoga",
-      "callsign": "USS Gettysburg",
+      "callsign": "USS Gettysburg (CG 64)",
       "faction": "BLUE",
       "position_nm": [
-        -4,
-        -2
+        -64.73,
+        36.0
       ],
-      "heading_deg": 40,
-      "speed_kn": 18
+      "heading_deg": 70,
+      "speed_kn": 20
     },
     {
       "platform": "usn_ddg_burke_iii",
-      "callsign": "USS Jack H. Lucas",
+      "callsign": "USS Jack H. Lucas (DDG 125)",
       "faction": "BLUE",
       "position_nm": [
-        8,
-        10
+        -60.92,
+        24.0
       ],
-      "heading_deg": 40,
-      "speed_kn": 18
+      "heading_deg": 70,
+      "speed_kn": 20
     },
     {
       "platform": "usn_ffg_constellation",
-      "callsign": "USS Constellation",
+      "callsign": "USS Constellation (FFG 62)",
       "faction": "BLUE",
       "position_nm": [
-        -22,
-        2
+        -87.58,
+        18.0
       ],
-      "heading_deg": 40,
-      "speed_kn": 16
+      "heading_deg": 70,
+      "speed_kn": 20
     },
     {
       "platform": "rn_ddg_type45",
-      "callsign": "HMS Dragon",
+      "callsign": "HMS Dragon (D 35)",
       "faction": "BLUE",
       "position_nm": [
-        2,
-        -20
+        -85.67,
+        42.0
       ],
-      "heading_deg": 40,
-      "speed_kn": 18
+      "heading_deg": 70,
+      "speed_kn": 20
     },
     {
       "platform": "usn_ssn_virginia",
-      "callsign": "USS Delaware",
+      "callsign": "USS Delaware (SSN 791)",
       "faction": "BLUE",
       "position_nm": [
-        18,
-        30
+        -19.04,
+        54.0
       ],
-      "speed_kn": 7,
-      "depth_m": 140,
+      "heading_deg": 90,
+      "speed_kn": 10,
+      "depth_m": 150,
       "radar_on": false
     },
     {
-      "platform": "usn_aew_e2d",
-      "callsign": "Overlord 12",
-      "faction": "BLUE",
-      "home": "Carrier Resolute",
-      "patrol_nm": [
-        [
-          10,
-          45
-        ],
-        [
-          45,
-          45
-        ]
-      ]
-    },
-    {
-      "platform": "usn_fighter_fa18e",
-      "callsign": "Raven 21",
-      "faction": "BLUE",
-      "home": "Carrier Resolute",
-      "patrol_nm": [
-        [
-          40,
-          60
-        ],
-        [
-          70,
-          70
-        ]
-      ]
-    },
-    {
-      "platform": "usn_fighter_fa18e",
-      "callsign": "Raven 22",
-      "faction": "BLUE",
-      "home": "Carrier Resolute",
-      "patrol_nm": [
-        [
-          40,
-          60
-        ],
-        [
-          70,
-          70
-        ]
-      ]
-    },
-    {
-      "platform": "usn_ea_ea18g",
-      "callsign": "Grizzly 51",
-      "faction": "BLUE",
-      "home": "Carrier Resolute",
-      "patrol_nm": [
-        [
-          35,
-          40
-        ],
-        [
-          55,
-          55
-        ]
-      ]
-    },
-    {
-      "platform": "usn_helo_mh60r",
-      "callsign": "Seahawk 32",
-      "faction": "BLUE",
-      "home": "USS Constellation"
-    },
-    {
       "platform": "rfn_cg_slava",
-      "callsign": "Marshal Ustinov",
+      "callsign": "Marshal Ustinov (055)",
       "faction": "RED",
       "position_nm": [
-        125,
-        95
+        123.75,
+        -42.0
       ],
-      "heading_deg": 225,
+      "heading_deg": 300,
       "speed_kn": 18,
       "patrol_nm": [
         [
-          60,
-          45
+          38.08,
+          -6.0
         ],
         [
-          20,
-          15
+          142.79,
+          -66.0
         ]
       ]
     },
     {
       "platform": "rfn_ddg_udaloy",
-      "callsign": "Vice-Admiral Kulakov",
+      "callsign": "Vice-Admiral Kulakov (626)",
       "faction": "RED",
       "position_nm": [
-        132,
-        88
+        137.08,
+        -54.0
       ],
-      "heading_deg": 225,
+      "heading_deg": 300,
       "speed_kn": 18,
       "patrol_nm": [
         [
-          62,
-          40
+          53.31,
+          -18.0
         ],
         [
-          20,
-          15
+          156.11,
+          -78.0
         ]
       ]
     },
     {
-      "platform": "rfn_fsg_steregushchiy",
-      "callsign": "Stoiky",
+      "platform": "rfn_ffg_admiral_gorshkov",
+      "callsign": "Admiral Gorshkov (454)",
       "faction": "RED",
       "position_nm": [
-        118,
-        104
+        110.42,
+        -30.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 20,
+      "heading_deg": 300,
+      "speed_kn": 18,
       "patrol_nm": [
         [
-          55,
-          50
+          26.65,
+          6.0
         ],
         [
-          15,
-          20
+          129.46,
+          -54.0
         ]
       ]
     },
     {
       "platform": "rfn_ssn_yasen_m",
-      "callsign": "Kazan",
+      "callsign": "Kazan (K-561)",
       "faction": "RED",
       "position_nm": [
-        48,
-        66
+        57.11,
+        42.0
       ],
-      "speed_kn": 8,
-      "depth_m": 180,
-      "radar_on": false,
+      "heading_deg": 280,
+      "speed_kn": 14,
       "patrol_nm": [
         [
-          10,
-          20
+          -28.56,
+          54.0
         ],
         [
-          -10,
-          -5
-        ],
-        [
-          25,
-          -10
+          76.15,
+          30.0
         ]
-      ]
+      ],
+      "depth_m": 200,
+      "radar_on": false
     },
     {
       "platform": "shore_air_station",
       "callsign": "Olenya Air Base",
       "faction": "RED",
       "position_nm": [
-        175,
-        165
+        104.01,
+        -200.88
       ],
-      "radar_on": false
+      "heading_deg": 0,
+      "speed_kn": 0,
+      "air_wing": [
+        {
+          "platform": "rfn_bomber_tu22m3",
+          "count": 4,
+          "squadron": "40 SAP",
+          "callsign": "Backfire",
+          "first_modex": 21,
+          "patrol_nm": [
+            [
+              0.0,
+              66.0
+            ],
+            [
+              -114.23,
+              54.0
+            ],
+            [
+              -152.31,
+              -6.0
+            ]
+          ]
+        },
+        {
+          "platform": "rfn_fighter_su35s",
+          "count": 2,
+          "squadron": "159 IAP",
+          "callsign": "Flanker",
+          "first_modex": 41
+        }
+      ]
     },
     {
       "platform": "shore_air_station",
       "callsign": "Monchegorsk Air Base",
       "faction": "RED",
       "position_nm": [
-        190,
-        150
+        92.01,
+        -210.96
       ],
-      "radar_on": false
-    },
-    {
-      "platform": "rfn_mpa_tu142",
-      "callsign": "Bear 71",
-      "faction": "RED",
-      "home": "Olenya Air Base",
-      "patrol_nm": [
-        [
-          150,
-          60
-        ],
-        [
-          125,
-          15
-        ],
-        [
-          150,
-          -20
-        ]
+      "heading_deg": 0,
+      "speed_kn": 0,
+      "air_wing": [
+        {
+          "platform": "rfn_strike_mig31k",
+          "count": 2,
+          "squadron": "174 IAP",
+          "callsign": "Foxhound",
+          "first_modex": 31,
+          "patrol_nm": [
+            [
+              -28.56,
+              42.0
+            ],
+            [
+              -104.71,
+              18.0
+            ]
+          ]
+        },
+        {
+          "platform": "rfn_fighter_su35s",
+          "count": 2,
+          "squadron": "159 IAP",
+          "callsign": "Flanker",
+          "first_modex": 41
+        }
       ]
     },
     {
-      "platform": "rfn_mpa_tu142",
-      "callsign": "Bear 72",
+      "platform": "shore_air_station",
+      "callsign": "Severomorsk-1",
       "faction": "RED",
-      "home": "Olenya Air Base",
-      "patrol_nm": [
-        [
-          95,
-          75
-        ],
-        [
-          45,
-          45
-        ],
-        [
-          75,
-          20
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_bomber_tu22m3",
-      "callsign": "Backfire 21",
-      "faction": "RED",
-      "home": "Olenya Air Base",
-      "patrol_nm": [
-        [
-          120,
-          110
-        ],
-        [
-          60,
-          50
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_bomber_tu22m3",
-      "callsign": "Backfire 22",
-      "faction": "RED",
-      "home": "Olenya Air Base",
-      "patrol_nm": [
-        [
-          120,
-          110
-        ],
-        [
-          60,
-          50
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_bomber_tu22m3",
-      "callsign": "Backfire 23",
-      "faction": "RED",
-      "home": "Olenya Air Base",
-      "patrol_nm": [
-        [
-          125,
-          100
-        ],
-        [
-          65,
-          45
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_bomber_tu22m3",
-      "callsign": "Backfire 24",
-      "faction": "RED",
-      "home": "Olenya Air Base",
-      "patrol_nm": [
-        [
-          125,
-          100
-        ],
-        [
-          65,
-          45
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_strike_mig31k",
-      "callsign": "Foxhound 31",
-      "faction": "RED",
-      "home": "Monchegorsk Air Base"
-    },
-    {
-      "platform": "rfn_strike_mig31k",
-      "callsign": "Foxhound 32",
-      "faction": "RED",
-      "home": "Monchegorsk Air Base"
-    },
-    {
-      "platform": "rfn_fighter_su35s",
-      "callsign": "Flanker 41",
-      "faction": "RED",
-      "home": "Monchegorsk Air Base",
-      "patrol_nm": [
-        [
-          110,
-          100
-        ],
-        [
-          70,
-          70
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_fighter_su35s",
-      "callsign": "Flanker 42",
-      "faction": "RED",
-      "home": "Monchegorsk Air Base",
-      "patrol_nm": [
-        [
-          110,
-          100
-        ],
-        [
-          70,
-          70
-        ]
+      "position_nm": [
+        100.85,
+        -148.08
+      ],
+      "heading_deg": 0,
+      "speed_kn": 0,
+      "air_wing": [
+        {
+          "platform": "rfn_mpa_il38n",
+          "count": 2,
+          "squadron": "403 OPLAP",
+          "callsign": "May",
+          "first_modex": 51,
+          "patrol_nm": [
+            [
+              38.08,
+              54.0
+            ],
+            [
+              -76.15,
+              66.0
+            ],
+            [
+              -123.75,
+              6.0
+            ],
+            [
+              -19.04,
+              -30.0
+            ]
+          ]
+        },
+        {
+          "platform": "rfn_uav_orion",
+          "count": 2,
+          "squadron": "UAV det",
+          "callsign": "Orion",
+          "first_modex": 61,
+          "patrol_nm": [
+            [
+              38.08,
+              54.0
+            ],
+            [
+              -76.15,
+              66.0
+            ],
+            [
+              -123.75,
+              6.0
+            ],
+            [
+              -19.04,
+              -30.0
+            ]
+          ]
+        },
+        {
+          "platform": "rfn_uav_orlan10",
+          "count": 2,
+          "squadron": "UAV det",
+          "callsign": "Orlan",
+          "first_modex": 71,
+          "patrol_nm": [
+            [
+              38.08,
+              54.0
+            ],
+            [
+              -76.15,
+              66.0
+            ],
+            [
+              -123.75,
+              6.0
+            ],
+            [
+              -19.04,
+              -30.0
+            ]
+          ]
+        },
+        {
+          "platform": "rfn_helo_ka27",
+          "count": 1,
+          "squadron": "830 OKPLVP",
+          "callsign": "Helix",
+          "first_modex": 81
+        }
       ]
     },
     {
@@ -772,24 +689,67 @@
       "callsign": "MV Arctic Voyager",
       "faction": "NEUTRAL",
       "position_nm": [
-        60,
-        -20
+        -38.08,
+        6.0
       ],
-      "heading_deg": 270,
-      "speed_kn": 12,
-      "radar_on": true
+      "heading_deg": 100,
+      "speed_kn": 13,
+      "patrol_nm": [
+        [
+          -152.31,
+          -18.0
+        ],
+        [
+          57.11,
+          24.0
+        ]
+      ]
     },
     {
-      "platform": "civ_merchant_bulk",
-      "callsign": "MV Nordkapp Star",
+      "platform": "civ_fishing_trawler",
+      "callsign": "FV Nordkapp",
       "faction": "NEUTRAL",
       "position_nm": [
-        -30,
-        70
+        -11.42,
+        -6.0
       ],
-      "heading_deg": 120,
-      "speed_kn": 11,
-      "radar_on": true
+      "heading_deg": 200,
+      "speed_kn": 7,
+      "patrol_nm": [
+        [
+          -53.31,
+          -9.0
+        ],
+        [
+          15.23,
+          0.0
+        ]
+      ]
     }
-  ]
+  ],
+  "order": 8,
+  "neutral_factions": [
+    "NEUTRAL"
+  ],
+  "seed": 13,
+  "objectives": {
+    "text": "Break the Northern Fleet surface group and the aircraft that come for you.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy the Russian surface group and its supporting aircraft"
+      }
+    ],
+    "loss": [
+      {
+        "id": "lose_blue",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "Carrier strike group destroyed"
+      }
+    ]
+  },
+  "forces": "NATO: 1 carrier (CVW-3 det), 1 cruiser, 2 destroyers, 1 frigate, 1 submarine  \u00b7  Russia: 1 cruiser, 1 destroyer, 1 frigate, 1 submarine, 3 air bases"
 }

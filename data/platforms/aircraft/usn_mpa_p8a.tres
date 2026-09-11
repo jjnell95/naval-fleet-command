@@ -35,6 +35,7 @@ sonobuoy_life_s = 3600.0
 fire_control_channels = 0
 decoy_count = 6
 decoy_effectiveness = 0.30
-weapon_loadout = {"agm_84_harpoon": 4, "mk54_lwt": 4}
+weapon_loadout = {"agm_158c_lrasm": 2, "agm_84_harpoon": 2, "mk54_lwt": 6}
 
 role = "Maritime Patrol Aircraft • maritime operations"
+can_refuel = true

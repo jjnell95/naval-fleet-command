@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "aim9x_air"
+display_name = "AIM-9X (air-launched fit)"
+family = "Sidewinder"
+type = "sam"
+guidance = "imaging_infrared"
+profile = "direct"
+target_types = PackedStringArray("air")
+max_range_nm = 12.0
+min_range_nm = 0.3
+speed_kn = 1600.0
+turn_rate_deg_s = 45.0
+seeker_range_nm = 3.0
+damage = 25.0
+base_pk = 0.7
+salvo_default = 1
+launch_interval_s = 2.0
+defensive_difficulty = 1.0
+signature_factor = 0.03
+altitude_m = 3000.0
+soft_kill_resistance = 1.4
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Short-range infrared air-to-air round, kept separate from the ship-launched Sidewinder fit in the catalogue."

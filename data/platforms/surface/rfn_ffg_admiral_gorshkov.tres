@@ -34,3 +34,4 @@ decoy_effectiveness = 0.33
 role = "Frigate • maritime operations"
 
 aircraft_capacity = 1
+default_air_wing = {"rfn_helo_ka27": 1}

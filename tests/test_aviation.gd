@@ -16,6 +16,7 @@ func _ship_spec(capacity := 1) -> PlatformSpec:
 	p.mast_height_m = 30.0
 	p.acoustic_signature = 1.0
 	p.aircraft_capacity = capacity
+	p.turnaround_s = 600.0  # short of a real deck cycle, long enough to observe
 	return p
 
 
@@ -197,8 +198,12 @@ func test_bingo_fuel_sends_it_home_and_it_recovers() -> void:
 	now = _run(h, 60.0, now)
 	assert_eq(bingo_calls.size(), 1, "warned once when the tanks got low")
 	assert_true(helo.returning, "and turned for home")
+	now = _run(h, 400.0, now)
+	assert_eq(helo.flight_state, Unit.FlightState.TURNAROUND, "aboard, but being turned round")
+	assert_true(helo.fuel_s < helo.spec.endurance_s, "not refuelled the instant the wheels touch")
+	assert_true(ship.stowed_aircraft().is_empty(), "and not yet a sortie the ship has")
 	_run(h, 700.0, now)
-	assert_eq(helo.flight_state, Unit.FlightState.STOWED, "back in the hangar")
+	assert_eq(helo.flight_state, Unit.FlightState.STOWED, "ready again once the deck has turned it")
 	assert_near(helo.fuel_s, helo.spec.endurance_s, 1.0, "refuelled")
 	assert_true(helo.alive)
 	h.free_all()
@@ -234,7 +239,7 @@ func test_a_stranded_aircraft_diverts_to_another_deck() -> void:
 	helo.position = Vector2(0.0, 6.0)
 	helo.fuel_s = helo.spec.endurance_s * 0.30
 	Damage.apply(ship, 500.0)  # the deck it came from is gone
-	_run(h, 900.0, now)
+	_run(h, 1400.0, now)
 	assert_eq(helo.home, consort, "it found somewhere else to land")
 	assert_eq(helo.flight_state, Unit.FlightState.STOWED)
 	assert_true(helo.alive, "losing the ship should cost the sortie, not the airframe")
@@ -446,3 +451,134 @@ func test_ships_that_operate_helicopters_have_somewhere_to_put_them() -> void:
 	for pid in ["usn_ddg_arleigh_burke_iia", "rnon_ffg_fridtjof_nansen"]:
 		var p := DataDB.platform(pid)
 		assert_true(p != null and p.aircraft_capacity > 0, "%s has a hangar" % pid)
+
+
+# --- Tanking ------------------------------------------------------------------------------
+## A tanker is what turns a strike radius into an operating radius. These pin the part that
+## matters: a receiver at bingo takes fuel instead of the deck, and cannot drain a tanker dry.
+
+## A deck that can work fixed-wing aircraft. A helicopter deck cannot, which is the rule these
+## tests kept tripping over before the fixture admitted what it was.
+func _carrier_spec(capacity := 8) -> PlatformSpec:
+	var p := _ship_spec(capacity)
+	p.short_name = "CVN Test"
+	p.category = "carrier"
+	p.aviation_facility = "catobar"
+	p.launch_spots = 4
+	p.recovery_spots = 1
+	p.turnaround_s = 600.0
+	return p
+
+
+func _tanker_spec() -> PlatformSpec:
+	var p := _helo_spec(20000.0)
+	p.short_name = "Tanker Test"
+	p.can_hover = false
+	p.cruise_speed_kn = 280.0
+	p.max_speed_kn = 320.0
+	p.cruise_altitude_m = 8000.0
+	p.tanker_offload_s = 6000.0
+	p.launch_requirement = "catobar"
+	return p
+
+
+func _receiver_spec() -> PlatformSpec:
+	var p := _helo_spec(3600.0)
+	p.short_name = "Receiver Test"
+	p.can_hover = false
+	p.cruise_speed_kn = 400.0
+	p.max_speed_kn = 900.0
+	p.cruise_altitude_m = 9000.0
+	p.can_refuel = true
+	p.launch_requirement = "catobar"
+	return p
+
+
+func test_a_thirsty_aircraft_takes_the_basket_instead_of_the_deck() -> void:
+	var ship := _unit(_carrier_spec(4), "BLUE", Vector2.ZERO)
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 40.0))
+	var tanker := _unit(_tanker_spec(), "BLUE", Vector2(0.0, 42.0))
+	_embark(ship, jet)
+	_embark(ship, tanker)
+	var h := _harness([ship, jet, tanker])
+	h.av.launch(ship)
+	h.av.launch(ship)
+	var now := _run(h, 70.0)
+	# Both airborne and well out on task; put the tanker where it belongs and run the jet down.
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	tanker.flight_state = Unit.FlightState.AIRBORNE
+	tanker.position = Vector2(0.0, 42.0)
+	tanker.fuel_s = tanker.spec.endurance_s
+	tanker.tanker_offload_s = tanker.spec.tanker_offload_s
+	jet.position = Vector2(0.0, 40.0)
+	jet.fuel_s = jet.spec.endurance_s * 0.29
+	var joined: Array[String] = []
+	h.av.aircraft_tanking.connect(func(a: Unit, _t: Unit) -> void: joined.append(a.callsign))
+	now = _run(h, 120.0, now)
+	assert_eq(joined.size(), 1, "it went looking for give before it went looking for the deck")
+	assert_true(not jet.returning, "and did not turn for home")
+	var before := jet.fuel_s
+	_run(h, 240.0, now)
+	assert_true(jet.fuel_s > before, "took fuel on the basket")
+	assert_true(tanker.tanker_offload_s < tanker.spec.tanker_offload_s, "which came out of the tanker")
+	h.free_all()
+
+
+func test_a_receiver_with_no_tanker_still_goes_home() -> void:
+	var ship := _unit(_carrier_spec(2), "BLUE", Vector2.ZERO)
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2.ZERO)
+	_embark(ship, jet)
+	var h := _harness([ship, jet])
+	h.av.launch(ship)
+	var now := _run(h, 70.0)
+	jet.position = Vector2(0.0, 20.0)
+	jet.fuel_s = jet.spec.endurance_s * 0.29
+	_run(h, 120.0, now)
+	assert_true(jet.returning, "no basket in the sky means the deck is the only option")
+	h.free_all()
+
+
+# --- Off-map basing -----------------------------------------------------------------------
+
+func test_an_aircraft_with_no_deck_flies_off_the_chart_rather_than_running_dry() -> void:
+	var raider := _unit(_receiver_spec(), "RED", Vector2(0.0, 60.0))
+	raider.flight_state = Unit.FlightState.AIRBORNE
+	raider.fuel_s = raider.spec.endurance_s * 0.29
+	raider.ordered_speed_kn = raider.spec.cruise_speed_kn
+	var h := _harness([raider])
+	h.av.map_center = Vector2.ZERO
+	h.av.map_extent_nm = 160.0
+	var gone: Array[String] = []
+	h.av.aircraft_departed.connect(func(a: Unit) -> void: gone.append(a.callsign))
+	var now := _run(h, 120.0)
+	assert_true(raider.returning, "it turned for home even though home is not on the plot")
+	assert_true(not raider.waypoints.is_empty(), "and steered for an edge")
+	_run(h, 700.0, now)
+	assert_eq(gone.size(), 1, "it left the chart")
+	assert_true(not raider.alive, "and is off the board")
+	h.free_all()
+
+
+func test_losing_the_tanker_sends_the_receiver_home() -> void:
+	var ship := _unit(_carrier_spec(4), "BLUE", Vector2.ZERO)
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 40.0))
+	var tanker := _unit(_tanker_spec(), "BLUE", Vector2(0.0, 42.0))
+	_embark(ship, jet)
+	_embark(ship, tanker)
+	var h := _harness([ship, jet, tanker])
+	h.av.launch(ship)
+	h.av.launch(ship)
+	var now := _run(h, 70.0)
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	tanker.flight_state = Unit.FlightState.AIRBORNE
+	tanker.tanker_offload_s = tanker.spec.tanker_offload_s
+	jet.position = Vector2(0.0, 40.0)
+	tanker.position = Vector2(0.0, 42.0)
+	jet.fuel_s = jet.spec.endurance_s * 0.29
+	now = _run(h, 120.0, now)
+	assert_true(jet.tanking_on == tanker, "joined on the tanker")
+	Damage.apply(tanker, 500.0)  # the tanker is shot down mid-join
+	_run(h, 10.0, now)
+	assert_true(jet.tanking_on == null, "unplugged")
+	assert_true(jet.returning, "and turned for the deck rather than carrying on below bingo")
+	h.free_all()

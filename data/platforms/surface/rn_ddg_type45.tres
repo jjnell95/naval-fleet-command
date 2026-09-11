@@ -27,3 +27,4 @@ weapon_loadout = {"aster30_family": 32, "essm_family": 16, "rgm_84_harpoon": 8, 
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
 
 role = "Destroyer • maritime operations"
+default_air_wing = {"rn_helo_wildcat": 1}

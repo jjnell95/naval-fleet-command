@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "agm_114_hellfire"
+display_name = "AGM-114 Hellfire"
+family = "Hellfire"
+type = "asm"
+guidance = "semi_active_laser"
+profile = "direct"
+target_types = PackedStringArray("surface")
+max_range_nm = 4.5
+min_range_nm = 0.3
+speed_kn = 800.0
+turn_rate_deg_s = 25.0
+seeker_range_nm = 1.5
+damage = 14.0
+base_pk = 0.85
+salvo_default = 2
+launch_interval_s = 3.0
+defensive_difficulty = 0.9
+signature_factor = 0.03
+altitude_m = 60.0
+soft_kill_resistance = 1.6
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Short-range precision round carried by helicopters and rotary drones. Useful against small craft, not against a warship's hull."

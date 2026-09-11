@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "usn_fighter_fa18f"
+display_name = "F/A-18F Super Hornet (strike fit)"
+short_name = "F/A-18F"
+nation = "USA"
+category = "fighter"
+domain = "air"
+max_speed_kn = 1000.0
+cruise_speed_kn = 470.0
+turn_rate_deg_s = 14.0
+accel_kn_s = 14.0
+length_m = 18.3
+health = 20.0
+signature_factor = 0.32
+sensor_ids = PackedStringArray("an_apg_79", "an_alr_67")
+cruise_altitude_m = 9000.0
+max_altitude_m = 15000.0
+altitude_rate_m_s = 45.0
+endurance_s = 8400.0
+can_hover = false
+launch_time_s = 45.0
+recovery_time_s = 60.0
+launch_requirement = "catobar"
+can_refuel = true
+weapon_loadout = {"agm_158c_lrasm": 2, "aim120_family": 2, "aim9x_air": 2}
+decoy_count = 30
+fire_control_channels = 1
+role = "Two-seat strike fighter • long-range anti-surface"
+service_note = "Two-seat airframe carrying the wing's long-range anti-ship round. A weapons officer in the back seat is not simulated; the fit is what distinguishes it here."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

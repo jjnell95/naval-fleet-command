@@ -40,3 +40,4 @@ weapon_loadout = {
 }
 
 role = "Strike Aircraft • maritime operations"
+can_refuel = true

@@ -22,15 +22,16 @@ cruise_altitude_m = 10000.0
 max_altitude_m = 15000.0
 altitude_rate_m_s = 35.0
 endurance_s = 9000.0
-launch_time_s = 90.0
-recovery_time_s = 120.0
+launch_time_s = 45.0
+recovery_time_s = 60.0
 fire_control_channels = 0
 decoy_count = 8
-weapon_loadout = {"aim120_family": 4}
+weapon_loadout = {"aim120_family": 4, "jsm_missile": 2}
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
 
 launch_requirement = "catobar"
 
 role = "Low-observable carrier fighter • counter-air"
 
-service_note = "Internal air-to-air scenario load. Stealth is an estimated signature reduction, never invisibility."
+service_note = "Carried weapons are the internal fit: fewer rounds than a Super Hornet, bought back by being much harder to see."
+can_refuel = true

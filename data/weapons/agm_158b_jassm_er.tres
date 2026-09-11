@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "agm_158b_jassm_er"
+display_name = "AGM-158B JASSM-ER"
+family = "JASSM"
+type = "asm"
+guidance = "inertial_terminal"
+profile = "high"
+target_types = PackedStringArray("surface", "land")
+max_range_nm = 500.0
+min_range_nm = 8.0
+speed_kn = 520.0
+turn_rate_deg_s = 8.0
+seeker_range_nm = 8.0
+damage = 65.0
+base_pk = 0.72
+salvo_default = 2
+launch_interval_s = 6.0
+defensive_difficulty = 1.35
+signature_factor = 0.08
+altitude_m = 8000.0
+soft_kill_resistance = 1.4
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Long-range air-launched cruise missile flown high. Land targets are catalogued but not yet a playable target class."

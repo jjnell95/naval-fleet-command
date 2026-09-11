@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "usn_uav_mq25"
+display_name = "MQ-25A Stingray"
+short_name = "MQ-25"
+nation = "USA"
+category = "unmanned aerial refuelling"
+domain = "air"
+max_speed_kn = 350.0
+cruise_speed_kn = 300.0
+turn_rate_deg_s = 3.5
+accel_kn_s = 3.0
+length_m = 15.5
+health = 16.0
+signature_factor = 0.16
+sensor_ids = PackedStringArray("mq25_eo_ir", "mq25_esm")
+cruise_altitude_m = 9000.0
+max_altitude_m = 12000.0
+altitude_rate_m_s = 14.0
+endurance_s = 50400.0
+can_hover = false
+launch_time_s = 60.0
+recovery_time_s = 75.0
+launch_requirement = "catobar"
+tanker_offload_s = 32000.0
+weapon_loadout = {}
+decoy_count = 0
+fire_control_channels = 1
+role = "Carrier tanker drone • organic air wing reach"
+service_note = "Unmanned carrier tanker. Its job is give, not weapons: it is what turns a strike radius into an operating radius, and it is unarmed."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

@@ -32,3 +32,4 @@ weapon_loadout = {"kh32_family": 2}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
 
 role = "Maritime Strike Bomber • maritime operations"
+can_refuel = true

@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rn_aew_crowsnest"
+display_name = "Merlin HM2 (Crowsnest AEW fit)"
+short_name = "Crowsnest"
+nation = "UK"
+category = "airborne early warning helicopter"
+domain = "air"
+max_speed_kn = 145.0
+cruise_speed_kn = 105.0
+turn_rate_deg_s = 7.0
+accel_kn_s = 4.0
+length_m = 22.8
+health = 22.0
+signature_factor = 0.3
+sensor_ids = PackedStringArray("searchwater_2000", "nato_esm_suite")
+cruise_altitude_m = 3000.0
+max_altitude_m = 4500.0
+altitude_rate_m_s = 8.0
+endurance_s = 16200.0
+can_hover = true
+launch_time_s = 120.0
+recovery_time_s = 150.0
+launch_requirement = "helicopter"
+weapon_loadout = {}
+decoy_count = 12
+fire_control_channels = 1
+role = "Organic carrier AEW • air picture"
+service_note = "A STOVL carrier has no fixed-wing AEW aircraft, so the radar goes up on a helicopter instead. Lower, slower and shorter-legged than a Hawkeye, and the whole difference between a task group that sees inbound raids and one that does not."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

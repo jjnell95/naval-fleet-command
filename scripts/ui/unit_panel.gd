@@ -130,7 +130,16 @@ func _flight_state_text(a: Unit) -> String:
 			return "launching, %.0f s" % a.state_timer_s
 		Unit.FlightState.RECOVERING:
 			return "recovering, %.0f s" % a.state_timer_s
+		Unit.FlightState.TURNAROUND:
+			return "[color=%s]turnaround, %s[/color]" % [UITheme.HEX_DIM, _mmss(a.state_timer_s)]
+	if a.tanking_on != null:
+		return "[color=%s]airborne, tanking on %s[/color]" % [UITheme.HEX_AMBER, a.tanking_on.callsign]
 	return "[color=%s]airborne, RTB[/color]" % UITheme.HEX_AMBER if a.returning else "[color=%s]airborne[/color]" % UITheme.HEX_BLUE
+
+
+func _mmss(seconds: float) -> String:
+	var s := maxi(int(roundf(seconds)), 0)
+	return "%d:%02d" % [s / 60, s % 60]
 
 
 func _first_active_range(u: Unit) -> float:
@@ -216,9 +225,23 @@ func _refresh() -> void:
 		if u.has_sonar():
 			lines.append(_kv("NOISE", "%.2f%s" % [Detection.acoustic_noise(u), "  [color=%s]CAVITATING[/color]" % UITheme.HEX_RED if Detection.is_cavitating(u) else ""]))
 		if u.spec.aircraft_capacity > 0 and not u.embarked.is_empty():
-			lines.append(_h("AIR WING  %d of %d ready" % [u.stowed_aircraft().size(), u.embarked.size()]))
+			var turning := u.turnaround_aircraft().size()
+			var header := "AIR WING  %d of %d ready" % [u.stowed_aircraft().size(), u.embarked.size()]
+			if turning > 0:
+				header += "  ·  %d on the deck" % turning
+			lines.append(_h(header))
+			# A deck's throughput is what makes a carrier a carrier, so say what it is rather than
+			# leaving the player to work it out from how slowly aircraft appear.
+			lines.append("  [color=%s]%d launch %s · %d recovery %s · %s turnaround[/color]" % [
+				UITheme.HEX_DIM, u.spec.launch_capacity(),
+				"spots" if u.spec.launch_capacity() != 1 else "spot",
+				u.spec.recovery_capacity(),
+				"spots" if u.spec.recovery_capacity() != 1 else "spot",
+				_mmss(u.spec.turnaround_time_s())])
 			for a in u.embarked:
-				lines.append("  %s [color=%s]%s[/color] · %s" % [a.callsign, UITheme.HEX_DIM, a.spec.short_name, _flight_state_text(a)])
+				var squadron := "" if a.squadron == "" else " [color=%s]%s[/color]" % [UITheme.HEX_DIM, a.squadron]
+				var fuel := "" if not a.airborne() else "  [color=%s]%.0f%% fuel[/color]" % [UITheme.HEX_DIM, a.fuel_fraction() * 100.0]
+				lines.append("  %s%s [color=%s]%s[/color] · %s%s" % [a.callsign, squadron, UITheme.HEX_DIM, a.spec.short_name, _flight_state_text(a), fuel])
 		lines.append(_h("SENSORS"))
 		if u.has_radar():
 			for s in u.sensors:

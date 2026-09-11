@@ -31,3 +31,4 @@ vls_cells = 122
 role = "Area air defence • ballistic missile defence"
 
 service_note = "Legacy BMD-capable cruiser fit; availability depends on scenario era."
+default_air_wing = {"usn_helo_mh60r": 2}

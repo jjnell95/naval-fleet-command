@@ -39,3 +39,4 @@ vls_cells = 96
 role = "Multimission escort • area air defence • ASW"
 
 service_note = "Representative Flight IIA fit; deck Harpoon fit varies by hull."
+default_air_wing = {"usn_helo_mh60r": 1, "usn_helo_mh60s": 1}

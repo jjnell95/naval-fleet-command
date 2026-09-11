@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "an_aqs_13f"
+display_name = "AN/AQS-13F dipping sonar (Ka-27 class fit)"
+kind = "sonar"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 0.0
+classify_rate = 0.9
+passive_sensitivity_nm = 22.0
+active_range_nm = 11.0
+bearing_accuracy_deg = 2.2
+self_noise_tolerance = 1.0
+requires_hover = true
+source_status = "PUBLIC: system designation and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: every range, gain and classification figure here is a tuning value, not a performance claim. Stands in for an older-generation dipping set: shorter reach than a modern array and slower to classify."

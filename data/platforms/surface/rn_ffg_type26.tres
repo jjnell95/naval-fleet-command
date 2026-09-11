@@ -31,3 +31,4 @@ vls_cells = 24
 role = "Antisubmarine escort • quiet ocean surveillance"
 
 service_note = "Future scenario fit. 24 Mk 41 cells unallocated; 48 CAMM in separate launchers."
+default_air_wing = {"rn_helo_merlin_hm2": 1}

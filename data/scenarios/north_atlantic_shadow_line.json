@@ -1,18 +1,249 @@
 {
   "id": "north_atlantic_shadow_line",
-  "name": "NORTH ATLANTIC \u2014 SHADOW LINE",
-  "description": "Fictional near-future NATO-Russia escalation. A NATO surface action group patrols the Norwegian Sea while a Russian surface group pushes southwest toward the North Atlantic. The Russian force is under its own command and will search, close, shoot and withdraw on its own judgement. Neither side knows the other's exact position.",
+  "name": "NORWEGIAN SEA \u2014 SHADOW LINE",
+  "description": "Open water 200 miles west of the Lofoten wall. A Russian surface group is running south-west for the Atlantic and a NATO surface action group is somewhere ahead of it. Nobody has a firm position on anybody. Both frigates carry a helicopter, and in this much sea room the aircraft is how either side finds the other first. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
   "start_time_utc": "2027-03-14T05:30:00",
   "player_faction": "BLUE",
   "map": {
     "center_nm": [
-      0,
-      0
+      16.9,
+      6.0
     ],
-    "extent_nm": 120
+    "extent_nm": 260,
+    "anchor_lat": 68.0,
+    "anchor_lon": 8.0,
+    "anchor_note": "World coordinates are nautical miles about this point; one minute of latitude is one mile and longitude is scaled by the cosine of the anchor latitude."
   },
+  "environment": {
+    "sea_state": 4,
+    "wind_kn": 20,
+    "visibility_nm": 10
+  },
+  "terrain": {
+    "land": [
+      {
+        "id": "northern_norway",
+        "name": "Northern Norway",
+        "elevation_m": 760,
+        "points_nm": [
+          [
+            495.6,
+            103.2
+          ],
+          [
+            519.43,
+            142.2
+          ],
+          [
+            498.98,
+            159.0
+          ],
+          [
+            456.27,
+            175.2
+          ],
+          [
+            441.66,
+            153.0
+          ],
+          [
+            418.06,
+            178.8
+          ],
+          [
+            399.63,
+            190.2
+          ],
+          [
+            386.59,
+            165.0
+          ],
+          [
+            366.37,
+            174.0
+          ],
+          [
+            357.37,
+            138.0
+          ],
+          [
+            352.43,
+            159.6
+          ],
+          [
+            321.41,
+            153.0
+          ],
+          [
+            292.19,
+            129.0
+          ],
+          [
+            267.47,
+            118.8
+          ],
+          [
+            245.44,
+            100.8
+          ],
+          [
+            220.27,
+            78.0
+          ],
+          [
+            182.96,
+            77.4
+          ],
+          [
+            164.08,
+            51.0
+          ],
+          [
+            143.85,
+            24.0
+          ],
+          [
+            119.12,
+            3.0
+          ],
+          [
+            105.19,
+            -20.4
+          ],
+          [
+            121.37,
+            -33.0
+          ],
+          [
+            143.17,
+            -43.2
+          ],
+          [
+            125.87,
+            -63.0
+          ],
+          [
+            112.38,
+            -102.0
+          ],
+          [
+            94.4,
+            -132.0
+          ],
+          [
+            92.15,
+            -162.0
+          ],
+          [
+            112.38,
+            -180.0
+          ],
+          [
+            143.85,
+            -144.0
+          ],
+          [
+            161.83,
+            -96.0
+          ],
+          [
+            186.55,
+            -48.0
+          ],
+          [
+            233.75,
+            6.0
+          ],
+          [
+            274.21,
+            54.0
+          ],
+          [
+            337.15,
+            78.0
+          ],
+          [
+            404.58,
+            66.0
+          ],
+          [
+            476.5,
+            96.0
+          ]
+        ]
+      }
+    ]
+  },
+  "units": [
+    {
+      "platform": "usn_ddg_arleigh_burke_iia",
+      "callsign": "USS Truxtun (DDG 103)",
+      "faction": "BLUE",
+      "position_nm": [
+        -24.72,
+        -36.0
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16
+    },
+    {
+      "platform": "rnon_ffg_fridtjof_nansen",
+      "callsign": "HNoMS Roald Amundsen (F 311)",
+      "faction": "BLUE",
+      "position_nm": [
+        -8.99,
+        -24.0
+      ],
+      "heading_deg": 45,
+      "speed_kn": 16,
+      "radar_on": false
+    },
+    {
+      "platform": "rfn_ffg_admiral_gorshkov",
+      "callsign": "Admiral Gorshkov (454)",
+      "faction": "RED",
+      "position_nm": [
+        35.96,
+        42.0
+      ],
+      "heading_deg": 225,
+      "speed_kn": 15,
+      "patrol_nm": [
+        [
+          -44.95,
+          -48.0
+        ],
+        [
+          56.19,
+          60.0
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_fsg_steregushchiy",
+      "callsign": "Stoikiy (545)",
+      "faction": "RED",
+      "position_nm": [
+        53.94,
+        30.0
+      ],
+      "heading_deg": 225,
+      "speed_kn": 15,
+      "patrol_nm": [
+        [
+          -22.48,
+          -60.0
+        ],
+        [
+          78.67,
+          72.0
+        ]
+      ]
+    }
+  ],
+  "order": 1,
   "objectives": {
-    "text": "Locate and destroy the Russian surface group without losing your own ships.",
+    "text": "Find the Russian group and destroy it without losing your own ships.",
     "victory": [
       {
         "id": "kill_red",
@@ -23,83 +254,12 @@
     ],
     "loss": [
       {
-        "id": "lose_all",
+        "id": "lose_blue",
         "type": "force_destroyed",
         "faction": "BLUE",
         "text": "NATO surface action group destroyed"
       }
     ]
   },
-  "units": [
-    {
-      "platform": "usn_ddg_arleigh_burke_iia",
-      "callsign": "USS Roosevelt",
-      "faction": "BLUE",
-      "position_nm": [
-        -24,
-        -14
-      ],
-      "heading_deg": 45,
-      "speed_kn": 16,
-      "radar_on": true
-    },
-    {
-      "platform": "rnon_ffg_fridtjof_nansen",
-      "callsign": "HNoMS Roald Amundsen",
-      "faction": "BLUE",
-      "position_nm": [
-        -18,
-        -22
-      ],
-      "heading_deg": 45,
-      "speed_kn": 16,
-      "radar_on": false
-    },
-    {
-      "platform": "rfn_ffg_admiral_gorshkov",
-      "callsign": "Admiral Gorshkov",
-      "faction": "RED",
-      "position_nm": [
-        22,
-        16
-      ],
-      "heading_deg": 225,
-      "speed_kn": 14,
-      "radar_on": true,
-      "patrol_nm": [
-        [
-          -30,
-          -20
-        ],
-        [
-          30,
-          20
-        ]
-      ]
-    },
-    {
-      "platform": "rfn_fsg_steregushchiy",
-      "callsign": "Stoikiy",
-      "faction": "RED",
-      "position_nm": [
-        28,
-        9
-      ],
-      "heading_deg": 225,
-      "speed_kn": 14,
-      "radar_on": true,
-      "patrol_nm": [
-        [
-          -24,
-          -28
-        ],
-        [
-          36,
-          14
-        ]
-      ]
-    }
-  ],
-  "order": 1,
-  "forces": "NATO: 1 destroyer, 1 frigate  \u00b7  Russia: 1 frigate, 1 corvette"
+  "forces": "NATO: 1 destroyer, 1 frigate (2 embarked helicopters)  \u00b7  Russia: 1 frigate, 1 corvette (1 embarked helicopter)"
 }

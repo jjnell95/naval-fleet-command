@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rfn_uav_orion"
+display_name = "Orion (Inokhodets) armed UAV"
+short_name = "Orion"
+nation = "Russia"
+category = "armed unmanned aerial vehicle"
+domain = "air"
+max_speed_kn = 110.0
+cruise_speed_kn = 90.0
+turn_rate_deg_s = 5.0
+accel_kn_s = 2.0
+length_m = 8.0
+health = 8.0
+signature_factor = 0.1
+sensor_ids = PackedStringArray("orion_sar")
+cruise_altitude_m = 6000.0
+max_altitude_m = 7500.0
+altitude_rate_m_s = 5.0
+endurance_s = 86400.0
+can_hover = false
+launch_time_s = 240.0
+recovery_time_s = 300.0
+launch_requirement = "runway"
+weapon_loadout = {"kh38_family": 2}
+decoy_count = 0
+fire_control_channels = 1
+role = "Medium-altitude armed ISR • maritime strike support"
+service_note = "Slow, long-legged and armed. It is not survivable against a fighter or a modern air-defence ship, and that is the point: it is cheap enough to send where a manned aircraft would not go."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

@@ -20,7 +20,7 @@ health = 95.0
 signature_factor = 0.75
 sensor_ids = PackedStringArray("an_spy_6_v3", "captas_mk2", "an_slq_32")
 mast_height_m = 26.0
-aircraft_capacity = 1
+aircraft_capacity = 2
 fire_control_channels = 4
 decoy_count = 14
 weapon_loadout = {"sm2_family": 16, "essm_family": 32, "nsm_strike_missile": 16, "ram_block2": 21, "oto_76mm_gun": 200, "mk54_lwt": 6}
@@ -30,4 +30,5 @@ vls_cells = 32
 
 role = "Future multimission escort • ASW"
 
-service_note = "Prospective configuration for fictional future scenarios; not an in-service claim."
+service_note = "Prospective configuration. The hangar is sized for a manned helicopter and an unmanned one together, which is the arrangement the class is designed around."
+default_air_wing = {"usn_helo_mh60r": 1, "usn_uav_mq8c": 1}

@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "apkws_rocket"
+display_name = "APKWS guided rocket"
+family = "APKWS"
+type = "asm"
+guidance = "semi_active_laser"
+profile = "direct"
+target_types = PackedStringArray("surface")
+max_range_nm = 3.0
+min_range_nm = 0.2
+speed_kn = 900.0
+turn_rate_deg_s = 20.0
+seeker_range_nm = 0.8
+damage = 7.0
+base_pk = 0.75
+salvo_default = 4
+launch_interval_s = 1.5
+defensive_difficulty = 0.8
+signature_factor = 0.02
+altitude_m = 60.0
+soft_kill_resistance = 1.8
+source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Laser-guided rocket. A counter-swarm and counter-small-craft weapon, cheap and carried in numbers."

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "orlan_eo"
+display_name = "Orlan-10 optical / signals payload"
+kind = "esm"
+emits = false
+range_surface_nm = 10.0
+range_air_nm = 8.0
+antenna_height_m = 2.0
+classify_rate = 1.0
+esm_gain = 1.4
+source_status = "PUBLIC: system designation and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: every range, gain and classification figure here is a tuning value, not a performance claim. A small tactical drone flown to find out who is radiating and roughly where. Bearings only, like any electronic-support set."

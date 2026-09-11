@@ -1,133 +1,232 @@
 {
   "id": "northern_shield",
-  "order": 2,
-  "name": "NORTHERN SHIELD",
-  "forces": "NATO: 1 destroyer, 1 frigate, 1 replenishment ship  \u00b7  Russia: 1 frigate, 1 corvette",
-  "description": "Fictional near-future crisis. Norwegian maritime infrastructure is being reinforced by sea. The logistics vessel HNoMS Maud must reach the replenishment area off the Lofoten approaches. A Russian surface group is operating somewhere to the northeast and has been ordered to stop her. Maud is unarmed, slow and carries no interceptors. She survives only inside the umbrella of her escorts, so the tactical problem is where to put two warships relative to one that cannot defend itself.",
-  "start_time_utc": "2027-04-02T03:10:00",
+  "name": "NORWEGIAN SEA \u2014 REPLENISHMENT GROUP",
+  "description": "HNoMS Maud is carrying the fuel the whole northern effort runs on, and a Yasen is somewhere between her and the Norwegian coast. She is slow, she is loud, and she is worth more than either of her escorts. The auxiliary has a flight deck of her own, which gives you a third helicopter and a second place to land one. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "start_time_utc": "2027-03-11T19:15:00",
   "player_faction": "BLUE",
   "map": {
     "center_nm": [
-      0,
-      0
+      38.3,
+      36.0
     ],
-    "extent_nm": 160
+    "extent_nm": 280,
+    "anchor_lat": 66.5,
+    "anchor_lon": 3.5,
+    "anchor_note": "World coordinates are nautical miles about this point; one minute of latitude is one mile and longitude is scaled by the cosine of the anchor latitude."
   },
-  "objectives": {
-    "text": "Escort HNoMS Maud to the replenishment area to the southwest. She must arrive intact.",
-    "victory": [
+  "environment": {
+    "sea_state": 5,
+    "wind_kn": 26,
+    "visibility_nm": 6
+  },
+  "terrain": {
+    "land": [
       {
-        "id": "maud_arrives",
-        "type": "reach_area",
-        "faction": "BLUE",
-        "callsigns": [
-          "HNoMS Maud"
-        ],
-        "center_nm": [
-          -45,
-          -32
-        ],
-        "radius_nm": 14,
-        "text": "Bring HNoMS Maud to the replenishment area"
-      }
-    ],
-    "loss": [
-      {
-        "id": "maud_lost",
-        "type": "unit_lost",
-        "callsigns": [
-          "HNoMS Maud"
-        ],
-        "text": "HNoMS Maud sunk"
-      },
-      {
-        "id": "escorts_lost",
-        "type": "force_destroyed",
-        "faction": "BLUE",
-        "text": "Escort force destroyed"
+        "id": "mid_norway",
+        "name": "Mid-Norway coast",
+        "elevation_m": 700,
+        "points_nm": [
+          [
+            38.28,
+            -270.0
+          ],
+          [
+            52.63,
+            -234.0
+          ],
+          [
+            88.52,
+            -204.0
+          ],
+          [
+            110.05,
+            -183.0
+          ],
+          [
+            145.94,
+            -168.0
+          ],
+          [
+            162.69,
+            -150.0
+          ],
+          [
+            184.22,
+            -120.0
+          ],
+          [
+            205.75,
+            -90.0
+          ],
+          [
+            208.15,
+            -54.0
+          ],
+          [
+            227.29,
+            -12.0
+          ],
+          [
+            241.64,
+            27.0
+          ],
+          [
+            260.06,
+            46.8
+          ],
+          [
+            289.49,
+            36.0
+          ],
+          [
+            284.71,
+            0.0
+          ],
+          [
+            263.17,
+            -54.0
+          ],
+          [
+            241.64,
+            -114.0
+          ],
+          [
+            210.54,
+            -174.0
+          ],
+          [
+            179.44,
+            -222.0
+          ],
+          [
+            143.55,
+            -264.0
+          ],
+          [
+            83.74,
+            -294.0
+          ],
+          [
+            40.67,
+            -288.0
+          ]
+        ]
       }
     ]
   },
   "units": [
     {
       "platform": "rnon_aux_maud",
-      "callsign": "HNoMS Maud",
+      "callsign": "HNoMS Maud (A 530)",
       "faction": "BLUE",
       "position_nm": [
-        15,
-        18
+        -21.53,
+        -36.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 14,
-      "radar_on": true
+      "heading_deg": 40,
+      "speed_kn": 15,
+      "patrol_nm": [
+        [
+          69.38,
+          54.0
+        ],
+        [
+          131.59,
+          90.0
+        ]
+      ]
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
-      "callsign": "USS Roosevelt",
+      "callsign": "USS Ralph Johnson (DDG 114)",
       "faction": "BLUE",
       "position_nm": [
-        9,
-        25
+        -31.1,
+        -24.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 14,
-      "radar_on": true
+      "heading_deg": 40,
+      "speed_kn": 15
     },
     {
       "platform": "rnon_ffg_fridtjof_nansen",
-      "callsign": "HNoMS Roald Amundsen",
+      "callsign": "HNoMS Otto Sverdrup (F 312)",
       "faction": "BLUE",
       "position_nm": [
-        21,
-        11
+        -9.57,
+        -48.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 14,
+      "heading_deg": 40,
+      "speed_kn": 15,
       "radar_on": false
     },
     {
-      "platform": "rfn_ffg_admiral_gorshkov",
-      "callsign": "Admiral Gorshkov",
+      "platform": "rfn_ssn_yasen_m",
+      "callsign": "Kazan (K-561)",
       "faction": "RED",
       "position_nm": [
-        35,
-        25
+        45.46,
+        42.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 16,
-      "radar_on": true,
+      "heading_deg": 240,
+      "speed_kn": 12,
       "patrol_nm": [
         [
-          2,
-          -16
+          2.39,
+          -6.0
         ],
         [
-          -28,
-          12
+          -40.67,
+          -54.0
+        ],
+        [
+          -55.03,
+          18.0
         ]
-      ]
+      ],
+      "depth_m": 180,
+      "radar_on": false
     },
     {
-      "platform": "rfn_fsg_steregushchiy",
-      "callsign": "Stoikiy",
+      "platform": "rfn_mpa_tu142",
+      "callsign": "Bear 71",
       "faction": "RED",
       "position_nm": [
-        27,
-        35
+        112.45,
+        114.0
       ],
-      "heading_deg": 215,
-      "speed_kn": 16,
-      "radar_on": false,
+      "heading_deg": 230,
+      "speed_kn": 360,
       "patrol_nm": [
         [
-          12,
-          -6
+          -26.32,
+          -18.0
         ],
         [
-          -20,
-          20
+          126.8,
+          126.0
         ]
       ]
     }
-  ]
+  ],
+  "order": 6,
+  "objectives": {
+    "text": "Get the replenishment ship through. Losing her loses the scenario however the escorts fare.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy the submarine and the patrol aircraft shadowing the group"
+      }
+    ],
+    "loss": [
+      {
+        "id": "lose_blue",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "Replenishment group destroyed"
+      }
+    ]
+  },
+  "forces": "NATO: 1 replenishment ship, 1 destroyer, 1 frigate (3 embarked helicopters)  \u00b7  Russia: 1 nuclear attack submarine, 1 patrol aircraft"
 }

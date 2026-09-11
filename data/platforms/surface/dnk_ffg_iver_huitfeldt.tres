@@ -32,3 +32,6 @@ weapon_loadout = {
 }
 
 role = "Frigate • maritime operations"
+aircraft_capacity = 1
+default_air_wing = {"usn_helo_mh60r": 1}
+service_note = "Danish frigate operating the MH-60R from its own flight deck; the airframe is the same type the US Navy flies and shares its catalogue entry here."

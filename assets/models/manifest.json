@@ -5,12 +5,32 @@
     "triangles": 228
   },
   {
+    "id": "agm_114_hellfire",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "agm_158b_jassm_er",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "agm_158c_lrasm",
+    "kind": "weapon",
+    "triangles": 492
+  },
+  {
     "id": "agm_84_harpoon",
     "kind": "weapon",
     "triangles": 1424
   },
   {
     "id": "aim120_family",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
+    "id": "aim9x_air",
     "kind": "weapon",
     "triangles": 1376
   },
@@ -26,6 +46,11 @@
   },
   {
     "id": "am39_exocet",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "apkws_rocket",
     "kind": "weapon",
     "triangles": 1424
   },
@@ -60,6 +85,11 @@
     "triangles": 5504
   },
   {
+    "id": "deu_uas_skeldar",
+    "kind": "platform",
+    "triangles": 3968
+  },
+  {
     "id": "dnk_ffg_iver_huitfeldt",
     "kind": "platform",
     "triangles": 7408
@@ -80,6 +110,11 @@
     "triangles": 3572
   },
   {
+    "id": "jsm_missile",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
     "id": "kalibr_asm",
     "kind": "weapon",
     "triangles": 1448
@@ -95,7 +130,17 @@
     "triangles": 1424
   },
   {
+    "id": "kh38_family",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
     "id": "kinzhal_family",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "martlet_lmm",
     "kind": "weapon",
     "triangles": 1424
   },
@@ -130,9 +175,19 @@
     "triangles": 1460
   },
   {
+    "id": "nato_helo_nh90_nfh",
+    "kind": "platform",
+    "triangles": 3092
+  },
+  {
     "id": "nsm_strike_missile",
     "kind": "weapon",
     "triangles": 492
+  },
+  {
+    "id": "oneway_attack_drone",
+    "kind": "weapon",
+    "triangles": 1424
   },
   {
     "id": "oto_76mm_gun",
@@ -175,6 +230,11 @@
     "triangles": 1424
   },
   {
+    "id": "rfn_aew_ka31",
+    "kind": "platform",
+    "triangles": 3092
+  },
+  {
     "id": "rfn_bomber_tu22m3",
     "kind": "platform",
     "triangles": 2540
@@ -215,6 +275,11 @@
     "triangles": 1908
   },
   {
+    "id": "rfn_mpa_il38n",
+    "kind": "platform",
+    "triangles": 2464
+  },
+  {
     "id": "rfn_mpa_tu142",
     "kind": "platform",
     "triangles": 4584
@@ -240,6 +305,16 @@
     "triangles": 3972
   },
   {
+    "id": "rfn_uav_orion",
+    "kind": "platform",
+    "triangles": 3968
+  },
+  {
+    "id": "rfn_uav_orlan10",
+    "kind": "platform",
+    "triangles": 3968
+  },
+  {
     "id": "rgm_139_vla",
     "kind": "weapon",
     "triangles": 1500
@@ -248,6 +323,11 @@
     "id": "rgm_84_harpoon",
     "kind": "weapon",
     "triangles": 1424
+  },
+  {
+    "id": "rn_aew_crowsnest",
+    "kind": "platform",
+    "triangles": 3092
   },
   {
     "id": "rn_cvf_queen_elizabeth",
@@ -275,6 +355,11 @@
     "triangles": 1800
   },
   {
+    "id": "rn_helo_wildcat",
+    "kind": "platform",
+    "triangles": 3092
+  },
+  {
     "id": "rn_ssn_astute",
     "kind": "platform",
     "triangles": 1740
@@ -298,6 +383,11 @@
     "id": "sea_ceptor",
     "kind": "weapon",
     "triangles": 1376
+  },
+  {
+    "id": "sea_venom",
+    "kind": "weapon",
+    "triangles": 1424
   },
   {
     "id": "shore_air_station",
@@ -390,7 +480,17 @@
     "triangles": 3972
   },
   {
+    "id": "usn_fighter_fa18f",
+    "kind": "platform",
+    "triangles": 3972
+  },
+  {
     "id": "usn_helo_mh60r",
+    "kind": "platform",
+    "triangles": 3092
+  },
+  {
+    "id": "usn_helo_mh60s",
     "kind": "platform",
     "triangles": 3092
   },
@@ -405,9 +505,24 @@
     "triangles": 1740
   },
   {
+    "id": "usn_uas_scaneagle",
+    "kind": "platform",
+    "triangles": 3968
+  },
+  {
+    "id": "usn_uav_mq25",
+    "kind": "platform",
+    "triangles": 3972
+  },
+  {
     "id": "usn_uav_mq4c",
     "kind": "platform",
     "triangles": 1812
+  },
+  {
+    "id": "usn_uav_mq8c",
+    "kind": "platform",
+    "triangles": 3972
   },
   {
     "id": "zircon_3m22",

@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rfn_aew_ka31"
+display_name = "Ka-31R airborne early warning helicopter"
+short_name = "Ka-31"
+nation = "Russia"
+category = "airborne early warning helicopter"
+domain = "air"
+max_speed_kn = 135.0
+cruise_speed_kn = 100.0
+turn_rate_deg_s = 7.0
+accel_kn_s = 3.5
+length_m = 12.5
+health = 18.0
+signature_factor = 0.28
+sensor_ids = PackedStringArray("e801_oko")
+cruise_altitude_m = 3000.0
+max_altitude_m = 3500.0
+altitude_rate_m_s = 7.0
+endurance_s = 9000.0
+can_hover = true
+launch_time_s = 120.0
+recovery_time_s = 150.0
+launch_requirement = "helicopter"
+weapon_loadout = {}
+decoy_count = 6
+fire_control_channels = 1
+role = "Shipborne AEW • low-altitude air picture"
+service_note = "Coaxial-rotor AEW helicopter with an array that folds under the fuselage. Shorter-legged than a Crowsnest and the only organic way a Russian surface group gets a look beyond its own masts."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

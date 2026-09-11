@@ -41,6 +41,25 @@ extends Resource
 @export var recovery_time_s := 180.0
 @export var aircraft_capacity := 0  # how many airframes a ship or base can operate
 @export var sonobuoy_count := 0
+
+## Deck cycle. A carrier is not a frigate with a bigger hangar: it launches off several catapults
+## at once and recovers down a single angled deck, and everything it recovers has to be refuelled,
+## rearmed and respotted before it can go again. Zero means "derive from the flight facility",
+## so an ordinary escort needs no entry. GAMEPLAY_ESTIMATE: spot counts stand in for deck handling,
+## not for real cyclic operations, air plans or pilot qualification.
+@export var launch_spots := 0  # airframes that can be on the catapults / spots at once
+@export var recovery_spots := 0  # airframes that can be in the groove at once
+@export var turnaround_s := 0.0  # deck time to refuel, rearm and respot after a recovery
+
+## Air-to-air refuelling. `tanker_offload_s` is fuel a tanker can give away, counted in the
+## receiver's own endurance-seconds; `can_refuel` says the airframe has a probe or receptacle.
+## GAMEPLAY_ESTIMATE: a single transfer rate stands in for basket work, tanker tracks and give.
+@export var tanker_offload_s := 0.0
+@export var can_refuel := false
+
+## Aircraft a ship or base sails with when a scenario does not say otherwise: platform id -> count.
+## This is what puts a helicopter in a destroyer's hangar without every scenario listing it.
+@export var default_air_wing: Dictionary = {}
 @export var sonobuoy_sensitivity_nm := 0.0
 @export var sonobuoy_life_s := 1800.0
 @export var weapon_loadout: Dictionary = {}  # weapon id -> rounds carried
@@ -67,13 +86,54 @@ func flight_facility() -> String:
 	return "catobar" if category.contains("carrier") else "helicopter"
 
 
+## How many airframes can be going off at once. A CATOBAR deck works several catapults in
+## parallel; a frigate has one spot and that is the whole story.
+func launch_capacity() -> int:
+	if launch_spots > 0:
+		return launch_spots
+	match flight_facility():
+		"catobar": return 4
+		"stovl": return 2
+		"airfield": return 4
+		"helicopter": return 1
+	return 0
+
+
+## How many can be coming aboard at once. One angled deck means one at a time however big the
+## ship is; a field with parallel runways and a STOVL deck with several landing spots do better.
+func recovery_capacity() -> int:
+	if recovery_spots > 0:
+		return recovery_spots
+	match flight_facility():
+		"catobar": return 1
+		"stovl": return 2
+		"airfield": return 3
+		"helicopter": return 1
+	return 0
+
+
+## Deck time between coming aboard and being fit to launch again. An airframe that lands is not
+## a round in a magazine: it has to be struck below, fuelled, rearmed and brought back up.
+func turnaround_time_s() -> float:
+	if turnaround_s > 0.0:
+		return turnaround_s
+	match flight_facility():
+		"catobar": return 2700.0
+		"stovl": return 2700.0
+		"airfield": return 3600.0
+		"helicopter": return 1800.0
+	return 0.0
+
+
+## What kind of deck this airframe needs. Carrier aircraft say so on their own spec; anything
+## that can hover works off a flight deck, and everything else needs a runway. There is
+## deliberately no list of ids here: a new carrier aircraft that forgot to declare itself would
+## quietly become a land-based one, and nothing would fail until a scenario refused to launch it.
 func flight_requirement() -> String:
 	if launch_requirement != "auto":
 		return launch_requirement
 	if can_hover:
 		return "helicopter"
-	if id in ["usn_aew_e2d", "usn_fighter_fa18e", "usn_ea_ea18g"]:
-		return "catobar"
 	return "runway"
 
 

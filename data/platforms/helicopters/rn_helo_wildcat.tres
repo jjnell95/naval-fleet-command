@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1_spec"]
+
+[resource]
+script = ExtResource("1_spec")
+id = "rn_helo_wildcat"
+display_name = "AW159 Wildcat HMA2"
+short_name = "Wildcat"
+nation = "UK"
+category = "surface warfare helicopter"
+domain = "air"
+max_speed_kn = 157.0
+cruise_speed_kn = 120.0
+turn_rate_deg_s = 8.0
+accel_kn_s = 4.0
+length_m = 15.2
+health = 16.0
+signature_factor = 0.22
+sensor_ids = PackedStringArray("seaspray_7400")
+cruise_altitude_m = 600.0
+max_altitude_m = 3600.0
+altitude_rate_m_s = 8.0
+endurance_s = 7200.0
+can_hover = true
+launch_time_s = 90.0
+recovery_time_s = 110.0
+launch_requirement = "helicopter"
+weapon_loadout = {"sea_venom": 4, "martlet_lmm": 10}
+decoy_count = 8
+fire_control_channels = 1
+role = "Embarked surface warfare • counter-small-craft"
+service_note = "Light shipborne helicopter fitted for surface work rather than submarine hunting: a radar, a light anti-ship missile and a very light round for boats and drones."
+source_status = "PUBLIC: platform identity, broad role and configuration family; see docs/REALISM.md. GAMEPLAY_ESTIMATE: speeds, endurance, sensor envelopes, loadouts, signatures and every combat parameter. Fictional scenario fit; not an operational capability claim."

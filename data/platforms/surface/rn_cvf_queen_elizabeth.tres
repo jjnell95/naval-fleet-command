@@ -20,7 +20,7 @@ health = 310.0
 signature_factor = 3.0
 sensor_ids = PackedStringArray("artisan_997", "nato_esm_suite")
 mast_height_m = 50.0
-aircraft_capacity = 12
+aircraft_capacity = 40
 fire_control_channels = 0
 decoy_count = 24
 weapon_loadout = {"phalanx_ciws": 90}
@@ -31,3 +31,7 @@ role = "STOVL aviation • F-35B carrier operations"
 service_note = "F-35B and helicopters; no catapult aircraft. Air wing compressed."
 
 aviation_facility = "stovl"
+launch_spots = 2
+recovery_spots = 2
+turnaround_s = 2700.0
+default_air_wing = {"rn_fighter_f35b": 12, "rn_helo_merlin_hm2": 5, "rn_aew_crowsnest": 3, "rn_helo_wildcat": 2}

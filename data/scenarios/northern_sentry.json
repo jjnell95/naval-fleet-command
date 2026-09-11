@@ -1,584 +1,367 @@
 {
   "id": "northern_sentry",
-  "order": 6,
-  "name": "NORTHERN SENTRY",
-  "forces": "NATO: 1 destroyer, 1 frigate, 2 embarked helicopters, 1 maritime patrol aircraft  \u00b7  Russia: 1 submarine, 2 strike aircraft",
-  "description": "Fictional near-future escalation off northern Norway. A Russian diesel boat is working southwest and your two ships cannot hear far enough to find her from their own hulls. Both carry a helicopter, and a Poseidon is available from the shore station at Andoya. Aircraft are the only way to put a sensor somewhere other than where your ships are: a helicopter can fly out twenty miles and dip, and the Poseidon can lay a field of buoys across the corridor. Fuel is the limit on all of it. Russian strike aircraft are also within range of you, so the same ships that are hunting will have to defend themselves.",
-  "start_time_utc": "2027-06-19T04:40:00",
+  "name": "VESTFJORDEN APPROACHES",
+  "description": "A Kilo is working the water outside Vestfjorden, inside the Lofoten wall's radar shadow and a long way from any deep basin it could hide in. Andoya has a Poseidon and a Triton. Your two escorts have three helicopters between them. Russian fighters are already airborne out of the Kola and will be overhead before you finish the search. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "start_time_utc": "2027-03-09T08:00:00",
   "player_faction": "BLUE",
   "map": {
     "center_nm": [
-      0,
-      0
+      18.4,
+      9.0
     ],
-    "extent_nm": 130
+    "extent_nm": 220,
+    "anchor_lat": 68.8,
+    "anchor_lon": 13.5,
+    "anchor_note": "World coordinates are nautical miles about this point; one minute of latitude is one mile and longitude is scaled by the cosine of the anchor latitude."
+  },
+  "environment": {
+    "sea_state": 3,
+    "wind_kn": 16,
+    "visibility_nm": 8
   },
   "terrain": {
     "land": [
       {
-        "id": "vesteralen",
-        "name": "Vester\u00e5len",
-        "elevation_m": 780,
+        "id": "northern_norway",
+        "name": "Northern Norway",
+        "elevation_m": 760,
         "points_nm": [
           [
-            -84.0,
+            359.09,
+            55.2
+          ],
+          [
+            382.09,
+            94.2
+          ],
+          [
+            362.35,
+            111.0
+          ],
+          [
+            321.12,
+            127.2
+          ],
+          [
+            307.02,
+            105.0
+          ],
+          [
+            284.24,
+            130.8
+          ],
+          [
+            266.44,
+            142.2
+          ],
+          [
+            253.86,
+            117.0
+          ],
+          [
+            234.33,
+            126.0
+          ],
+          [
+            225.65,
+            90.0
+          ],
+          [
+            220.88,
+            111.6
+          ],
+          [
+            190.94,
+            105.0
+          ],
+          [
+            162.73,
+            81.0
+          ],
+          [
+            138.86,
+            70.8
+          ],
+          [
+            117.6,
+            52.8
+          ],
+          [
+            93.3,
             30.0
           ],
           [
-            -82.97,
-            28.26
+            57.28,
+            29.4
           ],
           [
-            -82.02,
-            26.48
+            39.06,
+            3.0
           ],
           [
-            -80.43,
-            25.23
+            19.53,
+            -24.0
           ],
           [
-            -78.78,
-            24.07
+            -4.34,
+            -45.0
           ],
           [
-            -76.95,
-            23.27
+            -17.79,
+            -68.4
           ],
           [
-            -75.38,
-            22.05
+            -2.17,
+            -81.0
           ],
           [
-            -73.81,
-            20.82
+            18.88,
+            -91.2
           ],
           [
-            -72.0,
-            20.0
+            2.17,
+            -111.0
           ],
           [
-            -70.42,
-            19.58
+            -10.85,
+            -150.0
           ],
           [
-            -68.94,
-            18.87
+            -28.21,
+            -180.0
           ],
           [
-            -67.31,
-            18.92
+            -30.38,
+            -210.0
           ],
           [
-            -65.69,
-            19.16
+            -10.85,
+            -228.0
           ],
           [
-            -64.18,
-            19.68
+            19.53,
+            -192.0
           ],
           [
-            -62.8,
-            20.49
+            36.89,
+            -144.0
           ],
           [
-            -61.32,
-            21.1
+            60.75,
+            -96.0
           ],
           [
-            -60.0,
-            22.0
+            106.32,
+            -42.0
           ],
           [
-            -59.17,
-            23.46
+            145.37,
+            6.0
           ],
           [
-            -58.49,
-            24.99
+            206.13,
+            30.0
           ],
           [
-            -58.53,
-            26.67
+            271.22,
+            18.0
           ],
           [
-            -58.3,
-            28.33
-          ],
-          [
-            -57.09,
-            29.49
-          ],
-          [
-            -56.09,
-            30.84
-          ],
-          [
-            -55.58,
-            32.43
-          ],
-          [
-            -55.0,
-            34.0
-          ],
-          [
-            -55.66,
-            35.68
-          ],
-          [
-            -56.19,
-            37.39
-          ],
-          [
-            -56.85,
-            39.07
-          ],
-          [
-            -57.62,
-            40.69
-          ],
-          [
-            -59.35,
-            41.25
-          ],
-          [
-            -61.07,
-            41.84
-          ],
-          [
-            -62.41,
-            43.09
-          ],
-          [
-            -64.0,
-            44.0
-          ],
-          [
-            -65.59,
-            44.96
-          ],
-          [
-            -67.37,
-            45.53
-          ],
-          [
-            -69.21,
-            45.8
-          ],
-          [
-            -71.06,
-            45.78
-          ],
-          [
-            -72.76,
-            46.49
-          ],
-          [
-            -74.38,
-            47.35
-          ],
-          [
-            -76.19,
-            47.71
-          ],
-          [
-            -78.0,
+            340.65,
             48.0
-          ],
-          [
-            -78.99,
-            45.82
-          ],
-          [
-            -79.77,
-            43.55
-          ],
-          [
-            -80.87,
-            41.43
-          ],
-          [
-            -82.06,
-            39.35
-          ],
-          [
-            -82.07,
-            36.91
-          ],
-          [
-            -82.02,
-            34.47
-          ],
-          [
-            -83.13,
-            32.29
           ]
         ]
-      },
-      {
-        "id": "kola_shore",
-        "name": "Kola shore",
-        "elevation_m": 520,
-        "points_nm": [
-          [
-            48.0,
-            66.0
-          ],
-          [
-            48.33,
-            63.78
-          ],
-          [
-            49.07,
-            61.67
-          ],
-          [
-            50.48,
-            59.93
-          ],
-          [
-            51.52,
-            57.94
-          ],
-          [
-            53.08,
-            56.36
-          ],
-          [
-            54.36,
-            54.54
-          ],
-          [
-            56.28,
-            53.42
-          ],
-          [
-            58.0,
-            52.0
-          ],
-          [
-            60.13,
-            51.44
-          ],
-          [
-            62.13,
-            50.51
-          ],
-          [
-            64.05,
-            49.45
-          ],
-          [
-            65.82,
-            48.14
-          ],
-          [
-            67.3,
-            46.48
-          ],
-          [
-            68.36,
-            44.52
-          ],
-          [
-            70.28,
-            43.4
-          ],
-          [
-            72.0,
-            42.0
-          ],
-          [
-            74.96,
-            41.82
-          ],
-          [
-            77.91,
-            42.02
-          ],
-          [
-            80.88,
-            42.22
-          ],
-          [
-            83.82,
-            41.86
-          ],
-          [
-            86.48,
-            40.5
-          ],
-          [
-            89.14,
-            39.16
-          ],
-          [
-            92.11,
-            38.78
-          ],
-          [
-            95.0,
-            38.0
-          ],
-          [
-            93.39,
-            45.32
-          ],
-          [
-            92.04,
-            52.69
-          ],
-          [
-            89.27,
-            59.65
-          ],
-          [
-            86.24,
-            66.5
-          ],
-          [
-            88.92,
-            73.46
-          ],
-          [
-            91.09,
-            80.6
-          ],
-          [
-            93.18,
-            87.77
-          ],
-          [
-            95.0,
-            95.0
-          ],
-          [
-            87.85,
-            96.13
-          ],
-          [
-            80.63,
-            96.56
-          ],
-          [
-            74.37,
-            100.25
-          ],
-          [
-            67.5,
-            102.61
-          ],
-          [
-            60.92,
-            99.77
-          ],
-          [
-            53.95,
-            98.08
-          ],
-          [
-            47.1,
-            95.99
-          ],
-          [
-            40.0,
-            95.0
-          ],
-          [
-            39.74,
-            91.01
-          ],
-          [
-            38.47,
-            87.21
-          ],
-          [
-            39.71,
-            83.43
-          ],
-          [
-            40.56,
-            79.55
-          ],
-          [
-            42.11,
-            75.98
-          ],
-          [
-            43.55,
-            72.37
-          ],
-          [
-            45.98,
-            69.33
-          ]
-        ]
-      }
-    ]
-  },
-  "objectives": {
-    "text": "Find and sink the Russian submarine. Keep your two warships afloat.",
-    "victory": [
-      {
-        "id": "kill_sub",
-        "type": "unit_lost",
-        "callsigns": [
-          "Novorossiysk"
-        ],
-        "text": "Sink the Russian submarine"
-      }
-    ],
-    "loss": [
-      {
-        "id": "ships_lost",
-        "type": "all_units_lost",
-        "callsigns": [
-          "USS Roosevelt",
-          "HNoMS Roald Amundsen"
-        ],
-        "text": "Both warships lost"
-      },
-      {
-        "id": "escaped",
-        "type": "reach_area",
-        "faction": "RED",
-        "callsigns": [
-          "Novorossiysk"
-        ],
-        "center_nm": [
-          -30,
-          -22
-        ],
-        "radius_nm": 14,
-        "text": "The submarine cleared the area"
       }
     ]
   },
   "units": [
     {
       "platform": "usn_ddg_arleigh_burke_iia",
-      "callsign": "USS Roosevelt",
+      "callsign": "USS Bulkeley (DDG 84)",
       "faction": "BLUE",
       "position_nm": [
-        -10,
-        5
+        -19.53,
+        -24.0
       ],
-      "heading_deg": 45,
-      "speed_kn": 12,
-      "radar_on": true
+      "heading_deg": 30,
+      "speed_kn": 14,
+      "patrol_nm": [
+        [
+          -34.72,
+          -36.0
+        ],
+        [
+          15.19,
+          18.0
+        ]
+      ]
     },
     {
       "platform": "rnon_ffg_fridtjof_nansen",
-      "callsign": "HNoMS Roald Amundsen",
+      "callsign": "HNoMS Fridtjof Nansen (F 310)",
       "faction": "BLUE",
       "position_nm": [
-        -2,
-        -6
+        -2.17,
+        -12.0
       ],
-      "heading_deg": 45,
-      "speed_kn": 8,
+      "heading_deg": 210,
+      "speed_kn": 14,
+      "patrol_nm": [
+        [
+          23.87,
+          12.0
+        ],
+        [
+          -28.21,
+          -48.0
+        ]
+      ],
       "radar_on": false
-    },
-    {
-      "platform": "usn_helo_mh60r",
-      "callsign": "Nighthawk 01",
-      "faction": "BLUE",
-      "home": "USS Roosevelt"
-    },
-    {
-      "platform": "usn_helo_mh60r",
-      "callsign": "Nighthawk 02",
-      "faction": "BLUE",
-      "home": "HNoMS Roald Amundsen"
     },
     {
       "platform": "shore_air_station",
-      "callsign": "Andoya",
+      "callsign": "Andoya Air Station",
       "faction": "BLUE",
       "position_nm": [
-        -62,
-        34
+        57.37,
+        29.58
       ],
       "heading_deg": 0,
       "speed_kn": 0,
-      "radar_on": false
-    },
-    {
-      "platform": "usn_mpa_p8a",
-      "callsign": "Pelican 21",
-      "faction": "BLUE",
-      "home": "Andoya"
+      "air_wing": [
+        {
+          "platform": "usn_mpa_p8a",
+          "count": 2,
+          "squadron": "333 Skv",
+          "callsign": "Pelican",
+          "first_modex": 21
+        },
+        {
+          "platform": "usn_uav_mq4c",
+          "count": 1,
+          "squadron": "333 Skv",
+          "callsign": "Triton",
+          "first_modex": 51
+        },
+        {
+          "platform": "nato_helo_nh90_nfh",
+          "count": 1,
+          "squadron": "337 Skv",
+          "callsign": "Bardu",
+          "first_modex": 41
+        }
+      ]
     },
     {
       "platform": "rfn_ssk_kilo",
-      "callsign": "Novorossiysk",
+      "callsign": "Magnitogorsk (B-471)",
       "faction": "RED",
       "position_nm": [
-        20,
-        15
+        -32.55,
+        24.0
       ],
-      "heading_deg": 225,
-      "speed_kn": 6,
-      "radar_on": false,
-      "depth_m": 90,
-      "ai_posture": "breakout",
+      "heading_deg": 200,
+      "speed_kn": 4,
       "patrol_nm": [
         [
-          -30,
-          -22
+          -45.56,
+          -18.0
+        ],
+        [
+          -6.51,
+          -42.0
+        ],
+        [
+          6.51,
+          12.0
         ]
-      ]
-    },
-    {
-      "platform": "shore_air_station",
-      "callsign": "Severomorsk",
-      "faction": "RED",
-      "position_nm": [
-        66,
-        48
       ],
-      "heading_deg": 0,
-      "speed_kn": 0,
+      "depth_m": 140,
       "radar_on": false
     },
     {
       "platform": "rfn_strike_su30sm",
-      "callsign": "Sokol 11",
+      "callsign": "Flogger 11",
       "faction": "RED",
-      "home": "Severomorsk",
+      "position_nm": [
+        75.94,
+        48.0
+      ],
+      "heading_deg": 250,
+      "speed_kn": 420,
       "patrol_nm": [
         [
-          30,
-          20
+          -10.85,
+          6.0
         ],
         [
-          -10,
-          -5
-        ],
-        [
-          30,
-          20
+          62.92,
+          60.0
         ]
       ]
     },
     {
       "platform": "rfn_strike_su30sm",
-      "callsign": "Sokol 12",
+      "callsign": "Flogger 12",
       "faction": "RED",
-      "home": "Severomorsk",
+      "position_nm": [
+        82.45,
+        54.0
+      ],
+      "heading_deg": 250,
+      "speed_kn": 420,
       "patrol_nm": [
         [
-          30,
-          20
+          -23.87,
+          -12.0
         ],
         [
-          -10,
-          -5
+          71.6,
+          66.0
+        ]
+      ]
+    },
+    {
+      "platform": "rfn_uav_orlan10",
+      "callsign": "Orlan 71",
+      "faction": "RED",
+      "position_nm": [
+        45.56,
+        36.0
+      ],
+      "heading_deg": 230,
+      "speed_kn": 60,
+      "patrol_nm": [
+        [
+          -2.17,
+          -6.0
         ],
         [
-          30,
-          20
+          52.07,
+          42.0
         ]
       ]
     }
-  ]
+  ],
+  "order": 5,
+  "objectives": {
+    "text": "Find and kill the submarine. The aircraft overhead are a problem to be managed, not the mission.",
+    "victory": [
+      {
+        "id": "kill_red",
+        "type": "force_destroyed",
+        "faction": "RED",
+        "text": "Destroy the Russian submarine and the aircraft over the fjord"
+      }
+    ],
+    "loss": [
+      {
+        "id": "lose_blue",
+        "type": "force_destroyed",
+        "faction": "BLUE",
+        "text": "Escort group destroyed"
+      }
+    ]
+  },
+  "forces": "NATO: 1 destroyer, 1 frigate, Andoya patrol det  \u00b7  Russia: 1 diesel submarine, 2 strike aircraft, 1 UAV"
 }

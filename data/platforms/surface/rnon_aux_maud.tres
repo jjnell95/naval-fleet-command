@@ -28,3 +28,6 @@ weapon_loadout = {
 }
 
 role = "Auxiliary • maritime operations"
+aircraft_capacity = 1
+default_air_wing = {"nato_helo_nh90_nfh": 1}
+service_note = "Replenishment ship with a flight deck. An auxiliary that can take a helicopter is a second deck for the group, which matters more than its own armament."
