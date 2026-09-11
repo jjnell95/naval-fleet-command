@@ -4,11 +4,11 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M14 — Fleet Presentation"
+const BUILD_MILESTONE := "M17 — Command Deck UX"
 const DEFAULT_SCENARIO := "res://data/scenarios/aegis_bastion.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
-const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select"]
+const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
 
 @onready var simulation: Simulation = %Simulation
 @onready var map: TacticalMap = %TacticalMap
@@ -18,11 +18,16 @@ const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-on
 @onready var contact_panel: ContactPanel = %ContactPanel
 
 var _library: PlatformLibrary
-var _library_was_paused := true
 var _report: AfterAction
 var _editor: ScenarioEditor
 var _menu: ScenarioMenu
 var _briefing: BriefingPanel
+var _command_palette: CommandPalette
+var _modal_pause_captured := false
+var _modal_was_paused := true
+var _background_focus_modes: Dictionary = {}
+var _library_previous_focus: Control
+var _library_returns_to_menu := false
 var _objective_accum := 0.0
 var _dev: DevHarness
 var _stats := {}
@@ -57,8 +62,11 @@ func _ready() -> void:
 	map.move_order_requested.connect(_on_move_order_requested)
 	map.engage_requested.connect(_on_engage_requested)
 	map.waypoint_delete_requested.connect(_on_waypoint_delete_requested)
+	map.interaction_mode_changed.connect(orders_panel.set_move_mode)
 	orders_panel.order_requested.connect(_apply_order_to_selection)
 	orders_panel.formation_requested.connect(_apply_formation)
+	orders_panel.move_mode_requested.connect(map.set_move_mode)
+	orders_panel.emcon_toggle_requested.connect(_toggle_emcon_on_selection)
 	contact_panel.track_chosen.connect(map.select_track)
 	map.track_selected.connect(_on_track_selected)
 	orders_panel.weapon_selection_changed.connect(func(spec: WeaponSpec) -> void: map.weapon_ring = spec)
@@ -101,6 +109,8 @@ func _ready() -> void:
 	top_bar.briefing_pressed.connect(_show_briefing)
 	top_bar.restart_pressed.connect(restart_scenario)
 	top_bar.menu_pressed.connect(_show_menu)
+	top_bar.commands_pressed.connect(_toggle_command_palette)
+	top_bar.alert_pressed.connect(_focus_urgent_threat)
 	simulation.track_manager.track_added.connect(_on_track_added)
 	simulation.track_manager.track_classified.connect(_on_track_classified)
 	simulation.track_manager.track_lost.connect(_on_track_lost)
@@ -149,16 +159,11 @@ func _process(delta: float) -> void:
 	if threats.is_empty():
 		top_bar.set_alert("")
 	else:
-		var torpedo := false
-		var ballistic := false
-		for entry: Dictionary in threats:
-			var w: Weapon = entry["weapon"]
-			if w.spec.is_torpedo():
-				torpedo = true
-			elif w.threat_class() == "ballistic":
-				ballistic = true
-		var label := "TORPEDO IN THE WATER" if torpedo else ("BALLISTIC INBOUND" if ballistic else "MISSILE INBOUND")
-		top_bar.set_alert("%s  ·  %d" % [label, threats.size()])
+		# The banner, countdown, and click-to-focus all describe the same highest-priority threat.
+		var primary: Dictionary = threats[0]
+		var weapon: Weapon = primary["weapon"]
+		var label := "TORPEDO IN THE WATER" if weapon.spec.is_torpedo() else ("BALLISTIC INBOUND" if weapon.threat_class() == "ballistic" else "MISSILE INBOUND")
+		top_bar.set_alert("%s  ·  %d  ·  %ds" % [label, threats.size(), maxi(int(primary["time_s"]), 0)])
 
 
 func _objective_summary() -> String:
@@ -177,6 +182,11 @@ func start_scenario(path: String) -> void:
 		return
 	SimClock.set_paused(true)
 	SimClock.set_speed_index(0)
+	# A replacement scenario starts behind its own briefing. Rebase any older modal snapshot so
+	# dismissing that briefing can never inherit a running state from the previous mission.
+	_modal_pause_captured = true
+	_modal_was_paused = true
+	_set_background_input_enabled(false)
 	map.clear_selection()
 	map.weapon_ring = null
 	map.reset_presentation()
@@ -188,7 +198,7 @@ func start_scenario(path: String) -> void:
 	top_bar.set_alert("")
 	unit_panel.set_units([])
 	unit_panel.clear_events()
-	orders_panel.set_units([], false)
+	orders_panel.set_units([], false, false)
 	orders_panel.set_target_track(null)
 	var own := simulation.unit_manager.get_faction_units(simulation.player_faction)
 	if not own.is_empty():
@@ -238,7 +248,7 @@ func _build_screens() -> void:
 	_briefing.name = "BriefingPanel"
 	_briefing.mission_manager = simulation.mission_manager
 	_briefing.unit_manager = simulation.unit_manager
-	_briefing.start_pressed.connect(_hide_screens)
+	_briefing.start_pressed.connect(_on_briefing_start)
 	_briefing.restart_pressed.connect(restart_scenario)
 	_briefing.menu_pressed.connect(_show_menu)
 	add_child(_briefing)
@@ -246,58 +256,156 @@ func _build_screens() -> void:
 
 	_report = AfterAction.new()
 	_report.name = "AfterAction"
-	_report.review_pressed.connect(func() -> void: _report.hide())
+	_report.review_pressed.connect(_close_report)
 	_report.restart_pressed.connect(restart_scenario)
 	_report.menu_pressed.connect(_show_menu)
 	add_child(_report)
 
+	_command_palette = CommandPalette.new()
+	_command_palette.action_requested.connect(_run_palette_action)
+	_command_palette.closed.connect(_restore_modal_pause_if_clear)
+	add_child(_command_palette)
+	_command_palette.hide()
+
 
 func _show_editor() -> void:
+	_begin_modal_pause()
 	_menu.hide()
 	_briefing.hide()
 	_report.hide()
 	_editor.show()
-	SimClock.set_paused(true)
+	_editor.call_deferred("focus_default")
 
 
 func _show_menu() -> void:
+	_begin_modal_pause()
 	_briefing.hide()
 	_report.hide()
 	_editor.hide()
 	_menu.allow_back(simulation.scenario_path != "")
 	_menu.refresh(simulation.scenario_path)
 	_menu.show()
-	SimClock.set_paused(true)
+	_menu.call_deferred("focus_default")
 
 
 func _show_briefing() -> void:
+	_begin_modal_pause()
 	_menu.hide()
 	_report.hide()
 	_editor.hide()
 	_briefing.set_mode(SimClock.sim_time <= 0.0)
 	_briefing.refresh()
 	_briefing.show()
-	SimClock.set_paused(true)
+	_briefing.call_deferred("focus_default")
 
 
-func _hide_screens() -> void:
+func _hide_screens(restore_pause := true) -> void:
 	_menu.hide()
 	_briefing.hide()
 	_editor.hide()
+	if restore_pause:
+		_restore_modal_pause_if_clear()
+	if not _has_visible_modal():
+		call_deferred("_focus_map_if_clear")
+
+
+func _on_briefing_start() -> void:
+	# TAKE COMMAND / RESUME is explicit intent to run the clock, even when the board was opened
+	# from an already-paused picture. Clear the modal snapshot before resuming.
+	_hide_screens(false)
+	_modal_pause_captured = false
+	_set_background_input_enabled(true)
+	SimClock.set_paused(false)
+	call_deferred("_focus_map_if_clear")
+
+
+func _begin_modal_pause() -> void:
+	if not _modal_pause_captured:
+		_modal_was_paused = SimClock.paused
+		_modal_pause_captured = true
+	SimClock.set_paused(true)
+	_set_background_input_enabled(false)
+
+
+func _set_background_input_enabled(enabled: bool) -> void:
+	map.keyboard_navigation_enabled = enabled
+	var layout := $Layout as Control
+	if enabled:
+		for node in _background_focus_modes:
+			if is_instance_valid(node):
+				(node as Control).focus_mode = int(_background_focus_modes[node]) as Control.FocusMode
+		_background_focus_modes.clear()
+		return
+	if _background_focus_modes.is_empty():
+		var controls: Array[Node] = [layout]
+		controls.append_array(layout.find_children("*", "Control", true, false))
+		for node: Node in controls:
+			var control := node as Control
+			if control == null:
+				continue
+			_background_focus_modes[control] = control.focus_mode
+			control.focus_mode = Control.FOCUS_NONE
+	var owner := get_viewport().gui_get_focus_owner()
+	if owner != null and (owner == layout or layout.is_ancestor_of(owner)):
+		owner.release_focus()
+
+
+func _has_visible_modal() -> bool:
+	return (_menu != null and _menu.visible) \
+		or (_briefing != null and _briefing.visible) \
+		or (_editor != null and _editor.visible) \
+		or (_library != null and _library.visible) \
+		or (_command_palette != null and _command_palette.visible) \
+		or (_report != null and _report.visible)
+
+
+func _restore_modal_pause_if_clear() -> void:
+	if not _modal_pause_captured or _has_visible_modal():
+		return
+	var restore := _modal_was_paused
+	_modal_pause_captured = false
+	SimClock.set_paused(restore)
+	_set_background_input_enabled(true)
 
 
 func _toggle_library() -> void:
 	if _library.visible:
 		_close_library()
 	else:
-		_library_was_paused = SimClock.paused
+		_library_previous_focus = get_viewport().gui_get_focus_owner()
+		_library_returns_to_menu = _menu.visible
+		_begin_modal_pause()
+		if _library_returns_to_menu:
+			# The gallery is a full-screen surface, so the mission menu must not remain in
+			# the keyboard focus chain behind it.
+			_menu.hide()
 		_library.show()
-		SimClock.set_paused(true)
+		_library.call_deferred("focus_default")
 
 
 func _close_library() -> void:
 	_library.hide()
-	SimClock.set_paused(_library_was_paused)
+	if _library_returns_to_menu:
+		_library_returns_to_menu = false
+		_library_previous_focus = null
+		_menu.show()
+		_menu.call_deferred("focus_default")
+		return
+	_restore_modal_pause_if_clear()
+	if is_instance_valid(_library_previous_focus) and _library_previous_focus.is_visible_in_tree():
+		_library_previous_focus.call_deferred("grab_focus")
+	_library_previous_focus = null
+
+
+func _close_report() -> void:
+	_report.hide()
+	_set_background_input_enabled(true)
+	call_deferred("_focus_map_if_clear")
+
+
+func _focus_map_if_clear() -> void:
+	if not _has_visible_modal() and map.focus_mode != Control.FOCUS_NONE:
+		map.grab_focus()
 
 
 func _inspect_asset(id: String, weapon := false) -> void:
@@ -306,36 +414,177 @@ func _inspect_asset(id: String, weapon := false) -> void:
 	_library.inspect(id, weapon)
 
 
+func _toggle_command_palette() -> void:
+	if _command_palette.visible:
+		_command_palette.close_palette()
+		return
+	# Avoid stacking a second modal over the mission selector, briefing, editor, gallery, or report.
+	if _has_visible_modal():
+		return
+	# Snapshot action state while the mission is still in its real running/paused state. The
+	# palette's modal pause is presentation-only and must not make its Pause row lie.
+	var actions := _palette_actions()
+	_command_palette.set_actions(actions)
+	_command_palette.open_palette()
+	# Open first so the palette can remember the invoking control before modal isolation releases it.
+	_begin_modal_pause()
+
+
+func _palette_actions() -> Array[Dictionary]:
+	var controllable := _all_controllable(map.selected)
+	var movable := _all_movable(map.selected)
+	var has_target := map.selected_track != null
+	var contacts := contact_panel.visible_track_count()
+	var radar_state := orders_panel._selection_state("radar")
+	var sonar_state := orders_panel._selection_state("sonar")
+	var emcon_state := orders_panel._selection_state("emcon")
+	var actions: Array[Dictionary] = [
+		{"id": "plot_move", "label": "Plot move", "description": "Arm a visible left-click route order; Shift chains waypoints.", "shortcut": "G", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Select a deployed mobile platform first."},
+		{"id": "open_engagement", "label": "Open engagement solution", "description": "Show weapon, range, time-of-flight, and fire controls for the hooked contact.", "shortcut": "", "enabled": controllable and has_target, "state": map.selected_track.id if has_target else "no target", "reason": "Select a shooter and a contact first."},
+		{"id": "next_contact", "label": "Next priority contact", "description": "Cycle hostile, unknown, fresh, and nearby contacts first.", "shortcut": "N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
+		{"id": "previous_contact", "label": "Previous priority contact", "description": "Cycle backward through the priority contact stack.", "shortcut": "Shift+N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
+		{"id": "focus_selection", "label": "Focus selection and target", "description": "Center one item or fit the complete shooter-target problem.", "shortcut": "C", "enabled": not map.selected.is_empty() or has_target, "reason": "Select a platform or contact first."},
+		{"id": "follow_selection", "label": "Follow selection or target", "description": "Keep the hooked contact or single selected platform centered.", "shortcut": "F", "enabled": map.selected.size() == 1 or has_target, "state": "on" if map.follow_selection else "off", "reason": "Select one platform or hook a contact first."},
+		{"id": "fit_fleet", "label": "Fit friendly force", "description": "Recover the camera by framing every deployed friendly unit.", "shortcut": "Home", "enabled": true},
+		{"id": "fit_theatre", "label": "Fit operation area", "description": "Return to the scenario's full chart extent.", "shortcut": "", "enabled": true},
+		{"id": "toggle_radar", "label": "Toggle radar", "description": "Mixed or silent selections converge active; all-active selections go silent.", "shortcut": "R", "enabled": controllable and radar_state >= 0, "state": _state_name(radar_state, "off", "on"), "reason": "The selection has no controllable radar."},
+		{"id": "toggle_sonar", "label": "Toggle active sonar", "description": "Mixed or passive selections converge active; all-active selections go passive.", "shortcut": "P", "enabled": controllable and sonar_state >= 0, "state": _state_name(sonar_state, "passive", "active"), "reason": "The selection has no controllable sonar."},
+		{"id": "toggle_emcon", "label": "Toggle emission control", "description": "Switch the selection between silent and free emissions.", "shortcut": "E", "enabled": controllable, "state": _state_name(emcon_state, "free", "silent"), "reason": "Select a controllable platform first."},
+		{"id": "toggle_sensors", "label": "Sensor coverage layer", "description": "Show detection ranges for the current selection.", "shortcut": "F4", "enabled": true, "state": "on" if map.show_rings else "off"},
+		{"id": "toggle_vectors", "label": "Motion vectors layer", "description": "Show projected courses for units and tracks.", "shortcut": "V", "enabled": true, "state": "on" if map.show_vectors else "off"},
+		{"id": "toggle_trails", "label": "Track trails layer", "description": "Show recent movement history.", "shortcut": "F5", "enabled": true, "state": "on" if map.show_trails else "off"},
+		{"id": "toggle_terrain", "label": "Terrain detail layer", "description": "Show charted land fill and coastline detail.", "shortcut": "F6", "enabled": true, "state": "on" if map.show_terrain else "off"},
+		{"id": "toggle_key", "label": "Map symbol key", "description": "Show identification and map-control guidance.", "shortcut": "F2", "enabled": true, "state": "on" if map.show_key else "off"},
+		{"id": "toggle_range_grid", "label": "Reference range grid", "description": "Show concentric ranges around the picture reference.", "shortcut": "", "enabled": true, "state": "on" if map.show_range_grid else "off"},
+		{"id": "toggle_pause", "label": "Pause or resume time", "description": "Stop or resume simulation time without changing acceleration.", "shortcut": "Space", "enabled": true, "state": "paused" if SimClock.paused else "running"},
+		{"id": "briefing", "label": "Mission briefing and help", "description": "Review objectives, failure conditions, environment, and controls.", "shortcut": "F1", "enabled": true},
+		{"id": "library", "label": "Fleet and ordnance gallery", "description": "Inspect platform and weapon capabilities.", "shortcut": "F7", "enabled": true},
+	]
+	for i in SimClock.SPEEDS.size():
+		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(SimClock.SPEEDS[i]), "description": "Set simulation acceleration; time remains paused until resumed.", "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
+	return actions
+
+
+func _state_name(state: int, off_name: String, on_name: String) -> String:
+	if state < 0:
+		return "unavailable"
+	if state == 2:
+		return "mixed"
+	return on_name if state == 1 else off_name
+
+
+func _run_palette_action(id: String) -> void:
+	match id:
+		"plot_move":
+			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
+			map.grab_focus()
+		"open_engagement":
+			orders_panel.open_engagement()
+		"next_contact":
+			_cycle_priority_track(1)
+		"previous_contact":
+			_cycle_priority_track(-1)
+		"focus_selection":
+			map.center_on_selection()
+		"follow_selection":
+			map.set_follow_selection(not map.follow_selection)
+		"fit_fleet":
+			map.fit_to_fleet()
+		"fit_theatre":
+			map.fit_to(simulation.map_center, simulation.map_extent_nm)
+		"toggle_radar":
+			_toggle_radar_on_selection()
+		"toggle_sonar":
+			_toggle_sonar_on_selection()
+		"toggle_emcon":
+			_toggle_emcon_on_selection()
+		"toggle_sensors":
+			map.toggle_layer("sensors")
+		"toggle_vectors":
+			map.toggle_layer("vectors")
+		"toggle_trails":
+			map.toggle_layer("trails")
+		"toggle_terrain":
+			map.toggle_layer("terrain")
+		"toggle_key":
+			map.toggle_layer("key")
+		"toggle_range_grid":
+			map.toggle_layer("range_grid")
+		"toggle_pause":
+			SimClock.toggle_pause()
+		"briefing":
+			_show_briefing()
+		"library":
+			_toggle_library()
+		_:
+			if id.begins_with("speed_"):
+				SimClock.set_speed_index(int(id.trim_prefix("speed_")))
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
 		return
-	if _library.visible and k.keycode not in [KEY_F7, KEY_ESCAPE]:
+	if k.keycode == KEY_K and (k.meta_pressed or k.ctrl_pressed):
+		_toggle_command_palette()
+		get_viewport().set_input_as_handled()
 		return
-	if _editor.visible and k.keycode != KEY_F8 and k.keycode != KEY_F9:
-		return  # the editor owns the keyboard while it is open
+	# Full-screen surfaces own the keyboard. Their close shortcuts are handled here, but map and
+	# time hotkeys cannot leak through and change a mission behind a modal.
+	if _command_palette.visible:
+		return
+	if _library.visible:
+		if k.keycode in [KEY_F7, KEY_ESCAPE]:
+			_close_library()
+			get_viewport().set_input_as_handled()
+		return
+	if _editor.visible:
+		if k.keycode in [KEY_F8, KEY_F9, KEY_ESCAPE]:
+			_show_menu()
+			get_viewport().set_input_as_handled()
+		return
+	if _menu.visible:
+		if k.keycode in [KEY_F9, KEY_ESCAPE] and simulation.scenario_path != "":
+			_hide_screens()
+			get_viewport().set_input_as_handled()
+		elif k.keycode == KEY_F8:
+			_show_editor()
+			get_viewport().set_input_as_handled()
+		return
+	if _briefing.visible:
+		if k.keycode in [KEY_F1, KEY_ESCAPE]:
+			_hide_screens()
+			get_viewport().set_input_as_handled()
+		return
+	if _report.visible:
+		if k.keycode == KEY_ESCAPE:
+			_close_report()
+		elif k.keycode == KEY_F10:
+			restart_scenario()
+		elif k.keycode == KEY_F9:
+			_show_menu()
+		else:
+			return
+		get_viewport().set_input_as_handled()
+		return
 	match k.keycode:
 		KEY_F7:
 			_toggle_library()
 		KEY_SPACE:
 			SimClock.toggle_pause()
 		KEY_ESCAPE:
-			if _library.visible:
-				_close_library()
-			elif _report.visible:
-				_report.hide()
-			else:
+			if not map.cancel_interaction_mode():
 				map.clear_selection()
 		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
 			SimClock.set_speed_index(k.keycode - KEY_1)
 		KEY_F2:
-			map.show_key = not map.show_key
+			map.toggle_layer("key")
 		KEY_F4:
-			map.show_rings = not map.show_rings
+			map.toggle_layer("sensors")
 		KEY_F5:
-			map.show_trails = not map.show_trails
+			map.toggle_layer("trails")
 		KEY_F6:
-			map.show_terrain = not map.show_terrain
+			map.toggle_layer("terrain")
 			if Terrain.is_empty():
 				top_bar.flash("No charted land in this area")
 		KEY_F3:
@@ -348,6 +597,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_toggle_sonar_on_selection()
 		KEY_E:
 			_toggle_emcon_on_selection()
+		KEY_G:
+			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
+		KEY_F:
+			map.set_follow_selection(not map.follow_selection)
+		KEY_V:
+			map.toggle_layer("vectors")
+		KEY_N:
+			_cycle_priority_track(-1 if k.shift_pressed else 1)
 		KEY_F1:
 			if _briefing.visible:
 				_hide_screens()
@@ -372,13 +629,38 @@ func _on_selection_changed(units: Array) -> void:
 	if map.selected_track != null and not map.selected_track.visible_to(map.reference_unit()):
 		map.select_track(null)
 	unit_panel.set_units(units)
-	orders_panel.set_units(units, _all_controllable(units))
+	# The dock retains ownership/capability permission, then recalculates whether the
+	# selection is actively commandable as aircraft launch, recover, or are stowed.
+	orders_panel.set_units(units, _all_command_authorized(units), _all_mobile_command_authorized(units))
 	orders_panel.set_target_track(map.selected_track)
 
 
 func _on_track_selected(t: Track) -> void:
 	contact_panel.refresh()
 	orders_panel.set_target_track(t)
+	if t != null:
+		orders_panel.open_engagement()
+
+
+func _cycle_priority_track(step: int) -> void:
+	var next := contact_panel.cycle_visible_track(step)
+	if next == null:
+		top_bar.flash("No contacts held on this picture", "warn")
+		return
+	top_bar.flash("TARGET %s · %s %s" % [next.id, next.identity, next.domain.to_upper()], "alert" if next.identity == "HOSTILE" else "info")
+
+
+func _focus_urgent_threat() -> void:
+	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, map.reference_unit())
+	if threats.is_empty():
+		top_bar.flash("No inbound weapon is held on this picture")
+		return
+	var entry: Dictionary = threats[0]
+	var weapon: Weapon = entry["weapon"]
+	var target: Unit = entry["target"]
+	map.set_follow_selection(false)
+	map.fit_to((weapon.position + target.position) * 0.5, maxf(weapon.position.distance_to(target.position) * 1.55 + 4.0, 12.0))
+	top_bar.flash("FOCUS · %s inbound to %s · impact in ~%d s" % [weapon.spec.display_name, target.callsign, maxi(int(entry["time_s"]), 0)], "alert")
 
 
 func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
@@ -489,6 +771,7 @@ func _on_engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String) ->
 
 func _on_mission_ended(result: String, summary: String) -> void:
 	SimClock.set_paused(true)
+	_set_background_input_enabled(false)
 	var mm := simulation.mission_manager
 	var objectives: Array = []
 	objectives.append_array(mm.victory_objectives)
@@ -533,37 +816,49 @@ func _on_waypoint_delete_requested(u: Unit, index: int) -> void:
 	SoundFx.play("click", 0.05)
 
 
-## One order goes to every selected unit, so a mixed selection can have it accepted by the
-## helicopter and refused by the destroyer. The flash reports the refusal only when nothing at all
-## could take it; otherwise the order simply went to the units it suited.
+## One order goes to every selected unit. The acknowledgement makes group commands legible: a
+## mixed force may accept an order only on the platforms that support it, and that is never silent.
 func _apply_order_to_selection(order: Order) -> void:
-	var any := false
+	var accepted := 0
 	var refused := 0
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
 			if simulation.unit_manager.issue_order(u, order):
-				any = true
+				accepted += 1
 			else:
 				refused += 1
-	if any:
+	var attempted := accepted + refused
+	if accepted > 0:
 		SoundFx.play("click", 0.05)
+		var receipt := "✓ %s · %d accepted" % [order.describe(), accepted]
+		if refused > 0:
+			receipt += " / %d refused" % refused
+		top_bar.flash(receipt, "warn" if refused > 0 else "good")
 		if order.type == Order.Type.MOVE and not Terrain.is_empty():
 			for u in map.selected:
 				if u.faction == simulation.player_faction and u.needs_sea_room() and Terrain.first_land_contact(u.position, order.target_pos) >= 0.0:
 					top_bar.flash("%s: land on that course — it will follow the coast" % u.callsign, "warn")
 					break
-	elif refused > 0:
-		top_bar.flash("That is land — pick a point in the water", "warn")
+	elif attempted > 0:
+		top_bar.flash("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else ""], "warn")
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
+	else:
+		top_bar.flash("Select a controllable platform first", "warn")
 
 
 func _toggle_radar_on_selection() -> void:
-	var any_on := false
+	var capable := 0
+	var active := 0
 	for u in map.selected:
-		if u.radar_on:
-			any_on = true
-	_apply_order_to_selection(Order.silence_radar() if any_on else Order.activate_radar())
+		if u.has_radar():
+			capable += 1
+			if u.radar_on:
+				active += 1
+	if capable == 0:
+		top_bar.flash("The selection has no radar", "warn")
+		return
+	_apply_order_to_selection(Order.silence_radar() if active == capable else Order.activate_radar())
 
 
 ## Formation orders are per-unit, so they cannot go through the broadcast path.
@@ -581,19 +876,26 @@ func _apply_formation(pattern: String) -> void:
 
 
 func _toggle_emcon_on_selection() -> void:
-	var any_radiating := false
-	for u in map.selected:
-		if u.radar_on or u.active_sonar_on:
-			any_radiating = true
-	_apply_order_to_selection(Order.set_emcon(any_radiating))
+	var state := orders_panel._selection_state("emcon")
+	if state < 0:
+		top_bar.flash("Select a controllable platform first", "warn")
+		return
+	# OFF/FREE and MIXED both converge to SILENT; only an all-silent selection returns FREE.
+	_apply_order_to_selection(Order.set_emcon(state != 1))
 
 
 func _toggle_sonar_on_selection() -> void:
-	var any_on := false
+	var capable := 0
+	var active := 0
 	for u in map.selected:
-		if u.active_sonar_on:
-			any_on = true
-	_apply_order_to_selection(Order.passive_sonar() if any_on else Order.active_sonar())
+		if u.has_sonar():
+			capable += 1
+			if u.active_sonar_on:
+				active += 1
+	if capable == 0:
+		top_bar.flash("The selection has no sonar", "warn")
+		return
+	_apply_order_to_selection(Order.passive_sonar() if active == capable else Order.active_sonar())
 	for u in map.selected:
 		if u.active_sonar_on:
 			SoundFx.play("ping", 0.5)
@@ -631,9 +933,39 @@ func _on_track_lost(faction: String, t: Track) -> void:
 
 
 func _all_controllable(units: Array) -> bool:
+	if not _all_command_authorized(units):
+		return false
+	for u: Unit in units:
+		# Hangar/deck aircraft remain inspectable in the roster, but they are not an active
+		# command element until launch. Keeping this gate aligned with UnitManager avoids a
+		# dock full of actions that will all be refused.
+		if not u.is_engageable():
+			return false
+	return true
+
+
+func _all_command_authorized(units: Array) -> bool:
 	if units.is_empty():
 		return false
-	for u in units:
-		if u.faction != simulation.player_faction:
+	for u: Unit in units:
+		if u.faction != simulation.player_faction or not u.alive:
+			return false
+	return true
+
+
+func _all_mobile_command_authorized(units: Array) -> bool:
+	if not _all_command_authorized(units):
+		return false
+	for u: Unit in units:
+		if u.spec.max_speed_kn <= 0.0:
+			return false
+	return true
+
+
+func _all_movable(units: Array) -> bool:
+	if not _all_controllable(units):
+		return false
+	for u: Unit in units:
+		if not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
 			return false
 	return true

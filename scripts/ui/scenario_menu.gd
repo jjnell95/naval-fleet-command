@@ -79,7 +79,8 @@ func _ready() -> void:
 	left.add_child(lh)
 	_list = ItemList.new()
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_list.focus_mode = Control.FOCUS_NONE
+	_list.focus_mode = Control.FOCUS_ALL
+	_list.accessibility_name = "Available missions"
 	_list.add_theme_font_size_override("font_size", 14)
 	_list.add_theme_constant_override("v_separation", 12)
 	_list.item_selected.connect(_on_selected)
@@ -117,21 +118,26 @@ func _ready() -> void:
 	_play = Button.new()
 	_play.text = "BRIEF AND DEPLOY"
 	_play.theme_type_variation = "PrimaryButton"
-	_play.focus_mode = Control.FOCUS_NONE
+	_play.focus_mode = Control.FOCUS_ALL
+	_play.custom_minimum_size.y = 44
 	_play.pressed.connect(_on_play)
 	buttons.add_child(_play)
 	var edit := Button.new()
 	edit.text = "SCENARIO EDITOR  F8"
-	edit.focus_mode = Control.FOCUS_NONE
+	edit.focus_mode = Control.FOCUS_ALL
+	edit.custom_minimum_size.y = 44
 	edit.pressed.connect(func() -> void: editor_requested.emit())
 	buttons.add_child(edit)
 	var library := Button.new()
 	library.text = "FLEET + ORDNANCE GALLERY  F7"
+	library.focus_mode = Control.FOCUS_ALL
+	library.custom_minimum_size.y = 44
 	library.pressed.connect(func() -> void: library_requested.emit())
 	buttons.add_child(library)
 	_close = Button.new()
 	_close.text = "BACK TO THE PICTURE"
-	_close.focus_mode = Control.FOCUS_NONE
+	_close.focus_mode = Control.FOCUS_ALL
+	_close.custom_minimum_size.y = 44
 	_close.pressed.connect(func() -> void: dismissed.emit())
 	buttons.add_child(_close)
 	var note := Label.new()
@@ -160,6 +166,11 @@ func refresh(current_path := "") -> void:
 
 func allow_back(can_go_back: bool) -> void:
 	_close.visible = can_go_back
+
+
+func focus_default() -> void:
+	if visible and _list != null:
+		_list.grab_focus()
 
 
 func _on_selected(i: int) -> void:

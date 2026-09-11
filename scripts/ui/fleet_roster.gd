@@ -6,13 +6,24 @@ var _rows: Array[Unit] = []
 var _timer := 0.0
 
 func _ready() -> void:
-	focus_mode = Control.FOCUS_NONE
+	focus_mode = Control.FOCUS_ALL
+	select_mode = ItemList.SELECT_MULTI
+	tooltip_text = "Friendly force roster. Use Command/Control to select a group; press Enter to focus it on the map."
 	add_theme_font_size_override("font_size", 12)
-	add_theme_constant_override("v_separation", 7)
-	item_selected.connect(func(i: int) -> void:
-		if i < _rows.size() and map != null:
-			map.select_units([_rows[i]]))
+	add_theme_constant_override("v_separation", 10)
+	item_selected.connect(func(_i: int) -> void: _push_selection())
+	multi_selected.connect(func(_i: int, _selected: bool) -> void: _push_selection())
 	item_activated.connect(func(_i: int) -> void: map.center_on_selection())
+
+
+func _push_selection() -> void:
+	if map == null:
+		return
+	var units: Array[Unit] = []
+	for index in get_selected_items():
+		if index >= 0 and index < _rows.size():
+			units.append(_rows[index])
+	map.select_units(units)
 
 func _process(delta: float) -> void:
 	_timer += delta

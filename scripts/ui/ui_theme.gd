@@ -13,8 +13,8 @@ const COL_GREEN := Color("8fd99a")
 const COL_BLUE := Color("6cb9ff")
 const COL_PANEL := Color("101e2b")
 const COL_PANEL_DEEP := Color("0b1722")
-const COL_BORDER := Color("293d4e")
-const COL_BORDER_LIGHT := Color("2f4c60")
+const COL_BORDER := Color("3f6074")
+const COL_BORDER_LIGHT := Color("527a91")
 
 const HEX_TEXT := "#e4edf2"
 const HEX_DIM := "#9aafbd"
@@ -82,9 +82,16 @@ static func build() -> Theme:
 	t.set_type_variation("CardPanel", "PanelContainer")
 	t.set_stylebox("panel", "CardPanel", card)
 
+	var toolbar := panel.duplicate()
+	toolbar.bg_color = Color("091721", 0.96)
+	toolbar.border_color = COL_BORDER_LIGHT
+	toolbar.set_content_margin_all(5)
+	t.set_type_variation("ToolbarPanel", "PanelContainer")
+	t.set_stylebox("panel", "ToolbarPanel", toolbar)
+
 	var btn := StyleBoxFlat.new()
 	btn.bg_color = Color("12212e")
-	btn.border_color = Color("2c4a5e")
+	btn.border_color = COL_BORDER_LIGHT
 	btn.set_border_width_all(1)
 	btn.set_corner_radius_all(3)
 	btn.content_margin_left = 10
@@ -125,13 +132,29 @@ static func build() -> Theme:
 	primary.content_margin_bottom = 9
 	var primary_hover := primary.duplicate()
 	primary_hover.bg_color = Color("25868f")
+	var primary_focus := focus.duplicate()
+	primary_focus.border_color = Color.WHITE
+	primary_focus.set_border_width_all(3)
+	primary_focus.set_corner_radius_all(4)
 	t.set_type_variation("PrimaryButton", "Button")
 	t.set_stylebox("normal", "PrimaryButton", primary)
 	t.set_stylebox("hover", "PrimaryButton", primary_hover)
 	t.set_stylebox("pressed", "PrimaryButton", primary_hover)
-	t.set_stylebox("focus", "PrimaryButton", primary_hover)
+	t.set_stylebox("focus", "PrimaryButton", primary_focus)
 	t.set_font_size("font_size", "PrimaryButton", 14)
 	t.set_color("font_color", "PrimaryButton", Color.WHITE)
+
+	var danger := btn.duplicate()
+	danger.bg_color = Color("49252c")
+	danger.border_color = COL_RED
+	var danger_hover := danger.duplicate()
+	danger_hover.bg_color = Color("6b3034")
+	t.set_type_variation("DangerButton", "Button")
+	t.set_stylebox("normal", "DangerButton", danger)
+	t.set_stylebox("hover", "DangerButton", danger_hover)
+	t.set_stylebox("pressed", "DangerButton", danger_hover)
+	t.set_stylebox("focus", "DangerButton", focus)
+	t.set_color("font_color", "DangerButton", Color.WHITE)
 
 	t.set_color("font_color", "Label", COL_TEXT)
 	t.set_font_size("font_size", "Label", 13)
@@ -144,6 +167,9 @@ static func build() -> Theme:
 	t.set_type_variation("TitleLabel", "Label")
 	t.set_font_size("font_size", "TitleLabel", 25)
 	t.set_color("font_color", "TitleLabel", Color.WHITE)
+	t.set_type_variation("MapHintLabel", "Label")
+	t.set_font_size("font_size", "MapHintLabel", 12)
+	t.set_color("font_color", "MapHintLabel", COL_DIM)
 
 	var field := btn.duplicate()
 	field.bg_color = Color("081019")
@@ -164,6 +190,7 @@ static func build() -> Theme:
 	row_sel.set_corner_radius_all(2)
 	t.set_stylebox("selected", "ItemList", row_sel)
 	t.set_stylebox("selected_focus", "ItemList", row_sel)
+	t.set_color("font_selected_color", "ItemList", Color.WHITE)
 	var row_hover := StyleBoxFlat.new()
 	row_hover.bg_color = Color("122433")
 	t.set_stylebox("hovered", "ItemList", row_hover)
@@ -174,6 +201,13 @@ static func build() -> Theme:
 	t.set_color("default_color", "RichTextLabel", COL_TEXT)
 	var rt_bg := StyleBoxEmpty.new()
 	t.set_stylebox("normal", "RichTextLabel", rt_bg)
+	var rt_focus := focus.duplicate()
+	rt_focus.set_border_width_all(2)
+	rt_focus.content_margin_left = 3
+	rt_focus.content_margin_right = 3
+	rt_focus.content_margin_top = 3
+	rt_focus.content_margin_bottom = 3
+	t.set_stylebox("focus", "RichTextLabel", rt_focus)
 	var tip := panel.duplicate()
 	tip.bg_color = Color("0c1a26")
 	tip.border_color = COL_BORDER_LIGHT

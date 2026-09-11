@@ -21,6 +21,10 @@ var emcon_silent := false
 var roe := 2
 var leader: Unit
 var offset_nm := Vector2.ZERO
+## Specialist managers set this during the synchronous order_issued route. UnitManager returns it
+## to the caller, so a UI receipt can distinguish a command that was merely routed from one that
+## actually secured a firing channel, deck spot, return state, or buoy deployment.
+var execution_accepted := true
 
 
 static func move(pos: Vector2, append_waypoint := false) -> Order:

@@ -153,21 +153,21 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 	match o.type:
 		Order.Type.ENGAGE:
 			var spec := u.get_weapon(o.weapon_id)
-			if spec != null:
-				weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time)
+			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time)
 		Order.Type.LAUNCH_AIRCRAFT:
 			if o.aircraft_count > 1:
 				# A section flies one type. The lead names it, so a mixed hangar does not put a
 				# tanker off the catapult behind three fighters.
 				var lead := aviation_manager.launch(u, o.aircraft_id)
+				o.execution_accepted = lead != null
 				if lead != null:
 					aviation_manager.launch_flight(u, o.aircraft_count - 1, lead.spec.id)
 			else:
-				aviation_manager.launch(u, o.aircraft_id)
+				o.execution_accepted = aviation_manager.launch(u, o.aircraft_id) != null
 		Order.Type.RETURN_TO_BASE:
-			aviation_manager.request_return(u)
+			o.execution_accepted = aviation_manager.request_return(u)
 		Order.Type.DEPLOY_SONOBUOY:
-			aviation_manager.deploy_sonobuoy(u, SimClock.sim_time)
+			o.execution_accepted = aviation_manager.deploy_sonobuoy(u, SimClock.sim_time) != null
 
 
 func _on_tick(dt: float) -> void:

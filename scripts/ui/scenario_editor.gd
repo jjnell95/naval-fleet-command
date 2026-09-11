@@ -90,7 +90,7 @@ func _ready() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(spacer)
 	_load_menu = OptionButton.new()
-	_load_menu.focus_mode = Control.FOCUS_NONE
+	_load_menu.focus_mode = Control.FOCUS_ALL
 	_load_menu.custom_minimum_size.x = 230
 	_load_menu.item_selected.connect(_on_load_selected)
 	head.add_child(_load_menu)
@@ -118,7 +118,7 @@ func _ready() -> void:
 	left.add_child(ph)
 	_palette = ItemList.new()
 	_palette.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_palette.focus_mode = Control.FOCUS_NONE
+	_palette.focus_mode = Control.FOCUS_ALL
 	_palette.add_theme_font_size_override("font_size", 11)
 	_palette.add_theme_constant_override("v_separation", 5)
 	_palette.item_selected.connect(func(i: int) -> void:
@@ -137,7 +137,7 @@ func _ready() -> void:
 		var b := Button.new()
 		b.text = entry[0]
 		b.toggle_mode = true
-		b.focus_mode = Control.FOCUS_NONE
+		b.focus_mode = Control.FOCUS_ALL
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(func() -> void: _set_mode(entry[1]))
 		modes.add_child(b)
@@ -181,7 +181,7 @@ func _ready() -> void:
 	_sea = _spin(props, "Sea state (0 calm – 6 high)", 0, 6, 1, func(v: float) -> void: scenario["environment"]["sea_state"] = int(v))
 	_section(props, "OBJECTIVE")
 	_objective_kind = OptionButton.new()
-	_objective_kind.focus_mode = Control.FOCUS_NONE
+	_objective_kind.focus_mode = Control.FOCUS_ALL
 	for k in OBJECTIVE_KINDS:
 		_objective_kind.add_item(k)
 	_objective_kind.item_selected.connect(func(_i: int) -> void: _apply_objective())
@@ -205,7 +205,7 @@ func _ready() -> void:
 	_unit_box.add_child(_unit_title)
 	_callsign = _line(_unit_box, "Callsign", func(t: String) -> void: _unit_set("callsign", t))
 	_faction = OptionButton.new()
-	_faction.focus_mode = Control.FOCUS_NONE
+	_faction.focus_mode = Control.FOCUS_ALL
 	for f in FACTIONS:
 		_faction.add_item(f)
 	_faction.item_selected.connect(func(i: int) -> void:
@@ -217,22 +217,22 @@ func _ready() -> void:
 	_depth = _spin(_unit_box, "Depth (m, submarines)", 0, 600, 5, func(v: float) -> void: _unit_set("depth_m", v))
 	_radar = CheckBox.new()
 	_radar.text = "Radar on at start"
-	_radar.focus_mode = Control.FOCUS_NONE
+	_radar.focus_mode = Control.FOCUS_ALL
 	_radar.toggled.connect(func(on: bool) -> void: _unit_set("radar_on", on))
 	_unit_box.add_child(_radar)
 	_protect = CheckBox.new()
 	_protect.text = "PROTECT: mission fails if lost"
-	_protect.focus_mode = Control.FOCUS_NONE
+	_protect.focus_mode = Control.FOCUS_ALL
 	_protect.toggled.connect(func(on: bool) -> void: _set_protected(on))
 	_unit_box.add_child(_protect)
 	_posture = OptionButton.new()
-	_posture.focus_mode = Control.FOCUS_NONE
+	_posture.focus_mode = Control.FOCUS_ALL
 	_posture.add_item("AI posture: standard")
 	_posture.add_item("AI posture: breakout (presses on)")
 	_posture.item_selected.connect(func(i: int) -> void: _unit_set("ai_posture", "breakout" if i == 1 else "standard"))
 	_unit_box.add_child(_posture)
 	_home = OptionButton.new()
-	_home.focus_mode = Control.FOCUS_NONE
+	_home.focus_mode = Control.FOCUS_ALL
 	_home.item_selected.connect(func(i: int) -> void: _unit_set("home", _home.get_item_text(i)))
 	_unit_box.add_child(_home)
 	var patrol_row := HBoxContainer.new()
@@ -292,12 +292,17 @@ func _ready() -> void:
 	_set_mode(Mode.PLACE)
 
 
+func focus_default() -> void:
+	if visible and _load_menu != null:
+		_load_menu.grab_focus()
+
+
 # --- Construction helpers ----------------------------------------------------------------
 
 func _button(parent: Node, text: String, on_pressed: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.focus_mode = Control.FOCUS_NONE
+	b.focus_mode = Control.FOCUS_ALL
 	b.pressed.connect(on_pressed)
 	parent.add_child(b)
 	return b

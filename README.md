@@ -4,6 +4,16 @@
 
 A modern naval command simulation in Godot 4.7.2. Command a task group through an Aegis-inspired combat information display: build an uncertain picture, manage emissions, hold the screen together and decide when to shoot. Original 3D fleet art, tactical vector graphics, procedural sound and fictional scenarios; no Jane's assets or affiliation.
 
+## M17 command-deck UX
+
+The tactical workflow now keeps the next useful action in sight. **Plot Move (G)** is an explicit mode with a live route and land-crossing preview; Shift chains waypoints and Escape or right-click cancels. A clickable **Tactical Overview** shows the current viewport and recentres the main plot, while trackpad pan/pinch, follow mode, force/theatre fits, and group-aware focus make a lost camera easy to recover.
+
+The persistent command dock shows the selected shooter, target, radar, sonar, EMCON and weapons state—including mixed multi-selection state—above the specialist tabs. Contacts are prioritized and can be stepped with **N / Shift-N** or visible Previous/Next buttons. Selecting a contact opens its engagement solution; accepted group orders report a receipt; the inbound-threat banner focuses the most urgent weapon when clicked.
+
+Press **Command-K / Control-K** or **Actions** for a searchable, context-aware command palette. Keyboard focus, visible focus treatment, 44 logical-pixel primary targets at the 1,600 × 1,000 reference canvas, stronger boundaries, modal input isolation, and pause-state restoration were applied throughout the mission flow. See the [M17 UX notes and validation](docs/UX_M17.md).
+
+![M17 command deck with explicit Plot Move mode and Tactical Overview](docs/ux-command-deck.png)
+
 ## M16 geography and realism
 
 All ten missions now use Natural Earth coastline geometry with separate islands and straits, latitude/longitude grids, geographic labels, and clear mission areas. The theatre control restores the full regional view; range rings are optional.
@@ -28,11 +38,11 @@ The command screen now has a watch overview, clickable fleet roster, domain filt
 
 Desktop/laptop with keyboard and mouse, WebGL 2 browser. The engine download is approximately 38 MB, plus the game and fleet-art package. Pick **Aegis Bastion** for the first watch and **Arctic Shield** for the regimental raid, then **Brief and Deploy** and **Take Command**. The game starts at real time. Space pauses; 1–6 changes time speed. Combat events drop acceleration to real time.
 
-- Select a friendly symbol; right-click water to order movement. Shift appends waypoints, and right-clicking a waypoint marker on the route drops just that leg. A ship will not take an order onto land, and a leg that crosses a coast is drawn in red from the beach onward. Wheel or +/- zooms; middle/right drag pans; double-click a unit or track to recentre on it without changing zoom; Home fits the whole fleet in view and C recentres on the current selection. Hover over any symbol, waypoint, or land for a quick card.
+- Select a friendly symbol, then press **G** or **Plot Move** and left-click water. Shift appends waypoints; Escape/right-click cancels the tool, while right-clicking a waypoint removes that leg. A ship will not take an order onto land, and the preview turns red beyond the first coast crossing. Wheel/pinch or +/- zooms; middle/right/Option-drag pans; the Tactical Overview recentres by click or drag; Home fits the force, C frames the selection and target, and F follows one platform or the hooked contact. Hover over any symbol, waypoint, or land for a quick card.
 - Select the carrier, open **AVIATION + ASW**, and press **Launch** to launch the next ready aircraft (E-2D first, then the fighters and the Growler). Select an airborne aircraft to direct it.
-- Select a friendly shooter, then a contact; choose an appropriate weapon and salvo, and **Engage**. Or hold ctrl/cmd and right-click a contact to select it and fire the currently selected weapon in one move. Unknown contact classification matters, and neutral traffic is out there.
+- Select a friendly shooter, then a contact; the Engagement tab opens with weapon, envelope and time-of-flight context. Choose a salvo and **Engage**, or hold Ctrl/Cmd and right-click a contact to use the current legal solution immediately. Use **N / Shift-N** or the contact-panel buttons to cycle the priority stack. Unknown classification matters, and neutral traffic is out there.
 - Ship missile defence is automatic, subject to detection, weapon range, channels, ammunition, damage and weapons-hold settings. Ballistic rounds are only met by interceptors built for them.
-- R toggles radar; P sonar; E emissions control. F2 toggles the symbol key; F4 sensor rings; F5 trails; F6 the land layer; M sound. F1 briefing; F7 fleet and ordnance gallery; F8 scenario editor; F9 missions; F10 restart. F3 is an explicitly optional debug truth overlay.
+- R toggles radar; P sonar; E emissions control. F2 toggles the symbol key; F4 sensors; F5 trails; F6 terrain; V vectors; M sound. F1 briefing/help; F7 fleet and ordnance gallery; F8 scenario editor; F9 missions; F10 restart. **Command-K / Control-K** opens common mission actions in a searchable palette. F3 is an explicitly optional debug truth overlay.
 - The event log lives under the unit panel. The defence board on the right is the threat-evaluation view: inbound rounds, their targets, time to impact, interceptors up and channel load per ship.
 
 ## Build your own missions
@@ -79,7 +89,7 @@ The visual layer was rebuilt: APP-6/NTDS-style frames with platform glyphs, own-
 
 ## Realism boundary
 
-An ambitious game foundation, not a high-fidelity replica of real Aegis software. Public names and broad roles are sourced in DATA_SOURCES.md; numerical performance and loadouts are estimates. Carrier air group capacity is deliberately compressed. Carrier sensors are simplified. The map is a local nautical-mile grid, not a geographic chart, and every coastline in it is a stylised fictional shape drawn to evoke the water a scenario names — not survey data. Terrain masking is a straight line over a plateau of one height, not a height field and not a diffraction model. Jamming, ballistic flight and sea-state effects are abstractions with no claim to any real system's behaviour.
+An ambitious game foundation, not a high-fidelity replica of real Aegis software. Public names and broad roles are sourced in DATA_SOURCES.md; numerical performance and loadouts are estimates. Carrier air group capacity is deliberately compressed. Carrier sensors are simplified. The renderer uses a local nautical-mile plane anchored to scenario geography; coastlines are generalized Natural Earth 1:10m cartography, not hydrographic or navigation data. Terrain masking is a straight line over a single declared landmass height, not a height field and not a diffraction model. Jamming, ballistic flight and sea-state effects are abstractions with no claim to any real system's behaviour.
 
 Still absent: bathymetry and shoal depth (land is a wall, the water beside it has no bottom), routing around a peninsula (a ship follows a coast, it does not plan a way round one), terrain-aware interceptor geometry and seeker masking, detailed radar scheduling/illumination, logistics/replenishment, save games, weather beyond sea state. Private observer histories and automatic defence now respect datalink access; manual and automatic SAM engagements share one channel budget. The network has no range, latency, or relay topology. No claim of operational fidelity or calibrated combat probability is made.
 
@@ -96,6 +106,8 @@ godot --path .
 Install the official matching web export templates, then run `godot --headless --path . --export-release Web`. Pages serves `main:/docs`. Commit the updated `docs/play` build after changes. The engine uses Compatibility rendering, no web threads, and text resources to preserve all sensor/target arrays during export. Any script that declares a new `class_name` needs the import step before a headless run will see it.
 
 ## Validation
+
+M17: **224 tests pass**, including 16 new interaction-model regressions for priority tracks, overview transforms, shared layer state, Plot Move arming/cancel and terrain legality, safe-area group focus, filtered contact cycling, selection-state truth, downstream order receipts, stowed-aircraft gating, and command-palette filtering/activation. The native command deck was rendered and inspected at 1,600 × 1,000 and at a 1,152 × 720 scaled laptop window; the native integration smoke passes 24 gallery, palette, focus and briefing pause/restore checks. The rebuilt Web package passed mission-menu, briefing, Take Command and Actions-palette checks with a clean browser console. See [M17 UX validation](docs/UX_M17.md).
 
 M14: **190 tests pass**, including all 83 imported models, thumbnails, close-scale labels and weapon-trail privacy. **18 native gallery interaction checks pass**. The command screen, mission menu, aircraft and weapon galleries were captured from the running game. See [M14 verification](docs/VISUALS.md).
 

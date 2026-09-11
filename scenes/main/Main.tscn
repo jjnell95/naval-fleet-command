@@ -32,7 +32,7 @@ theme_override_constants/separation = 8
 
 [node name="TopBar" type="PanelContainer" parent="Layout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 60)
+custom_minimum_size = Vector2(0, 68)
 layout_mode = 2
 script = ExtResource("3_top")
 
@@ -61,6 +61,6 @@ script = ExtResource("7_contacts")
 
 [node name="OrdersPanel" type="PanelContainer" parent="Layout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 116)
+custom_minimum_size = Vector2(0, 148)
 layout_mode = 2
 script = ExtResource("6_orders")
