@@ -6,6 +6,8 @@ signal library_pressed()
 signal briefing_pressed()
 signal restart_pressed()
 signal menu_pressed()
+signal commands_pressed()
+signal alert_pressed()
 signal logged(text: String, severity: String)
 
 const FLASH_S := 12.0
@@ -15,7 +17,7 @@ var _title: Label
 var _mission: Label
 var _objective: Label
 var _event: Label
-var _alert: Label
+var _alert: Button
 var _flash_left := 0.0
 var _time: Label
 var _pause_btn: Button
@@ -31,7 +33,7 @@ func _ready() -> void:
 
 	var title_box := VBoxContainer.new()
 	title_box.add_theme_constant_override("separation", 0)
-	title_box.custom_minimum_size.x = 190
+	title_box.custom_minimum_size.x = 170
 	h.add_child(title_box)
 	_title = Label.new()
 	_title.text = "FLEET COMMAND"
@@ -58,6 +60,7 @@ func _ready() -> void:
 	_objective.clip_text = true
 	_objective.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_objective.custom_minimum_size.x = 0
+	_objective.accessibility_name = "Current mission objective"
 	mid.add_child(_objective)
 	_event = Label.new()
 	_event.modulate = Color(1.0, 0.8, 0.4)
@@ -65,27 +68,33 @@ func _ready() -> void:
 	_event.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_event.custom_minimum_size.x = 0
 	_event.add_theme_font_size_override("font_size", 13)
+	_event.accessibility_name = "Latest command and combat event"
 	mid.add_child(_event)
 
-	_alert = Label.new()
+	_alert = Button.new()
 	_alert.clip_text = true
-	_alert.custom_minimum_size.x = 210
+	_alert.custom_minimum_size = Vector2(178, 44)
+	_alert.focus_mode = Control.FOCUS_ALL
+	_alert.theme_type_variation = "DangerButton"
 	_alert.add_theme_font_size_override("font_size", 13)
-	_alert.add_theme_color_override("font_color", UITheme.COL_RED)
+	_alert.accessibility_name = "Active threat alert"
+	_alert.tooltip_text = "Focus the most urgent inbound threat"
+	_alert.pressed.connect(func() -> void: alert_pressed.emit())
 	_alert.visible = false
 	h.add_child(_alert)
 
 	_time = Label.new()
 	_time.clip_text = true
-	_time.custom_minimum_size.x = 150
+	_time.custom_minimum_size.x = 156
 	_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_time.add_theme_font_size_override("font_size", 12)
 	_time.add_theme_font_override("font", UITheme.mono_font())
 	h.add_child(_time)
 
 	_pause_btn = Button.new()
-	_pause_btn.focus_mode = Control.FOCUS_NONE
-	_pause_btn.custom_minimum_size.x = 78
+	_pause_btn.focus_mode = Control.FOCUS_ALL
+	_pause_btn.custom_minimum_size = Vector2(96, 44)
+	_pause_btn.tooltip_text = "Pause or resume simulation time  [Space]"
 	_pause_btn.pressed.connect(SimClock.toggle_pause)
 	h.add_child(_pause_btn)
 
@@ -98,8 +107,9 @@ func _ready() -> void:
 		b.text = "%d×" % int(SimClock.SPEEDS[i])
 		b.toggle_mode = true
 		b.button_group = group
-		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size.x = 38
+		b.focus_mode = Control.FOCUS_ALL
+		b.custom_minimum_size = Vector2(44, 44)
+		b.tooltip_text = "Set time acceleration to %d×  [%d]" % [int(SimClock.SPEEDS[i]), i + 1]
 		b.pressed.connect(SimClock.set_speed_index.bind(i))
 		speeds.add_child(b)
 		_speed_btns.append(b)
@@ -107,10 +117,11 @@ func _ready() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size.x = 6
 	h.add_child(spacer)
-	for entry in [["LIBRARY F7", library_pressed], ["BRIEF F1", briefing_pressed], ["RESTART", restart_pressed], ["MISSIONS", menu_pressed]]:
+	for entry in [["ACTIONS  ⌘/CTRL K", commands_pressed], ["LIB F7", library_pressed], ["HELP F1", briefing_pressed], ["RESTART", restart_pressed], ["MISSIONS", menu_pressed]]:
 		var b := Button.new()
 		b.text = entry[0]
-		b.focus_mode = Control.FOCUS_NONE
+		b.focus_mode = Control.FOCUS_ALL
+		b.custom_minimum_size.y = 44
 		b.pressed.connect(func() -> void: entry[1].emit())
 		h.add_child(b)
 
@@ -153,6 +164,7 @@ func flash(msg: String, severity := "info") -> void:
 func set_alert(text: String) -> void:
 	_alert.visible = text != ""
 	_alert.text = text
+	_alert.accessibility_description = text + ". Activate to focus the most urgent threat." if text != "" else "No active threat."
 
 
 func set_scenario_name(scenario_name: String) -> void:
@@ -165,7 +177,8 @@ func set_objective_text(text: String) -> void:
 
 
 func _refresh() -> void:
-	_pause_btn.text = "PAUSED" if SimClock.paused else "RUNNING"
+	_pause_btn.text = "PAUSED · %d×" % int(SimClock.multiplier()) if SimClock.paused else "RUNNING"
 	_pause_btn.modulate = UITheme.COL_AMBER if SimClock.paused else Color.WHITE
+	_pause_btn.accessibility_description = "Simulation paused at %d times acceleration." % int(SimClock.multiplier()) if SimClock.paused else "Simulation running at %d times acceleration." % int(SimClock.multiplier())
 	for i in _speed_btns.size():
 		_speed_btns[i].button_pressed = i == SimClock.speed_index

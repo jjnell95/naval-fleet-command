@@ -117,9 +117,11 @@ func launch_flight(parent: Unit, count: int, platform_id := "") -> Array[Unit]:
 
 
 ## Orders an airframe home under its own steam.
-func request_return(a: Unit) -> void:
+func request_return(a: Unit) -> bool:
 	if a.airborne():
 		a.returning = true
+		return true
+	return false
 
 
 func deploy_sonobuoy(a: Unit, now: float) -> Sonobuoy:

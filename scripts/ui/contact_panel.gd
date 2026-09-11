@@ -15,8 +15,12 @@ var _header: Label
 var _summary: Label
 var _list: ItemList
 var _detail: RichTextLabel
+var _focus_btn: Button
+var _prev_btn: Button
+var _next_btn: Button
 var _rows: Array = []
 var _accum := REFRESH_S
+var _shown_selection: Track
 
 
 func _ready() -> void:
@@ -46,14 +50,29 @@ func _ready() -> void:
 		b.button_group = group
 		b.button_pressed = domain == "ALL"
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size.y = 38
+		b.focus_mode = Control.FOCUS_ALL
+		b.tooltip_text = "Filter the contact list to %s tracks" % domain.to_lower()
 		b.pressed.connect(func() -> void: _filter = domain; refresh())
 		filters.add_child(b)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 4)
+	v.add_child(actions)
+	_prev_btn = _nav_button("‹ PREV", "Previous priority contact  [Shift+N]", func() -> void: cycle_visible_track(-1))
+	actions.add_child(_prev_btn)
+	_focus_btn = _nav_button("FOCUS", "Center the selected contact without changing zoom  [C]", _focus_current)
+	_focus_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(_focus_btn)
+	_next_btn = _nav_button("NEXT ›", "Next priority contact  [N]", func() -> void: cycle_visible_track(1))
+	actions.add_child(_next_btn)
 	_list = ItemList.new()
 	_list.custom_minimum_size.y = 110
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.size_flags_stretch_ratio = 1.1
-	_list.focus_mode = Control.FOCUS_NONE
+	_list.focus_mode = Control.FOCUS_ALL
+	_list.tooltip_text = "Held contacts, ordered by identity, freshness and distance. Enter focuses a selected contact."
 	_list.item_selected.connect(_on_item_selected)
+	_list.item_activated.connect(func(_i: int) -> void: _focus_current())
 	v.add_child(_list)
 	_detail = RichTextLabel.new()
 	_detail.bbcode_enabled = true
@@ -67,6 +86,65 @@ func _ready() -> void:
 	board.contacts = self
 	board.custom_minimum_size.y = 236
 	v.add_child(board)
+	_sync_nav_buttons()
+
+
+func _nav_button(text: String, tip: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.tooltip_text = tip
+	button.custom_minimum_size.y = 38
+	button.focus_mode = Control.FOCUS_ALL
+	button.pressed.connect(action)
+	return button
+
+
+func _sync_nav_buttons() -> void:
+	if _focus_btn == null:
+		return
+	var empty := _rows.is_empty()
+	_focus_btn.disabled = map == null or map.selected_track == null
+	_prev_btn.disabled = empty
+	_next_btn.disabled = empty
+
+
+func visible_track_count() -> int:
+	return _rows.size()
+
+
+## Buttons, N/Shift-N, and the command palette share this filtered sequence so the selected
+## contact always remains present in the visible Track File.
+func cycle_visible_track(step: int) -> Track:
+	if map == null:
+		return null
+	refresh()
+	if _rows.is_empty():
+		return null
+	var index := _rows.find(map.selected_track)
+	index = posmod(index + step, _rows.size()) if index >= 0 else (_rows.size() - 1 if step < 0 else 0)
+	var next := _rows[index] as Track
+	map.select_track(next)
+	map.set_follow_selection(false)
+	map.center_on(next.position)
+	refresh()
+	call_deferred("_ensure_selected_visible")
+	return next
+
+
+func _ensure_selected_visible() -> void:
+	if _list == null or map == null:
+		return
+	var index := _rows.find(map.selected_track)
+	if index >= 0:
+		_list.select(index)
+		_list.ensure_current_is_visible()
+
+
+func _focus_current() -> void:
+	if map == null or map.selected_track == null:
+		return
+	map.set_follow_selection(false)
+	map.center_on(map.selected_track.position)
 
 
 func _process(delta: float) -> void:
@@ -81,14 +159,12 @@ func refresh() -> void:
 		return
 	var now := SimClock.sim_time
 	var ref := _reference_unit()
-	var tracks: Array = (track_manager.tracks_for(ref) if ref != null else track_manager.get_tracks(player_faction)).duplicate()
+	var tracks: Array = map.priority_tracks() if map != null else (track_manager.tracks_for(ref) if ref != null else track_manager.get_tracks(player_faction)).duplicate()
 	if _filter != "ALL":
 		var domain: String = {"AIR": "air", "SURF": "surface", "SUB": "subsurface"}[_filter]
 		tracks = tracks.filter(func(t: Track) -> bool: return t.domain == domain)
-	tracks.sort_custom(func(a: Track, b: Track) -> bool:
-		if (a.identity == "HOSTILE") != (b.identity == "HOSTILE"):
-			return a.identity == "HOSTILE"
-		return a.id < b.id)
+	if map == null:
+		tracks.sort_custom(func(a: Track, b: Track) -> bool: return TacticalMap._track_precedes(a, b, ref))
 	_rows = tracks
 	var hostile := 0
 	var unknown := 0
@@ -103,6 +179,7 @@ func refresh() -> void:
 	_header.text = "%d contact%s" % [tracks.size(), "" if tracks.size() == 1 else "s"]
 	_summary.text = "%d hostile · %d unknown · %d stale" % [hostile, unknown, stale]
 	var scroll := _list.get_v_scroll_bar().value
+	var selection_changed := map != null and map.selected_track != _shown_selection
 	_list.clear()
 	var sel_idx := -1
 	for i in tracks.size():
@@ -128,8 +205,15 @@ func refresh() -> void:
 			sel_idx = i
 	if sel_idx >= 0:
 		_list.select(sel_idx)
-	_list.get_v_scroll_bar().set_deferred("value", scroll)
+		if selection_changed:
+			call_deferred("_ensure_selected_visible")
+		else:
+			_list.get_v_scroll_bar().set_deferred("value", scroll)
+	else:
+		_list.get_v_scroll_bar().set_deferred("value", scroll)
+	_shown_selection = map.selected_track if map != null else null
 	_detail.text = _detail_text(map.selected_track if map != null else null, ref, now)
+	_sync_nav_buttons()
 
 
 func _reference_unit() -> Unit:

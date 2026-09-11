@@ -1,5 +1,5 @@
 class_name AfterAction
-extends PanelContainer
+extends Control
 ## End-of-mission report: the result, the objectives, and what the magazines and the defences
 ## actually did. Reads a statistics dictionary that Main accumulates from simulation signals.
 
@@ -10,23 +10,31 @@ signal menu_pressed()
 var _title: Label
 var _subtitle: Label
 var _body: RichTextLabel
+var _review: Button
 
 
 func _ready() -> void:
-	theme_type_variation = "CardPanel"
-	set_anchors_preset(Control.PRESET_CENTER)
-	anchor_left = 0.5
-	anchor_right = 0.5
-	anchor_top = 0.5
-	anchor_bottom = 0.5
-	offset_left = -380.0
-	offset_right = 380.0
-	offset_top = -250.0
-	offset_bottom = 250.0
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	z_index = 180
+	accessibility_name = "After-action report"
+	var shade := ColorRect.new()
+	shade.color = Color(0.01, 0.025, 0.04, 0.88)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(shade)
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(center)
+	var card := PanelContainer.new()
+	card.theme_type_variation = "CardPanel"
+	card.custom_minimum_size = Vector2(760.0, 500.0)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	center.add_child(card)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
-	add_child(v)
+	card.add_child(v)
 	var eyebrow := Label.new()
 	eyebrow.text = "AFTER-ACTION REPORT"
 	eyebrow.theme_type_variation = "HeaderLabel"
@@ -42,19 +50,31 @@ func _ready() -> void:
 	_body.bbcode_enabled = true
 	_body.fit_content = false
 	_body.scroll_active = true
+	_body.focus_mode = Control.FOCUS_ALL
+	_body.accessibility_name = "After-action report details"
+	_body.accessibility_description = "Scrollable mission results. Use arrow keys, Page Up, or Page Down while focused."
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_body)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
 	v.add_child(buttons)
+	var focus_buttons: Array[Button] = []
 	for entry in [["REVIEW THE PICTURE", review_pressed, true], ["RESTART  F10", restart_pressed, false], ["MISSIONS  F9", menu_pressed, false]]:
 		var b := Button.new()
 		b.text = entry[0]
 		if entry[2]:
 			b.theme_type_variation = "PrimaryButton"
-		b.focus_mode = Control.FOCUS_NONE
+			_review = b
+		b.focus_mode = Control.FOCUS_ALL
+		b.custom_minimum_size.y = 44
 		b.pressed.connect(func() -> void: entry[1].emit())
 		buttons.add_child(b)
+		focus_buttons.append(b)
+	var focus_controls: Array[Control] = [_body]
+	focus_controls.append_array(focus_buttons)
+	for i in focus_controls.size():
+		focus_controls[i].focus_next = focus_controls[i].get_path_to(focus_controls[(i + 1) % focus_controls.size()])
+		focus_controls[i].focus_previous = focus_controls[i].get_path_to(focus_controls[posmod(i - 1, focus_controls.size())])
 	hide()
 
 
@@ -83,3 +103,5 @@ func show_report(result: String, summary: String, stats: Dictionary, objectives:
 	lines.append("\n[color=%s]Contacts held: %d · classified hostile: %d · aircraft sorties: %d[/color]" % [UITheme.HEX_DIM, stats.get("contacts", 0), stats.get("classified", 0), stats.get("sorties", 0)])
 	_body.text = "\n".join(lines)
 	show()
+	if _review != null:
+		_review.call_deferred("grab_focus")

@@ -41,7 +41,7 @@ func _ready() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	masthead.add_child(spacer)
 	var back := Button.new()
-	back.text = "RETURN TO COMMAND  /  F7"
+	back.text = "BACK  /  F7"
 	back.pressed.connect(func() -> void: closed.emit())
 	masthead.add_child(back)
 	var toolbar := HBoxContainer.new()
@@ -163,6 +163,11 @@ func _ready() -> void:
 	note.add_theme_font_size_override("font_size", 11)
 	v.add_child(note)
 	_filter("")
+
+
+func focus_default() -> void:
+	if _search != null:
+		_search.grab_focus()
 
 func _build_domains() -> void:
 	_domain_picker.clear()

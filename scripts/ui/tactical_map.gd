@@ -5,32 +5,35 @@ extends Control
 ## Own units are drawn from ground truth; other factions are drawn ONLY as Tracks
 ## (except under Debug.enabled, which overlays true positions).
 ##
-## Controls: wheel or +/- = zoom at cursor, middle/right drag = pan, left click = select
-## unit/track, shift+click = add/remove unit, left drag = box select, double-click a unit or
-## track = recentre on it without changing zoom, right click water = move order (shift = append),
-## right click a track = select it as target (ctrl/cmd = also engage with the selected weapon),
-## right click a waypoint marker = drop that one leg from the route, arrow keys / WASD = pan,
-## Home = fit the whole fleet in view, C = recentre on the current selection.
+## Controls: wheel/pinch or +/- = zoom, middle/right/Option drag = pan, left click = select,
+## shift+click = add/remove unit, left drag = box select, double-click = recentre, G = arm the
+## explicit left-click move tool (Shift chains waypoints), right-click a track = target it
+## (Ctrl/Cmd also engages), right-click a waypoint = remove that leg, arrows/WASD = pan,
+## Home = fit the fleet, C = focus the current command problem, F = follow it.
 
 signal selection_changed(units: Array)
 signal track_selected(track: Track)
 signal move_order_requested(world_pos: Vector2, append: bool)
 signal engage_requested(track: Track)
 signal waypoint_delete_requested(unit: Unit, index: int)
+signal interaction_mode_changed(active: bool)
 
 enum DragMode { NONE, PAN, BOX }
+enum InteractionMode { SELECT, MOVE }
 
 const MIN_PPN := 0.2
 const MAX_PPN := 6000.0
 const ZOOM_STEP := 1.25
 const KEYBOARD_ZOOM_RATE := 4.0
-const CLICK_RADIUS_PX := 14.0
-const WAYPOINT_HIT_PX := 9.0
+const CLICK_RADIUS_PX := 18.0
+const WAYPOINT_HIT_PX := 14.0
 const DRAG_THRESHOLD_PX := 5.0
 const DOUBLE_CLICK_MS := 350
 const LEADER_MINUTES := 30.0
 const KEY_PAN_PX_PER_S := 700.0
 const HEADER_H := 36.0
+const BOTTOM_UI_RESERVED_PX := 100.0
+const OVERVIEW_UI_RESERVED_PX := 236.0
 const TRAIL_INTERVAL_S := 60.0
 const TRAIL_LENGTH := 24
 const EFFECT_LIFE_S := 2.2
@@ -102,6 +105,9 @@ var _mouse_inside := false
 var _last_click_ms: int = -1000000
 var _last_click_pos := Vector2.ZERO
 var show_vectors := false
+var follow_selection := false
+var interaction_mode := InteractionMode.SELECT
+var keyboard_navigation_enabled := true
 var _trail_reference: Unit
 var _pending_fit := false
 var _fit_center := Vector2.ZERO
@@ -119,6 +125,9 @@ var _hit_flash := 0.0
 var _land_meshes: Dictionary = {}  # Landmass -> cached triangulated fill
 var show_range_grid := false
 var _land_generation := -1
+var _plot_buttons: Dictionary = {}
+var _overview: TacticalOverview
+var _context_hint: Label
 
 
 func _ready() -> void:
@@ -135,21 +144,62 @@ func _ready() -> void:
 
 
 func _build_plot_controls() -> void:
-	var h := HBoxContainer.new()
-	h.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	h.position = Vector2(14, -55)
+	var toolbar := PanelContainer.new()
+	toolbar.theme_type_variation = "ToolbarPanel"
+	toolbar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	toolbar.offset_left = 14
+	toolbar.offset_right = -14
+	toolbar.offset_top = -68
+	toolbar.offset_bottom = -14
+	toolbar.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(toolbar)
+	var h := HFlowContainer.new()
 	h.add_theme_constant_override("separation", 4)
-	add_child(h)
-	for item in [["−", "zoom_out"], ["+", "zoom_in"], ["FIT FLEET", "fleet"], ["THEATRE", "theatre"], ["CENTER", "center"],  ["SENSORS", "sensors"], ["VECTORS", "vectors"], ["RANGE GRID", "range_grid"]]:
+	h.add_theme_constant_override("v_separation", 4)
+	toolbar.add_child(h)
+	var items := [
+		["−", "zoom_out", "Zoom out  [−]"],
+		["+", "zoom_in", "Zoom in  [+]"],
+		["PLOT MOVE  G", "move", "Arm a visible left-click move order  [G]"],
+		["FLEET  HOME", "fleet", "Fit every friendly unit in view  [Home]"],
+		["THEATRE", "theatre", "Fit the full operation area"],
+		["FOCUS  C", "center", "Center or fit the current selection  [C]"],
+		["FOLLOW  F", "follow", "Keep the current unit or target centered  [F]"],
+		["SENSORS  F4", "sensors", "Show selected sensor coverage  [F4]"],
+		["VECTORS  V", "vectors", "Show motion vectors  [V]"],
+		["GRID", "range_grid", "Show range rings around the reference unit"],
+	]
+	for item in items:
 		var button := Button.new()
 		button.text = item[0]
-		button.add_theme_font_size_override("font_size", 10)
-		button.custom_minimum_size.y = 28
-		button.focus_mode = Control.FOCUS_NONE
-		if item[1] in ["sensors", "vectors", "range_grid"]:
+		button.tooltip_text = item[2]
+		button.add_theme_font_size_override("font_size", 11)
+		button.custom_minimum_size = Vector2(44, 44)
+		button.focus_mode = Control.FOCUS_ALL
+		if item[1] in ["move", "follow", "sensors", "vectors", "range_grid"]:
 			button.toggle_mode = true
 		button.pressed.connect(_plot_action.bind(item[1]))
 		h.add_child(button)
+		_plot_buttons[item[1]] = button
+	_context_hint = Label.new()
+	_context_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_context_hint.offset_left = 14
+	_context_hint.offset_right = -236
+	_context_hint.offset_top = -92
+	_context_hint.offset_bottom = -72
+	_context_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_context_hint.theme_type_variation = "MapHintLabel"
+	_context_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_context_hint)
+	_overview = TacticalOverview.new()
+	_overview.map = self
+	_overview.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_overview.offset_left = -222
+	_overview.offset_top = -224
+	_overview.offset_right = -14
+	_overview.offset_bottom = -76
+	add_child(_overview)
+	_sync_plot_controls()
 
 
 func _plot_action(action: String) -> void:
@@ -164,13 +214,127 @@ func _plot_action(action: String) -> void:
 			if simulation != null:
 				fit_to(simulation.map_center, simulation.map_extent_nm)
 		"range_grid":
-			show_range_grid = not show_range_grid
+			toggle_layer("range_grid")
 		"center":
 			center_on_selection()
+		"move":
+			set_move_mode(interaction_mode != InteractionMode.MOVE)
+		"follow":
+			set_follow_selection(not follow_selection)
+		"sensors":
+			toggle_layer("sensors")
+		"vectors":
+			toggle_layer("vectors")
+	_sync_plot_controls()
+
+
+func zoom_at_center(factor: float) -> void:
+	_zoom_at(size * 0.5, factor)
+
+
+## One state path serves both buttons and shortcuts, so the display can never say a layer is on
+## while the corresponding toolbar control appears off.
+func toggle_layer(layer: String) -> bool:
+	var enabled := false
+	match layer:
+		"key":
+			show_key = not show_key
+			enabled = show_key
 		"sensors":
 			show_rings = not show_rings
+			enabled = show_rings
+		"trails":
+			show_trails = not show_trails
+			enabled = show_trails
+		"terrain":
+			show_terrain = not show_terrain
+			enabled = show_terrain
 		"vectors":
 			show_vectors = not show_vectors
+			enabled = show_vectors
+		"range_grid":
+			show_range_grid = not show_range_grid
+			enabled = show_range_grid
+	_sync_plot_controls()
+	return enabled
+
+
+func set_follow_selection(enabled: bool) -> void:
+	follow_selection = enabled and (selected.size() == 1 or selected_track != null)
+	_sync_plot_controls()
+
+
+func set_move_mode(enabled: bool) -> void:
+	var next := InteractionMode.MOVE if enabled and _has_controllable_selection() else InteractionMode.SELECT
+	if interaction_mode == next:
+		_sync_plot_controls()
+		return
+	interaction_mode = next
+	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode == InteractionMode.MOVE else Control.CURSOR_ARROW
+	interaction_mode_changed.emit(interaction_mode == InteractionMode.MOVE)
+	_sync_plot_controls()
+
+
+func cancel_interaction_mode() -> bool:
+	if interaction_mode == InteractionMode.SELECT:
+		return false
+	set_move_mode(false)
+	return true
+
+
+func _has_controllable_selection() -> bool:
+	if selected.is_empty():
+		return false
+	for u: Unit in selected:
+		if u.faction != player_faction or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+			return false
+	return true
+
+
+func _normalize_interaction_state() -> void:
+	if interaction_mode == InteractionMode.MOVE and not _has_controllable_selection():
+		interaction_mode = InteractionMode.SELECT
+		mouse_default_cursor_shape = Control.CURSOR_ARROW
+		interaction_mode_changed.emit(false)
+	if follow_selection and selected_track == null and selected.size() != 1:
+		follow_selection = false
+	_sync_plot_controls()
+
+
+func _sync_plot_controls() -> void:
+	if _plot_buttons.has("move"):
+		(_plot_buttons["move"] as Button).button_pressed = interaction_mode == InteractionMode.MOVE
+		(_plot_buttons["move"] as Button).disabled = not _has_controllable_selection()
+	if _plot_buttons.has("follow"):
+		(_plot_buttons["follow"] as Button).button_pressed = follow_selection
+		(_plot_buttons["follow"] as Button).disabled = selected_track == null and selected.size() != 1
+	if _plot_buttons.has("sensors"):
+		(_plot_buttons["sensors"] as Button).button_pressed = show_rings
+	if _plot_buttons.has("vectors"):
+		(_plot_buttons["vectors"] as Button).button_pressed = show_vectors
+	if _plot_buttons.has("range_grid"):
+		(_plot_buttons["range_grid"] as Button).button_pressed = show_range_grid
+	if _context_hint != null:
+		if interaction_mode == InteractionMode.MOVE:
+			_context_hint.text = "PLOT MOVE  ·  left-click water to commit  ·  Shift adds waypoints  ·  Esc or right-click cancels"
+			_context_hint.add_theme_color_override("font_color", UITheme.COL_ACCENT)
+		elif selected.is_empty():
+			_context_hint.text = "SELECT A PLATFORM  ·  drag to box-select  ·  middle/right or Option-drag to pan  ·  wheel to zoom"
+			_context_hint.add_theme_color_override("font_color", UITheme.COL_DIM)
+		elif selected_track == null:
+			_context_hint.text = "%s  ·  G plots a move  ·  click a contact to target  ·  N cycles priority contacts" % selection_label()
+			_context_hint.add_theme_color_override("font_color", UITheme.COL_TEXT)
+		else:
+			_context_hint.text = "%s  →  TARGET %s  ·  engagement controls are ready below" % [selection_label(), selected_track.id]
+			_context_hint.add_theme_color_override("font_color", COL_AMBER)
+
+
+func selection_label() -> String:
+	if selected.is_empty():
+		return "NO PLATFORM"
+	if selected.size() == 1:
+		return (selected[0] as Unit).callsign.to_upper()
+	return "%d PLATFORMS" % selected.size()
 
 
 func _process(delta: float) -> void:
@@ -181,8 +345,14 @@ func _process(delta: float) -> void:
 	_keyboard_pan(delta)
 	_keyboard_zoom(delta)
 	_prune_selection()
+	if follow_selection and _drag_mode == DragMode.NONE:
+		if selected_track != null:
+			_center_world_in_chart(selected_track.position)
+		elif selected.size() == 1:
+			_center_world_in_chart((selected[0] as Unit).position)
 	_record_trails()
 	_record_weapon_trails()
+	_sync_plot_controls()
 	queue_redraw()
 
 
@@ -290,7 +460,21 @@ func screen_to_world(s: Vector2) -> Vector2:
 	return Vector2(center_nm.x + (s.x - size.x * 0.5) / ppn, center_nm.y - (s.y - size.y * 0.5) / ppn)
 
 
+## Bounds left clear for fitted units and targets: the map header, command strip, tactical
+## overview, and optional symbol key remain controls, not places where a supposedly focused
+## symbol can disappear.
+func unobstructed_chart_rect() -> Rect2:
+	var right := maxf(size.x - OVERVIEW_UI_RESERVED_PX, 1.0)
+	var bottom := maxf(size.y - BOTTOM_UI_RESERVED_PX, HEADER_H + 1.0)
+	var left := 0.0
+	if show_key:
+		var key := _symbol_key_rect()
+		left = minf(key.position.x + key.size.x + 8.0, maxf(right - 1.0, 0.0))
+	return Rect2(Vector2(left, HEADER_H), Vector2(maxf(right - left, 1.0), bottom - HEADER_H))
+
+
 func fit_to(center: Vector2, extent_nm: float) -> void:
+	set_follow_selection(false)
 	_fit_center = center
 	_fit_extent = extent_nm
 	_pending_fit = true
@@ -301,8 +485,9 @@ func _apply_pending_fit() -> void:
 	if not _pending_fit or size.x <= 0.0 or size.y <= 0.0:
 		return
 	_pending_fit = false
-	center_nm = _fit_center
-	ppn = clampf(minf(size.x, size.y) / maxf(_fit_extent, 1.0), MIN_PPN, MAX_PPN)
+	var chart := unobstructed_chart_rect()
+	ppn = clampf(minf(chart.size.x, chart.size.y) / maxf(_fit_extent, 1.0), MIN_PPN, MAX_PPN)
+	_center_world_in_chart(_fit_center)
 
 
 func _zoom_at(screen_pos: Vector2, factor: float) -> void:
@@ -314,11 +499,21 @@ func _zoom_at(screen_pos: Vector2, factor: float) -> void:
 ## Recentres the view on a point without touching zoom. Used to snap back to a unit or track
 ## the player has lost track of on a spread-out picture, without re-fitting the whole scale.
 func center_on(world_pos: Vector2) -> void:
-	center_nm = world_pos
+	set_follow_selection(false)
+	_center_world_in_chart(world_pos)
 
 
-## Recentres on the current selection (or the selected track, lacking a unit selection), holding
-## zoom steady. Bound to C so the picture can be re-found after panning away.
+func _center_world_in_chart(world_pos: Vector2) -> void:
+	if size.x <= OVERVIEW_UI_RESERVED_PX + 1.0 or size.y <= BOTTOM_UI_RESERVED_PX + HEADER_H + 1.0:
+		center_nm = world_pos
+		return
+	var target := unobstructed_chart_rect().get_center()
+	var delta := target - size * 0.5
+	center_nm = world_pos - Vector2(delta.x / maxf(ppn, MIN_PPN), -delta.y / maxf(ppn, MIN_PPN))
+
+
+## Focuses the current command problem. A single platform keeps the current zoom; a group or a
+## shooter/target pair is fitted together so "focus" cannot leave every selected symbol offscreen.
 func center_on_selection() -> void:
 	if selected.is_empty():
 		if selected_track != null:
@@ -326,10 +521,28 @@ func center_on_selection() -> void:
 		else:
 			fit_to_fleet()
 		return
-	var sum := Vector2.ZERO
-	for u in selected:
-		sum += u.position
-	center_on(sum / selected.size())
+	if selected.size() == 1 and selected_track == null:
+		center_on((selected[0] as Unit).position)
+		return
+	var points := PackedVector2Array()
+	for u: Unit in selected:
+		points.append(u.position)
+	if selected_track != null:
+		points.append(selected_track.position)
+	_fit_points(points)
+
+
+func _fit_points(points: PackedVector2Array) -> void:
+	if points.is_empty():
+		return
+	var lo := points[0]
+	var hi := points[0]
+	for point in points:
+		lo.x = minf(lo.x, point.x)
+		lo.y = minf(lo.y, point.y)
+		hi.x = maxf(hi.x, point.x)
+		hi.y = maxf(hi.y, point.y)
+	fit_to((lo + hi) * 0.5, maxf(hi.x - lo.x, hi.y - lo.y) * 1.35 + 6.0)
 
 
 ## Fits the whole own-force to the view, the way the scenario's initial picture does. Recovers
@@ -338,17 +551,15 @@ func fit_to_fleet() -> void:
 	var own := _own_units()
 	if own.is_empty():
 		return
-	var lo := own[0].position
-	var hi := own[0].position
+	var points := PackedVector2Array()
 	for u in own:
-		lo.x = minf(lo.x, u.position.x)
-		lo.y = minf(lo.y, u.position.y)
-		hi.x = maxf(hi.x, u.position.x)
-		hi.y = maxf(hi.y, u.position.y)
-	fit_to((lo + hi) * 0.5, maxf(hi.x - lo.x, hi.y - lo.y) * 1.3 + 6.0)
+		points.append(u.position)
+	_fit_points(points)
 
 
 func _keyboard_pan(delta: float) -> void:
+	if not keyboard_navigation_enabled:
+		return
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus != null and focus != self:
 		return
@@ -362,12 +573,15 @@ func _keyboard_pan(delta: float) -> void:
 	if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
 		dir.y -= 1.0
 	if dir != Vector2.ZERO:
-		center_nm += dir * KEY_PAN_PX_PER_S * delta / ppn
+		set_follow_selection(false)
+		center_nm += dir.normalized() * KEY_PAN_PX_PER_S * delta / ppn
 
 
 ## +/- (and the numpad equivalents) zoom on the screen centre, for a wheel-free way to work the
 ## scale — smooth and continuous while held, matching the feel of the wheel step.
 func _keyboard_zoom(delta: float) -> void:
+	if not keyboard_navigation_enabled:
+		return
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus != null and focus != self:
 		return
@@ -384,10 +598,34 @@ func _keyboard_zoom(delta: float) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		# A drag owns its matching release even when the pointer crosses the custom header/key.
+		# Otherwise the rejected release leaves the pan/box latch active indefinitely.
+		var finishes_drag := not mouse.pressed and _drag_mode != DragMode.NONE and mouse.button_index == _drag_button
+		if not finishes_drag and not _chart_accepts_point(mouse.position):
+			accept_event()
+			return
 		_handle_mouse_button(event)
 		accept_event()
 	elif event is InputEventMouseMotion:
 		_handle_mouse_motion(event)
+	elif event is InputEventPanGesture:
+		var pan := event as InputEventPanGesture
+		set_follow_selection(false)
+		center_nm += Vector2(pan.delta.x, -pan.delta.y) * 28.0 / maxf(ppn, MIN_PPN)
+		accept_event()
+	elif event is InputEventMagnifyGesture:
+		var magnify := event as InputEventMagnifyGesture
+		_zoom_at(magnify.position, clampf(magnify.factor, 0.5, 2.0))
+		accept_event()
+
+
+func _chart_accepts_point(point: Vector2) -> bool:
+	if point.y < HEADER_H:
+		return false
+	if show_key and _symbol_key_rect().has_point(point):
+		return false
+	return true
 
 
 func _handle_mouse_button(e: InputEventMouseButton) -> void:
@@ -395,18 +633,41 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 	match e.button_index:
 		MOUSE_BUTTON_WHEEL_UP:
 			if e.pressed:
-				_zoom_at(e.position, ZOOM_STEP)
+				_zoom_at(e.position, pow(ZOOM_STEP, maxf(e.factor, 0.25)))
 		MOUSE_BUTTON_WHEEL_DOWN:
 			if e.pressed:
-				_zoom_at(e.position, 1.0 / ZOOM_STEP)
+				_zoom_at(e.position, 1.0 / pow(ZOOM_STEP, maxf(e.factor, 0.25)))
 		MOUSE_BUTTON_LEFT:
+			# Option-drag is always a camera gesture, including while Plot Move is armed.
+			if e.pressed and e.alt_pressed:
+				grab_focus()
+				_begin_drag(DragMode.PAN, e)
+				return
+			if not e.pressed and _drag_button == MOUSE_BUTTON_LEFT and _drag_mode == DragMode.PAN:
+				_end_drag()
+				return
+			if interaction_mode == InteractionMode.MOVE:
+				if e.pressed:
+					grab_focus()
+					if _unit_at(e.position) != null or _track_at(e.position) != null:
+						_click_select(e.position, e.shift_pressed)
+					else:
+						var target := screen_to_world(e.position)
+						var acceptance := _move_acceptance(target)
+						if int(acceptance["accepted"]) == 0:
+							add_effect(target, "refused")
+						else:
+							move_order_requested.emit(target, e.shift_pressed)
+							if not e.shift_pressed:
+								set_move_mode(false)
+				return
 			if e.pressed:
 				grab_focus()
 				_begin_drag(DragMode.BOX, e)
 			elif _drag_button == MOUSE_BUTTON_LEFT:
-				if _drag_moved:
+				if _drag_moved and _drag_mode == DragMode.BOX:
 					_box_select(Rect2(_drag_start, e.position - _drag_start).abs(), e.shift_pressed)
-				else:
+				elif not _drag_moved:
 					_click_select(e.position, e.shift_pressed)
 					_check_double_click(e.position)
 				_end_drag()
@@ -416,6 +677,10 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 			elif _drag_button == MOUSE_BUTTON_MIDDLE:
 				_end_drag()
 		MOUSE_BUTTON_RIGHT:
+			if interaction_mode == InteractionMode.MOVE:
+				if e.pressed:
+					set_move_mode(false)
+				return
 			if e.pressed:
 				_begin_drag(DragMode.PAN, e)
 			elif _drag_button == MOUSE_BUTTON_RIGHT:
@@ -430,8 +695,6 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 								engage_requested.emit(t)
 							else:
 								select_track(t)
-						else:
-							move_order_requested.emit(screen_to_world(e.position), e.shift_pressed)
 				_end_drag()
 
 
@@ -442,6 +705,7 @@ func _handle_mouse_motion(e: InputEventMouseMotion) -> void:
 	if not _drag_moved and e.position.distance_to(_drag_start) > DRAG_THRESHOLD_PX:
 		_drag_moved = true
 	if _drag_mode == DragMode.PAN and _drag_moved:
+		set_follow_selection(false)
 		center_nm -= Vector2(e.relative.x, -e.relative.y) / ppn
 
 
@@ -452,12 +716,15 @@ func _begin_drag(mode: DragMode, e: InputEventMouseButton) -> void:
 	_drag_button = e.button_index
 	_drag_start = e.position
 	_drag_moved = false
+	if mode == DragMode.PAN:
+		mouse_default_cursor_shape = Control.CURSOR_DRAG
 
 
 func _end_drag() -> void:
 	_drag_mode = DragMode.NONE
 	_drag_button = MOUSE_BUTTON_NONE
 	_drag_moved = false
+	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode == InteractionMode.MOVE else Control.CURSOR_ARROW
 
 
 # --- Selection --------------------------------------------------------------------------
@@ -480,6 +747,45 @@ func _visible_tracks() -> Array:
 		return []
 	var ref := reference_unit()
 	return track_manager.tracks_for(ref) if ref != null else track_manager.get_tracks(player_faction)
+
+
+## Priority navigation keeps a busy watch actionable: confirmed hostiles first, then unknowns,
+## fresh plots before stale ones, and the nearest problem before a remote one.
+func priority_tracks() -> Array:
+	var tracks: Array = _visible_tracks().duplicate()
+	var ref := reference_unit()
+	tracks.sort_custom(func(a: Track, b: Track) -> bool: return _track_precedes(a, b, ref))
+	return tracks
+
+
+static func _track_precedes(a: Track, b: Track, ref: Unit) -> bool:
+	var a_identity := 0 if a.identity == "HOSTILE" else (1 if a.identity == "UNKNOWN" else 2)
+	var b_identity := 0 if b.identity == "HOSTILE" else (1 if b.identity == "UNKNOWN" else 2)
+	if a_identity != b_identity:
+		return a_identity < b_identity
+	var a_stale := 1 if a.status == Track.Status.STALE else 0
+	var b_stale := 1 if b.status == Track.Status.STALE else 0
+	if a_stale != b_stale:
+		return a_stale < b_stale
+	if ref != null:
+		var ad := ref.position.distance_squared_to(a.position)
+		var bd := ref.position.distance_squared_to(b.position)
+		if not is_equal_approx(ad, bd):
+			return ad < bd
+	return a.id < b.id
+
+
+func cycle_priority_track(step := 1) -> Track:
+	var tracks := priority_tracks()
+	if tracks.is_empty():
+		return null
+	var index := tracks.find(selected_track)
+	index = posmod(index + step, tracks.size()) if index >= 0 else (tracks.size() - 1 if step < 0 else 0)
+	var next := tracks[index] as Track
+	select_track(next)
+	set_follow_selection(false)
+	center_on(next.position)
+	return next
 
 
 func _unit_at(screen_pos: Vector2) -> Unit:
@@ -556,6 +862,7 @@ func _click_select(screen_pos: Vector2, additive: bool) -> void:
 			selected.append(hit)
 		else:
 			select_track(null)
+	_normalize_interaction_state()
 	selection_changed.emit(selected)
 
 
@@ -565,6 +872,7 @@ func _box_select(rect: Rect2, additive: bool) -> void:
 	for u in _own_units():
 		if rect.has_point(world_to_screen(u.position)) and not selected.has(u):
 			selected.append(u)
+	_normalize_interaction_state()
 	selection_changed.emit(selected)
 
 
@@ -572,6 +880,7 @@ func select_units(units: Array) -> void:
 	selected.clear()
 	for u in units:
 		selected.append(u)
+	_normalize_interaction_state()
 	selection_changed.emit(selected)
 
 
@@ -579,14 +888,17 @@ func select_track(t: Track) -> void:
 	if t == selected_track:
 		return
 	selected_track = t
+	_normalize_interaction_state()
 	track_selected.emit(t)
 
 
 func clear_selection() -> void:
 	select_track(null)
 	if selected.is_empty():
+		_normalize_interaction_state()
 		return
 	selected.clear()
+	_normalize_interaction_state()
 	selection_changed.emit(selected)
 
 
@@ -596,7 +908,10 @@ func _prune_selection() -> void:
 	var before := selected.size()
 	selected = selected.filter(func(u: Unit) -> bool: return u.alive)
 	if selected.size() != before:
+		_normalize_interaction_state()
 		selection_changed.emit(selected)
+	else:
+		_normalize_interaction_state()
 
 
 ## The unit the display is centred on for bearings and range rings: the selection, otherwise
@@ -624,6 +939,7 @@ func _draw() -> void:
 	_draw_compass()
 	_draw_chart_labels()
 	_draw_objectives()
+	_draw_move_preview()
 	if unit_manager != null:
 		if show_rings:
 			_draw_sensor_rings()
@@ -653,6 +969,50 @@ func _draw() -> void:
 	_draw_readout()
 	_draw_key()
 	_draw_hover_card()
+
+
+func _draw_move_preview() -> void:
+	if interaction_mode != InteractionMode.MOVE or not _mouse_inside or not _chart_accepts_point(_mouse):
+		return
+	if _unit_at(_mouse) != null or _track_at(_mouse) != null:
+		return
+	var target := screen_to_world(_mouse)
+	var append := Input.is_key_pressed(KEY_SHIFT)
+	var acceptance := _move_acceptance(target)
+	var accepted := int(acceptance["accepted"])
+	var total := int(acceptance["total"])
+	for u: Unit in selected:
+		if u.faction != player_faction:
+			continue
+		var start := u.waypoints[-1] if append and not u.waypoints.is_empty() else u.position
+		var a := world_to_screen(start)
+		var hit := Terrain.first_land_contact(start, target) if u.needs_sea_room() and not Terrain.is_empty() else -1.0
+		if hit >= 0.0:
+			var beach := world_to_screen(start.lerp(target, hit))
+			draw_dashed_line(a, beach, COL_WAYPOINT, 2.0, 8.0)
+			draw_dashed_line(beach, _mouse, Color(COL_HOSTILE, 0.9), 2.0, 8.0)
+		else:
+			draw_dashed_line(a, _mouse, COL_WAYPOINT, 2.0, 8.0)
+	var col := COL_HOSTILE if accepted == 0 else (COL_AMBER if accepted < total else COL_WAYPOINT)
+	draw_circle(_mouse, 11.0, Color(col, 0.12))
+	draw_arc(_mouse, 11.0, 0.0, TAU, 24, col, 2.0, true)
+	draw_line(_mouse + Vector2(-16, 0), _mouse + Vector2(16, 0), Color(col, 0.7), 1.0)
+	draw_line(_mouse + Vector2(0, -16), _mouse + Vector2(0, 16), Color(col, 0.7), 1.0)
+	var label := "LAND — PICK WATER" if accepted == 0 else ("%d OF %d CAN MOVE HERE" % [accepted, total] if accepted < total else ("ADD WAYPOINT" if append else "SET COURSE"))
+	draw_string(_font, _mouse + Vector2(17, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col)
+
+
+func _move_acceptance(target: Vector2) -> Dictionary:
+	var total := 0
+	var accepted := 0
+	var target_is_land := not Terrain.is_empty() and Terrain.is_land(target)
+	for u: Unit in selected:
+		if u.faction != player_faction or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+			continue
+		total += 1
+		if not target_is_land or not u.needs_sea_room():
+			accepted += 1
+	return {"accepted": accepted, "total": total}
 
 
 func _nice_step(min_px: float) -> float:
@@ -1070,7 +1430,7 @@ func _draw_tracks() -> void:
 				var lp := world_to_screen(ref.position)
 				draw_dashed_line(lp, sp, Color(col, 0.35), 1.0, 6.0)
 		if selected_track == t:
-			MapSymbols.draw_selection(self, sp, COL_SELECT, _anim)
+			MapSymbols.draw_selection(self, sp, COL_HOSTILE if t.identity == "HOSTILE" else COL_AMBER, _anim)
 		if stale:
 			draw_string(_font, sp + Vector2(10.0, -12.0), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(col, 0.9))
 		var jammed := ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position)
@@ -1169,7 +1529,7 @@ func _draw_units() -> void:
 			_draw_silhouette(u, sp, ucol)
 		MapSymbols.draw_symbol(self, sp, ucol, MapSymbols.Frame.FRIENDLY, domain, u.heading_deg, true, MapSymbols.category_glyph(u.spec.category, u.spec.domain), _font)
 		if selected.has(u):
-			MapSymbols.draw_selection(self, sp, COL_SELECT, _anim)
+			MapSymbols.draw_selection(self, sp, COL_ACCENT, _anim)
 		_draw_threat_marks(u, sp)
 		_draw_status_lamps(u, sp)
 		if zoomed_out and not selected.has(u):
@@ -1454,12 +1814,12 @@ func _place_label(sp: Vector2, text: String, color: Color, important: bool, sub:
 func _draw_key() -> void:
 	if not show_key:
 		return
-	var w := 352.0
-	var h := 198.0
-	var x := 12.0
-	var y := size.y - h - 34.0
-	draw_rect(Rect2(x, y, w, h), Color("0b1721", 0.94))
-	draw_rect(Rect2(x, y, w, h), Color(0.16, 0.30, 0.38, 0.8), false, 1.0)
+	var rect := _symbol_key_rect()
+	var w := rect.size.x
+	var x := rect.position.x
+	var y := rect.position.y
+	draw_rect(rect, Color("0b1721", 0.94))
+	draw_rect(rect, Color(0.16, 0.30, 0.38, 0.8), false, 1.0)
 	draw_string(_font, Vector2(x + 12, y + 17), "SYMBOL KEY", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_ACCENT)
 	draw_string(_font, Vector2(x + 110, y + 17), "F2 hides", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_TEXT, 0.5))
 	var cx := x + 26.0
@@ -1485,6 +1845,11 @@ func _draw_key() -> void:
 	draw_string(_font, Vector2(x + 12, cy + 4), "Ctrl+right-click a contact: engage · right-click a waypoint: drop that leg", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 	cy += 16.0
 	draw_string(_font, Vector2(x + 12, cy + 4), "Double-click: recentre · Home: fit fleet · C: centre selection · +/−: zoom", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
+
+
+func _symbol_key_rect() -> Rect2:
+	# Top-left avoids the command toolbar and makes the whole custom-drawn card a no-command zone.
+	return Rect2(12.0, HEADER_H + 12.0, 352.0, 198.0)
 
 
 ## Hovering over a symbol shows what the console knows about it, without a click.

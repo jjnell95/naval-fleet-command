@@ -170,8 +170,8 @@ func _refresh() -> void:
 		_body.text = "\n".join([
 			_h("CONTROLS"),
 			_kv("Click", "select   ·   Shift+click add"),
-			_kv("Drag", "box select   ·   Right drag pan"),
-			_kv("R-click", "move to water   ·   Shift adds a waypoint"),
+			_kv("G / Move", "arm route   ·   left-click water   ·   Shift chains"),
+			_kv("Pan", "middle/right/Option-drag"),
 			_kv("Wheel", "zoom   ·   WASD pan"),
 			_kv("Space", "pause   ·   1–6 time speed"),
 			_kv("R / P / E", "radar · ping · emissions control"),

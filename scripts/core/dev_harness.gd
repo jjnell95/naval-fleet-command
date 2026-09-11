@@ -15,6 +15,8 @@ extends RefCounted
 ##   --defence-once / --engage-once   fire one salvo and stop with rounds still in the air
 ##   --ping                      player surface ships go active on sonar at the start
 ##   --select / --form           select the player's ships, optionally in a screen formation
+##   --move-mode                 leave Plot Move armed, for UI screenshots and interaction smoke
+##   --open-palette              open the searchable Actions palette
 ##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
 ##   --open-editor               open the scenario editor on the loaded scenario, for screenshots
 ##   --brief                     open the briefing board
@@ -120,6 +122,10 @@ func handle_flags() -> void:
 		main._apply_order_to_selection(Order.move(Vector2(0.0, 20.0)))
 		SimClock.set_speed_index(5)
 		SimClock.set_paused(false)
+	if args.has("--move-mode"):
+		main.map.set_move_mode(true)
+	if args.has("--open-palette"):
+		main._toggle_command_palette()
 	if args.has("--open-library"):
 		main._toggle_library()
 		main._library._search.text = "F-35"
@@ -348,6 +354,28 @@ func _visual_smoke() -> void:
 	main._toggle_library()
 	main._close_library()
 	checks["closing preserves an existing pause"] = SimClock.paused
+	SimClock.set_paused(false)
+	main._toggle_command_palette()
+	await main.get_tree().process_frame
+	checks["command palette pauses a running mission"] = main._command_palette.visible and SimClock.paused
+	checks["command palette exposes searchable actions"] = main._command_palette._actions.size() >= 20 and main._command_palette._search.has_focus()
+	main._command_palette.close_palette()
+	checks["closing command palette restores a running mission"] = not SimClock.paused
+	main._show_briefing()
+	checks["briefing pauses a running mission"] = main._briefing.visible and SimClock.paused
+	main._hide_screens()
+	checks["dismissing briefing restores a running mission"] = not SimClock.paused
+	main._show_menu()
+	await main.get_tree().process_frame
+	main._toggle_library()
+	await main.get_tree().process_frame
+	var menu_was_isolated := main._library.visible and not main._menu.visible
+	main._close_library()
+	await main.get_tree().process_frame
+	checks["gallery isolates and restores the mission menu"] = menu_was_isolated \
+		and main._menu.visible and not main._library.visible and SimClock.paused \
+		and main.get_viewport().gui_get_focus_owner() == main._menu._list
+	main._hide_screens()
 	var failed := 0
 	for label in checks:
 		print("[Visual smoke] %s %s" % ["PASS" if checks[label] else "FAIL", label])

@@ -56,6 +56,9 @@ func _ready() -> void:
 	_body.bbcode_enabled = true
 	_body.fit_content = false
 	_body.scroll_active = true
+	_body.focus_mode = Control.FOCUS_ALL
+	_body.accessibility_name = "Mission briefing and objectives"
+	_body.accessibility_description = "Scrollable mission text. Use arrow keys, Page Up, or Page Down while focused."
 	_body.add_theme_font_size_override("normal_font_size", 15)
 	_body.add_theme_font_size_override("bold_font_size", 15)
 	card.add_child(_body)
@@ -66,22 +69,32 @@ func _ready() -> void:
 	_start = Button.new()
 	_start.text = "TAKE COMMAND"
 	_start.theme_type_variation = "PrimaryButton"
-	_start.focus_mode = Control.FOCUS_NONE
+	_start.focus_mode = Control.FOCUS_ALL
+	_start.custom_minimum_size.y = 44
 	_start.pressed.connect(func() -> void:
-		SimClock.set_paused(false)
 		SoundFx.play("click")
 		start_pressed.emit())
 	buttons.add_child(_start)
 	_restart = Button.new()
 	_restart.text = "RESTART"
-	_restart.focus_mode = Control.FOCUS_NONE
+	_restart.focus_mode = Control.FOCUS_ALL
+	_restart.custom_minimum_size.y = 44
 	_restart.pressed.connect(func() -> void: restart_pressed.emit())
 	buttons.add_child(_restart)
 	_menu = Button.new()
 	_menu.text = "MISSIONS"
-	_menu.focus_mode = Control.FOCUS_NONE
+	_menu.focus_mode = Control.FOCUS_ALL
+	_menu.custom_minimum_size.y = 44
 	_menu.pressed.connect(func() -> void: menu_pressed.emit())
 	buttons.add_child(_menu)
+	_set_focus_cycle()
+
+
+func _set_focus_cycle() -> void:
+	var controls: Array[Control] = [_body, _start, _restart, _menu]
+	for i in controls.size():
+		controls[i].focus_next = controls[i].get_path_to(controls[(i + 1) % controls.size()])
+		controls[i].focus_previous = controls[i].get_path_to(controls[posmod(i - 1, controls.size())])
 
 
 func configure(scenario_name: String, forces: String, situation: String, environment: Dictionary = {}) -> void:
@@ -130,7 +143,7 @@ func refresh() -> void:
 		out.append("\n[color=%s][b]MISSION FAILS IF[/b][/color]" % UITheme.HEX_ACCENT)
 		for o in mission_manager.loss_objectives:
 			out.append(_line(o))
-	out.append("\n[color=%s]Left click selects. Right click on water orders a move, on a contact selects it. Wheel zooms, middle or right drag pans. Space pauses, 1 to 6 sets time acceleration, R toggles radar, E emissions control, P active sonar. F1 shows this board, F2 the symbol key, F4 sensor rings, F5 trails, F6 the land layer, M sound. Land is charted where a scenario has any: ships cannot enter it, and it masks radar, ESM and sonar the way the horizon does.[/color]" % UITheme.HEX_MUTED)
+	out.append("\n[color=%s][b]COMMAND[/b]  Left click selects; Shift adds to a group. G arms Plot Move, then left-click water; hold Shift to chain waypoints, Escape or right-click to cancel. N / Shift-N cycles priority contacts. R radar, P active sonar, E emission control.\n[b]NAVIGATE[/b]  Wheel or pinch zooms. Middle/right/Option-drag pans. Click or drag the Tactical Overview to recover the picture. C focuses the shooter-target problem, F follows one platform or the hooked contact, Home fits the force.\n[b]DISPLAY + TIME[/b]  Space pauses, 1–6 sets acceleration, F2 symbol key, F4 sensors, F5 trails, F6 terrain, V vectors, M sound. Open the searchable Actions palette with Command-K or Control-K. Land blocks ships and masks radar, ESM, and sonar.[/color]" % UITheme.HEX_MUTED)
 	_body.text = "\n".join(out)
 
 
@@ -144,3 +157,8 @@ func _line(o: MissionObjective) -> String:
 func set_mode(pre_mission: bool) -> void:
 	_start.text = "TAKE COMMAND" if pre_mission else "RESUME"
 	_eyebrow.text = "MISSION BRIEFING" if pre_mission else "MISSION STATUS"
+
+
+func focus_default() -> void:
+	if visible and _start != null:
+		_start.grab_focus()
