@@ -746,6 +746,7 @@ func _on_weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit) -> void:
 func _on_casualty_event(u: Unit, event: String) -> void:
 	if event == "lost":
 		_foundered[u] = true
+	print("[Damage] %s %s" % [u.callsign, event])
 	if u.faction != simulation.player_faction:
 		return
 	match event:
@@ -753,7 +754,6 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 			top_bar.flash("%s: fire out" % u.callsign, "good")
 		"flooding_controlled":
 			top_bar.flash("%s: flooding under control" % u.callsign, "good")
-	print("[Damage] %s %s" % [u.callsign, event])
 
 
 func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:

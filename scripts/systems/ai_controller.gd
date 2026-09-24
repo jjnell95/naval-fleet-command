@@ -406,6 +406,8 @@ func _manage_depth(u: Unit, intent: DepthIntent) -> void:
 		DepthIntent.MISSILE_SHOT:
 			wanted = minf(u.spec.patrol_depth_m, MISSILE_LAUNCH_DEPTH_M)
 	wanted = minf(wanted, Acoustics.max_operating_depth_m(u))
+	# The floor changes under a moving boat; order in 5 m steps rather than chasing every metre.
+	wanted = floorf(wanted / 5.0) * 5.0
 	if absf(u.ordered_depth_m - wanted) > 1.0:
 		unit_manager.issue_order(u, Order.set_depth(wanted))
 

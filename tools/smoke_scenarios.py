@@ -16,7 +16,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 out = Path(sys.argv[2]).resolve()
 out.mkdir(parents=True, exist_ok=True)
-RUN_TIMEOUT_S = 420
+RUN_TIMEOUT_S = 900  # a hang ceiling; the largest mission takes ~520 s on a slow container
 results = []
 for seed in (2, 13):
     for scenario in sorted((root / 'data/scenarios').glob('*.json')):

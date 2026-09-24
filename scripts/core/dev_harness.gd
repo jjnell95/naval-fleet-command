@@ -259,7 +259,10 @@ func _auto_engage_faction(faction: String) -> void:
 
 func _dump_state() -> void:
 	for u in main.simulation.unit_manager.units:
-		print("[Dev] %s hp=%.0f/%.0f %s decoys=%d mags=%s" % [u.callsign, u.health, u.spec.health, Damage.condition_text(u), u.decoys, u.magazines])
+		var casualties := ""
+		if u.fire > 0.0 or u.flooding > 0.0:
+			casualties = " fire=%.2f flooding=%.2f" % [u.fire, u.flooding]
+		print("[Dev] %s hp=%.0f/%.0f %s%s decoys=%d mags=%s" % [u.callsign, u.health, u.spec.health, Damage.condition_text(u), casualties, u.decoys, u.magazines])
 	for t: Track in main.simulation.track_manager.get_tracks(main.simulation.player_faction):
 		print("[Dev] track %s cls=%s id=%s pos=%s err=%.2f cse=%.0f spd=%.1f %s" % [t.id, t.classification, t.identity, t.position, t.position_error_nm, t.course_deg, t.speed_kn, t.status_text(SimClock.sim_time)])
 	for w: Weapon in main.simulation.weapon_manager.in_flight:

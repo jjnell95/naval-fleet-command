@@ -34,6 +34,8 @@ var _name: LineEdit
 var _description: TextEdit
 var _extent: SpinBox
 var _sea: SpinBox
+var _layer: SpinBox
+var _cz: SpinBox
 var _minutes: SpinBox
 var _objective_kind: OptionButton
 var _objective_text: LineEdit
@@ -179,6 +181,13 @@ func _ready() -> void:
 		scenario["map"]["extent_nm"] = v
 		_chart.queue_redraw())
 	_sea = _spin(props, "Sea state (0 calm – 6 high)", 0, 6, 1, func(v: float) -> void: scenario["environment"]["sea_state"] = int(v))
+	# The water column. A layer hides a boat below it from hull sonars; convergence zones need a
+	# charted deep basin as well as a range here. Zero turns either off.
+	_layer = _spin(props, "Thermal layer depth (m, 0 none)", 0, 600, 10, func(v: float) -> void:
+		scenario["environment"]["layer_depth_m"] = int(v)
+		if v > 0.0 and float(scenario["environment"].get("layer_strength", 0.0)) <= 0.0:
+			scenario["environment"]["layer_strength"] = 0.7)
+	_cz = _spin(props, "Convergence zone range (nm, 0 none)", 0, 40, 1, func(v: float) -> void: scenario["environment"]["cz_range_nm"] = int(v))
 	_section(props, "OBJECTIVE")
 	_objective_kind = OptionButton.new()
 	_objective_kind.focus_mode = Control.FOCUS_ALL
@@ -442,6 +451,8 @@ func _sync_from_model() -> void:
 	_description.text = str(scenario.get("description", ""))
 	_extent.value = float(scenario["map"].get("extent_nm", 160))
 	_sea.value = int(scenario["environment"].get("sea_state", 0))
+	_layer.value = int(scenario["environment"].get("layer_depth_m", 0))
+	_cz.value = int(scenario["environment"].get("cz_range_nm", 0))
 	_objective_text.text = str(scenario["objectives"].get("text", ""))
 	var kind := 0
 	var minutes := 30

@@ -112,6 +112,9 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | PlatformPortrait | scripts/ui/platform_portrait.gd | category-specific vector recognition silhouettes |
 | SoundFx | scripts/ui/sound_fx.gd | autoload; synthesised cues, no audio files |
 | ScenarioEditor | scripts/ui/scenario_editor.gd | in-game mission builder; writes the scenario JSON schema to user://scenarios |
+| Bathymetry | scripts/systems/bathymetry.gd | static regional sea-floor raster; `depth_at(world)` through the scenario's map anchor |
+| Acoustics | scripts/systems/acoustics.gd | static water-column rules: floor limit, layer, array depths, shelf losses, convergence zones |
+| ChartFloor | scripts/ui/chart_floor.gd (+ .gdshader) | shader-drawn sea floor behind the TacticalMap: tint, relief, contours, charted-coast limit |
 | TestCase | tests/test_case.gd | assertion base; runner tests/run_tests.gd |
 
 ## Sensor / track pipeline
@@ -413,3 +416,54 @@ exempt: they are fired at something closing head-on and the engagement resolves 
 Deliberately out of scope, and stated so in README: bathymetry, routing around a peninsula, seeker
 masking and terrain-aware interceptor geometry. Datalink is unchanged — `Track.networked` is a single
 bool, and making it a pairwise reachability test is a data-model change, not an insertion.
+
+## Sea floor (M18)
+`Bathymetry` is static and loaded by `Simulation.load_scenario` right after `Terrain`. One raster,
+`data/bathymetry/north_atlantic_depth.png`, is imported as a raw `Image` (`importer="image"` in its
+`.import`) so it loads headless and in the web pack. The local projection is equirectangular about
+each scenario's `map.anchor_lat/anchor_lon`, so world nm map to latitude and longitude affinely and
+one raster serves every chart. No anchor, or an anchor off the raster, gives `UNKNOWN` (-1), and
+every consumer treats unknown as no effect; `environment.bottom_m` sets a uniform floor instead,
+which is how the tests build water. The constants in `bathymetry.gd` must match the raster's JSON
+metadata; `test_ocean.gd` holds them together.
+
+The chart does not use that raster. `ChartFloor` is a child of `TacticalMap` with
+`show_behind_parent`, because the map is a single `_draw()` and a canvas item carries one material.
+It samples `north_atlantic_chart.exr` (half-float metres, half resolution) with a cubic B-spline for
+smooth contours, and `north_atlantic_relief.png` (baked hill-shade). `TacticalMap._draw_ocean` skips
+its opaque fill while the floor is active. `map.charted_nm`, written by the scenario generator, is
+the box the coastline polygons were clipped to; beyond it the shader draws the raster's own coast,
+dimmed, and the map draws a neatline.
+
+## Water column (M18)
+`Acoustics` sits between `Detection` (how loud, how good an array) and the sensor cycle:
+
+| Call | Where it is read |
+|---|---|
+| `passive_path_factor(observer, sensor, target)` | inside `Detection.passive_sonar_range_nm` (pass `with_path=false` for the raw direct path) |
+| `active_path_factor` via `Detection.active_sonar_reach_nm(observer, target)` | `SensorManager._sonar_pass`, per target |
+| `buoy_path_factor` | `Sonobuoy.reach_against`; `Sonobuoy.settle()` picks the hydrophone depth at the drop |
+| `cz_zone_for` + `deep_water_path` | `SensorManager._try_convergence_zone`, only after direct paths fail; reports `sonar_cz` contacts |
+| `max_operating_depth_m(u)` | `Movement._step_depth` (hard floor) and the AI / orders panel |
+| `below_layer_depth_m(u)` | `AIController._manage_depth` (HIDE intent) and the UNDER LAYER order |
+
+`Acoustics.bottom_m(u)` caches the floor on the unit (`bottom_depth_m`, `bottom_sampled_at`,
+`bottom_generation`) until it moves half a mile or the chart changes, which keeps the pair loops
+cheap. Environment keys: `layer_depth_m`, `layer_strength`, `cz_range_nm`. SensorSpec adds
+`array_depth_m` (0 = hull set) and `cz_capable`.
+
+`TrackManager` gives firm plots precedence: a bearing-only contact arriving within `FIRM_HOLD_S` of
+a firm plot on the same track only refreshes contributors and status, never geometry or source.
+
+## Casualties (M18)
+`Damage.apply(target, amount, kind, attacker)` may start `fire` and `flooding` on the unit, by weapon
+type. `Damage.tick` fights them every tick and returns events; `Simulation` re-emits them as
+`casualty_event(unit, event)` and, for `lost`, emits `WeaponManager.unit_destroyed` with
+`unit.last_attacker`, so missions, the AI and the after-action report treat a ship lost to fire like
+any other loss. `Damage.damage_control(u, units)` is the one place damage-control capacity is
+computed (size, condition floor, organisation time, per-hit `dc_fortune`, consort assist).
+Flooding enters `Unit.effective_max_speed()`. Component repair waits while either casualty burns.
+
+Decoys call `WeaponManager.seduce(threat, from)` instead of `defeat_weapon`: the seeker may lock the
+nearest other ship within its basket and a 35° cone (`weapon_seduced` signal), else it is spent as
+`DECOYED`.

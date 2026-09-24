@@ -1,6 +1,6 @@
 # Current source review
 
-See [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; M16 supersedes their conflicting fit and coastline claims.
+See [M18 sea floor, acoustics and damage notes](docs/REALISM_M18.md) and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; M16 supersedes their conflicting fit and coastline claims.
 
 # Data Sources
 
@@ -309,3 +309,12 @@ detection horizon from the aircraft's altitude, not the listed antenna height.
 `searchwater_2000`, `e801_oko`, `an_zpy_8`, `mq25_eo_ir`, `scaneagle_eo`, `skeldar_eo`,
 `orion_sar`, `orlan_eo`, `novella_p38`, `seaspray_7400`, `enr_nh90`, `fits_dipping`,
 `an_aqs_13f`, `mq25_esm`.
+
+## M18: bathymetry and the water column
+| Data | Source | Use |
+|---|---|---|
+| Sea-floor depth | [Natural Earth 1:10m bathymetry](https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-bathymetry/), v5.1.1, public domain; fetched from the `v5.1.1` tag of `github.com/nvkelso/natural-earth-vector`, SHA-256 per layer in `data/bathymetry/north_atlantic_depth.json` | Interpolated between its 0–5,000 m contours by `tools/scenarios/import_bathymetry.py`; not a navigation chart |
+| Layer, shelf and convergence-zone behaviour | Textbook shape from R. J. Urick, *Principles of Underwater Sound*, 3rd ed. (1983) | Every range, loss and threshold is GAMEPLAY_ESTIMATE |
+| Per-mission March layer depths | General pattern of winter mixed-layer climatology (e.g. de Boyer Montégut et al., *JGR Oceans*, 2004) | Rounded game estimates, not extracted values |
+| Variable-depth and dipping sonar | Public system roles only (CAPTAS family, Sonar 2087, AN/AQS-22, FLASH) | `array_depth_m` and `cz_capable` are GAMEPLAY_ESTIMATE groupings |
+| Damage-control shape | Public accounts of USS *Stark* (1987), HMS *Sheffield* (1982), *Moskva* (2022) | Shape only; every rate is GAMEPLAY_ESTIMATE |
