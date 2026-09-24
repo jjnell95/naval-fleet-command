@@ -14,9 +14,10 @@ const KINEMATICS_WINDOW_S := 300.0
 const KINEMATICS_MIN_SPAN_S := 45.0
 const FIRM_BLEND := 0.5  # how hard a firm plot pulls the track onto itself
 const BEARING_BLEND := 0.25  # a bearing estimate only nudges it
-const TMA_FOR_KINEMATICS := 0.55  # below this a range solution is too soft to fit a course to
 const TMA_DECAY_PER_S := 0.0008  # a solution goes off while contact is lost
 const FIRM_HOLD_S := 1.5  # a firm plot this recent outranks any bearing
+const HISTORY_INTERVAL_S := 30.0
+const HISTORY_LENGTH := 48
 
 ## Factions that are not at war with anyone. Their ships classify as NEUTRAL rather than HOSTILE,
 ## which is what makes identification a decision rather than a formality.
@@ -86,21 +87,52 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 			_tracks[key] = []
 		_tracks[key].append(t)
 	var already_this_cycle := (not is_new) and is_equal_approx(t.last_seen_time, now)
+	if not already_this_cycle:
+		var reacquired := not is_new and t.age_s(now) > Track.STALE_AFTER_S
+		t._cycle_start_position = t.position
+		t._cycle_snap = is_new or reacquired
+		t._cycle_has_plot = false
+		t._cycle_firm = false
+		t._cycle_error = INF
+		t._cycle_observation_gain = 0.0
+		t._cycle_tma_start = t.tma_quality
+		t._cycle_tma_gain = 0.0
+		if reacquired:
+			_reset_kinematics(t)
+	# Sensor order must not change classification speed, or multiply elapsed time.
+	var gain := dt * (0.5 + c.quality) * maxf(c.classify_rate, 0.1)
+	t.observation_time_s += maxf(gain - t._cycle_observation_gain, 0.0)
+	t._cycle_observation_gain = maxf(t._cycle_observation_gain, gain)
+	if c.observer != null:
+		t.contributors[c.observer] = now
+	t.networked = shared
+	t.status = Track.Status.ACTIVE
+	t.last_seen_time = now
+	_update_classification(faction, t)
 	if c.bearing_only and not is_new and now - t.last_firm_time <= FIRM_HOLD_S:
 		# Something is holding this contact firmly. A bearing, or a convergence-zone ring, from
 		# another sensor confirms it is there but must not drag a good plot toward a worse guess.
-		if c.observer != null:
-			t.contributors[c.observer] = now
-		t.networked = t.networked or shared
-		t.status = Track.Status.ACTIVE
-		t.last_seen_time = now
 		return
+	var error := maxf(c.error_major_nm, c.error_minor_nm)
+	var firm := not c.bearing_only
+	if t._cycle_has_plot:
+		if (t._cycle_firm and not firm) or (t._cycle_firm == firm and error >= t._cycle_error):
+			return
+	if firm and t.is_bearing_only():
+		# A measured range replaces a tentative bearing guess, including any guessed
+		# positions that would otherwise produce a spurious velocity in the fit.
+		t._cycle_snap = true
+		_reset_kinematics(t)
+	t._cycle_has_plot = true
+	t._cycle_firm = firm
+	t._cycle_error = error
 	if not c.bearing_only:
 		t.last_firm_time = now
 	var blend := BEARING_BLEND if c.bearing_only else FIRM_BLEND
-	t.position = c.position if is_new else t.position.lerp(c.position, blend)
+	t.position = c.position if t._cycle_snap else t._cycle_start_position.lerp(c.position, blend)
 	# A firm plot hands over a range outright; a bearing has to be worked up over time.
-	t.tma_quality = 1.0 if not c.bearing_only else clampf(t.tma_quality + c.tma_gain, 0.0, 1.0)
+	t._cycle_tma_gain = maxf(t._cycle_tma_gain, c.tma_gain)
+	t.tma_quality = 1.0 if not c.bearing_only else clampf(t._cycle_tma_start + t._cycle_tma_gain, 0.0, 1.0)
 	t.bearing_only = c.bearing_only
 	t.error_major_nm = c.error_major_nm
 	t.error_minor_nm = c.error_minor_nm
@@ -112,16 +144,19 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	t.networked = shared
 	t.status = Track.Status.ACTIVE
 	t.last_seen_time = now
-	if not already_this_cycle:
-		t._obs_times.append(now)
-		t._obs_pos.append(c.position)
+	_record_history(t, now)
+	if not t.is_bearing_only():
+		if not t._obs_times.is_empty() and is_equal_approx(t._obs_times[-1], now):
+			t._obs_pos[-1] = c.position
+		else:
+			t._obs_times.append(now)
+			t._obs_pos.append(c.position)
 		while t._obs_times.size() > 0 and now - t._obs_times[0] > KINEMATICS_WINDOW_S:
 			t._obs_times.remove_at(0)
 			t._obs_pos.remove_at(0)
-		t.observation_time_s += dt * (0.5 + c.quality) * maxf(c.classify_rate, 0.1)
-		_update_classification(faction, t)
-		if not t.bearing_only or t.tma_quality >= TMA_FOR_KINEMATICS:
-			_update_kinematics(t, now)
+		_update_kinematics(t, now)
+	else:
+		_reset_kinematics(t)
 	if is_new and shared:
 		track_added.emit(faction, t)
 
@@ -134,7 +169,9 @@ func tick(now: float, dt: float) -> void:
 			if is_equal_approx(t.last_seen_time, now):
 				continue
 			var age := t.age_s(now)
-			if age > Track.LOST_AFTER_S or not t.truth.alive and age > Track.STALE_AFTER_S:
+			# Loss of sensor contact is the only evidence here. Hidden destruction must
+			# not reveal itself by expiring this track earlier than an unseen survivor.
+			if age > Track.LOST_AFTER_S:
 				t.status = Track.Status.LOST
 				list.remove_at(i)
 				track_lost.emit(faction, t)
@@ -169,6 +206,7 @@ func _update_classification(faction: String, t: Track) -> void:
 		t.domain = t.truth.spec.domain
 	if level >= Track.Classification.CLASS_KNOWN:
 		t.known_class = t.truth.spec.short_name
+		t.known_category = t.truth.spec.category
 		if neutral_factions.has(t.truth.faction):
 			t.identity = "NEUTRAL"
 		elif t.truth.faction == faction:
@@ -182,7 +220,7 @@ func _update_classification(faction: String, t: Track) -> void:
 
 
 func _update_kinematics(t: Track, now: float) -> void:
-	if t._last_est_time >= 0.0 and now - t._last_est_time < KINEMATICS_INTERVAL_S:
+	if t._last_est_time >= 0.0 and now > t._last_est_time and now - t._last_est_time < KINEMATICS_INTERVAL_S:
 		return
 	var n := t._obs_times.size()
 	if n < 2 or t._obs_times[n - 1] - t._obs_times[0] < KINEMATICS_MIN_SPAN_S:
@@ -209,6 +247,29 @@ func _update_kinematics(t: Track, now: float) -> void:
 	if vel.length() > 1e-6:
 		t.course_deg = Geo.vector_to_heading(vel)
 	t.has_kinematics = true
+
+
+func _reset_kinematics(t: Track) -> void:
+	t._obs_times.clear()
+	t._obs_pos.clear()
+	t._last_est_time = -1.0
+	t.has_kinematics = false
+	t.speed_kn = 0.0
+	t.course_deg = 0.0
+
+
+func _record_history(t: Track, now: float) -> void:
+	if not t.history_times.is_empty():
+		if is_equal_approx(t.history_times[-1], now):
+			t.history_positions[-1] = t.position
+			return
+		if now - t.history_times[-1] < HISTORY_INTERVAL_S:
+			return
+	t.history_times.append(now)
+	t.history_positions.append(t.position)
+	while t.history_times.size() > HISTORY_LENGTH:
+		t.history_times.remove_at(0)
+		t.history_positions.remove_at(0)
 
 
 func _next_id(faction: String) -> int:

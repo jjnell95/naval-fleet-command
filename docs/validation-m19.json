@@ -1,0 +1,285 @@
+{
+  "date": "2026-09-23",
+  "base_commit": "347e9ea6b6fac1c05f9fb7f901d693447ae58206",
+  "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+  "regression_tests": {
+    "total": 264,
+    "failed": 0,
+    "new": 15,
+    "original_failures_reproduced": 7,
+    "resource_leaks_at_exit": 0,
+    "expected_negative_fixture_diagnostics": [
+      "ERROR: MissionObjective: unknown type 'not_a_real_type'",
+      "WARNING: Terrain: landmass 'Sliver' has fewer than three points; ignored"
+    ]
+  },
+  "native_ui": {
+    "checks": 24,
+    "failed": 0,
+    "diagnostics": []
+  },
+  "native_render": {
+    "resolutions": [
+      [
+        1600,
+        1000
+      ],
+      [
+        1152,
+        720
+      ]
+    ],
+    "aegis_diagnostics": [],
+    "northern_vigil_diagnostics": [],
+    "laptop_diagnostics": []
+  },
+  "scenario_sweep": [
+    {
+      "scenario": "aegis_bastion",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 6.71,
+      "errors": []
+    },
+    {
+      "scenario": "aegis_bastion",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 6.67,
+      "errors": []
+    },
+    {
+      "scenario": "arctic_shield",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 10.86,
+      "errors": []
+    },
+    {
+      "scenario": "arctic_shield",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 10.8,
+      "errors": []
+    },
+    {
+      "scenario": "atlantic_gate",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.73,
+      "errors": []
+    },
+    {
+      "scenario": "atlantic_gate",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.73,
+      "errors": []
+    },
+    {
+      "scenario": "baltic_sentinel",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 2.77,
+      "errors": []
+    },
+    {
+      "scenario": "baltic_sentinel",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 2.77,
+      "errors": []
+    },
+    {
+      "scenario": "giuk_passage",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.66,
+      "errors": []
+    },
+    {
+      "scenario": "giuk_passage",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.64,
+      "errors": []
+    },
+    {
+      "scenario": "north_atlantic_shadow_line",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.47,
+      "errors": []
+    },
+    {
+      "scenario": "north_atlantic_shadow_line",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.47,
+      "errors": []
+    },
+    {
+      "scenario": "northern_sentry",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 2.56,
+      "errors": []
+    },
+    {
+      "scenario": "northern_sentry",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 2.56,
+      "errors": []
+    },
+    {
+      "scenario": "northern_shield",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.47,
+      "errors": []
+    },
+    {
+      "scenario": "northern_shield",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.45,
+      "errors": []
+    },
+    {
+      "scenario": "northern_vigil",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 21.81,
+      "errors": []
+    },
+    {
+      "scenario": "northern_vigil",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 21.72,
+      "errors": []
+    },
+    {
+      "scenario": "sandbox_m1",
+      "seed": 2,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.16,
+      "errors": []
+    },
+    {
+      "scenario": "sandbox_m1",
+      "seed": 13,
+      "ok": true,
+      "seconds": 1200.0,
+      "mission": 0,
+      "aground": 0,
+      "wall_s": 1.15,
+      "errors": []
+    }
+  ],
+  "sustained_run": {
+    "scenario": "northern_vigil",
+    "seed": 2,
+    "seconds": 6000,
+    "mission_result": 0,
+    "aground": 0,
+    "diagnostics": []
+  },
+  "restart": {
+    "verified": true,
+    "sim_time_after_reload": 0,
+    "diagnostics": []
+  },
+  "browser": {
+    "verified": true,
+    "url": "http://127.0.0.1:8765/play/",
+    "checks": [
+      "mission menu",
+      "briefing",
+      "take command",
+      "time acceleration",
+      "pause",
+      "contact selection and solution overlay"
+    ],
+    "console_errors": [],
+    "console_warnings": []
+  },
+  "limits": [
+    "Scenario sweep is 1200 seconds per run, not a full mission-completion or balance study.",
+    "Only Northern Vigil received an additional 6000-second final run.",
+    "CPA is a horizontal constant-velocity estimate, not calibrated future uncertainty.",
+    "No assertion of universal bug-free operation or calibrated military fidelity."
+  ],
+  "build": {
+    "index.pck": {
+      "bytes": 52096952,
+      "sha256": "c21f63d6a0b0c8f831b57baaeb8f6252c8afe61f730142a48a49c895dbee70bf"
+    },
+    "index.wasm": {
+      "bytes": 39514754,
+      "sha256": "fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0"
+    },
+    "index.html": {
+      "bytes": 5450,
+      "sha256": "eae84b040b9d0ee95b566a6f2bdb889e4a38c79c290132c2d79b2e2d537ab4c4"
+    }
+  }
+}

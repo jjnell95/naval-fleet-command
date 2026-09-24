@@ -418,6 +418,9 @@ func test_a_stowed_aircraft_rides_with_its_ship() -> void:
 	Movement.step(helo, DT)
 	assert_eq(helo.position, ship.position, "it goes where the ship goes")
 	assert_near(helo.altitude_m, 0.0, 1e-6)
+	# This standalone fixture has no UnitManager to break the reciprocal deck links.
+	helo.home = null
+	ship.embarked.clear()
 
 
 # --- Shipped data ------------------------------------------------------------------------

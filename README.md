@@ -4,6 +4,14 @@
 
 A modern naval command simulation in Godot 4.7.2. Command a task group through an Aegis-inspired combat information display: build an uncertain picture, manage emissions, hold the screen together and decide when to shoot. Original 3D fleet art, tactical vector graphics, procedural sound and fictional scenarios; no Jane's assets or affiliation.
 
+## M19 contact fidelity and stability
+
+The selected contact now has a **Contact Solution** plot: observation age, range uncertainty, closing speed and estimated closest approach. Motion vectors have time ticks, track history fades over time, and unresolved bearings display no measured range. Sensor fusion keeps the best report in a cycle, reacquisition rebuilds the velocity estimate, and hidden enemy destruction no longer expires a contact early.
+
+Pause and combat slowdown stop the accelerated frame immediately. The overview uses cached coastline meshes, the seabed shader compiles cleanly headless, and scenario reset/shutdown releases carrier-aircraft ownership cycles. **264 regression tests and 24 native UI checks pass.** Read the [changes, validation and realism limits](docs/2026-09-23-contact-fidelity.md).
+
+![M19 contact solution and relative motion](docs/2026-09-23-contact-solution.png)
+
 ## M18 the sea floor, the water column and the fight for the ship
 
 **The chart has a bottom.** Natural Earth 1:10m bathymetry (0–5,000 m contours) is interpolated offline into one regional depth raster that every mission reads through its map anchor. The plot now shows shelf and basin tint, relief, and anti-aliased 200/1,000/2,000/3,000/4,000 m contours drawn by a shader behind the symbols. Past the scenario's coastline polygons, the coast carries on, dimmed behind a *Limit of charted coast* neatline, instead of ending in a straight clip line. The Tactical Overview uses the same tint, and the cursor readout gives depth, layer and convergence-zone water.

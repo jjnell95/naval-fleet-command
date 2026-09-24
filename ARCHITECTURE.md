@@ -4,6 +4,10 @@ Status: Milestone 11 (Aegis Command II). Emissions, the network, posture, damage
 
 Presentation work should start from `HANDOFF.md`, which says what may be changed and what may not.
 
+## M19 additions
+
+`RelativeMotion` is a pure calculation over an own `Unit` and a visible `Track`; it never reads target truth. TrackManager selects the best position report per sensor cycle, keeps ranged samples for its velocity fit, and stores a separate bounded plot history. UnitManager owns teardown of reciprocal unit references. SimClock discards pending accelerated time when pause or speed changes, including changes made by a tick callback.
+
 ## Layers
 ```
 SIMULATION  (scripts/simulation, scripts/systems, scripts/entities)  — tick-based, no rendering

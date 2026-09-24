@@ -940,6 +940,8 @@ func reference_unit() -> Unit:
 
 func _draw() -> void:
 	_label_rects.clear()
+	if selected_track != null and not show_key:
+		_label_rects.append(_solution_rect())
 	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
 	_draw_ocean()
 	_draw_land()
@@ -958,6 +960,7 @@ func _draw() -> void:
 		if Debug.enabled:
 			_draw_truth()
 		_draw_sonobuoys()
+		_draw_relative_motion()
 		_draw_tracks()
 		_draw_units()
 		_draw_weapons()
@@ -979,6 +982,7 @@ func _draw() -> void:
 	_draw_scale_bar()
 	_draw_readout()
 	_draw_key()
+	_draw_solution_card()
 	_draw_hover_card()
 
 
@@ -1483,13 +1487,11 @@ func _draw_tracks() -> void:
 		_draw_uncertainty(sp, t, col)
 		if show_trails:
 			_draw_track_history(t, col)
-		if t.has_kinematics and t.speed_kn > 0.5 and (show_vectors or selected_track == t):
-			var tip := world_to_screen(t.position + Geo.heading_to_vector(t.course_deg) * t.speed_kn * LEADER_MINUTES / 60.0)
-			draw_dashed_line(sp, tip, Color(col, 0.6), 1.0, 4.0)
-			draw_circle(tip, 1.5, Color(col, 0.7))
+		if t.has_kinematics and not t.is_bearing_only() and t.speed_kn > 0.5 and (show_vectors or selected_track == t):
+			_draw_motion_vector(t.position, t.course_deg, t.speed_kn, t.domain, col, true, selected_track == t)
 		var glyph := ""
-		if t.classification >= Track.Classification.CLASS_KNOWN and t.truth != null:
-			glyph = MapSymbols.category_glyph(t.truth.spec.category, t.truth.spec.domain)
+		if t.classification >= Track.Classification.CLASS_KNOWN:
+			glyph = MapSymbols.category_glyph(t.known_category, t.domain)
 		MapSymbols.draw_symbol(self, sp, col, MapSymbols.frame_for_identity(t.identity), t.domain, t.course_deg, t.has_kinematics, glyph, _font, 1.0, stale)
 		if t.is_bearing_only():
 			# A bearing line from the listener: this is all the contact really is.
@@ -1511,7 +1513,7 @@ func _draw_tracks() -> void:
 		if stale: tags.append("STALE %s" % Track._fmt_age(t.age_s(SimClock.sim_time)))
 		var sub := ""
 		if ref != null:
-			sub = "%s / %s nm" % [Geo.format_bearing(Geo.bearing_deg(ref.position, t.position)), Geo.format_nm(Geo.distance_nm(ref.position, t.position))]
+			sub = "%s / %s" % [Geo.format_bearing(Geo.bearing_deg(ref.position, t.position)), "RNG ?" if t.is_bearing_only() else "~%s nm" % Geo.format_nm(Geo.distance_nm(ref.position, t.position))]
 		if not tags.is_empty():
 			sub += ("  " if sub != "" else "") + " · ".join(tags)
 		_place_label(sp, text, col, selected_track == t, sub)
@@ -1519,13 +1521,20 @@ func _draw_tracks() -> void:
 
 ## Last few plots that built the track, fading with age: the console's own memory of the contact.
 func _draw_track_history(t: Track, col: Color) -> void:
-	var n := t._obs_pos.size()
+	var n := t.history_positions.size()
 	if n < 2:
 		return
-	var take := mini(n, 10)
-	for i in range(n - take, n):
-		var f := float(i - (n - take) + 1) / float(take)
-		draw_circle(world_to_screen(t._obs_pos[i]), 1.5, Color(col, 0.08 + 0.35 * f))
+	for i in n:
+		var age := maxf(SimClock.sim_time - t.history_times[i], 0.0)
+		var alpha := 0.42 * clampf(1.0 - age / 1440.0, 0.0, 1.0)
+		if alpha < 0.02:
+			continue
+		var p := world_to_screen(t.history_positions[i])
+		# Only join reports with continuous coverage. Do not draw a fictitious route
+		# through the interval when the contact was missing.
+		if i > 0 and t.history_times[i] - t.history_times[i - 1] <= Track.STALE_AFTER_S:
+			draw_line(world_to_screen(t.history_positions[i - 1]), p, Color(col, alpha * 0.45), 1.0, true)
+		draw_circle(p, 1.8 if selected_track == t else 1.2, Color(col, alpha))
 
 
 ## Uncertainty is an ellipse. For a passive sonar contact it is a long thin sliver lying along
@@ -1539,11 +1548,12 @@ func _draw_uncertainty(sp: Vector2, t: Track, col: Color) -> void:
 	var axis := Vector2(sin(ang), -cos(ang))
 	var perp := axis.orthogonal()
 	var pts := PackedVector2Array()
-	for i in 41:
+	for i in 40:
 		var th := TAU * float(i) / 40.0
 		pts.append(sp + axis * (cos(th) * major) + perp * (sin(th) * minor))
 	draw_colored_polygon(pts, Color(col, 0.05))
-	draw_polyline(pts, Color(col, 0.35), 1.0, true)
+	pts.append(pts[0])
+	draw_polyline(pts, Color(col, 0.55 if selected_track == t else 0.25), 1.5 if selected_track == t else 1.0, true)
 
 
 func _draw_units() -> void:
@@ -1584,10 +1594,7 @@ func _draw_units() -> void:
 			draw_dashed_line(sp, station, Color(COL_FRIENDLY, 0.3), 1.0, 3.0)
 			draw_rect(Rect2(station - Vector2(2.5, 2.5), Vector2(5, 5)), Color(COL_FRIENDLY, 0.5), false, 1.0)
 		if u.speed_kn > 0.05 and (show_vectors or selected.has(u)):
-			var lead_nm := u.speed_kn * LEADER_MINUTES / 60.0
-			var tip := world_to_screen(u.position + Geo.heading_to_vector(u.heading_deg) * lead_nm)
-			draw_line(sp, tip, Color(COL_FRIENDLY, 0.6), 1.0, true)
-			draw_circle(tip, 1.5, Color(COL_FRIENDLY, 0.7))
+			_draw_motion_vector(u.position, u.heading_deg, u.speed_kn, u.spec.domain, COL_FRIENDLY, false, selected.size() == 1 and selected.has(u))
 		var health := Damage.health_fraction(u)
 		var ucol := COL_FRIENDLY.lerp(Color(1.0, 0.4, 0.3), 1.0 - health)
 		var domain := "air" if u.airborne() else ("subsurface" if u.submerged() else u.spec.domain)
@@ -1615,6 +1622,79 @@ func _draw_units() -> void:
 		if own.size() > 8 and not selected.has(u):
 			sub = ""
 		_place_label(sp, name, COL_TEXT if selected.has(u) else Color(COL_TEXT, 0.85), selected.has(u), sub)
+
+
+## True motion: 5 minutes for aircraft, 30 for hulls, with explicit time ticks.
+func _draw_motion_vector(pos: Vector2, course: float, speed: float, domain: String, col: Color, estimated: bool, labelled: bool) -> void:
+	var minutes := 5.0 if domain == "air" else LEADER_MINUTES
+	var start := world_to_screen(pos)
+	var end := world_to_screen(pos + Geo.heading_to_vector(course) * speed * minutes / 60.0)
+	if start.distance_to(end) < 12.0:
+		return
+	if estimated:
+		draw_dashed_line(start, end, Color(col, 0.5), 1.0, 5.0)
+	else:
+		draw_line(start, end, Color(col, 0.5), 1.0, true)
+	var side := (end - start).normalized().orthogonal() * 3.0
+	var count := 5 if domain == "air" else 6
+	for i in range(1, count + 1):
+		var at := start.lerp(end, float(i) / count)
+		draw_line(at - side, at + side, Color(col, 0.7), 1.0, true)
+	if labelled:
+		draw_string(_font, end + Vector2(6, -5), "+%dm%s" % [int(minutes), " EST" if estimated else ""], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(col, 0.85))
+
+
+func _solution_rect() -> Rect2:
+	return Rect2(14, HEADER_H + 14, 290, 143)
+
+
+func _draw_relative_motion() -> void:
+	if selected_track == null:
+		return
+	var ref := reference_unit()
+	var solution := RelativeMotion.solution(ref, selected_track, SimClock.sim_time)
+	if not solution.valid:
+		return
+	var own_end := world_to_screen(solution.own_position)
+	var contact_end := world_to_screen(solution.contact_position)
+	draw_dashed_line(world_to_screen(ref.position), own_end, Color(COL_ACCENT, 0.6), 1.5, 6.0)
+	draw_dashed_line(world_to_screen(selected_track.position), contact_end, Color(COL_AMBER, 0.65), 1.5, 6.0)
+	draw_line(own_end, contact_end, Color(COL_ACCENT, 0.85), 1.5, true)
+	for endpoint in [own_end, contact_end]:
+		draw_arc(endpoint, 5.0, 0.0, TAU, 24, COL_ACCENT, 1.4, true)
+	var middle := own_end.lerp(contact_end, 0.5)
+	var text := "CPA ~%.1f nm / %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)]
+	var width := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	draw_rect(Rect2(middle + Vector2(-5, -18), Vector2(width + 10, 22)), COL_LABEL_BG)
+	draw_string(_font, middle + Vector2(0, -3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_ACCENT)
+
+
+func _draw_solution_card() -> void:
+	if selected_track == null or show_key:
+		return
+	var t := selected_track
+	var ref := reference_unit()
+	var rect := _solution_rect()
+	var x := rect.position.x + 12.0
+	var y := rect.position.y
+	var col := track_color(t)
+	draw_rect(rect, COL_LABEL_BG)
+	draw_rect(rect, Color(col, 0.5), false, 1.0)
+	draw_rect(Rect2(rect.position, Vector2(3, rect.size.y)), col)
+	draw_string(UITheme.heading_font(), Vector2(x, y + 21), "CONTACT SOLUTION  /  %s" % t.id, HORIZONTAL_ALIGNMENT_LEFT, 265, 14, col)
+	draw_string(_font, Vector2(x, y + 41), "%s · LAST OBS %s" % [t.source.replace("sonar_", "").to_upper(), Track._fmt_age(t.age_s(SimClock.sim_time))], HORIZONTAL_ALIGNMENT_LEFT, 265, 10, COL_TEXT)
+	draw_line(Vector2(x, y + 50), Vector2(rect.end.x - 12, y + 50), Color(col, 0.25), 1.0)
+	var range_text := t.range_text_from(ref.position) if ref != null else "NO REFERENCE SHIP"
+	draw_string(_font, Vector2(x, y + 70), range_text, HORIZONTAL_ALIGNMENT_LEFT, 265, 14, COL_TEXT)
+	var solution := RelativeMotion.solution(ref, t, SimClock.sim_time)
+	if solution.valid:
+		draw_string(_font, Vector2(x, y + 92), "CPA ~%.1f nm  /  IN %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)], HORIZONTAL_ALIGNMENT_LEFT, 265, 13, COL_ACCENT)
+		draw_string(_font, Vector2(x, y + 112), "CLOSING %.0f kn · UNCERTAINTY ±%.1f nm" % [solution.closing_kn, solution.uncertainty_nm], HORIZONTAL_ALIGNMENT_LEFT, 265, 10, COL_TEXT)
+		draw_string(_font, Vector2(x, y + 132), "Constant course · horizontal estimate", HORIZONTAL_ALIGNMENT_LEFT, 265, 10, UITheme.COL_DIM)
+	else:
+		draw_string(_font, Vector2(x, y + 94), solution.reason, HORIZONTAL_ALIGNMENT_LEFT, 265, 10, COL_AMBER)
+		var note := "Constant course · horizontal estimate" if solution.has("closing_kn") else "Manoeuvre or regain contact to refine."
+		draw_string(_font, Vector2(x, y + 116), note, HORIZONTAL_ALIGNMENT_LEFT, 265, 10, UITheme.COL_DIM)
 
 
 func _draw_wake(u: Unit, sp: Vector2) -> void:

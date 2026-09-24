@@ -156,7 +156,9 @@ func _ensure_terrain_cache() -> void:
 			fill.append(world_to_overview(point))
 		var outline := fill.duplicate()
 		outline.append(fill[0])
-		_terrain_cache.append({"fill": fill, "outline": outline})
+		# The small overview collapses nearby coastline vertices onto the same pixel.
+		# Triangulate in world space once, as the main chart does, then transform the mesh.
+		_terrain_cache.append({"mesh": ChartMesh.build(land.points), "outline": outline})
 
 
 ## The same depth tint as the main chart, sampled once into a small image. Where the scenario's
@@ -210,8 +212,12 @@ func _draw() -> void:
 		_ensure_terrain_cache()
 		if _floor_texture != null:
 			draw_texture_rect(_floor_texture, plot, false)
+		var scale := minf(plot.size.x, plot.size.y) / _extent_nm()
+		var transform := Transform2D(Vector2(scale, 0), Vector2(0, scale), world_to_overview(Vector2.ZERO))
 		for geometry: Dictionary in _terrain_cache:
-			draw_colored_polygon(geometry["fill"], COL_LAND)
+			var mesh: ArrayMesh = geometry["mesh"]
+			if mesh != null:
+				draw_mesh(mesh, null, transform, COL_LAND)
 			draw_polyline(geometry["outline"], COL_COAST, 1.0, true)
 	for u: Unit in map._own_units():
 		var p := world_to_overview(u.position)
@@ -221,7 +227,8 @@ func _draw() -> void:
 		var p := world_to_overview(track.position)
 		if plot.has_point(p):
 			var col := map.track_color(track)
-			draw_rect(Rect2(p - Vector2(2, 2), Vector2(4, 4)), col, track == map.selected_track, 1.0)
+			var chosen := track == map.selected_track
+			draw_rect(Rect2(p - Vector2(2, 2), Vector2(4, 4)), col, chosen, -1.0 if chosen else 1.0)
 	var chart := map.unobstructed_chart_rect()
 	var a := world_to_overview(map.screen_to_world(chart.position))
 	var b := world_to_overview(map.screen_to_world(chart.end))

@@ -88,5 +88,18 @@ func get_engageable_units(faction: String) -> Array[Unit]:
 
 
 func clear() -> void:
+	# Units are RefCounted. A carrier owns its air wing, and each airframe owns a
+	# reference to its carrier; dropping the array alone leaks both on every restart.
+	for u in units:
+		u.home = null
+		u.embarked.clear()
+		u.formation_leader = null
+		u.tanking_on = null
+		Detection.jammers.erase(u)
 	units.clear()
 	_next_id = 1
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		clear()
