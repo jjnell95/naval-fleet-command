@@ -127,6 +127,7 @@ var show_range_grid := false
 var _land_generation := -1
 var _plot_buttons: Dictionary = {}
 var _overview: TacticalOverview
+var _floor: ChartFloor
 var _context_hint: Label
 
 
@@ -140,6 +141,11 @@ func _ready() -> void:
 	mouse_entered.connect(func() -> void: _mouse_inside = true)
 	mouse_exited.connect(func() -> void: _mouse_inside = false)
 	resized.connect(_apply_pending_fit)
+	_floor = ChartFloor.new()
+	_floor.name = "ChartFloor"
+	_floor.map = self
+	add_child(_floor)
+	move_child(_floor, 0)
 	_build_plot_controls()
 
 
@@ -933,6 +939,7 @@ func _draw() -> void:
 	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
 	_draw_ocean()
 	_draw_land()
+	_draw_neatline()
 	_draw_grid()
 	if show_range_grid:
 		_draw_range_rings()
@@ -1025,14 +1032,18 @@ func _nice_step(min_px: float) -> float:
 ## Deep water: a vertical gradient with a darker rim so the picture reads as a scope, not a
 ## flat rectangle.
 func _draw_ocean() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), COL_OCEAN)
-	var pts := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
-	var cols := PackedColorArray([COL_OCEAN_TOP, COL_OCEAN_TOP, COL_OCEAN_BOTTOM, COL_OCEAN_BOTTOM])
-	draw_polygon(pts, cols)
+	var charted_floor := _floor != null and _floor.active()
+	if not charted_floor:
+		# No bathymetry under this chart: the plain scope ocean. With a floor, ChartFloor has
+		# already painted the water behind this item and it must not be covered.
+		draw_rect(Rect2(Vector2.ZERO, size), COL_OCEAN)
+		var pts := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
+		var cols := PackedColorArray([COL_OCEAN_TOP, COL_OCEAN_TOP, COL_OCEAN_BOTTOM, COL_OCEAN_BOTTOM])
+		draw_polygon(pts, cols)
 	if _water != null:
 		# Two layers drifting against each other, scaled with the zoom so the texture reads as
 		# surface rather than wallpaper. A rough sea shows more of it.
-		var strength := 0.045 + 0.004 * Detection.sea_state
+		var strength := (0.045 + 0.004 * Detection.sea_state) * (0.6 if charted_floor else 1.0)
 		var scale := clampf(ppn * 0.5, 0.6, 3.0)
 		var tile := 256.0 * scale
 		var off1 := Vector2(fmod(_anim * 4.0 + center_nm.x * ppn, tile), fmod(_anim * 2.5 - center_nm.y * ppn, tile))
@@ -1077,6 +1088,37 @@ func _draw_land() -> void:
 		draw_polyline(ring, COL_COAST, 1.1, true)
 		if l.name != "":
 			_draw_land_name(l, view)
+
+
+## Where the scenario's coastline polygons end. Beyond it the floor shader shows the raster's coarser
+## coast, dimmed; this line says so instead of leaving a change of detail unexplained.
+func _draw_neatline() -> void:
+	if _floor == null or not _floor.active():
+		return
+	var r := _floor.charted_rect()
+	if r.size.x <= 0.0:
+		return
+	var a := world_to_screen(Vector2(r.position.x, r.end.y))
+	var b := world_to_screen(Vector2(r.end.x, r.position.y))
+	var screen := Rect2(a, b - a)
+	if screen.encloses(Rect2(Vector2.ZERO, size)):
+		return
+	draw_rect(screen, Color(COL_GRID_TEXT, 0.35), false, 1.0)
+	# Label whichever edge is in view, just inside the chart, so it never floats over nothing.
+	var view := Rect2(Vector2(10.0, HEADER_H + 34.0), size - Vector2(220.0, HEADER_H + 150.0))
+	var x := clampf(screen.position.x + 8.0, view.position.x, view.end.x)
+	var y := clampf(screen.position.y + 14.0, view.position.y, view.end.y)
+	var at := Vector2.INF
+	if screen.position.y > view.position.y - 10.0 and screen.position.y < view.end.y:
+		at = Vector2(x, screen.position.y + 14.0)
+	elif screen.end.y > view.position.y and screen.end.y < view.end.y + 60.0:
+		at = Vector2(x, screen.end.y - 6.0)
+	elif screen.position.x > view.position.x and screen.position.x < view.end.x:
+		at = Vector2(screen.position.x + 8.0, y)
+	elif screen.end.x > view.position.x and screen.end.x < size.x - 20.0:
+		at = Vector2(screen.end.x - 150.0, y)
+	if at != Vector2.INF:
+		draw_string(_font, at, "LIMIT OF CHARTED COAST", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_GRID_TEXT, 0.55))
 
 
 ## Names the coast in the middle of the part of it that is actually on screen, so a mainland
@@ -1148,7 +1190,10 @@ func _draw_chart_labels() -> void:
 		draw_string(_font, at - Vector2(width/2, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("567e90") if water else Color("c0c9b3"))
 	if m.has("anchor_lat"):
 		draw_rect(Rect2(0, size.y - 23, size.x, 23), COL_HEADER)
-		draw_string(_font, Vector2(14, size.y - 8), "NATURAL EARTH 1:10m  ·  LOCAL PROJECTION  ·  NO DEPTH DATA", HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 160), 9, COL_GRID_TEXT)
+		var note := "NATURAL EARTH 1:10m  ·  LOCAL PROJECTION  ·  NO DEPTH DATA"
+		if _floor != null and _floor.active():
+			note = "NATURAL EARTH 1:10m LAND + BATHYMETRY  ·  CONTOURS 200 · 1000 · 2000 · 3000 · 4000 m  ·  LOCAL PROJECTION  ·  NOT FOR NAVIGATION"
+		draw_string(_font, Vector2(14, size.y - 8), note, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 160), 9, COL_GRID_TEXT)
 
 
 func _chart_axis(value: float, positive: String, negative: String) -> String:
@@ -1282,6 +1327,8 @@ func _draw_sensor_rings() -> void:
 		var sonar := Detection.nominal_passive_ring_nm(u)
 		if sonar > 0.0:
 			draw_arc(sp, sonar * ppn, 0.0, TAU, 96, COL_SONAR_RING, 1.0, true)
+		if Acoustics.cz_available(u):
+			_draw_convergence_zones(sp)
 		var active := Detection.best_active_sonar_nm(u)
 		if active > 0.0:
 			draw_arc(sp, active * ppn, 0.0, TAU, 72, COL_SONAR_ACTIVE, 1.5, true)
@@ -1310,6 +1357,22 @@ func _draw_sensor_rings() -> void:
 		else:
 			draw_arc(sp, r * ppn, 0.0, TAU, 128, COL_RING_SILENT, 1.0, true)
 			draw_string(_font, sp + Vector2(0.0, -r * ppn - 5.0), "RADAR SILENT", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, COL_RING_SILENT)
+
+
+## Convergence-zone annuli: where sound from a loud source comes back to the surface in deep
+## water. Drawn as faint bands with the zone number, because a contact out there is heard in the
+## ring, not between the rings.
+func _draw_convergence_zones(sp: Vector2) -> void:
+	for z: Dictionary in Acoustics.zones():
+		var r: float = float(z["range_nm"]) * ppn
+		var hw: float = float(z["half_width_nm"]) * ppn
+		if r + hw < 8.0:
+			continue
+		var fade := 0.55 if int(z["index"]) == 1 else 0.35
+		draw_arc(sp, r, 0.0, TAU, 128, Color(COL_SONAR_RING, 0.06 * fade * 2.0), maxf(hw * 2.0, 1.0), true)
+		_draw_dashed_circle(sp, r - hw, Color(COL_SONAR_RING, 0.45 * fade), 96)
+		_draw_dashed_circle(sp, r + hw, Color(COL_SONAR_RING, 0.45 * fade), 96)
+		draw_string(_font, sp + Vector2(r * 0.7071 + 4.0, -r * 0.7071), "CZ%d" % int(z["index"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_SONAR_RING, 0.8 * fade + 0.2))
 
 
 ## A rotating sweep with a fading wake, a reminder that the ship is on the air.
@@ -1438,6 +1501,7 @@ func _draw_tracks() -> void:
 			draw_string(_font, sp + Vector2(-14.0, -14.0), "J", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_JAM)
 		var text := t.label()
 		var tags := PackedStringArray()
+		if t.source == "sonar_cz": tags.append("CZ")
 		if t.is_bearing_only(): tags.append("BRG")
 		if not t.networked: tags.append("LOCAL")
 		if stale: tags.append("STALE %s" % Track._fmt_age(t.age_s(SimClock.sim_time)))
@@ -1770,9 +1834,18 @@ func _draw_readout() -> void:
 	if ref != null:
 		text += "    FROM %s:  BRG %s  RNG %.1f nm" % [ref.callsign, Geo.format_bearing(Geo.bearing_deg(ref.position, w)), Geo.distance_nm(ref.position, w)]
 	draw_string(_font, Vector2(16.0, HEADER_H + 35.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(COL_TEXT, 0.85))
+	var wide := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 	if not Terrain.is_empty() and Terrain.is_land(w):
-		var wide := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 		draw_string(_font, Vector2(16.0 + wide + 14.0, HEADER_H + 35.0), "LAND", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_AMBER)
+	elif Bathymetry.active:
+		var depth := Bathymetry.depth_at(w)
+		if depth >= 1.0:
+			var water := "DEPTH %s" % Bathymetry.format_depth(depth)
+			if Acoustics.layer_present_at(depth):
+				water += "  ·  LAYER %d m" % int(Acoustics.layer_depth_m())
+			if depth >= Acoustics.CZ_MIN_DEPTH_M and Acoustics.cz_range_nm() > 0.0:
+				water += "  ·  CZ WATER"
+			draw_string(_font, Vector2(16.0 + wide + 14.0, HEADER_H + 35.0), water, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.55, 0.82, 0.92, 0.9))
 
 
 ## Labels: a dark pill with an identity bar, a primary line and an optional secondary line, placed
@@ -1842,6 +1915,8 @@ func _draw_key() -> void:
 	cy += 16.0
 	draw_string(_font, Vector2(x + 12, cy + 4), "Land: masks radar, ESM and sonar · ships cannot enter it", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 	cy += 16.0
+	draw_string(_font, Vector2(x + 12, cy + 4), "Sea: lighter is shallower · contours 200-4000 m · CZ bands dashed green", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
+	cy += 16.0
 	draw_string(_font, Vector2(x + 12, cy + 4), "Ctrl+right-click a contact: engage · right-click a waypoint: drop that leg", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
 	cy += 16.0
 	draw_string(_font, Vector2(x + 12, cy + 4), "Double-click: recentre · Home: fit fleet · C: centre selection · +/−: zoom", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
@@ -1849,7 +1924,7 @@ func _draw_key() -> void:
 
 func _symbol_key_rect() -> Rect2:
 	# Top-left avoids the command toolbar and makes the whole custom-drawn card a no-command zone.
-	return Rect2(12.0, HEADER_H + 12.0, 352.0, 198.0)
+	return Rect2(12.0, HEADER_H + 12.0, 352.0, 214.0)
 
 
 ## Hovering over a symbol shows what the console knows about it, without a click.

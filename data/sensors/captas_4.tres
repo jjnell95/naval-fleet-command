@@ -16,4 +16,6 @@ passive_sensitivity_nm = 24.0
 active_range_nm = 9.0
 bearing_accuracy_deg = 1.5
 self_noise_tolerance = 0.70
+array_depth_m = 300.0
+cz_capable = true
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."

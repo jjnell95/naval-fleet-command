@@ -84,11 +84,15 @@ static func _step_altitude(u: Unit, dt: float) -> void:
 	u.altitude_m += clampf(target - u.altitude_m, -step, step)
 
 
-## Boats change depth at a fixed rate. Anything that cannot submerge simply stays at zero.
+## Boats change depth at a fixed rate. Anything that cannot submerge simply stays at zero. The
+## floor is a hard limit whatever the order says: a boat that runs onto the shelf comes up with it.
 static func _step_depth(u: Unit, dt: float) -> void:
 	if u.spec.depth_rate_m_s <= 0.0:
 		u.depth_m = 0.0
 		return
-	var target := clampf(u.ordered_depth_m, 0.0, u.spec.max_depth_m)
+	var target := clampf(u.ordered_depth_m, 0.0, Acoustics.max_operating_depth_m(u))
 	var step := u.spec.depth_rate_m_s * dt
 	u.depth_m += clampf(target - u.depth_m, -step, step)
+	var floor_m := Acoustics.bottom_m(u)
+	if floor_m >= 0.0:
+		u.depth_m = minf(u.depth_m, maxf(floor_m - 5.0, 0.0))  # never through the floor

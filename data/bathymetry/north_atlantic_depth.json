@@ -1,0 +1,58 @@
+{
+ "source": "Natural Earth 1:10m physical vectors, bathymetry (all depths)",
+ "version": "5.1.1",
+ "url": "https://github.com/nvkelso/natural-earth-vector/tree/v5.1.1/10m_physical/ne_10m_bathymetry_all",
+ "license": "Public domain",
+ "shp_sha256": {
+  "L_0": "ef7da1ca42a04a420efa6ca9488da323c71c895fad0d0fc2a31451e07845667b",
+  "K_200": "503ad43207e26baf6543abd30910bad3257cf03dfcf5742e21fdc40619f63dca",
+  "J_1000": "c12d8d166a12ba7f75e1467fdcbe0ddf89e736f76149633b163c6bb7647eb37a",
+  "I_2000": "de447d8a6064ff9768b14b992272031eec8c6b0c406f019ef530d6ba6f59a1b3",
+  "H_3000": "bdc035eef19798683fa1e44a00f73bb8042362a0bb17a69cea87dad32852532b",
+  "G_4000": "d5e1c400770271ecc5dbda5b0100d1d1be056b32a93f461b655233c3003e1e89",
+  "F_5000": "92cd818b8fbe41d0d8475c7eda9796c4486f8fa6012e899bfc7941cf521edc57"
+ },
+ "bounds_lon_lat": [
+  -46.0,
+  52.0,
+  55.0,
+  81.0
+ ],
+ "size_px": [
+  3030,
+  1740
+ ],
+ "cell_deg": [
+  0.03333333333333333,
+  0.016666666666666666
+ ],
+ "row_order": "north_to_south",
+ "encoding": "depth_m = depth_scale_m * (value / 255)^2; 0 is land",
+ "depth_scale_m": 6000.0,
+ "contours_m": [
+  0,
+  200,
+  1000,
+  2000,
+  3000,
+  4000,
+  5000
+ ],
+ "interpolation": "linear in relative distance between Natural Earth contours in an oblique stereographic plane at 1 nm; deeper contour capped at 40 nm; gaussian sigma 2.0 nm",
+ "chart": {
+  "file": "north_atlantic_chart.exr",
+  "size_px": [
+   1515,
+   870
+  ],
+  "encoding": "half-float metres, 2x2 cell mean; presentation only"
+ },
+ "relief": {
+  "file": "north_atlantic_relief.png",
+  "azimuth_deg": 315.0,
+  "altitude_deg": 45.0,
+  "vertical_exaggeration": 24.0,
+  "encoding": "128 is flat; presentation only"
+ },
+ "note": "Generalised 1:10m cartography. Not a hydrographic or navigation chart."
+}

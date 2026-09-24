@@ -42,6 +42,10 @@ var formation_leader: Unit
 var formation_offset := Vector2.ZERO  # x starboard, y ahead, in nm, in the leader's frame
 var depth_m := 0.0
 var ordered_depth_m := 0.0
+## Water under the hull, cached by Acoustics.bottom_m() until the unit moves or the chart changes.
+var bottom_depth_m := -1.0
+var bottom_sampled_at := Vector2.INF
+var bottom_generation := -1
 var health := 100.0
 var weapons: Array[WeaponSpec] = []  # resolved from spec.weapon_loadout at spawn
 var magazines: Dictionary = {}  # weapon id -> rounds remaining

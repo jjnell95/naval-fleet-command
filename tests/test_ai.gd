@@ -307,3 +307,72 @@ func test_ai_only_commands_its_own_faction() -> void:
 	assert_eq(blue.magazine_count("test_asm"), 8, "the RED controller never fires BLUE's weapons")
 	assert_eq(h.ai.state_name(blue), "", "and keeps no state for ships it does not command")
 	h.free_all()
+
+
+# --- Submarines use the water ------------------------------------------------------------
+
+func _boat(faction: String, pos: Vector2) -> Unit:
+	var u := Unit.new()
+	var p := PlatformSpec.new()
+	p.short_name = "SSN Test"
+	p.domain = "subsurface"
+	p.max_speed_kn = 28.0
+	p.cruise_speed_kn = 8.0
+	p.max_depth_m = 400.0
+	p.patrol_depth_m = 120.0
+	p.depth_rate_m_s = 2.0
+	p.health = 60.0
+	u.spec = p
+	u.faction = faction
+	u.callsign = "%s-SSN" % faction
+	u.position = pos
+	u.health = p.health
+	u.depth_m = 120.0
+	u.ordered_depth_m = 120.0
+	return u
+
+
+func _water(bottom_m: float, layer_m: float) -> void:
+	var env := {"bottom_m": bottom_m, "layer_depth_m": layer_m, "layer_strength": 0.8}
+	Detection.set_environment(env)
+	Bathymetry.load_for({"environment": env})
+
+
+func _last_depth_order(h: Harness) -> float:
+	var depths := _orders_of(h, Order.Type.SET_DEPTH)
+	return depths[-1]["order"].depth_m if not depths.is_empty() else -1.0
+
+
+func test_a_patrolling_boat_goes_under_the_layer_when_the_water_allows() -> void:
+	_water(3000.0, 180.0)
+	var boat := _boat("RED", Vector2.ZERO)
+	var h := _harness([boat])
+	h.ai.tick(100.0)
+	assert_near(_last_depth_order(h), 180.0 + Acoustics.BELOW_LAYER_MARGIN_M, 0.5, "under the layer, not at the book patrol depth")
+	h.free_all()
+	_water(130.0, 180.0)
+	boat = _boat("RED", Vector2.ZERO)
+	h = _harness([boat])
+	h.ai.tick(100.0)
+	assert_near(_last_depth_order(h), 130.0 - Acoustics.KEEL_CLEARANCE_M, 0.5, "on the shelf there is no under, and the floor bounds it")
+	h.free_all()
+	Detection.set_environment({})
+	Bathymetry.clear()
+
+
+func test_a_boat_comes_back_above_the_layer_to_hold_a_surface_contact() -> void:
+	_water(3000.0, 180.0)
+	var boat := _boat("RED", Vector2.ZERO)
+	boat.weapons.append(_asm(20.0))
+	boat.magazines["test_asm"] = 4
+	boat.depth_m = 15.0  # at periscope depth, on the link, so the group's picture reaches it
+	boat.ordered_depth_m = 15.0
+	var ship := _ship("BLUE", Vector2(0, 30))
+	var h := _harness([boat, ship])
+	_make_track(h, "RED", ship, Vector2(0, 30))
+	h.ai.tick(100.0)
+	assert_eq(h.ai.state_name(boat), "SHADOW", "a hostile it cannot shoot yet")
+	assert_near(_last_depth_order(h), 120.0, 0.5, "patrol depth, where its arrays hear the surface")
+	h.free_all()
+	Detection.set_environment({})
+	Bathymetry.clear()

@@ -17,4 +17,5 @@ active_range_nm = 11.0
 bearing_accuracy_deg = 1.0
 self_noise_tolerance = 0.95
 requires_hover = true
+array_depth_m = 400.0
 source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges and accuracies. It only works with the aircraft stopped and low, which is a real constraint modelled as a flag."

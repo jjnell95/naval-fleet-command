@@ -211,7 +211,16 @@ func _refresh() -> void:
 		lines.append(_kv("HDG", "%s   ordered %s" % [Geo.format_bearing(u.heading_deg), Geo.format_bearing(u.ordered_heading_deg)]))
 		lines.append(_kv("SPD", "%.1f kn   ordered %.0f · max %.0f" % [u.speed_kn, u.ordered_speed_kn, u.effective_max_speed()]))
 		if u.spec.max_depth_m > 0.0:
-			lines.append(_kv("DEPTH", "%.0f m   ordered %.0f · max %.0f" % [u.depth_m, u.ordered_depth_m, u.spec.max_depth_m]))
+			var limit := Acoustics.max_operating_depth_m(u)
+			var limit_text := "max %.0f" % u.spec.max_depth_m if limit >= u.spec.max_depth_m - 0.5 else "[color=%s]floor-limited %.0f[/color]" % [UITheme.HEX_AMBER, limit]
+			var side := ""
+			if Acoustics.layer_present_at(Acoustics.bottom_m(u)):
+				side = "   [color=%s]%s LAYER[/color]" % [UITheme.HEX_GREEN if not Acoustics.is_above_layer(u.depth_m) else UITheme.HEX_DIM, "UNDER" if not Acoustics.is_above_layer(u.depth_m) else "ABOVE"]
+			lines.append(_kv("DEPTH", "%.0f m   ordered %.0f · %s%s" % [u.depth_m, u.ordered_depth_m, limit_text, side]))
+		if (u.has_sonar() or u.spec.max_depth_m > 0.0) and u.needs_sea_room():
+			var water := Acoustics.column_summary(u)
+			if water != "":
+				lines.append(_kv("WATER", water))
 		if u.is_aircraft():
 			lines.append(_kv("ALT", "%.0f m   ordered %.0f · ceiling %.0f" % [u.altitude_m, u.ordered_altitude_m, u.spec.max_altitude_m]))
 			lines.append(_kv("FLIGHT", _flight_state_text(u)))
@@ -256,7 +265,12 @@ func _refresh() -> void:
 		if u.has_sonar():
 			for s in u.sensors:
 				if s.kind == "sonar":
-					lines.append("  %s  [color=%s]%s[/color]" % [s.display_name, UITheme.HEX_GREEN if u.active_sonar_on else UITheme.HEX_DIM, "PINGING" if u.active_sonar_on else "PASSIVE"])
+					var where := ""
+					if not u.is_submarine() and s.array_depth_m > 0.0 and (not s.requires_hover or u.is_hovering()):
+						var d := Acoustics.sensor_depth_m(u, s)
+						var under := Acoustics.layer_present_at(Acoustics.bottom_m(u)) and not Acoustics.is_above_layer(d)
+						where = "  [color=%s]%s %d m%s[/color]" % [UITheme.HEX_DIM, "DIPPED" if s.requires_hover else "STREAMED", int(d), " · under layer" if under else ""]
+					lines.append("  %s  [color=%s]%s[/color]%s" % [s.display_name, UITheme.HEX_GREEN if u.active_sonar_on else UITheme.HEX_DIM, "PINGING" if u.active_sonar_on else "PASSIVE", where])
 			lines.append("  [color=%s]~%.0f nm passive · %.0f nm active · sea state %d[/color]" % [UITheme.HEX_DIM, Detection.nominal_passive_ring_nm(u), Detection.best_active_sonar_nm(u) if u.active_sonar_on else _first_active_range(u), Detection.sea_state])
 		if u.weapons.is_empty():
 			lines.append(_h("MAGAZINES"))

@@ -134,7 +134,7 @@ func deploy_sonobuoy(a: Unit, now: float) -> Sonobuoy:
 	b.id = _next_buoy_id
 	_next_buoy_id += 1
 	b.faction = a.faction
-	b.position = a.position
+	b.settle(a.position)
 	b.sensitivity_nm = a.spec.sonobuoy_sensitivity_nm
 	b.expires_at = now + a.spec.sonobuoy_life_s
 	sonobuoys.append(b)

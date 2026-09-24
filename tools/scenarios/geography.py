@@ -99,6 +99,11 @@ def polygons(geometry):
         for part in geometry.geoms:
             yield from polygons(part)
 
+def charted_box(center, extent):
+    """The square the coastline polygons are clipped to: the playable chart plus 100 nm."""
+    half = extent/2 + 100
+    return [round(center[0]-half, 4), round(center[1]-half, 4), round(center[0]+half, 4), round(center[1]+half, 4)]
+
 def chart(lat0, lon0, center, extent):
     """Clip outside the authored chart, retaining islands and polygon topology.
 
@@ -106,8 +111,7 @@ def chart(lat0, lon0, center, extent):
     It does not support harbour navigation or a claim of sub-mile accuracy.
     Heights are uniform gameplay masking plateaus, not measured terrain.
     """
-    half = extent/2 + 100
-    view = box(center[0]-half, center[1]-half, center[0]+half, center[1]+half)
+    view = box(*charted_box(center, extent))
     result=[]
     for ring in dataset()["rings_lon_lat"]:
         source=Polygon(ring)

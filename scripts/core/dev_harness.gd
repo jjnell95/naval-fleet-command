@@ -23,6 +23,8 @@ extends RefCounted
 ##   --no-ai                     disable every AI controller
 ##   --reload-check              fight a while, restart, and report that state was cleared
 ##   --debug                     turn on the truth overlay
+##   --rings                     show the sensor coverage layer (F4), for screenshots
+##   --tab=N                     open command-dock tab N (0 navigation … 3 doctrine), for screenshots
 ##   --dump                      print a full state report and quit, without touching the renderer
 ##   --hold=S --screenshot=PATH  wait S seconds, save a PNG, dump state and quit (windowed only)
 
@@ -51,6 +53,8 @@ func handle_flags() -> void:
 			fast_forward = float(a.get_slice("=", 1))
 	if args.has("--debug"):
 		Debug.enabled = true
+	if args.has("--rings"):
+		main.map.show_rings = true
 	if args.has("--autopilot"):
 		print("[Dev] the AI is commanding both sides")
 	if args.has("--no-ai"):
@@ -137,6 +141,8 @@ func handle_flags() -> void:
 			main._library._stage.set_view(a.get_slice("=", 1))
 		elif a.begins_with("--zoom="):
 			_zoom_after_layout(float(a.get_slice("=", 1)))
+		elif a.begins_with("--tab="):
+			main.orders_panel._tabs.current_tab = int(a.get_slice("=", 1))
 	if args.has("--visual-smoke"):
 		_visual_smoke()
 		return

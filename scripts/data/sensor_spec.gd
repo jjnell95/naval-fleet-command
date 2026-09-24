@@ -21,6 +21,13 @@ extends Resource
 ## A dipping set only works with the aircraft stopped and low. That is the whole helicopter ASW
 ## cycle: fly, stop, listen, move on.
 @export var requires_hover := false
+## How far below the surface the array can be lowered: a variable-depth body on its cable, a
+## dipping transducer on its wire. Zero is a hull set, fixed a few metres under the keel. What
+## matters is whether it reaches through the layer; see Acoustics. GAMEPLAY_ESTIMATE.
+@export var array_depth_m := 0.0
+## A large low-frequency array that can exploit deep-water convergence zones. Small hull sets,
+## dipping sonars and buoys cannot. GAMEPLAY_ESTIMATE grouping, not a system claim.
+@export var cz_capable := false
 
 ## Electronic support. An ESM set hears a radar transmit. It only needs the signal one way, where
 ## the radar needs it out and back, so it hears further than the radar reaches, and it does not

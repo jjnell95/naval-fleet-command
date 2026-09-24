@@ -85,6 +85,7 @@ func load_scenario(path: String) -> bool:
 	aviation_manager.map_extent_nm = map_extent_nm
 	Detection.set_environment(scenario.get("environment", {}))
 	Terrain.load_from(scenario)
+	Bathymetry.load_for(scenario)
 	track_manager.neutral_factions = PackedStringArray()
 	for f in scenario.get("neutral_factions", []):
 		track_manager.neutral_factions.append(str(f))

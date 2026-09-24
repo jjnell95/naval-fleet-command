@@ -22,6 +22,8 @@ var _terrain_size := Vector2.ZERO
 var _terrain_center := Vector2(INF, INF)
 var _terrain_extent := -1.0
 var _terrain_cache: Array[Dictionary] = []
+var _floor_texture: ImageTexture  # depth tint for the plot, rebuilt with the terrain cache
+var _floor_generation := -1
 
 
 func _ready() -> void:
@@ -137,13 +139,15 @@ func _recenter(point: Vector2) -> void:
 func _ensure_terrain_cache() -> void:
 	var center := _chart_center()
 	var extent := _extent_nm()
-	if _terrain_generation == Terrain.generation and _terrain_size == size and _terrain_center == center and is_equal_approx(_terrain_extent, extent):
+	if _terrain_generation == Terrain.generation and _floor_generation == Bathymetry.generation and _terrain_size == size and _terrain_center == center and is_equal_approx(_terrain_extent, extent):
 		return
 	_terrain_generation = Terrain.generation
 	_terrain_size = size
 	_terrain_center = center
 	_terrain_extent = extent
 	_terrain_cache.clear()
+	_floor_generation = Bathymetry.generation
+	_build_floor()
 	for land: Landmass in Terrain.landmasses:
 		if land.points.size() < 3:
 			continue
@@ -153,6 +157,42 @@ func _ensure_terrain_cache() -> void:
 		var outline := fill.duplicate()
 		outline.append(fill[0])
 		_terrain_cache.append({"fill": fill, "outline": outline})
+
+
+## The same depth tint as the main chart, sampled once into a small image. Where the scenario's
+## coastline polygons end, the raster's own coast carries on, so the inset has no clip line either.
+func _build_floor() -> void:
+	_floor_texture = null
+	if not Bathymetry.active:
+		return
+	var plot := _plot_rect()
+	var w := int(plot.size.x)
+	var h := int(plot.size.y)
+	if w < 4 or h < 4:
+		return
+	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
+	for y in h:
+		for x in w:
+			var d := Bathymetry.depth_at(overview_to_world(plot.position + Vector2(x + 0.5, y + 0.5)))
+			img.set_pixel(x, y, depth_color(d))
+	_floor_texture = ImageTexture.create_from_image(img)
+
+
+## Chart tint for a depth, matching chart_floor.gdshader. Presentation only.
+static func depth_color(d: float) -> Color:
+	if d < 0.0:
+		return COL_WATER
+	if d < 0.5:
+		return COL_LAND.darkened(0.25)
+	var shoal := Color(0.118, 0.262, 0.302)
+	var shelf := Color(0.086, 0.215, 0.270)
+	var slope := Color(0.063, 0.170, 0.232)
+	var basin := Color(0.045, 0.132, 0.192)
+	var abyss := Color(0.032, 0.100, 0.155)
+	var c := shoal.lerp(shelf, smoothstep(0.0, 200.0, d))
+	c = c.lerp(slope, smoothstep(200.0, 1200.0, d))
+	c = c.lerp(basin, smoothstep(1200.0, 2800.0, d))
+	return c.lerp(abyss, smoothstep(2800.0, 4500.0, d))
 
 
 func _draw() -> void:
@@ -168,6 +208,8 @@ func _draw() -> void:
 		return
 	if map.show_terrain:
 		_ensure_terrain_cache()
+		if _floor_texture != null:
+			draw_texture_rect(_floor_texture, plot, false)
 		for geometry: Dictionary in _terrain_cache:
 			draw_colored_polygon(geometry["fill"], COL_LAND)
 			draw_polyline(geometry["outline"], COL_COAST, 1.0, true)
