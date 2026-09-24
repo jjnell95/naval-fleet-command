@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_sqr19"
+display_name = "AN/SQR-19 passive towed array"
+kind = "sonar"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 0.0
+classify_rate = 0.85
+passive_sensitivity_nm = 22.0
+active_range_nm = 0.0
+bearing_accuracy_deg = 1.8
+self_noise_tolerance = 0.45
+array_depth_m = 120.0
+requires_hover = false
+cz_capable = true
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

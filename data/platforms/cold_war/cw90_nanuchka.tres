@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_nanuchka"
+display_name = "Nanuchka III missile corvette (1990)"
+short_name = "FSG Nanuchka III"
+nation = "USSR"
+category = "corvette"
+domain = "surface"
+max_speed_kn = 32.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 4.0
+accel_kn_s = 0.22
+health = 55.0
+signature_factor = 0.55
+mast_height_m = 18.0
+sensor_ids = PackedStringArray("cw90_mr320", "cw90_soviet_esm")
+weapon_loadout = {"cw90_p120": 6, "cw90_osa_m": 20, "cw90_ak176": 200, "cw90_ak630": 50}
+decoy_count = 12
+fire_control_channels = 1
+role = "Littoral missile ambush"
+service_note = "Project 1234.1: six P-120 missiles, Osa-M, AK-176 and AK-630. The corvette's large anti-ship salvo is offset by a small defensive magazine."
+length_m = 59.3
+displacement_t = 730.0
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

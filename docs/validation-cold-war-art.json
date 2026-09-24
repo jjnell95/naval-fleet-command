@@ -1,0 +1,1175 @@
+{
+  "platforms": 20,
+  "weapons": 28,
+  "all_checks_passed": true,
+  "records": [
+    {
+      "id": "cw90_airfield",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          76
+        ]
+      },
+      "mesh_primitives": 3,
+      "model_extents": [
+        10,
+        0.1666666716337204,
+        0.9888889193534851
+      ],
+      "model_bytes": 55756
+    },
+    {
+      "id": "cw90_e2c",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          549,
+          768
+        ]
+      },
+      "mesh_primitives": 4,
+      "model_extents": [
+        7.142857074737549,
+        1.6428570747375488,
+        10
+      ],
+      "model_bytes": 146604
+    },
+    {
+      "id": "cw90_f14a",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          707
+        ]
+      },
+      "mesh_primitives": 5,
+      "model_extents": [
+        10.000000953674316,
+        2.2061164379119873,
+        9.200000762939453
+      ],
+      "model_bytes": 144020
+    },
+    {
+      "id": "cw90_ka27",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          606
+        ]
+      },
+      "mesh_primitives": 2,
+      "model_extents": [
+        10,
+        2.6785085201263428,
+        7.79721736907959
+      ],
+      "model_bytes": 86760
+    },
+    {
+      "id": "cw90_los_angeles",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          129
+        ]
+      },
+      "mesh_primitives": 1,
+      "model_extents": [
+        10,
+        2.140691041946411,
+        1.6847965717315674
+      ],
+      "model_bytes": 93964
+    },
+    {
+      "id": "cw90_merchant",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          123
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        2.4199607372283936,
+        1.5994319915771484
+      ],
+      "model_bytes": 335760
+    },
+    {
+      "id": "cw90_nanuchka",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          148
+        ]
+      },
+      "mesh_primitives": 9,
+      "model_extents": [
+        10,
+        3.671431303024292,
+        1.9320083856582642
+      ],
+      "model_bytes": 339544
+    },
+    {
+      "id": "cw90_nimitz",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          144
+        ]
+      },
+      "mesh_primitives": 11,
+      "model_extents": [
+        10,
+        2.048768997192383,
+        1.8717033863067627
+      ],
+      "model_bytes": 474372
+    },
+    {
+      "id": "cw90_p3c",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          671
+        ]
+      },
+      "mesh_primitives": 5,
+      "model_extents": [
+        10,
+        2.406091332435608,
+        8.730963706970215
+      ],
+      "model_bytes": 203544
+    },
+    {
+      "id": "cw90_perry",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          79
+        ]
+      },
+      "mesh_primitives": 11,
+      "model_extents": [
+        10,
+        2.457258105278015,
+        1.024816632270813
+      ],
+      "model_bytes": 423044
+    },
+    {
+      "id": "cw90_s3a",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          668,
+          768
+        ]
+      },
+      "mesh_primitives": 5,
+      "model_extents": [
+        8.695651054382324,
+        3.19823956489563,
+        10
+      ],
+      "model_bytes": 115680
+    },
+    {
+      "id": "cw90_sh3h",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          614
+        ]
+      },
+      "mesh_primitives": 4,
+      "model_extents": [
+        10,
+        3.0582311153411865,
+        7.991645336151123
+      ],
+      "model_bytes": 235840
+    },
+    {
+      "id": "cw90_sh60b",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          585
+        ]
+      },
+      "mesh_primitives": 1,
+      "model_extents": [
+        10,
+        3.314860463142395,
+        7.617344379425049
+      ],
+      "model_bytes": 165928
+    },
+    {
+      "id": "cw90_slava",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          86
+        ]
+      },
+      "mesh_primitives": 10,
+      "model_extents": [
+        10,
+        2.5826170444488525,
+        1.1196935176849365
+      ],
+      "model_bytes": 475796
+    },
+    {
+      "id": "cw90_sovremenny",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          86
+        ]
+      },
+      "mesh_primitives": 8,
+      "model_extents": [
+        9.999999046325684,
+        2.4848564863204956,
+        1.119638204574585
+      ],
+      "model_bytes": 516868
+    },
+    {
+      "id": "cw90_spruance",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          75
+        ]
+      },
+      "mesh_primitives": 10,
+      "model_extents": [
+        10,
+        2.0847723484039307,
+        0.9823744893074036
+      ],
+      "model_bytes": 567316
+    },
+    {
+      "id": "cw90_ticonderoga",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          74
+        ]
+      },
+      "mesh_primitives": 10,
+      "model_extents": [
+        10,
+        2.4295376539230347,
+        0.959719717502594
+      ],
+      "model_bytes": 576496
+    },
+    {
+      "id": "cw90_tu22m3",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          568
+        ]
+      },
+      "mesh_primitives": 4,
+      "model_extents": [
+        10,
+        1.9372590780258179,
+        7.39443302154541
+      ],
+      "model_bytes": 97860
+    },
+    {
+      "id": "cw90_udaloy",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          90
+        ]
+      },
+      "mesh_primitives": 9,
+      "model_extents": [
+        10,
+        2.837347388267517,
+        1.169633150100708
+      ],
+      "model_bytes": 349980
+    },
+    {
+      "id": "cw90_victor3",
+      "kind": "platform",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ],
+        "profile": [
+          768,
+          224
+        ],
+        "plan": [
+          768,
+          141
+        ]
+      },
+      "mesh_primitives": 2,
+      "model_extents": [
+        10,
+        2.3268392086029053,
+        1.8312876224517822
+      ],
+      "model_bytes": 104324
+    },
+    {
+      "id": "cw90_53_65",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 7,
+      "model_extents": [
+        10,
+        1.1421828269958496,
+        1.1421828269958496
+      ],
+      "model_bytes": 46080
+    },
+    {
+      "id": "cw90_aim54a",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        2.8759117126464844,
+        2.8759117126464844
+      ],
+      "model_bytes": 40748
+    },
+    {
+      "id": "cw90_aim9m",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        1.3366425037384033,
+        1.3366425037384033
+      ],
+      "model_bytes": 40744
+    },
+    {
+      "id": "cw90_ak100",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 2,
+      "model_extents": [
+        10,
+        3.4408599138259888,
+        3.4408600330352783
+      ],
+      "model_bytes": 9168
+    },
+    {
+      "id": "cw90_ak130",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 2,
+      "model_extents": [
+        10,
+        3.4408599138259888,
+        3.4408600330352783
+      ],
+      "model_bytes": 12028
+    },
+    {
+      "id": "cw90_ak176",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 2,
+      "model_extents": [
+        10,
+        3.4408599138259888,
+        3.4408600330352783
+      ],
+      "model_bytes": 9168
+    },
+    {
+      "id": "cw90_ak630",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 2,
+      "model_extents": [
+        10,
+        5.483870983123779,
+        6.451612949371338
+      ],
+      "model_bytes": 22400
+    },
+    {
+      "id": "cw90_at1",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 7,
+      "model_extents": [
+        10,
+        1.9595787525177002,
+        1.9595787525177002
+      ],
+      "model_bytes": 46076
+    },
+    {
+      "id": "cw90_fort",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        2.8559577465057373,
+        2.8559577465057373
+      ],
+      "model_bytes": 43340
+    },
+    {
+      "id": "cw90_harpoon",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        3.0480823516845703,
+        3.0480823516845703
+      ],
+      "model_bytes": 43332
+    },
+    {
+      "id": "cw90_kh22",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        3.2187554836273193,
+        3.2187554836273193
+      ],
+      "model_bytes": 43340
+    },
+    {
+      "id": "cw90_kinzhal",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        3.3169586658477783,
+        3.3169586658477783
+      ],
+      "model_bytes": 43336
+    },
+    {
+      "id": "cw90_mk45",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 2,
+      "model_extents": [
+        10,
+        3.4408599138259888,
+        3.4408600330352783
+      ],
+      "model_bytes": 9168
+    },
+    {
+      "id": "cw90_mk46",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 7,
+      "model_extents": [
+        10,
+        2.124516725540161,
+        2.124516725540161
+      ],
+      "model_bytes": 46080
+    },
+    {
+      "id": "cw90_mk48",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 7,
+      "model_extents": [
+        10,
+        1.5663094520568848,
+        1.5663094520568848
+      ],
+      "model_bytes": 46096
+    },
+    {
+      "id": "cw90_mk75",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 2,
+      "model_extents": [
+        10,
+        3.4408599138259888,
+        3.4408600330352783
+      ],
+      "model_bytes": 9168
+    },
+    {
+      "id": "cw90_moskit",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        3.2954280376434326,
+        3.2954280376434326
+      ],
+      "model_bytes": 43328
+    },
+    {
+      "id": "cw90_osa_m",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        2.6570897102355957,
+        2.6570897102355957
+      ],
+      "model_bytes": 43328
+    },
+    {
+      "id": "cw90_p120",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        3.6886186599731445,
+        3.6886186599731445
+      ],
+      "model_bytes": 43340
+    },
+    {
+      "id": "cw90_p500",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        3.0656521320343018,
+        3.0656521320343018
+      ],
+      "model_bytes": 43328
+    },
+    {
+      "id": "cw90_phalanx",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 3,
+      "model_extents": [
+        7.737556457519531,
+        10,
+        4.988687515258789
+      ],
+      "model_bytes": 27336
+    },
+    {
+      "id": "cw90_rastrub",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        3.0192031860351562,
+        3.0192031860351562
+      ],
+      "model_bytes": 40744
+    },
+    {
+      "id": "cw90_sea_sparrow",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        2.2718262672424316,
+        2.2718262672424316
+      ],
+      "model_bytes": 43332
+    },
+    {
+      "id": "cw90_set65",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 7,
+      "model_extents": [
+        10,
+        1.162683367729187,
+        1.162683367729187
+      ],
+      "model_bytes": 46096
+    },
+    {
+      "id": "cw90_shtil",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        2.9376027584075928,
+        2.9376027584075928
+      ],
+      "model_bytes": 43328
+    },
+    {
+      "id": "cw90_sm1mr",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        2.9705886840820312,
+        2.9705886840820312
+      ],
+      "model_bytes": 43328
+    },
+    {
+      "id": "cw90_sm2mr",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 6,
+      "model_extents": [
+        10,
+        2.9705886840820312,
+        2.9705886840820312
+      ],
+      "model_bytes": 43328
+    },
+    {
+      "id": "cw90_test71",
+      "kind": "weapon",
+      "images": {
+        "beauty": [
+          1200,
+          640
+        ],
+        "thumb": [
+          240,
+          128
+        ]
+      },
+      "mesh_primitives": 7,
+      "model_extents": [
+        10,
+        1.147965908050537,
+        1.147965908050537
+      ],
+      "model_bytes": 46096
+    }
+  ]
+}

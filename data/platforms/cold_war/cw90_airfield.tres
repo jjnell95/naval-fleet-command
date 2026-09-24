@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_airfield"
+display_name = "Shore air station (1990)"
+short_name = "Air station"
+nation = ""
+category = "shore base"
+domain = "land"
+max_speed_kn = 0.0
+cruise_speed_kn = 0.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 0.22
+health = 400.0
+signature_factor = 1.0
+mast_height_m = 27.0
+sensor_ids = PackedStringArray()
+weapon_loadout = {}
+decoy_count = 0
+fire_control_channels = 0
+role = "Land-based aviation"
+service_note = "Fixed recovery and launch point at a real airfield. No installation layout or actual 1990 deployment is asserted."
+aircraft_capacity = 16
+aviation_facility = "airfield"
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

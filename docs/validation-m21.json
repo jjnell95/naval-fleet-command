@@ -1,0 +1,204 @@
+{
+  "date": "2026-09-24",
+  "milestone": "M21 Cold War 1990",
+  "base_commit": "005d21c",
+  "local_only": true,
+  "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+  "regression": {
+    "tests": 308,
+    "failed": 0,
+    "expected_negative_cases": "Unknown-objective error and thin-polygon warning are intentional negative test fixtures."
+  },
+  "native_ui": {
+    "cold-war-ui-desktop.log": {
+      "checks": 28,
+      "failed": 0
+    },
+    "cold-war-ui-laptop.log": {
+      "checks": 28,
+      "failed": 0
+    },
+    "cold-war-ui-existing.log": {
+      "checks": 24,
+      "failed": 0
+    }
+  },
+  "layout_coverage": [
+    "1600x1000 logical desktop",
+    "1152x720 scaled command window",
+    "1152x720 logical mission desk and briefing; all four new missions; keyboard selection"
+  ],
+  "scenario_runs": {
+    "full_duration": "validation-cold-war-scenarios.json",
+    "cases": 10,
+    "legacy_stability": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 7.59,
+        "ok": true
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 13.1,
+        "ok": true
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 2.0,
+        "ok": true
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 2.95,
+        "ok": true
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 1.52,
+        "ok": true
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 1.5,
+        "ok": true
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 1.41,
+        "ok": true
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 2.67,
+        "ok": true
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 1.51,
+        "ok": true
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 23.67,
+        "ok": true
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "sim_seconds": 1200.0,
+        "result": 0,
+        "aground": 0,
+        "errors": [],
+        "returncode": 0,
+        "wall_seconds": 1.22,
+        "ok": true
+      }
+    ]
+  },
+  "art": {
+    "platforms": 20,
+    "weapons": 28,
+    "recognition_images": 136,
+    "models": 48,
+    "all_checks_passed": true,
+    "details": "validation-cold-war-art.json"
+  },
+  "browser": {
+    "url": "http://127.0.0.1:8765/play/",
+    "runtime": "WebGL 2, Codex in-app browser",
+    "checks": [
+      "Final pack loaded to Cold War mission desk",
+      "Northern Convoy briefing showed dated orders and goals",
+      "Take command started simulation; Space paused",
+      "B expanded and restored chart",
+      "F3 opened period aircraft controls",
+      "SH-60B launch moved through LAUNCHING to AIRBORNE",
+      "Return from Air Operations restored command view"
+    ],
+    "console_errors": 0,
+    "console_warnings": 0,
+    "public_deployment_verified": false
+  },
+  "export": {
+    "docs/play/index.pck": {
+      "bytes": 85105152,
+      "sha256": "a7ef83546ddda6469db3008cf19844ae7790ae0188bfbab149ae062c01428ac0"
+    },
+    "docs/play/index.html": {
+      "bytes": 6128,
+      "sha256": "9a6a479d4e0f3c048eb9f362233cdeb2c22c581d321b95a49676c0997dea3ed0"
+    },
+    "scripts/systems/ai_controller.gd": {
+      "bytes": 30198,
+      "sha256": "daf7c34d63269a50d9ddcc4da4372bc23da9d164fa49d4e885ae0fa14c68dca7"
+    }
+  },
+  "limits": [
+    "Historical identities and broad fits are source-backed; performance and operational detail remain estimates.",
+    "No claim of historical battles or exact real-world combat capabilities.",
+    "AI outcomes are not human balance/completion-time measurements.",
+    "Grounding counts in full runs are sampled at 30 simulated second intervals.",
+    "Legacy runs prove 1200-second stability, not full completion.",
+    "No push, PR, merge or public deployment performed."
+  ]
+}

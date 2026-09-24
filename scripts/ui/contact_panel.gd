@@ -5,6 +5,7 @@ extends PanelContainer
 signal track_chosen(track: Track)
 
 const REFRESH_S := 0.5
+const RowList = preload("res://scripts/ui/tactical_row_list.gd")
 
 var track_manager: TrackManager
 var player_faction := "BLUE"
@@ -13,7 +14,7 @@ var map: TacticalMap
 var _filter := "ALL"
 var _header: Label
 var _summary: Label
-var _list: ItemList
+var _list: RowList
 var _detail: RichTextLabel
 var _focus_btn: Button
 var _prev_btn: Button
@@ -65,10 +66,14 @@ func _ready() -> void:
 	actions.add_child(_focus_btn)
 	_next_btn = _nav_button("NEXT ›", "Next priority contact  [N]", func() -> void: cycle_visible_track(1))
 	actions.add_child(_next_btn)
-	_list = ItemList.new()
-	_list.custom_minimum_size.y = 110
+	_list = RowList.new()
+	_list.configure_rows(13, 12, 36)
+	_list.max_text_lines = 2
+	_list.custom_minimum_size.y = 130
+	_list.add_theme_font_size_override("font_size", 13)
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.size_flags_stretch_ratio = 1.1
+	_list.resized.connect(func() -> void: _list.fixed_column_width = maxi(int(_list.size.x) - 24, 100))
 	_list.focus_mode = Control.FOCUS_ALL
 	_list.tooltip_text = "Held contacts, ordered by identity, freshness and distance. Enter focuses a selected contact."
 	_list.item_selected.connect(_on_item_selected)
@@ -84,7 +89,7 @@ func _ready() -> void:
 	v.add_child(_detail)
 	var board := DefenceBoard.new()
 	board.contacts = self
-	board.custom_minimum_size.y = 236
+	board.custom_minimum_size.y = 216
 	v.add_child(board)
 	_sync_nav_buttons()
 
@@ -110,6 +115,10 @@ func _sync_nav_buttons() -> void:
 
 func visible_track_count() -> int:
 	return _rows.size()
+
+
+func visible_tracks() -> Array:
+	return _rows.duplicate()
 
 
 ## Buttons, N/Shift-N, and the command palette share this filtered sequence so the selected
@@ -180,7 +189,7 @@ func refresh() -> void:
 	_summary.text = "%d hostile · %d unknown · %d stale" % [hostile, unknown, stale]
 	var scroll := _list.get_v_scroll_bar().value
 	var selection_changed := map != null and map.selected_track != _shown_selection
-	_list.clear()
+	_list.clear_rows()
 	var sel_idx := -1
 	for i in tracks.size():
 		var t: Track = tracks[i]
@@ -196,11 +205,13 @@ func refresh() -> void:
 			dom = "S"
 		elif t.domain == "surface":
 			dom = "U"
-		_list.add_item("%-5s %s %-7s %s/%-3s %s" % [t.id, dom, t.class_short().left(7), brg, rng, t.status_short(now)])
+		var title := "%s  %s  %s" % [t.id, dom, t.class_short()]
+		var detail := "%s  /  %s nm  ·  %s" % [brg, rng, t.status_short(now)]
 		var col := map.track_color(t) if map != null else TacticalMap.COL_UNKNOWN
 		if t.status == Track.Status.STALE:
 			col.a = 0.6
-		_list.set_item_custom_fg_color(i, col)
+		_list.add_row(title, detail, col)
+		_list.set_item_tooltip(i, title + "\n" + detail + "\n" + t.identity)
 		if map != null and map.selected_track == t:
 			sel_idx = i
 	if sel_idx >= 0:

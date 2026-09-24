@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_sh60b"
+display_name = "SH-60B Seahawk (1990)"
+short_name = "SH-60B"
+nation = "USA"
+category = "ASW helicopter"
+domain = "air"
+max_speed_kn = 145.0
+cruise_speed_kn = 94.25
+turn_rate_deg_s = 6.0
+accel_kn_s = 4.0
+health = 25.0
+signature_factor = 0.6
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_aps124", "cw90_alr45")
+weapon_loadout = {"cw90_mk46": 2}
+decoy_count = 6
+fire_control_channels = 0
+role = "Shipboard ASW / localization"
+service_note = "LAMPS III radar, sonobuoys and Mk 46; SH-60B has no dipping sonar. Stop over the datum to drop buoys; the aircraft itself cannot listen through a dipping transducer."
+cruise_altitude_m = 400.0
+max_altitude_m = 3500.0
+altitude_rate_m_s = 8.0
+endurance_s = 10800.0
+launch_time_s = 90.0
+recovery_time_s = 120.0
+acoustic_signature = 0.0
+can_hover = true
+launch_requirement = "helicopter"
+length_m = 20.0
+sonobuoy_count = 16
+sonobuoy_sensitivity_nm = 15.0
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

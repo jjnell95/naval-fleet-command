@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_ak130"
+display_name = "AK-130 twin 130 mm gun"
+family = "AK-130 twin 130 mm gun"
+type = "gun"
+target_types = PackedStringArray("surface")
+guidance = "ballistic"
+profile = "direct"
+max_range_nm = 12.0
+min_range_nm = 0.1
+speed_kn = 1500.0
+damage = 7.0
+base_pk = 0.66
+salvo_default = 1
+launch_interval_s = 1.0
+seeker_range_nm = 0.0
+turn_rate_deg_s = 16.0
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

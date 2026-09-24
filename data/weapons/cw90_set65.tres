@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_set65"
+display_name = "SET-65 anti-submarine torpedo"
+family = "SET-65 anti-submarine torpedo"
+type = "torpedo"
+target_types = PackedStringArray("subsurface")
+guidance = "acoustic_homing"
+profile = "subsurface"
+max_range_nm = 8.0
+min_range_nm = 0.4
+speed_kn = 40.0
+damage = 68.0
+base_pk = 0.58
+salvo_default = 2
+launch_interval_s = 20.0
+seeker_range_nm = 2.0
+turn_rate_deg_s = 12.0
+run_to_enable_nm = 0.7
+acoustic_signature = 0.65
+soft_kill_resistance = 0.7
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

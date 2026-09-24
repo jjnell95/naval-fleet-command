@@ -26,7 +26,7 @@ func set_scenario(sc: Dictionary) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("081320"))
+	draw_rect(Rect2(Vector2.ZERO, size), Color("091824"))
 	draw_rect(Rect2(Vector2.ZERO, size), UITheme.COL_BORDER, false, 1.0)
 	if scenario.is_empty():
 		return
@@ -57,6 +57,13 @@ func _draw() -> void:
 			draw_line(Vector2(x, 0), Vector2(x, size.y), Color(UITheme.COL_BORDER, 0.5), 1.0)
 		if y >= 0.0 and y <= size.y:
 			draw_line(Vector2(0, y), Vector2(size.x, y), Color(UITheme.COL_BORDER, 0.5), 1.0)
+	# Geographic labels orient a commander without revealing the opposing force.
+	var label_rect := Rect2(Vector2(12, 38), size - Vector2(70, 86))
+	for label: Dictionary in m.get("labels", []):
+		var position: Array = label.get("position_nm", [0, 0])
+		var point := mid + Vector2((float(position[0]) - center.x) * ppn, -(float(position[1]) - center.y) * ppn)
+		if label_rect.has_point(point):
+			draw_string(_font, point, str(label.get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, int(size.x - point.x - 18), 13, Color(UITheme.COL_DIM, 0.8))
 	var player: String = scenario.get("player_faction", "BLUE")
 	for o in scenario.get("objectives", {}).get("victory", []):
 		if o.get("type", "") == "reach_area":
@@ -72,5 +79,11 @@ func _draw() -> void:
 		var domain := spec.domain if spec != null else "surface"
 		var glyph := MapSymbols.category_glyph(spec.category, spec.domain) if spec != null else ""
 		MapSymbols.draw_symbol(self, sp, TacticalMap.COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, domain, float(ud.get("heading_deg", 0.0)), true, glyph, _font, 0.8)
-	draw_string(_font, Vector2(10, 16), "OWN FORCE DISPOSITION", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_ACCENT)
-	draw_string(_font, Vector2(10, size.y - 8), "%.0f nm across · hostile positions unknown" % extent, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)
+	draw_rect(Rect2(1, 1, size.x - 2, 30), Color("091824", 0.94))
+	draw_rect(Rect2(1, size.y - 30, size.x - 2, 29), Color("091824", 0.94))
+	draw_string(_font, Vector2(12, 21), "OWN FORCE DISPOSITION", HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 44), 13, UITheme.COL_AMBER)
+	draw_string(_font, Vector2(size.x - 27, 21), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UITheme.COL_TEXT)
+	draw_line(Vector2(size.x - 23, 44), Vector2(size.x - 23, 29), UITheme.COL_DIM, 1.5, true)
+	draw_line(Vector2(size.x - 23, 29), Vector2(size.x - 27, 35), UITheme.COL_DIM, 1.5, true)
+	draw_line(Vector2(size.x - 23, 29), Vector2(size.x - 19, 35), UITheme.COL_DIM, 1.5, true)
+	draw_string(_font, Vector2(12, size.y - 11), "%.0f nm wide  ·  Own force only" % (size.x / ppn), HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 24), 13, UITheme.COL_DIM)

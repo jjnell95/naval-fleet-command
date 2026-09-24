@@ -4,11 +4,11 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M20 — Air Operations"
-const DEFAULT_SCENARIO := "res://data/scenarios/aegis_bastion.json"
+const BUILD_MILESTONE := "M21 / Cold War 1990"
+const DEFAULT_SCENARIO := "res://data/scenarios/cold_war_01_convoy.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
-const SCRIPTED_FLAGS := ["--aviation-smoke", "--open-air-ops", "--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
+const SCRIPTED_FLAGS := ["--cold-war-smoke", "--aviation-smoke", "--open-air-ops", "--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
 
 @onready var simulation: Simulation = %Simulation
 @onready var map: TacticalMap = %TacticalMap
@@ -30,6 +30,8 @@ var _background_focus_modes: Dictionary = {}
 var _library_previous_focus: Control
 var _library_returns_to_menu := false
 var _objective_accum := 0.0
+var _wide_chart := false
+var _watch: CommandOverview
 var _dev: DevHarness
 var _stats := {}
 var _losses: PackedStringArray = []
@@ -44,11 +46,17 @@ func _ready() -> void:
 	orders_panel.inspect_requested.connect(func(id: String) -> void: _inspect_asset(id, true))
 	top_bar.library_pressed.connect(_toggle_library)
 	top_bar.air_operations_pressed.connect(_toggle_air_operations)
-	var overview := CommandOverview.new()
-	overview.map = map
-	overview.custom_minimum_size.y = 90
-	$Layout.add_child(overview)
-	$Layout.move_child(overview, 1)
+	_watch = CommandOverview.new()
+	_watch.map = map
+	_watch.contacts = contact_panel
+	_watch.custom_minimum_size.y = 72
+	_watch.orders_pressed.connect(_show_briefing)
+	_watch.contacts_pressed.connect(func() -> void: _cycle_priority_track(1))
+	_watch.threat_pressed.connect(_focus_urgent_threat)
+	_watch.air_pressed.connect(_toggle_air_operations)
+	_watch.chart_pressed.connect(_toggle_wide_chart)
+	$Layout.add_child(_watch)
+	$Layout.move_child(_watch, 1)
 	orders_panel.weapon_manager = simulation.weapon_manager
 	map.unit_manager = simulation.unit_manager
 	map.track_manager = simulation.track_manager
@@ -218,7 +226,7 @@ func start_scenario(path: String) -> void:
 	_kills = PackedStringArray()
 	_foundered.clear()
 	_report.hide()
-	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}))
+	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
 	_briefing.set_mode(true)
 	var coast := "" if Terrain.is_empty() else ", %d landmass%s charted" % [Terrain.landmasses.size(), "" if Terrain.landmasses.size() == 1 else "es"]
 	top_bar.flash("%s loaded — sea state %d, %s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), coast])
@@ -227,6 +235,15 @@ func start_scenario(path: String) -> void:
 func restart_scenario() -> void:
 	start_scenario(simulation.scenario_path)
 	_show_briefing()
+
+
+## A reversible chart layout. Orders, time and alerts remain reachable at full chart width.
+func _toggle_wide_chart() -> void:
+	_wide_chart = not _wide_chart
+	unit_panel.visible = not _wide_chart
+	contact_panel.visible = not _wide_chart
+	_watch.wide_chart = _wide_chart
+	map.grab_focus()
 
 
 func _build_screens() -> void:
@@ -497,6 +514,7 @@ func _palette_actions() -> Array[Dictionary]:
 	var sonar_state := orders_panel._selection_state("sonar")
 	var emcon_state := orders_panel._selection_state("emcon")
 	var actions: Array[Dictionary] = [
+		{"id": "wide_chart", "label": "Expand or restore tactical chart", "description": "Toggle side panels while keeping orders, alerts and time visible.", "shortcut": "B", "enabled": true, "state": "expanded" if _wide_chart else "command deck"},
 		{"id": "plot_move", "label": "Plot move", "description": "Arm a visible left-click route order; Shift chains waypoints.", "shortcut": "G", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Select a deployed mobile platform first."},
 		{"id": "open_engagement", "label": "Open engagement solution", "description": "Show weapon, range, time-of-flight, and fire controls for the hooked contact.", "shortcut": "", "enabled": controllable and has_target, "state": map.selected_track.id if has_target else "no target", "reason": "Select a shooter and a contact first."},
 		{"id": "next_contact", "label": "Next priority contact", "description": "Cycle hostile, unknown, fresh, and nearby contacts first.", "shortcut": "N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
@@ -534,6 +552,8 @@ func _state_name(state: int, off_name: String, on_name: String) -> String:
 
 func _run_palette_action(id: String) -> void:
 	match id:
+		"wide_chart":
+			_toggle_wide_chart()
 		"plot_move":
 			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
 			map.grab_focus()
@@ -634,6 +654,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	match k.keycode:
+		KEY_B:
+			_toggle_wide_chart()
 		KEY_F3:
 			_toggle_air_operations()
 		KEY_F7:
@@ -655,8 +677,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			map.toggle_layer("terrain")
 			if Terrain.is_empty():
 				top_bar.flash("No charted land in this area")
-		KEY_F3:
-			Debug.toggle()
 		KEY_M:
 			top_bar.flash("Sound %s" % ("on" if SoundFx.toggle() else "off"))
 		KEY_R:

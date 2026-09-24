@@ -2,7 +2,7 @@ extends SceneTree
 ## Headless test runner:
 ##   ~/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/run_tests.gd
 
-const TESTS := ["res://tests/test_air_operations.gd", "res://tests/test_roster_m20.gd", "res://tests/test_lifecycle.gd", "res://tests/test_relative_motion.gd", "res://tests/test_clock.gd", "res://tests/test_tracking.gd", "res://tests/test_realism.gd", "res://tests/test_cic.gd", "res://tests/test_aegis.gd", "res://tests/test_systems.gd", "res://tests/test_geo.gd", "res://tests/test_movement.gd", "res://tests/test_sensors.gd", "res://tests/test_combat.gd", "res://tests/test_defence.gd", "res://tests/test_ai.gd", "res://tests/test_mission.gd", "res://tests/test_sonar.gd", "res://tests/test_aviation.gd", "res://tests/test_ew.gd", "res://tests/test_terrain.gd", "res://tests/test_art.gd", "res://tests/test_ux.gd", "res://tests/test_ocean.gd", "res://tests/test_damage_control.gd"]
+const TESTS := ["res://tests/test_cold_war.gd", "res://tests/test_air_operations.gd", "res://tests/test_roster_m20.gd", "res://tests/test_lifecycle.gd", "res://tests/test_relative_motion.gd", "res://tests/test_clock.gd", "res://tests/test_tracking.gd", "res://tests/test_realism.gd", "res://tests/test_cic.gd", "res://tests/test_aegis.gd", "res://tests/test_systems.gd", "res://tests/test_geo.gd", "res://tests/test_movement.gd", "res://tests/test_sensors.gd", "res://tests/test_combat.gd", "res://tests/test_defence.gd", "res://tests/test_ai.gd", "res://tests/test_mission.gd", "res://tests/test_sonar.gd", "res://tests/test_aviation.gd", "res://tests/test_ew.gd", "res://tests/test_terrain.gd", "res://tests/test_art.gd", "res://tests/test_ux.gd", "res://tests/test_ocean.gd", "res://tests/test_damage_control.gd"]
 
 
 func _initialize() -> void:

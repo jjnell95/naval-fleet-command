@@ -228,7 +228,9 @@ def surface_details(spec):
     if hulls and 'carrier' not in spec['category'] and 'merchant' not in spec['category']:
         h = hulls[0]
         lo,hi = bounds(h)
-        if any(o.name.startswith("hangar") for o in b._objects):
+        # The generic stern pad would overlap aft gun positions on these older hulls;
+        # their recognition models omit deck markings instead of inventing a pad.
+        if any(o.name.startswith("hangar") for o in b._objects) and spec['id'] not in ('cw90_spruance','cw90_sovremenny','cw90_ticonderoga'):
             x = -L*.428
             v = min(h.data.vertices,key=lambda v:abs(v.co.x-x)+abs(v.co.y)).co
             z = max(v.z, max(p.co.z for p in h.data.vertices if abs(p.co.x-x)<L*.04))+.12
@@ -280,7 +282,8 @@ def carrier_details(spec):
         parked_positions = [(-L*.33,B*.04),(-L*.02,B*.04),(L*.28,B*.04)]
     for xx,yy in parked_positions:
         before = len(b._objects)
-        if helo_only:b.build_panther(13.7)
+        if sid == 'cw90_nimitz':b.BUILDERS['cw90_f14a']({'length_m':19.1})
+        elif helo_only:b.build_panther(13.7)
         elif sid == 'fra_cvn_charles_de_gaulle':b.build_rafale(15.3)
         elif sid == 'esp_lhd_juan_carlos_i':b.build_harrier(14.1)
         else:b.build_lightning(15.7,not is_stovl)
@@ -343,6 +346,10 @@ def aircraft_details(spec):
             if hi.y-lo.y>3:
                 yy=(lo.y+hi.y)*.64
                 xx=(lo.x+hi.x)*.5
+                if spec['id'].startswith('cw90_'):
+                    # A swept Tomcat wing's bounding-box midpoint can lie off the wing.
+                    center=o.matrix_world @ (sum((v.co for v in o.data.vertices),Vector())/len(o.data.vertices))
+                    xx,yy=center.x,center.y
                 stripe((xx-.22,yy,hi.z+.02),(xx+.22,yy,hi.z+.02),.11,'array_face')
     # Airframe banding and a nose radome are separate material zones on the smooth fuselage.
     for o in b._objects:
@@ -358,7 +365,7 @@ def finish_materials(spec):
         name=o.name.split('.')[0]
         m='naval_paint'
         if domain=='subsurface':m='rubber'
-        elif domain=='air':m='airframe_blue' if spec['nation']=='RUS' else 'airframe'
+        elif domain=='air':m='airframe_blue' if spec['nation'] in ('RUS','USSR') else 'airframe'
         if name in ('deck','flight_deck','straight_flight_deck','ski_jump','vls','runway','landing_pad'):m='flight_deck'
         elif 'array' in name or name=='vls_line':m='array_face'
         elif name=='dome':m='radome'
@@ -391,6 +398,11 @@ def weapon_specs():
 
 def weapon_model(w):
     wid,kind=w['id'],w.get('type','asm')
+    # Era IDs retain their identity in output; these aliases refer only to the same
+    # external weapon family. Rastrub is a rocket delivery system, not a bare torpedo.
+    if wid.startswith('cw90_'):
+        wid=wid[5:]
+        wid={'phalanx':'phalanx_ciws','ak130':'ak130_gun','rastrub':'rastrub_asw'}.get(wid,wid)
     if kind in ('ciws','gun'):
         if wid=='phalanx_ciws':
             b.cylinder(0,0,-1,0,1.0,32,'base')
@@ -403,6 +415,12 @@ def weapon_model(w):
             for i in range(6):
                 a=i*math.tau/6
                 b.cylinder(math.cos(a)*.13,.45+math.sin(a)*.13,.5,2.35,.043,12,'barrel','x')
+        elif wid=='ak630':
+            b.cylinder(0,0,-.4,.0,1.0,24,'base')
+            b.revolve([(-.9,.25),(-.6,.85),(.45,.8),(.75,.45)],24,'turret')
+            for i in range(6):
+                a=i*math.tau/6
+                b.cylinder(math.cos(a)*.12,math.sin(a)*.12,.6,2.1,.04,12,'barrel','x')
         else:
             b.cylinder(0,0,-.4,.0,1.6,32,'base')
             b.prism(-2,1.5,-1.5,1.5,0,2.8,.65,'turret')
@@ -433,6 +451,14 @@ def weapon_model(w):
         'agm65e_maverick':(2.49,.152), 'rbs15f':(4.35,.25), 'kh31a':(4.70,.18),
         'f21_torpedo':(6.0,.267), 'torpedo62':(6.0,.267), 'torpedo47':(2.85,.20),
         'mistral_naval':(1.86,.045), 'otomat_mk2':(4.46,.23), 'shtil1':(5.18,.18),
+        # Approximate external recognition proportions; no internal construction detail.
+        'harpoon':(4.6,.172), 'sm1mr':(4.72,.172), 'sm2mr':(4.72,.172),
+        'sea_sparrow':(3.66,.102), 'aim54a':(3.96,.19), 'aim9m':(2.87,.064),
+        'mk46':(2.59,.162), 'mk48':(5.79,.267), 'at1':(3.9,.225),
+        'moskit':(9.4,.38), 'p500':(11.7,.44), 'p120':(8.84,.40),
+        'shtil':(5.55,.20), 'fort':(7.25,.254), 'kinzhal':(2.9,.118),
+        'osa_m':(3.16,.103), 'set65':(7.8,.267), 'test71':(7.9,.267),
+        '53_65':(7.94,.267), 'kh22':(11.65,.46),
     }
     L,R=dimensions.get(wid,(L,R))
     if 'lrasm' in wid or 'nsm' in wid:

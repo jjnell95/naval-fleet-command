@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_los_angeles"
+display_name = "Los Angeles-class attack submarine (1990)"
+short_name = "SSN Los Angeles"
+nation = "USA"
+category = "nuclear attack submarine"
+domain = "subsurface"
+max_speed_kn = 30.0
+cruise_speed_kn = 7.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 0.22
+health = 70.0
+signature_factor = 0.25
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_bqq5")
+weapon_loadout = {"cw90_mk48": 20}
+decoy_count = 12
+fire_control_channels = 0
+role = "Barrier patrol / passive ASW"
+service_note = "Early Los Angeles-class boat with BQQ-5 and Mk 48 Mod 4. No Virginia-class sensors, VLS or post-1990 torpedo upgrade is inferred."
+length_m = 110.3
+displacement_t = 6900.0
+acoustic_signature = 0.12
+max_depth_m = 300.0
+patrol_depth_m = 150.0
+depth_rate_m_s = 2.0
+has_datalink = false
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

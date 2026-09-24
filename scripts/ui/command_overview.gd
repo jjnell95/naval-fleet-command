@@ -1,60 +1,99 @@
 class_name CommandOverview
-extends Control
-## Watch summary. Every contact count comes from the current console's held picture.
+extends HBoxContainer
+## Actionable watch strip. Contact and threat summaries use the held picture.
+signal orders_pressed()
+signal contacts_pressed()
+signal threat_pressed()
+signal air_pressed()
+signal chart_pressed()
+
 var map: TacticalMap
-var _font: Font
+var contacts: ContactPanel
+var wide_chart := false
 var _elapsed := 0.0
+var _buttons: Array[Button] = []
+var _heads: Array[Label] = []
+var _values: Array[Label] = []
 
 func _ready() -> void:
-	_font = UITheme.body_font()
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_theme_constant_override("separation", 6)
+	var actions := [orders_pressed, contacts_pressed, threat_pressed, air_pressed, chart_pressed]
+	var names := ["Mission orders", "Next priority contact", "Focus inbound weapon", "Open air operations", "Expand or restore tactical chart"]
+	for i in actions.size():
+		var button := Button.new()
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.size_flags_stretch_ratio = 2.0 if i == 0 else 1.0
+		button.focus_mode = Control.FOCUS_ALL
+		button.accessibility_name = names[i]
+		button.pressed.connect(func() -> void: actions[i].emit())
+		add_child(button)
+		_buttons.append(button)
+		var margin := MarginContainer.new()
+		margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		margin.add_theme_constant_override("margin_left", 14)
+		margin.add_theme_constant_override("margin_right", 14)
+		margin.add_theme_constant_override("margin_top", 10)
+		margin.add_theme_constant_override("margin_bottom", 8)
+		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(margin)
+		var column := VBoxContainer.new()
+		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_theme_constant_override("separation", 4)
+		margin.add_child(column)
+		var head := Label.new()
+		head.theme_type_variation = "HeaderLabel"
+		head.add_theme_font_size_override("font_size", 14)
+		head.clip_text = true
+		head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(head)
+		_heads.append(head)
+		var value := Label.new()
+		value.clip_text = true
+		value.add_theme_font_size_override("font_size", 13)
+		value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(value)
+		_values.append(value)
+	refresh()
 
 func _process(delta: float) -> void:
 	_elapsed += delta
-	if _elapsed > 0.3:
+	if _elapsed >= 0.3:
 		_elapsed = 0.0
-		queue_redraw()
+		refresh()
 
-func _draw() -> void:
-	if map == null or map.unit_manager == null:
+func refresh() -> void:
+	if map == null or map.unit_manager == null or _buttons.is_empty():
 		return
-	var own := map.unit_manager.get_faction_units(map.player_faction)
 	var air := 0
 	var ready := 0
-	var sam := 0
-	var linked := 0
-	for u: Unit in own:
-		if not u.alive:
+	for u: Unit in map.unit_manager.get_faction_units(map.player_faction):
+		if not u.alive or not u.is_aircraft():
 			continue
-		if u.airborne():
+		if u.in_flight():
 			air += 1
-		if u.is_aircraft() and u.flight_state == Unit.FlightState.STOWED:
+		elif u.flight_state == Unit.FlightState.STOWED:
 			ready += 1
-		if u.datalink_connected():
-			linked += 1
-		for w in u.weapons:
-			if w.type == "sam":
-				sam += u.magazine_count(w.id)
 	var ref := map.reference_unit()
-	var tracks := map._visible_tracks()
-	var hostile := 0
+	var tracks := contacts.visible_tracks() if contacts != null else map._visible_tracks()
+	var unknown := 0
 	for t: Track in tracks:
-		if t.identity == "HOSTILE":
-			hostile += 1
+		if t.identity == "UNKNOWN":
+			unknown += 1
 	var inbound := AirDefence.inbound_threats(map.unit_manager, map.threat_manager, map.player_faction, ref).size()
-	var load := map.weapon_manager.channel_targets(ref).size() if ref != null else 0
-	var channel_cap := ref.spec.fire_control_channels if ref != null else 0
-	var cols := [UITheme.COL_BLUE, UITheme.COL_ACCENT, UITheme.COL_RED if inbound else UITheme.COL_GREEN, UITheme.COL_BLUE, UITheme.COL_ACCENT, UITheme.COL_AMBER if load >= channel_cap and channel_cap > 0 else UITheme.COL_ACCENT]
-	var labels := ["NETWORK PARTICIPANTS", "HELD TRACKS", "INBOUND WEAPONS", "AIR OPERATIONS", "DEFENSIVE MISSILES", "CONSOLE CHANNELS"]
-	var values := ["%02d" % linked, "%02d" % tracks.size(), "%02d" % inbound, "%02d / %02d" % [air, ready], "%03d" % sam, "%d / %d" % [load, channel_cap]]
-	var captions := ["%s PICTURE" % ("SHARED" if ref == null or ref.datalink_connected() else "LOCAL ONLY"), "%d classified hostile" % hostile, "No detected inbound" if inbound == 0 else "Threat evaluation active", "airborne / ready on deck", "SAM rounds across task group", "active / available on selection"]
-	var width := size.x / 6.0
-	for i in 6:
-		var x := width * i
-		draw_rect(Rect2(x + 2, 0, width - 4, size.y), UITheme.COL_PANEL)
-		draw_rect(Rect2(x + 16, 34, 3, 23), Color(cols[i], 0.0))
-		draw_line(Vector2(x + width - 1, 12), Vector2(x + width - 1, size.y - 12), Color(UITheme.COL_BORDER, .65), 1)
-		draw_circle(Vector2(x + width - 22, 18), 3, cols[i])
-		draw_string(UITheme.heading_font(), Vector2(x + 16, 20), labels[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 13, UITheme.COL_DIM)
-		draw_string(UITheme.heading_font(), Vector2(x + 16, 59), values[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 38, cols[i])
-		draw_string(_font, Vector2(x + 16, 79), captions[i], HORIZONTAL_ALIGNMENT_LEFT, int(width - 28), 10, UITheme.COL_DIM)
+	var scenario: Dictionary = map.simulation.scenario if map.simulation != null else {}
+	var intent := str(scenario.get("commander_intent", "Read the mission and review objective progress."))
+	_set_card(0, "COMMANDER'S ORDERS  /  F1", intent, UITheme.COL_AMBER, "Open mission orders and live objectives.\n" + intent)
+	var filter_name := contacts._filter if contacts != null else "ALL"
+	_set_card(1, "CONTACTS: %s  /  N" % filter_name, "%d held · %d unknown" % [tracks.size(), unknown], UITheme.COL_ACCENT, "Cycle the next priority contact in the selected filter. Unknown contacts require classification.\nPicture: " + ("shared link" if ref == null or ref.datalink_connected() else "selected unit only"))
+	_set_card(2, "THREAT WATCH", "%d inbound · focus" % inbound if inbound else "No detected inbound", UITheme.COL_RED if inbound else UITheme.COL_DIM, "Focus the most urgent detected inbound weapon. No detection does not establish that the sea is clear.")
+	_set_card(3, "AIR OPERATIONS  /  F3", "%d flying · %d ready" % [air, ready], UITheme.COL_BLUE, "Select aircraft, launch sorties and choose a landing destination.")
+	_set_card(4, "CHART LAYOUT  /  B", "Restore side panels" if wide_chart else "Expand tactical chart", UITheme.COL_AMBER if wide_chart else UITheme.COL_DIM, "Toggle the side panels for a wider chart. Mission orders, contact cycling, aviation and time remain available.")
+	_buttons[1].disabled = tracks.is_empty()
+	_buttons[2].disabled = inbound == 0
+
+func _set_card(index: int, heading: String, value: String, color: Color, tip: String) -> void:
+	_heads[index].text = heading
+	_heads[index].add_theme_color_override("font_color", color)
+	_values[index].text = value
+	_buttons[index].tooltip_text = tip
+	_buttons[index].accessibility_description = value + ". " + tip

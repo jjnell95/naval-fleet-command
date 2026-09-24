@@ -376,3 +376,254 @@ func test_a_boat_comes_back_above_the_layer_to_hold_a_surface_contact() -> void:
 	h.free_all()
 	Detection.set_environment({})
 	Bathymetry.clear()
+
+
+func test_breakout_retains_radar_and_route_without_inventing_targets() -> void:
+	var red := _ship("RED", Vector2.ZERO, 100.0, _asm(), 8)
+	var esm := SensorSpec.new()
+	esm.kind = "esm"
+	red.sensors.append(esm)
+	red.ai_posture = "breakout"
+	red.radar_on = true
+	red.patrol_route = [Vector2(0, 30)]
+	var h := _harness([red])
+	h.ai.tick(100)
+	assert_true(red.radar_on, "a radar-active breakout retains the picture needed for defence")
+	assert_true(not red.waypoints.is_empty(), "breakout still follows its gate route")
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "no track means no invented firing solution")
+	h.free_all()
+
+
+func test_silent_breakout_uses_held_bearings_to_build_picture_without_detouring() -> void:
+	var red := _ship("RED", Vector2.ZERO, 100.0, _asm(), 8)
+	var blue := _ship("BLUE", Vector2(0, 15))
+	var esm := SensorSpec.new()
+	esm.kind = "esm"
+	red.sensors.append(esm)
+	red.ai_posture = "breakout"
+	red.radar_on = false
+	red.patrol_route = [Vector2(0, 30)]
+	var h := _harness([red, blue])
+	h.ai.tick(100)
+	assert_true(not red.radar_on, "silent transit remains silent with an empty picture")
+	var t := _make_track(h, "RED", blue, Vector2(0, 15), Track.Classification.SURFACE)
+	h.ai.tick(110)
+	assert_true(red.radar_on, "a held unknown prompts radar classification while transiting")
+	assert_eq(h.ai.state_name(red), "PATROL", "it continues toward the gate instead of chasing the contact")
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "unknown contact remains protected from fire")
+	t.identity = "HOSTILE"
+	t.classification = Track.Classification.CLASS_KNOWN
+	h.ai.tick(120)
+	assert_true(not _orders_of(h, Order.Type.ENGAGE).is_empty(), "confirmed contact permits a shot on the transit")
+	assert_true(red.radar_on, "route following after the shot must not silence the radar again")
+	h.free_all()
+
+
+# --- ASW search and prosecution ----------------------------------------------------------
+
+func _asw_torpedo() -> WeaponSpec:
+	var w := WeaponSpec.new()
+	w.id = "test_asw_torpedo"
+	w.type = "torpedo"
+	w.profile = "subsurface"
+	w.target_types = ["subsurface"]
+	w.min_range_nm = 0.5
+	w.max_range_nm = 12.0
+	w.speed_kn = 45.0
+	return w
+
+
+func _local_submarine_track(h: Harness, observer: Unit, target: Unit) -> Track:
+	var c := SensorContact.make(target, target.position, 0.5, 0.8, 1.0, observer.position.distance_to(target.position), "sonar_passive", observer)
+	h.tm.observe_contact(observer.faction, c, 0.0, 1.0)
+	var t := h.tm.find_for(observer, target)
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "HOSTILE"
+	t.domain = "subsurface"
+	return t
+
+
+func test_armed_torpedo_only_submarine_prosecutes_its_local_contact() -> void:
+	var boat := _boat("RED", Vector2.ZERO)
+	var torpedo := _asw_torpedo()
+	boat.weapons.append(torpedo)
+	boat.magazines[torpedo.id] = 4
+	var target := _boat("BLUE", Vector2(0, 3))
+	var h := _harness([boat, target])
+	_local_submarine_track(h, boat, target)
+	assert_true(h.tm.get_tracks("RED").is_empty(), "the submerged boat's contact is local, not a shared shortcut")
+	h.ai.tick(100.0)
+	assert_eq(h.ai.state_name(boat), "ENGAGE", "torpedoes are usable ammunition, even without anti-ship missiles")
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_eq(shots.size(), 1, "a confirmed local contact inside the torpedo envelope produces an order")
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].weapon_id, torpedo.id)
+	h.free_all()
+
+
+func test_submarine_with_empty_asw_magazine_withdraws_despite_surface_missiles() -> void:
+	var boat := _boat("RED", Vector2.ZERO)
+	var torpedo := _asw_torpedo()
+	boat.weapons.append(torpedo)
+	boat.magazines[torpedo.id] = 0
+	boat.weapons.append(_asm())
+	boat.magazines["test_asm"] = 8
+	var target := _boat("BLUE", Vector2(0, 3))
+	var h := _harness([boat, target])
+	_local_submarine_track(h, boat, target)
+	h.ai.tick(100.0)
+	assert_eq(h.ai.state_name(boat), "WITHDRAW", "ammunition for the wrong domain cannot keep an unarmed submarine in the fight")
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty())
+	h.free_all()
+
+
+func test_surface_air_defence_ship_engages_aircraft_with_its_remaining_sams() -> void:
+	var sam := WeaponSpec.new()
+	sam.id = "test_sam"
+	sam.type = "sam"
+	sam.target_types = ["air"]
+	sam.min_range_nm = 1.0
+	sam.max_range_nm = 60.0
+	sam.speed_kn = 2200.0
+	var ship := _ship("RED", Vector2.ZERO, 100.0, sam, 8)
+	var aircraft := _asw_aircraft()
+	aircraft.faction = "BLUE"
+	aircraft.position = Vector2(0, 20)
+	var h := _harness([ship, aircraft])
+	_make_track(h, "RED", aircraft, aircraft.position)
+	h.ai.tick(100.0)
+	assert_eq(h.ai.state_name(ship), "ENGAGE", "a healthy air-defence ship with SAMs must not withdraw for lacking strike missiles")
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_eq(shots.size(), 1, "a confirmed aircraft inside the SAM envelope produces an engagement")
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].weapon_id, sam.id)
+	h.free_all()
+
+
+func _asw_aircraft(can_hover := false, dipping_sonar := false) -> Unit:
+	var a := Unit.new()
+	a.spec = _platform(25.0)
+	a.spec.domain = "air"
+	a.spec.max_speed_kn = 300.0
+	a.spec.cruise_speed_kn = 150.0
+	a.spec.cruise_altitude_m = 400.0
+	a.spec.max_altitude_m = 6000.0
+	a.spec.can_hover = can_hover
+	a.spec.sonobuoy_count = 16
+	a.spec.sonobuoy_sensitivity_nm = 15.0
+	a.faction = "RED"
+	a.callsign = "RED-ASW"
+	a.health = a.spec.health
+	a.flight_state = Unit.FlightState.AIRBORNE
+	a.altitude_m = a.spec.cruise_altitude_m
+	a.ordered_altitude_m = a.altitude_m
+	a.speed_kn = a.spec.cruise_speed_kn
+	a.ordered_speed_kn = a.speed_kn
+	a.sonobuoys = a.spec.sonobuoy_count
+	var torpedo := _asw_torpedo()
+	a.weapons.append(torpedo)
+	a.magazines[torpedo.id] = 2
+	if dipping_sonar:
+		var sonar := SensorSpec.new()
+		sonar.kind = "sonar"
+		sonar.requires_hover = true
+		sonar.passive_sensitivity_nm = 15.0
+		a.sensors.append(sonar)
+	return a
+
+
+func test_routed_asw_patrol_saves_buoys_for_station_and_spaces_its_field() -> void:
+	var a := _asw_aircraft()
+	a.patrol_route = [Vector2(0, 40), Vector2(30, 40)]
+	var h := _harness([a])
+	h.ai.tick(100.0)
+	a.position = Vector2(0, 20)
+	h.ai.tick(400.0)
+	assert_true(_orders_of(h, Order.Type.DEPLOY_SONOBUOY).is_empty(), "the ferry leg must not consume the barrier's buoy inventory")
+	a.position = Vector2(0, 40)
+	h.ai.tick(1000.0)
+	assert_eq(_orders_of(h, Order.Type.DEPLOY_SONOBUOY).size(), 1, "arrival begins the field without needing an enemy datum")
+	assert_true(not a.waypoints.is_empty(), "laying the field preserves the authored patrol")
+	if not a.waypoints.is_empty():
+		assert_eq(a.waypoints[0], Vector2(30, 40))
+	a.position = Vector2(4.1, 40)
+	h.ai.tick(1000.0 + AIController.BUOY_INTERVAL_S)
+	assert_eq(_orders_of(h, Order.Type.DEPLOY_SONOBUOY).size(), 1, "spatial separation alone cannot bypass the drop interval")
+	a.position = Vector2(3.9, 40)
+	h.ai.tick(1001.0 + AIController.BUOY_INTERVAL_S)
+	assert_eq(_orders_of(h, Order.Type.DEPLOY_SONOBUOY).size(), 1, "elapsed time alone cannot duplicate the same station")
+	a.position = Vector2(4.1, 40)
+	h.ai.tick(1002.0 + AIController.BUOY_INTERVAL_S)
+	assert_eq(_orders_of(h, Order.Type.DEPLOY_SONOBUOY).size(), 2, "a separated station after the interval extends the field")
+	h.ai.tick(1003.0 + 2.0 * AIController.BUOY_INTERVAL_S)
+	assert_eq(_orders_of(h, Order.Type.DEPLOY_SONOBUOY).size(), 2, "remaining at that station must not repeatedly lay buoys")
+	h.free_all()
+
+
+func test_asw_aircraft_searches_around_a_lost_datum_with_buoys() -> void:
+	var a := _asw_aircraft()
+	var target := _boat("BLUE", Vector2(0, 30))
+	var h := _harness([a, target])
+	var t := _make_track(h, "RED", target, target.position)
+	h.ai.tick(100.0)
+	t.status = Track.Status.LOST
+	a.position = target.position
+	a.waypoints.clear()  # arrived at the last reported datum
+	h.orders.clear()
+	h.ai.tick(160.0)
+	assert_eq(h.ai.state_name(a), "SEARCH")
+	assert_true(not a.waypoints.is_empty(), "search continues beyond the datum")
+	if not a.waypoints.is_empty():
+		assert_true(a.waypoints[0].distance_to(t.position) > 1.0, "the next station surrounds the last report instead of remaining on it")
+		a.position = a.waypoints[0]
+		a.waypoints.clear()
+		h.ai.tick(320.0)
+		assert_eq(_orders_of(h, Order.Type.DEPLOY_SONOBUOY).size(), 1, "arrival at the search station lays a buoy despite having lost the contact")
+	h.free_all()
+
+
+func test_dipping_search_resumes_its_next_leg_after_listening() -> void:
+	var a := _asw_aircraft(true, true)
+	var h := _harness([a])
+	h.ai.tick(100.0)
+	assert_true(not a.waypoints.is_empty())
+	if a.waypoints.is_empty():
+		h.free_all()
+		return
+	a.position = a.waypoints[0]
+	a.waypoints.clear()
+	h.ai.tick(200.0)
+	h.ai.tick(201.0)
+	assert_near(a.ordered_speed_kn, 0.0, 0.01, "a helicopter with a dipping set stops to listen at the station")
+	assert_true(a.ordered_altitude_m <= Unit.HOVER_ALTITUDE_M, "the transducer can be lowered only from low hover")
+	var after_dip := 202.0 + AIController.DIP_DURATION_S
+	h.ai.tick(after_dip)
+	assert_true(not a.waypoints.is_empty(), "dip completion restores the next search leg")
+	if not a.waypoints.is_empty():
+		var next_station := a.waypoints[0]
+		assert_true(next_station.distance_to(a.position) > 1.0, "the aircraft proceeds to a different listening station")
+		h.ai.tick(after_dip + 1.0)
+		assert_true(not a.waypoints.is_empty(), "the following decision must not cancel the restored leg for another dip")
+		if not a.waypoints.is_empty():
+			assert_eq(a.waypoints[0], next_station)
+	assert_true(a.ordered_speed_kn > Unit.HOVER_SPEED_KN, "it accelerates out of hover instead of cycling dips forever")
+	h.free_all()
+
+
+func test_buoy_only_helicopter_search_does_not_invent_a_dipping_set() -> void:
+	var a := _asw_aircraft(true, false)  # SH-60B-style buoy fit
+	var h := _harness([a])
+	h.ai.tick(100.0)
+	assert_true(not a.waypoints.is_empty())
+	if a.waypoints.is_empty():
+		h.free_all()
+		return
+	a.position = a.waypoints[0]
+	a.waypoints.clear()
+	h.orders.clear()
+	h.ai.tick(200.0)
+	h.ai.tick(201.0)
+	assert_true(not _orders_of(h, Order.Type.DEPLOY_SONOBUOY).is_empty(), "the buoy-only helicopter still searches acoustically")
+	assert_true(not a.waypoints.is_empty(), "after its drop it continues to the next station")
+	assert_true(a.ordered_speed_kn > Unit.HOVER_SPEED_KN, "hover capability alone must not trigger a sonar dip")
+	h.free_all()

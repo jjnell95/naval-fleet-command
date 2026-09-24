@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_sovremenny"
+display_name = "Sovremennyy-class missile destroyer (1990)"
+short_name = "DDG Sovremennyy"
+nation = "USSR"
+category = "destroyer"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 0.22
+health = 112.0
+signature_factor = 1.0
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_fregat", "cw90_mgk335", "cw90_soviet_esm")
+weapon_loadout = {"cw90_moskit": 8, "cw90_shtil": 48, "cw90_ak130": 400, "cw90_ak630": 100, "cw90_set65": 8}
+decoy_count = 12
+fire_control_channels = 3
+role = "Surface strike / fleet air defence"
+service_note = "Project 956 period baseline: 8 Moskit, two single-arm Uragan launchers, AK-130 and AK-630. No vertical-launch Shtil-1, Kalibr or modern Russian refit."
+length_m = 156.5
+displacement_t = 7900.0
+aircraft_capacity = 1
+default_air_wing = {"cw90_ka27": 1}
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."
