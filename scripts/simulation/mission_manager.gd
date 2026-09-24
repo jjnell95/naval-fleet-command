@@ -29,11 +29,19 @@ func configure(scenario: Dictionary) -> void:
 	briefing = obj.get("text", "")
 	situation = scenario.get("description", "")
 	for d in obj.get("victory", []):
-		victory_objectives.append(MissionObjective.from_dict(d))
+		victory_objectives.append(_scoped(MissionObjective.from_dict(d)))
 	for d in obj.get("loss", []):
-		loss_objectives.append(MissionObjective.from_dict(d))
+		loss_objectives.append(_scoped(MissionObjective.from_dict(d)))
 	if victory_objectives.is_empty():
 		push_warning("MissionManager: scenario '%s' defines no victory condition" % scenario.get("id", "?"))
+
+
+## An area objective that names neither units nor a faction means the player's own force.
+## Without this, one written by the scenario editor would scope to nobody and never complete.
+func _scoped(o: MissionObjective) -> MissionObjective:
+	if o.kind == MissionObjective.Kind.REACH_AREA and o.faction == "" and o.callsigns.is_empty():
+		o.faction = player_faction
+	return o
 
 
 func tick(now: float) -> void:

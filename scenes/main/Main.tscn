@@ -28,22 +28,22 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 1
 
 [node name="TopBar" type="PanelContainer" parent="Layout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 script = ExtResource("3_top")
 
 [node name="Middle" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 8
+theme_override_constants/separation = 1
 
 [node name="UnitPanel" type="PanelContainer" parent="Layout/Middle"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(324, 0)
+custom_minimum_size = Vector2(308, 0)
 layout_mode = 2
 script = ExtResource("4_unit")
 
@@ -55,12 +55,12 @@ script = ExtResource("5_map")
 
 [node name="ContactPanel" type="PanelContainer" parent="Layout/Middle"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(324, 0)
+custom_minimum_size = Vector2(308, 0)
 layout_mode = 2
 script = ExtResource("7_contacts")
 
 [node name="OrdersPanel" type="PanelContainer" parent="Layout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 176)
+custom_minimum_size = Vector2(0, 136)
 layout_mode = 2
 script = ExtResource("6_orders")

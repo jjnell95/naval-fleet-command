@@ -40,18 +40,22 @@ func _ready() -> void:
 	_summary.theme_type_variation = "DimLabel"
 	_summary.clip_text = true
 	v.add_child(_summary)
+	var filter_frame := PanelContainer.new()
+	filter_frame.theme_type_variation = "SegmentedPanel"
+	v.add_child(filter_frame)
 	var filters := HBoxContainer.new()
-	filters.add_theme_constant_override("separation", 3)
-	v.add_child(filters)
+	filters.add_theme_constant_override("separation", 2)
+	filter_frame.add_child(filters)
 	var group := ButtonGroup.new()
 	for domain in ["ALL", "AIR", "SURF", "SUB"]:
 		var b := Button.new()
 		b.text = domain
+		b.theme_type_variation = "SegmentButton"
 		b.toggle_mode = true
 		b.button_group = group
 		b.button_pressed = domain == "ALL"
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size.y = 38
+		b.custom_minimum_size.y = 28
 		b.focus_mode = Control.FOCUS_ALL
 		b.tooltip_text = "Filter the contact list to %s tracks" % domain.to_lower()
 		b.pressed.connect(func() -> void: _filter = domain; refresh())
@@ -59,17 +63,22 @@ func _ready() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 4)
 	v.add_child(actions)
-	_prev_btn = _nav_button("‹ PREV", "Previous priority contact  [Shift+N]", func() -> void: cycle_visible_track(-1))
+	_prev_btn = _nav_button("", "Previous priority contact  [Shift+N]", func() -> void: cycle_visible_track(-1))
+	UIIcons.apply(_prev_btn, "chevron_left", 18)
+	_prev_btn.custom_minimum_size.x = 36
 	actions.add_child(_prev_btn)
-	_focus_btn = _nav_button("FOCUS", "Center the selected contact without changing zoom  [C]", _focus_current)
+	_focus_btn = _nav_button("FOCUS CONTACT", "Center the selected contact without changing zoom  [C]", _focus_current)
+	UIIcons.apply(_focus_btn, "focus", 16)
 	_focus_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(_focus_btn)
-	_next_btn = _nav_button("NEXT ›", "Next priority contact  [N]", func() -> void: cycle_visible_track(1))
+	_next_btn = _nav_button("", "Next priority contact  [N]", func() -> void: cycle_visible_track(1))
+	UIIcons.apply(_next_btn, "chevron_right", 18)
+	_next_btn.custom_minimum_size.x = 36
 	actions.add_child(_next_btn)
 	_list = RowList.new()
 	_list.configure_rows(13, 12, 36)
 	_list.max_text_lines = 2
-	_list.custom_minimum_size.y = 130
+	_list.custom_minimum_size.y = 112
 	_list.add_theme_font_size_override("font_size", 13)
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.size_flags_stretch_ratio = 1.1
@@ -89,7 +98,7 @@ func _ready() -> void:
 	v.add_child(_detail)
 	var board := DefenceBoard.new()
 	board.contacts = self
-	board.custom_minimum_size.y = 216
+	board.custom_minimum_size.y = 196
 	v.add_child(board)
 	_sync_nav_buttons()
 
@@ -98,7 +107,8 @@ func _nav_button(text: String, tip: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.tooltip_text = tip
-	button.custom_minimum_size.y = 38
+	button.custom_minimum_size.y = 32
+	button.accessibility_name = tip.get_slice("  [", 0)
 	button.focus_mode = Control.FOCUS_ALL
 	button.pressed.connect(action)
 	return button
@@ -234,7 +244,7 @@ func _reference_unit() -> Unit:
 
 
 func _kv(k: String, v: String) -> String:
-	return "[color=%s]%-9s[/color] %s" % [UITheme.HEX_DIM, k, v]
+	return "[color=%s][font_size=11]%-9s[/font_size][/color] %s" % [UITheme.HEX_MUTED, k, v]
 
 
 func _detail_text(t: Track, ref: Unit, now: float) -> String:

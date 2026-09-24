@@ -4,11 +4,13 @@ A naval command game in Godot 4.7.2, inspired by the tactical decisions in class
 
 ## Play
 
-Open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. Choose **Cold War 1990 → Northern Convoy → Read briefing → Take command**. The cargo ship already steers toward its handover box; your first job is protecting it.
+**[Play in your browser → jjnell95.github.io/naval-fleet-command](https://jjnell95.github.io/naval-fleet-command/)**. Nothing to install: it runs in Chrome, Edge, Firefox or Safari on a desktop or laptop with a keyboard. The first visit downloads about 71 MB, which the browser then caches.
+
+Locally, open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. Choose **Cold War 1990 → Northern Convoy → Read briefing → Take command**. The cargo ship already steers toward its handover box; your first job is protecting it.
 
 The mission desk puts the task, first orders, period, difficulty and estimated play time beside the chart. The briefing separates **Orders & Objectives**, **Situation**, and **Command Reference**. Modern missions and custom scenarios remain available through the era filters. The 1990 conflicts and deployments are alternate history, not historical battles.
 
-![1990 command deck](docs/2026-09-24-cold-war-command.png)
+![The command deck during the Norwegian Sea carrier watch](docs/2026-09-24-command-deck.jpg)
 
 ## The 1990 operations
 
@@ -29,10 +31,10 @@ The complete game retains 15 built-in missions, 94 platform variants, 98 weapon 
 - **Build the picture:** **R** toggles radar, **E** emissions control, **P** active sonar. Contacts begin uncertain and classify through observation. A passive bearing is not a measured range. **N / Shift-N** cycles the current contact filter.
 - **Engage:** select a shooter and a held contact, then choose weapon, salvo and **Engage**. Automatic ship defence depends on detection, channels, ammunition, damage and weapons state. Unknown and neutral contacts are not free targets.
 - **Fly:** **F3** opens Air Operations. Select a host, aircraft type and quantity, then launch. **Execute & Resume** runs the clock. Choose an airborne airframe and compatible **Land At** destination, then **Return & Land**. Recovery, refuelling and rearming precede relaunch.
-- **Manage the watch:** **Space** pauses; **1–6** selects 1×–60× time. Combat interrupts acceleration. The clickable watch strip opens mission orders, the next filtered contact, an inbound threat or aircraft controls.
-- **Find a command:** **Command-K / Control-K** opens Actions. **F1** orders and help, **F2** symbol key, **F4** sensors, **F5** trails, **F6** terrain, **F7** fleet gallery, **F8** editor, **F9** missions, **F10** restart.
+- **Manage the watch:** **Space** pauses; **1–6** selects 1×–60× time. Combat interrupts acceleration. The status rail under the top bar opens mission orders, the next filtered contact, an inbound threat, aircraft controls or the wide chart.
+- **Find a command:** **Command-K / Control-K** opens Actions from anywhere. **F1** orders and help, **F2** symbol key, **F4** sensors, **F5** trails, **F6** terrain, **F7** fleet gallery, **F8** editor, **F9** missions, **F10** restart (press twice to confirm).
 
-The interface targets a desktop/laptop with keyboard and mouse/trackpad. Browser play requires WebGL 2. Touch-only phone play is not supported.
+The interface targets a desktop/laptop with keyboard and mouse/trackpad and is laid out for 1600 × 900 or larger; wider windows get a wider chart. Browser play requires WebGL 2. Touch-only phone play is not supported, and the browser build says so before it downloads.
 
 ## What realism means here
 
@@ -46,13 +48,16 @@ Performance, signatures, magazines, aircraft detachments, hit probabilities and 
 
 ```sh
 godot --headless --path . --editor --import --quit
-godot --headless --path . --script tests/run_tests.gd
-godot --path . -- --cold-war-smoke
+godot --headless --path . --script tests/run_tests.gd      # 319 regression tests
+godot --path . -- --cold-war-smoke                          # 29 command-deck checks
+godot --path . -- --aviation-smoke                          # 19 air-operations checks
 godot --path .
 ```
 
+GitHub Actions runs the same tests and both interface suites on every pull request (`.github/workflows/tests.yml`).
+
 Regenerate the period resources and scenarios with `python3 tools/scenarios/build_cold_war.py`; the optional geography dependency is pinned in `tools/scenarios/requirements.txt`. Generated files are committed, so playing needs neither Python packages nor network access. `tools/blender/build_platform_art.py` and `build_presentation_assets.py` generate the recognition and gallery art; historical builders live in `cold_war_models.py`.
 
-The repository includes the matching Godot 4.7.2 browser runtime. Rebuild its data pack with `godot --headless --path . --export-pack Web docs/play/index.pck`, then update `fileSizes["index.pck"]` in `docs/play/index.html`. A full `--export-release Web` works with matching export templates. Pages serves `main:/docs`; publishing requires updating that branch and checking the deployed browser build separately.
+The repository includes the matching Godot 4.7.2 browser runtime. After changing the game, run `tools/web/build_web.sh` to rebuild `docs/play/index.pck` and record its size in the loader page (set `GODOT=/path/to/Godot` if `godot` is not on your PATH). The loader shell in `docs/play/index.html` and the landing page `docs/index.html` are hand-written and share the game's fonts from `docs/fonts/`. GitHub Pages serves `main:/docs`, so merging to `main` publishes the browser build.
 
 See [the release notes and validation](docs/2026-09-24-cold-war-1990.md), [source ledger](DATA_SOURCES.md), [architecture](ARCHITECTURE.md), and earlier [air operations](docs/2026-09-23-air-operations.md) and [contact fidelity](docs/2026-09-23-contact-fidelity.md) releases. Godot licensing is in `docs/play/GODOT-LICENSE.txt`. No new source-license grant is inferred.

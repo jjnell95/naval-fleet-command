@@ -46,37 +46,60 @@ func _ready() -> void:
 	_margin.add_child(v)
 
 	var masthead := HBoxContainer.new()
-	masthead.add_theme_constant_override("separation", 24)
+	masthead.add_theme_constant_override("separation", 18)
 	v.add_child(masthead)
+	var mark := TextureRect.new()
+	mark.texture = UIIcons.get_icon("mark", 54, UITheme.COL_BRASS)
+	mark.custom_minimum_size = Vector2(54, 54)
+	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	masthead.add_child(mark)
 	var brand := VBoxContainer.new()
 	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	brand.add_theme_constant_override("separation", 4)
+	brand.add_theme_constant_override("separation", 0)
 	masthead.add_child(brand)
-	var eyebrow := _label("FLEET OPERATIONS  /  SCENARIO COMMAND", 15, UITheme.COL_AMBER)
+	var eyebrow := UITheme.eyebrow("Cold War / 1990  ·  North Atlantic & Northern Europe")
+	eyebrow.add_theme_color_override("font_color", UITheme.COL_BRASS)
 	brand.add_child(eyebrow)
 	_title = _label("NAVAL FLEET COMMAND", 46, Color.WHITE)
 	_title.add_theme_font_override("font", UITheme.heading_font())
 	brand.add_child(_title)
-	_subtitle = _label("Build the picture. Protect the force. Control the sea.", 18, UITheme.COL_DIM)
+	_subtitle = _label("Build the picture. Protect the force. Control the sea.", 16, UITheme.COL_DIM)
 	brand.add_child(_subtitle)
-	var mast_note := _label("COMMANDER'S DESK\nChoose an operation. Read the orders. Take command.", 16, UITheme.COL_DIM)
+	var mast_note := _label("Choose an operation, read the orders,\nthen take command. The clock waits for you.", 13, UITheme.COL_MUTED)
 	mast_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	mast_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mast_note.size_flags_vertical = Control.SIZE_SHRINK_END
 	masthead.add_child(mast_note)
 	_mast_note = mast_note
+	var rule := ColorRect.new()
+	rule.color = Color(UITheme.COL_BRASS, 0.45)
+	rule.custom_minimum_size.y = 1
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(rule)
 
 	var filter_row := HBoxContainer.new()
-	filter_row.add_theme_constant_override("separation", 8)
+	filter_row.add_theme_constant_override("separation", 12)
 	v.add_child(filter_row)
+	var filter_frame := PanelContainer.new()
+	filter_frame.theme_type_variation = "SegmentedPanel"
+	filter_row.add_child(filter_frame)
+	var segments := HBoxContainer.new()
+	segments.add_theme_constant_override("separation", 2)
+	filter_frame.add_child(segments)
 	for entry in [["cold_war", "COLD WAR 1990"], ["modern", "MODERN"], ["all", "ALL OPERATIONS"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
+		button.theme_type_variation = "SegmentButton"
+		button.custom_minimum_size = Vector2(128, 32)
+		button.add_theme_font_size_override("font_size", 12)
 		button.toggle_mode = true
 		button.pressed.connect(func() -> void: _set_era(key))
-		filter_row.add_child(button)
+		segments.add_child(button)
 		_filters[key] = button
-	_count = _label("", 16, UITheme.COL_DIM)
+	_count = UITheme.eyebrow("")
 	_count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	filter_row.add_child(_count)
 
@@ -87,7 +110,7 @@ func _ready() -> void:
 	_left = VBoxContainer.new()
 	_left.add_theme_constant_override("separation", 10)
 	body.add_child(_left)
-	_left.add_child(_label("AVAILABLE OPERATIONS", 15, UITheme.COL_AMBER))
+	_left.add_child(UITheme.eyebrow("Available operations"))
 	_list = RowList.new()
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -96,13 +119,14 @@ func _ready() -> void:
 	_list.accessibility_description = "Choose a mission to read its task and first orders. Enter opens the briefing."
 	_list.max_columns = 1
 	_list.max_text_lines = 2
-	_list.add_theme_font_size_override("font_size", 18)
-	_list.add_theme_constant_override("v_separation", 14)
+	_list.configure_rows(16, 12, 52)
+	_list.add_theme_font_size_override("font_size", 16)
+	_list.add_theme_constant_override("v_separation", 12)
 	_list.add_theme_constant_override("line_separation", 8)
 	_list.item_selected.connect(_on_selected)
 	_list.item_activated.connect(func(_i: int) -> void: _on_play())
 	_left.add_child(_list)
-	var list_hint := _label("↑ / ↓  Select operation     Enter  Brief", 14, UITheme.COL_DIM)
+	var list_hint := _label("↑ ↓  choose     Enter  read the briefing", 12, UITheme.COL_MUTED)
 	_left.add_child(list_hint)
 
 	var right := VBoxContainer.new()
@@ -118,10 +142,11 @@ func _ready() -> void:
 	_mission_title.add_theme_font_override("font", UITheme.heading_font())
 	_mission_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	operation.add_child(_mission_title)
-	_mission_meta = _label("", 17, UITheme.COL_AMBER)
+	_mission_meta = _label("", 12, UITheme.COL_BRASS)
+	_mission_meta.add_theme_font_override("font", UITheme.eyebrow_font())
 	_mission_meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	operation.add_child(_mission_meta)
-	_intent = _label("", 20, UITheme.COL_TEXT)
+	_intent = _label("", 19, UITheme.COL_TEXT)
 	_intent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_intent.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	operation.add_child(_intent)
@@ -140,9 +165,9 @@ func _ready() -> void:
 	_detail.scroll_active = true
 	_detail.focus_mode = Control.FOCUS_ALL
 	_detail.accessibility_name = "Selected operation plan"
-	_detail.add_theme_font_size_override("normal_font_size", 18)
-	_detail.add_theme_font_size_override("bold_font_size", 18)
-	_detail.add_theme_constant_override("line_separation", 5)
+	_detail.add_theme_font_size_override("normal_font_size", 15)
+	_detail.add_theme_font_size_override("bold_font_size", 15)
+	_detail.add_theme_constant_override("line_separation", 6)
 	detail_card.add_child(_detail)
 	_rail = VBoxContainer.new()
 	_rail.add_theme_constant_override("separation", 10)
@@ -153,30 +178,39 @@ func _ready() -> void:
 	_portrait = PlatformPortrait.new()
 	_portrait.show_captions = false
 	_rail.add_child(_portrait)
-	_ship_caption = _label("", 16, UITheme.COL_DIM)
+	_ship_caption = _label("", 13, UITheme.COL_DIM)
 	_ship_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rail.add_child(_ship_caption)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	v.add_child(buttons)
-	_play = _button("READ BRIEFING  →", true)
+	_play = _button("READ BRIEFING", true)
 	_play.custom_minimum_size.x = 250
+	_play.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	UIIcons.apply(_play, "arrow_right", 18)
 	_play.pressed.connect(_on_play)
 	buttons.add_child(_play)
-	var edit := _button("SCENARIO EDITOR  F8")
+	var edit := _button("SCENARIO EDITOR")
+	edit.tooltip_text = "Build or modify a mission  [F8]"
+	UIIcons.apply(edit, "route", 18)
 	edit.pressed.connect(func() -> void: editor_requested.emit())
 	buttons.add_child(edit)
-	var library := _button("FLEET & ORDNANCE  F7")
+	var library := _button("FLEET & ORDNANCE")
+	library.tooltip_text = "Recognition library of every platform and weapon  [F7]"
+	UIIcons.apply(library, "library", 18)
 	library.pressed.connect(func() -> void: library_requested.emit())
 	buttons.add_child(library)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(spacer)
-	_close = _button("BACK TO OPERATIONS")
+	_close = _button("RETURN TO CHART")
+	_close.theme_type_variation = "QuietButton"
+	_close.tooltip_text = "Close this desk and return to the operation already loaded  [Esc]"
+	UIIcons.apply(_close, "close", 16)
 	_close.pressed.connect(func() -> void: dismissed.emit())
 	buttons.add_child(_close)
-	var note := _label("Historical equipment, fictional operations. Performance and detection values are simulation estimates.", 14, UITheme.COL_MUTED)
+	var note := _label("Historical equipment, fictional operations. Performance and detection values are simulation estimates.", 12, UITheme.COL_FAINT)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(note)
 	resized.connect(_apply_layout)
@@ -297,8 +331,8 @@ func _on_selected(i: int) -> void:
 	details.append(str(e.get("difficulty", "Open command")))
 	var duration := int(e.get("duration_minutes", 0))
 	if duration > 0:
-		details.append("ABOUT %d MIN PLAY" % duration)
-	_mission_meta.text = "  ·  ".join(details)
+		details.append("about %d min" % duration)
+	_mission_meta.text = "  ·  ".join(details).to_upper()
 	var objective: Dictionary = sc.get("objectives", {})
 	_intent.text = sc.get("commander_intent", objective.get("text", "Read the situation and establish your command priorities."))
 	var lines := PackedStringArray()
@@ -306,7 +340,7 @@ func _on_selected(i: int) -> void:
 	if not first_orders.is_empty():
 		lines.append(_section("YOUR FIRST ORDERS"))
 		for n in first_orders.size():
-			lines.append("[color=%s]%02d[/color]   %s" % [UITheme.HEX_AMBER, n + 1, _safe(str(first_orders[n]))])
+			lines.append("[color=%s][b]%02d[/b][/color]   %s" % [UITheme.HEX_BRASS, n + 1, _safe(str(first_orders[n]))])
 		lines.append("")
 	lines.append(_section("FORCE UNDER YOUR COMMAND"))
 	lines.append(_safe(str(e["forces"])) + "\n")
@@ -346,7 +380,7 @@ func _on_selected(i: int) -> void:
 	_portrait.spec_override = representative
 	_portrait.visible = representative != null
 	_ship_caption.text = "%s\n%s" % [ship_name, representative.short_name] if representative != null else ""
-	lines.append("[color=%s]%d surface  ·  %d submarines  ·  %d aircraft[/color]\n" % [UITheme.HEX_DIM, own_surface, subs, air])
+	lines.append("[color=%s]%d surface  ·  %d submarine%s  ·  %d aircraft[/color]\n" % [UITheme.HEX_MUTED, own_surface, subs, "" if subs == 1 else "s", air])
 	lines.append(_section("SITUATION"))
 	lines.append(_safe(str(e["description"])) + "\n")
 	if sc.has("learning"):
@@ -375,7 +409,7 @@ static func _safe(value: String) -> String:
 
 
 static func _section(value: String) -> String:
-	return "[color=%s][b]%s[/b][/color]" % [UITheme.HEX_AMBER, value]
+	return UITheme.section_bb(value)
 
 
 static func _label(value: String, font_size: int, color: Color) -> Label:
@@ -390,8 +424,8 @@ static func _button(value: String, primary := false) -> Button:
 	var result := Button.new()
 	result.text = value
 	result.focus_mode = Control.FOCUS_ALL
-	result.custom_minimum_size.y = 46
-	result.add_theme_font_size_override("font_size", 16)
+	result.custom_minimum_size.y = 44
+	result.add_theme_font_size_override("font_size", 13)
 	if primary:
 		result.theme_type_variation = "PrimaryButton"
 	return result

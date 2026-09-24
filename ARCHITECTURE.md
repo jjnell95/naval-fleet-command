@@ -111,7 +111,8 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | Simulation | scripts/simulation/simulation.gd | sim root node |
 | TacticalMap | scripts/ui/tactical_map.gd | map render + input; selection_changed, move_order_requested |
 | MapSymbols | scripts/ui/map_symbols.gd | symbol drawing helpers |
-| UITheme | scripts/ui/ui_theme.gd | programmatic dark theme |
+| UITheme | scripts/ui/ui_theme.gd | the design system in code: surfaces, meaning colours, type scale, button variations (Primary, Quiet, Segment, Tab, Danger) and helpers such as `eyebrow()` and `section_bb()` |
+| UIIcons | scripts/ui/ui_icons.gd | original SVG stroke icons, rasterised at 3× and cached; `UIIcons.apply(button, name)` |
 | TopBar / UnitPanel / OrdersPanel | scripts/ui/*.gd | HUD panels (children built in code) |
 | AfterAction | scripts/ui/after_action.gd | end-of-mission report built from Main's statistics |
 | ReadinessBars | scripts/ui/readiness_bars.gd | hull / subsystem / fuel / decoy bars for the unit panel |

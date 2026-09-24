@@ -31,9 +31,12 @@ const DRAG_THRESHOLD_PX := 5.0
 const DOUBLE_CLICK_MS := 350
 const LEADER_MINUTES := 30.0
 const KEY_PAN_PX_PER_S := 700.0
-const HEADER_H := 36.0
-const BOTTOM_UI_RESERVED_PX := 100.0
-const OVERVIEW_UI_RESERVED_PX := 236.0
+const HEADER_H := 34.0
+const FOOTER_H := 24.0
+## Chart kept clear of the floating controls: the mode toolbar along the bottom-left and the view
+## cluster down the right edge.
+const BOTTOM_UI_RESERVED_PX := 84.0
+const OVERVIEW_UI_RESERVED_PX := 64.0
 const TRAIL_INTERVAL_S := 60.0
 const TRAIL_LENGTH := 24
 const EFFECT_LIFE_S := 2.2
@@ -74,10 +77,10 @@ const COL_WEAPON_RING := Color(1.0, 0.72, 0.35, 0.55)
 const COL_MISSILE := Color(1.0, 0.85, 0.35)
 const COL_MISSILE_HOSTILE := Color(1.0, 0.45, 0.35)
 const COL_INTERCEPTOR := Color(0.55, 0.95, 1.0)
-const COL_HEADER := Color("0c1c29")
-const COL_ACCENT := Color("70e2d3")
-const COL_AMBER := Color("ffbe77")
-const COL_LABEL_BG := Color("0b1a26", 0.92)
+const COL_HEADER := UITheme.COL_PANEL_DEEP
+const COL_ACCENT := UITheme.COL_ACCENT
+const COL_AMBER := UITheme.COL_AMBER
+const COL_LABEL_BG := Color("08111a", 0.9)
 const COL_FIRE := Color(1.0, 0.55, 0.22)
 const COL_SMOKE := Color(0.66, 0.66, 0.68)
 const COL_FLOOD := Color(0.35, 0.62, 1.0)
@@ -133,6 +136,7 @@ var _plot_buttons: Dictionary = {}
 var _overview: TacticalOverview
 var _floor: ChartFloor
 var _context_hint: Label
+var _card_style: StyleBoxFlat
 
 
 func _ready() -> void:
@@ -154,62 +158,93 @@ func _ready() -> void:
 
 
 func _build_plot_controls() -> void:
+	# View cluster: zoom and framing, down the right edge under the compass.
+	var cluster := PanelContainer.new()
+	cluster.name = "ViewControls"
+	cluster.theme_type_variation = "ToolbarPanel"
+	cluster.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	cluster.offset_left = -52
+	cluster.offset_right = -12
+	cluster.offset_top = HEADER_H + 84
+	cluster.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(cluster)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 2)
+	cluster.add_child(column)
+	for item in [
+		["plus", "zoom_in", "Zoom in  [+]"],
+		["minus", "zoom_out", "Zoom out  [−]"],
+		[],
+		["fit", "fleet", "Fit the task group  [Home]"],
+		["theatre", "theatre", "Fit the whole operation area"],
+		["focus", "center", "Centre the selection and target  [C]"],
+		["follow", "follow", "Follow the selection  [F]"],
+	]:
+		if item.is_empty():
+			var rule := UITheme.hairline()
+			column.add_child(rule)
+			continue
+		column.add_child(_plot_button(item[0], "", item[1], item[2]))
+
+	# Mode and layers: the move tool and the overlays, bottom-left above the chart footer.
 	var toolbar := PanelContainer.new()
+	toolbar.name = "PlotToolbar"
 	toolbar.theme_type_variation = "ToolbarPanel"
-	toolbar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	toolbar.offset_left = 14
-	toolbar.offset_right = -14
-	toolbar.offset_top = -68
-	toolbar.offset_bottom = -14
+	toolbar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	toolbar.offset_left = 12
+	toolbar.offset_top = -(FOOTER_H + 10 + 44)
+	toolbar.offset_bottom = -(FOOTER_H + 10)
+	toolbar.grow_horizontal = Control.GROW_DIRECTION_END
 	toolbar.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(toolbar)
-	var h := HFlowContainer.new()
-	h.add_theme_constant_override("separation", 4)
-	h.add_theme_constant_override("v_separation", 4)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 2)
 	toolbar.add_child(h)
-	var items := [
-		["−", "zoom_out", "Zoom out  [−]"],
-		["+", "zoom_in", "Zoom in  [+]"],
-		["PLOT MOVE  G", "move", "Arm a visible left-click move order  [G]"],
-		["FLEET  HOME", "fleet", "Fit every friendly unit in view  [Home]"],
-		["THEATRE", "theatre", "Fit the full operation area"],
-		["FOCUS  C", "center", "Center or fit the current selection  [C]"],
-		["FOLLOW  F", "follow", "Keep the current unit or target centered  [F]"],
-		["SENSORS  F4", "sensors", "Show selected sensor coverage  [F4]"],
-		["VECTORS  V", "vectors", "Show motion vectors  [V]"],
-		["GRID", "range_grid", "Show range rings around the reference unit"],
-	]
-	for item in items:
-		var button := Button.new()
-		button.text = item[0]
-		button.tooltip_text = item[2]
-		button.add_theme_font_size_override("font_size", 11)
-		button.custom_minimum_size = Vector2(44, 44)
-		button.focus_mode = Control.FOCUS_ALL
-		if item[1] in ["move", "follow", "sensors", "vectors", "range_grid"]:
-			button.toggle_mode = true
-		button.pressed.connect(_plot_action.bind(item[1]))
-		h.add_child(button)
-		_plot_buttons[item[1]] = button
+	h.add_child(_plot_button("route", "PLOT MOVE", "move", "Arm a left-click move order. Shift adds waypoints; Escape cancels.  [G]"))
+	var rule := UITheme.hairline(true)
+	rule.custom_minimum_size.x = 1
+	h.add_child(rule)
+	h.add_child(_plot_button("sensors", "SENSORS", "sensors", "Show the selection's sensor coverage  [F4]"))
+	h.add_child(_plot_button("vectors", "VECTORS", "vectors", "Show 30-minute motion vectors for every track  [V]"))
+	h.add_child(_plot_button("rings", "RINGS", "range_grid", "Show range rings around the reference unit"))
+
 	_context_hint = Label.new()
 	_context_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_context_hint.offset_left = 14
-	_context_hint.offset_right = -236
-	_context_hint.offset_top = -92
-	_context_hint.offset_bottom = -72
+	_context_hint.offset_right = -240
+	_context_hint.offset_top = -(FOOTER_H + 10 + 44 + 26)
+	_context_hint.offset_bottom = -(FOOTER_H + 10 + 44 + 6)
 	_context_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_context_hint.theme_type_variation = "MapHintLabel"
+	_context_hint.clip_text = true
 	_context_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_context_hint)
 	_overview = TacticalOverview.new()
 	_overview.map = self
 	_overview.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_overview.offset_left = -222
-	_overview.offset_top = -224
-	_overview.offset_right = -14
-	_overview.offset_bottom = -76
+	_overview.offset_left = -220
+	_overview.offset_top = -(FOOTER_H + 10 + 146)
+	_overview.offset_right = -12
+	_overview.offset_bottom = -(FOOTER_H + 10)
 	add_child(_overview)
 	_sync_plot_controls()
+
+
+func _plot_button(icon_name: String, text: String, action: String, tip: String) -> Button:
+	var button := Button.new()
+	button.theme_type_variation = "QuietButton"
+	button.text = text
+	button.tooltip_text = tip
+	button.accessibility_name = tip.get_slice("  [", 0)
+	UIIcons.apply(button, icon_name, 18)
+	button.custom_minimum_size = Vector2(32, 32) if text == "" else Vector2(0, 32)
+	button.add_theme_font_size_override("font_size", 11)
+	button.focus_mode = Control.FOCUS_ALL
+	if action in ["move", "follow", "sensors", "vectors", "range_grid"]:
+		button.toggle_mode = true
+	button.pressed.connect(_plot_action.bind(action))
+	_plot_buttons[action] = button
+	return button
 
 
 func _plot_action(action: String) -> void:
@@ -280,6 +315,10 @@ func set_move_mode(enabled: bool) -> void:
 		_sync_plot_controls()
 		return
 	interaction_mode = next
+	# A pan or box drag in progress would otherwise never see its release, which the move tool
+	# swallows, and stay latched to the pointer.
+	if _drag_mode != DragMode.NONE:
+		_end_drag()
 	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode == InteractionMode.MOVE else Control.CURSOR_ARROW
 	interaction_mode_changed.emit(interaction_mode == InteractionMode.MOVE)
 	_sync_plot_controls()
@@ -631,7 +670,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _chart_accepts_point(point: Vector2) -> bool:
-	if point.y < HEADER_H:
+	if point.y < HEADER_H or point.y > size.y - FOOTER_H:
 		return false
 	if show_key and _symbol_key_rect().has_point(point):
 		return false
@@ -927,8 +966,14 @@ func _prune_selection() -> void:
 ## The unit the display is centred on for bearings and range rings: the selection, otherwise
 ## the first surface ship the player owns.
 func reference_unit() -> Unit:
-	if selected.size() >= 1:
-		return selected[0]
+	for u: Unit in selected:
+		if not u.is_aircraft() or u.in_flight():
+			return u
+	# An airframe on deck has its sensors dark and is off the link. It sees through its ship,
+	# or the picture (and every contact and threat alert keyed to it) would go blank.
+	for u: Unit in selected:
+		if u.home != null and u.home.alive:
+			return u.home
 	for u in _own_units():
 		if not u.is_aircraft():
 			return u
@@ -979,8 +1024,7 @@ func _draw() -> void:
 		draw_rect(r, Color(COL_BOX, 0.08))
 		draw_rect(r, COL_BOX, false, 1.0)
 	_draw_header()
-	_draw_scale_bar()
-	_draw_readout()
+	_draw_footer()
 	_draw_key()
 	_draw_solution_card()
 	_draw_hover_card()
@@ -1196,12 +1240,6 @@ func _draw_chart_labels() -> void:
 		if collision: continue
 		occupied.append(rect)
 		draw_string(_font, at - Vector2(width/2, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("567e90") if water else Color("c0c9b3"))
-	if m.has("anchor_lat"):
-		draw_rect(Rect2(0, size.y - 23, size.x, 23), COL_HEADER)
-		var note := "NATURAL EARTH 1:10m  ·  LOCAL PROJECTION  ·  NO DEPTH DATA"
-		if _floor != null and _floor.active():
-			note = "NATURAL EARTH 1:10m LAND + BATHYMETRY  ·  CONTOURS 200 · 1000 · 2000 · 3000 · 4000 m  ·  LOCAL PROJECTION  ·  NOT FOR NAVIGATION"
-		draw_string(_font, Vector2(14, size.y - 8), note, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 160), 9, COL_GRID_TEXT)
 
 
 func _chart_axis(value: float, positive: String, negative: String) -> String:
@@ -1296,14 +1334,14 @@ func _draw_graticule() -> void:
 	var lon := ceilf(tl.y / lon_step) * lon_step
 	while lon <= br.y:
 		var x := world_to_screen(Vector2((lon-lon0)*60*coslat, 0)).x
-		draw_line(Vector2(x, HEADER_H), Vector2(x, size.y-23), COL_GRID, 1)
+		draw_line(Vector2(x, HEADER_H), Vector2(x, size.y - FOOTER_H), COL_GRID, 1)
 		if x > 90 and x < size.x-100:
 			draw_string(_font, Vector2(x+4, HEADER_H+15), Geo.format_latlon(lon, false), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
 		lon += lon_step
 
 
 func _draw_compass() -> void:
-	var c := Vector2(size.x - 31, HEADER_H + 53)
+	var c := Vector2(size.x - 32, HEADER_H + 46)
 	draw_line(c + Vector2(0, 15), c - Vector2(0, 12), COL_COAST, 1.5, true)
 	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -16), c + Vector2(-4, -6), c + Vector2(4, -6)]), COL_COAST)
 	draw_string(_font, c + Vector2(-4, -22), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_TEXT)
@@ -1321,7 +1359,7 @@ func _draw_objectives() -> void:
 			var col := COL_AMBER if danger else COL_WAYPOINT
 			draw_circle(sp, r, Color(col, 0.07))
 			draw_arc(sp, r, 0.0, TAU, 80, Color(col, 0.65), 1.5, true)
-			_place_label(sp, "DENY EXIT" if danger else "RENDEZVOUS", col, false, "")
+			_place_label(sp, "DENY EXIT" if danger else "OBJECTIVE AREA", col, false, "")
 
 
 func _draw_sensor_rings() -> void:
@@ -1421,7 +1459,9 @@ func _draw_weapon_ring() -> void:
 		draw_arc(sp, outer, 0.0, TAU, 160, COL_WEAPON_RING, 1.2, true)
 		if weapon_ring.min_range_nm > 0.5:
 			draw_arc(sp, inner, 0.0, TAU, 48, Color(COL_WEAPON_RING, 0.4), 1.0, true)
-		draw_string(_font, sp + Vector2(0.0, -outer - 5.0), "%s  %s nm" % [weapon_ring.display_name.to_upper(), Geo.format_nm(weapon_ring.max_range_nm)], HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color(COL_WEAPON_RING, 0.9))
+		# Keep the ring's name on the chart when its top edge runs up under the header.
+		var ring_label := sp + Vector2(0.0, maxf(-outer - 5.0, HEADER_H + 16.0 - sp.y))
+		draw_string(_font, ring_label, "%s  %s nm" % [weapon_ring.display_name.to_upper(), Geo.format_nm(weapon_ring.max_range_nm)], HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color(COL_WEAPON_RING, 0.9))
 		if selected_track != null and Combat.suits_track(weapon_ring, selected_track) and Combat.check_engagement(u, weapon_ring, selected_track)["ok"]:
 			# The firing solution: where the round would meet the contact if it held course.
 			var aim := Combat.intercept_point(u.position, weapon_ring.speed_kn, selected_track.position, selected_track.course_deg, selected_track.speed_kn, selected_track.has_kinematics)
@@ -1678,12 +1718,12 @@ func _draw_solution_card() -> void:
 	var x := rect.position.x + 12.0
 	var y := rect.position.y
 	var col := track_color(t)
-	draw_rect(rect, COL_LABEL_BG)
-	draw_rect(rect, Color(col, 0.5), false, 1.0)
-	draw_rect(Rect2(rect.position, Vector2(3, rect.size.y)), col)
-	draw_string(UITheme.heading_font(), Vector2(x, y + 21), "CONTACT SOLUTION  /  %s" % t.id, HORIZONTAL_ALIGNMENT_LEFT, 265, 14, col)
-	draw_string(_font, Vector2(x, y + 41), "%s · LAST OBS %s" % [t.source.replace("sonar_", "").to_upper(), Track._fmt_age(t.age_s(SimClock.sim_time))], HORIZONTAL_ALIGNMENT_LEFT, 265, 10, COL_TEXT)
-	draw_line(Vector2(x, y + 50), Vector2(rect.end.x - 12, y + 50), Color(col, 0.25), 1.0)
+	_draw_card_frame(rect, col)
+	x += 4.0
+	draw_string(UITheme.eyebrow_font(), Vector2(x, y + 22), "CONTACT SOLUTION", HORIZONTAL_ALIGNMENT_LEFT, 150, 10, UITheme.COL_MUTED)
+	draw_string(UITheme.heading_font(), Vector2(rect.end.x - 14.0 - UITheme.heading_font().get_string_size(t.id, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x, y + 23), t.id, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, col)
+	draw_string(_font, Vector2(x, y + 41), "%s · LAST OBS %s" % [t.source.replace("sonar_", "").to_upper(), Track._fmt_age(t.age_s(SimClock.sim_time))], HORIZONTAL_ALIGNMENT_LEFT, 265, 10, UITheme.COL_DIM)
+	draw_line(Vector2(x, y + 51), Vector2(rect.end.x - 14, y + 51), UITheme.COL_HAIRLINE, 1.0)
 	var range_text := t.range_text_from(ref.position) if ref != null else "NO REFERENCE SHIP"
 	draw_string(_font, Vector2(x, y + 70), range_text, HORIZONTAL_ALIGNMENT_LEFT, 265, 14, COL_TEXT)
 	var solution := RelativeMotion.solution(ref, t, SimClock.sim_time)
@@ -1911,32 +1951,72 @@ func _draw_effects() -> void:
 
 func _draw_header() -> void:
 	draw_rect(Rect2(0, 0, size.x, HEADER_H), COL_HEADER)
-	draw_line(Vector2(0, HEADER_H), Vector2(size.x, HEADER_H), Color(COL_ACCENT, 0.35), 1)
-	draw_string(_font, Vector2(14, 23), "TACTICAL PLOT", HORIZONTAL_ALIGNMENT_LEFT, 125, 12, COL_ACCENT)
+	draw_line(Vector2(0, HEADER_H - 0.5), Vector2(size.x, HEADER_H - 0.5), UITheme.COL_HAIRLINE, 1)
+	var eyebrow := UITheme.eyebrow_font()
+	draw_string(eyebrow, Vector2(14, 21), "TACTICAL PLOT", HORIZONTAL_ALIGNMENT_LEFT, -1, UITheme.SIZE_EYEBROW, UITheme.COL_MUTED)
+	var x := 14.0 + eyebrow.get_string_size("TACTICAL PLOT", HORIZONTAL_ALIGNMENT_LEFT, -1, UITheme.SIZE_EYEBROW).x + 14.0
 	var ref := reference_unit()
 	if ref != null:
-		draw_string(_font, Vector2(143, 23), "%s  /  %s" % [ref.callsign.to_upper(), "LINKED" if ref.datalink_connected() else "LOCAL SENSORS"], HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 375), 11, COL_TEXT)
-	var text := "N UP  ·  F4 SENSORS  ·  SCROLL ZOOM"
-	draw_string(_font, Vector2(size.x - 236, 23), text, HORIZONTAL_ALIGNMENT_LEFT, 228, 10, UITheme.COL_DIM)
+		var name_font := UITheme.semibold_font()
+		var label := ref.callsign
+		var room := maxf(size.x - x - 330.0, 60.0)
+		draw_string(name_font, Vector2(x, 22), label, HORIZONTAL_ALIGNMENT_LEFT, room, 12, COL_TEXT)
+		x += minf(name_font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, room) + 12.0
+		if ref.datalink_connected():
+			_chip(x, "LINK", COL_ACCENT)
+		else:
+			_chip(x, "OWN SENSORS", COL_AMBER)
+	var text := "NORTH UP  ·  SCROLL TO ZOOM  ·  F2 KEY"
+	var w := eyebrow.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+	draw_string(eyebrow, Vector2(size.x - w - 14.0, 21), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_FAINT)
 
 
 func _chip(x: float, text: String, col: Color) -> float:
-	var w := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 14.0
-	draw_rect(Rect2(x, 9, w, 19), Color(col, 0.10))
-	draw_rect(Rect2(x, 9, 2, 19), Color(col, 0.9))
-	draw_string(_font, Vector2(x + 8, 22), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, col)
+	var f := UITheme.eyebrow_font()
+	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 14.0
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(col, 0.12)
+	box.border_color = Color(col, 0.45)
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(3)
+	draw_style_box(box, Rect2(x, 9, w, 17))
+	draw_string(f, Vector2(x + 7, 21), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, col)
 	return x + w + 8.0
+
+
+## The chart footer: source note (or the cursor position while the pointer is over the chart) on
+## the left, the scale bar on the right.
+func _draw_footer() -> void:
+	var top := size.y - FOOTER_H
+	draw_rect(Rect2(0, top, size.x, FOOTER_H), COL_HEADER)
+	draw_line(Vector2(0, top + 0.5), Vector2(size.x, top + 0.5), UITheme.COL_HAIRLINE, 1)
+	_draw_scale_bar()
+	if _mouse_inside and _mouse.y > HEADER_H and _mouse.y < top:
+		_draw_readout()
+		return
+	var m := _geo_map()
+	if not m.has("anchor_lat"):
+		return
+	var note := "NATURAL EARTH 1:10M  ·  LOCAL PROJECTION  ·  NO DEPTH DATA"
+	if _floor != null and _floor.active():
+		note = "NATURAL EARTH 1:10M LAND + BATHYMETRY  ·  CONTOURS 200–4000 M  ·  NOT FOR NAVIGATION"
+	draw_string(UITheme.eyebrow_font(), Vector2(14, size.y - 8), note, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 260), 9, UITheme.COL_FAINT)
 
 
 func _draw_scale_bar() -> void:
 	var nm := _nice_step(80.0)
 	var px := nm * ppn
 	var right := size.x - 16.0
-	var y := size.y - 36.0
-	draw_line(Vector2(right - px, y), Vector2(right, y), COL_TEXT, 2.0)
-	draw_line(Vector2(right - px, y - 4.0), Vector2(right - px, y + 4.0), COL_TEXT, 2.0)
-	draw_line(Vector2(right, y - 4.0), Vector2(right, y + 4.0), COL_TEXT, 2.0)
-	draw_string(_font, Vector2(right - px, y - 7.0), (("%d m" % int(roundf(nm * 1852.0))) if nm < 0.5 else "%s nm" % Geo.format_nm(nm)), HORIZONTAL_ALIGNMENT_CENTER, int(px), 11, COL_TEXT)
+	var y := size.y - 8.0
+	var col := Color(COL_TEXT, 0.8)
+	draw_line(Vector2(right - px, y), Vector2(right, y), col, 1.5)
+	draw_line(Vector2(right - px, y - 5.0), Vector2(right - px, y), col, 1.5)
+	draw_line(Vector2(right - px * 0.5, y - 3.0), Vector2(right - px * 0.5, y), col, 1.0)
+	draw_line(Vector2(right, y - 5.0), Vector2(right, y), col, 1.5)
+	var text := ("%d m" % int(roundf(nm * 1852.0))) if nm < 0.5 else "%s nm" % Geo.format_nm(nm)
+	var f := UITheme.mono_font()
+	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+	draw_string(f, Vector2(right - px - w - 8.0, y + 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, col)
 
 
 func _draw_readout() -> void:
@@ -1951,10 +2031,12 @@ func _draw_readout() -> void:
 	var ref := reference_unit()
 	if ref != null:
 		text += "    FROM %s:  BRG %s  RNG %.1f nm" % [ref.callsign, Geo.format_bearing(Geo.bearing_deg(ref.position, w)), Geo.distance_nm(ref.position, w)]
-	draw_string(_font, Vector2(16.0, HEADER_H + 35.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(COL_TEXT, 0.85))
-	var wide := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	var mono := UITheme.mono_font()
+	var baseline := size.y - 8.0
+	draw_string(mono, Vector2(14.0, baseline), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(COL_TEXT, 0.85))
+	var wide := mono.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
 	if not Terrain.is_empty() and Terrain.is_land(w):
-		draw_string(_font, Vector2(16.0 + wide + 14.0, HEADER_H + 35.0), "LAND", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_AMBER)
+		draw_string(mono, Vector2(14.0 + wide + 16.0, baseline), "LAND", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_AMBER)
 	elif Bathymetry.active:
 		var depth := Bathymetry.depth_at(w)
 		if depth >= 1.0:
@@ -1963,13 +2045,13 @@ func _draw_readout() -> void:
 				water += "  ·  LAYER %d m" % int(Acoustics.layer_depth_m())
 			if depth >= Acoustics.CZ_MIN_DEPTH_M and Acoustics.cz_range_nm() > 0.0:
 				water += "  ·  CZ WATER"
-			draw_string(_font, Vector2(16.0 + wide + 14.0, HEADER_H + 35.0), water, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.55, 0.82, 0.92, 0.9))
+			draw_string(mono, Vector2(14.0 + wide + 16.0, baseline), water, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.55, 0.82, 0.92, 0.9))
 
 
 ## Labels: a dark pill with an identity bar, a primary line and an optional secondary line, placed
 ## where it does not collide with another label. Leader line back to the symbol.
 func _place_label(sp: Vector2, text: String, color: Color, important: bool, sub: String) -> void:
-	if not Rect2(Vector2(0, HEADER_H + 20.0), size - Vector2(0, HEADER_H + 100.0)).has_point(sp):
+	if not Rect2(Vector2(0, HEADER_H + 20.0), size - Vector2(0, HEADER_H + FOOTER_H + 60.0)).has_point(sp):
 		return
 	var w1 := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 	var w2 := _font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x if sub != "" else 0.0
@@ -1981,7 +2063,7 @@ func _place_label(sp: Vector2, text: String, color: Color, important: bool, sub:
 		var r := Rect2(sp + offset, Vector2(width, height))
 		if r.end.x > size.x - 12:
 			r.position.x = sp.x - width - 22
-		if r.position.y < HEADER_H + 4.0 or r.end.y > size.y - 100:
+		if r.position.y < HEADER_H + 4.0 or r.end.y > size.y - FOOTER_H - 60.0 or r.end.x > size.x - 60.0:
 			continue
 		var overlaps := false
 		for used in _label_rects:
@@ -2009,10 +2091,11 @@ func _draw_key() -> void:
 	var w := rect.size.x
 	var x := rect.position.x
 	var y := rect.position.y
-	draw_rect(rect, Color("0b1721", 0.94))
-	draw_rect(rect, Color(0.16, 0.30, 0.38, 0.8), false, 1.0)
-	draw_string(_font, Vector2(x + 12, y + 17), "SYMBOL KEY", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_ACCENT)
-	draw_string(_font, Vector2(x + 110, y + 17), "F2 hides", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_TEXT, 0.5))
+	if _card_style == null:
+		_card_style = UITheme.floating_panel(0)
+	draw_style_box(_card_style, rect)
+	draw_string(UITheme.eyebrow_font(), Vector2(x + 12, y + 18), "SYMBOL KEY", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_MUTED)
+	draw_string(_font, Vector2(x + w - 62, y + 18), "F2 hides", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_FAINT)
 	var cx := x + 26.0
 	var cy := y + 42.0
 	MapSymbols.draw_key_entry(self, Vector2(cx, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "surface", "DD", "Friendly", _font, COL_TEXT)
@@ -2042,7 +2125,7 @@ func _draw_key() -> void:
 
 func _symbol_key_rect() -> Rect2:
 	# Top-left avoids the command toolbar and makes the whole custom-drawn card a no-command zone.
-	return Rect2(12.0, HEADER_H + 12.0, 352.0, 214.0)
+	return Rect2(12.0, HEADER_H + 12.0, 368.0, 236.0)
 
 
 ## Hovering over a symbol shows what the console knows about it, without a click.
@@ -2095,24 +2178,36 @@ func _draw_hover_card() -> void:
 
 ## A hover card: text lines, and for an own unit its recognition profile across the top so the
 ## class is recognisable before the name is read.
+## A floating card over the chart, in the same style as the interface's floating panels, with a
+## thin identity stripe down its left edge.
+func _draw_card_frame(rect: Rect2, col: Color) -> void:
+	if _card_style == null:
+		_card_style = UITheme.floating_panel(0)
+	draw_style_box(_card_style, rect)
+	var stripe := StyleBoxFlat.new()
+	stripe.bg_color = col
+	stripe.corner_radius_top_left = 8
+	stripe.corner_radius_bottom_left = 8
+	draw_style_box(stripe, Rect2(rect.position, Vector2(3.0, rect.size.y)))
+
+
 func _draw_card(lines: PackedStringArray, col: Color, art: Texture2D = null) -> void:
 	var width := 0.0
 	for l in lines:
 		width = maxf(width, _font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x)
-	width += 20.0
+	width += 24.0
 	var art_h := 0.0
 	if art != null:
 		width = maxf(width, 200.0)
 		art_h = (width - 20.0) * float(art.get_height()) / maxf(float(art.get_width()), 1.0) + 6.0
-	var height := 12.0 + lines.size() * 15.0 + art_h
+	var height := 16.0 + lines.size() * 15.0 + art_h
 	var pos := _mouse + Vector2(18.0, 18.0)
 	if pos.x + width > size.x:
 		pos.x = _mouse.x - width - 12.0
 	if pos.y + height > size.y:
 		pos.y = _mouse.y - height - 12.0
-	draw_rect(Rect2(pos, Vector2(width, height)), Color("0b1721", 0.96))
-	draw_rect(Rect2(pos, Vector2(width, height)), Color(col, 0.6), false, 1.0)
+	_draw_card_frame(Rect2(pos, Vector2(width, height)), col)
 	if art != null:
-		draw_texture_rect(art, Rect2(pos + Vector2(10.0, 8.0), Vector2(width - 20.0, art_h - 6.0)), false, col)
+		draw_texture_rect(art, Rect2(pos + Vector2(12.0, 10.0), Vector2(width - 24.0, art_h - 6.0)), false, col)
 	for i in lines.size():
-		draw_string(_font, pos + Vector2(10.0, 16.0 + art_h + i * 15.0), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col if i == 0 else Color(COL_TEXT, 0.85))
+		draw_string(UITheme.semibold_font() if i == 0 else _font, pos + Vector2(13.0, 20.0 + art_h + i * 15.0), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col if i == 0 else Color(COL_TEXT, 0.85))

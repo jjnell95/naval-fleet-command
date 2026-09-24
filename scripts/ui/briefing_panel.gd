@@ -43,23 +43,25 @@ func _ready() -> void:
 	_layout = v
 	v.add_theme_constant_override("separation", 16)
 	_margin.add_child(v)
-	_eyebrow = _label("OPERATION ORDERS  /  MISSION BRIEFING", 16, UITheme.COL_AMBER)
+	_eyebrow = UITheme.eyebrow("Operation orders  ·  Mission briefing")
+	_eyebrow.add_theme_color_override("font_color", UITheme.COL_BRASS)
 	v.add_child(_eyebrow)
 	_title = _label("", 40, Color.WHITE)
 	_title.add_theme_font_override("font", UITheme.heading_font())
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_title)
-	_meta = _label("", 18, UITheme.COL_DIM)
+	_meta = _label("", 12, UITheme.COL_MUTED)
+	_meta.add_theme_font_override("font", UITheme.eyebrow_font())
 	_meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_meta)
 	var intent_card := PanelContainer.new()
-	intent_card.theme_type_variation = "CardPanel"
+	intent_card.add_theme_stylebox_override("panel", UITheme.stripe_card(UITheme.COL_BRASS))
 	v.add_child(intent_card)
 	var intent_box := VBoxContainer.new()
-	intent_box.add_theme_constant_override("separation", 7)
+	intent_box.add_theme_constant_override("separation", 6)
 	intent_card.add_child(intent_box)
-	intent_box.add_child(_label("COMMANDER'S INTENT", 15, UITheme.COL_AMBER))
-	_intent = _label("", 22, UITheme.COL_TEXT)
+	intent_box.add_child(UITheme.eyebrow("Commander's intent"))
+	_intent = _label("", 21, UITheme.COL_TEXT)
 	_intent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	intent_box.add_child(_intent)
 
@@ -72,11 +74,14 @@ func _ready() -> void:
 	reading.add_theme_constant_override("separation", 10)
 	main.add_child(reading)
 	var tab_row := HBoxContainer.new()
-	tab_row.add_theme_constant_override("separation", 8)
+	tab_row.add_theme_constant_override("separation", 22)
 	reading.add_child(tab_row)
 	for entry in [["orders", "ORDERS & OBJECTIVES"], ["situation", "SITUATION"], ["controls", "COMMAND REFERENCE"]]:
 		var key: String = entry[0]
 		var tab := _button(entry[1])
+		tab.theme_type_variation = "TabButton"
+		tab.custom_minimum_size.y = 36
+		tab.add_theme_font_size_override("font_size", 13)
 		tab.toggle_mode = true
 		tab.pressed.connect(func() -> void: _select_section(key))
 		tab_row.add_child(tab)
@@ -92,36 +97,42 @@ func _ready() -> void:
 	_body.focus_mode = Control.FOCUS_ALL
 	_body.accessibility_name = "Mission orders and objectives"
 	_body.accessibility_description = "Scrollable briefing. Use arrows, Page Up, or Page Down while focused."
-	_body.add_theme_font_size_override("normal_font_size", 19)
-	_body.add_theme_font_size_override("bold_font_size", 19)
-	_body.add_theme_constant_override("line_separation", 6)
+	_body.add_theme_font_size_override("normal_font_size", 16)
+	_body.add_theme_font_size_override("bold_font_size", 16)
+	_body.add_theme_constant_override("line_separation", 7)
 	card.add_child(_body)
 	_rail = VBoxContainer.new()
 	_rail.add_theme_constant_override("separation", 12)
 	main.add_child(_rail)
-	_rail.add_child(_label("AREA OF OPERATIONS", 15, UITheme.COL_AMBER))
+	_rail.add_child(UITheme.eyebrow("Area of operations"))
 	_preview = ScenarioPreview.new()
 	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_rail.add_child(_preview)
-	_posture = _label("", 18, UITheme.COL_DIM)
+	_posture = _label("", 14, UITheme.COL_DIM)
 	_posture.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rail.add_child(_posture)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	v.add_child(buttons)
-	_start = _button("TAKE COMMAND  →", true)
+	_start = _button("TAKE COMMAND", true)
 	_start.custom_minimum_size.x = 250
+	_start.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	UIIcons.apply(_start, "arrow_right", 18)
 	_start.pressed.connect(func() -> void:
 		SoundFx.play("click")
 		start_pressed.emit())
 	buttons.add_child(_start)
-	_restart = _button("RESTART OPERATION")
+	_restart = _button("RESTART")
+	_restart.tooltip_text = "Reload this operation from its starting positions  [F10]"
+	UIIcons.apply(_restart, "restart", 16)
 	_restart.pressed.connect(func() -> void: restart_pressed.emit())
 	buttons.add_child(_restart)
-	_menu = _button("CHOOSE OPERATION")
+	_menu = _button("ALL OPERATIONS")
+	_menu.tooltip_text = "Return to the operations desk  [F9]"
+	UIIcons.apply(_menu, "menu", 16)
 	_menu.pressed.connect(func() -> void: menu_pressed.emit())
 	buttons.add_child(_menu)
-	var pause_note := _label("SPACE  Pause / resume", 16, UITheme.COL_DIM)
+	var pause_note := _label("Space pauses at any time", 12, UITheme.COL_MUTED)
 	pause_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	pause_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(pause_note)
@@ -231,7 +242,7 @@ func _append_orders(out: PackedStringArray) -> void:
 	if not first_orders.is_empty():
 		out.append(_section("OPENING ORDERS"))
 		for i in first_orders.size():
-			out.append("[color=%s]%02d[/color]   %s\n" % [UITheme.HEX_AMBER, i + 1, _safe(str(first_orders[i]))])
+			out.append("[color=%s][b]%02d[/b][/color]   %s\n" % [UITheme.HEX_BRASS, i + 1, _safe(str(first_orders[i]))])
 	elif mission_manager.briefing != "":
 		out.append(_section("YOUR TASK"))
 		out.append(_safe(mission_manager.briefing) + "\n")
@@ -298,15 +309,15 @@ func _append_controls(out: PackedStringArray) -> void:
 func _line(o: MissionObjective, loss := false) -> String:
 	var mark := "[color=%s]COMPLETE[/color]" % UITheme.HEX_GREEN if o.complete else "[color=%s]OPEN[/color]" % UITheme.HEX_AMBER
 	if loss:
-		mark = "[color=%s]TRIGGERED[/color]" % UITheme.HEX_RED if o.complete else "[color=%s]AVOID[/color]" % UITheme.HEX_DIM
+		mark = "[color=%s]TRIGGERED[/color]" % UITheme.HEX_RED if o.complete else "[color=%s]AVOID[/color]" % UITheme.HEX_MUTED
 	var detail := o.progress(unit_manager, SimClock.sim_time) if unit_manager != null else ""
-	return "%s   %s\n[color=%s]%s[/color]" % [mark, _safe(o.text), UITheme.HEX_DIM, _safe(detail)]
+	return "[font_size=12]%s[/font_size]   %s\n[color=%s][font_size=13]%s[/font_size][/color]" % [mark, _safe(o.text), UITheme.HEX_MUTED, _safe(detail)]
 
 
 func set_mode(pre_mission: bool) -> void:
 	_pre_mission = pre_mission
-	_start.text = "TAKE COMMAND  →" if pre_mission else "RESUME OPERATION  →"
-	_eyebrow.text = "OPERATION ORDERS  /  MISSION BRIEFING" if pre_mission else "OPERATION ORDERS  /  MISSION STATUS"
+	_start.text = "TAKE COMMAND" if pre_mission else "RESUME OPERATION"
+	_eyebrow.text = "OPERATION ORDERS  ·  MISSION BRIEFING" if pre_mission else "OPERATION ORDERS  ·  MISSION STATUS"
 	if pre_mission:
 		_select_section("orders")
 	refresh()
@@ -322,7 +333,7 @@ static func _safe(value: String) -> String:
 
 
 static func _section(value: String) -> String:
-	return "[color=%s][b]%s[/b][/color]" % [UITheme.HEX_AMBER, value]
+	return UITheme.section_bb(value)
 
 
 static func _label(value: String, font_size: int, color: Color) -> Label:
@@ -337,8 +348,8 @@ static func _button(value: String, primary := false) -> Button:
 	var result := Button.new()
 	result.text = value
 	result.focus_mode = Control.FOCUS_ALL
-	result.custom_minimum_size.y = 48
-	result.add_theme_font_size_override("font_size", 17)
+	result.custom_minimum_size.y = 44
+	result.add_theme_font_size_override("font_size", 13)
 	if primary:
 		result.theme_type_variation = "PrimaryButton"
 	return result

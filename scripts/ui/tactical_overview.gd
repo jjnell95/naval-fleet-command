@@ -6,17 +6,18 @@ extends Control
 
 const PAD := 9.0
 const TITLE_H := 22.0
-const COL_BG := Color("08131d", 0.94)
+const COL_BG := Color("09121a", 0.94)
 const COL_WATER := Color("0b2635")
 const COL_LAND := Color("3b5149")
 const COL_COAST := Color("9bb6aa", 0.8)
-const COL_VIEW := Color("72dbc9")
+const COL_VIEW := UITheme.COL_ACCENT
 const REDRAW_INTERVAL_S := 1.0 / 20.0
 
 var map: TacticalMap
 var _dragging := false
 var _font: Font
 var _redraw_accum := 0.0
+var _frame: StyleBoxFlat
 var _terrain_generation := -1
 var _terrain_size := Vector2.ZERO
 var _terrain_center := Vector2(INF, INF)
@@ -198,9 +199,10 @@ static func depth_color(d: float) -> Color:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), COL_BG)
-	draw_rect(Rect2(Vector2.ZERO, size), UITheme.COL_BORDER_LIGHT, false, 1.0)
-	draw_string(UITheme.heading_font(), Vector2(PAD, 16), "TACTICAL OVERVIEW", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_ACCENT)
+	if _frame == null:
+		_frame = UITheme.floating_panel(0)
+	draw_style_box(_frame, Rect2(Vector2.ZERO, size))
+	draw_string(UITheme.eyebrow_font(), Vector2(PAD, 16), "THEATRE", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_MUTED)
 	var scale_text := "%s NM" % Geo.format_nm(_extent_nm())
 	var sw := _font.get_string_size(scale_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
 	draw_string(_font, Vector2(size.x - sw - PAD, 16), scale_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)

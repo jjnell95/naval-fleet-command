@@ -135,6 +135,10 @@ func _aim_for(w: Weapon) -> Vector2:
 
 
 func _step(w: Weapon, dt: float) -> void:
+	# Interceptors are stepped before the rounds they chase, and a decoy can kill a round at the
+	# end of a tick. A round already dead must not fly on and roll an impact of its own.
+	if w.phase == Weapon.Phase.DEAD:
+		return
 	w.time_alive_s += dt
 	if w.intercept_target != null:
 		_step_interceptor(w, dt)
@@ -144,7 +148,9 @@ func _step(w: Weapon, dt: float) -> void:
 		w.aim_point = _aim_for(w)
 
 	var goal := w.aim_point
-	if w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.acquired.alive:
+	# The seeker loses a target that leaves its medium: a helicopter that lands on its deck, a
+	# boat that dives under an anti-ship missile.
+	if w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.acquired.alive and can_target(w.spec, w.acquired):
 		goal = w.acquired.position
 	elif w.phase == Weapon.Phase.TERMINAL:
 		w.phase = Weapon.Phase.DEAD

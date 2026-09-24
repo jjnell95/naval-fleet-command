@@ -10,6 +10,9 @@ signal formation_requested(pattern: String)
 signal move_mode_requested(active: bool)
 signal emcon_toggle_requested()
 signal air_operations_requested()
+## Orders whose value differs per platform, such as each airframe's own cruise altitude: an Array
+## of [Unit, Order] pairs.
+signal unit_orders_requested(pairs: Array)
 
 const SPEED_PRESETS: Array[float] = [5.0, 10.0, 15.0, 20.0, 25.0]
 
@@ -57,40 +60,51 @@ var _mag_signature := ""
 
 func _ready() -> void:
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
+	v.add_theme_constant_override("separation", 4)
 	add_child(v)
 	var quick := HBoxContainer.new()
 	quick.add_theme_constant_override("separation", 6)
-	quick.custom_minimum_size.y = 44
+	quick.custom_minimum_size.y = 34
 	v.add_child(quick)
+	var chain := VBoxContainer.new()
+	chain.add_theme_constant_override("separation", 0)
+	chain.alignment = BoxContainer.ALIGNMENT_CENTER
+	chain.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	chain.custom_minimum_size.x = 220
+	quick.add_child(chain)
+	chain.add_child(UITheme.eyebrow("Command"))
 	_status = Label.new()
 	_status.clip_text = true
-	_status.theme_type_variation = "HeaderLabel"
+	_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_status.add_theme_font_override("font", UITheme.semibold_font())
+	_status.add_theme_font_size_override("font_size", 13)
 	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_status.custom_minimum_size.x = 220
-	quick.add_child(_status)
-	_move_btn = _quick_toggle("PLOT MOVE  G", "Arm a visible left-click move order. Shift adds waypoints; Escape cancels.", func() -> void:
+	chain.add_child(_status)
+	_move_btn = _quick_toggle("PLOT MOVE", "Arm a visible left-click move order. Shift adds waypoints; Escape cancels.  [G]", func() -> void:
 		move_mode_requested.emit(_move_btn.button_pressed))
+	UIIcons.apply(_move_btn, "route", 16)
 	quick.add_child(_move_btn)
-	_radar_toggle = _quick_toggle("RADAR  R", "Toggle search radar for each selected platform that carries one.", _toggle_radar)
+	_radar_toggle = _quick_toggle("RADAR", "Toggle search radar for each selected platform that carries one.  [R]", _toggle_radar)
 	quick.add_child(_radar_toggle)
-	_sonar_toggle = _quick_toggle("SONAR  P", "Toggle active sonar for each selected platform that carries one.", _toggle_sonar)
+	_sonar_toggle = _quick_toggle("SONAR", "Toggle active sonar for each selected platform that carries one.  [P]", _toggle_sonar)
 	quick.add_child(_sonar_toggle)
-	_emcon_toggle = _quick_toggle("EMCON  E", "Emission control. Silent shuts down radar, active sonar and jammers.", _toggle_emcon)
+	_emcon_toggle = _quick_toggle("EMCON", "Emission control. Silent shuts down radar, active sonar and jammers.  [E]", _toggle_emcon)
 	quick.add_child(_emcon_toggle)
-	_roe_btn = _quick_button("WPNS —", "Current weapons posture. Open Doctrine + Formation to change it.", func() -> void: _tabs.current_tab = 3)
+	_roe_btn = _quick_button("WPNS —", "Current weapons posture. Opens Doctrine + Formation to change it.", func() -> void: _tabs.current_tab = 3)
 	quick.add_child(_roe_btn)
-	_engagement_tab_btn = _quick_button("ENGAGEMENT  →", "Open the engagement solution for the selected shooter and target.", open_engagement)
+	_engagement_tab_btn = _quick_button("ENGAGE", "Open the engagement solution for the selected shooter and target.", open_engagement.bind(true))
 	_engagement_tab_btn.theme_type_variation = "PrimaryButton"
+	UIIcons.apply(_engagement_tab_btn, "target", 16)
 	quick.add_child(_engagement_tab_btn)
 	_tabs = TabContainer.new()
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tabs.tab_changed.connect(func(_t: int) -> void: _sync_engage_emphasis())
 	v.add_child(_tabs)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	row.name = "NAVIGATION"
-	row.custom_minimum_size.y = 44
+	row.custom_minimum_size.y = 34
 	_tabs.add_child(row)
 
 	row.add_child(_label("SPEED"))
@@ -119,7 +133,7 @@ func _ready() -> void:
 	var wrow := HBoxContainer.new()
 	wrow.add_theme_constant_override("separation", 6)
 	wrow.name = "ENGAGEMENT"
-	wrow.custom_minimum_size.y = 44
+	wrow.custom_minimum_size.y = 34
 	_tabs.add_child(wrow)
 
 	wrow.add_child(_label("WEAPON"))
@@ -135,8 +149,10 @@ func _ready() -> void:
 	_weapon_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	wrow.add_child(_weapon_art)
 	_inspect_weapon = Button.new()
-	_inspect_weapon.text = "3D"
-	_inspect_weapon.tooltip_text = "Inspect this weapon system"
+	_inspect_weapon.theme_type_variation = "QuietButton"
+	_inspect_weapon.tooltip_text = "Inspect this weapon in the recognition library"
+	_inspect_weapon.accessibility_name = "Inspect weapon"
+	UIIcons.apply(_inspect_weapon, "eye", 18)
 	_inspect_weapon.pressed.connect(func() -> void:
 		var spec := current_weapon_spec()
 		if spec != null:
@@ -168,7 +184,7 @@ func _ready() -> void:
 	_subrow = HBoxContainer.new()
 	_subrow.add_theme_constant_override("separation", 6)
 	_subrow.name = "AVIATION + ASW"
-	_subrow.custom_minimum_size.y = 44
+	_subrow.custom_minimum_size.y = 34
 	_tabs.add_child(_subrow)
 	_depth_label = _label("DEPTH")
 	_subrow.add_child(_depth_label)
@@ -203,7 +219,7 @@ func _ready() -> void:
 	_cmdrow = HBoxContainer.new()
 	_cmdrow.add_theme_constant_override("separation", 6)
 	_cmdrow.name = "DOCTRINE + FORMATION"
-	_cmdrow.custom_minimum_size.y = 44
+	_cmdrow.custom_minimum_size.y = 34
 	_tabs.add_child(_cmdrow)
 	_cmdrow.add_child(_label("EMCON"))
 	_add_button(_cmdrow, "RADIATE", func() -> void: _emit_raw(Order.set_emcon(false)))
@@ -227,7 +243,7 @@ func _quick_button(text: String, tip: String, on_pressed: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.tooltip_text = tip
-	button.custom_minimum_size.y = 44
+	button.custom_minimum_size.y = 34
 	button.focus_mode = Control.FOCUS_ALL
 	button.pressed.connect(on_pressed)
 	_buttons.append(button)
@@ -292,19 +308,19 @@ func _sync_quick_actions() -> void:
 	_radar_toggle.visible = radar >= 0
 	_radar_toggle.disabled = not _controllable or radar < 0
 	_radar_toggle.set_pressed_no_signal(radar == 1)
-	_radar_toggle.text = "RADAR %s  R" % ("ON" if radar == 1 else ("MIXED" if radar == 2 else "OFF"))
-	_radar_toggle.modulate = UITheme.COL_AMBER if radar == 2 else Color.WHITE
+	_radar_toggle.text = "RADAR %s" % ("ON" if radar == 1 else ("MIXED" if radar == 2 else "OFF"))
+	_mark_mixed(_radar_toggle, radar == 2)
 	var sonar := _selection_state("sonar")
 	_sonar_toggle.visible = sonar >= 0
 	_sonar_toggle.disabled = not _controllable or sonar < 0
 	_sonar_toggle.set_pressed_no_signal(sonar == 1)
-	_sonar_toggle.text = "SONAR %s  P" % ("ACTIVE" if sonar == 1 else ("MIXED" if sonar == 2 else "PASSIVE"))
-	_sonar_toggle.modulate = UITheme.COL_AMBER if sonar == 2 else Color.WHITE
+	_sonar_toggle.text = "SONAR %s" % ("ACTIVE" if sonar == 1 else ("MIXED" if sonar == 2 else "PASSIVE"))
+	_mark_mixed(_sonar_toggle, sonar == 2)
 	var emcon := _selection_state("emcon")
 	_emcon_toggle.disabled = not _controllable
 	_emcon_toggle.set_pressed_no_signal(emcon == 1)
-	_emcon_toggle.text = "EMCON %s  E" % ("SILENT" if emcon == 1 else ("MIXED" if emcon == 2 else "FREE"))
-	_emcon_toggle.modulate = UITheme.COL_AMBER if emcon == 2 else Color.WHITE
+	_emcon_toggle.text = "EMCON %s" % ("SILENT" if emcon == 1 else ("MIXED" if emcon == 2 else "FREE"))
+	_mark_mixed(_emcon_toggle, emcon == 2)
 	var roe := -1
 	var roe_mixed := false
 	for u: Unit in _units:
@@ -313,22 +329,45 @@ func _sync_quick_actions() -> void:
 		elif roe != u.roe:
 			roe_mixed = true
 	var roe_text: String = "MIXED" if roe_mixed else (["HOLD", "TIGHT", "FREE"][roe] if roe >= 0 else "—")
-	_roe_btn.text = "WPNS %s  →" % roe_text
-	_roe_btn.modulate = UITheme.COL_AMBER if roe_mixed or roe == Unit.Roe.TIGHT else (UITheme.COL_RED if roe == Unit.Roe.HOLD else Color.WHITE)
+	_roe_btn.text = "WPNS %s" % roe_text
+	var roe_col := UITheme.COL_AMBER if roe_mixed or roe == Unit.Roe.TIGHT else (UITheme.COL_RED if roe == Unit.Roe.HOLD else UITheme.COL_TEXT)
+	for key in ["font_color", "font_hover_color", "font_focus_color"]:
+		_roe_btn.add_theme_color_override(key, roe_col)
 	_roe_btn.disabled = not _controllable
 	_engagement_tab_btn.disabled = not _controllable
-	_engagement_tab_btn.text = "ENGAGE %s  →" % (_target.id if _target != null else "TARGET")
+	_engagement_tab_btn.text = ("ENGAGE " + _target.id) if _target != null else "ENGAGE"
+	_sync_engage_emphasis()
 	_refresh_status()
+
+
+## A MIXED selection state reads amber without tinting the whole button.
+func _mark_mixed(button: Button, mixed: bool) -> void:
+	for key in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
+		if mixed:
+			button.add_theme_color_override(key, UITheme.COL_AMBER)
+		else:
+			button.remove_theme_color_override(key)
+
+
+## Only one primary action at a time: the dock's ENGAGE shortcut steps back once the engagement
+## tab and its own ENGAGE button are showing.
+func _sync_engage_emphasis() -> void:
+	if _engagement_tab_btn == null or _tabs == null:
+		return
+	var on_tab := _tabs.current_tab == 1
+	# Primary only once there is something to engage.
+	_engagement_tab_btn.theme_type_variation = "PrimaryButton" if _target != null and not on_tab else ""
+	_engagement_tab_btn.visible = not on_tab
 
 
 func _refresh_status() -> void:
 	if _units.is_empty():
-		_status.text = "COMMAND DOCK  ·  select a platform"
+		_status.text = "Select a platform on the chart or in the task group"
 	elif not _controllable:
-		_status.text = "COMMAND DOCK  ·  selection not under command"
+		_status.text = "Selection is not under your command"
 	else:
-		var shooter: String = _units[0].callsign.to_upper() if _units.size() == 1 else "%d PLATFORMS" % _units.size()
-		var target: String = "SELECT CONTACT" if _target == null else "%s / %s %s" % [_target.id, _target.identity, _target.domain.to_upper()]
+		var shooter: String = _units[0].callsign if _units.size() == 1 else "%d platforms" % _units.size()
+		var target: String = "select a contact" if _target == null else "%s  ·  %s %s" % [_target.id, _target.identity.to_lower(), _target.domain.to_lower()]
 		_status.text = "%s  →  %s" % [shooter, target]
 		_status.tooltip_text = "Command chain: selected shooter → selected target → appropriate weapon → engage."
 
@@ -338,10 +377,12 @@ func set_move_mode(active: bool) -> void:
 		_move_btn.set_pressed_no_signal(active and _movable)
 
 
-func open_engagement() -> void:
+## Shows the engagement tab. Keyboard focus moves to the weapon list only when the player asked
+## for the tab explicitly; hooking a contact must leave the chart's keys working.
+func open_engagement(take_focus := false) -> void:
 	if _tabs != null:
 		_tabs.current_tab = 1
-		if _weapon_option != null and not _weapon_option.disabled:
+		if take_focus and _weapon_option != null and not _weapon_option.disabled:
 			_weapon_option.grab_focus()
 
 
@@ -478,6 +519,7 @@ func _add_alt_button(text: String, metres: float) -> void:
 
 
 func _emit_altitude(metres: float) -> void:
+	var pairs: Array = []
 	for u: Unit in _units:
 		if not u.is_aircraft():
 			continue
@@ -486,14 +528,15 @@ func _emit_altitude(metres: float) -> void:
 			wanted = u.spec.cruise_altitude_m
 		elif metres == -2.0:
 			wanted = u.spec.max_altitude_m
-		order_requested.emit(Order.set_altitude(clampf(wanted, 0.0, u.spec.max_altitude_m)))
-		return
+		pairs.append([u, Order.set_altitude(clampf(wanted, 0.0, u.spec.max_altitude_m))])
+	if not pairs.is_empty():
+		unit_orders_requested.emit(pairs)
 
 
 func _make_button(text: String, on_pressed: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size.y = 38
+	b.custom_minimum_size.y = 32
 	b.focus_mode = Control.FOCUS_ALL
 	b.pressed.connect(on_pressed)
 	_buttons.append(b)
@@ -509,7 +552,7 @@ func _emit_raw(order: Order) -> void:
 func _add_depth_button(text: String, metres: float) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size.y = 38
+	b.custom_minimum_size.y = 32
 	b.focus_mode = Control.FOCUS_ALL
 	b.pressed.connect(func() -> void: _emit_depth(metres))
 	_subrow.add_child(b)
@@ -521,8 +564,7 @@ func _add_depth_button(text: String, metres: float) -> Button:
 ## -1 means "whatever this boat calls its patrol depth"; -2 means "under the layer, if there is
 ## one here to get under". The floor still has the last word in Movement.
 func _emit_depth(metres: float) -> void:
-	if _units.is_empty():
-		return
+	var pairs: Array = []
 	for u: Unit in _units:
 		if u.spec.max_depth_m > 0.0:
 			var wanted := u.spec.patrol_depth_m if metres < 0.0 else metres
@@ -530,8 +572,9 @@ func _emit_depth(metres: float) -> void:
 				wanted = Acoustics.below_layer_depth_m(u)
 				if wanted < 0.0:
 					continue
-			order_requested.emit(Order.set_depth(clampf(wanted, 0.0, u.spec.max_depth_m)))
-			return
+			pairs.append([u, Order.set_depth(clampf(wanted, 0.0, u.spec.max_depth_m))])
+	if not pairs.is_empty():
+		unit_orders_requested.emit(pairs)
 
 
 func set_target_track(t: Track) -> void:
@@ -676,7 +719,7 @@ func _add_button(parent: Node, text: String, on_pressed: Callable) -> Button:
 func _label(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.theme_type_variation = "DimLabel"
+	l.theme_type_variation = "HeaderLabel"
 	l.add_theme_font_size_override("font_size", 10)
 	return l
 

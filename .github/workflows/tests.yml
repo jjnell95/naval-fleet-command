@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  godot:
+    name: Godot regression and interface checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GODOT_VERSION: 4.7.2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux
+
+      - name: Download Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot
+          curl -sSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+
+      - name: Install a virtual display
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri > /dev/null
+
+      - name: Import the project
+        run: ~/godot/godot --headless --path . --import --quit
+
+      - name: Regression tests
+        run: timeout 900 ~/godot/godot --headless --path . --script tests/run_tests.gd
+
+      - name: Command deck checks (1600 x 900)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1600x900x24" ~/godot/godot --path . --resolution 1600x900 -- --cold-war-smoke
+
+      - name: Air operations checks
+        run: timeout 600 xvfb-run -a -s "-screen 0 1600x1000x24" ~/godot/godot --path . --resolution 1600x1000 -- --aviation-smoke
