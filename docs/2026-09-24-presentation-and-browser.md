@@ -76,6 +76,7 @@ The design size is now 1600 × 900 with `expand` stretch. Wider windows get a wi
 
 - 319 regression tests pass, 11 of them new.
 - The 29 command-deck checks pass at both 1600 × 1000 and 1600 × 900, including a new check that Space toggles pause exactly once with a button focused. The 19 air-operations checks pass.
+- All 15 missions run 7,200 simulated seconds at seeds 2 and 7 with the AI commanding both sides: 30 of 30 runs exit cleanly with no errors or warnings.
 - In headless Chromium, the rebuilt browser build loads, takes command, pauses, cycles contacts and opens the palette, air operations, library and symbol key. It runs at 60× and arms the restart confirmation with no console errors or page navigations, at 1440 × 800 and 1920 × 1080.
 
 ## Not changed
