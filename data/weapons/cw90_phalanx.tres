@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_phalanx"
+display_name = "Phalanx Block 0/1 CIWS"
+family = "Phalanx Block 0/1 CIWS"
+type = "ciws"
+target_types = PackedStringArray("missile", "air")
+guidance = "radar_directed"
+profile = "direct"
+max_range_nm = 1.2
+min_range_nm = 0.1
+speed_kn = 2200.0
+damage = 15.0
+base_pk = 0.4
+salvo_default = 1
+launch_interval_s = 1.0
+seeker_range_nm = 0.0
+turn_rate_deg_s = 60.0
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

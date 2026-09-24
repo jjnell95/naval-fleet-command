@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_aps116"
+display_name = "AN/APS-116 Viking radar"
+kind = "radar"
+emits = true
+range_surface_nm = 85.0
+range_air_nm = 70.0
+antenna_height_m = 24.0
+classify_rate = 0.8
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_slava"
+display_name = "Slava-class missile cruiser (1990)"
+short_name = "CG Slava"
+nation = "USSR"
+category = "cruiser"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 0.22
+health = 145.0
+signature_factor = 1.0
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_fregat", "cw90_mgk335", "cw90_soviet_esm")
+weapon_loadout = {"cw90_p500": 16, "cw90_fort": 64, "cw90_osa_m": 40, "cw90_ak130": 400, "cw90_ak630": 120, "cw90_set65": 10}
+decoy_count = 12
+fire_control_channels = 4
+role = "Long-range surface strike / area air defence"
+service_note = "Project 1164 period P-500 Bazalt fit. Slava retains its Soviet name; P-1000 Vulkan and the later name Moskva are not used. Targeting support is simplified."
+length_m = 186.4
+displacement_t = 11200.0
+aircraft_capacity = 1
+default_air_wing = {"cw90_ka27": 1}
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

@@ -29,7 +29,7 @@ func _ready() -> void:
 	hl.theme_type_variation = "HeaderLabel"
 	v.add_child(hl)
 	roster = FleetRoster.new()
-	roster.custom_minimum_size.y = 100
+	roster.custom_minimum_size.y = 144
 	v.add_child(roster)
 	_header = Label.new()
 	_header.text = "—"
@@ -42,7 +42,7 @@ func _ready() -> void:
 	v.add_child(_subtitle)
 	_portrait = PlatformPortrait.new()
 	_portrait.panel = self
-	_portrait.custom_minimum_size.y = 182
+	_portrait.custom_minimum_size.y = 128
 	v.add_child(_portrait)
 	var inspect := Button.new()
 	inspect.text = "INSPECT PLATFORM  /  3D"

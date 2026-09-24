@@ -42,6 +42,11 @@ static func _scan(root: String, custom: bool, out: Array) -> void:
 					"order": int(d.get("order", 999)),
 					"forces": d.get("forces", ""),
 					"custom": custom,
+					"era": d.get("era", "Modern"),
+					"year": int(d.get("year", str(d.get("start_time_utc", "0")).substr(0, 4))),
+					"difficulty": d.get("difficulty", "Open command"),
+					"duration_minutes": int(d.get("duration_minutes", 0)),
+					"role": d.get("role", "Task force command"),
 				})
 		name = dir.get_next()
 	dir.list_dir_end()

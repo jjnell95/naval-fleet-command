@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_ticonderoga"
+display_name = "Ticonderoga-class VLS cruiser, CG-52 fit (1990)"
+short_name = "CG Ticonderoga"
+nation = "USA"
+category = "cruiser"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 0.22
+health = 135.0
+signature_factor = 1.0
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_spy1a", "cw90_sqs53b", "cw90_sqr19", "cw90_slq32")
+weapon_loadout = {"cw90_sm2mr": 80, "cw90_harpoon": 8, "cw90_mk46": 12, "cw90_mk45": 400, "cw90_phalanx": 100}
+decoy_count = 12
+fire_control_channels = 4
+role = "Aegis area air defence"
+service_note = "Bunker Hill CG-52 period VLS fit with SPY-1A and SM-2MR; land-attack stores omitted. No ballistic-missile defence, SM-3, SM-6, ESSM or VL-ASROC."
+length_m = 172.8
+displacement_t = 9600.0
+aircraft_capacity = 2
+vls_cells = 122
+default_air_wing = {"cw90_sh60b": 2}
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

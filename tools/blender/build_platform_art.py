@@ -19,6 +19,7 @@ Output: assets/platforms/<id>_profile.png and <id>_plan.png. The repository comm
 so a game build never needs Blender; this script only runs when the art changes.
 """
 import math
+import importlib.util
 import os
 import re
 import sys
@@ -1199,6 +1200,13 @@ BUILDERS = {
     "usn_helo_mh60r": lambda s: build_helicopter(s["length_m"]),
     "shore_air_station": lambda s: build_air_station(),
 }
+
+
+# Kept separate so period silhouettes cannot silently inherit modern generic hulls.
+_cw_module = importlib.util.spec_from_file_location("cold_war_models", os.path.join(os.path.dirname(__file__), "cold_war_models.py"))
+_cw = importlib.util.module_from_spec(_cw_module)
+_cw_module.loader.exec_module(_cw)
+BUILDERS.update(_cw.register(globals()))
 
 
 def generic_builder(spec):

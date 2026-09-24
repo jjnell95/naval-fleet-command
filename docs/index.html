@@ -1,101 +1,34 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#091722">
-  <title>Naval Fleet Command — Command Deck</title>
-  <style>
-    * { box-sizing: border-box; }
-    :root { color-scheme: dark; --bg:#09121b; --panel:#101e2b; --line:#3f6074; --text:#e4edf2; --dim:#9aafbd; --accent:#72dbc9; --amber:#ffbe77; }
-    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 system-ui,sans-serif; }
-    a { color:inherit; }
-    header, main, footer { max-width:1240px; margin:auto; padding:26px 36px; }
-    header { display:flex; justify-content:space-between; border-bottom:1px solid var(--line); font:12px monospace; letter-spacing:2px; }
-    .accent, .eyebrow { color:var(--accent); }
-    .hero { padding-top:62px; display:grid; grid-template-columns:.88fr 1.12fr; gap:44px; align-items:center; }
-    .eyebrow { font:12px monospace; letter-spacing:2px; }
-    h1 { font-size:clamp(44px,6vw,78px); letter-spacing:-4px; line-height:1.02; margin:22px 0; }
-    h1 span { color:#8ca9ba; }
-    h2 { font-size:20px; }
-    p { color:var(--dim); }
-    .hero p { max-width:560px; }
-    .actions { display:flex; gap:12px; flex-wrap:wrap; margin:30px 0; }
-    .button { display:inline-block; min-height:48px; text-decoration:none; padding:11px 22px; border:1px solid var(--line); border-radius:4px; font-weight:650; }
-    .primary { background:var(--accent); border-color:var(--accent); color:#09232a; }
-    .scope, .preview { width:100%; border:1px solid var(--line); border-radius:6px; }
-    .scope { filter:drop-shadow(0 0 30px #3ddfba12); }
-    .metrics { display:grid; grid-template-columns:repeat(5,1fr); border-block:1px solid var(--line); margin:42px 0; }
-    .metrics div { padding:22px 0; }
-    .metrics strong { display:block; font-size:28px; color:var(--accent); }
-    .metrics small { color:var(--dim); }
-    .features, .systems { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:30px 0 42px; }
-    .card { padding:20px; background:var(--panel); border:1px solid var(--line); border-radius:5px; }
-    .card h2, .card h3 { margin:0 0 8px; }
-    .card p { margin:0; font-size:14px; }
-    .controls { padding:24px; border:1px solid var(--line); border-radius:5px; margin:30px 0; }
-    kbd { background:#1a2c39; padding:3px 7px; border:1px solid var(--line); border-radius:4px; color:var(--text); white-space:nowrap; }
-    .note { font-size:12px; }
-    footer { font-size:12px; color:var(--dim); border-top:1px solid var(--line); }
-    a:focus-visible { outline:3px solid var(--amber); outline-offset:5px; }
-    @media (max-width:900px) {
-      header, main, footer { padding:20px; }
-      .hero { padding-top:34px; grid-template-columns:1fr; gap:18px; }
-      h1 { letter-spacing:-2px; }
-      .features, .systems { grid-template-columns:1fr; }
-      .metrics { grid-template-columns:1fr 1fr; }
-      header { letter-spacing:0; }
-    }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1722">
+<title>Naval Fleet Command | Cold War 1990</title>
+<style>
+*{box-sizing:border-box} :root{color-scheme:dark;--bg:#0b1722;--panel:#101f2b;--line:#354958;--text:#e8edf0;--muted:#a6b6c0;--amber:#e9b978;--sea:#7cd5c5}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}a{color:inherit}header,main,footer{max-width:1400px;margin:auto;padding:26px 48px}header{display:flex;justify-content:space-between;gap:24px;border-bottom:1px solid var(--line);font:12px/1.5 monospace;letter-spacing:1.5px}.edition,.eyebrow{color:var(--amber)}.hero{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;padding:58px 0 48px}.eyebrow{font:12px/1.6 monospace;letter-spacing:2px}h1{font-size:clamp(42px,5.8vw,78px);line-height:1.03;letter-spacing:-3px;font-weight:650;margin:20px 0 28px}h1 span{color:var(--amber)}p{color:var(--muted)}.lede{font-size:19px;max-width:610px}.actions{display:flex;flex-wrap:wrap;gap:12px;margin:30px 0 12px}.button{display:inline-block;padding:12px 22px;min-height:50px;text-decoration:none;border:1px solid var(--line);border-radius:3px;font-weight:600}.primary{background:var(--amber);color:#152331;border-color:var(--amber)}.small{font-size:12px}.brief{border:1px solid var(--line);background:var(--panel);padding:30px}.brief header{padding:0 0 20px;font:12px monospace}.brief h2{font-size:27px;line-height:1.25;margin:24px 0 16px}.brief ol{padding-left:22px;color:var(--muted)}.brief li{padding:8px 0 8px 6px}.brief strong{color:var(--text);font-weight:600}.status{padding-top:16px;border-top:1px solid var(--line);color:var(--sea);font:12px monospace}.screen{margin:12px 0 46px}.screen img{width:100%;border:1px solid var(--line);display:block}.screen figcaption{font-size:12px;color:var(--muted);margin-top:10px}.section-label{font:12px monospace;color:var(--amber);letter-spacing:2px;margin:0 0 20px}.operations{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--line);margin-bottom:44px}.operation{padding:28px 26px 26px 0;border-bottom:1px solid var(--line)}.operation:nth-child(even){padding-left:28px;border-left:1px solid var(--line)}.operation .number{font:12px monospace;color:var(--amber)}h2{font-size:23px;letter-spacing:-.4px;margin:8px 0}.operation p{margin:0;max-width:520px}.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;padding:0 0 38px}.principles h3{font-size:18px}.principles p{font-size:14px}.keys{padding:24px;background:var(--panel);border:1px solid var(--line);margin-bottom:24px}.keys p{margin:6px 0}kbd{font:12px monospace;padding:3px 6px;border:1px solid var(--line);border-radius:3px;color:var(--text);white-space:nowrap}footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line)}a:focus-visible{outline:3px solid var(--sea);outline-offset:5px}@media(max-width:900px){header,main,footer{padding:22px}.hero{grid-template-columns:1fr;gap:24px;padding:32px 0}.principles{grid-template-columns:1fr;gap:0}.operations{grid-template-columns:1fr}.operation:nth-child(even){padding-left:0;border-left:0}.brief{padding:24px}h1{letter-spacing:-2px}.edition{letter-spacing:0}}
+</style>
 </head>
 <body>
-  <header><b>NAVAL FLEET COMMAND</b><span class="accent">M20 / AIR OPERATIONS</span></header>
-  <main>
-    <section class="hero">
-      <div>
-        <div class="eyebrow">NORTH ATLANTIC · FICTIONAL OPERATIONS</div>
-        <h1>See the picture.<br><span>Command the problem.</span></h1>
-        <p>Lead ships, submarines, aircraft, and layered defences from an Aegis-inspired command centre. Plot deliberate routes, recover the map at a glance, cycle the most important contacts, and move from shooter to target to a legal firing solution.</p>
-        <div class="actions">
-          <a class="button primary" href="play/">Take command ↗</a>
-          <a class="button" href="https://github.com/jjnell95/naval-fleet-command">Explore source</a>
-        </div>
-        <p class="note">Desktop keyboard + mouse/trackpad · WebGL 2 · original Godot simulation and procedural sound<br>Public system families; estimated performance and fictional scenarios.</p>
-      </div>
-      <img class="scope" src="ux-actions-palette.png" alt="Searchable command palette over the Naval Fleet Command tactical interface">
-    </section>
-
-    <div class="metrics">
-      <div><strong>11</strong><small>Playable missions</small></div>
-      <div><strong>74</strong><small>Platform types</small></div>
-      <div><strong>70</strong><small>Weapon families</small></div>
-      <div><strong>81</strong><small>Sensor definitions</small></div>
-      <div><strong>144</strong><small>Inspectable models</small></div>
-    </div>
-
-    <section class="features" aria-label="M20 improvements">
-      <div class="card"><h2>Choose your air wing</h2><p>Select the carrier or airfield, aircraft type and sortie size. See each airframe’s readiness, fuel and deck cycle in the new Air Operations board.</p></div>
-      <div class="card"><h2>Bring them home</h2><p>Choose a compatible carrier or friendly runway. Aircraft fly a visible approach, land, refuel and rearm before their next sortie. Divert to another base when needed.</p></div>
-      <div class="card"><h2>Expand the force</h2><p>18 new ships, submarines and aircraft, 12 weapon families and original 3D models. Practise shipboard and shore recovery in the new Carrier Qualification exercise.</p></div>
-    </section>
-
-    <img class="preview" src="2026-09-23-air-operations.png" alt="Air Operations board with aircraft type selection, readiness and landing controls">
-
-    <section class="controls">
-      <h2>Your first watch</h2>
-      <p>Choose <b>Carrier Qualification / Air Operations</b>, read the briefing, then <b>Take Command</b>. Open <kbd>F3</kbd>, select a host and aircraft type, and launch. Choose <b>Execute &amp; Resume</b> to fly. Once airborne, reopen the board, select an airframe and landing destination, and choose <b>Return &amp; Land</b>.</p>
-      <p><kbd>F3</kbd> Air Operations · <kbd>⌘/Ctrl K</kbd> Actions · <kbd>G</kbd> Plot Move · <kbd>N</kbd> Next contact · <kbd>C</kbd> Focus · <kbd>F</kbd> Follow · <kbd>Home</kbd> Fit force · <kbd>Space</kbd> Pause · <kbd>1–6</kbd> Time · <kbd>R</kbd> Radar · <kbd>E</kbd> EMCON · <kbd>P</kbd> Sonar · <kbd>F1</kbd> Help</p>
-    </section>
-
-    <section class="systems" aria-label="Simulation systems">
-      <div class="card"><h3>Build an uncertain picture</h3><p>Radar horizons, sonar bearings, electronic support, private observer histories, classification, stale tracks, and target-motion analysis.</p></div>
-      <div class="card"><h3>Manage the shield</h3><p>Layered missile defence, finite magazines, decoys, fire-control channels, ballistic threats, and a live evaluation board.</p></div>
-      <div class="card"><h3>Operate the force</h3><p>Formations, emissions control, aircraft launch and recovery, fuel, tanker dependence, sonobuoys, damage control, and opposing AI.</p></div>
-      <div class="card"><h3>Navigate real geography</h3><p>Eleven missions use generalized Natural Earth coastlines and bathymetry with islands, straits, shelves, basins, geographic grids, land masking, and collision-aware movement.</p></div>
-      <div class="card"><h3>Inspect every system</h3><p>Orbit original illustrative 3D models for the fleet and its ordnance, with linked sensor fits and loadouts.</p></div>
-      <div class="card"><h3>Build your own watch</h3><p>The in-game editor places platforms, patrols, terrain, objectives, protected units, and environmental conditions, then exports shareable JSON.</p></div>
-    </section>
-  </main>
-  <footer>An independent fleet-command game, unaffiliated with Jane's or any armed service. Combat values and terrain heights are gameplay estimates. Natural Earth 1:10m coastlines and bathymetry are generalized and are not navigation data. Jamming, ballistic flight, terrain masking, acoustics, damage control, and sea state are abstractions. Shoals, replenishment, and save games remain future work.</footer>
-</body>
-</html>
+<header><b>NAVAL FLEET COMMAND</b><span class="edition">COLD WAR / 1990</span></header>
+<main>
+<section class="hero">
+<div><div class="eyebrow">NORTH ATLANTIC & NORTHERN EUROPE</div><h1>The sea is quiet.<br><span>The picture isn't.</span></h1>
+<p class="lede">Take command of a 1990 task group. Protect Atlantic shipping, search for a submarine in the GIUK gap, or keep a carrier alive under Soviet missile pressure.</p>
+<p>Real geography. Period equipment. Four fictional operations built around the decisions a fleet commander has to make.</p>
+<div class="actions"><a class="button primary" href="play/">Take command →</a><a class="button" href="#operations">Read the operations</a></div>
+<p class="small">Desktop keyboard + mouse or trackpad · WebGL 2 · Local and browser play</p></div>
+<aside class="brief" aria-label="Your first watch"><header><span>COMMANDER'S ORDERS</span><span>1990 / ALTERNATE HISTORY</span></header><h2>The convoy is the mission.</h2><ol><li><strong>Read the task.</strong> Success depends on the protected ships reaching safety.</li><li><strong>Build the picture.</strong> A contact is an observation. Its identity and position take time to establish.</li><li><strong>Command the force.</strong> Plot routes, manage emissions, launch the aircraft you need, and conserve your magazines.</li></ol><div class="status">START WITH THE NORTH SEA CONVOY OPERATION</div></aside>
+</section>
+<figure class="screen"><img src="2026-09-24-cold-war-command.png" alt="1990 convoy mission in Naval Fleet Command, showing the tactical chart, fleet roster and command controls"><figcaption>The command deck keeps mission orders, the held contact picture and aircraft controls beside the chart. Press B for a wider tactical view.</figcaption></figure>
+<div class="section-label" id="operations">FOUR OPERATIONS / FOUR DIFFERENT JOBS</div>
+<section class="operations" aria-label="Cold War missions">
+<article class="operation"><div class="number">01 / CONVOY ESCORT</div><h2>North Sea</h2><p>Screen vulnerable shipping through contested water. Your escorts are there to get the convoy home.</p></article>
+<article class="operation"><div class="number">02 / SUBMARINE BARRIER</div><h2>Iceland–Faroe</h2><p>Work an uncertain underwater picture at the Atlantic gateway. Use passive bearings, manoeuvre and patrol aviation to find the threat.</p></article>
+<article class="operation"><div class="number">03 / CARRIER WATCH</div><h2>Norwegian Sea</h2><p>Operate a reduced period carrier air wing while protecting the force through a finite defensive watch.</p></article>
+<article class="operation"><div class="number">04 / SURFACE ACTION</div><h2>Baltic approaches</h2><p>Distinguish the opposing surface force from civilian traffic before committing your missiles.</p></article>
+</section>
+<section class="principles"><div><h3>A force that belongs in 1990</h3><p>Dedicated historical variants keep period radars, sonars, aircraft and weapons together. Modern operations remain available in their own mission filter.</p></div><div><h3>Information has limits</h3><p>Passive bearings, uncertain range, stale contacts, thermal layers and limited fire-control channels make the picture something you build.</p></div><div><h3>Orders stay within reach</h3><p>A mission desk explains the task and first actions. The watch strip opens live orders, priority contacts, threat focus and air operations.</p></div></section>
+<section class="keys"><h2>Take the watch</h2><p>Select <b>Cold War 1990</b>, choose the convoy operation, then <b>Read briefing</b> and <b>Take command</b>. Pause whenever you need to think.</p><p><kbd>Space</kbd> Pause · <kbd>1–6</kbd> Time · <kbd>G</kbd> Plot route · <kbd>N</kbd> Next contact · <kbd>B</kbd> Wide chart · <kbd>Home</kbd> Fit force · <kbd>F3</kbd> Aircraft · <kbd>F1</kbd> Orders · <kbd>⌘/Ctrl K</kbd> Actions</p></section>
+</main>
+<footer>Independent naval game, unaffiliated with Jane's or any armed service. The 1990 battles and deployments are alternate history. Public equipment identities are researched; combat performance, readiness, air-group sizes and detailed loadouts are gameplay estimates. Natural Earth coastlines and bathymetry are generalized. <a href="https://github.com/jjnell95/naval-fleet-command">Source repository</a>.</footer>
+</body></html>

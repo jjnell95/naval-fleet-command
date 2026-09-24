@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_moskit"
+display_name = "P-270 Moskit / SS-N-22 Sunburn"
+family = "P-270 Moskit / SS-N-22 Sunburn"
+type = "asm"
+target_types = PackedStringArray("surface")
+guidance = "active_radar_homing"
+profile = "sea_skimming"
+max_range_nm = 60.0
+min_range_nm = 1.0
+speed_kn = 1350.0
+damage = 62.0
+base_pk = 0.72
+salvo_default = 4
+launch_interval_s = 3.0
+seeker_range_nm = 5.0
+turn_rate_deg_s = 16.0
+defensive_difficulty = 1.65
+altitude_m = 15.0
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

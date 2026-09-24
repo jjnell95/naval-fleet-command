@@ -32,6 +32,7 @@ const MIN_SOLUTION_FOR_SLOW_WEAPON := 0.5  # a bearing with no range is not a fi
 const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not at arm's length
 const BUOY_DROP_RANGE_NM := 9.0
 const BUOY_INTERVAL_S := 150.0
+const BUOY_SPACING_NM := 4.0
 const HOVER_ALTITUDE_M := 50.0
 const MISSILE_LAUNCH_DEPTH_M := 45.0  # GAMEPLAY_ESTIMATE: a submerged missile shot is a shallow one
 ## Time between launch decisions on one deck, divided by how many spots that deck works. A
@@ -269,14 +270,18 @@ func _should_withdraw(u: Unit, hostiles: Array) -> bool:
 		return false  # fuel, not damage, is what sends an aircraft home, and aviation owns that
 	if Damage.health_fraction(u) < WITHDRAW_HEALTH_FRACTION:
 		return true
-	return not hostiles.is_empty() and _strike_rounds_left(u) == 0
+	return not hostiles.is_empty() and _strike_rounds_left(u, hostiles) == 0
 
 
-func _strike_rounds_left(u: Unit) -> int:
+func _strike_rounds_left(u: Unit, hostiles: Array) -> int:
 	var total := 0
-	for w in u.offensive_weapons():
-		if w.type == "asm":
-			total += u.magazine_count(w.id)
+	for w in u.weapons:
+		if w.type not in ["asm", "torpedo", "sam"]:
+			continue
+		for t: Track in hostiles:
+			if Combat.suits_track(w, t):
+				total += u.magazine_count(w.id)
+				break
 	return total
 
 
@@ -519,18 +524,44 @@ func _do_air_search(u: Unit, b: Dictionary, now: float) -> void:
 		_manage_altitude(u, true)
 		_command(u, b, u.heading_deg, 0.0, now)
 		return
+	# Resume the next leg once, after the dip. Issuing it before stopping cleared the
+	# waypoint again on the following tick and trapped helicopters at their first station.
+	if b.has("after_dip"):
+		var next_leg: Vector2 = b["after_dip"]
+		b.erase("after_dip")
+		_manage_altitude(u, false)
+		_move_to(u, b, next_leg, now)
+		return
 	if not u.waypoints.is_empty():
 		return  # already on the way to the next search point
 	var index := int(b.get("search_index", 0))
 	b["search_index"] = index + 1
 	var bearing := fmod(float(index) * SEARCH_STEP_DEG, 360.0)
 	var leg := anchor + Geo.heading_to_vector(bearing) * _search_radius(u, has_datum)
-	if u.sonobuoys > 0:
-		unit_manager.issue_order(u, Order.deploy_sonobuoy())
-	if u.spec.can_hover and index > 0:
+	if index > 0:
+		_lay_search_buoy(u, b, now)
+	if u.spec.can_hover and u.has_sonar() and index > 0 and not Terrain.is_land(u.position):
 		b["dip_until"] = now + DIP_DURATION_S
+		b["after_dip"] = leg
+		_manage_altitude(u, true)
+		_command(u, b, u.heading_deg, 0.0, now)
+		return
 	_manage_altitude(u, false)
 	_move_to(u, b, leg, now)
+
+
+## Search stores are laid over the patrol area, with enough separation to add coverage.
+func _lay_search_buoy(u: Unit, b: Dictionary, now: float) -> void:
+	if u.sonobuoys <= 0 or Terrain.is_land(u.position):
+		return
+	if now - float(b.get("last_buoy", -10000.0)) <= BUOY_INTERVAL_S:
+		return
+	var previous: Vector2 = b.get("last_buoy_position", Vector2.INF)
+	if previous != Vector2.INF and u.position.distance_to(previous) < BUOY_SPACING_NM:
+		return
+	b["last_buoy"] = now
+	b["last_buoy_position"] = u.position
+	unit_manager.issue_order(u, Order.deploy_sonobuoy())
 
 
 ## An aircraft closes right over the contact, then either stops to dip or lays a buoy field.
@@ -539,7 +570,7 @@ func _prosecute(u: Unit, b: Dictionary, t: Track, range_nm: float, now: float) -
 	if over_water and u.sonobuoys > 0 and range_nm <= BUOY_DROP_RANGE_NM and now - float(b.get("last_buoy", -10000.0)) > BUOY_INTERVAL_S:
 		b["last_buoy"] = now
 		unit_manager.issue_order(u, Order.deploy_sonobuoy())
-	if over_water and u.spec.can_hover and range_nm <= DIP_STANDOFF_NM:
+	if over_water and u.spec.can_hover and u.has_sonar() and range_nm <= DIP_STANDOFF_NM:
 		_manage_altitude(u, true)
 		_command(u, b, u.heading_deg, 0.0, now)  # stop and listen
 		return
@@ -554,13 +585,25 @@ func _do_search(u: Unit, b: Dictionary, now: float) -> void:
 	if last == Vector2.INF:
 		_do_patrol(u, b, now)
 		return
+	if u.is_aircraft():
+		_do_air_search(u, b, now)
+		return
 	_move_to(u, b, last, now)
 
 
 func _do_patrol(u: Unit, b: Dictionary, now: float) -> void:
 	_manage_depth(u, DepthIntent.HIDE)
 	_manage_altitude(u, false)
-	_manage_emissions(u, false)
+	# Breakout fixes the route, not the sensor state. Silencing an already active radar here
+	# left a sprinting ship unable to firm up ESM bearings or defend itself, even after firing.
+	# An authored silent transit stays silent until its own picture provides a reason to radiate.
+	var transit_picture := false
+	if u.ai_posture == "breakout" and not u.is_submarine():
+		transit_picture = u.radar_on or not _inbound_on(u).is_empty()
+		for t: Track in track_manager.tracks_for(u):
+			if t.status != Track.Status.LOST and t.identity in ["UNKNOWN", "HOSTILE"]:
+				transit_picture = true
+	_manage_emissions(u, transit_picture)
 	if u.is_aircraft() and u.patrol_route.is_empty():
 		_do_air_search(u, b, now)
 		return
@@ -581,8 +624,11 @@ func _do_patrol(u: Unit, b: Dictionary, now: float) -> void:
 	# the ship can never reach, and the unit steaming at the coast for the whole scenario.
 	var leg := _sea_room(u, u.patrol_route[idx])
 	if u.position.distance_to(leg) < PATROL_ARRIVAL_NM:
+		b["on_patrol_station"] = true
 		b["patrol_index"] = idx + 1
 		leg = _sea_room(u, u.patrol_route[(idx + 1) % u.patrol_route.size()])
+	if u.is_aircraft() and _is_asw_airframe(u) and bool(b.get("on_patrol_station", false)):
+		_lay_search_buoy(u, b, now)
 	_move_to(u, b, leg, now)
 
 

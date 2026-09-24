@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_nimitz"
+display_name = "Nimitz-class aircraft carrier (1990)"
+short_name = "CVN Nimitz"
+nation = "USA"
+category = "carrier"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 1.0
+accel_kn_s = 0.1
+health = 400.0
+signature_factor = 3.0
+mast_height_m = 50.0
+sensor_ids = PackedStringArray("cw90_sps48c", "cw90_slq32")
+weapon_loadout = {"cw90_sea_sparrow": 24, "cw90_phalanx": 120}
+decoy_count = 12
+fire_control_channels = 2
+role = "Fleet air defence / aviation command"
+service_note = "1990 recognition fit: F-14A+, E-2C, S-3A and SH-3H, Sea Sparrow and Phalanx. Nine represented aircraft are a reduced scenario detachment, not the complete historical air wing. Strike squadrons are omitted."
+length_m = 332.8
+displacement_t = 96500.0
+aircraft_capacity = 70
+aviation_facility = "catobar"
+launch_spots = 4
+recovery_spots = 1
+default_air_wing = {"cw90_f14a": 4, "cw90_e2c": 1, "cw90_s3a": 2, "cw90_sh3h": 2}
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

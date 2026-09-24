@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_perry"
+display_name = "Oliver Hazard Perry long-hull frigate (1990)"
+short_name = "FFG Perry"
+nation = "USA"
+category = "frigate"
+domain = "surface"
+max_speed_kn = 29.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 0.22
+health = 90.0
+signature_factor = 1.0
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_sps49", "cw90_sqs56", "cw90_slq32")
+weapon_loadout = {"cw90_sm1mr": 32, "cw90_harpoon": 8, "cw90_mk46": 12, "cw90_mk75": 260, "cw90_phalanx": 60}
+decoy_count = 12
+fire_control_channels = 1
+role = "Convoy escort / local air defence / ASW"
+service_note = "Long-hull LAMPS III fit: Mk 13 magazine holds 32 SM-1MR plus 8 Harpoon (40 total), Mk 32 torpedoes, one represented SH-60B. No VLS, ASROC or ESSM."
+length_m = 138.1
+displacement_t = 4100.0
+aircraft_capacity = 2
+default_air_wing = {"cw90_sh60b": 1}
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

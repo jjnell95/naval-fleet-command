@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_e2c"
+display_name = "E-2C Hawkeye (1990)"
+short_name = "E-2C"
+nation = "USA"
+category = "airborne early warning"
+domain = "air"
+max_speed_kn = 320.0
+cruise_speed_kn = 208.0
+turn_rate_deg_s = 6.0
+accel_kn_s = 4.0
+health = 25.0
+signature_factor = 0.6
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_aps125", "cw90_alr45")
+weapon_loadout = {}
+decoy_count = 6
+fire_control_channels = 0
+role = "Airborne radar picture / early warning"
+service_note = "Group 0 era radar baseline; exact squadron radar subtype is not asserted. No APY-9, Cooperative Engagement Capability or aerial refuelling."
+cruise_altitude_m = 7500.0
+max_altitude_m = 12000.0
+altitude_rate_m_s = 20.0
+endurance_s = 18000.0
+launch_time_s = 90.0
+recovery_time_s = 120.0
+acoustic_signature = 0.0
+launch_requirement = "catobar"
+length_m = 17.6
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

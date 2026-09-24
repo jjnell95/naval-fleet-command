@@ -105,6 +105,246 @@
     "triangles": 7540
   },
   {
+    "id": "cw90_53_65",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_aim54a",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
+    "id": "cw90_aim9m",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
+    "id": "cw90_airfield",
+    "kind": "platform",
+    "triangles": 1220
+  },
+  {
+    "id": "cw90_ak100",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "cw90_ak130",
+    "kind": "weapon",
+    "triangles": 320
+  },
+  {
+    "id": "cw90_ak176",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "cw90_ak630",
+    "kind": "weapon",
+    "triangles": 544
+  },
+  {
+    "id": "cw90_at1",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_e2c",
+    "kind": "platform",
+    "triangles": 3528
+  },
+  {
+    "id": "cw90_f14a",
+    "kind": "platform",
+    "triangles": 4492
+  },
+  {
+    "id": "cw90_fort",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_harpoon",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_ka27",
+    "kind": "platform",
+    "triangles": 1908
+  },
+  {
+    "id": "cw90_kh22",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_kinzhal",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_los_angeles",
+    "kind": "platform",
+    "triangles": 2344
+  },
+  {
+    "id": "cw90_merchant",
+    "kind": "platform",
+    "triangles": 7312
+  },
+  {
+    "id": "cw90_mk45",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "cw90_mk46",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_mk48",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_mk75",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "cw90_moskit",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_nanuchka",
+    "kind": "platform",
+    "triangles": 8068
+  },
+  {
+    "id": "cw90_nimitz",
+    "kind": "platform",
+    "triangles": 9632
+  },
+  {
+    "id": "cw90_osa_m",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_p120",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_p3c",
+    "kind": "platform",
+    "triangles": 6160
+  },
+  {
+    "id": "cw90_p500",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_perry",
+    "kind": "platform",
+    "triangles": 9132
+  },
+  {
+    "id": "cw90_phalanx",
+    "kind": "weapon",
+    "triangles": 852
+  },
+  {
+    "id": "cw90_rastrub",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
+    "id": "cw90_s3a",
+    "kind": "platform",
+    "triangles": 3968
+  },
+  {
+    "id": "cw90_sea_sparrow",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_set65",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_sh3h",
+    "kind": "platform",
+    "triangles": 5932
+  },
+  {
+    "id": "cw90_sh60b",
+    "kind": "platform",
+    "triangles": 3092
+  },
+  {
+    "id": "cw90_shtil",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_slava",
+    "kind": "platform",
+    "triangles": 12036
+  },
+  {
+    "id": "cw90_sm1mr",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_sm2mr",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_sovremenny",
+    "kind": "platform",
+    "triangles": 12196
+  },
+  {
+    "id": "cw90_spruance",
+    "kind": "platform",
+    "triangles": 13284
+  },
+  {
+    "id": "cw90_test71",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_ticonderoga",
+    "kind": "platform",
+    "triangles": 11860
+  },
+  {
+    "id": "cw90_tu22m3",
+    "kind": "platform",
+    "triangles": 2540
+  },
+  {
+    "id": "cw90_udaloy",
+    "kind": "platform",
+    "triangles": 7128
+  },
+  {
+    "id": "cw90_victor3",
+    "kind": "platform",
+    "triangles": 2532
+  },
+  {
     "id": "deu_ffg_sachsen",
     "kind": "platform",
     "triangles": 7576

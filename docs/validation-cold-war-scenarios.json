@@ -1,0 +1,380 @@
+{
+  "date": "2026-09-24",
+  "entrypoint": "res://scenes/main/Main.tscn",
+  "engine": "Godot 4.7.2",
+  "helper": "scripts/core/cold_war_probe.gd",
+  "scenario_source": "tools/scenarios/build_cold_war.py",
+  "final_scope": {
+    "missions": 4,
+    "platforms": 20,
+    "weapons": 28,
+    "sensors": 25
+  },
+  "coverage": "Both-side AI at seeds 2 and 13 in every 1990 mission; passive-player seed 2 in convoy and ASW barrier.",
+  "timing_note": "resolved_s is captured from mission_ended at the 0.25-second simulation tick; final state/stats are sampled no more than 30 simulated seconds later.",
+  "statistics_note": "stats.hostile_rounds counts player threat-detection events, not verified enemy shots. commanded_rounds_by_shooter sums launch receipts; player automatic defensive shots are stats.launched. Local submerged contacts are excluded from shared faction contacts counts.",
+  "environment_warnings": [
+    "Sandbox denied Godot user log writes",
+    "macOS sandbox system CA certificate lookup warning"
+  ],
+  "verdict": "Every run resolved inside the scenario deadline. No script/runtime errors after excluding the known sandbox warnings; no grounded actors at recorded snapshots. Beginner convoy can be completed by passive protection; the AI ASW commander fires, launches patrols and lays buoys. Baltic is explicitly Advanced and AI defeat is not treated as a failed test.",
+  "cases": [
+    {
+      "scenario": "cold_war_01_convoy",
+      "seed": 13,
+      "player": "AI",
+      "result": "VICTORY",
+      "resolved_s": 7313.5,
+      "stats": {
+        "classified": 1,
+        "contacts": 2,
+        "decoyed": 0,
+        "decoys_used": 0,
+        "hits": 1,
+        "hits_scored": 1,
+        "hits_taken": 0,
+        "hostile_rounds": 33,
+        "intercepted": 6,
+        "launched": 14,
+        "leaked": 3,
+        "own_rounds": 16,
+        "sorties": 0
+      },
+      "commanded_rounds_by_shooter": {
+        "Soviet missile corvette (Nanuchka III)": 6,
+        "USS Nicholas (FFG 47)": 8,
+        "USS Elrod (FFG 55)": 8
+      },
+      "buoys_deployed": {
+        "BLUE": 0,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_01_convoy",
+      "seed": 2,
+      "player": "AI",
+      "result": "VICTORY",
+      "resolved_s": 7313.5,
+      "stats": {
+        "classified": 1,
+        "contacts": 2,
+        "decoyed": 0,
+        "decoys_used": 0,
+        "hits": 1,
+        "hits_scored": 1,
+        "hits_taken": 0,
+        "hostile_rounds": 32,
+        "intercepted": 6,
+        "launched": 16,
+        "leaked": 2,
+        "own_rounds": 16,
+        "sorties": 0
+      },
+      "commanded_rounds_by_shooter": {
+        "Soviet missile corvette (Nanuchka III)": 6,
+        "USS Nicholas (FFG 47)": 8,
+        "USS Elrod (FFG 55)": 8
+      },
+      "buoys_deployed": {
+        "BLUE": 0,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_01_convoy",
+      "seed": 2,
+      "player": "passive",
+      "result": "VICTORY",
+      "resolved_s": 7313.5,
+      "stats": {
+        "classified": 2,
+        "contacts": 3,
+        "decoyed": 0,
+        "decoys_used": 0,
+        "hits": 0,
+        "hits_scored": 0,
+        "hits_taken": 0,
+        "hostile_rounds": 6,
+        "intercepted": 5,
+        "launched": 14,
+        "leaked": 1,
+        "own_rounds": 0,
+        "sorties": 0
+      },
+      "commanded_rounds_by_shooter": {
+        "Soviet missile corvette (Nanuchka III)": 6
+      },
+      "buoys_deployed": {
+        "BLUE": 0,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_02_barrier",
+      "seed": 13,
+      "player": "AI",
+      "result": "VICTORY",
+      "resolved_s": 1106.25,
+      "stats": {
+        "classified": 0,
+        "contacts": 0,
+        "decoyed": 0,
+        "decoys_used": 0,
+        "hits": 1,
+        "hits_scored": 1,
+        "hits_taken": 0,
+        "hostile_rounds": 0,
+        "intercepted": 0,
+        "launched": 0,
+        "leaked": 1,
+        "own_rounds": 2,
+        "sorties": 3
+      },
+      "commanded_rounds_by_shooter": {
+        "USS Dallas (SSN 700)": 2
+      },
+      "buoys_deployed": {
+        "BLUE": 2,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_02_barrier",
+      "seed": 2,
+      "player": "AI",
+      "result": "VICTORY",
+      "resolved_s": 1106.0,
+      "stats": {
+        "classified": 0,
+        "contacts": 0,
+        "decoyed": 0,
+        "decoys_used": 0,
+        "hits": 1,
+        "hits_scored": 1,
+        "hits_taken": 0,
+        "hostile_rounds": 0,
+        "intercepted": 0,
+        "launched": 0,
+        "leaked": 1,
+        "own_rounds": 2,
+        "sorties": 3
+      },
+      "commanded_rounds_by_shooter": {
+        "USS Dallas (SSN 700)": 2
+      },
+      "buoys_deployed": {
+        "BLUE": 2,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_02_barrier",
+      "seed": 2,
+      "player": "passive",
+      "result": "DEFEAT",
+      "resolved_s": 1618.0,
+      "stats": {
+        "classified": 0,
+        "contacts": 0,
+        "decoyed": 0,
+        "decoys_used": 0,
+        "hits": 1,
+        "hits_scored": 0,
+        "hits_taken": 1,
+        "hostile_rounds": 2,
+        "intercepted": 0,
+        "launched": 0,
+        "leaked": 1,
+        "own_rounds": 0,
+        "sorties": 0
+      },
+      "commanded_rounds_by_shooter": {
+        "Soviet submarine (Victor III)": 2
+      },
+      "buoys_deployed": {
+        "BLUE": 0,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_03_carrier",
+      "seed": 13,
+      "player": "AI",
+      "result": "DEFEAT",
+      "resolved_s": 3273.5,
+      "stats": {
+        "classified": 3,
+        "contacts": 3,
+        "decoyed": 2,
+        "decoys_used": 2,
+        "hits": 5,
+        "hits_scored": 3,
+        "hits_taken": 2,
+        "hostile_rounds": 22,
+        "intercepted": 10,
+        "launched": 36,
+        "leaked": 6,
+        "own_rounds": 32,
+        "sorties": 5
+      },
+      "commanded_rounds_by_shooter": {
+        "Slava": 20,
+        "Backfire raid 1": 1,
+        "Backfire raid 2": 1,
+        "Eisenhower 60": 6,
+        "Eisenhower 61": 6,
+        "Eisenhower 62": 6,
+        "Eisenhower 63": 6,
+        "USS Bunker Hill (CG 52)": 8
+      },
+      "buoys_deployed": {
+        "BLUE": 0,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_03_carrier",
+      "seed": 2,
+      "player": "AI",
+      "result": "VICTORY",
+      "resolved_s": 7200.0,
+      "stats": {
+        "classified": 3,
+        "contacts": 3,
+        "decoyed": 6,
+        "decoys_used": 6,
+        "hits": 4,
+        "hits_scored": 3,
+        "hits_taken": 1,
+        "hostile_rounds": 22,
+        "intercepted": 9,
+        "launched": 37,
+        "leaked": 4,
+        "own_rounds": 32,
+        "sorties": 5
+      },
+      "commanded_rounds_by_shooter": {
+        "Slava": 20,
+        "Backfire raid 1": 1,
+        "Backfire raid 2": 1,
+        "Eisenhower 60": 6,
+        "Eisenhower 61": 6,
+        "Eisenhower 62": 6,
+        "Eisenhower 63": 6,
+        "USS Bunker Hill (CG 52)": 8
+      },
+      "buoys_deployed": {
+        "BLUE": 0,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_04_baltic",
+      "seed": 13,
+      "player": "AI",
+      "result": "DEFEAT",
+      "resolved_s": 1407.0,
+      "stats": {
+        "classified": 1,
+        "contacts": 2,
+        "decoyed": 0,
+        "decoys_used": 0,
+        "hits": 3,
+        "hits_scored": 1,
+        "hits_taken": 2,
+        "hostile_rounds": 40,
+        "intercepted": 5,
+        "launched": 20,
+        "leaked": 3,
+        "own_rounds": 16,
+        "sorties": 0
+      },
+      "commanded_rounds_by_shooter": {
+        "USS Elrod (FFG 55)": 8,
+        "USS Spruance (DD 963)": 8,
+        "Otlichnyy": 8
+      },
+      "buoys_deployed": {
+        "BLUE": 0,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    },
+    {
+      "scenario": "cold_war_04_baltic",
+      "seed": 2,
+      "player": "AI",
+      "result": "DEFEAT",
+      "resolved_s": 5276.5,
+      "stats": {
+        "classified": 1,
+        "contacts": 2,
+        "decoyed": 0,
+        "decoys_used": 0,
+        "hits": 1,
+        "hits_scored": 1,
+        "hits_taken": 0,
+        "hostile_rounds": 32,
+        "intercepted": 0,
+        "launched": 0,
+        "leaked": 1,
+        "own_rounds": 16,
+        "sorties": 0
+      },
+      "commanded_rounds_by_shooter": {
+        "USS Elrod (FFG 55)": 8,
+        "USS Spruance (DD 963)": 8
+      },
+      "buoys_deployed": {
+        "BLUE": 0,
+        "RED": 0
+      },
+      "aground_at_snapshots": [],
+      "runtime_errors": [],
+      "environment_warning_count": 3,
+      "script_errors": 0
+    }
+  ],
+  "code_sha256": {
+    "scripts/systems/ai_controller.gd": "daf7c34d63269a50d9ddcc4da4372bc23da9d164fa49d4e885ae0fa14c68dca7",
+    "scripts/core/cold_war_probe.gd": "d9efda0d70fd05bda08bebea2bf848400bf6c6bb78c1f2e45b3c076c651c0438",
+    "tools/scenarios/build_cold_war.py": "8be200e02f08ce9590b84f1bd3e4f826ce387d52249aca78d81989f1c0f4c371"
+  },
+  "revision_note": "Refreshed after the final domain-matched ammunition check included SAM rounds for air-defense ships."
+}

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_merchant"
+display_name = "North Atlantic merchantman (1990)"
+short_name = "Merchant"
+nation = "Civilian"
+category = "merchant"
+domain = "surface"
+max_speed_kn = 17.0
+cruise_speed_kn = 14.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 0.22
+health = 95.0
+signature_factor = 1.0
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_civil_nav")
+weapon_loadout = {}
+decoy_count = 0
+fire_control_channels = 0
+role = "Protected cargo vessel"
+service_note = "Generic period cargo ship with a fictional name. It represents convoy traffic; no particular civilian hull is claimed."
+length_m = 160.0
+displacement_t = 17000.0
+has_datalink = false
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

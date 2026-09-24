@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_spruance"
+display_name = "Spruance-class destroyer, DD-963 fit (1990)"
+short_name = "DD Spruance"
+nation = "USA"
+category = "destroyer"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.5
+accel_kn_s = 0.22
+health = 110.0
+signature_factor = 1.0
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("cw90_sps49", "cw90_sqs53b", "cw90_sqr19", "cw90_slq32")
+weapon_loadout = {"cw90_harpoon": 8, "cw90_sea_sparrow": 24, "cw90_mk46": 12, "cw90_mk45": 400, "cw90_phalanx": 100}
+decoy_count = 12
+fire_control_channels = 2
+role = "ASW screen / surface strike"
+service_note = "USS Spruance after its 1986-87 VLS/SQS-53B/SQR-19/LAMPS III refit. Land-attack Tomahawk magazine is outside these missions and omitted. No box ASROC, VL-ASROC, SM-2 or ESSM is fitted in this playable loadout."
+length_m = 171.6
+displacement_t = 8000.0
+aircraft_capacity = 2
+vls_cells = 61
+default_air_wing = {"cw90_sh60b": 2}
+source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

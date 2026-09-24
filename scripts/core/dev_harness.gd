@@ -47,6 +47,12 @@ static func arg(args: PackedStringArray, prefix: String, fallback: float) -> flo
 
 func handle_flags() -> void:
 	var args := OS.get_cmdline_user_args()
+	if args.has("--cold-war-probe"):
+		load("res://scripts/core/cold_war_probe.gd").run(main)
+		return
+	if args.has("--cold-war-smoke"):
+		ColdWarSmoke.run(main)
+		return
 	if args.has("--aviation-smoke"):
 		AviationSmoke.run(main)
 		return
