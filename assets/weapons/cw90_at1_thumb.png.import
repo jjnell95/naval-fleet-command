@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/cw90_at1_thumb.png-eef50cc6013f10b857d8985cf5
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.82
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

@@ -25,11 +25,13 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 6)
 	add_child(v)
 	var hl := Label.new()
-	hl.text = "TASK GROUP  /  SELECT TO COMMAND"
+	hl.text = "TASK GROUP"
+	hl.tooltip_text = "Select a platform to command it. Shift adds to the selection."
+	hl.mouse_filter = Control.MOUSE_FILTER_PASS
 	hl.theme_type_variation = "HeaderLabel"
 	v.add_child(hl)
 	roster = FleetRoster.new()
-	roster.custom_minimum_size.y = 144
+	roster.custom_minimum_size.y = 124
 	v.add_child(roster)
 	_header = Label.new()
 	_header.text = "—"
@@ -42,10 +44,14 @@ func _ready() -> void:
 	v.add_child(_subtitle)
 	_portrait = PlatformPortrait.new()
 	_portrait.panel = self
-	_portrait.custom_minimum_size.y = 128
+	_portrait.custom_minimum_size.y = 108
 	v.add_child(_portrait)
 	var inspect := Button.new()
-	inspect.text = "INSPECT PLATFORM  /  3D"
+	inspect.text = "INSPECT IN 3D"
+	inspect.tooltip_text = "Open this class in the fleet recognition library"
+	inspect.theme_type_variation = "QuietButton"
+	inspect.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	UIIcons.apply(inspect, "eye", 16)
 	inspect.add_theme_font_size_override("font_size", 11)
 	inspect.pressed.connect(func() -> void:
 		if not _units.is_empty():
@@ -157,16 +163,17 @@ func _first_active_range(u: Unit) -> float:
 	return 0.0
 
 
+## A status chip. Non-breaking spaces keep a chip on one line when the row wraps.
 func _chip(text: String, hex: String) -> String:
-	return "[bgcolor=#12222e][color=%s] %s [/color][/bgcolor]" % [hex, text]
+	return "[bgcolor=#111d28][color=%s]\u00a0%s\u00a0[/color][/bgcolor]" % [hex, text.replace(" ", "\u00a0")]
 
 
 func _h(text: String) -> String:
-	return "\n[color=%s][b]%s[/b][/color]" % [UITheme.HEX_ACCENT, text]
+	return "\n" + UITheme.section_bb(text)
 
 
 func _kv(k: String, v: String) -> String:
-	return "[color=%s]%-6s[/color] %s" % [UITheme.HEX_DIM, k, v]
+	return "[color=%s]%-6s[/color] %s" % [UITheme.HEX_MUTED, k, v]
 
 
 func _refresh() -> void:
@@ -184,9 +191,9 @@ func _refresh() -> void:
 			_kv("Space", "pause   ·   1–6 time speed"),
 			_kv("R / P / E", "radar · ping · emissions control"),
 			_kv("F1", "briefing   ·   F2 key   ·   F4 rings"),
-			_kv("F5", "trails   ·   F6 land   ·   F3 debug truth"),
+			_kv("F3", "air operations   ·   F5 trails   ·   F6 land"),
 			_h("HOW TO FIGHT"),
-			"Build the picture first: launch the E-2D, keep the fighters on the threat axis, and let contacts classify before you shoot. Ships defend themselves; you decide emissions, posture, station and magazines.",
+			"Build the picture first: get your airborne early warning up, keep the fighters on the threat axis, and let contacts classify before you shoot. Ships defend themselves; you decide emissions, posture, station and magazines.",
 		])
 		return
 	if _units.size() == 1:
@@ -199,7 +206,8 @@ func _refresh() -> void:
 		var chips := PackedStringArray()
 		var cond := Damage.condition_text(u)
 		chips.append(_chip(cond, UITheme.HEX_GREEN if cond == "OPERATIONAL" else (UITheme.HEX_AMBER if cond == "LIGHT DAMAGE" else UITheme.HEX_RED)))
-		chips.append(_chip("RADIATING" if (u.radar_emitting() or u.active_sonar_on) else "EMCON SILENT", UITheme.HEX_ACCENT if (u.radar_emitting() or u.active_sonar_on) else UITheme.HEX_DIM))
+		var emitting := u.radar_emitting() or u.active_sonar_on
+		chips.append(_chip("RADIATING" if emitting else ("EMCON SILENT" if u.emcon == Unit.Emcon.SILENT else "NOT RADIATING"), UITheme.HEX_ACCENT if emitting else UITheme.HEX_DIM))
 		var roe_text: String = ["WPNS HOLD", "WPNS TIGHT", "WPNS FREE"][u.roe]
 		chips.append(_chip(roe_text, [UITheme.HEX_RED, UITheme.HEX_AMBER, UITheme.HEX_GREEN][u.roe]))
 		if not u.datalink_connected():

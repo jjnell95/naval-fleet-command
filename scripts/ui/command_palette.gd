@@ -38,7 +38,7 @@ func _ready() -> void:
 func _build_interface() -> void:
 	var shade := ColorRect.new()
 	shade.name = "Backdrop"
-	shade.color = Color(0.01, 0.025, 0.04, 0.88)
+	shade.color = Color(0.01, 0.025, 0.04, 0.78)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(shade)
@@ -51,7 +51,7 @@ func _build_interface() -> void:
 
 	var card := PanelContainer.new()
 	card.name = "Card"
-	card.theme_type_variation = "CardPanel"
+	card.theme_type_variation = "FloatingPanel"
 	card.custom_minimum_size = CARD_MIN_SIZE
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	center.add_child(card)
@@ -72,22 +72,24 @@ func _build_interface() -> void:
 	column.add_child(header)
 
 	var title := Label.new()
-	title.text = "COMMAND PALETTE"
+	title.text = "Actions"
 	title.theme_type_variation = "TitleLabel"
+	title.add_theme_font_size_override("font_size", 24)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 
 	_count = Label.new()
 	_count.name = "ResultCount"
-	_count.theme_type_variation = "DimLabel"
+	_count.theme_type_variation = "HeaderLabel"
 	_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_count.accessibility_name = "Command result count"
 	header.add_child(_count)
 
 	_close_button = Button.new()
 	_close_button.name = "CloseButton"
-	_close_button.text = "CLOSE  ESC"
-	_close_button.custom_minimum_size = Vector2(112.0, CONTROL_MIN_HEIGHT)
+	_close_button.theme_type_variation = "QuietButton"
+	_close_button.custom_minimum_size = Vector2(36.0, 36.0)
+	UIIcons.apply(_close_button, "close", 18)
 	_close_button.focus_mode = Control.FOCUS_ALL
 	_close_button.accessibility_name = "Close command palette"
 	_close_button.tooltip_text = "Close the command palette (Escape)"
@@ -96,9 +98,11 @@ func _build_interface() -> void:
 
 	_search = LineEdit.new()
 	_search.name = "Search"
-	_search.placeholder_text = "Search commands, shortcuts, or states…"
+	_search.placeholder_text = "Search commands, shortcuts or states"
 	_search.clear_button_enabled = true
-	_search.custom_minimum_size.y = 48.0
+	_search.custom_minimum_size.y = 46.0
+	_search.right_icon = UIIcons.get_icon("search", 18, UITheme.COL_MUTED, 1.0)
+	_search.add_theme_font_size_override("font_size", 15)
 	_search.focus_mode = Control.FOCUS_ALL
 	_search.accessibility_name = "Search commands"
 	_search.accessibility_description = "Type one or more words to filter the available commands."
@@ -113,9 +117,13 @@ func _build_interface() -> void:
 	_list.focus_mode = Control.FOCUS_ALL
 	_list.select_mode = ItemList.SELECT_SINGLE
 	_list.add_theme_font_size_override("font_size", 14)
-	_list.add_theme_constant_override("v_separation", 12)
-	_list.add_theme_constant_override("h_separation", 8)
-	_list.fixed_icon_size = Vector2i(1, 32)
+	_list.add_theme_constant_override("v_separation", 6)
+	_list.add_theme_constant_override("h_separation", 0)
+	_list.fixed_icon_size = Vector2i(1, 38)
+	# Rows are drawn by _draw_rows(); the native text stays for accessibility and search.
+	for color_name in ["font_color", "font_selected_color", "font_hovered_color", "font_hovered_selected_color", "font_disabled_color"]:
+		_list.add_theme_color_override(color_name, Color.TRANSPARENT)
+	_list.draw.connect(_draw_rows)
 	_list.accessibility_name = "Available commands"
 	_list.accessibility_description = "Use the arrow keys to choose a command and Enter to run it."
 	_list.item_selected.connect(_on_item_selected)
@@ -133,8 +141,9 @@ func _build_interface() -> void:
 
 	var footer := Label.new()
 	footer.name = "KeyboardHint"
-	footer.text = "UP/DOWN  CHOOSE    ENTER  RUN    ESC  CLOSE"
-	footer.theme_type_variation = "HeaderLabel"
+	footer.text = "↑ ↓  choose      Enter  run      Esc  close"
+	footer.theme_type_variation = "DimLabel"
+	footer.add_theme_color_override("font_color", UITheme.COL_MUTED)
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	footer.accessibility_name = "Keyboard controls"
 	footer.accessibility_description = "Up and down choose a command. Enter runs it. Escape closes the palette."
@@ -394,36 +403,79 @@ func _set_focus_cycle() -> void:
 
 func _apply_search_styles() -> void:
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color("081019")
-	normal.border_color = Color("527a91")
+	normal.bg_color = UITheme.COL_PANEL_DEEP
+	normal.border_color = UITheme.COL_BORDER_LIGHT
 	normal.set_border_width_all(1)
-	normal.set_corner_radius_all(4)
+	normal.set_corner_radius_all(UITheme.RADIUS)
 	normal.content_margin_left = 14
-	normal.content_margin_right = 14
-	var focused := normal.duplicate()
+	normal.content_margin_right = 12
+	var focused := normal.duplicate() as StyleBoxFlat
 	focused.border_color = UITheme.COL_ACCENT
-	focused.set_border_width_all(2)
 	_search.add_theme_stylebox_override("normal", normal)
 	_search.add_theme_stylebox_override("focus", focused)
 
 
 func _apply_list_styles() -> void:
 	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color("081019")
-	panel.border_color = Color("527a91")
-	panel.set_border_width_all(1)
-	panel.set_corner_radius_all(4)
-	panel.content_margin_left = 8
-	panel.content_margin_right = 8
-	panel.content_margin_top = 6
-	panel.content_margin_bottom = 6
+	panel.bg_color = Color.TRANSPARENT
+	panel.content_margin_top = 2
+	panel.content_margin_bottom = 2
 	_list.add_theme_stylebox_override("panel", panel)
-	var focused := StyleBoxFlat.new()
-	focused.bg_color = Color.TRANSPARENT
-	focused.border_color = UITheme.COL_ACCENT
-	focused.set_border_width_all(2)
-	focused.set_corner_radius_all(4)
-	_list.add_theme_stylebox_override("focus", focused)
+	_list.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+## One command per row: the label, with an unavailable command's reason beneath it, and its
+## state and shortcut key at the right.
+func _draw_rows() -> void:
+	var label_font := UITheme.semibold_font()
+	var small := UITheme.body_font()
+	var mono := UITheme.mono_font()
+	var chip_font := UITheme.eyebrow_font()
+	var scroll := Vector2(_list.get_h_scroll_bar().value, _list.get_v_scroll_bar().value)
+	for i in _list.item_count:
+		var rect := _list.get_item_rect(i)
+		rect.position -= scroll
+		if rect.end.y < 0.0 or rect.position.y > _list.size.y:
+			continue
+		var meta = _list.get_item_metadata(i)
+		if not (meta is Dictionary):
+			_list.draw_string(small, Vector2(rect.position.x + 14.0, rect.get_center().y + 5.0), "No matching commands", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, UITheme.COL_MUTED)
+			continue
+		var action: Dictionary = meta
+		var enabled := bool(action.get("enabled", true))
+		var right := rect.end.x - 12.0
+		var mid := rect.get_center().y
+		var shortcut := str(action.get("shortcut", "")).strip_edges()
+		if shortcut != "":
+			var w := mono.get_string_size(shortcut, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 14.0
+			var cap := StyleBoxFlat.new()
+			cap.bg_color = UITheme.COL_PANEL_DEEP
+			cap.border_color = UITheme.COL_BORDER_LIGHT
+			cap.set_border_width_all(1)
+			cap.border_width_bottom = 2
+			cap.set_corner_radius_all(4)
+			_list.draw_style_box(cap, Rect2(right - w, mid - 12.0, w, 23.0))
+			_list.draw_string(mono, Vector2(right - w + 7.0, mid + 4.0), shortcut, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_DIM if enabled else UITheme.COL_FAINT)
+			right -= w + 8.0
+		var state := str(action.get("state", "")).strip_edges().to_upper()
+		if state != "":
+			var w := chip_font.get_string_size(state, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 14.0
+			w = minf(w, 150.0)
+			var chip := StyleBoxFlat.new()
+			chip.bg_color = UITheme.COL_HOVER
+			chip.set_corner_radius_all(4)
+			_list.draw_style_box(chip, Rect2(right - w, mid - 10.0, w, 20.0))
+			_list.draw_string(chip_font, Vector2(right - w + 7.0, mid + 3.5), state, HORIZONTAL_ALIGNMENT_LEFT, w - 12.0, 9, UITheme.COL_DIM if enabled else UITheme.COL_FAINT)
+			right -= w + 10.0
+		var x := rect.position.x + 14.0
+		var room := maxf(right - x - 8.0, 40.0)
+		var label := str(action.get("label", ""))
+		if enabled:
+			_list.draw_string(label_font, Vector2(x, mid + 5.0), label, HORIZONTAL_ALIGNMENT_LEFT, room, 14, Color.WHITE if _list.is_selected(i) else UITheme.COL_TEXT)
+		else:
+			var reason := str(action.get("reason", "")).strip_edges()
+			_list.draw_string(label_font, Vector2(x, mid - 2.0), label, HORIZONTAL_ALIGNMENT_LEFT, room, 14, UITheme.COL_FAINT)
+			_list.draw_string(small, Vector2(x, mid + 14.0), reason if reason != "" else "Unavailable", HORIZONTAL_ALIGNMENT_LEFT, room, 11, UITheme.COL_MUTED)
 
 
 func _make_row_spacer() -> Texture2D:

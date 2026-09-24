@@ -65,19 +65,22 @@ func _test(um: UnitManager, now: float) -> bool:
 		Kind.UNIT_LOST:
 			for name in callsigns:
 				var u := _find(um, name)
-				if u != null and not u.alive:
+				if u != null and _lost(u):
 					return true
 			return false
 		Kind.ALL_UNITS_LOST:
 			for name in callsigns:
 				var u := _find(um, name)
-				if u == null or u.alive:
+				if u == null or not _lost(u):
 					return false
 			return not callsigns.is_empty()
 		Kind.REACH_AREA:
 			var n := 0
 			for u in _scope(um):
-				if u.alive and u.position.distance_to(center) <= radius_nm:
+				# A whole-force count means ships and flying aircraft, not airframes riding in a
+				# hangar that happens to be inside the box.
+				var present: bool = u.alive if not callsigns.is_empty() else u.is_engageable()
+				if present and u.position.distance_to(center) <= radius_nm:
 					n += 1
 			return n >= count
 		Kind.TIME_ELAPSED:
@@ -136,6 +139,11 @@ func _recovered_count(um: UnitManager) -> int:
 		if matching:
 			recovered += 1
 	return recovered
+
+
+## Sunk, shot down or foundered. An aircraft that flew home off the chart has not been lost.
+static func _lost(u: Unit) -> bool:
+	return not u.alive and not u.departed
 
 
 ## Units this objective is about: named ships if given, otherwise the whole faction.

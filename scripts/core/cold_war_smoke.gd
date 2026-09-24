@@ -102,6 +102,18 @@ static func run(main: Main) -> void:
 	checks["watch air operations opens launch controls"] = main._air_operations.visible and SimClock.paused
 	main._close_air_operations(false)
 	checks["air operations closes without unpausing"] = not main._air_operations.visible and SimClock.paused
+	# Space pauses exactly once even with a button holding keyboard focus; a focused button
+	# would otherwise also answer Space.
+	main._hide_screens()
+	var paused_before := SimClock.paused
+	main.top_bar._pause_btn.focus_mode = Control.FOCUS_ALL
+	main.top_bar._pause_btn.grab_focus()
+	var space := InputEventKey.new()
+	space.keycode = KEY_SPACE
+	space.pressed = true
+	main.get_viewport().push_input(space)
+	checks["space toggles pause once with a button focused"] = SimClock.paused != paused_before
+	SimClock.set_paused(true)
 	main._toggle_command_palette()
 	checks["chart layout is discoverable in actions"] = main._command_palette._actions.any(func(a: Dictionary) -> bool: return a["id"] == "wide_chart")
 	main._command_palette.close_palette()

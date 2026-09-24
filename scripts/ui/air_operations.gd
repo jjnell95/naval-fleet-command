@@ -35,24 +35,38 @@ func _ready() -> void:
 	theme_type_variation = "OverlayPanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var margin := MarginContainer.new()
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 28)
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 40)
+	for side in ["top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 30)
 	add_child(margin)
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 16)
 	margin.add_child(page)
 	var header := HBoxContainer.new()
 	page.add_child(header)
-	var title := _label("AIR OPERATIONS", 32)
+	var heading := VBoxContainer.new()
+	heading.add_theme_constant_override("separation", 2)
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(heading)
+	var eyebrow := UITheme.eyebrow("Flight deck  ·  Air wing")
+	eyebrow.add_theme_color_override("font_color", UITheme.COL_BRASS)
+	heading.add_child(eyebrow)
+	var title := _label("AIR OPERATIONS", 34)
 	title.add_theme_font_override("font", UITheme.heading_font())
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-	_back = _button("RETURN TO CHART  /  F3", func() -> void: closed.emit(false))
+	heading.add_child(title)
+	_back = _button("RETURN TO CHART", func() -> void: closed.emit(false))
+	_back.theme_type_variation = "QuietButton"
+	_back.tooltip_text = "Close and restore the previous pause state  [F3 / Esc]"
+	_back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	UIIcons.apply(_back, "close", 16)
 	header.add_child(_back)
-	_summary = _label("", 16)
-	_summary.add_theme_color_override("font_color", UITheme.COL_ACCENT)
+	_summary = _label("", 12)
+	_summary.add_theme_font_override("font", UITheme.eyebrow_font())
+	_summary.add_theme_color_override("font_color", UITheme.COL_DIM)
 	page.add_child(_summary)
-	var hint := _label("Plan while paused. Select a host and aircraft type to launch; select an airframe and destination to return and land.", 14)
+	var hint := _label("Plan while paused. Select a host and aircraft type to launch; select an airframe and destination to return and land.", 13)
+	hint.add_theme_color_override("font_color", UITheme.COL_MUTED)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(hint)
 	var body := HBoxContainer.new()
@@ -65,7 +79,7 @@ func _ready() -> void:
 	launch_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	launch_column.add_theme_constant_override("separation", 10)
 	body.add_child(launch_column)
-	launch_column.add_child(_label("01  /  PREPARE A SORTIE", 18))
+	launch_column.add_child(_step("01", "Prepare a sortie"))
 	_base_picker = OptionButton.new()
 	_base_picker.custom_minimum_size.y = 44
 	_base_picker.clip_text = true
@@ -76,7 +90,7 @@ func _ready() -> void:
 		_refresh_types())
 	launch_column.add_child(_base_picker)
 	_types = ItemList.new()
-	_types.custom_minimum_size.y = 180
+	_types.custom_minimum_size.y = 140
 	_types.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_types.add_theme_constant_override("v_separation", 12)
 	_types.accessibility_name = "Embarked aircraft types and readiness"
@@ -85,7 +99,7 @@ func _ready() -> void:
 		_refresh_launch())
 	launch_column.add_child(_types)
 	_portrait = TextureRect.new()
-	_portrait.custom_minimum_size.y = 130
+	_portrait.custom_minimum_size.y = 112
 	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	launch_column.add_child(_portrait)
@@ -95,7 +109,7 @@ func _ready() -> void:
 	launch_column.add_child(_type_detail)
 	var launch_row := HBoxContainer.new()
 	launch_column.add_child(launch_row)
-	launch_row.add_child(_label("AIRCRAFT", 12))
+	launch_row.add_child(UITheme.eyebrow("Aircraft"))
 	_count = SpinBox.new()
 	_count.min_value = 1
 	_count.max_value = 4
@@ -117,7 +131,7 @@ func _ready() -> void:
 	recovery_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	recovery_column.add_theme_constant_override("separation", 10)
 	body.add_child(recovery_column)
-	recovery_column.add_child(_label("02  /  MANAGE THE AIR WING", 18))
+	recovery_column.add_child(_step("02", "Manage the air wing"))
 	_roster = Tree.new()
 	_roster.hide_root = true
 	_roster.columns = 5
@@ -146,7 +160,7 @@ func _ready() -> void:
 	recovery_column.add_child(_aircraft_detail)
 	var recovery_row := HBoxContainer.new()
 	recovery_column.add_child(recovery_row)
-	recovery_row.add_child(_label("LAND AT", 12))
+	recovery_row.add_child(UITheme.eyebrow("Land at"))
 	_destination = OptionButton.new()
 	_destination.custom_minimum_size = Vector2(220, 44)
 	_destination.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -160,6 +174,9 @@ func _ready() -> void:
 	_focus = _button("SHOW ON CHART", func() -> void:
 		if _aircraft != null and _aircraft.is_engageable():
 			aircraft_selected.emit(_aircraft))
+	_focus.theme_type_variation = "QuietButton"
+	_focus.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	UIIcons.apply(_focus, "focus", 16)
 	recovery_column.add_child(_focus)
 	_receipt = _label("Choose an aircraft type. Launches use available deck spots; recovered aircraft must refuel and rearm before another sortie.", 14)
 	_receipt.custom_minimum_size.y = 42
@@ -167,11 +184,15 @@ func _ready() -> void:
 	page.add_child(_receipt)
 	var footer := HBoxContainer.new()
 	page.add_child(footer)
-	var note := _label("Return to chart restores your previous pause state. Execute & resume starts the clock at 1×.", 13)
+	var note := _label("Return to chart restores your previous pause state. Execute & resume starts the clock at 1×.", 12)
+	note.add_theme_color_override("font_color", UITheme.COL_MUTED)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	footer.add_child(note)
-	footer.add_child(_button("EXECUTE & RESUME", func() -> void: closed.emit(true)))
+	var execute := _button("EXECUTE & RESUME", func() -> void: closed.emit(true))
+	execute.tooltip_text = "Close Air Operations and start the clock at 1×"
+	UIIcons.apply(execute, "play", 16)
+	footer.add_child(execute)
 
 
 func _button(text: String, action: Callable) -> Button:
@@ -181,6 +202,20 @@ func _button(text: String, action: Callable) -> Button:
 	b.focus_mode = Control.FOCUS_ALL
 	b.pressed.connect(action)
 	return b
+
+
+## A numbered step heading: the number in brass, the step in tracked capitals.
+func _step(number: String, text: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var n := _label(number, 13)
+	n.add_theme_font_override("font", UITheme.mono_font())
+	n.add_theme_color_override("font_color", UITheme.COL_BRASS)
+	row.add_child(n)
+	var t := _label(text.to_upper(), 13)
+	t.add_theme_font_override("font", UITheme.eyebrow_font())
+	row.add_child(t)
+	return row
 
 
 func _label(text: String, font_size: int) -> Label:
@@ -203,7 +238,7 @@ func open_for(selection: Array) -> void:
 			_base = u.home
 			_type_id = u.spec.id
 			break
-		if u.spec.aircraft_capacity > 0:
+		if u.spec.aircraft_capacity > 0 and not u.stowed_aircraft().is_empty():
 			_base = u
 			break
 	show()
@@ -320,7 +355,7 @@ func _refresh_launch() -> void:
 	_count.max_value = maxi(maximum, 1)
 	_count.editable = reason == "" and maximum > 0
 	_launch.disabled = reason != "" or maximum <= 0
-	_launch_hint.text = reason if reason != "" else "%d ready • %d deck spots free. Launch %d × %s; airborne in about %.0f s after resuming." % [ready, spots, int(_count.value), spec.short_name, spec.launch_time_s]
+	_launch_hint.text = reason.capitalize() if reason != "" else "%d ready • %d deck spots free. Launch %d × %s; airborne in about %.0f s after resuming." % [ready, spots, int(_count.value), spec.short_name, spec.launch_time_s]
 	_launch.tooltip_text = _launch_hint.text
 
 

@@ -429,15 +429,16 @@ func _do_engage(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
 	var plan := _pick_engagement(u, b, hostiles, now)
 	if plan.is_empty():
 		return
-	_manage_emissions(u, true)
 	var t: Track = plan["track"]
-	b["target"] = t
-	b["engaged"][t.id] = now
-	# Wait until the salvo would actually have arrived before deciding it did not work.
-	var flight := Combat.time_of_flight_s(plan["weapon"], u.position.distance_to(t.position))
-	b["cooldown_%s" % t.id] = maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
 	_manage_emissions(u, true)  # shooting is worth being seen for
-	unit_manager.issue_order(u, Order.engage(t, plan["weapon"].id, plan["salvo"]))
+	# A refused shot (fire control saturated, out of the envelope after all) fired nothing, so it
+	# must not start the re-attack cooldown on that target.
+	if unit_manager.issue_order(u, Order.engage(t, plan["weapon"].id, plan["salvo"])):
+		b["target"] = t
+		b["engaged"][t.id] = now
+		# Wait until the salvo would actually have arrived before deciding it did not work.
+		var flight := Combat.time_of_flight_s(plan["weapon"], u.position.distance_to(t.position))
+		b["cooldown_%s" % t.id] = maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
 	if u.ai_posture == "breakout":
 		_do_patrol(u, b, now)  # keep running the route while shooting
 	else:

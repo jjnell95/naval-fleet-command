@@ -40,7 +40,8 @@ func clear_rows() -> void:
 
 
 func _draw() -> void:
-	var font := UITheme.body_font()
+	var font := UITheme.semibold_font()
+	var detail_font := UITheme.body_font()
 	for i in mini(item_count, row_titles.size()):
 		var rect := get_item_rect(i)
 		rect.position -= Vector2(get_h_scroll_bar().value, get_v_scroll_bar().value)
@@ -48,14 +49,14 @@ func _draw() -> void:
 			continue
 		var width := maxi(int(rect.size.x - 22), 0)
 		var title := _fit_text(font, row_titles[i], width, title_size)
-		var detail := _fit_text(font, row_details[i], width, detail_size)
+		var detail := _fit_text(detail_font, row_details[i], width, detail_size)
 		var base := rect.position + Vector2(10, title_size + 3)
 		var color := Color.WHITE if is_selected(i) else row_colors[i]
 		if base.y >= title_size + 4 and base.y <= size.y - 5:
 			draw_string(font, base, title, HORIZONTAL_ALIGNMENT_LEFT, width, title_size, color)
 		var detail_base := base + Vector2(0, detail_size + 7)
 		if detail_base.y >= detail_size + 4 and detail_base.y <= size.y - 5:
-			draw_string(font, detail_base, detail, HORIZONTAL_ALIGNMENT_LEFT, width, detail_size, UITheme.COL_AMBER if is_selected(i) else UITheme.COL_DIM)
+			draw_string(detail_font, detail_base, detail, HORIZONTAL_ALIGNMENT_LEFT, width, detail_size, UITheme.COL_TEXT if is_selected(i) else UITheme.COL_MUTED)
 
 
 func _fit_text(font: Font, value: String, width: int, font_size: int) -> String:

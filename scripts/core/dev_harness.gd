@@ -28,6 +28,7 @@ extends RefCounted
 ##   --rings                     show the sensor coverage layer (F4), for screenshots
 ##   --tab=N                     open command-dock tab N (0 navigation … 3 doctrine), for screenshots
 ##   --ignite=CALLSIGN           start a fire and some flooding aboard one own ship, for screenshots
+##   --show-report               end the mission as a victory and open the after-action report
 ##   --dump                      print a full state report and quit, without touching the renderer
 ##   --hold=S --screenshot=PATH  wait S seconds, save a PNG, dump state and quit (windowed only)
 
@@ -165,6 +166,10 @@ func handle_flags() -> void:
 					u.fire = 0.65
 					u.flooding = 0.3
 					u.dc_fortune = 0.7
+	if args.has("--show-report"):
+		main._stats = {"hostile_rounds": 6, "intercepted": 4, "decoyed": 1, "hits_taken": 1, "launched": 9, "decoys_used": 3, "own_rounds": 4, "hits_scored": 2, "contacts": 5, "classified": 2, "sorties": 1}
+		main._kills = PackedStringArray(["Rassvet"])
+		main._on_mission_ended("VICTORY", "The convoy reached the handover box with its cargo intact.")
 	if args.has("--visual-smoke"):
 		_visual_smoke()
 		return

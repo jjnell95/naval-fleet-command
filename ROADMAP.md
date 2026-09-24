@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M22 command deck redesign and browser release
+
+The interface was rebuilt around the chart on a code-defined design system. Twelve defects were fixed, each with a test, and a lighter browser build (71 MB first load) now publishes through GitHub Pages. CI runs the tests on every pull request. See the [M22 notes](docs/2026-09-24-presentation-and-browser.md).
+
+The most useful next steps are an introductory mission that requires the player to identify and engage, and keyboard-free touch controls if phone play ever matters.
+
 ## M20 air operations
 
 Aircraft-type selection, explicit carrier/airfield landing, recovery reservations, visible approach and complete sortie turnaround are implemented. A no-opposition qualification exercise teaches the workflow. The roster adds 18 platforms and 12 weapon families with full recognition art. See the [M20 guide](docs/2026-09-23-air-operations.md) and [validation record](docs/validation-m20.json).

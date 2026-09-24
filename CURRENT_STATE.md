@@ -1,4 +1,14 @@
-# Current State: M21 Cold War 1990
+# Current State: M22 Command Deck Redesign and Browser Release
+
+The game plays in any modern desktop browser from [GitHub Pages](https://jjnell95.github.io/naval-fleet-command/). A first visit downloads 71 MB (down from 119 MB) behind a branded loader. Phones are told what they are getting into before the download.
+
+The interface was redesigned around the chart. A quiet design system reserves colour for meaning, uses original vector icons and moves shortcuts into tooltips. The top bar has a segmented time control, and a one-line status rail replaces the watch cards. Floating chart controls and a chart footer (source note, cursor position, scale bar) free the chart to take over half the screen at 1600 × 900. The design size is now 1600 × 900 with expand stretch, so browsers are never letterboxed.
+
+A debugging pass fixed twelve defects, each with a regression test or interface check. The worst were a missile already shot down still hitting its target, and Space firing whichever button had focus. Others: a deck aircraft blanking the contact picture, unwinnable editor objectives, and departed raiders counting as destroyed. See the [M22 notes](docs/2026-09-24-presentation-and-browser.md).
+
+Validation: 319 regression tests; 29 command-deck checks at 1600 × 1000 and 1600 × 900; 19 air-operations checks; a scripted browser session in headless Chromium with no console errors. CI now runs the tests and both interface suites on every pull request.
+
+## Previous: M21 Cold War 1990
 
 Four alternate-history 1990 operations now open through a mission desk with era filters, period artwork, command intent and first orders. Briefings separate orders, situation and controls. The clickable watch strip connects mission status, filtered contacts, detected threats, air operations and a wider chart; readable two-line mission/contact rows preserve keyboard navigation.
 

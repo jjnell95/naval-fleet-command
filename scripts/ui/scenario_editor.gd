@@ -361,9 +361,17 @@ func _fill_palette() -> void:
 		var glyph := MapSymbols.category_glyph(spec.category, spec.domain)
 		_palette.add_item("%-3s %s · %s" % [glyph, spec.nation if spec.nation != "" else "—", spec.display_name])
 	if not _palette_specs.is_empty():
-		_palette.select(0)
-		palette_platform = _palette_specs[0].id
-		_preview.spec_override = _palette_specs[0]
+		# Start on a surface ship: an aircraft cannot be placed until a deck exists, so opening
+		# on one makes the first click on the chart fail.
+		var first := 0
+		for i in _palette_specs.size():
+			if _palette_specs[i].domain == "surface":
+				first = i
+				break
+		_palette.select(first)
+		_palette.ensure_current_is_visible()
+		palette_platform = _palette_specs[first].id
+		_preview.spec_override = _palette_specs[first]
 
 
 func _set_mode(m: Mode) -> void:
@@ -487,7 +495,7 @@ func _apply_objective() -> void:
 		2:
 			if existing_area.is_empty():
 				var c: Array = scenario["map"]["center_nm"]
-				existing_area = {"id": "reach", "type": "reach_area", "center_nm": [float(c[0]), float(c[1]) + 20.0], "radius_nm": 8.0, "callsigns": [], "text": "Bring the force into the objective area"}
+				existing_area = {"id": "reach", "type": "reach_area", "faction": str(scenario.get("player_faction", "BLUE")), "center_nm": [float(c[0]), float(c[1]) + 20.0], "radius_nm": 8.0, "callsigns": [], "text": "Bring the force into the objective area"}
 			victory.append(existing_area)
 	scenario["objectives"]["victory"] = victory
 	_chart.queue_redraw()
@@ -1224,11 +1232,11 @@ class Chart extends Control:
 				draw_arc(draw_at, 15.0, 0.0, TAU, 24, Color(col, 0.5), 1.0, true)
 			var label: String = u.get("callsign", "")
 			if protected.has(label):
-				label += " ★"
+				label += "  (P)"
 			if i == editor.selected_index or not is_air:
 				draw_string(_font, draw_at + Vector2(14, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(col, 0.9))
 		draw_string(_font, Vector2(10, 16), "%s  ·  %d units  ·  sea state %d" % [str(editor.scenario.get("name", "")).to_upper(), units.size(), int(editor.scenario["environment"].get("sea_state", 0))], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_ACCENT)
-		draw_string(_font, Vector2(10, size.y - 20), "★ protected · dashed: patrol route · box: mission chart extent · filled: land", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)
+		draw_string(_font, Vector2(10, size.y - 20), "(P) protected · dashed: patrol route · box: mission chart extent · filled: land", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)
 
 
 	## Coastlines as they will appear in the mission, plus the vertices while one is being traced.

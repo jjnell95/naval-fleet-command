@@ -4,7 +4,7 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M21 / Cold War 1990"
+const BUILD_MILESTONE := "M22 / Cold War 1990"
 const DEFAULT_SCENARIO := "res://data/scenarios/cold_war_01_convoy.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
@@ -31,6 +31,9 @@ var _library_previous_focus: Control
 var _library_returns_to_menu := false
 var _objective_accum := 0.0
 var _wide_chart := false
+var _command_taken := false  # the player has taken command of the loaded operation
+var _restart_armed_ms := -100000
+const RESTART_CONFIRM_MS := 4000
 var _watch: CommandOverview
 var _dev: DevHarness
 var _stats := {}
@@ -41,6 +44,14 @@ var _foundered: Dictionary = {}  # Unit -> true, lost to fire or flooding rather
 
 func _ready() -> void:
 	theme = UITheme.build()
+	# The docked panels sit one pixel apart over this, so the gaps read as hairline dividers.
+	var backdrop := ColorRect.new()
+	backdrop.name = "Backdrop"
+	backdrop.color = UITheme.COL_HAIRLINE
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(backdrop)
+	move_child(backdrop, 0)
 	unit_panel.roster.map = map
 	unit_panel.inspect_requested.connect(_inspect_asset)
 	orders_panel.inspect_requested.connect(func(id: String) -> void: _inspect_asset(id, true))
@@ -49,7 +60,7 @@ func _ready() -> void:
 	_watch = CommandOverview.new()
 	_watch.map = map
 	_watch.contacts = contact_panel
-	_watch.custom_minimum_size.y = 72
+	_watch.custom_minimum_size.y = 38
 	_watch.orders_pressed.connect(_show_briefing)
 	_watch.contacts_pressed.connect(func() -> void: _cycle_priority_track(1))
 	_watch.threat_pressed.connect(_focus_urgent_threat)
@@ -75,6 +86,7 @@ func _ready() -> void:
 	map.waypoint_delete_requested.connect(_on_waypoint_delete_requested)
 	map.interaction_mode_changed.connect(orders_panel.set_move_mode)
 	orders_panel.order_requested.connect(_apply_order_to_selection)
+	orders_panel.unit_orders_requested.connect(_apply_unit_orders)
 	orders_panel.formation_requested.connect(_apply_formation)
 	orders_panel.move_mode_requested.connect(map.set_move_mode)
 	orders_panel.emcon_toggle_requested.connect(_toggle_emcon_on_selection)
@@ -121,14 +133,16 @@ func _ready() -> void:
 		print("[Mission] objective %s: %s" % ["failed" if is_loss else "complete", o.text]))
 	_build_screens()
 	top_bar.briefing_pressed.connect(_show_briefing)
-	top_bar.restart_pressed.connect(restart_scenario)
+	top_bar.restart_pressed.connect(_request_restart)
 	top_bar.menu_pressed.connect(_show_menu)
 	top_bar.commands_pressed.connect(_toggle_command_palette)
 	top_bar.alert_pressed.connect(_focus_urgent_threat)
 	simulation.track_manager.track_added.connect(_on_track_added)
 	simulation.track_manager.track_classified.connect(_on_track_classified)
 	simulation.track_manager.track_lost.connect(_on_track_lost)
-	simulation.unit_manager.order_issued.connect(func(u: Unit, o: Order) -> void: print("[Order] %s: %s" % [u.callsign, o.describe()]))
+	simulation.unit_manager.order_issued.connect(func(u: Unit, o: Order) -> void:
+		if u.faction == simulation.player_faction and not simulation.ai_plays_player:
+			print("[Order] %s: %s" % [u.callsign, o.describe()]))
 
 	move_child(_library, get_child_count() - 1)
 	var args := OS.get_cmdline_user_args()
@@ -199,6 +213,7 @@ func start_scenario(path: String) -> void:
 		return
 	SimClock.set_paused(true)
 	SimClock.set_speed_index(0)
+	_command_taken = false
 	# A replacement scenario starts behind its own briefing. Rebase any older modal snapshot so
 	# dismissing that briefing can never inherit a running state from the previous mission.
 	_modal_pause_captured = true
@@ -230,6 +245,18 @@ func start_scenario(path: String) -> void:
 	_briefing.set_mode(true)
 	var coast := "" if Terrain.is_empty() else ", %d landmass%s charted" % [Terrain.landmasses.size(), "" if Terrain.landmasses.size() == 1 else "es"]
 	top_bar.flash("%s loaded — sea state %d, %s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), coast])
+
+
+## Restarting throws away the whole mission, so from the command deck it takes a second press.
+## The briefing and the after-action report restart directly; there it is the deliberate choice.
+func _request_restart() -> void:
+	var now := Time.get_ticks_msec()
+	if now - _restart_armed_ms <= RESTART_CONFIRM_MS:
+		_restart_armed_ms = -RESTART_CONFIRM_MS
+		restart_scenario()
+		return
+	_restart_armed_ms = now
+	top_bar.flash("Restart this operation? Press restart (F10) again to confirm", "warn")
 
 
 func restart_scenario() -> void:
@@ -320,7 +347,9 @@ func _show_menu() -> void:
 	_briefing.hide()
 	_report.hide()
 	_editor.hide()
-	_menu.allow_back(simulation.scenario_path != "")
+	# Returning to the chart only makes sense once the player has taken command; before that it
+	# would skip the briefing.
+	_menu.allow_back(_command_taken)
 	_menu.refresh(simulation.scenario_path)
 	_menu.show()
 	_menu.call_deferred("focus_default")
@@ -332,6 +361,7 @@ func _show_briefing() -> void:
 	_report.hide()
 	_editor.hide()
 	_briefing.set_mode(SimClock.sim_time <= 0.0)
+	_briefing._select_section("orders")
 	_briefing.refresh()
 	_briefing.show()
 	_briefing.call_deferred("focus_default")
@@ -351,6 +381,7 @@ func _on_briefing_start() -> void:
 	# TAKE COMMAND / RESUME is explicit intent to run the clock, even when the board was opened
 	# from an already-paused picture. Clear the modal snapshot before resuming.
 	_hide_screens(false)
+	_command_taken = true
 	_modal_pause_captured = false
 	_set_background_input_enabled(true)
 	SimClock.set_paused(false)
@@ -558,7 +589,7 @@ func _run_palette_action(id: String) -> void:
 			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
 			map.grab_focus()
 		"open_engagement":
-			orders_panel.open_engagement()
+			orders_panel.open_engagement(true)
 		"next_contact":
 			_cycle_priority_track(1)
 		"previous_contact":
@@ -602,6 +633,32 @@ func _run_palette_action(id: String) -> void:
 				SimClock.set_speed_index(int(id.trim_prefix("speed_")))
 
 
+## Space is the pause key on the command deck. It is taken here, before the GUI sees it, because a
+## focused button also answers Space: pausing just after clicking ENGAGE would fire again.
+## Text fields and the full-screen surfaces keep the key.
+func _input(event: InputEvent) -> void:
+	var k := event as InputEventKey
+	if k == null or not k.pressed or k.echo:
+		return
+	# Actions opens from anywhere, including from inside a search field.
+	if k.keycode == KEY_K and (k.meta_pressed or k.ctrl_pressed) and not _editor.visible:
+		_toggle_command_palette()
+		get_viewport().set_input_as_handled()
+		return
+	# The library focuses its search field on opening, and a focused field swallows Escape.
+	if k.keycode == KEY_ESCAPE and _library.visible and not _command_palette.visible:
+		_close_library()
+		get_viewport().set_input_as_handled()
+		return
+	if k.keycode != KEY_SPACE or _has_visible_modal():
+		return
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return
+	SimClock.toggle_pause()
+	get_viewport().set_input_as_handled()
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
@@ -630,7 +687,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if _menu.visible:
-		if k.keycode in [KEY_F9, KEY_ESCAPE] and simulation.scenario_path != "":
+		if k.keycode in [KEY_F9, KEY_ESCAPE] and _command_taken:
 			_hide_screens()
 			get_viewport().set_input_as_handled()
 		elif k.keycode == KEY_F8:
@@ -703,7 +760,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F8:
 			_show_editor()
 		KEY_F10:
-			restart_scenario()
+			_request_restart()
 		KEY_HOME:
 			map.fit_to_fleet()
 		KEY_C:
@@ -946,6 +1003,28 @@ func _apply_order_to_selection(order: Order) -> void:
 				accepted += 1
 			else:
 				refused += 1
+	_report_orders(order, accepted, refused)
+
+
+## Orders that carry a different value for each platform, such as each airframe's cruise altitude.
+func _apply_unit_orders(pairs: Array) -> void:
+	var accepted := 0
+	var refused := 0
+	var sample: Order = null
+	for pair: Array in pairs:
+		var u: Unit = pair[0]
+		if u.faction != simulation.player_faction or not map.selected.has(u):
+			continue
+		sample = pair[1]
+		if simulation.unit_manager.issue_order(u, pair[1]):
+			accepted += 1
+		else:
+			refused += 1
+	if sample != null:
+		_report_orders(sample, accepted, refused)
+
+
+func _report_orders(order: Order, accepted: int, refused: int) -> void:
 	var attempted := accepted + refused
 	if accepted > 0:
 		SoundFx.play("click", 0.05)

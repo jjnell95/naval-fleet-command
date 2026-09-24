@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/rfn_mpa_tu142_beauty.png-4ef4d3dc6f4c4a35d1c2
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.82
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

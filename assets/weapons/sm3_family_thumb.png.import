@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/sm3_family_thumb.png-e4a0749c5998a79b60f05d3d
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.82
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

@@ -29,9 +29,13 @@ func _short_name(callsign: String) -> String:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("091420"))
-	draw_rect(Rect2(Vector2.ZERO, size), UITheme.COL_BORDER, false, 1.0)
-	draw_string(_font, Vector2(12, 19), "THREAT EVALUATION", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_ACCENT)
+	var frame := StyleBoxFlat.new()
+	frame.bg_color = UITheme.COL_PANEL_DEEP
+	frame.border_color = UITheme.COL_HAIRLINE
+	frame.set_border_width_all(1)
+	frame.set_corner_radius_all(UITheme.RADIUS)
+	draw_style_box(frame, Rect2(Vector2.ZERO, size))
+	draw_string(UITheme.eyebrow_font(), Vector2(12, 20), "AIR DEFENCE", HORIZONTAL_ALIGNMENT_LEFT, -1, UITheme.SIZE_EYEBROW, UITheme.COL_MUTED)
 	if contacts == null or contacts.map == null or contacts.map.unit_manager == null:
 		return
 	var m := contacts.map
@@ -96,14 +100,16 @@ func _draw() -> void:
 		y += 14.0
 		var total := u.spec.fire_control_channels
 		var busy := int(loads.get(u, 0))
-		var name := _short_name(u.callsign).left(16)
+		var name := _short_name(u.callsign)
+		if name.length() > 16:
+			name = name.get_slice(" (", 0).left(16)
 		draw_string(_font, Vector2(12, y), name, HORIZONTAL_ALIGNMENT_LEFT, 118, 10, UITheme.COL_TEXT if u.can_fire() else UITheme.COL_RED)
 		var bx := 136.0
 		var bw := size.x - bx - 12.0
 		var seg := bw / maxf(float(total), 1.0)
 		for i in total:
 			var filled := i < busy
-			var c := UITheme.COL_ACCENT if filled else Color("1a2e3c")
+			var c := UITheme.COL_ACCENT if filled else UITheme.COL_HAIRLINE.lightened(0.08)
 			if not u.can_fire():
 				c = Color(UITheme.COL_RED, 0.4)
 			draw_rect(Rect2(bx + i * seg, y - 8, maxf(seg - 2.0, 1.0), 8), c)

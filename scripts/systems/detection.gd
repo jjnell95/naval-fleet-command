@@ -315,6 +315,8 @@ static func active_sonar_detection_nm(listener: Unit, emitter: Unit) -> float:
 	var best := 0.0
 	for s in listener.sensors:
 		if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0:
+			if s.requires_hover and not listener.is_hovering():
+				continue  # a dipping set hears nothing until it is in the water
 			best = maxf(best, s.passive_sensitivity_nm * 1.8 * self_noise_factor(listener, s))
 	return best
 
@@ -333,6 +335,8 @@ static func torpedo_detection_nm(listener: Unit, wspec: WeaponSpec) -> float:
 	var best := 0.0
 	for s in listener.sensors:
 		if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0:
+			if s.requires_hover and not listener.is_hovering():
+				continue
 			best = maxf(best, s.passive_sensitivity_nm * sqrt(maxf(wspec.acoustic_signature, 0.01)) * self_noise_factor(listener, s))
 	return best * sonar_environment_factor()
 

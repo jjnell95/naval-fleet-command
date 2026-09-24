@@ -499,6 +499,7 @@ func _step_off_map_return(a: Unit) -> void:
 	var local := a.position - map_center
 	if absf(local.x) > half + OFF_MAP_MARGIN_NM or absf(local.y) > half + OFF_MAP_MARGIN_NM:
 		a.alive = false
+		a.departed = true
 		a.flight_state = Unit.FlightState.STOWED
 		_set_recovery_base(a, null)
 		a.tanking_on = null

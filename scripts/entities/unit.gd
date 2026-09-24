@@ -29,6 +29,8 @@ var ordered_heading_deg := 0.0
 var ordered_speed_kn := 0.0
 var waypoints: Array[Vector2] = []
 var alive := true
+## Left the chart for a base off the map. Not alive for the simulation, but not lost either.
+var departed := false
 var sensors: Array[SensorSpec] = []  # resolved from spec.sensor_ids at spawn
 var radar_on := true
 var active_sonar_on := false

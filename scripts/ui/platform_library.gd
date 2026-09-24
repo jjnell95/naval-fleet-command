@@ -24,7 +24,9 @@ func _ready() -> void:
 	theme_type_variation = "OverlayPanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var margin := MarginContainer.new()
-	for side in ["left", "right", "top", "bottom"]:
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 40)
+	for side in ["top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 30)
 	add_child(margin)
 	var v := VBoxContainer.new()
@@ -32,37 +34,59 @@ func _ready() -> void:
 	margin.add_child(v)
 	var masthead := HBoxContainer.new()
 	v.add_child(masthead)
+	var heading := VBoxContainer.new()
+	heading.add_theme_constant_override("separation", 2)
+	masthead.add_child(heading)
+	var kicker := UITheme.eyebrow("Recognition library  ·  Platforms & ordnance")
+	kicker.add_theme_color_override("font_color", UITheme.COL_BRASS)
+	heading.add_child(kicker)
 	var brand := Label.new()
 	brand.text = "FLEET RECOGNITION"
 	brand.add_theme_font_override("font", UITheme.heading_font())
-	brand.add_theme_font_size_override("font_size", 32)
-	masthead.add_child(brand)
+	brand.add_theme_font_size_override("font_size", 34)
+	heading.add_child(brand)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	masthead.add_child(spacer)
 	var back := Button.new()
-	back.text = "BACK  /  F7"
+	back.text = "CLOSE"
+	back.theme_type_variation = "QuietButton"
+	back.tooltip_text = "Close the library  [F7 / Esc]"
+	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	UIIcons.apply(back, "close", 16)
 	back.pressed.connect(func() -> void: closed.emit())
 	masthead.add_child(back)
 	var toolbar := HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 12)
 	v.add_child(toolbar)
 	var group := ButtonGroup.new()
+	var mode_frame := PanelContainer.new()
+	mode_frame.theme_type_variation = "SegmentedPanel"
+	toolbar.add_child(mode_frame)
+	var modes := HBoxContainer.new()
+	modes.add_theme_constant_override("separation", 2)
+	mode_frame.add_child(modes)
 	_platform_button = Button.new()
-	_platform_button.text = "PLATFORMS  /  %02d" % DataDB.all_platforms().size()
+	_platform_button.theme_type_variation = "SegmentButton"
+	_platform_button.custom_minimum_size = Vector2(140, 32)
+	_platform_button.text = "PLATFORMS  %d" % DataDB.all_platforms().size()
 	_platform_button.toggle_mode = true
 	_platform_button.button_group = group
 	_platform_button.button_pressed = true
 	_platform_button.pressed.connect(func() -> void: _set_mode(false))
-	toolbar.add_child(_platform_button)
+	modes.add_child(_platform_button)
 	_weapon_button = Button.new()
-	_weapon_button.text = "ORDNANCE  /  %02d" % DataDB.all_weapons().size()
+	_weapon_button.theme_type_variation = "SegmentButton"
+	_weapon_button.custom_minimum_size = Vector2(140, 32)
+	_weapon_button.text = "ORDNANCE  %d" % DataDB.all_weapons().size()
 	_weapon_button.toggle_mode = true
 	_weapon_button.button_group = group
 	_weapon_button.pressed.connect(func() -> void: _set_mode(true))
-	toolbar.add_child(_weapon_button)
+	modes.add_child(_weapon_button)
 	_search = LineEdit.new()
-	_search.placeholder_text = "Search class, aircraft, weapon, nation or role…"
+	_search.placeholder_text = "Search class, aircraft, weapon, nation or role"
+	_search.right_icon = UIIcons.get_icon("search", 18, UITheme.COL_MUTED, 1.0)
+	_search.custom_minimum_size.y = 40
 	_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_search.text_changed.connect(_filter)
 	toolbar.add_child(_search)
@@ -112,15 +136,25 @@ func _ready() -> void:
 	center.add_child(_stage)
 	var view_bar := HBoxContainer.new()
 	center.add_child(view_bar)
+	var view_frame := PanelContainer.new()
+	view_frame.theme_type_variation = "SegmentedPanel"
+	view_bar.add_child(view_frame)
+	var views := HBoxContainer.new()
+	views.add_theme_constant_override("separation", 2)
+	view_frame.add_child(views)
 	for view in [["3D", "three_quarter"], ["PROFILE", "profile"], ["PLAN", "plan"]]:
 		var button := Button.new()
+		button.theme_type_variation = "SegmentButton"
+		button.custom_minimum_size = Vector2(76, 28)
 		button.text = view[0]
 		button.pressed.connect(func() -> void:
 			_stage.set_view(view[1])
 			_spin_button.set_pressed_no_signal(false))
-		view_bar.add_child(button)
+		views.add_child(button)
 	_spin_button = Button.new()
+	_spin_button.theme_type_variation = "QuietButton"
 	_spin_button.text = "AUTO ROTATE"
+	UIIcons.apply(_spin_button, "restart", 16)
 	_spin_button.toggle_mode = true
 	_spin_button.toggled.connect(_stage.set_spin)
 	view_bar.add_child(_spin_button)
@@ -135,7 +169,7 @@ func _ready() -> void:
 	_loadout_title.theme_type_variation = "HeaderLabel"
 	center.add_child(_loadout_title)
 	var belt := ScrollContainer.new()
-	belt.custom_minimum_size.y = 110
+	belt.custom_minimum_size.y = 116
 	belt.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	center.add_child(belt)
 	_loadout = HBoxContainer.new()
@@ -143,6 +177,7 @@ func _ready() -> void:
 	belt.add_child(_loadout)
 	var dossier := PanelContainer.new()
 	dossier.theme_type_variation = "CardPanel"
+	dossier.add_theme_stylebox_override("panel", UITheme.stripe_card(UITheme.COL_BRASS, 18))
 	dossier.custom_minimum_size.x = 282
 	body.add_child(dossier)
 	var dossier_v := VBoxContainer.new()
@@ -158,8 +193,9 @@ func _ready() -> void:
 	_detail.add_theme_font_size_override("bold_font_size", 14)
 	dossier_v.add_child(_detail)
 	var note := Label.new()
-	note.text = "ILLUSTRATIVE CLASS MODELS   /   Public recognition features. Combat figures describe the game fit."
+	note.text = "Illustrative class models  ·  public recognition features  ·  combat figures describe the game fit"
 	note.theme_type_variation = "DimLabel"
+	note.add_theme_color_override("font_color", UITheme.COL_FAINT)
 	note.add_theme_font_size_override("font_size", 11)
 	v.add_child(note)
 	_filter("")
@@ -251,7 +287,7 @@ func _select(index: int) -> void:
 		lines.append("[color=%s]BASING[/color]   %s" % [UITheme.HEX_DIM, p.flight_requirement().to_upper()])
 	if p.vls_cells > 0:
 		lines.append("[color=%s]VLS CELLS[/color]   %d / %d allocated" % [UITheme.HEX_DIM, p.occupied_vls_cells(), p.vls_cells])
-	lines.append("\n[color=%s][b]SENSOR FIT[/b][/color]" % UITheme.HEX_ACCENT)
+	lines.append("\n" + UITheme.section_bb("Sensor fit"))
 	for sid in p.sensor_ids:
 		var sensor := DataDB.sensor(sid)
 		if sensor != null:
@@ -270,7 +306,7 @@ func _show_weapon(w: WeaponSpec) -> void:
 	_eyebrow.text = "ORDNANCE  /  %s  /  %s" % [w.type.to_upper(), ("GUN MOUNT" if w.type in ["gun", "ciws"] else w.profile.replace("_", " ").to_upper())]
 	_title.text = w.family.to_upper()
 	_subtitle.text = w.display_name
-	_detail.text = "[font_size=18][b]%s[/b][/font_size]\n\n[color=%s]TARGET DOMAIN[/color]\n%s\n\n[color=%s]GUIDANCE MODEL[/color]\n%s\n\n[color=%s]GAME ENVELOPE[/color]\n%.1f–%.1f nm\n\n[color=%s]SYSTEM PROFILE[/color]\n%s\n\n[color=%s]Family recognition model. Variants and real configurations differ. These figures describe simulation tuning.[/color]" % [w.display_name, UITheme.HEX_ACCENT, ", ".join(w.target_types).to_upper(), UITheme.HEX_ACCENT, w.guidance.replace("_", " "), UITheme.HEX_ACCENT, w.min_range_nm, w.max_range_nm, UITheme.HEX_ACCENT, ("Gun mount / projectile" if w.type in ["gun", "ciws"] else w.profile.replace("_", " ")), UITheme.HEX_DIM]
+	_detail.text = "[font_size=18][b]%s[/b][/font_size]\n\n[font_size=11][color=%s]TARGET DOMAIN[/color][/font_size]\n%s\n\n[font_size=11][color=%s]GUIDANCE MODEL[/color][/font_size]\n%s\n\n[font_size=11][color=%s]GAME ENVELOPE[/color][/font_size]\n%.1f–%.1f nm\n\n[font_size=11][color=%s]SYSTEM PROFILE[/color][/font_size]\n%s\n\n[color=%s]Family recognition model. Variants and real configurations differ. These figures describe simulation tuning.[/color]" % [w.display_name, UITheme.HEX_MUTED, ", ".join(w.target_types).to_upper(), UITheme.HEX_MUTED, w.guidance.replace("_", " "), UITheme.HEX_MUTED, w.min_range_nm, w.max_range_nm, UITheme.HEX_MUTED, ("Gun mount / projectile" if w.type in ["gun", "ciws"] else w.profile.replace("_", " ")), UITheme.HEX_DIM]
 	_loadout_title.text = "CARRIED BY  /  SELECT TO INSPECT"
 	for p: PlatformSpec in DataDB.all_platforms():
 		if not p.weapon_loadout.has(w.id):
@@ -286,7 +322,7 @@ func _show_weapon(w: WeaponSpec) -> void:
 
 func _loadout_card(w: WeaponSpec, count: int) -> void:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(168, 92)
+	button.custom_minimum_size = Vector2(168, 100)
 	button.tooltip_text = "Inspect " + w.display_name
 	button.pressed.connect(func() -> void: inspect(w.id, true))
 	_loadout.add_child(button)
@@ -302,12 +338,16 @@ func _loadout_card(w: WeaponSpec, count: int) -> void:
 	image.texture = PlatformArt.thumbnail(w.id, true)
 	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	image.custom_minimum_size.y = 45
+	image.custom_minimum_size.y = 42
 	v.add_child(image)
 	var name_label := Label.new()
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	name_label.text = "%02d × %s" % [count, w.family.replace(" family", "")]
 	name_label.add_theme_font_size_override("font_size", 11)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.clip_text = true
+	# Two lines, then an ellipsis: centred text that simply clipped lost both of its ends.
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.max_lines_visible = 2
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.custom_minimum_size.x = 150
 	v.add_child(name_label)
