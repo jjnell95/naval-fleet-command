@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "swe_fsg_visby"
+display_name = "Visby-class corvette (ASW fit)"
+short_name = "FSG Visby"
+nation = "Sweden"
+category = "corvette"
+domain = "surface"
+length_m = 72.7
+displacement_t = 650.0
+max_speed_kn = 35.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 4.0
+accel_kn_s = 0.35
+health = 45.0
+signature_factor = 0.32
+sensor_ids = PackedStringArray("m20_littoral_radar", "m20_escort_sonar", "nato_esm_suite")
+mast_height_m = 18.0
+fire_control_channels = 0
+decoy_count = 14
+weapon_loadout = {"mk110_57mm_gun": 220, "torpedo47": 8}
+role = "Littoral ASW / low-signature patrol"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Reduced ASW fit: RBS15 missiles and future air-defence modifications omitted. Existing 57 mm resource stands in for Bofors family. Flight deck can accept visits in reality; no resident hangar/air wing is modelled."
+aircraft_capacity = 0
+aviation_facility = "none"

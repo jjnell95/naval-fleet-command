@@ -114,7 +114,7 @@ static func hit_probability(spec: WeaponSpec, target: Unit) -> float:
 		# Turning away and opening the range is the only hard answer a surface ship has.
 		var evasion := clampf(target.speed_kn / maxf(target.spec.max_speed_kn, 1.0), 0.0, 1.0)
 		return clampf(spec.base_pk * (1.0 - TORPEDO_EVASION_BENEFIT * evasion), 0.05, 0.99)
-	if target.airborne():
+	if target.in_flight():
 		# An aircraft is a far easier thing to hit than a sea-skimming missile, and these weapons
 		# are rated against the harder job.
 		return clampf(spec.base_pk * AIR_TARGET_BONUS, 0.0, 0.90)

@@ -284,7 +284,7 @@ static func can_target(spec: WeaponSpec, u: Unit) -> bool:
 		return false
 	if u.spec.domain == "land":
 		return spec.target_types.has("land")
-	if u.airborne():
+	if u.in_flight():
 		return spec.target_types.has("air")
 	if u.submerged():
 		return spec.target_types.has("subsurface")

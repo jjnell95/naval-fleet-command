@@ -545,8 +545,43 @@ def sandbox():
     return s
 
 
+def carrier_qualification():
+    s = Scenario("carrier_qualification", "CARRIER QUALIFICATION / AIR OPERATIONS", 67.2, 12.4, 150, 11,
+                 sea_state=2, wind_kn=8, visibility_nm=16, start="2027-03-14T09:00:00",
+                 description=("A fictional allied aviation exercise off Bodo with no opposing force. "
+                              "Open AIR F3, choose a carrier or airfield, select an aircraft type and launch count, "
+                              "then Execute & Resume. Once airborne, reopen Air Operations, choose an airframe "
+                              "and LAND AT destination, and issue RETURN & LAND. Recover one aircraft aboard ship "
+                              "and one at Bodo. CATOBAR, STOVL, helicopter and runway aircraft have different basing limits. "
+                              "Advance time after issuing orders; landing is followed by a refuel/rearm cycle."))
+    s.unit("fra_cvn_charles_de_gaulle", "Charles de Gaulle (R 91)", "BLUE", s.xy(67.30, 12.20), 0, 0,
+           air_wing=[{"platform": "fra_fighter_rafale_m", "count": 4, "callsign": "Marine", "first_modex": 11},
+                     {"platform": "fra_aew_e2c", "count": 1, "callsign": "Hawkeye", "first_modex": 21},
+                     {"platform": "nato_helo_nh90_nfh", "count": 1, "callsign": "Caiman", "first_modex": 31},
+                     {"platform": "fra_helo_panther", "count": 1, "callsign": "Panther", "first_modex": 41}])
+    s.unit("usn_lha_america", "USS America (LHA 6)", "BLUE", s.xy(67.20, 12.05), 0, 0,
+           air_wing=[{"platform": "rn_fighter_f35b", "count": 3, "callsign": "Lightning", "first_modex": 51},
+                     {"platform": "usn_helo_mh60r", "count": 2, "callsign": "Seahawk", "first_modex": 61}])
+    s.unit("ita_ddg_horizon", "Andrea Doria (D 553)", "BLUE", s.xy(67.35, 12.0), 0, 0)
+    # The generalized coastline excludes the real airport's coastal apron. This fictional
+    # exercise uses an explicitly schematic marker two miles inland, not a runway survey.
+    s.unit("shore_air_station", "Bodo training airfield", "BLUE", s.xy(67.28585, 14.44120), 260, 0,
+           position_note="Schematic exercise field marker 2 nm inland of Bodo airport on the generalized chart.",
+           air_wing=[{"platform": "usaf_fighter_f16c", "count": 3, "callsign": "Viper", "first_modex": 71},
+                     {"platform": "raf_fighter_typhoon", "count": 2, "callsign": "Typhoon", "first_modex": 81},
+                     {"platform": "usn_mpa_p8a", "count": 1, "callsign": "Poseidon", "first_modex": 91}])
+    s.objectives("Complete a carrier landing and an airfield landing. Use AIR F3 to select aircraft and destinations.",
+                 [{"id": "deck_recovery", "type": "aircraft_recovered", "faction": "BLUE", "facility": "deck", "count": 1,
+                   "text": "Launch and recover one aircraft aboard ship"},
+                  {"id": "field_recovery", "type": "aircraft_recovered", "faction": "BLUE", "facility": "airfield", "count": 1,
+                   "text": "Launch and land one aircraft at a friendly airfield"}],
+                 [protected(["Charles de Gaulle (R 91)", "USS America (LHA 6)"])])
+    s.forces("Allied exercise: CATOBAR carrier, STOVL assault ship, Horizon destroyer and friendly runway; mixed fighter, AEW, ASW and patrol detachments. No opposing force.")
+    return s
+
+
 if __name__ == "__main__":
     for build in (norwegian_sea_shadow, baltic, iceland_faroe_gap, faroe_shetland_gate,
                   vestfjorden_asw, norwegian_sea_convoy, bmd_picket, barents_strike,
-                  joint_task_force, sandbox):
+                  joint_task_force, sandbox, carrier_qualification):
         build().write()

@@ -907,7 +907,254 @@ def build_merlin(L, coaxial=False):
             obj.rotation_euler.y=a
 
 
+def build_charles_de_gaulle(L):
+    """Compact CATOBAR deck, angled recovery area and a forward starboard island."""
+    B, z = L*.121, L*.070
+    hull(L, B, L*.033, z-1.5, z, fullness=.66, transom=.86)
+    plate([(-L*.49,-B*.64),(L*.46,-B*.66),(L*.50,-B*.32),(L*.50,B*.31),
+           (L*.43,B*.69),(L*.13,B*.67),(-L*.20,B*.93),(-L*.43,B*.85),(-L*.49,B*.59)],
+          z,z+2.0,name="flight_deck")
+    prism(L*.055,L*.24,-B*.65,-B*.39,z+2,z+14,1.0,name="island")
+    box(L*.16,L*.24,-B*.65,-B*.38,z+14,z+18,name="bridge")
+    mast(L*.15,-B*.52,z+18,z+31,.42,5.5)
+    cbox(L*.15,-B*.52,z+29,1.8,5.2,2.8,name="air_search_array")
+    dome(L*.055,-B*.52,z+16,1.5)
+    for xx in (-L*.18,-L*.02):
+        box(xx-L*.033,xx+L*.033,-B*.78,-B*.61,z,z+2,name="deck_lift")
+    box(L*.20,L*.45,-B*.16,-B*.145,z+2,z+2.15,name="cat")
+    box(-L*.24,L*.06,B*.22,B*.235,z+2,z+2.15,name="cat")
+
+
+def build_amphibious(L, kind):
+    """Full-length flight decks distinguish helicopter/STOVL hosts from escorts."""
+    B = L * {"america":.125,"juan_carlos":.139,"mistral":.159}[kind]
+    z = L * (.077 if kind == "mistral" else .071)
+    hull(L,B,L*.028,z-1.6,z,fullness=.75,transom=.87,bow_sharp=False)
+    plate([(-L*.49,-B*.55),(L*.47,-B*.54),(L*.50,-B*.37),(L*.50,B*.37),
+           (L*.46,B*.55),(-L*.49,B*.55)],z,z+1.5,name="straight_flight_deck")
+    island_a, island_b = (-.12,.28) if kind == "america" else (-.015,.31)
+    prism(L*island_a,L*island_b,-B*.55,-B*.28,z+1.5,z+L*.049,1.0,name="island")
+    box(L*.20,L*island_b,-B*.57,-B*.26,z+L*.049,z+L*.061,name="bridge")
+    for xx in ((-.075,.16) if kind == "america" else (.04,.22)):
+        funnel(L*xx,-B*.40,z+L*.05,L*.026,w=B*.17,d=L*.037)
+    mast(L*.095,-B*.40,z+L*.05,z+L*.112,.45,5.0)
+    cbox(L*.095,-B*.40,z+L*.108,1.4,6,2.1,name="air_search_array")
+    for xx in (-L*.32,L*.32):
+        box(xx-L*.043,xx+L*.043,-B*.67,-B*.51,z,z+1.5,name="deck_lift")
+    if kind == "juan_carlos":
+        vplate([(L*.30,z+1.5),(L*.49,z+1.5),(L*.49,z+6.5),(L*.42,z+4.5)],
+               -B*.16,B*.41,name="ski_jump")
+    if kind != "america":
+        box(-L*.505,-L*.498,-B*.29,B*.29,-L*.015,z*.55,name="well_deck_door")
+
+
+def build_horizon(L):
+    B=L*.118; fa,ff=L*.040,L*.067
+    hull(L,B,L*.034,fa,ff)
+    d=lambda t:deck_z(fa,ff,t)
+    x=lambda t:L*(t-.5)
+    prism(x(.24),x(.67),-B*.44,B*.44,d(.45),d(.45)+7.0,1.2,name="deckhouse")
+    prism(x(.51),x(.67),-B*.40,B*.40,d(.45)+7,d(.45)+11.5,.6,name="bridge")
+    prism(x(.53),x(.59),-3.3,3.3,d(.45)+11.5,d(.45)+22.5,1.8,name="pyramid_mast")
+    dome(x(.56),0,d(.45)+22.5,3.0)
+    prism(x(.30),x(.35),-2.2,2.2,d(.45)+7,d(.45)+22,1.2,name="aft_mast")
+    cbox(x(.325),0,d(.45)+23,1.6,7.0,3.5,name="volume_search_array")
+    for t in (.39,.46):funnel(x(t),0,d(.45)+7,5.0,w=3.4,d=5.3)
+    hangar(x(.12),x(.25),B,d(.16),6.7)
+    for sign in (-1,1):gun(x(.74),sign*B*.22,d(.74),big=False)
+    gun(x(.16),0,d(.16)+6.7,big=False)
+    vls(x(.65),x(.71),0,d(.71),B*.37,rows=3)
+    for sign in (-1,1):
+        for t in (.37,.42):cbox(x(t),sign*B*.33,d(.45)+7.6,7.0,1.0,1.2,name="asm_canister")
+
+
+def build_visby(L):
+    B=L*.143; fa,ff=L*.032,L*.052
+    hull(L,B,L*.031,fa,ff,flare=.92,fullness=.56)
+    prism(-L*.26,L*.19,-B*.43,B*.43,fa,fa+L*.056,1.4,name="deckhouse")
+    prism(L*.035,L*.18,-B*.30,B*.30,fa+L*.056,fa+L*.091,.8,name="bridge")
+    prism(L*.035,L*.105,-B*.19,B*.19,fa+L*.091,fa+L*.176,1.0,name="integrated_mast")
+    cbox(L*.07,0,fa+L*.17,.5,B*.42,.85,name="search_array")
+    prism(L*.28,L*.36,-B*.14,B*.14,ff,ff+L*.034,.9,name="stealth_turret")
+    cylinder(0,ff+L*.022,L*.345,L*.43,.08,12,"barrel","x")
+    # The unobstructed aft landing deck and flush launch covers preserve the low silhouette.
+    plate([(-L*.46,-B*.40),(-L*.28,-B*.40),(-L*.28,B*.40),(-L*.46,B*.40)],
+          fa+.13,fa+.20,name="landing_pad")
+    for sign in (-1,1):
+        box(-L*.12,-L*.04,sign*B*.29-.1,sign*B*.29+.1,fa+L*.056,fa+L*.057,name="flush_hatch")
+
+
+def build_grigorovich(L):
+    B=L*.119; fa,ff=L*.043,L*.069
+    hull(L,B,L*.036,fa,ff)
+    x=lambda t:L*(t-.5)
+    d=lambda t:deck_z(fa,ff,t)
+    prism(x(.26),x(.69),-B*.43,B*.43,d(.43),d(.43)+5.8,.5,name="deckhouse")
+    box(x(.55),x(.69),-B*.37,B*.37,d(.43)+5.8,d(.43)+10.0,name="bridge")
+    lattice_mast(x(.55),0,d(.43)+10,d(.43)+25,3.3,.9)
+    cbox(x(.55),0,d(.43)+25,1.3,6.5,3.4,name="search_array")
+    for t in (.39,.46):funnel(x(t),0,d(.43)+5.8,5.5,w=3.3,d=4.6)
+    hangar(x(.12),x(.27),B,d(.18),6.2)
+    mast(x(.28),0,d(.43)+6,d(.43)+17,.3,3.0)
+    gun(x(.81),0,d(.81),big=True)
+    vls(x(.69),x(.76),0,d(.73),B*.44,rows=3)
+    for sign in (-1,1):
+        ciws(x(.33),sign*B*.32,d(.43)+5.8)
+        dome(x(.62),sign*B*.25,d(.43)+10.0,.95)
+
+
+def build_x_tail_submarine(L, kind):
+    R=L*(.065 if kind=="gotland" else .047)
+    profile=[(-L*.5,.01),(-L*.44,R*.4),(-L*.31,R*.92),(-L*.15,R),
+             (L*.26,R),(L*.37,R*.92),(L*.45,R*.64),(L*.50,.01)]
+    revolve(profile,24,name="pressure_hull")
+    sail=[(L*.01,R*.90),(L*.18,R*.9),(L*.17,R*2.02),(L*.07,R*2.17),(L*.015,R*1.8)]
+    vplate(sail,-R*.27,R*.27,name="sail")
+    if kind=="gotland":
+        plate([(L*.07,-R*1.6),(L*.12,-R*1.6),(L*.12,R*1.6),(L*.07,R*1.6)],R*1.64,R*1.75,name="sail_planes")
+    else:
+        plate([(L*.32,-R*1.50),(L*.36,-R*1.4),(L*.36,R*1.4),(L*.32,R*1.50)],-.12,.12,name="bow_planes")
+    for a in (math.pi*.25,math.pi*.75,math.pi*1.25,math.pi*1.75):
+        o=plate([(-L*.40,0),(-L*.32,0),(-L*.36,R*1.9),(-L*.42,R*1.6)],-.13,.13,name="x_rudder")
+        o.rotation_euler.x=a
+    for xx in (L*.08,L*.11,L*.14):mast(xx,0,R*2,R*2.6,.06)
+    if kind=="suffren":
+        cylinder(0,0,-L*.50,-L*.445,R*.56,20,"pumpjet","x",R*.44)
+    else:
+        for i in range(7):
+            o=plate([(-L*.495,0),(-L*.48,R*.8),(-L*.46,R*.85),(-L*.47,0)],-.08,.08,name="propeller")
+            o.rotation_euler.x=i*math.tau/7
+
+
+def build_delta_fighter(L, kind):
+    """Distinct single-engine Gripen and twin-engine Typhoon canard-delta plans."""
+    gripen=kind=="gripen"
+    fuselage(L,L*(.045 if gripen else .052),nose=.32,tail=.29,taper=.50)
+    span=L*(.60 if gripen else .69)
+    for sign in (-1,1):
+        plate([(L*.12,sign*L*.035),(-L*.37,sign*L*.035),(-L*.32,sign*span/2)],-.09,.09,name="wing")
+        plate([(L*.26,sign*L*.035),(L*.13,sign*L*.035),(L*.16,sign*L*.17)],.25,.36,name="canard")
+        cbox(L*.04,sign*L*.055,-.18,L*.21,L*.045,L*.062,name="intake")
+        if not gripen:engine_pod(-L*.50,-L*.12,sign*L*.029,-.10,L*.027)
+        cylinder(sign*span/2,0,-L*.35,-L*.21,.06,8,"tip_rail","x")
+    if gripen:engine_pod(-L*.50,-L*.14,0,-.10,L*.037)
+    fin(-L*.24,L*.23,L*.074,L*.195,L*.105)
+    cbox(L*.20,0,L*.049,L*.20,L*.063,L*.055,name="canopy")
+
+
+def build_f16(L):
+    fuselage(L,L*.044,nose=.31,tail=.31,taper=.40)
+    for sign in (-1,1):
+        plate([(L*.055,sign*L*.04),(-L*.26,sign*L*.04),(-L*.255,sign*L*.326),(-L*.16,sign*L*.326)],-.07,.07,name="wing")
+        plate([(L*.22,sign*L*.03),(L*.015,sign*L*.105),(-L*.19,sign*L*.075)],-.12,.04,name="lerx")
+        plate([(-L*.32,sign*L*.025),(-L*.48,sign*L*.025),(-L*.48,sign*L*.18),(-L*.37,sign*L*.19)],-.04,.05,name="stab")
+        cylinder(sign*L*.326,0,-L*.29,-L*.12,.05,8,"tip_rail","x")
+    fin(-L*.22,L*.26,L*.085,L*.19,L*.14)
+    engine_pod(-L*.5,-L*.16,0,0,L*.036)
+    engine_pod(-L*.12,L*.15,0,-L*.048,L*.034)
+    cbox(L*.22,0,L*.044,L*.22,L*.067,L*.056,name="canopy")
+
+
+def build_harrier(L):
+    fuselage(L,L*.050,nose=.28,tail=.36,taper=.25)
+    for sign in (-1,1):
+        wing_z=L*.035
+        plate([(L*.075,sign*L*.03),(-L*.19,sign*L*.03),(-L*.23,sign*L*.325),(-L*.16,sign*L*.325)],wing_z,wing_z+.13,name="wing")
+        plate([(-L*.34,sign*L*.015),(-L*.48,sign*L*.02),(-L*.48,sign*L*.18),(-L*.40,sign*L*.18)],0,.12,name="stab")
+        engine_pod(-L*.035,L*.20,sign*L*.069,0,L*.040)
+        for xx in (-L*.13,L*.045):
+            cylinder(xx,-L*.020,sign*L*.053,sign*L*.086,L*.017,12,"vector_nozzle","y")
+        cylinder(sign*L*.275,-L*.014,-L*.23,-L*.19,L*.012,8,"outrigger","x")
+    fin(-L*.28,L*.22,L*.075,L*.18,L*.08)
+    cbox(L*.235,0,L*.052,L*.20,L*.073,L*.065,name="canopy")
+
+
+def build_atlantic(L):
+    fuselage(L,L*.054,nose=.14,tail=.36,taper=.23)
+    for sign in (-1,1):
+        plate([(L*.09,0),(-L*.12,0),(-L*.18,sign*L*.505),(-L*.065,sign*L*.505)],-.04,.20,name="wing")
+        plate([(-L*.34,0),(-L*.47,0),(-L*.49,sign*L*.195),(-L*.405,sign*L*.195)],.05,.16,name="stab")
+        engine_pod(-L*.16,L*.18,sign*L*.175,-.10,L*.032)
+        for i in range(4):
+            angle=i*math.pi/2
+            prop=vplate([(L*.18,0),(L*.18+L*.008,L*.078),(L*.18-L*.008,L*.085),(L*.18-L*.015,0)],-.07,.07,name="propeller")
+            prop.rotation_euler.x=angle
+            prop.location=(0,sign*L*.175,-.10)
+    fin(-L*.27,L*.22,L*.08,L*.18,L*.12)
+    cylinder(0,0,-L*.59,-L*.44,L*.008,12,"mad_stinger","x")
+    cbox(L*.35,0,L*.031,L*.105,L*.084,L*.042,name="canopy")
+    cylinder(0,-L*.048,-L*.18,L*.15,L*.025,16,"ventral_bay","x")
+
+
+def build_su34(L):
+    build_fighter(L,"flanker")
+    for o in _objects:
+        name=o.name.split('.')[0]
+        if name=="fuselage":
+            for v in o.data.vertices:
+                if v.co.x>0:
+                    v.co.y*=1.45
+                    v.co.z*=.73
+        elif name=="canopy":
+            o.scale.y=1.90
+            o.scale.z=.85
+    for sign in (-1,1):
+        plate([(L*.22,sign*L*.05),(L*.12,sign*L*.05),(L*.13,sign*L*.16)],.16,.27,name="canard")
+    cylinder(0,.15,-L*.59,-L*.39,L*.021,16,"tail_stinger","x")
+
+
+def build_panther(L):
+    # Compact cabin and enclosed tail rotor are the Panther's recognition features.
+    fuselage(L*.64,L*.074,nose=.23,tail=.31,taper=.37)
+    cbox(-L*.27,0,L*.015,L*.36,L*.036,L*.048,name="tail_boom")
+    cbox(L*.025,0,L*.074,L*.28,L*.096,L*.045,name="engine_deck")
+    cbox(L*.215,0,L*.027,L*.13,L*.11,L*.078,name="canopy")
+    # Keep the tail-fin structure clear of the fenestron's open centre.
+    vplate([(-L*.37,L*.015),(-L*.46,L*.015),(-L*.44,L*.054),(-L*.39,L*.054)],-.11,.11,name="fin_lower")
+    vplate([(-L*.45,L*.170),(-L*.38,L*.177),(-L*.407,L*.248),(-L*.455,L*.248)],-.11,.11,name="fin_upper")
+    # Ring in the XZ plane, open through its centre; no opaque rotor disc.
+    cx,cz,outer,inner=-L*.408,L*.11,L*.073,L*.052
+    vertices=[]
+    for yy,rr in ((-.12,outer),(.12,outer),(-.12,inner),(.12,inner)):
+        vertices += [(cx+rr*math.cos(i*math.tau/32),yy,cz+rr*math.sin(i*math.tau/32)) for i in range(32)]
+    faces=[]
+    for i in range(32):
+        j=(i+1)%32
+        faces += [(i,j,32+j,32+i),(64+i,96+i,96+j,64+j),
+                  (i,64+i,64+j,j),(32+i,32+j,96+j,96+i)]
+    add_mesh("fenestron_shroud",vertices,faces)
+    for i in range(10):
+        a=i*math.tau/10
+        vplate([(cx,cz),(cx+inner*math.cos(a),cz+inner*math.sin(a)),
+                (cx+inner*math.cos(a+.13),cz+inner*math.sin(a+.13))],-.025,.025,name="tail_rotor")
+    cylinder(L*.02,0,L*.10,L*.17,L*.012,12,"rotor_mast")
+    for i in range(4):
+        o=plate([(0,-.10),(L*.41,-.11),(L*.435,.07),(0,.10)],L*.16,L*.166,name="rotor")
+        o.rotation_euler.z=i*math.pi/2+.24
+        o.location.x=L*.02
+    for sign in (-1,1):
+        plate([(-L*.30,0),(-L*.37,0),(-L*.37,sign*L*.14),(-L*.315,sign*L*.14)],L*.027,L*.036,name="tailplane")
+
+
 BUILDERS = {
+    "fra_cvn_charles_de_gaulle": lambda s: build_charles_de_gaulle(s["length_m"]),
+    "usn_lha_america": lambda s: build_amphibious(s["length_m"], "america"),
+    "esp_lhd_juan_carlos_i": lambda s: build_amphibious(s["length_m"], "juan_carlos"),
+    "fra_lhd_mistral": lambda s: build_amphibious(s["length_m"], "mistral"),
+    "ita_ddg_horizon": lambda s: build_horizon(s["length_m"]),
+    "deu_ffg_sachsen": lambda s: build_european_frigate(s["length_m"]),
+    "swe_fsg_visby": lambda s: build_visby(s["length_m"]),
+    "rfn_ffg_admiral_grigorovich": lambda s: build_grigorovich(s["length_m"]),
+    "fra_ssn_suffren": lambda s: build_x_tail_submarine(s["length_m"], "suffren"),
+    "swe_ssk_gotland": lambda s: build_x_tail_submarine(s["length_m"], "gotland"),
+    "usmc_fighter_av8b": lambda s: build_harrier(s["length_m"]),
+    "raf_fighter_typhoon": lambda s: build_delta_fighter(s["length_m"], "typhoon"),
+    "swe_fighter_gripen_c": lambda s: build_delta_fighter(s["length_m"], "gripen"),
+    "usaf_fighter_f16c": lambda s: build_f16(s["length_m"]),
+    "fra_mpa_atlantic2": lambda s: build_atlantic(s["length_m"]),
+    "rfn_strike_su34": lambda s: build_su34(s["length_m"]),
+    "fra_helo_panther": lambda s: build_panther(s["length_m"]),
+    "fra_aew_e2c": lambda s: build_patrol(s["length_m"], "hawkeye"),
     "usn_fighter_f35c": lambda s: build_lightning(s["length_m"], True),
     "rn_fighter_f35b": lambda s: build_lightning(s["length_m"], False),
     "fra_fighter_rafale_m": lambda s: build_rafale(s["length_m"]),

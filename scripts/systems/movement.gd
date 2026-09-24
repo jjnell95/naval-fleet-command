@@ -6,6 +6,8 @@ const FULL_TURN_SPEED_KN := 5.0  # GAMEPLAY_ESTIMATE: below this, rudder authori
 
 
 static func step(u: Unit, dt: float) -> void:
+	if u.is_aircraft() and u.flight_state == Unit.FlightState.RECOVERING:
+		return  # AviationManager owns the final approach, descent and moving-deck intercept.
 	if u.is_aircraft() and not u.airborne():
 		# Sitting in a hangar: it goes where its parent goes and does nothing of its own.
 		if u.home != null:

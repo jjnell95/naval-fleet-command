@@ -17,6 +17,7 @@ var depth_m := 0.0
 var altitude_m := 0.0
 var aircraft_id := ""
 var aircraft_count := 1
+var recovery_base: Unit
 var emcon_silent := false
 var roe := 2
 var leader: Unit
@@ -125,9 +126,10 @@ static func launch_aircraft(which := "") -> Order:
 	return o
 
 
-static func return_to_base() -> Order:
+static func return_to_base(destination: Unit = null) -> Order:
 	var o := Order.new()
 	o.type = Type.RETURN_TO_BASE
+	o.recovery_base = destination
 	return o
 
 
@@ -192,9 +194,9 @@ func describe() -> String:
 		Type.SET_ALTITUDE:
 			return "ALTITUDE %.0f m" % altitude_m
 		Type.LAUNCH_AIRCRAFT:
-			return "LAUNCH AIRCRAFT"
+			return "LAUNCH %d x %s" % [aircraft_count, aircraft_id if aircraft_id != "" else "READY AIRCRAFT"]
 		Type.RETURN_TO_BASE:
-			return "RETURN TO BASE"
+			return "RETURN TO %s" % (recovery_base.callsign if recovery_base != null else "BASE")
 		Type.DEPLOY_SONOBUOY:
 			return "DEPLOY SONOBUOY"
 		Type.SET_EMCON:

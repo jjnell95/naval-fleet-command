@@ -4,6 +4,14 @@
 
 A modern naval command simulation in Godot 4.7.2. Command a task group through an Aegis-inspired combat information display: build an uncertain picture, manage emissions, hold the screen together and decide when to shoot. Original 3D fleet art, tactical vector graphics, procedural sound and fictional scenarios; no Jane's assets or affiliation.
 
+## M20 air operations and fleet expansion
+
+**AIR / F3** opens the Air Operations board: choose an aircraft type and launch count, see airframe readiness and fuel, then select a carrier or airfield and **RETURN & LAND**. Recovery includes a visible approach, touchdown, refuelling, rearming and relaunch. The new Carrier Qualification exercise lets you practise shipboard and shore operations without opposition.
+
+The catalogue now has **74 platforms, 70 weapons, 81 sensors and 144 inspectable models**. Additions include French and amphibious carriers, European escorts and submarines, eight aircraft types and twelve weapon families. Read [the operating guide and validation](docs/2026-09-23-air-operations.md) and [the roster/source ledger](docs/AVIATION_ROSTER_M20.md).
+
+![Aircraft selection, readiness and recovery controls](docs/2026-09-23-air-operations.png)
+
 ## M19 contact fidelity and stability
 
 The selected contact now has a **Contact Solution** plot: observation age, range uncertainty, closing speed and estimated closest approach. Motion vectors have time ticks, track history fades over time, and unresolved bearings display no measured range. Sensor fusion keeps the best report in a cycle, reacquisition rebuilds the velocity estimate, and hidden enemy destruction no longer expires a contact early.
@@ -61,10 +69,10 @@ The command screen now has a watch overview, clickable fleet roster, domain filt
 Desktop/laptop with keyboard and mouse, WebGL 2 browser. The engine download is approximately 38 MB, plus the game and fleet-art package. Pick **Aegis Bastion** for the first watch and **Arctic Shield** for the regimental raid, then **Brief and Deploy** and **Take Command**. The game starts at real time. Space pauses; 1–6 changes time speed. Combat events drop acceleration to real time.
 
 - Select a friendly symbol, then press **G** or **Plot Move** and left-click water. Shift appends waypoints; Escape/right-click cancels the tool, while right-clicking a waypoint removes that leg. A ship will not take an order onto land, and the preview turns red beyond the first coast crossing. Wheel/pinch or +/- zooms; middle/right/Option-drag pans; the Tactical Overview recentres by click or drag; Home fits the force, C frames the selection and target, and F follows one platform or the hooked contact. Hover over any symbol, waypoint, or land for a quick card.
-- Select the carrier, open **AVIATION + ASW**, and press **Launch** to launch the next ready aircraft (E-2D first, then the fighters and the Growler). Select an airborne aircraft to direct it.
+- Press **AIR / F3**, choose a ship or airfield, select an aircraft type and quantity, then **LAUNCH SELECTED TYPE**. Use **EXECUTE & RESUME** to run the launch cycle. To land, select an airborne airframe in Air Operations, choose **LAND AT**, and press **RETURN & LAND**. Refuelling and rearming must finish before relaunch. Try **Carrier Qualification** for a complete practice sortie.
 - Select a friendly shooter, then a contact; the Engagement tab opens with weapon, envelope and time-of-flight context. Choose a salvo and **Engage**, or hold Ctrl/Cmd and right-click a contact to use the current legal solution immediately. Use **N / Shift-N** or the contact-panel buttons to cycle the priority stack. Unknown classification matters, and neutral traffic is out there.
 - Ship missile defence is automatic, subject to detection, weapon range, channels, ammunition, damage and weapons-hold settings. Ballistic rounds are only met by interceptors built for them.
-- R toggles radar; P sonar; E emissions control. F2 toggles the symbol key; F4 sensors; F5 trails; F6 terrain; V vectors; M sound. F1 briefing/help; F7 fleet and ordnance gallery; F8 scenario editor; F9 missions; F10 restart. **Command-K / Control-K** opens common mission actions in a searchable palette. F3 is an explicitly optional debug truth overlay.
+- R toggles radar; P sonar; E emissions control. F2 toggles the symbol key; F3 opens Air Operations; F4 sensors; F5 trails; F6 terrain; V vectors; M sound. F1 briefing/help; F7 fleet and ordnance gallery; F8 scenario editor; F9 missions; F10 restart. **Command-K / Control-K** opens common mission actions in a searchable palette.
 - The event log lives under the unit panel. The defence board on the right is the threat-evaluation view: inbound rounds, their targets, time to impact, interceptors up and channel load per ship.
 
 ## Build your own missions
@@ -73,11 +81,11 @@ Press **Scenario Editor** on the mission menu (or F8). Pick a platform from the 
 
 ## What is implemented
 
-Ten missions including a free-play sandbox; 56 platform types, 58 weapon definitions and 65 sensor definitions. Every mission is sited in real water — the Iceland-Faroe gap, the Faroe-Shetland channel, the Gotland basin, Vestfjorden, the North Cape, the Barents — with coastlines and bases at their real positions. Northern Vigil combines two reduced air wings, a surface group and land-based air detachments at their geographic locations. Default air detachments follow the platform fit; a landing facility does not imply an embarked helicopter.
+Eleven missions including a free-play sandbox and carrier/airfield qualification; 74 platform types, 70 weapon definitions and 81 sensor definitions. Combat missions are sited in real water — the Iceland-Faroe gap, the Faroe-Shetland channel, the Gotland basin, Vestfjorden, the North Cape, the Barents — with coastlines and bases at their real positions. Northern Vigil combines two reduced air wings, a surface group and land-based air detachments at their geographic locations. Default air detachments follow the platform fit; a landing facility does not imply an embarked helicopter.
 
 Radar horizon, passive/active sonar, ESM bearings, uncertain tracks, classification, stale tracks, target-motion analysis, layered missile interception, decoys, fire-control channel limits, gunfire, torpedoes, component damage, ROE, emissions control, datalinks, formations, aircraft launch/recovery/fuel, sonobuoys and opposing AI.
 
-**Coastlines and land masking.** All ten missions use geographic land data. A scenario declares
+**Coastlines and land masking.** All eleven missions use geographic land data. A scenario declares
 landmasses as closed polygons in nautical miles, each with a height, and the whole game reads them:
 
 - **Ships stop at the beach.** A hull ordered at a coast follows it rather than grinding into it, and

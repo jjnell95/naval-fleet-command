@@ -9,6 +9,7 @@ signal weapon_selection_changed(spec: WeaponSpec)
 signal formation_requested(pattern: String)
 signal move_mode_requested(active: bool)
 signal emcon_toggle_requested()
+signal air_operations_requested()
 
 const SPEED_PRESETS: Array[float] = [5.0, 10.0, 15.0, 20.0, 25.0]
 
@@ -48,7 +49,7 @@ var _layer_btn: Button
 var _alt_label: Label
 var _sonar_label: Label
 var _launch_btn: Button
-var _flight_btn: Button
+var _air_ops_btn: Button
 var _rtb_btn: Button
 var _buoy_btn: Button
 var _mag_signature := ""
@@ -182,14 +183,13 @@ func _ready() -> void:
 	_add_alt_button("LOW", 150.0)
 	_add_alt_button("CRUISE", -1.0)
 	_add_alt_button("HIGH", -2.0)
-	_launch_btn = _make_button("LAUNCH", func() -> void: _emit_raw(Order.launch_aircraft()))
+	_launch_btn = _make_button("SELECT & LAUNCH", func() -> void: air_operations_requested.emit())
 	_subrow.add_child(_launch_btn)
-	# A deck that works several spots should be flyable as one. On a single-spot ship this button
-	# is hidden, because there is no section to send.
-	_flight_btn = _make_button("FLIGHT", func() -> void: _emit_raw(Order.launch_flight("", 4)))
-	_flight_btn.tooltip_text = "Launch a section: as many airframes as the deck has spots."
-	_subrow.add_child(_flight_btn)
-	_rtb_btn = _make_button("RTB", func() -> void: _emit_raw(Order.return_to_base()))
+	_launch_btn.tooltip_text = "Choose aircraft type and sortie size in Air Operations."
+	_air_ops_btn = _make_button("AIR WING", func() -> void: air_operations_requested.emit())
+	_subrow.add_child(_air_ops_btn)
+	_rtb_btn = _make_button("RETURN & LAND", func() -> void: air_operations_requested.emit())
+	_rtb_btn.tooltip_text = "Choose a friendly carrier or airfield and order this aircraft to land."
 	_subrow.add_child(_rtb_btn)
 	_buoy_btn = _make_button("BUOY", func() -> void: _emit_raw(Order.deploy_sonobuoy()))
 	_subrow.add_child(_buoy_btn)
@@ -381,7 +381,7 @@ func _sync_live_eligibility(force := false) -> void:
 	var next_movable := _movement_authorized and next_controllable
 	if next_movable:
 		for u: Unit in _units:
-			if u.spec.max_speed_kn <= 0.0:
+			if u.spec.max_speed_kn <= 0.0 or (u.is_aircraft() and not u.airborne()):
 				next_movable = false
 				break
 	var changed := next_controllable != _controllable or next_movable != _movable
@@ -407,7 +407,7 @@ func _refresh_row_visibility() -> void:
 	var has_sonar := false
 	var is_air := false
 	var can_launch := false
-	var can_launch_flight := false
+	var has_air_wing := false
 	var has_buoys := false
 	for u: Unit in _units:
 		if u.spec.max_depth_m > 0.0:
@@ -418,10 +418,10 @@ func _refresh_row_visibility() -> void:
 			is_air = true
 			if u.sonobuoys > 0:
 				has_buoys = true
-		if u.spec.aircraft_capacity > 0 and not u.stowed_aircraft().is_empty():
-			can_launch = true
-			if u.spec.launch_capacity() > 1 and u.stowed_aircraft().size() > 1:
-				can_launch_flight = true
+		if u.spec.aircraft_capacity > 0:
+			has_air_wing = true
+			if not u.stowed_aircraft().is_empty():
+				can_launch = true
 	# Individual controls are hidden by capability; the tab remains stable.
 	_depth_label.visible = can_dive
 	for b in _depth_buttons:
@@ -432,7 +432,7 @@ func _refresh_row_visibility() -> void:
 	for b in _alt_buttons:
 		b.visible = is_air
 	_launch_btn.visible = can_launch
-	_flight_btn.visible = can_launch_flight
+	_air_ops_btn.visible = has_air_wing and not can_launch
 	_rtb_btn.visible = is_air
 	_buoy_btn.visible = has_buoys
 	_sonar_label.visible = has_sonar

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "m20_amphibious_radar"
+display_name = "Amphibious search radar (abstract suite)"
+kind = "radar"
+emits = true
+range_surface_nm = 30.0
+range_air_nm = 95.0
+antenna_height_m = 30.0
+classify_rate = 1.0
+source_status = "GAMEPLAY_ESTIMATE: generic air/surface surveillance for the Mistral scenario fit. No installed radar variant is asserted."

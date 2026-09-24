@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "esp_lhd_juan_carlos_i"
+display_name = "Juan Carlos I amphibious aviation ship"
+short_name = "LHD Juan Carlos I"
+nation = "Spain"
+category = "amphibious assault ship"
+domain = "surface"
+length_m = 231.0
+displacement_t = 26000.0
+max_speed_kn = 21.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 1.2
+accel_kn_s = 0.1
+health = 220.0
+signature_factor = 2.4
+sensor_ids = PackedStringArray("lanza_n", "nato_esm_suite")
+mast_height_m = 38.0
+fire_control_channels = 0
+decoy_count = 14
+weapon_loadout = {}
+role = "STOVL aviation / Harrier and helicopter operations"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Harrier-capable STOVL ship. Shared US/European aircraft resources form a fictional coalition detachment. Published future CIWS space is not treated as fitted missiles; small machine guns are below game scale."
+aircraft_capacity = 24
+aviation_facility = "stovl"
+launch_spots = 2
+recovery_spots = 2
+turnaround_s = 2700.0
+default_air_wing = {"usmc_fighter_av8b": 6, "usn_helo_mh60s": 2, "nato_helo_nh90_nfh": 2}

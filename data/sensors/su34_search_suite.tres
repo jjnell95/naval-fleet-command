@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "su34_search_suite"
+display_name = "Su-34 search radar (abstract suite)"
+kind = "radar"
+emits = true
+range_surface_nm = 85.0
+range_air_nm = 105.0
+antenna_height_m = 3.0
+classify_rate = 1.0
+source_status = "GAMEPLAY_ESTIMATE: generic search suite representing the public multirole radar function. No exact installed radar variant or detection envelope is claimed. See docs/AVIATION_ROSTER_M20.md."

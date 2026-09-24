@@ -296,7 +296,7 @@ func _has_controllable_selection() -> bool:
 	if selected.is_empty():
 		return false
 	for u: Unit in selected:
-		if u.faction != player_faction or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		if u.faction != player_faction or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0 or (u.is_aircraft() and not u.airborne()):
 			return false
 	return true
 
@@ -746,7 +746,7 @@ func _own_units() -> Array[Unit]:
 		return []
 	var out: Array[Unit] = []
 	for u in unit_manager.get_faction_units(player_faction):
-		if u.is_aircraft() and not u.airborne():
+		if u.is_aircraft() and not u.in_flight():
 			continue
 		out.append(u)
 	return out
@@ -1022,7 +1022,7 @@ func _move_acceptance(target: Vector2) -> Dictionary:
 	var accepted := 0
 	var target_is_land := not Terrain.is_empty() and Terrain.is_land(target)
 	for u: Unit in selected:
-		if u.faction != player_faction or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		if u.faction != player_faction or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0 or (u.is_aircraft() and not u.airborne()):
 			continue
 		total += 1
 		if not target_is_land or not u.needs_sea_room():

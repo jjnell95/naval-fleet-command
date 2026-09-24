@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "kh31a"
+display_name = "Kh-31A anti-ship missile"
+family = "Kh-31"
+type = "asm"
+guidance = "inertial_active"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 35.0
+min_range_nm = 4.0
+speed_kn = 1400.0
+turn_rate_deg_s = 18.0
+seeker_range_nm = 6.0
+damage = 38.0
+base_pk = 0.7
+salvo_default = 2
+launch_interval_s = 4.0
+signature_factor = 0.13
+altitude_m = 20.0
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim. Legacy Kh-31A family game entry; exact Su-34 variant integration and present service fit are not verified. See source limitations in the roster ledger."
+defensive_difficulty = 1.15

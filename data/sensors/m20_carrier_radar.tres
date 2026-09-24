@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "m20_carrier_radar"
+display_name = "Carrier search / air-control suite (abstract)"
+kind = "radar"
+emits = true
+range_surface_nm = 45.0
+range_air_nm = 200.0
+antenna_height_m = 40.0
+classify_rate = 1.0
+source_status = "GAMEPLAY_ESTIMATE: composite radar suite standing in for Charles de Gaulle search and fire-control systems. Exact system architecture is not simulated. See docs/AVIATION_ROSTER_M20.md."

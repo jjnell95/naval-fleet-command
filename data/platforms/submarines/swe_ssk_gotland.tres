@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "swe_ssk_gotland"
+display_name = "Gotland-class AIP submarine (MLU)"
+short_name = "SSK Gotland"
+nation = "Sweden"
+category = "diesel-electric attack submarine"
+domain = "subsurface"
+length_m = 62.0
+displacement_t = 1580.0
+max_speed_kn = 20.0
+cruise_speed_kn = 6.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.23
+health = 45.0
+signature_factor = 0.2
+sensor_ids = PackedStringArray("m20_gotland_sonar")
+mast_height_m = 6.0
+fire_control_channels = 0
+decoy_count = 6
+weapon_loadout = {"torpedo62": 12, "torpedo47": 8}
+role = "Littoral undersea patrol / AIP submarine"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Post-MLU dimensions; listed displacement is surfaced. Torpedo-only scenario fit. Batteries, diesel snorkeling and AIP energy accounting are not modelled."
+acoustic_signature = 0.05
+max_depth_m = 250.0
+patrol_depth_m = 80.0
+depth_rate_m_s = 1.6

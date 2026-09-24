@@ -17,6 +17,8 @@ extends RefCounted
 ##   --select / --form           select the player's ships, optionally in a screen formation
 ##   --move-mode                 leave Plot Move armed, for UI screenshots and interaction smoke
 ##   --open-palette              open the searchable Actions palette
+##   --open-air-ops              open aircraft type selection and landing controls
+##   --aviation-smoke            verify launch, landing, turnaround and Air Operations UI
 ##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
 ##   --open-editor               open the scenario editor on the loaded scenario, for screenshots
 ##   --brief                     open the briefing board
@@ -45,6 +47,9 @@ static func arg(args: PackedStringArray, prefix: String, fallback: float) -> flo
 
 func handle_flags() -> void:
 	var args := OS.get_cmdline_user_args()
+	if args.has("--aviation-smoke"):
+		AviationSmoke.run(main)
+		return
 	var shot := ""
 	var fast_forward := 0.0
 	for a in args:
@@ -131,6 +136,9 @@ func handle_flags() -> void:
 		main.map.set_move_mode(true)
 	if args.has("--open-palette"):
 		main._toggle_command_palette()
+	if args.has("--open-air-ops"):
+		main._hide_screens()
+		main._toggle_air_operations()
 	if args.has("--open-library"):
 		main._toggle_library()
 		main._library._search.text = "F-35"

@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_strike_su34"
+display_name = "Su-34 fighter-bomber"
+short_name = "Su-34"
+nation = "Russia"
+category = "strike aircraft"
+domain = "air"
+length_m = 23.4
+max_speed_kn = 1000.0
+cruise_speed_kn = 490.0
+turn_rate_deg_s = 7.0
+accel_kn_s = 5.0
+health = 38.0
+signature_factor = 0.9
+sensor_ids = PackedStringArray("su34_search_suite")
+cruise_altitude_m = 9000.0
+max_altitude_m = 15000.0
+altitude_rate_m_s = 30.0
+endurance_s = 10800.0
+launch_time_s = 75.0
+recovery_time_s = 90.0
+fire_control_channels = 0
+decoy_count = 8
+weapon_loadout = {"kh31a": 2, "r77_family": 2}
+launch_requirement = "runway"
+can_refuel = true
+role = "Runway strike aircraft / maritime attack"
+service_note = "Fictional maritime mission load. UAC confirms surface-attack role; exact Kh-31 variant integration and present operator-specific load are not verified. No current deployment is implied."
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."

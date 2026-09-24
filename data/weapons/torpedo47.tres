@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "torpedo47"
+display_name = "Torpedo 47 lightweight torpedo"
+family = "Torpedo 47"
+type = "torpedo"
+guidance = "acoustic_homing"
+profile = "subsurface"
+target_types = PackedStringArray("surface", "subsurface")
+max_range_nm = 11.0
+min_range_nm = 0.3
+speed_kn = 42.0
+turn_rate_deg_s = 13.0
+seeker_range_nm = 2.5
+damage = 48.0
+base_pk = 0.68
+salvo_default = 2
+launch_interval_s = 20.0
+signature_factor = 0.05
+altitude_m = 0.0
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+run_to_enable_nm = 0.7
+acoustic_signature = 0.6
+soft_kill_resistance = 0.75

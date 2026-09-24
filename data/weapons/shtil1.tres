@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "shtil1"
+display_name = "Shtil-1 naval SAM"
+family = "Shtil"
+type = "sam"
+guidance = "semi_active_abstract"
+profile = "high"
+target_types = PackedStringArray("air", "missile")
+max_range_nm = 25.0
+min_range_nm = 1.5
+speed_kn = 2100.0
+turn_rate_deg_s = 65.0
+seeker_range_nm = 5.0
+damage = 38.0
+base_pk = 0.53
+salvo_default = 2
+launch_interval_s = 2.0
+signature_factor = 0.05
+altitude_m = 5000.0
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+vls_pack = 1
+intercept_max_altitude_m = 16000.0

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "m20_horizon_radar"
+display_name = "Horizon search / fire-control suite (abstract)"
+kind = "radar"
+emits = true
+range_surface_nm = 45.0
+range_air_nm = 230.0
+antenna_height_m = 35.0
+classify_rate = 1.25
+source_status = "GAMEPLAY_ESTIMATE: composite search and fire-control radar suite for the PAAMS scenario fit. Public ship role in docs/AVIATION_ROSTER_M20.md; exact radar processing is not simulated."

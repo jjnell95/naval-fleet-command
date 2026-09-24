@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rbs15f"
+display_name = "RBS15F air-launched missile"
+family = "RBS15"
+type = "asm"
+guidance = "inertial_active"
+profile = "sea_skimming"
+target_types = PackedStringArray("surface")
+max_range_nm = 65.0
+min_range_nm = 3.0
+speed_kn = 490.0
+turn_rate_deg_s = 18.0
+seeker_range_nm = 8.0
+damage = 42.0
+base_pk = 0.78
+salvo_default = 2
+launch_interval_s = 4.0
+signature_factor = 0.05
+altitude_m = 10.0
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."

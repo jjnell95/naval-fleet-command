@@ -5,7 +5,7 @@ extends RefCounted
 ## means opposite things depending on which list it sits in: RED reaching the Atlantic is a loss
 ## for a NATO picket, while BLUE reaching a rendezvous is a victory for an escort.
 
-enum Kind { FORCE_DESTROYED, UNIT_LOST, ALL_UNITS_LOST, REACH_AREA, TIME_ELAPSED, UNKNOWN }
+enum Kind { FORCE_DESTROYED, UNIT_LOST, ALL_UNITS_LOST, REACH_AREA, TIME_ELAPSED, UNKNOWN, AIRCRAFT_RECOVERED }
 
 const KIND_NAMES := {
 	"force_destroyed": Kind.FORCE_DESTROYED,
@@ -13,6 +13,7 @@ const KIND_NAMES := {
 	"all_units_lost": Kind.ALL_UNITS_LOST,
 	"reach_area": Kind.REACH_AREA,
 	"time_elapsed": Kind.TIME_ELAPSED,
+	"aircraft_recovered": Kind.AIRCRAFT_RECOVERED,
 }
 
 var id := ""
@@ -26,6 +27,7 @@ var count := 1
 var max_alive := 0
 var seconds := 0.0
 var complete := false
+var facility := ""  # optional airfield or deck filter for aviation training
 
 
 static func from_dict(d: Dictionary) -> MissionObjective:
@@ -44,6 +46,7 @@ static func from_dict(d: Dictionary) -> MissionObjective:
 	o.count = int(d.get("count", 1))
 	o.max_alive = int(d.get("max_alive", 0))
 	o.seconds = float(d.get("seconds", 0.0))
+	o.facility = str(d.get("facility", ""))
 	return o
 
 
@@ -79,6 +82,8 @@ func _test(um: UnitManager, now: float) -> bool:
 			return n >= count
 		Kind.TIME_ELAPSED:
 			return now >= seconds
+		Kind.AIRCRAFT_RECOVERED:
+			return _recovered_count(um) >= maxi(count, 1)
 	return false
 
 
@@ -111,7 +116,26 @@ func progress(um: UnitManager, now: float) -> String:
 			return "---" if best == INF else "%.0f nm to go" % maxf(best, 0.0)
 		Kind.TIME_ELAPSED:
 			return "%s left" % Geo.format_duration(maxf(seconds - now, 0.0)).trim_prefix("D+0 ")
+		Kind.AIRCRAFT_RECOVERED:
+			return "%d / %d aircraft recovered" % [_recovered_count(um), maxi(count, 1)]
 	return ""
+
+
+func _recovered_count(um: UnitManager) -> int:
+	var recovered := 0
+	# A recovery is historical. A later aircraft loss does not erase a completed landing.
+	for a: Unit in um.units:
+		if (callsigns.is_empty() and a.faction != faction) or (not callsigns.is_empty() and not callsigns.has(a.callsign)):
+			continue
+		if not a.is_aircraft() or a.completed_sorties <= 0:
+			continue
+		var matching := facility == "" or int(a.completed_sorties_by_facility.get(facility, 0)) > 0
+		if facility == "deck":
+			for kind in ["catobar", "stovl", "helicopter"]:
+				matching = matching or int(a.completed_sorties_by_facility.get(kind, 0)) > 0
+		if matching:
+			recovered += 1
+	return recovered
 
 
 ## Units this objective is about: named ships if given, otherwise the whole faction.
