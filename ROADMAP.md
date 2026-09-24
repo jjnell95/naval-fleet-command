@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M20 air operations
+
+Aircraft-type selection, explicit carrier/airfield landing, recovery reservations, visible approach and complete sortie turnaround are implemented. A no-opposition qualification exercise teaches the workflow. The roster adds 18 platforms and 12 weapon families with full recognition art. See the [M20 guide](docs/2026-09-23-air-operations.md) and [validation record](docs/validation-m20.json).
+
+Further aviation work should prioritize finite base stores, sustained sortie planning and weather/deck constraints before adding more nominal airframe variants. These are future features, not claims about the present model.
+
 ## M19 follow-on
 
 Contact fidelity and stability are locally implemented and validated; see [M19 notes](docs/2026-09-23-contact-fidelity.md). Remaining priorities are an observability-based passive tracker, full-duration mission balance runs, and measured rendering/simulation performance budgets. Publication and deployment are separate from local validation.

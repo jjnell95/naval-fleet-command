@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rfn_ffg_admiral_grigorovich"
+display_name = "Admiral Grigorovich-class frigate (Project 11356)"
+short_name = "FFG Admiral Grigorovich"
+nation = "Russia"
+category = "frigate"
+domain = "surface"
+length_m = 124.8
+displacement_t = 4035.0
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.23
+health = 85.0
+signature_factor = 0.85
+sensor_ids = PackedStringArray("fregat_mae", "m20_escort_sonar", "mp_405")
+mast_height_m = 26.0
+fire_control_channels = 4
+decoy_count = 14
+weapon_loadout = {"kalibr_asm": 8, "shtil1": 24, "a190_100mm_gun": 300, "ak630_ciws": 90}
+role = "Multirole escort / medium-range air defence"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Russian class identity with a representative Project 11356-family fit. Export brochure is used only for family roles; exact domestic modifications are not asserted. ASW weapons are carried by the helicopter."
+vls_cells = 32
+aircraft_capacity = 1
+aviation_facility = "helicopter"
+default_air_wing = {"rfn_helo_ka27": 1}

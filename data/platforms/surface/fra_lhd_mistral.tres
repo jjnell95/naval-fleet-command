@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "fra_lhd_mistral"
+display_name = "Mistral-class amphibious helicopter carrier"
+short_name = "LHD Mistral"
+nation = "France"
+category = "amphibious assault ship"
+domain = "surface"
+length_m = 199.0
+displacement_t = 21500.0
+max_speed_kn = 19.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 1.3
+accel_kn_s = 0.12
+health = 200.0
+signature_factor = 2.3
+sensor_ids = PackedStringArray("m20_amphibious_radar", "nato_esm_suite")
+mast_height_m = 32.0
+fire_control_channels = 2
+decoy_count = 14
+weapon_loadout = {"mistral_naval": 12}
+role = "Helicopter aviation / surveillance and ASW detachment"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Helicopters only. Fictional naval ASW wing uses existing NH90 NFH resources; amphibious troop transport and army helicopters are outside this scenario model. Deck spots are a concurrency abstraction."
+aircraft_capacity = 16
+aviation_facility = "helicopter"
+launch_spots = 3
+recovery_spots = 2
+turnaround_s = 2100.0
+default_air_wing = {"nato_helo_nh90_nfh": 4, "fra_helo_panther": 2}

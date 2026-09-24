@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "ita_ddg_horizon"
+display_name = "Andrea Doria-class Horizon destroyer"
+short_name = "DDG Andrea Doria"
+nation = "Italy"
+category = "destroyer"
+domain = "surface"
+length_m = 152.9
+displacement_t = 7050.0
+max_speed_kn = 29.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.23
+health = 115.0
+signature_factor = 0.85
+sensor_ids = PackedStringArray("m20_horizon_radar", "m20_escort_sonar", "nato_esm_suite")
+mast_height_m = 26.0
+fire_control_channels = 6
+decoy_count = 14
+weapon_loadout = {"aster30_family": 32, "aster15_family": 16, "otomat_mk2": 8, "oto_76mm_gun": 450, "mu90": 12}
+role = "Area air defence / carrier escort"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Established class with a reduced fictional scenario fit; magazines and detachment are not a current deployment claim."
+vls_cells = 48
+aircraft_capacity = 1
+aviation_facility = "helicopter"
+default_air_wing = {"nato_helo_nh90_nfh": 1}

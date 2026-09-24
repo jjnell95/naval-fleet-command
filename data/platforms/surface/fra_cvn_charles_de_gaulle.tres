@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "fra_cvn_charles_de_gaulle"
+display_name = "Charles de Gaulle aircraft carrier"
+short_name = "CVN Charles de Gaulle"
+nation = "France"
+category = "carrier"
+domain = "surface"
+length_m = 261.5
+displacement_t = 42500.0
+max_speed_kn = 27.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 1.1
+accel_kn_s = 0.1
+health = 300.0
+signature_factor = 2.7
+sensor_ids = PackedStringArray("m20_carrier_radar", "nato_esm_suite")
+mast_height_m = 45.0
+fire_control_channels = 4
+decoy_count = 14
+weapon_loadout = {"aster15_family": 32, "mistral_naval": 12}
+role = "CATOBAR aviation / Rafale and Hawkeye operations"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Established class with a reduced fictional scenario fit; magazines and detachment are not a current deployment claim."
+aircraft_capacity = 40
+aviation_facility = "catobar"
+launch_spots = 2
+recovery_spots = 1
+turnaround_s = 2700.0
+vls_cells = 32
+default_air_wing = {"fra_fighter_rafale_m": 8, "fra_aew_e2c": 2, "nato_helo_nh90_nfh": 2, "fra_helo_panther": 1}

@@ -45,8 +45,15 @@ func _process(delta: float) -> void:
 	for i in _rows.size():
 		var u := _rows[i]
 		var state := "AIR" if u.airborne() else ("DECK" if u.is_aircraft() else ("SUB" if u.submerged() else "SURF"))
+		if u.is_aircraft():
+			if u.flight_state == Unit.FlightState.RECOVERING:
+				state = "LAND"
+			elif u.returning:
+				state = "RTB"
+			elif u.flight_state == Unit.FlightState.TURNAROUND:
+				state = "REARM"
 		set_item_text(i, "%s  /  %s" % [state, u.callsign])
 		set_item_tooltip(i, "%s\n%s\nDouble-click to center" % [u.spec.display_name, u.spec.role])
-		set_item_custom_fg_color(i, UITheme.COL_BLUE if not u.is_aircraft() else (UITheme.COL_ACCENT if u.airborne() else UITheme.COL_DIM))
+		set_item_custom_fg_color(i, UITheme.COL_BLUE if not u.is_aircraft() else (UITheme.COL_ACCENT if u.in_flight() else UITheme.COL_DIM))
 		if map.selected.has(u):
 			select(i, false)

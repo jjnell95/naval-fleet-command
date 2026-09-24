@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "deu_ffg_sachsen"
+display_name = "Sachsen-class frigate (F124)"
+short_name = "FFG Sachsen"
+nation = "Germany"
+category = "frigate"
+domain = "surface"
+length_m = 143.0
+displacement_t = 5800.0
+max_speed_kn = 29.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.23
+health = 100.0
+signature_factor = 0.85
+sensor_ids = PackedStringArray("apar_smart_l", "m20_escort_sonar", "nato_esm_suite")
+mast_height_m = 26.0
+fire_control_channels = 6
+decoy_count = 14
+weapon_loadout = {"sm2_family": 24, "essm_family": 32, "ram_block2": 42, "rgm_84_harpoon": 8, "oto_76mm_gun": 250, "mu90": 12}
+role = "Area air defence / task-group escort"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Representative F124 missile fit. Shared NH90 NFH is a fictional detachment abstraction, not a claim of current Sea Tiger or Sea Lynx embarkation on any specific ship."
+vls_cells = 32
+aircraft_capacity = 2
+aviation_facility = "helicopter"
+default_air_wing = {"nato_helo_nh90_nfh": 1}

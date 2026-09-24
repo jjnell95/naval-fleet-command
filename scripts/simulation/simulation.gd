@@ -168,7 +168,7 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			else:
 				o.execution_accepted = aviation_manager.launch(u, o.aircraft_id) != null
 		Order.Type.RETURN_TO_BASE:
-			o.execution_accepted = aviation_manager.request_return(u)
+			o.execution_accepted = aviation_manager.request_return(u, o.recovery_base)
 		Order.Type.DEPLOY_SONOBUOY:
 			o.execution_accepted = aviation_manager.deploy_sonobuoy(u, SimClock.sim_time) != null
 

@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "usmc_fighter_av8b"
+display_name = "AV-8B Harrier II Plus"
+short_name = "AV-8B+"
+nation = "USA / Spain / Italy"
+category = "STOVL fighter"
+domain = "air"
+length_m = 14.12
+max_speed_kn = 580.0
+cruise_speed_kn = 420.0
+turn_rate_deg_s = 7.0
+accel_kn_s = 5.0
+health = 30.0
+signature_factor = 0.7
+sensor_ids = PackedStringArray("an_apg65", "nato_esm_suite")
+cruise_altitude_m = 6000.0
+max_altitude_m = 12000.0
+altitude_rate_m_s = 30.0
+endurance_s = 6600.0
+launch_time_s = 60.0
+recovery_time_s = 75.0
+fire_control_channels = 0
+decoy_count = 8
+weapon_loadout = {"aim120_family": 2, "agm65e_maverick": 2}
+launch_requirement = "stovl"
+can_refuel = true
+role = "STOVL strike / short-range surface attack"
+service_note = "Legacy AV-8B+ family, reused for fictional US and European detachments. STOVL recovery does not enable sustained tactical hovering. Maverick laser support is abstracted."
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."

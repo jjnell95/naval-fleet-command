@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "fra_aew_e2c"
+display_name = "E-2C Hawkeye"
+short_name = "E-2C"
+nation = "France"
+category = "airborne early warning"
+domain = "air"
+length_m = 17.56
+max_speed_kn = 320.0
+cruise_speed_kn = 230.0
+turn_rate_deg_s = 4.0
+accel_kn_s = 2.0
+health = 35.0
+signature_factor = 0.9
+sensor_ids = PackedStringArray("an_aps145", "nato_esm_suite")
+cruise_altitude_m = 8000.0
+max_altitude_m = 11000.0
+altitude_rate_m_s = 15.0
+endurance_s = 19800.0
+launch_time_s = 60.0
+recovery_time_s = 80.0
+fire_control_channels = 0
+decoy_count = 8
+weapon_loadout = {}
+launch_requirement = "catobar"
+can_refuel = false
+role = "Carrier early warning / shared air picture"
+service_note = "Established French E-2C fit with APS-145; not an assumption that the E-2D replacement has entered French service. Generic ESM receiver abstraction."
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."

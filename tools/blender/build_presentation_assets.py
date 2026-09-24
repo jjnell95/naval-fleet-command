@@ -250,16 +250,19 @@ def carrier_details(spec):
     lo,hi = bounds(deck)
     L, B = spec['length_m'],hi.y-lo.y
     z = hi.z+.055
-    is_stovl = 'queen' in spec['id']
+    sid = spec['id']
+    is_stovl = sid in ('rn_cvf_queen_elizabeth','usn_lha_america','esp_lhd_juan_carlos_i')
+    helo_only = sid == 'fra_lhd_mistral'
     # Angled recovery lane and paired forward catapult tracks on CATOBAR decks.
-    angle = 0 if is_stovl else .13
-    for sign in (-1,1):
-        stripe((-L*.43,-B*.14+sign*B*.12,z),(L*.25,L*.68*angle-B*.14+sign*B*.12,z),.38)
-    for i in range(18):
-        xx = -L*.42+i*L*.035
-        yy = -B*.14+(xx+L*.43)*angle
-        stripe((xx,yy,z+.01),(xx+L*.018,yy+L*.018*angle,z+.01),.38,"marking_yellow")
-    if not is_stovl:
+    angle = 0 if is_stovl or helo_only else .13
+    if not helo_only:
+        for sign in (-1,1):
+            stripe((-L*.43,-B*.14+sign*B*.12,z),(L*.25,L*.68*angle-B*.14+sign*B*.12,z),.38)
+        for i in range(18):
+            xx = -L*.42+i*L*.035
+            yy = -B*.14+(xx+L*.43)*angle
+            stripe((xx,yy,z+.01),(xx+L*.018,yy+L*.018*angle,z+.01),.38,"marking_yellow")
+    if not is_stovl and not helo_only:
         for y in (-B*.16,B*.15):
             stripe((L*.06,y,z),(L*.43,y,z),.20)
             stripe((L*.06,y+.85,z),(L*.43,y+.85,z),.10,"marking_yellow")
@@ -267,18 +270,23 @@ def carrier_details(spec):
             xx = -L*.30+i*L*.018
             stripe((xx,-B*.28,z+.02),(xx,B*.10,z+.02),.1,"titanium")
     else:
-        for t in (-.3,-.12,.07):
-            circle(L*t,-B*.05,z+.02,6.5,.25)
+        for t in ((-.35,-.18,.0,.18,.35) if helo_only else (-.3,-.12,.07)):
+            circle(L*t,B*.04,z+.02,5.5 if helo_only else 6.5,.25)
     # Four small, parked airframes bring the scale of the deck into view.
-    for xx,yy in [(-L*.33,B*.31),(-L*.23,B*.31),(L*.17,B*.30),(L*.27,B*.30)]:
+    parked_positions = [(-L*.33,B*.31),(-L*.23,B*.31),(L*.17,B*.30),(L*.27,B*.30)]
+    if sid in ('esp_lhd_juan_carlos_i','fra_cvn_charles_de_gaulle'):
+        parked_positions = [(-L*.31,B*.28),(L*.15,B*.28)]
+    if helo_only:
+        parked_positions = [(-L*.33,B*.04),(-L*.02,B*.04),(L*.28,B*.04)]
+    for xx,yy in parked_positions:
         before = len(b._objects)
-        b.build_lightning(15.7,not is_stovl)
+        if helo_only:b.build_panther(13.7)
+        elif sid == 'fra_cvn_charles_de_gaulle':b.build_rafale(15.3)
+        elif sid == 'esp_lhd_juan_carlos_i':b.build_harrier(14.1)
+        else:b.build_lightning(15.7,not is_stovl)
         parked = b._objects[before:]
         for o in parked:
-            for v in o.data.vertices:
-                v.co.z += z+1.15
-                v.co.x += xx
-                v.co.y += yy
+            o.location += Vector((xx,yy,z+1.15))
             paint(o,"airframe_light" if not o.name.startswith('canopy') else 'glazing')
 
 
@@ -351,12 +359,13 @@ def finish_materials(spec):
         m='naval_paint'
         if domain=='subsurface':m='rubber'
         elif domain=='air':m='airframe_blue' if spec['nation']=='RUS' else 'airframe'
-        if name in ('deck','flight_deck','vls','runway','landing_pad'):m='flight_deck'
+        if name in ('deck','flight_deck','straight_flight_deck','ski_jump','vls','runway','landing_pad'):m='flight_deck'
         elif 'array' in name or name=='vls_line':m='array_face'
         elif name=='dome':m='radome'
         elif name in ('rotor','tail_rotor','prop','propeller','intake_mouth','tire'):m='rubber'
         elif name in ('canopy','window'):m='glazing'
-        elif name in ('engine','barrel','pumpjet'):m='titanium'
+        elif name in ('engine','barrel','pumpjet','vector_nozzle'):m='titanium'
+        elif name=='propeller' and domain=='subsurface':m='bronze'
         paint(o,m)
         if name in ('hull','fuselage','engine','dome','pressure_hull','mast','cyl','tube','pumpjet'):
             for p in o.data.polygons:p.use_smooth=True
@@ -366,7 +375,8 @@ def finish_materials(spec):
             bevel.segments=2
     if domain=='surface':
         surface_details(spec)
-        if 'carrier' in spec['category']:carrier_details(spec)
+        if 'carrier' in spec['category'] or spec['id'] in ('usn_lha_america','esp_lhd_juan_carlos_i','fra_lhd_mistral'):
+            carrier_details(spec)
     elif domain=='air':aircraft_details(spec)
 
 
@@ -404,7 +414,7 @@ def weapon_model(w):
                 for p in o.data.polygons:p.use_smooth=len(p.vertices)==4
         return
     torp=kind=='torpedo' and wid not in ('rgm_139_vla','rastrub_asw')
-    slim=wid.startswith(('aim','r77','r73','mica','sea_ceptor','ram'))
+    slim=wid.startswith(('aim','r77','r73','mica','sea_ceptor','ram','meteor','asraam','iris_t','mistral'))
     L=3.5 if slim else 6.5
     R=.09 if slim else .19
     if kind=='asm':L,R=5.0,.24
@@ -417,6 +427,14 @@ def weapon_model(w):
     if wid=='rastrub_asw':L,R=7.2,.32
     if wid.startswith('aster'):L,R=4.9,.18
     if torp:L,R=(2.7,.16) if any(s in wid for s in ('54','sting','mu90','apr3')) else (6.0,.267)
+    # External proportions only. These shapes carry no internal engineering detail.
+    dimensions={
+        'meteor_aam':(3.65,.089), 'asraam_aam':(2.9,.083), 'iris_t_aam':(2.94,.064),
+        'agm65e_maverick':(2.49,.152), 'rbs15f':(4.35,.25), 'kh31a':(4.70,.18),
+        'f21_torpedo':(6.0,.267), 'torpedo62':(6.0,.267), 'torpedo47':(2.85,.20),
+        'mistral_naval':(1.86,.045), 'otomat_mk2':(4.46,.23), 'shtil1':(5.18,.18),
+    }
+    L,R=dimensions.get(wid,(L,R))
     if 'lrasm' in wid or 'nsm' in wid:
         pts=[(-L/2,-R*.7),(-L/2+L*.12,-R),(L*.25,-R),(L/2,0),(L*.25,R),(-L/2+L*.12,R),(-L/2,R*.7)]
         b.plate(pts,-R*.7,R*.7,'stealth_body')
@@ -448,6 +466,20 @@ def weapon_model(w):
                     o.rotation_euler.x=angle
         if 'oniks' in wid:
             b.cylinder(0,0,L*.37,L*.49,R*.65,32,'ramjet_intake','x')
+        if wid in ('meteor_aam','kh31a'):
+            # Meteor's paired intakes and Kh-31's four prominent ducts remain recognisable.
+            for angle in ((math.pi*.25,math.pi*1.25) if wid=='meteor_aam' else (0,math.pi/2,math.pi,math.pi*1.5)):
+                yy,zz=R*1.14*math.cos(angle),R*1.14*math.sin(angle)
+                b.cylinder(yy,zz,-L*.31,L*.15,R*.48,20,'ramjet_duct','x')
+                b.cylinder(yy,zz,L*.15,L*.152,R*.35,20,'ramjet_intake','x')
+        if wid=='otomat_mk2':
+            for sign in (-1,1):
+                b.plate([(-L*.10,0),(L*.04,0),(-L*.02,sign*L*.25),(-L*.15,sign*L*.25)],-.025,.025,'cruise_wing')
+            b.cbox(-L*.07,0,-R*1.18,L*.31,R*.9,R*.7,'intake_fairing')
+        if wid=='iris_t_aam':
+            for angle in (0,math.pi/2,math.pi,math.pi*1.5):
+                o=b.plate([(-L*.20,0),(L*.10,0),(L*.03,R*2.9),(-L*.25,R*2.9)],-.012,.012,'mid_fin')
+                o.rotation_euler.x=angle
     else:
         for i in range(7):
             a=math.tau*i/7

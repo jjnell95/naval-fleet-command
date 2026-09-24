@@ -585,3 +585,326 @@ func test_losing_the_tanker_sends_the_receiver_home() -> void:
 	assert_true(jet.tanking_on == null, "unplugged")
 	assert_true(jet.returning, "and turned for the deck rather than carrying on below bingo")
 	h.free_all()
+
+
+# --- Selected aircraft and recovery destinations -------------------------------------------
+
+func _airfield_spec(capacity := 8) -> PlatformSpec:
+	var p := _carrier_spec(capacity)
+	p.domain = "land"
+	p.short_name = "Air Station Test"
+	p.aviation_facility = "airfield"
+	p.max_speed_kn = 0.0
+	p.cruise_speed_kn = 0.0
+	return p
+
+
+func test_selected_aircraft_type_and_callsign_are_strict() -> void:
+	var ship := _unit(_carrier_spec(), "BLUE", Vector2.ZERO)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2.ZERO)
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2.ZERO)
+	helo.spec.id = "helicopter"
+	jet.spec.id = "fighter"
+	jet.callsign = "Fighter One"
+	_embark(ship, helo)
+	_embark(ship, jet)
+	var h := _harness([ship, helo, jet])
+	assert_eq(h.av.launch_rejection_reason(ship, "missing"), "REQUESTED AIRCRAFT NOT READY")
+	assert_true(h.av.launch(ship, "missing") == null, "missing selection cannot silently launch the helicopter")
+	assert_true(helo.ready_to_launch() and jet.ready_to_launch(), "rejection changes neither aircraft")
+	assert_eq(h.av.launch(ship, "Fighter One"), jet, "exact airframe selection")
+	assert_true(h.av.launch(ship, "fighter") == null, "busy selected type cannot fall back to another type")
+	assert_true(helo.ready_to_launch())
+	h.free_all()
+
+
+func test_launch_flight_only_launches_selected_type() -> void:
+	var ship := _unit(_carrier_spec(), "BLUE", Vector2.ZERO)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2.ZERO)
+	var jet1 := _unit(_receiver_spec(), "BLUE", Vector2.ZERO)
+	var jet2 := _unit(_receiver_spec(), "BLUE", Vector2.ZERO)
+	helo.spec.id = "helicopter"
+	jet1.spec.id = "fighter"
+	jet2.spec.id = "fighter"
+	jet1.callsign = "Fighter One"
+	jet2.callsign = "Fighter Two"
+	for a in [helo, jet1, jet2]:
+		_embark(ship, a)
+	var h := _harness([ship, helo, jet1, jet2])
+	var launched := h.av.launch_flight(ship, 4, "fighter")
+	assert_eq(launched.size(), 2, "only two fighters are ready")
+	assert_true(launched.has(jet1) and launched.has(jet2))
+	assert_true(helo.ready_to_launch(), "section does not fill its spare slots with a helicopter")
+	h.free_all()
+
+
+func test_explicit_return_cancels_tanking_and_formation_and_lands_at_selected_field() -> void:
+	var ship := _unit(_carrier_spec(), "BLUE", Vector2.ZERO)
+	var field := _unit(_airfield_spec(), "BLUE", Vector2(0.0, 2.0))
+	field.callsign = "Shore Field"
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 3.0))
+	var tanker := _unit(_tanker_spec(), "BLUE", Vector2(0.0, 20.0))
+	_embark(ship, jet)
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	jet.altitude_m = 500.0
+	jet.tanking_on = tanker
+	jet.formation_leader = tanker
+	jet.waypoints.append(Vector2(50.0, 50.0))
+	var h := _harness([ship, field, jet, tanker])
+	var order := Order.return_to_base(field)
+	assert_eq(order.recovery_base, field)
+	assert_eq(order.describe(), "RETURN TO Shore Field")
+	assert_true(h.av.request_return(jet, order.recovery_base))
+	assert_true(jet.tanking_on == null and jet.formation_leader == null)
+	assert_eq(jet.waypoints, [field.position], "new landing command immediately replaces old navigation")
+	assert_eq(jet.completed_sorties, 0, "an airborne or initially parked aircraft has not completed a sortie")
+	assert_eq(jet.home, ship, "home remains accurate until the aircraft lands")
+	assert_eq(jet.recovery_base, field, "destination is separately reserved")
+	_run(h, 200.0)
+	assert_eq(jet.flight_state, Unit.FlightState.TURNAROUND)
+	assert_eq(jet.home, field)
+	assert_true(field.embarked.has(jet) and not ship.embarked.has(jet))
+	assert_true(field.inbound_aircraft.is_empty() and jet.recovery_base == null)
+	assert_eq(jet.position, field.position)
+	assert_eq(jet.completed_sorties, 1)
+	assert_eq(jet.completed_sorties_by_facility, {"airfield": 1})
+	_run(h, 700.0, 200.0)
+	assert_eq(jet.completed_sorties, 1, "turnaround does not count a second landing")
+	h.free_all()
+
+
+func test_recovery_choices_reject_hostile_incompatible_and_full_bases() -> void:
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2.ZERO)
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	var field := _unit(_airfield_spec(), "BLUE", Vector2(0.0, 4.0))
+	var hostile := _unit(_airfield_spec(), "RED", Vector2(0.0, 1.0))
+	var helo_deck := _unit(_ship_spec(), "BLUE", Vector2(0.0, 2.0))
+	var full := _unit(_airfield_spec(1), "BLUE", Vector2(0.0, 3.0))
+	var parked := _unit(_receiver_spec(), "BLUE", full.position)
+	_embark(full, parked)
+	var h := _harness([jet, field, hostile, helo_deck, full, parked])
+	assert_eq(h.av.recovery_rejection_reason(jet, hostile), "BASE NOT FRIENDLY")
+	assert_eq(h.av.recovery_rejection_reason(jet, helo_deck), "INCOMPATIBLE FLIGHT FACILITY")
+	assert_eq(h.av.recovery_rejection_reason(jet, full), "NO AIRCRAFT CAPACITY")
+	assert_eq(h.av.available_recovery_bases(jet), [field])
+	assert_true(not h.av.request_return(jet, hostile), "invalid explicit destination cannot become an automatic different landing")
+	assert_true(not jet.returning and jet.recovery_base == null)
+	h.free_all()
+
+
+func test_incoming_aircraft_reserve_capacity_before_landing() -> void:
+	var field := _unit(_airfield_spec(1), "BLUE", Vector2.ZERO)
+	var jet1 := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 10.0))
+	var jet2 := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 11.0))
+	jet1.flight_state = Unit.FlightState.AIRBORNE
+	jet2.flight_state = Unit.FlightState.AIRBORNE
+	var h := _harness([field, jet1, jet2])
+	assert_true(h.av.request_return(jet1, field))
+	assert_eq(h.av.recovery_rejection_reason(jet1, field), "", "the aircraft's own reservation is not double counted")
+	assert_true(not h.av.request_return(jet2, field), "one free space cannot accept two simultaneous diversions")
+	jet1.alive = false
+	assert_true(h.av.request_return(jet2, field), "a lost aircraft releases its reserved capacity")
+	h.free_all()
+
+
+func test_recovery_is_a_fuel_burning_visible_approach_not_a_teleport() -> void:
+	var ship := _unit(_ship_spec(), "BLUE", Vector2.ZERO)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2(0.0, 2.0))
+	_embark(ship, helo)
+	helo.flight_state = Unit.FlightState.AIRBORNE
+	helo.altitude_m = 500.0
+	var h := _harness([ship, helo])
+	h.av.request_return(helo)
+	_run(h, 1.0)
+	assert_eq(helo.flight_state, Unit.FlightState.RECOVERING)
+	var start_pos := helo.position
+	var start_alt := helo.altitude_m
+	var start_fuel := helo.fuel_s
+	_run(h, 10.0, 1.0)
+	assert_true(helo.is_engageable(), "an aircraft on approach remains visible and vulnerable")
+	assert_true(helo.in_flight())
+	ship.sensors.append(_radar())
+	assert_true(Detection.radar_quality(ship, helo) > 0.0, "approach still has an aircraft radar signature")
+	assert_true(WeaponManager.can_target(DataDB.weapon("essm_family"), helo), "air defence can engage an aircraft on approach")
+	assert_true(not WeaponManager.can_target(DataDB.weapon("mk54_lwt"), helo), "being low on approach does not make an aircraft a torpedo target")
+	assert_true(helo.position.distance_to(ship.position) > 1.0, "still on approach, not snapped onto deck")
+	assert_true(helo.position.distance_to(ship.position) < start_pos.distance_to(ship.position), "closing with the deck")
+	assert_near(helo.altitude_m, start_alt - helo.spec.altitude_rate_m_s * 10.0, 0.01)
+	assert_true(helo.fuel_s < start_fuel, "recovery does not stop the fuel clock")
+	assert_true(not h.um.issue_order(helo, Order.move(Vector2(50.0, 50.0))), "normal steering cannot interrupt controlled recovery")
+	_run(h, 200.0, 11.0)
+	assert_eq(helo.flight_state, Unit.FlightState.TURNAROUND)
+	assert_eq(helo.position, ship.position)
+	h.free_all()
+
+
+func test_recovery_tracks_a_moving_carrier_until_touchdown() -> void:
+	var ship := _unit(_ship_spec(), "BLUE", Vector2.ZERO, 20.0)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2(0.0, 2.0))
+	_embark(ship, helo)
+	helo.flight_state = Unit.FlightState.AIRBORNE
+	helo.altitude_m = 300.0
+	var h := _harness([ship, helo])
+	h.av.request_return(helo)
+	_run(h, 220.0)
+	assert_eq(helo.flight_state, Unit.FlightState.TURNAROUND)
+	assert_true(ship.position.y > 1.0, "the deck has moved since the approach began")
+	assert_eq(helo.position, ship.position, "touchdown and subsequent movement use the actual carrier position")
+	h.free_all()
+
+
+func test_loss_of_recovery_base_causes_go_around_and_diversion() -> void:
+	var ship := _unit(_carrier_spec(), "BLUE", Vector2.ZERO)
+	var field := _unit(_airfield_spec(), "BLUE", Vector2(0.0, 4.0))
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 2.0))
+	_embark(ship, jet)
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	jet.altitude_m = 300.0
+	var h := _harness([ship, field, jet])
+	h.av.request_return(jet)
+	_run(h, 1.0)
+	assert_eq(jet.flight_state, Unit.FlightState.RECOVERING)
+	ship.alive = false
+	_run(h, 1.0, 1.0)
+	assert_true(jet.alive and jet.airborne(), "aircraft already flying goes around instead of landing on a wreck")
+	assert_eq(jet.recovery_base, field)
+	assert_true(ship.inbound_aircraft.is_empty())
+	_run(h, 200.0, 2.0)
+	assert_eq(jet.home, field)
+	assert_eq(jet.flight_state, Unit.FlightState.TURNAROUND)
+	h.free_all()
+
+
+func test_destroyed_launch_base_cannot_launch_surviving_ghost_aircraft() -> void:
+	var ship := _unit(_ship_spec(), "BLUE", Vector2.ZERO)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2.ZERO)
+	_embark(ship, helo)
+	var h := _harness([ship, helo])
+	h.av.launch(ship)
+	ship.alive = false
+	var lost: Array[String] = []
+	h.av.aircraft_lost.connect(func(_a: Unit, reason: String) -> void: lost.append(reason))
+	_run(h, 90.0)
+	assert_true(not helo.alive)
+	assert_eq(lost, ["BASE LOST"], "airframe is lost once, with its deck, before it can launch")
+	h.free_all()
+
+
+func test_distant_aircraft_returns_with_fuel_for_transit_and_landing_reserve() -> void:
+	var ship := _unit(_ship_spec(), "BLUE", Vector2.ZERO)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2(0.0, 60.0))
+	_embark(ship, helo)
+	helo.flight_state = Unit.FlightState.AIRBORNE
+	helo.fuel_s = helo.spec.endurance_s * 0.60
+	var h := _harness([ship, helo])
+	assert_true(h.av.return_fuel_required(helo, ship) > helo.fuel_s, "28% would be far too late at this radius")
+	_run(h, 1.0)
+	assert_true(helo.returning, "distance reserve starts return well before fixed bingo")
+	assert_eq(helo.recovery_base, ship)
+	h.free_all()
+
+
+func test_aircraft_loaded_below_bingo_returns_without_crossing_threshold() -> void:
+	var ship := _unit(_ship_spec(), "BLUE", Vector2.ZERO)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2(0.0, 10.0))
+	_embark(ship, helo)
+	helo.flight_state = Unit.FlightState.AIRBORNE
+	helo.fuel_s = helo.spec.endurance_s * 0.20
+	var h := _harness([ship, helo])
+	_run(h, 1.0)
+	assert_true(helo.returning, "initial fuel already below bingo still triggers return")
+	h.free_all()
+
+
+func test_recovery_can_exhaust_fuel_before_touchdown() -> void:
+	var ship := _unit(_ship_spec(), "BLUE", Vector2.ZERO)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2(0.0, 2.0))
+	_embark(ship, helo)
+	helo.flight_state = Unit.FlightState.AIRBORNE
+	helo.altitude_m = 500.0
+	helo.fuel_s = 3.0
+	var h := _harness([ship, helo])
+	var lost: Array[String] = []
+	h.av.aircraft_lost.connect(func(_a: Unit, reason: String) -> void: lost.append(reason))
+	h.av.request_return(helo)
+	_run(h, 10.0)
+	assert_true(not helo.alive, "starting recovery does not make a fuel-starved aircraft immortal")
+	assert_eq(helo.completed_sorties, 0, "failed recovery does not complete a sortie")
+	assert_eq(lost, ["OUT OF FUEL"])
+	assert_true(ship.inbound_aircraft.is_empty())
+	h.free_all()
+
+
+func test_incoming_recovery_occupies_the_selected_carriers_deck() -> void:
+	var origin := _unit(_carrier_spec(), "BLUE", Vector2(0.0, 50.0))
+	var destination := _unit(_carrier_spec(3), "BLUE", Vector2.ZERO)
+	var jet1 := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 2.0))
+	var jet2 := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 1.5))
+	var parked := _unit(_receiver_spec(), "BLUE", Vector2.ZERO)
+	_embark(origin, jet1)
+	_embark(origin, jet2)
+	_embark(destination, parked)
+	for a in [jet1, jet2]:
+		a.flight_state = Unit.FlightState.AIRBORNE
+		a.altitude_m = 300.0
+	var h := _harness([origin, destination, jet1, jet2, parked])
+	assert_true(h.av.request_return(jet1, destination))
+	assert_true(h.av.request_return(jet2, destination))
+	_run(h, 1.0)
+	assert_eq(destination.recovery_spots_busy(), 1, "incoming airframes occupy destination groove before home changes")
+	assert_eq(origin.recovery_spots_busy(), 0, "old home is free to fly its other aircraft")
+	assert_eq(jet1.flight_state, Unit.FlightState.RECOVERING)
+	assert_eq(jet2.flight_state, Unit.FlightState.AIRBORNE, "second arrival waits for the single recovery spot")
+	assert_eq(h.av.launch_rejection_reason(destination, parked.callsign), "DECK RECOVERING")
+	assert_true(h.av.launch(destination, parked.callsign) == null)
+	for i in 200:
+		_run(h, 1.0, float(i + 1))
+		assert_true(destination.recovery_spots_busy() <= 1, "one angled deck never lands two airframes simultaneously")
+	assert_eq(jet1.completed_sorties + jet2.completed_sorties, 2)
+	h.free_all()
+
+
+func test_tanker_ordered_to_land_stops_accepting_receivers() -> void:
+	var ship := _unit(_carrier_spec(), "BLUE", Vector2.ZERO)
+	var tanker := _unit(_tanker_spec(), "BLUE", Vector2(0.0, 20.0))
+	var jet := _unit(_receiver_spec(), "BLUE", Vector2(0.0, 21.0))
+	_embark(ship, tanker)
+	_embark(ship, jet)
+	tanker.flight_state = Unit.FlightState.AIRBORNE
+	tanker.tanker_offload_s = tanker.spec.tanker_offload_s
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	jet.fuel_s = jet.spec.endurance_s * 0.20
+	jet.tanking_on = tanker
+	var h := _harness([ship, tanker, jet])
+	assert_true(h.av.request_return(tanker))
+	assert_true(h.av._find_tanker(jet) == null, "a returning tanker is not an available refuelling destination")
+	_run(h, 1.0)
+	assert_true(jet.tanking_on == null and jet.returning, "receiver leaves the basket and gets its own landing clearance")
+	assert_eq(jet.recovery_base, ship)
+	h.free_all()
+
+
+func test_recovery_keeps_clear_of_the_surface_until_touchdown() -> void:
+	var ship := _unit(_ship_spec(), "BLUE", Vector2.ZERO)
+	var helo := _unit(_helo_spec(), "BLUE", Vector2(0.0, 2.4))
+	_embark(ship, helo)
+	helo.flight_state = Unit.FlightState.AIRBORNE
+	helo.altitude_m = 150.0
+	var h := _harness([ship, helo])
+	h.av.request_return(helo)
+	_run(h, 90.0)
+	assert_eq(helo.flight_state, Unit.FlightState.RECOVERING)
+	assert_true(helo.position.distance_to(ship.position) > 0.5, "slow helicopter approach still has horizontal distance to cover")
+	assert_near(helo.altitude_m, AviationManager.FINAL_APPROACH_ALTITUDE_M, 0.01, "aircraft must not descend to sea level short of the deck")
+	var landed := false
+	for i in 150:
+		_run(h, 1.0, 90.0 + i)
+		if helo.flight_state == Unit.FlightState.TURNAROUND:
+			landed = true
+			break
+		assert_true(helo.altitude_m > 0.0, "remains above the surface until actual touchdown")
+	assert_true(landed)
+	assert_near(helo.altitude_m, 0.0)
+	assert_eq(helo.position, ship.position)
+	assert_eq(helo.completed_sorties, 1)
+	h.free_all()

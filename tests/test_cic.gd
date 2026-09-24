@@ -142,6 +142,7 @@ func test_a_big_deck_works_several_spots_and_a_small_one_does_not() -> void:
 	for i in 6:
 		var f := _unit("usn_fighter_fa18e")
 		f.callsign = "Raven %d" % (i + 1)
+		f.home = cvn
 		wing.append(f)
 	cvn.embarked.assign(wing)
 	var am := AviationManager.new()
@@ -154,9 +155,17 @@ func test_a_big_deck_works_several_spots_and_a_small_one_does_not() -> void:
 	var h2 := _unit("usn_helo_mh60r")
 	h1.callsign = "Warhawk 610"
 	h2.callsign = "Warhawk 611"
+	h1.home = ddg
+	h2.home = ddg
 	ddg.embarked.assign([h1, h2])
 	assert_eq(am.launch_flight(ddg, 2).size(), 1, "one spot means one airframe at a time")
 	am.free()
+	for a in wing:
+		a.home = null
+	cvn.embarked.clear()
+	h1.home = null
+	h2.home = null
+	ddg.embarked.clear()
 
 
 func test_a_deck_taking_an_aircraft_aboard_cannot_launch_and_rejects_wrong_airframes() -> void:
@@ -165,6 +174,8 @@ func test_a_deck_taking_an_aircraft_aboard_cannot_launch_and_rejects_wrong_airfr
 	var b := _unit("rn_fighter_f35b")
 	a.callsign = "First"
 	b.callsign = "Second"
+	a.home = parent
+	b.home = parent
 	parent.embarked.assign([a, b])
 	var am := AviationManager.new()
 	a.flight_state = Unit.FlightState.RECOVERING
@@ -173,6 +184,9 @@ func test_a_deck_taking_an_aircraft_aboard_cannot_launch_and_rejects_wrong_airfr
 	b.spec = DataDB.platform("usn_fighter_f35c")
 	assert_true(am.launch(parent, "Second") == null, "a CATOBAR jet cannot use a ski jump")
 	am.free()
+	a.home = null
+	b.home = null
+	parent.embarked.clear()
 
 
 func test_an_airframe_that_lands_is_not_immediately_a_sortie_again() -> void:
@@ -185,7 +199,7 @@ func test_an_airframe_that_lands_is_not_immediately_a_sortie_again() -> void:
 	assert_true(cvn.spec.turnaround_time_s() > 0.0, "a big deck takes real time to turn a jet")
 
 func test_all_catalogue_resources_resolve_and_cells_fit() -> void:
-	assert_eq(DataDB.all_platforms().size(), 56)
+	assert_eq(DataDB.all_platforms().size(), 74)
 	for p: PlatformSpec in DataDB.all_platforms():
 		for sid in p.sensor_ids:
 			assert_true(DataDB.sensor(sid) != null, p.id + " sensor " + sid)

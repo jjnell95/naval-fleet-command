@@ -1,8 +1,12 @@
 # Architecture
 
-Status: Milestone 11 (Aegis Command II). Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something.
+Status: Milestone 20 (Air Operations). Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something.
 
 Presentation work should start from `HANDOFF.md`, which says what may be changed and what may not.
+
+## M20 additions
+
+`AirOperations` is a paused planning surface that emits explicit Unit/Order pairs; Main checks player ownership and routes them through UnitManager and AviationManager. Launch preview and execution share the strict aircraft-selection predicate. `Order.recovery_base` names an optional destination, while `Unit.recovery_base` and `inbound_aircraft` reserve capacity without changing `home` until touchdown. `in_flight()` includes the controlled recovery phase for sensing and rendering; `airborne()` remains the gate for ordinary flight orders. Landing history is recorded by facility type for `aircraft_recovered` mission objectives. `AviationSmoke` exercises the real scene's complete sortie workflow through the UI signal route.
 
 ## M19 additions
 

@@ -43,7 +43,7 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		return false
 	match order.type:
 		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS:
-			return u.is_engageable() and u.spec.max_speed_kn > 0.0
+			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0
 		Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR:
 			return u.is_engageable() and u.has_radar()
 		Order.Type.ACTIVE_SONAR, Order.Type.PASSIVE_SONAR:
@@ -64,7 +64,7 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.SET_EMCON:
 			return u.is_engageable() and (u.has_radar() or u.has_sonar() or u.has_jammer())
 		Order.Type.FORM_UP:
-			return u.is_engageable() and u.spec.max_speed_kn > 0.0 and order.leader != null and order.leader.alive
+			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0 and order.leader != null and order.leader.alive
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
 	return false
@@ -92,7 +92,9 @@ func clear() -> void:
 	# reference to its carrier; dropping the array alone leaks both on every restart.
 	for u in units:
 		u.home = null
+		u.recovery_base = null
 		u.embarked.clear()
+		u.inbound_aircraft.clear()
 		u.formation_leader = null
 		u.tanking_on = null
 		Detection.jammers.erase(u)

@@ -137,7 +137,7 @@ func _flight_state_text(a: Unit) -> String:
 		Unit.FlightState.LAUNCHING:
 			return "launching, %.0f s" % a.state_timer_s
 		Unit.FlightState.RECOVERING:
-			return "recovering, %.0f s" % a.state_timer_s
+			return "landing approach"
 		Unit.FlightState.TURNAROUND:
 			return "[color=%s]turnaround, %s[/color]" % [UITheme.HEX_DIM, _mmss(a.state_timer_s)]
 	if a.tanking_on != null:
@@ -236,6 +236,8 @@ func _refresh() -> void:
 		if u.is_aircraft():
 			lines.append(_kv("ALT", "%.0f m   ordered %.0f · ceiling %.0f" % [u.altitude_m, u.ordered_altitude_m, u.spec.max_altitude_m]))
 			lines.append(_kv("FLIGHT", _flight_state_text(u)))
+			if u.recovery_base != null:
+				lines.append(_kv("LAND AT", u.recovery_base.callsign))
 			if u.spec.sonobuoy_count > 0:
 				lines.append(_kv("BUOYS", "%d" % u.sonobuoys))
 		if u.in_formation():
@@ -261,7 +263,7 @@ func _refresh() -> void:
 				_mmss(u.spec.turnaround_time_s())])
 			for a in u.embarked:
 				var squadron := "" if a.squadron == "" else " [color=%s]%s[/color]" % [UITheme.HEX_DIM, a.squadron]
-				var fuel := "" if not a.airborne() else "  [color=%s]%.0f%% fuel[/color]" % [UITheme.HEX_DIM, a.fuel_fraction() * 100.0]
+				var fuel := "" if not a.in_flight() else "  [color=%s]%.0f%% fuel[/color]" % [UITheme.HEX_DIM, a.fuel_fraction() * 100.0]
 				lines.append("  %s%s [color=%s]%s[/color] · %s%s" % [a.callsign, squadron, UITheme.HEX_DIM, a.spec.short_name, _flight_state_text(a), fuel])
 		lines.append(_h("SENSORS"))
 		if u.has_radar():

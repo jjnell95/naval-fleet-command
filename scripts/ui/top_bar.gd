@@ -3,6 +3,7 @@ extends PanelContainer
 ## Mission status, simulation time, pause and time-acceleration controls, and the event ticker.
 
 signal library_pressed()
+signal air_operations_pressed()
 signal briefing_pressed()
 signal restart_pressed()
 signal menu_pressed()
@@ -117,7 +118,7 @@ func _ready() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size.x = 6
 	h.add_child(spacer)
-	for entry in [["ACTIONS  ⌘/CTRL K", commands_pressed], ["LIB F7", library_pressed], ["HELP F1", briefing_pressed], ["RESTART", restart_pressed], ["MISSIONS", menu_pressed]]:
+	for entry in [["AIR F3", air_operations_pressed], ["ACTIONS  ⌘/CTRL K", commands_pressed], ["LIB F7", library_pressed], ["HELP F1", briefing_pressed], ["RESTART", restart_pressed], ["MISSIONS", menu_pressed]]:
 		var b := Button.new()
 		b.text = entry[0]
 		b.focus_mode = Control.FOCUS_ALL

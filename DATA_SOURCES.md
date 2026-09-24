@@ -1,6 +1,6 @@
 # Current source review
 
-See [M18 sea floor, acoustics and damage notes](docs/REALISM_M18.md) and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; M16 supersedes their conflicting fit and coastline claims.
+See [M20 aviation and fleet catalogue](docs/AVIATION_ROSTER_M20.md), [M18 sea floor, acoustics and damage notes](docs/REALISM_M18.md) and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; M16 supersedes their conflicting fit and coastline claims.
 
 # Data Sources
 
@@ -318,3 +318,12 @@ detection horizon from the aircraft's altitude, not the listed antenna height.
 | Per-mission March layer depths | General pattern of winter mixed-layer climatology (e.g. de Boyer Montégut et al., *JGR Oceans*, 2004) | Rounded game estimates, not extracted values |
 | Variable-depth and dipping sonar | Public system roles only (CAPTAS family, Sonar 2087, AN/AQS-22, FLASH) | `array_depth_m` and `cz_capable` are GAMEPLAY_ESTIMATE groupings |
 | Damage-control shape | Public accounts of USS *Stark* (1987), HMS *Sheffield* (1982), *Moskva* (2022) | Shape only; every rate is GAMEPLAY_ESTIMATE |
+
+
+## M20 aviation and fleet catalogue (23 September 2026)
+
+The [M20 source ledger](docs/AVIATION_ROSTER_M20.md#source-ledger) records primary sources for 18 new platforms, 12 weapons and 16 sensor resources, including CATOBAR, STOVL and helicopter hosts; land-based fighters; maritime patrol; and the French E-2C. The ledger distinguishes established family identities from fictional scenario fittings and marks every combat-performance number as `GAMEPLAY_ESTIMATE`.
+
+The eight naval hulls are Charles de Gaulle, America, Juan Carlos I, Mistral, Andrea Doria/Horizon, Sachsen, Visby and Admiral Grigorovich. Suffren and Gotland add submarine choices. Aircraft add AV-8B+, Typhoon FGR4, Gripen C, F-16C, Atlantique 2, Su-34, Panther and E-2C. Weapons add Meteor, ASRAAM, IRIS-T, AGM-65E, RBS15F, Kh-31A, Otomat Mk2, naval Mistral, Shtil-1, F21, Torpedo 62 and Torpedo 47.
+
+No future CIWS is granted to Juan Carlos I, no E-2D entry into French service is assumed, no helicopter-only deck operates fixed-wing jets, and no ASW fit is invented for the French Panther. Shared aircraft resources support explicitly fictional coalition detachments. Historical Su-32/Kh-31A export literature supports the family association only, not a current Russian Su-34 loadout.

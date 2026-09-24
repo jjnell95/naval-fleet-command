@@ -22,3 +22,5 @@ salvo_default = 4
 launch_interval_s = 1.5
 defensive_difficulty = 1.25
 source_status = "PUBLIC: weapon family, role, broad range band. GAMEPLAY_ESTIMATE: every numeric value here is a tuning parameter, not a performance claim."
+
+vls_pack = 1

@@ -4,11 +4,11 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M19 — Contact Fidelity"
+const BUILD_MILESTONE := "M20 — Air Operations"
 const DEFAULT_SCENARIO := "res://data/scenarios/aegis_bastion.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
-const SCRIPTED_FLAGS := ["--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
+const SCRIPTED_FLAGS := ["--aviation-smoke", "--open-air-ops", "--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
 
 @onready var simulation: Simulation = %Simulation
 @onready var map: TacticalMap = %TacticalMap
@@ -23,6 +23,7 @@ var _editor: ScenarioEditor
 var _menu: ScenarioMenu
 var _briefing: BriefingPanel
 var _command_palette: CommandPalette
+var _air_operations: AirOperations
 var _modal_pause_captured := false
 var _modal_was_paused := true
 var _background_focus_modes: Dictionary = {}
@@ -42,6 +43,7 @@ func _ready() -> void:
 	unit_panel.inspect_requested.connect(_inspect_asset)
 	orders_panel.inspect_requested.connect(func(id: String) -> void: _inspect_asset(id, true))
 	top_bar.library_pressed.connect(_toggle_library)
+	top_bar.air_operations_pressed.connect(_toggle_air_operations)
 	var overview := CommandOverview.new()
 	overview.map = map
 	overview.custom_minimum_size.y = 90
@@ -68,6 +70,7 @@ func _ready() -> void:
 	orders_panel.formation_requested.connect(_apply_formation)
 	orders_panel.move_mode_requested.connect(map.set_move_mode)
 	orders_panel.emcon_toggle_requested.connect(_toggle_emcon_on_selection)
+	orders_panel.air_operations_requested.connect(_toggle_air_operations)
 	contact_panel.track_chosen.connect(map.select_track)
 	map.track_selected.connect(_on_track_selected)
 	orders_panel.weapon_selection_changed.connect(func(spec: WeaponSpec) -> void: map.weapon_ring = spec)
@@ -180,6 +183,9 @@ func _objective_summary() -> String:
 # --- Scenario lifecycle -------------------------------------------------------------------
 
 func start_scenario(path: String) -> void:
+	if _air_operations != null:
+		_air_operations.hide()
+		_air_operations.clear_selection()
 	if not simulation.load_scenario(path):
 		push_error("Main: failed to load scenario %s" % path)
 		return
@@ -270,6 +276,17 @@ func _build_screens() -> void:
 	_command_palette.closed.connect(_restore_modal_pause_if_clear)
 	add_child(_command_palette)
 	_command_palette.hide()
+	_air_operations = AirOperations.new()
+	_air_operations.name = "AirOperations"
+	_air_operations.simulation = simulation
+	_air_operations.closed.connect(_close_air_operations)
+	_air_operations.order_requested.connect(_issue_air_order)
+	_air_operations.aircraft_selected.connect(func(a: Unit) -> void:
+		_close_air_operations(false)
+		map.select_units([a])
+		map.center_on_selection())
+	add_child(_air_operations)
+	_air_operations.hide()
 
 
 func _show_editor() -> void:
@@ -360,6 +377,7 @@ func _has_visible_modal() -> bool:
 		or (_editor != null and _editor.visible) \
 		or (_library != null and _library.visible) \
 		or (_command_palette != null and _command_palette.visible) \
+		or (_air_operations != null and _air_operations.visible) \
 		or (_report != null and _report.visible)
 
 
@@ -370,6 +388,42 @@ func _restore_modal_pause_if_clear() -> void:
 	_modal_pause_captured = false
 	SimClock.set_paused(restore)
 	_set_background_input_enabled(true)
+
+
+func _toggle_air_operations() -> void:
+	if _air_operations.visible:
+		_close_air_operations(false)
+		return
+	if _has_visible_modal():
+		return
+	_begin_modal_pause()
+	_air_operations.open_for(map.selected)
+
+
+func _close_air_operations(execute := false) -> void:
+	_air_operations.hide()
+	if execute:
+		_modal_was_paused = false
+		SimClock.set_speed_index(0)
+	_restore_modal_pause_if_clear()
+	call_deferred("_focus_map_if_clear")
+
+
+func _issue_air_order(u: Unit, order: Order) -> void:
+	if u == null or not u.alive or u.faction != simulation.player_faction or not simulation.unit_manager.units.has(u):
+		_air_operations.show_receipt("That airframe or host is no longer under your command.", false)
+		return
+	var before := u.launch_spots_busy()
+	var accepted := simulation.unit_manager.issue_order(u, order)
+	var message := ""
+	if order.type == Order.Type.LAUNCH_AIRCRAFT:
+		var launched := u.launch_spots_busy() - before
+		var spec := DataDB.platform(order.aircraft_id)
+		message = "%s: launching %d of %d × %s. Resume time to fly the sortie." % [u.callsign, launched, order.aircraft_count, spec.short_name if spec != null else order.aircraft_id] if accepted else simulation.aviation_manager.launch_rejection_reason(u, order.aircraft_id)
+	else:
+		message = "%s: return and land at %s. Recovery includes approach, landing, refuelling and rearming." % [u.callsign, order.recovery_base.callsign] if accepted and order.recovery_base != null else "Return order rejected: " + simulation.aviation_manager.recovery_rejection_reason(u, order.recovery_base)
+	_air_operations.show_receipt(message, accepted)
+	top_bar.flash(message, "good" if accepted else "warn")
 
 
 func _toggle_library() -> void:
@@ -463,6 +517,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "toggle_pause", "label": "Pause or resume time", "description": "Stop or resume simulation time without changing acceleration.", "shortcut": "Space", "enabled": true, "state": "paused" if SimClock.paused else "running"},
 		{"id": "briefing", "label": "Mission briefing and help", "description": "Review objectives, failure conditions, environment, and controls.", "shortcut": "F1", "enabled": true},
 		{"id": "library", "label": "Fleet and ordnance gallery", "description": "Inspect platform and weapon capabilities.", "shortcut": "F7", "enabled": true},
+		{"id": "air_operations", "label": "Air operations: launch and recover", "description": "Select aircraft types, manage sorties, and choose a carrier or airfield for landing.", "shortcut": "F3", "enabled": true},
 	]
 	for i in SimClock.SPEEDS.size():
 		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(SimClock.SPEEDS[i]), "description": "Set simulation acceleration; time remains paused until resumed.", "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
@@ -520,6 +575,8 @@ func _run_palette_action(id: String) -> void:
 			_show_briefing()
 		"library":
 			_toggle_library()
+		"air_operations":
+			_toggle_air_operations()
 		_:
 			if id.begins_with("speed_"):
 				SimClock.set_speed_index(int(id.trim_prefix("speed_")))
@@ -536,6 +593,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	# Full-screen surfaces own the keyboard. Their close shortcuts are handled here, but map and
 	# time hotkeys cannot leak through and change a mission behind a modal.
 	if _command_palette.visible:
+		return
+	if _air_operations.visible:
+		if k.keycode in [KEY_F3, KEY_ESCAPE]:
+			_close_air_operations(false)
+			get_viewport().set_input_as_handled()
 		return
 	if _library.visible:
 		if k.keycode in [KEY_F7, KEY_ESCAPE]:
@@ -572,6 +634,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	match k.keycode:
+		KEY_F3:
+			_toggle_air_operations()
 		KEY_F7:
 			_toggle_library()
 		KEY_SPACE:
@@ -1001,6 +1065,6 @@ func _all_movable(units: Array) -> bool:
 	if not _all_controllable(units):
 		return false
 	for u: Unit in units:
-		if not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		if not u.is_engageable() or u.spec.max_speed_kn <= 0.0 or (u.is_aircraft() and not u.airborne()):
 			return false
 	return true

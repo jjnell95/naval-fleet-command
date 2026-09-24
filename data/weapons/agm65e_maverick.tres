@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "agm65e_maverick"
+display_name = "AGM-65E Maverick"
+family = "Maverick"
+type = "asm"
+guidance = "laser_abstract"
+profile = "direct"
+target_types = PackedStringArray("surface")
+max_range_nm = 10.0
+min_range_nm = 0.5
+speed_kn = 600.0
+turn_rate_deg_s = 18.0
+seeker_range_nm = 2.0
+damage = 22.0
+base_pk = 0.65
+salvo_default = 1
+launch_interval_s = 4.0
+signature_factor = 0.05
+altitude_m = 100.0
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim. Laser designation is abstracted by the game track solution; no real guidance model is claimed."

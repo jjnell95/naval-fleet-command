@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "fra_mpa_atlantic2"
+display_name = "Atlantique 2 (Standard 6)"
+short_name = "Atlantique 2"
+nation = "France"
+category = "maritime patrol aircraft"
+domain = "air"
+length_m = 31.75
+max_speed_kn = 350.0
+cruise_speed_kn = 270.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 2.0
+health = 42.0
+signature_factor = 1.1
+sensor_ids = PackedStringArray("searchmaster", "nato_esm_suite")
+cruise_altitude_m = 3000.0
+max_altitude_m = 9000.0
+altitude_rate_m_s = 10.0
+endurance_s = 27000.0
+launch_time_s = 75.0
+recovery_time_s = 90.0
+fire_control_channels = 0
+decoy_count = 8
+weapon_loadout = {"am39_exocet": 2, "mu90": 4}
+launch_requirement = "runway"
+can_refuel = false
+role = "Long-endurance maritime patrol / sonobuoy ASW"
+service_note = "Established aircraft family represented with a reduced fictional mission load. Performance and readiness are scenario estimates."
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+sonobuoy_count = 48
+sonobuoy_sensitivity_nm = 24.0
+sonobuoy_life_s = 2400.0

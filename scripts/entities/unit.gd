@@ -71,9 +71,13 @@ var ordered_altitude_m := 0.0
 var fuel_s := 0.0
 var home_callsign := ""
 var home: Unit
+## Chosen landing destination, reserved while returning; home changes only after touchdown.
+var recovery_base: Unit
 var state_timer_s := 0.0
 var sonobuoys := 0
 var returning := false
+var completed_sorties := 0
+var completed_sorties_by_facility: Dictionary = {}
 ## Squadron or detachment the airframe belongs to, for the roster and the recognition panel.
 var squadron := ""
 ## The tanker this aircraft is currently joining on, if any. Set by the aviation layer when a
@@ -88,6 +92,11 @@ func is_aircraft() -> bool:
 
 func airborne() -> bool:
 	return is_aircraft() and flight_state == FlightState.AIRBORNE
+
+
+## Physical flight includes final approach, while airborne() means available for mission orders.
+func in_flight() -> bool:
+	return is_aircraft() and flight_state in [FlightState.AIRBORNE, FlightState.RECOVERING]
 
 
 ## Fit to be sent off the deck right now. An airframe still being turned round is aboard and
@@ -111,7 +120,7 @@ func is_sensor_aircraft() -> bool:
 ## On the board: something a sensor could find or a weapon could hit. An aircraft in a hangar is
 ## none of those things.
 func is_engageable() -> bool:
-	return alive and (not is_aircraft() or flight_state == FlightState.AIRBORNE)
+	return alive and (not is_aircraft() or in_flight())
 
 
 func is_hovering() -> bool:
@@ -162,11 +171,15 @@ func launch_spots_busy() -> int:
 func recovery_spots_busy() -> int:
 	var n := 0
 	for a in embarked:
-		if a.alive and a.flight_state == FlightState.RECOVERING:
+		if a.alive and a.flight_state == FlightState.RECOVERING and (a.recovery_base == null or a.recovery_base == self):
+			n += 1
+	for a in inbound_aircraft:
+		if a.alive and a.home != self and a.recovery_base == self and a.flight_state == FlightState.RECOVERING:
 			n += 1
 	return n
 
 
+var inbound_aircraft: Array[Unit] = []  # landing reservations from other decks or fields
 var embarked: Array[Unit] = []  # aircraft that call this unit home
 
 
@@ -281,7 +294,7 @@ func has_esm() -> bool:
 ## A submerged boat has no aerial out of the water, so it is off the network and knows only what
 ## it hears for itself.
 func datalink_connected() -> bool:
-	return alive and spec.has_datalink and not submerged() and not (is_aircraft() and not airborne())
+	return alive and spec.has_datalink and not submerged() and not (is_aircraft() and not in_flight())
 
 
 func has_sonar() -> bool:

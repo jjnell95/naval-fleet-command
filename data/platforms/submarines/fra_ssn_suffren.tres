@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "fra_ssn_suffren"
+display_name = "Suffren-class attack submarine"
+short_name = "SSN Suffren"
+nation = "France"
+category = "nuclear attack submarine"
+domain = "subsurface"
+length_m = 99.5
+displacement_t = 5300.0
+max_speed_kn = 25.0
+cruise_speed_kn = 8.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 0.23
+health = 70.0
+signature_factor = 0.25
+sensor_ids = PackedStringArray("m20_suffren_sonar")
+mast_height_m = 8.0
+fire_control_channels = 0
+decoy_count = 8
+weapon_loadout = {"f21_torpedo": 20}
+role = "Covert sea control / heavyweight torpedoes"
+source_status = "PUBLIC: identity and broad role; primary-source ledger in docs/AVIATION_ROSTER_M20.md. GAMEPLAY_ESTIMATE: every performance, combat, signature, range, loadout and cycle value. Fictional scenario fit, not an operational capability claim."
+service_note = "Torpedo-only fictional mission load; SM39, cruise missiles, mines and special forces are omitted. Depth and acoustic numbers are gameplay estimates."
+acoustic_signature = 0.08
+max_depth_m = 300.0
+patrol_depth_m = 120.0
+depth_rate_m_s = 2.0
