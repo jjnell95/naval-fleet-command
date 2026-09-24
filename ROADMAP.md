@@ -18,3 +18,7 @@
 
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
+
+## M19 follow-on
+
+Contact fidelity and stability are locally implemented and validated; see [M19 notes](docs/2026-09-23-contact-fidelity.md). Remaining priorities are an observability-based passive tracker, full-duration mission balance runs, and measured rendering/simulation performance budgets. Publication and deployment are separate from local validation.

@@ -7,6 +7,7 @@ shader_type canvas_item;
 // is shown as tint and relief, never as a line that would claim a surveyed isobath.
 
 uniform vec2 texel = vec2(0.00033, 0.00057); // one raster cell in UV
+uniform sampler2D depth_tex : filter_linear, repeat_disable;
 uniform sampler2D relief_tex : filter_linear, hint_default_black; // baked hill-shade, 0.5 = flat
 uniform float texel_px = 1.0;                // screen pixels per raster cell, for relief fade-out
 uniform vec4 coast_uv = vec4(0.0, 0.0, 1.0, 1.0); // where coastline polygons supply the land
@@ -34,7 +35,7 @@ vec4 bspline(float t) {
 		t3 / 6.0);
 }
 
-float smooth_value(sampler2D tex, vec2 uv) {
+float smooth_value(vec2 uv) {
 	vec2 size = 1.0 / texel;
 	vec2 st = uv * size - 0.5;
 	vec2 i = floor(st);
@@ -47,17 +48,13 @@ float smooth_value(sampler2D tex, vec2 uv) {
 	// their weights, so one bilinear fetch returns their weighted sum.
 	vec2 o0 = (i - 0.5 + vec2(wx.y, wy.y) / s0) * texel;
 	vec2 o1 = (i + 1.5 + vec2(wx.w, wy.w) / s1) * texel;
-	float a = texture(tex, vec2(o0.x, o0.y)).r;
-	float b = texture(tex, vec2(o1.x, o0.y)).r;
-	float c = texture(tex, vec2(o0.x, o1.y)).r;
-	float d = texture(tex, vec2(o1.x, o1.y)).r;
+	float a = texture(depth_tex, vec2(o0.x, o0.y)).r;
+	float b = texture(depth_tex, vec2(o1.x, o0.y)).r;
+	float c = texture(depth_tex, vec2(o0.x, o1.y)).r;
+	float d = texture(depth_tex, vec2(o1.x, o1.y)).r;
 	float gx = s0.x / (s0.x + s1.x);
 	float gy = s0.y / (s0.y + s1.y);
 	return mix(mix(d, c, gx), mix(b, a, gx), gy);
-}
-
-float depth_at(sampler2D tex, vec2 uv) {
-	return smooth_value(tex, uv);
 }
 
 vec3 tint(float d) {
@@ -80,7 +77,7 @@ void fragment() {
 	if (!on_raster) {
 		COLOR = ocean_outside;
 	} else {
-		float d = depth_at(TEXTURE, uv);
+		float d = smooth_value(uv);
 		bool land = d < 0.5;
 		if (land && !polygons) {
 			// Beyond the scenario's coastline polygons the raster supplies a coarse coast of its

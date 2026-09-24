@@ -36,6 +36,7 @@ var classification := Classification.UNKNOWN
 var identity := "UNKNOWN"  # UNKNOWN | HOSTILE (FRIENDLY / NEUTRAL later)
 var status := Status.ACTIVE
 var known_class := ""  # filled when classification reaches CLASS_KNOWN
+var known_category := ""  # reported classification, never a UI lookup through truth
 var known_callsign := ""  # filled when IDENTIFIED
 var observation_time_s := 0.0
 var first_seen_time := 0.0
@@ -46,6 +47,23 @@ var last_firm_time := -1.0e9
 var _obs_times := PackedFloat64Array()  # sliding observation window for kinematics fit
 var _obs_pos := PackedVector2Array()
 var _last_est_time := -1.0
+var _cycle_start_position := Vector2.ZERO
+var _cycle_snap := false
+var _cycle_has_plot := false
+var _cycle_firm := false
+var _cycle_error := INF
+var _cycle_observation_gain := 0.0
+var _cycle_tma_start := 0.0
+var _cycle_tma_gain := 0.0
+## Decimated reported positions for the chart. Separate from the velocity-fit window.
+var history_positions := PackedVector2Array()
+var history_times := PackedFloat64Array()
+
+
+func range_text_from(origin: Vector2) -> String:
+	if is_bearing_only():
+		return "RANGE UNRESOLVED"
+	return "~%.1f nm ±%.1f" % [origin.distance_to(position), position_error_nm]
 
 
 func age_s(now: float) -> float:

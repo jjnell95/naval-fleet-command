@@ -22,7 +22,7 @@ func _process(delta: float) -> void:
 		return
 	_accum += delta * multiplier()
 	var n := 0
-	while _accum >= TICK_DT and n < MAX_TICKS_PER_FRAME:
+	while not paused and _accum >= TICK_DT - 1e-9 and n < MAX_TICKS_PER_FRAME:
 		_accum -= TICK_DT
 		sim_time += TICK_DT
 		n += 1
@@ -47,6 +47,9 @@ func set_speed_index(i: int) -> void:
 	i = clampi(i, 0, SPEEDS.size() - 1)
 	if i == speed_index:
 		return
+	# A tick may trigger combat slowdown. Its old accelerated backlog must not keep
+	# advancing the battle after the player has been handed control at real time.
+	_accum = 0.0
 	speed_index = i
 	speed_changed.emit(speed_index, multiplier())
 
@@ -54,6 +57,7 @@ func set_speed_index(i: int) -> void:
 func set_paused(p: bool) -> void:
 	if p == paused:
 		return
+	_accum = 0.0
 	paused = p
 	paused_changed.emit(paused)
 

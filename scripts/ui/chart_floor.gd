@@ -45,6 +45,7 @@ func _ensure_texture() -> bool:
 	_texture = load(CHART)
 	if _texture == null:
 		return false
+	_material.set_shader_parameter("depth_tex", _texture)
 	if ResourceLoader.exists(RELIEF):
 		_material.set_shader_parameter("relief_tex", load(RELIEF))
 	return true

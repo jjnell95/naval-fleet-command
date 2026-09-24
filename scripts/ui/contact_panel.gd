@@ -188,7 +188,7 @@ func refresh() -> void:
 		var rng := "--"
 		if ref != null:
 			brg = Geo.format_bearing(Geo.bearing_deg(ref.position, t.position))
-			rng = "%.0f" % Geo.distance_nm(ref.position, t.position)
+			rng = "?" if t.is_bearing_only() else "~%.0f" % Geo.distance_nm(ref.position, t.position)
 		var dom := "·"
 		if t.domain == "air":
 			dom = "A"
@@ -239,8 +239,8 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 	lines.append(_kv("IDENTITY", "[color=%s]%s[/color]" % [hex, t.identity]))
 	lines.append(_kv("STATUS", "%s · seen %s ago" % [t.status_text(now), Track._fmt_age(t.age_s(now))]))
 	lines.append(_kv("SOURCE", "%s%s" % [t.source.to_upper().replace("_", " "), "" if t.networked else "  [color=%s]not on the link[/color]" % UITheme.HEX_AMBER]))
-	if t.bearing_only:
-		lines.append(_kv("POS", "%s  %s" % [Geo.format_axis(t.position.x, "E", "W"), Geo.format_axis(t.position.y, "N", "S")]))
+	if t.is_bearing_only():
+		lines.append(_kv("RANGE", "[color=%s]UNRESOLVED · bearing only[/color]" % UITheme.HEX_AMBER))
 		lines.append(_kv("", "±%.1f nm along %s, ±%.1f across" % [t.error_major_nm, Geo.format_bearing(t.error_axis_deg), t.error_minor_nm]))
 		lines.append(_kv("SOLUTION", "%.0f%%%s" % [t.tma_quality * 100.0, "  [color=%s]manoeuvre to refine[/color]" % UITheme.HEX_AMBER if t.tma_quality < 0.6 else ""]))
 	else:
@@ -250,7 +250,12 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 	else:
 		lines.append(_kv("CSE/SPD", "[color=%s]estimating…[/color]" % UITheme.HEX_DIM))
 	if ref != null:
-		lines.append(_kv("FROM", "%s: BRG %s  RNG %.1f nm" % [ref.callsign, Geo.format_bearing(Geo.bearing_deg(ref.position, t.position)), Geo.distance_nm(ref.position, t.position)]))
+		lines.append(_kv("FROM", "%s: BRG %s" % [ref.callsign, Geo.format_bearing(Geo.bearing_deg(ref.position, t.position))]))
+		lines.append(_kv("RANGE", t.range_text_from(ref.position)))
+		var motion := RelativeMotion.solution(ref, t, now)
+		if motion.valid:
+			lines.append(_kv("CPA", "~%.1f nm in %s (est)" % [motion.distance_nm, Track._fmt_age(motion.time_s)]))
+			lines.append(_kv("CLOSING", "%.0f kn · constant course" % motion.closing_kn))
 		if ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
 			lines.append(_kv("EW", "[color=#f08cf0]radar jammed on this bearing[/color]"))
 	lines.append(_kv("OBS TIME", Track._fmt_age(t.observation_time_s)))
