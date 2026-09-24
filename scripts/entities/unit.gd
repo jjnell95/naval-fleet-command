@@ -38,6 +38,13 @@ var emcon: Emcon = Emcon.FREE
 var roe: Roe = Roe.FREE
 ## Battle damage beyond the hull pool. Each runs 1.0 down to 0.0 and degrades what it governs.
 var components: Dictionary = {"propulsion": 1.0, "sensors": 1.0, "weapons": 1.0}
+## Casualties still being fought, each 0..1. See Damage. A ship can survive a hit and still be lost
+## to what the hit started.
+var fire := 0.0
+var flooding := 0.0
+var casualty_time_s := 0.0  # since the parties were last disorganised by a hit
+var dc_fortune := 1.0  # how this particular fight is going: drawn per hit, see Damage
+var last_attacker := ""  # faction credited if fire or flooding finishes the ship
 var formation_leader: Unit
 var formation_offset := Vector2.ZERO  # x starboard, y ahead, in nm, in the leader's frame
 var depth_m := 0.0
@@ -167,9 +174,9 @@ func component(name: String) -> float:
 	return float(components.get(name, 1.0))
 
 
-## A damaged plant still turns the screws, just not as fast.
+## A damaged plant still turns the screws, just not as fast, and water aboard slows her further.
 func effective_max_speed() -> float:
-	return spec.max_speed_kn * (0.35 + 0.65 * component("propulsion"))
+	return spec.max_speed_kn * (0.35 + 0.65 * component("propulsion")) * (1.0 - Damage.FLOOD_SPEED_LOSS * flooding)
 
 
 ## Damaged arrays and antennas shorten every sensor aboard.

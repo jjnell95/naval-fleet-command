@@ -78,6 +78,10 @@ const COL_HEADER := Color("0c1c29")
 const COL_ACCENT := Color("70e2d3")
 const COL_AMBER := Color("ffbe77")
 const COL_LABEL_BG := Color("0b1a26", 0.92)
+const COL_FIRE := Color(1.0, 0.55, 0.22)
+const COL_SMOKE := Color(0.66, 0.66, 0.68)
+const COL_FLOOD := Color(0.35, 0.62, 1.0)
+const DEFAULT_WIND_FROM_DEG := 250.0  # prevailing winter westerlies, when a scenario names none
 
 var unit_manager: UnitManager
 var track_manager: TrackManager
@@ -1587,6 +1591,8 @@ func _draw_units() -> void:
 		var health := Damage.health_fraction(u)
 		var ucol := COL_FRIENDLY.lerp(Color(1.0, 0.4, 0.3), 1.0 - health)
 		var domain := "air" if u.airborne() else ("subsurface" if u.submerged() else u.spec.domain)
+		if u.fire > 0.0:
+			_draw_smoke(u, sp)
 		if ppn >= 30.0:
 			if u.spec.domain == "surface" and u.speed_kn > 1.0 and ppn > 160.0:
 				_draw_wake(u, sp)
@@ -1691,6 +1697,38 @@ func _draw_status_lamps(u: Unit, sp: Vector2) -> void:
 	if Damage.repairing(u):
 		var blink := 0.5 + 0.5 * sin(_anim * 6.0)
 		draw_circle(Vector2(x, y), 2.0, Color(COL_AMBER, 0.4 + 0.6 * blink))
+		x += 6.0
+	if u.fire > 0.0:
+		var flicker := 0.6 + 0.4 * sin(_anim * 11.0 + u.id)
+		draw_colored_polygon(PackedVector2Array([Vector2(x, y - 3.0), Vector2(x + 2.5, y + 2.0), Vector2(x - 2.5, y + 2.0)]), Color(COL_FIRE, flicker))
+		x += 6.0
+	if u.flooding > 0.0:
+		draw_rect(Rect2(x - 2.0, y - 1.0, 4.0, 3.0), COL_FLOOD)
+		draw_line(Vector2(x - 2.5, y - 2.0), Vector2(x + 2.5, y - 2.0), Color(COL_FLOOD, 0.6), 1.0)
+
+
+## A burning ship trails smoke downwind. Screen-space and procedural, so it reads at theatre zoom
+## and needs no particle state: puffs march out along the wind and fade as they spread. The size
+## of the plume says how bad the fire is.
+func _draw_smoke(u: Unit, sp: Vector2) -> void:
+	var wind_from := float(Detection.environment.get("wind_from_deg", DEFAULT_WIND_FROM_DEG))
+	var downwind := Geo.heading_to_vector(wind_from + 180.0)
+	var dir := Vector2(downwind.x, -downwind.y)  # screen y runs south
+	var side := Vector2(-dir.y, dir.x)
+	# Long enough to clear the ship's own label, which usually sits downwind of a westerly.
+	var length := 150.0 * (0.55 + 0.45 * u.fire)
+	var puffs := 22
+	var drift := fmod(_anim * 0.35, 1.0)
+	for i in puffs:
+		var f := (float(i) + drift) / float(puffs)
+		var wobble := sin(_anim * 0.9 + float(i) * 1.7 + u.id) * 3.0 * f
+		var at := sp + dir * (6.0 + length * f) + side * wobble
+		var r := 3.0 + 16.0 * f * (0.6 + 0.4 * u.fire)
+		var a := 0.3 * pow(1.0 - f, 0.8) * (0.55 + 0.45 * u.fire)
+		draw_circle(at, r * 1.7, Color(COL_SMOKE, a * 0.3))
+		draw_circle(at, r, Color(COL_SMOKE, a))
+	var glow := 0.5 + 0.5 * sin(_anim * 9.0 + u.id * 3.0)
+	draw_circle(sp, MapSymbols.RADIUS + 3.0 + 2.0 * glow, Color(COL_FIRE, 0.10 + 0.15 * u.fire))
 
 
 ## Rounds detected inbound on this ship: a pulsing ring and a line back to the round.

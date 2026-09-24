@@ -187,4 +187,4 @@ static func _try_decoy(u: Unit, threat: Weapon, weapon_manager: WeaponManager) -
 	u.decoys -= 1
 	var chance := clampf(u.spec.decoy_effectiveness / maxf(threat.spec.soft_kill_resistance, 0.1), 0.0, 0.95)
 	if weapon_manager.rng.randf() < chance:
-		weapon_manager.defeat_weapon(threat, "DECOYED", u)
+		weapon_manager.seduce(threat, u)

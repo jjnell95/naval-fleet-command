@@ -85,6 +85,14 @@ func _ready() -> void:
 	set_units([])
 
 
+## The ships that could lend a hand alongside, for the fire state. Read from the roster's map, which
+## already holds the unit manager; empty before a scenario is loaded.
+func _units_near(u: Unit) -> Array:
+	if roster == null or roster.map == null or roster.map.unit_manager == null:
+		return [u]
+	return roster.map.unit_manager.get_faction_units(u.faction)
+
+
 func set_units(units: Array) -> void:
 	_units = units.duplicate()
 	_refresh()
@@ -198,6 +206,10 @@ func _refresh() -> void:
 			chips.append(_chip("OFF LINK", UITheme.HEX_AMBER))
 		if u.jamming():
 			chips.append(_chip("JAMMING", "#f08cf0"))
+		if u.fire > 0.0:
+			chips.append(_chip("FIRE %d%%%s" % [int(round(u.fire * 100.0)), " SPREADING" if Damage.fire_out_of_control(u, _units_near(u)) else ""], UITheme.HEX_RED))
+		if u.flooding > 0.0:
+			chips.append(_chip("FLOODING %d%%" % int(round(u.flooding * 100.0)), "#5aa0ff"))
 		if Damage.repairing(u):
 			chips.append(_chip("DAMAGE CONTROL", UITheme.HEX_AMBER))
 		lines.append(" ".join(chips))

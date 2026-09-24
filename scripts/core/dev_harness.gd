@@ -25,6 +25,7 @@ extends RefCounted
 ##   --debug                     turn on the truth overlay
 ##   --rings                     show the sensor coverage layer (F4), for screenshots
 ##   --tab=N                     open command-dock tab N (0 navigation … 3 doctrine), for screenshots
+##   --ignite=CALLSIGN           start a fire and some flooding aboard one own ship, for screenshots
 ##   --dump                      print a full state report and quit, without touching the renderer
 ##   --hold=S --screenshot=PATH  wait S seconds, save a PNG, dump state and quit (windowed only)
 
@@ -143,6 +144,13 @@ func handle_flags() -> void:
 			_zoom_after_layout(float(a.get_slice("=", 1)))
 		elif a.begins_with("--tab="):
 			main.orders_panel._tabs.current_tab = int(a.get_slice("=", 1))
+		elif a.begins_with("--ignite="):
+			for u in main.simulation.unit_manager.units:
+				if u.callsign == a.get_slice("=", 1):
+					Damage.apply(u, u.spec.health * 0.45)
+					u.fire = 0.65
+					u.flooding = 0.3
+					u.dc_fortune = 0.7
 	if args.has("--visual-smoke"):
 		_visual_smoke()
 		return
