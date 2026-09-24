@@ -17,4 +17,5 @@ active_range_nm = 11.0
 bearing_accuracy_deg = 2.2
 self_noise_tolerance = 1.0
 requires_hover = true
+array_depth_m = 200.0
 source_status = "PUBLIC: system designation and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: every range, gain and classification figure here is a tuning value, not a performance claim. Stands in for an older-generation dipping set: shorter reach than a modern array and slower to classify."

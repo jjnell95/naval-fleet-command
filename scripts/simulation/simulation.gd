@@ -7,6 +7,8 @@ var unit_manager: UnitManager
 var track_manager: TrackManager
 var sensor_manager: SensorManager
 var weapon_manager: WeaponManager
+## Fire and flooding aboard a ship: `fire`, `fire_out`, `flooding_controlled`, `lost`.
+signal casualty_event(unit: Unit, event: String)
 var threat_manager: ThreatManager
 var aviation_manager: AviationManager
 var mission_manager: MissionManager
@@ -85,6 +87,7 @@ func load_scenario(path: String) -> bool:
 	aviation_manager.map_extent_nm = map_extent_nm
 	Detection.set_environment(scenario.get("environment", {}))
 	Terrain.load_from(scenario)
+	Bathymetry.load_for(scenario)
 	track_manager.neutral_factions = PackedStringArray()
 	for f in scenario.get("neutral_factions", []):
 		track_manager.neutral_factions.append(str(f))
@@ -172,7 +175,13 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 
 func _on_tick(dt: float) -> void:
 	unit_manager.tick(dt)
-	Damage.tick(unit_manager.units, dt)
+	for e: Dictionary in Damage.tick(unit_manager.units, dt):
+		var u: Unit = e["unit"]
+		casualty_event.emit(u, e["event"])
+		if e["event"] == "lost":
+			# Lost to fire or flooding after the fact: the same destruction every other system
+			# already listens for, credited to whoever started it.
+			weapon_manager.unit_destroyed.emit(u, u.last_attacker)
 	sensor_manager.tick(dt)
 	weapon_manager.tick(dt, SimClock.sim_time)
 	aviation_manager.tick(dt, SimClock.sim_time)

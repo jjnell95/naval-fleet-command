@@ -1,7 +1,7 @@
 {
   "id": "giuk_passage",
   "name": "ICELAND-FAROE GAP",
-  "description": "A diesel-electric submarine is approaching the Iceland\u2013Faroe barrier. Two escorts, a Virginia-class submarine and patrol aircraft detached to Keflavik must deny its southern exit. The route and six-hour deadline define the game problem; the chart contains no seabed or acoustic propagation data. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "A diesel-electric submarine is approaching the Iceland\u2013Faroe barrier. Two escorts, a Virginia-class submarine and patrol aircraft detached to Keflavik must deny its southern exit. The route and six-hour deadline define the game problem. Water deepens sharply south of the Iceland\u2013Faroe Ridge, where a deep winter mixed layer and convergence zones shape the acoustic picture. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
   "start_time_utc": "2027-03-02T02:10:00",
   "player_faction": "BLUE",
   "map": {
@@ -207,13 +207,22 @@
         "kind": "land"
       }
     ],
-    "chart_note": "Natural Earth 1:10m \u00b7 local projection \u00b7 no depth data",
+    "charted_nm": [
+      -366.8,
+      -313.4,
+      259.2,
+      312.6
+    ],
+    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
     "sea_state": 4,
     "wind_kn": 22,
-    "visibility_nm": 6
+    "visibility_nm": 6,
+    "layer_depth_m": 300,
+    "layer_strength": 0.6,
+    "cz_range_nm": 32
   },
   "terrain": {
     "land": [
@@ -9465,8 +9474,8 @@
       "callsign": "USS Delaware (SSN 791)",
       "faction": "BLUE",
       "position_nm": [
-        -37.6118,
-        30.0
+        -32.2387,
+        -6.0
       ],
       "heading_deg": 110,
       "speed_kn": 8,

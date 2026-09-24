@@ -207,13 +207,22 @@
         "kind": "land"
       }
     ],
-    "chart_note": "Natural Earth 1:10m \u00b7 local projection \u00b7 no depth data",
+    "charted_nm": [
+      -191.6,
+      -201.0,
+      228.4,
+      219.0
+    ],
+    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
     "sea_state": 3,
     "wind_kn": 16,
-    "visibility_nm": 8
+    "visibility_nm": 8,
+    "layer_depth_m": 120,
+    "layer_strength": 0.5,
+    "cz_range_nm": 0
   },
   "terrain": {
     "land": [

@@ -44,6 +44,7 @@ var _depth_buttons: Array[Button] = []
 var _alt_buttons: Array[Button] = []
 var _sonar_buttons: Array[Button] = []
 var _depth_label: Label
+var _layer_btn: Button
 var _alt_label: Label
 var _sonar_label: Label
 var _launch_btn: Button
@@ -175,6 +176,7 @@ func _ready() -> void:
 	_add_depth_button("SHALLOW", 60.0)
 	_add_depth_button("PATROL", -1.0)
 	_add_depth_button("DEEP", 200.0)
+	_layer_btn = _add_depth_button("UNDER LAYER", -2.0)
 	_alt_label = _label("ALT")
 	_subrow.add_child(_alt_label)
 	_add_alt_button("LOW", 150.0)
@@ -424,6 +426,8 @@ func _refresh_row_visibility() -> void:
 	_depth_label.visible = can_dive
 	for b in _depth_buttons:
 		b.visible = can_dive
+	if can_dive:
+		_refresh_layer_button()
 	_alt_label.visible = is_air
 	for b in _alt_buttons:
 		b.visible = is_air
@@ -434,6 +438,24 @@ func _refresh_row_visibility() -> void:
 	_sonar_label.visible = has_sonar
 	for b in _sonar_buttons:
 		b.visible = has_sonar
+
+
+## The layer is a property of the water under the boat, so this follows it round the chart.
+func _refresh_layer_button() -> void:
+	var under := -1.0
+	var floor_m := -1.0
+	for u: Unit in _units:
+		if u.spec.max_depth_m > 0.0:
+			under = Acoustics.below_layer_depth_m(u)
+			floor_m = Acoustics.bottom_m(u)
+			break
+	_layer_btn.disabled = not _controllable or under < 0.0
+	if under >= 0.0:
+		_layer_btn.tooltip_text = "Run at %d m, under the %d m layer. A hull sonar above it hears you poorly; a towed body, dipping set or deep buoy does not." % [int(under), int(Acoustics.layer_depth_m())]
+	elif Acoustics.layer_depth_m() <= 0.0:
+		_layer_btn.tooltip_text = "No layer in this water: it is mixed from the surface down."
+	else:
+		_layer_btn.tooltip_text = "The %d m layer is below what this boat can reach here (floor %s)." % [int(Acoustics.layer_depth_m()), Bathymetry.format_depth(floor_m)]
 
 
 ## Cheap change detector so spent magazines are reflected in the weapon list without rebuilding
@@ -484,7 +506,7 @@ func _emit_raw(order: Order) -> void:
 		order_requested.emit(order)
 
 
-func _add_depth_button(text: String, metres: float) -> void:
+func _add_depth_button(text: String, metres: float) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size.y = 38
@@ -493,15 +515,21 @@ func _add_depth_button(text: String, metres: float) -> void:
 	_subrow.add_child(b)
 	_buttons.append(b)
 	_depth_buttons.append(b)
+	return b
 
 
-## A negative value means "whatever this boat calls its patrol depth".
+## -1 means "whatever this boat calls its patrol depth"; -2 means "under the layer, if there is
+## one here to get under". The floor still has the last word in Movement.
 func _emit_depth(metres: float) -> void:
 	if _units.is_empty():
 		return
 	for u: Unit in _units:
 		if u.spec.max_depth_m > 0.0:
 			var wanted := u.spec.patrol_depth_m if metres < 0.0 else metres
+			if metres == -2.0:
+				wanted = Acoustics.below_layer_depth_m(u)
+				if wanted < 0.0:
+					continue
 			order_requested.emit(Order.set_depth(clampf(wanted, 0.0, u.spec.max_depth_m)))
 			return
 

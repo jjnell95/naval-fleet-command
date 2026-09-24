@@ -17,6 +17,9 @@ const MANOEUVRE_FULL_DEG := 3.0  # heading change per cycle that counts as fully
 const INITIAL_RANGE_FRACTION := 0.55  # what an operator assumes before working the problem
 const RANGE_GUESS_NOISE := 0.15
 const ESM_CLASSIFY_BONUS := 2.2  # a radar type is a fingerprint
+const CZ_BEARING_PENALTY := 1.5  # a zone bearing is blurred by the long refracted path
+const CZ_QUALITY := 0.25
+const CZ_CLASSIFY_FACTOR := 0.5
 
 var unit_manager: UnitManager
 var track_manager: TrackManager
@@ -80,16 +83,21 @@ func _sonar_pass(observer: Unit, now: float) -> void:
 	if not observer.has_sonar():
 		return
 	var rate := Detection.sonar_classify_rate(observer)
-	var active_reach := Detection.best_active_sonar_nm(observer)
+	var active_ceiling := Detection.best_active_sonar_nm(observer)  # before the water has its say
+	var cz_outer := 0.0
+	for z: Dictionary in Acoustics.zones():
+		cz_outer = maxf(cz_outer, float(z["range_nm"]) + float(z["half_width_nm"]))
 	for target in unit_manager.units:
 		if target == observer or not target.is_engageable() or target.faction == observer.faction or target.is_aircraft():
 			continue
 		var d := observer.position.distance_to(target.position)
 		if Detection.acoustic_path_blocked(observer, target):
 			continue  # sound does not go through rock, pinging or listening
-		if active_reach > 0.0 and d <= active_reach:
-			_report_active(observer, target, d, rate, now)
-			continue
+		if active_ceiling > 0.0 and d <= active_ceiling:
+			var active_reach := Detection.active_sonar_reach_nm(observer, target)
+			if d <= active_reach:
+				_report_active(observer, target, d, active_reach, rate, now)
+				continue
 		var passive := Detection.best_passive_sonar(observer, target)
 		var reach: float = passive["range_nm"]
 		var sensor: SensorSpec = passive["sensor"]
@@ -99,9 +107,27 @@ func _sonar_pass(observer: Unit, now: float) -> void:
 			reach = emission
 			if sensor == null:
 				sensor = _first_sonar(observer)
-		if sensor == null or reach <= 0.0 or d > reach:
+		if sensor != null and reach > 0.0 and d <= reach:
+			_report_passive(observer, target, d, reach, sensor, rate, now)
+		elif d <= cz_outer:
+			_try_convergence_zone(observer, target, d, rate, now)
+
+
+## Out of direct-path reach, a loud enough source can still be heard where its sound comes back up
+## in a convergence zone, provided the water is deep the whole way. Checked after everything
+## cheaper has failed, because the deep-water test walks the path.
+func _try_convergence_zone(observer: Unit, target: Unit, d: float, rate: float, now: float) -> void:
+	for s in observer.sensors:
+		if s.kind != "sonar" or not s.cz_capable:
 			continue
-		_report_passive(observer, target, d, reach, sensor, rate, now)
+		var direct := Detection.passive_sonar_range_nm(observer, s, target, false)
+		var zone := Acoustics.cz_zone_for(s, d, direct)
+		if zone.is_empty():
+			continue
+		if not Acoustics.deep_water_path(observer.position, target.position):
+			return
+		_report_cz(observer, target, d, zone, s, rate, now)
+		return
 
 
 func _first_sonar(u: Unit) -> SensorSpec:
@@ -111,9 +137,9 @@ func _first_sonar(u: Unit) -> SensorSpec:
 	return null
 
 
-func _report_active(observer: Unit, target: Unit, d: float, rate: float, now: float) -> void:
+func _report_active(observer: Unit, target: Unit, d: float, reach: float, rate: float, now: float) -> void:
 	var obs := target.position + Vector2(rng.randfn(0.0, ACTIVE_SONAR_SIGMA_NM), rng.randfn(0.0, ACTIVE_SONAR_SIGMA_NM))
-	var c := SensorContact.make(target, obs, ACTIVE_SONAR_SIGMA_NM * 3.0, clampf(1.0 - d / maxf(Detection.best_active_sonar_nm(observer), 0.1), 0.0, 1.0), rate, d, "sonar_active", observer)
+	var c := SensorContact.make(target, obs, ACTIVE_SONAR_SIGMA_NM * 3.0, clampf(1.0 - d / maxf(reach, 0.1), 0.0, 1.0), rate, d, "sonar_active", observer)
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
@@ -139,6 +165,34 @@ func _report_passive(observer: Unit, target: Unit, d: float, reach: float, senso
 	c.range_nm = d
 	c.source = "sonar_passive"
 	c.observer = observer
+	var manoeuvre: float = _manoeuvre.get(observer, 0.0)
+	c.tma_gain = TMA_BASE_PER_S * SENSOR_DT * (0.4 + TMA_MANOEUVRE_GAIN * manoeuvre)
+	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
+
+
+## A convergence-zone contact. The zone is narrow, so the operator knows the range to within a
+## couple of miles from the start; the bearing is worse than on a direct path and there is much
+## less signal to classify from. It still has to be worked like any other bearing.
+func _report_cz(observer: Unit, target: Unit, d: float, zone: Dictionary, sensor: SensorSpec, rate: float, now: float) -> void:
+	var existing := track_manager.find_for(observer, target)
+	var tma: float = existing.tma_quality if existing != null else 0.0
+	var accuracy := sensor.bearing_accuracy_deg * CZ_BEARING_PENALTY
+	var bearing := Geo.bearing_deg(observer.position, target.position) + rng.randfn(0.0, accuracy)
+	var zone_range: float = zone["range_nm"]
+	var half_width: float = zone["half_width_nm"]
+	var est_range := lerpf(zone_range + rng.randfn(0.0, half_width * 0.4), d, tma)
+	var c := SensorContact.new()
+	c.target = target
+	c.observer = observer
+	c.position = observer.position + Geo.heading_to_vector(bearing) * est_range
+	c.error_minor_nm = maxf(est_range * tan(deg_to_rad(accuracy * 2.0)), 0.3)
+	c.error_major_nm = maxf(lerpf(half_width, 0.3, tma), c.error_minor_nm)
+	c.error_axis_deg = bearing
+	c.bearing_only = true
+	c.quality = CZ_QUALITY / float(zone["index"])
+	c.classify_rate = rate * CZ_CLASSIFY_FACTOR
+	c.range_nm = d
+	c.source = "sonar_cz"
 	var manoeuvre: float = _manoeuvre.get(observer, 0.0)
 	c.tma_gain = TMA_BASE_PER_S * SENSOR_DT * (0.4 + TMA_MANOEUVRE_GAIN * manoeuvre)
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)

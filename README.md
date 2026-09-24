@@ -4,6 +4,20 @@
 
 A modern naval command simulation in Godot 4.7.2. Command a task group through an Aegis-inspired combat information display: build an uncertain picture, manage emissions, hold the screen together and decide when to shoot. Original 3D fleet art, tactical vector graphics, procedural sound and fictional scenarios; no Jane's assets or affiliation.
 
+## M18 the sea floor, the water column and the fight for the ship
+
+**The chart has a bottom.** Natural Earth 1:10m bathymetry (0–5,000 m contours) is interpolated offline into one regional depth raster that every mission reads through its map anchor. The plot now shows shelf and basin tint, relief, and anti-aliased 200/1,000/2,000/3,000/4,000 m contours drawn by a shader behind the symbols. Past the scenario's coastline polygons, the coast carries on, dimmed behind a *Limit of charted coast* neatline, instead of ending in a straight clip line. The Tactical Overview uses the same tint, and the cursor readout gives depth, layer and convergence-zone water.
+
+**The water hides boats.** Each mission sets a March thermal layer: deep in the Norwegian Sea and Iceland Basin, absent on the Barents shelf, and a strong halocline in the Baltic. Sound crossing it loses most of its range. Hull sonars sit above it. Variable-depth bodies (CAPTAS, Sonar 2087), dipping sets and sonobuoys are lowered through it. Shelf water muffles listening and smears pings. In deep basins, large arrays hear loud sources in **convergence zones** 30 and 60 nm out, shown as dashed bands with the sensor layer (F4), and contacts arrive as bearings with a bracketed range. Submarines cannot dive past the floor. The AI hides under the layer and comes up to hold a surface contact, and the player has an **UNDER LAYER** depth order.
+
+**A hit starts a fight for the ship.** Missiles usually start fires and torpedoes flood. Damage control, sized by the ship and weakened by damage, wins or loses over the next hour. A consort within a mile helps, and a ship lost to fire is credited to whoever set it. Knocked-out systems wait until the ship is safe. Burning ships trail smoke downwind. Chaff now **moves** a missile rather than deleting it: a seduced seeker can lock the next ship down its track.
+
+![M18 Norwegian Sea chart with bathymetry and a carrier group](docs/m18-chart.png)
+
+![Convergence-zone bands around a submarine in the Lofoten Basin](docs/m18-cz.png)
+
+Read [the M18 model, calibration and limits](docs/REALISM_M18.md).
+
 ## M17 command-deck UX
 
 The tactical workflow now keeps the next useful action in sight. **Plot Move (G)** is an explicit mode with a live route and land-crossing preview; Shift chains waypoints and Escape or right-click cancels. A clickable **Tactical Overview** shows the current viewport and recentres the main plot, while trackpad pan/pinch, follow mode, force/theatre fits, and group-aware focus make a lost camera easy to recover.
@@ -91,7 +105,7 @@ The visual layer was rebuilt: APP-6/NTDS-style frames with platform glyphs, own-
 
 An ambitious game foundation, not a high-fidelity replica of real Aegis software. Public names and broad roles are sourced in DATA_SOURCES.md; numerical performance and loadouts are estimates. Carrier air group capacity is deliberately compressed. Carrier sensors are simplified. The renderer uses a local nautical-mile plane anchored to scenario geography; coastlines are generalized Natural Earth 1:10m cartography, not hydrographic or navigation data. Terrain masking is a straight line over a single declared landmass height, not a height field and not a diffraction model. Jamming, ballistic flight and sea-state effects are abstractions with no claim to any real system's behaviour.
 
-Still absent: bathymetry and shoal depth (land is a wall, the water beside it has no bottom), routing around a peninsula (a ship follows a coast, it does not plan a way round one), terrain-aware interceptor geometry and seeker masking, detailed radar scheduling/illumination, logistics/replenishment, save games, weather beyond sea state. Private observer histories and automatic defence now respect datalink access; manual and automatic SAM engagements share one channel budget. The network has no range, latency, or relay topology. No claim of operational fidelity or calibrated combat probability is made.
+Still absent: shoals and grounding on them (the chart has a 1:10m floor, not a navigation chart), a player-set towed-array depth, routing around a peninsula (a ship follows a coast, it does not plan a way round one), terrain-aware interceptor geometry and seeker masking, detailed radar scheduling/illumination, logistics/replenishment, save games, weather beyond sea state. Private observer histories and automatic defence now respect datalink access; manual and automatic SAM engagements share one channel budget. The network has no range, latency, or relay topology. No claim of operational fidelity or calibrated combat probability is made.
 
 ## Develop
 
@@ -106,6 +120,8 @@ godot --path .
 Install the official matching web export templates, then run `godot --headless --path . --export-release Web`. Pages serves `main:/docs`. Commit the updated `docs/play` build after changes. The engine uses Compatibility rendering, no web threads, and text resources to preserve all sensor/target arrays during export. Any script that declares a new `class_name` needs the import step before a headless run will see it.
 
 ## Validation
+
+M18: see [the M18 validation record](docs/validation-m18.json) and [model notes](docs/REALISM_M18.md). New tests cover the raster against its build metadata, known basins and shelves, the floor limit on submarines, cross-layer loss, towed and dipping arrays, buoy depth selection, shelf losses, convergence zones end to end, fused-track precedence, AI depth decisions, fire and flooding dynamics, consort assistance and decoy seduction.
 
 M17: **224 tests pass**, including 16 new interaction-model regressions for priority tracks, overview transforms, shared layer state, Plot Move arming/cancel and terrain legality, safe-area group focus, filtered contact cycling, selection-state truth, downstream order receipts, stowed-aircraft gating, and command-palette filtering/activation. The native command deck was rendered and inspected at 1,600 × 1,000 and at a 1,152 × 720 scaled laptop window; the native integration smoke passes 24 gallery, palette, focus and briefing pause/restore checks. The rebuilt Web package passed mission-menu, briefing, Take Command and Actions-palette checks with a clean browser console. See [M17 UX validation](docs/UX_M17.md).
 

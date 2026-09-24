@@ -33,6 +33,7 @@ const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not a
 const BUOY_DROP_RANGE_NM := 9.0
 const BUOY_INTERVAL_S := 150.0
 const HOVER_ALTITUDE_M := 50.0
+const MISSILE_LAUNCH_DEPTH_M := 45.0  # GAMEPLAY_ESTIMATE: a submerged missile shot is a shallow one
 ## Time between launch decisions on one deck, divided by how many spots that deck works. A
 ## frigate gets an airframe off every four minutes; a carrier with four catapults gets a section
 ## off every minute, which is the difference a big deck is supposed to make.
@@ -375,8 +376,6 @@ func _is_asw_airframe(u: Unit) -> bool:
 	return u.spec.sonobuoy_count > 0 or (u.spec.can_hover and u.has_sonar())
 
 
-## Submarines hold a patrol depth and stay quiet. They come shallow only to shoot, because a
-## torpedo tube and a raised mast both mean being noticed.
 ## Aircraft climb for reach and drop down to work. A dipping set has to be in the water, so the
 ## helicopter comes down and stops.
 func _manage_altitude(u: Unit, working: bool) -> void:
@@ -389,12 +388,26 @@ func _manage_altitude(u: Unit, working: bool) -> void:
 		unit_manager.issue_order(u, Order.set_altitude(wanted))
 
 
-func _manage_depth(u: Unit, engaging: bool) -> void:
+## Submarines stay quiet and use the water. Loitering, searching or being hunted, a boat goes under
+## the layer if the water here lets it, because a hull sonar above it then hears very little. To
+## hold a surface contact it comes back to patrol depth, where its own arrays can hear what is on
+## top. A torpedo goes from any depth; a cruise missile leaves from near the surface, which is the
+## one shot that makes a boat expose itself. The floor bounds all of it.
+enum DepthIntent { HIDE, TRACK, MISSILE_SHOT }
+
+
+func _manage_depth(u: Unit, intent: DepthIntent) -> void:
 	if not u.is_submarine():
 		return
 	var wanted := u.spec.patrol_depth_m
-	if engaging:
-		wanted = minf(u.spec.patrol_depth_m, 60.0)
+	match intent:
+		DepthIntent.HIDE:
+			wanted = maxf(wanted, Acoustics.below_layer_depth_m(u))
+		DepthIntent.MISSILE_SHOT:
+			wanted = minf(u.spec.patrol_depth_m, MISSILE_LAUNCH_DEPTH_M)
+	wanted = minf(wanted, Acoustics.max_operating_depth_m(u))
+	# The floor changes under a moving boat; order in 5 m steps rather than chasing every metre.
+	wanted = floorf(wanted / 5.0) * 5.0
 	if absf(u.ordered_depth_m - wanted) > 1.0:
 		unit_manager.issue_order(u, Order.set_depth(wanted))
 
@@ -411,7 +424,6 @@ func _do_engage(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
 	var plan := _pick_engagement(u, b, hostiles, now)
 	if plan.is_empty():
 		return
-	_manage_depth(u, true)
 	_manage_emissions(u, true)
 	var t: Track = plan["track"]
 	b["target"] = t
@@ -423,15 +435,19 @@ func _do_engage(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
 	unit_manager.issue_order(u, Order.engage(t, plan["weapon"].id, plan["salvo"]))
 	if u.ai_posture == "breakout":
 		_do_patrol(u, b, now)  # keep running the route while shooting
-		return
-	# Hold station inside the envelope rather than charging in after shooting.
-	_do_close(u, b, hostiles, _shadow_standoff(u), now)
+	else:
+		# Hold station inside the envelope rather than charging in after shooting.
+		_do_close(u, b, hostiles, _shadow_standoff(u), now)
+	# Last, so the shot's depth outranks whatever the follow-on movement asked for.
+	var weapon: WeaponSpec = plan["weapon"]
+	_manage_depth(u, DepthIntent.TRACK if weapon.is_torpedo() else DepthIntent.MISSILE_SHOT)
 
 
 ## Turn away from the incoming bearing at speed. Opening the geometry buys the ship's own
 ## interceptors more time; the interception itself is automatic and needs no order.
 func _do_defend(u: Unit, b: Dictionary, inbound: Array, now: float) -> void:
 	_manage_emissions(u, true)
+	_manage_depth(u, DepthIntent.HIDE)  # a boat with a torpedo on it goes deep as well as away
 	if inbound.is_empty():
 		return
 	var mean := Vector2.ZERO
@@ -457,7 +473,7 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 		return
 	var t: Track = _nearest(u, targets)
 	b["target"] = t
-	_manage_depth(u, false)
+	_manage_depth(u, DepthIntent.TRACK)
 	_manage_emissions(u, true)
 	var range_nm := u.position.distance_to(t.position)
 	if u.is_aircraft() and _is_asw_airframe(u):
@@ -533,6 +549,7 @@ func _prosecute(u: Unit, b: Dictionary, t: Track, range_nm: float, now: float) -
 
 func _do_search(u: Unit, b: Dictionary, now: float) -> void:
 	_manage_emissions(u, false)  # listening is how you find someone without being found
+	_manage_depth(u, DepthIntent.HIDE)
 	var last: Vector2 = b["last_contact"]
 	if last == Vector2.INF:
 		_do_patrol(u, b, now)
@@ -541,7 +558,7 @@ func _do_search(u: Unit, b: Dictionary, now: float) -> void:
 
 
 func _do_patrol(u: Unit, b: Dictionary, now: float) -> void:
-	_manage_depth(u, false)
+	_manage_depth(u, DepthIntent.HIDE)
 	_manage_altitude(u, false)
 	_manage_emissions(u, false)
 	if u.is_aircraft() and u.patrol_route.is_empty():

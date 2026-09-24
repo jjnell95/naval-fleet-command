@@ -240,8 +240,10 @@ static func self_noise_factor(observer: Unit, sensor: SensorSpec) -> float:
 	return clampf(1.0 - penalty, 0.15, 1.0)
 
 
-## Range at which `observer` can hear `target` on this array. Zero if it cannot.
-static func passive_sonar_range_nm(observer: Unit, sensor: SensorSpec, target: Unit) -> float:
+## Range at which `observer` can hear `target` on this array. Zero if it cannot. With `with_path`
+## false it leaves out what the water column does (layer, shallow floor), which is the direct-path
+## figure a convergence-zone check starts from.
+static func passive_sonar_range_nm(observer: Unit, sensor: SensorSpec, target: Unit, with_path := true) -> float:
 	if sensor.passive_sensitivity_nm <= 0.0 or target.is_aircraft() or target.spec.domain == "land":
 		return 0.0
 	if sensor.requires_hover and not observer.is_hovering():
@@ -249,7 +251,8 @@ static func passive_sonar_range_nm(observer: Unit, sensor: SensorSpec, target: U
 	var noise := acoustic_noise(target)
 	if noise <= 0.0:
 		return 0.0
-	return sensor.passive_sensitivity_nm * sqrt(noise) * self_noise_factor(observer, sensor) * observer.sensor_efficiency() * sonar_environment_factor()
+	var r := sensor.passive_sensitivity_nm * sqrt(noise) * self_noise_factor(observer, sensor) * observer.sensor_efficiency() * sonar_environment_factor()
+	return r * Acoustics.passive_path_factor(observer, sensor, target) if with_path else r
 
 
 ## Best passive range across the observer's arrays, with the sensor that achieved it.
@@ -277,6 +280,20 @@ static func best_active_sonar_nm(observer: Unit) -> float:
 		if s.requires_hover and not observer.is_hovering():
 			continue
 		best = maxf(best, s.active_range_nm)
+	return best * observer.sensor_efficiency()
+
+
+## Active reach against one particular target, after the layer and the floor have had their say.
+static func active_sonar_reach_nm(observer: Unit, target: Unit) -> float:
+	if not observer.active_sonar_emitting():
+		return 0.0
+	var best := 0.0
+	for s in observer.sensors:
+		if s.kind != "sonar" or s.active_range_nm <= 0.0:
+			continue
+		if s.requires_hover and not observer.is_hovering():
+			continue
+		best = maxf(best, s.active_range_nm * Acoustics.active_path_factor(observer, s, target))
 	return best * observer.sensor_efficiency()
 
 

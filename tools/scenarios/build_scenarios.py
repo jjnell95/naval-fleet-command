@@ -29,7 +29,7 @@ DISCLAIMER = ("Real geography and real platform families; the conflict, the depl
 class Scenario:
     def __init__(self, sid, name, lat0, lon0, extent, order, description,
                  sea_state=3, wind_kn=14, visibility_nm=10, start="2027-03-14T05:30:00",
-                 player="BLUE", neutral_factions=None, seed=None):
+                 player="BLUE", neutral_factions=None, seed=None, layer=(0, 0.0), cz_range_nm=0):
         self.d = {
             "id": sid, "name": name, "description": description + " " + DISCLAIMER,
             "start_time_utc": start, "player_faction": player,
@@ -39,7 +39,9 @@ class Scenario:
                                     "minute of latitude is one mile and longitude is scaled by "
                                     "the cosine of the anchor latitude.")},
             "environment": {"sea_state": sea_state, "wind_kn": wind_kn,
-                            "visibility_nm": visibility_nm},
+                            "visibility_nm": visibility_nm,
+                            "layer_depth_m": layer[0], "layer_strength": layer[1],
+                            "cz_range_nm": cz_range_nm},
             "terrain": {"land": []}, "units": [], "order": order,
         }
         if neutral_factions:
@@ -114,7 +116,10 @@ class Scenario:
         land, labels = g.chart(self.lat0, self.lon0, self.d["map"]["center_nm"], self.d["map"]["extent_nm"])
         self.d["terrain"] = {"land": land, "source": "Natural Earth 1:10m land 5.1.1; public domain", "generalization_nm": 0.2}
         self.d["map"]["labels"] = labels
-        self.d["map"]["chart_note"] = "Natural Earth 1:10m · local projection · no depth data"
+        # Where the coastline polygons stop. Beyond it the renderer falls back to the coarser
+        # bathymetry raster's own coast, dimmed, rather than showing a straight clip line.
+        self.d["map"]["charted_nm"] = g.charted_box(self.d["map"]["center_nm"], self.d["map"]["extent_nm"])
+        self.d["map"]["chart_note"] = "Natural Earth 1:10m land and bathymetry · local projection · not for navigation"
         self.d["map"]["projection"] = "local_equirectangular"
         self.d["force_note"] = "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
         # Start on the fleet, with a separate theatre overview for distant land-based aviation.
@@ -245,11 +250,11 @@ def red_air_regiment(bombers=0, foxhounds=0, flankers=0, mpa=0, orion=0, orlan=0
 # ==============================================================================================
 
 def iceland_faroe_gap():
-    s = Scenario("giuk_passage", "ICELAND-FAROE GAP", 63.4, -15.0, 340, 3, sea_state=4, wind_kn=22,
+    s = Scenario("giuk_passage", "ICELAND-FAROE GAP", 63.4, -15.0, 340, 3, layer=(300, 0.6), cz_range_nm=32, sea_state=4, wind_kn=22,
                  visibility_nm=6, start="2027-03-02T02:10:00",
-                 description=('A diesel-electric submarine is approaching the Iceland–Faroe barrier. Two escorts, a Virginia-class submarine and patrol aircraft detached to Keflavik must deny its southern exit. The route and six-hour deadline define the game problem; the chart contains no seabed or acoustic propagation data.'))
+                 description=('A diesel-electric submarine is approaching the Iceland–Faroe barrier. Two escorts, a Virginia-class submarine and patrol aircraft detached to Keflavik must deny its southern exit. The route and six-hour deadline define the game problem. Water deepens sharply south of the Iceland–Faroe Ridge, where a deep winter mixed layer and convergence zones shape the acoustic picture.'))
     s.land("iceland", "faroes")
-    s.unit("usn_ssn_virginia", "USS Delaware (SSN 791)", "BLUE", s.xy(63.9, -16.4), 110, 8,
+    s.unit("usn_ssn_virginia", "USS Delaware (SSN 791)", "BLUE", s.xy(63.3, -16.2), 110, 8,
            depth_m=120, radar_on=False)
     s.unit("usn_ddg_arleigh_burke_iia", "USS Jason Dunham (DDG 109)", "BLUE", s.xy(63.3, -14.6), 75, 14,
            patrol=[s.xy(63.2, -17.6), s.xy(63.4, -12.0)])
@@ -270,7 +275,7 @@ def iceland_faroe_gap():
 
 
 def norwegian_sea_shadow():
-    s = Scenario("north_atlantic_shadow_line", "NORWEGIAN SEA — SHADOW LINE", 68.0, 8.0, 260, 1,
+    s = Scenario("north_atlantic_shadow_line", "NORWEGIAN SEA — SHADOW LINE", 68.0, 8.0, 260, 1,layer=(200, 0.6), cz_range_nm=30,
                  sea_state=4, wind_kn=20, start="2027-03-14T05:30:00",
                  description=('A surface action group has been detached to the Norwegian Sea. Your Flight IIA destroyer provides air defence and ASW; the Norwegian frigate carries the anti-ship missiles. Two MH-60Rs aboard the destroyer support the search. Identify the opposing combatants before committing your limited magazines.'))
     s.land("northern_norway")
@@ -289,7 +294,7 @@ def norwegian_sea_shadow():
 
 
 def faroe_shetland_gate():
-    s = Scenario("atlantic_gate", "FAROE-SHETLAND CHANNEL", 61.0, -3.5, 260, 4, sea_state=5,
+    s = Scenario("atlantic_gate", "FAROE-SHETLAND CHANNEL", 61.0, -3.5, 260, 4, layer=(350, 0.8), sea_state=5,
                  wind_kn=28, visibility_nm=5, start="2027-03-05T21:40:00",
                  description=('Three opposing surface combatants are moving south through the Faroe–Shetland Channel. Three NATO escorts and a maritime patrol detachment at RAF Lossiemouth cover the passage. Prevent any combatant from reaching its marked exit during an eight-hour watch; destroying the surface group also completes the mission.'))
     s.land("faroes", "shetland", "orkney", "north_scotland", "hebrides")
@@ -315,7 +320,7 @@ def faroe_shetland_gate():
 
 
 def baltic():
-    s = Scenario("baltic_sentinel", "GOTLAND BASIN", 56.8, 18.5, 220, 2, sea_state=2, wind_kn=10,
+    s = Scenario("baltic_sentinel", "GOTLAND BASIN", 56.8, 18.5, 220, 2, layer=(65, 0.9), sea_state=2, wind_kn=10,
                  visibility_nm=12, start="2027-02-18T14:20:00", neutral_factions=["WHITE"],
                  description=('Two merchant ships are making a southbound passage east of Gotland, protected by a Danish frigate and a German corvette. Opposing Baltic Fleet combatants are in the basin. Escort the merchants to their separate rendezvous and protect fishing traffic. Identification and convoy progress matter more than destroying every contact.'))
     s.land("gotland", "oland", "bornholm", "south_sweden", "baltic_east_shore",
@@ -343,7 +348,7 @@ def baltic():
 
 
 def vestfjorden_asw():
-    s = Scenario("northern_sentry", "VESTFJORDEN APPROACHES", 68.8, 13.5, 220, 5, sea_state=3,
+    s = Scenario("northern_sentry", "VESTFJORDEN APPROACHES", 68.8, 13.5, 220, 5, layer=(120, 0.5), sea_state=3,
                  wind_kn=16, visibility_nm=8, start="2027-03-09T08:00:00",
                  description=('An older Project 877 Kilo threatens the waters northwest of Lofoten. The destroyer carries two MH-60Rs; a Norwegian P-8 detachment operates from Evenes with an attached US Triton. Two opposing strike aircraft are already airborne. The submarine is the mission target; the aircraft are supporting opposition.'))
     s.land("northern_norway")
@@ -371,7 +376,7 @@ def vestfjorden_asw():
 
 
 def norwegian_sea_convoy():
-    s = Scenario("northern_shield", "NORWEGIAN SEA — REPLENISHMENT GROUP", 66.5, 3.5, 280, 6,
+    s = Scenario("northern_shield", "NORWEGIAN SEA — REPLENISHMENT GROUP", 66.5, 3.5, 280, 6,layer=(220, 0.6), cz_range_nm=30,
                  sea_state=5, wind_kn=26, visibility_nm=6, start="2027-03-11T19:15:00",
                  description=('Maud must reach a replenishment rendezvous in the Norwegian Sea. A nuclear attack submarine and maritime patrol aircraft threaten the transit. The destroyer supplies the embarked ASW helicopters; the Norwegian ships retain landing facilities without an assumed NH90 detachment. Escort the auxiliary through rather than pursuing every contact.'))
     s.land("mid_norway")
@@ -477,7 +482,7 @@ def bmd_picket():
 
 
 def joint_task_force():
-    s = Scenario("northern_vigil", "NORWEGIAN SEA — JOINT TASK FORCE", 69.0, 6.0, 440, 9,
+    s = Scenario("northern_vigil", "NORWEGIAN SEA — JOINT TASK FORCE", 69.0, 6.0, 440, 9,layer=(250, 0.6), cz_range_nm=30,
                  sea_state=4, wind_kn=22, visibility_nm=8, start="2027-03-24T06:30:00",
                  neutral_factions=["NEUTRAL"], seed=7,
                  description=('Two carriers operate west of Norway: a CATOBAR carrier with Super Hornets, Growlers and Hawkeyes, and a STOVL carrier with F-35Bs and Merlin helicopters. Supporting patrol aircraft fly from Evenes; the opposing scenario air detachment is at Olenya on the Kola Peninsula. Preserve both carriers and Maud through six hours of pressure. Air groups are reduced fictional detachments.'))
@@ -526,7 +531,7 @@ def joint_task_force():
 
 
 def sandbox():
-    s = Scenario("sandbox_m1", "VESTFJORDEN EXERCISE AREA", 68.2, 12.0, 180, 10, sea_state=2,
+    s = Scenario("sandbox_m1", "VESTFJORDEN EXERCISE AREA", 68.2, 12.0, 180, 10, layer=(100, 0.5), sea_state=2,
                  wind_kn=8, visibility_nm=14, start="2027-01-08T09:00:00",
                  description=('A low-pressure gunnery and ASW familiarization scenario west of Lofoten. USS Winston S. Churchill represents a Flight IIA destroyer with two MH-60Rs. Practise class recognition, ship handling, sensing and weapon assignment against a corvette exercise target.'))
     s.land("northern_norway")

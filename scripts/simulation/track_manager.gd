@@ -16,6 +16,7 @@ const FIRM_BLEND := 0.5  # how hard a firm plot pulls the track onto itself
 const BEARING_BLEND := 0.25  # a bearing estimate only nudges it
 const TMA_FOR_KINEMATICS := 0.55  # below this a range solution is too soft to fit a course to
 const TMA_DECAY_PER_S := 0.0008  # a solution goes off while contact is lost
+const FIRM_HOLD_S := 1.5  # a firm plot this recent outranks any bearing
 
 ## Factions that are not at war with anyone. Their ships classify as NEUTRAL rather than HOSTILE,
 ## which is what makes identification a decision rather than a formality.
@@ -85,6 +86,17 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 			_tracks[key] = []
 		_tracks[key].append(t)
 	var already_this_cycle := (not is_new) and is_equal_approx(t.last_seen_time, now)
+	if c.bearing_only and not is_new and now - t.last_firm_time <= FIRM_HOLD_S:
+		# Something is holding this contact firmly. A bearing, or a convergence-zone ring, from
+		# another sensor confirms it is there but must not drag a good plot toward a worse guess.
+		if c.observer != null:
+			t.contributors[c.observer] = now
+		t.networked = t.networked or shared
+		t.status = Track.Status.ACTIVE
+		t.last_seen_time = now
+		return
+	if not c.bearing_only:
+		t.last_firm_time = now
 	var blend := BEARING_BLEND if c.bearing_only else FIRM_BLEND
 	t.position = c.position if is_new else t.position.lerp(c.position, blend)
 	# A firm plot hands over a range outright; a bearing has to be worked up over time.

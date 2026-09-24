@@ -9,8 +9,16 @@ signal unit_destroyed(unit: Unit, killer_faction: String)
 signal engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String)
 signal interceptor_launched(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int)
 signal weapon_defeated(threat: Weapon, reason: String, by_unit: Unit)
+## A round pulled off its target by decoys that found another ship in its seeker basket.
+signal weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit)
 
 const IMPACT_MIN_NM := 0.05
+## Decoys do not delete a missile; they move it. A seduced seeker flies on through the cloud and
+## locks whatever else it finds ahead, which is why an escort's chaff is a hazard to the ship
+## behind it. GAMEPLAY_ESTIMATE.
+const SEDUCED_REACQUIRE_P := 0.5
+const SEEKER_CONE_DEG := 35.0
+const MAX_SEDUCTIONS := 2
 
 var unit_manager: UnitManager
 var track_manager: TrackManager
@@ -240,6 +248,35 @@ func _try_acquire(w: Weapon, travel: float) -> void:
 	w.phase = Weapon.Phase.TERMINAL
 
 
+## Decoys have beaten the lock on `from`. The seeker searches on along its heading; if another
+## ship lies in its cone and basket it may take that instead, otherwise the round is spent.
+func seduce(w: Weapon, from: Unit) -> Unit:
+	if w.phase == Weapon.Phase.DEAD:
+		return null
+	w.seductions += 1
+	var best: Unit = null
+	if w.seductions <= MAX_SEDUCTIONS and rng.randf() < SEDUCED_REACQUIRE_P:
+		var best_d := w.spec.acquisition_radius_nm()
+		for u in unit_manager.units:
+			if u == from or u.faction == w.faction or not can_target(w.spec, u):
+				continue
+			var d := w.position.distance_to(u.position)
+			if d > best_d:
+				continue
+			if absf(Geo.heading_delta(w.heading_deg, Geo.bearing_deg(w.position, u.position))) > SEEKER_CONE_DEG:
+				continue
+			best = u
+			best_d = d
+	if best == null:
+		defeat_weapon(w, "DECOYED", from)
+		return null
+	w.acquired = best
+	w.phase = Weapon.Phase.TERMINAL
+	w.decoy_attempted = false  # the new target gets its own chance to decoy it
+	weapon_seduced.emit(w, from, best)
+	return best
+
+
 ## A seeker only works in its own medium. An anti-ship missile cannot find a submerged boat, and
 ## a torpedo is no use against something that is not in the water.
 static func can_target(spec: WeaponSpec, u: Unit) -> bool:
@@ -261,7 +298,7 @@ func _resolve_impact(w: Weapon) -> void:
 	var hit := rng.randf() < pk
 	w.dead_reason = "HIT" if hit else "MISS"
 	if hit:
-		var destroyed := Damage.apply(target, w.spec.damage)
+		var destroyed := Damage.apply(target, w.spec.damage, w.spec.type, w.faction)
 		weapon_impact.emit(w.faction, w.spec, target, true)
 		if destroyed:
 			unit_destroyed.emit(target, w.faction)

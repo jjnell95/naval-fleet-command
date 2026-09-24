@@ -135,6 +135,15 @@ func refresh() -> void:
 		env_line += " · visibility %d nm" % int(_environment["visibility_nm"])
 	if sea >= 3:
 		env_line += "\n[color=%s]Passive sonar reach is reduced and sea-skimming missiles are harder to pick out of clutter.[/color]" % UITheme.HEX_AMBER
+	var layer := int(_environment.get("layer_depth_m", 0))
+	var cz := int(_environment.get("cz_range_nm", 0))
+	var water := PackedStringArray()
+	water.append("thermal layer at %d m" % layer if layer > 0 else "no thermal layer: mixed to the bottom")
+	if cz > 0:
+		water.append("convergence zones every %d nm in deep water" % cz)
+	env_line += "\nWater: " + " · ".join(water)
+	if layer > 0:
+		env_line += "\n[color=%s]A boat under the layer is hard to hear from a hull sonar; towed bodies, dipping sets and deep buoys go through it.[/color]" % UITheme.HEX_DIM
 	out.append(env_line + "\n")
 	out.append("[color=%s][b]VICTORY — %s[/b][/color]" % [UITheme.HEX_ACCENT, "COMPLETE EITHER CONDITION" if mission_manager.victory_mode == "any" else "COMPLETE ALL CONDITIONS"])
 	for o in mission_manager.victory_objectives:

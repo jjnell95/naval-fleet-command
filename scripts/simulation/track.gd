@@ -40,6 +40,9 @@ var known_callsign := ""  # filled when IDENTIFIED
 var observation_time_s := 0.0
 var first_seen_time := 0.0
 var last_seen_time := 0.0
+## When a firm plot (radar, active sonar, crossed buoys) last held this track. A bearing heard in
+## the same moment adds nothing to the geometry, so it is not allowed to blur it.
+var last_firm_time := -1.0e9
 var _obs_times := PackedFloat64Array()  # sliding observation window for kinematics fit
 var _obs_pos := PackedVector2Array()
 var _last_est_time := -1.0

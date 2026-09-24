@@ -16,4 +16,5 @@ passive_sensitivity_nm = 13.0
 active_range_nm = 12.0
 bearing_accuracy_deg = 2.0
 self_noise_tolerance = 0.35
+cz_capable = true
 source_status = "PUBLIC: system designation and role. GAMEPLAY_ESTIMATE: all ranges, bearing accuracy and self-noise tolerance are tuning parameters, not performance claims."

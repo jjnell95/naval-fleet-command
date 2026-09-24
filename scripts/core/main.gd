@@ -33,6 +33,7 @@ var _dev: DevHarness
 var _stats := {}
 var _losses: PackedStringArray = []
 var _kills: PackedStringArray = []
+var _foundered: Dictionary = {}  # Unit -> true, lost to fire or flooding rather than outright
 
 
 func _ready() -> void:
@@ -77,6 +78,8 @@ func _ready() -> void:
 	simulation.weapon_manager.engagement_rejected.connect(_on_engagement_rejected)
 	simulation.weapon_manager.interceptor_launched.connect(_on_interceptor_launched)
 	simulation.weapon_manager.weapon_defeated.connect(_on_weapon_defeated)
+	simulation.weapon_manager.weapon_seduced.connect(_on_weapon_seduced)
+	simulation.casualty_event.connect(_on_casualty_event)
 	simulation.threat_manager.threat_detected.connect(_on_threat_detected)
 	simulation.aviation_manager.aircraft_launched.connect(func(a: Unit, parent: Unit) -> void:
 		if a.faction == simulation.player_faction:
@@ -207,6 +210,7 @@ func start_scenario(path: String) -> void:
 	_stats = {"launched": 0, "intercepted": 0, "decoyed": 0, "hits": 0, "leaked": 0, "hostile_rounds": 0, "hits_taken": 0, "own_rounds": 0, "hits_scored": 0, "decoys_used": 0, "contacts": 0, "classified": 0, "sorties": 0}
 	_losses = PackedStringArray()
 	_kills = PackedStringArray()
+	_foundered.clear()
 	_report.hide()
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}))
 	_briefing.set_mode(true)
@@ -727,6 +731,31 @@ func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
 	print("[Defence] %s %s by %s" % [threat.spec.display_name, reason, by_unit.callsign if by_unit != null else "?"])
 
 
+## Decoys pulled a round off one ship and it found another. Worth saying out loud: the escort's
+## chaff has just handed the missile to whoever was behind it.
+func _on_weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit) -> void:
+	var own := to_unit.faction == simulation.player_faction
+	map.add_effect(threat.position, "decoy")
+	if own or from_unit.faction == simulation.player_faction:
+		top_bar.flash("%s decoyed off %s — re-acquired %s" % [threat.spec.display_name, from_unit.callsign, to_unit.callsign], "alert" if own else "warn")
+	print("[Defence] %s decoyed off %s, re-acquired %s" % [threat.spec.display_name, from_unit.callsign, to_unit.callsign])
+
+
+## Fire and flooding aboard. Only our own ships report; an enemy's fight for its ship is not ours
+## to see, and its loss already arrives as a destruction.
+func _on_casualty_event(u: Unit, event: String) -> void:
+	if event == "lost":
+		_foundered[u] = true
+	print("[Damage] %s %s" % [u.callsign, event])
+	if u.faction != simulation.player_faction:
+		return
+	match event:
+		"fire_out":
+			top_bar.flash("%s: fire out" % u.callsign, "good")
+		"flooding_controlled":
+			top_bar.flash("%s: flooding under control" % u.callsign, "good")
+
+
 func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
 	var own_target := target.faction == simulation.player_faction
 	if hit:
@@ -744,7 +773,12 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 	map.add_effect(target.position, "hit", own_target)
 	SoundFx.play("impact", 0.2)
 	if own_target:
-		top_bar.flash("%s HIT — %s" % [target.callsign, Damage.condition_text(target)], "alert")
+		var casualties := ""
+		if target.fire > 0.0:
+			casualties += " · FIRE"
+		if target.flooding > 0.0:
+			casualties += " · FLOODING"
+		top_bar.flash("%s HIT — %s%s" % [target.callsign, Damage.condition_text(target), casualties], "alert")
 	else:
 		top_bar.flash("HIT on %s — %.0f%% remaining" % [target.callsign, Damage.health_fraction(target) * 100.0], "good")
 	print("[Combat] %s hit %s (%s, %.0f%%)" % [spec.display_name, target.callsign, Damage.condition_text(target), Damage.health_fraction(target) * 100.0])
@@ -754,13 +788,14 @@ func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 	SimClock.drop_to_realtime()
 	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
 	SoundFx.play("impact", 0.0)
+	var how := "LOST TO FIRE AND FLOODING" if _foundered.has(u) else "DESTROYED"
 	if u.faction == simulation.player_faction:
 		_losses.append(u.callsign)
-		top_bar.flash("%s DESTROYED" % u.callsign, "alert")
+		top_bar.flash("%s %s" % [u.callsign, how], "alert")
 	else:
 		if killer_faction == simulation.player_faction:
 			_kills.append(u.callsign)
-		top_bar.flash("%s DESTROYED" % u.callsign, "good")
+		top_bar.flash("%s %s" % [u.callsign, how], "good")
 	print("[Combat] %s destroyed by %s" % [u.callsign, killer_faction])
 
 

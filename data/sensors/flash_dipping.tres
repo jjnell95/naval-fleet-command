@@ -17,4 +17,5 @@ active_range_nm = 11.0
 bearing_accuracy_deg = 1.0
 self_noise_tolerance = 0.95
 requires_hover = true
+array_depth_m = 400.0
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."

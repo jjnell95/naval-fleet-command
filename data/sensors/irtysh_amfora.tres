@@ -16,4 +16,5 @@ passive_sensitivity_nm = 26.0
 active_range_nm = 14.0
 bearing_accuracy_deg = 1.0
 self_noise_tolerance = 0.8
+cz_capable = true
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
