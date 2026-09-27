@@ -907,3 +907,54 @@ func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() ->
 	view.reset_presentation()
 	root.remove_child(view)
 	view.free()
+
+
+# --- The pane over a simulation --------------------------------------------------------------
+
+## A live pane over hand-built managers, with a chart that only holds the hook.
+func _live_view(units: Array) -> Dictionary:
+	var sim := Simulation.new()
+	sim.unit_manager = UnitManager.new()
+	sim.track_manager = TrackManager.new()
+	for u in units:
+		sim.unit_manager.add_unit(u)
+	var map := TacticalMap.new()
+	map.simulation = sim
+	map.unit_manager = sim.unit_manager
+	var view := WorldView.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(view)
+	view.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	view.size = Vector2(640, 360)
+	view.map = map
+	view.simulation = sim
+	view.set_mode(WorldView.Mode.INSET)
+	Detection.environment = {}
+	return {"view": view, "map": map, "sim": sim, "tm": sim.track_manager}
+
+
+func _free_view(f: Dictionary) -> void:
+	var view: WorldView = f["view"]
+	view.get_parent().remove_child(view)
+	view.free()
+	(f["map"] as Node).free()
+	var sim: Simulation = f["sim"]
+	sim.unit_manager.free()
+	sim.track_manager.free()
+	sim.free()
+
+
+func test_action_cuts_only_to_events_the_view_can_draw_around() -> void:
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var far := _unit("cw90_perry", "BLUE", Vector2(60, 0))
+	var near := _unit("cw90_perry", "BLUE", Vector2(8, 0))
+	var f := _live_view([ship, far, near])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [ship] as Array[Unit]
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view._process(0.016)
+	view.add_effect(far.position, "hit", true)
+	assert_true(view.rig._queue.is_empty(), "a hit 60 nm off, beyond everything the view holds, is not cut to")
+	view.add_effect(near.position, "hit", true)
+	assert_eq(view.rig._queue.size(), 1, "one 8 nm off is")
+	_free_view(f)

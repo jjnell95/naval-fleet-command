@@ -184,7 +184,8 @@ func refocus() -> void:
 ## A simulation event at a chart position, beside the chart's own `add_effect`. `height_m`
 ## places an airburst; leave it negative for something at the surface. Only events the player
 ## could witness are drawn, and one known only from the plot is drawn where the plot has it;
-## launches are drawn from the rounds themselves as they appear.
+## launches are drawn from the rounds themselves as they appear. Action cuts only to events
+## inside the view's range, where what they happened to can be drawn around them.
 func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0) -> void:
 	if _scene == null or not _live() or simulation == null:
 		return
@@ -198,7 +199,7 @@ func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0) -> v
 	if at == Vector2.INF:
 		return
 	var h := _scene.add_effect(at, kind, own, height_m)
-	if kind in ["hit", "destroyed", "intercept"]:
+	if kind in ["hit", "destroyed", "intercept"] and at.distance_to(_origin_nm) <= WorldPresentation.MAX_RANGE_NM:
 		rig.notify(kind, Vector3(at.x, at.y, h))
 
 
