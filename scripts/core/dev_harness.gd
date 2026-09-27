@@ -27,6 +27,11 @@ extends RefCounted
 ##   --reload-check              fight a while, restart, and report that state was cleared
 ##   --debug                     turn on the truth overlay
 ##   --rings                     show the sensor coverage layer (F4), for screenshots
+##   --regional-preview          float a 288x288 regional map over the chart's bottom-left corner
+##   --graticule                 turn the chart's lat/long graticule on, for screenshots
+##   --no-relief                 turn the chart's relief shading off (F6), for screenshots
+##   --chart-view=X,Y[,PPN]      centre the chart on this world point (nm), optionally at this scale
+##   --radio=TEXT                post a line on the chart's radio line (spoken by the selection)
 ##   --world-view=inset|full     open the 3D world view in that mode, for screenshots
 ##   --world-camera=NAME         world view camera preset: bridge, orbit, overhead or chase
 ##   --world-focus=track         drop the selection and hook the first plotted contact, for screenshots
@@ -73,6 +78,12 @@ func handle_flags() -> void:
 		Debug.enabled = true
 	if args.has("--rings"):
 		main.map.show_rings = true
+	if args.has("--graticule"):
+		main.map.show_graticule = true
+	if args.has("--no-relief"):
+		main.map.show_terrain = false
+	if args.has("--regional-preview"):
+		_float_regional_preview()
 	if args.has("--autopilot"):
 		print("[Dev] the AI is commanding both sides")
 	if args.has("--no-ai"):
@@ -168,6 +179,11 @@ func handle_flags() -> void:
 			main._library._stage.set_view(a.get_slice("=", 1))
 		elif a.begins_with("--zoom="):
 			_zoom_after_layout(float(a.get_slice("=", 1)))
+		elif a.begins_with("--chart-view="):
+			_chart_view_after_layout(a.get_slice("=", 1))
+		elif a.begins_with("--radio="):
+			var speaker: Unit = main.map.selected[0] if not main.map.selected.is_empty() else null
+			main.map.post_message(a.get_slice("=", 1), "info", speaker)
 		elif a.begins_with("--tab="):
 			main.orders_panel._tabs.current_tab = int(a.get_slice("=", 1))
 		elif a.begins_with("--ignite="):
@@ -204,6 +220,30 @@ func handle_flags() -> void:
 		return
 	if shot != "":
 		_screenshot_after(shot, arg(args, "--hold=", 3.0))
+
+
+## A regional map in the chart's bottom-left corner, where the shell will later give it a pane.
+func _float_regional_preview() -> void:
+	var regional := RegionalMap.new()
+	regional.name = "RegionalPreview"
+	regional.map = main.map
+	regional.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	regional.offset_left = 0.0
+	regional.offset_right = 288.0
+	regional.offset_top = -288.0
+	regional.offset_bottom = 0.0
+	main.map.add_child(regional)
+	print("[Dev] regional map preview")
+
+
+## After the layout (and any --zoom), so nothing refits the view afterwards.
+func _chart_view_after_layout(text: String) -> void:
+	for i in 3:
+		await main.get_tree().process_frame
+	var parts := text.split(",")
+	if parts.size() >= 3:
+		main.map.ppn = clampf(float(parts[2]), TacticalMap.MIN_PPN, TacticalMap.MAX_PPN)
+	main.map.center_on(Vector2(float(parts[0]), float(parts[1]) if parts.size() > 1 else 0.0))
 
 
 func _zoom_after_layout(value: float) -> void:

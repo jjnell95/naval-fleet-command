@@ -5,9 +5,13 @@ extends Control
 ## Own units are drawn from ground truth; other factions are drawn ONLY as Tracks
 ## (except under Debug.enabled, which overlays true positions).
 ##
+## The chart runs edge to edge with no chrome of its own: relief and depth bands underneath
+## (ChartFloor, ChartLand), then marks and symbols, then the bottom-left position / depth / scale
+## readout and the bottom-centre radio line (post_message), all in white bold with a 1 px shadow.
+##
 ## Controls: wheel/pinch or +/- = zoom, middle/right/Option drag = pan, left click = select,
-## shift+click = add/remove unit, left drag = box select, double-click = recentre, G = arm the
-## explicit left-click move tool (Shift chains waypoints), right-click a track = target it
+## shift+click = add/remove unit, left drag = box select, double-click = recentre, Plot Move arms
+## the explicit left-click move tool (Shift chains waypoints), right-click a track = target it
 ## (Ctrl/Cmd also engages), right-click a waypoint = remove that leg, arrows/WASD = pan,
 ## Home = fit the fleet, C = focus the current command problem, F = follow it.
 
@@ -17,6 +21,7 @@ signal move_order_requested(world_pos: Vector2, append: bool)
 signal engage_requested(track: Track)
 signal waypoint_delete_requested(unit: Unit, index: int)
 signal interaction_mode_changed(active: bool)
+## Kept for the shell's wiring; the chart has no button of its own that emits it any more.
 signal world_view_requested
 
 enum DragMode { NONE, PAN, BOX }
@@ -32,32 +37,36 @@ const DRAG_THRESHOLD_PX := 5.0
 const DOUBLE_CLICK_MS := 350
 const LEADER_MINUTES := 30.0
 const KEY_PAN_PX_PER_S := 700.0
-const HEADER_H := 34.0
+## Compatibility shim: the chart has no footer bar any more, but the world view's inset card still
+## anchors itself this far above the chart's bottom edge.
 const FOOTER_H := 24.0
-## Chart kept clear of the floating controls: the mode toolbar along the bottom-left and the view
-## cluster down the right edge.
-const BOTTOM_UI_RESERVED_PX := 84.0
-const OVERVIEW_UI_RESERVED_PX := 64.0
+## Bottom-left readout and bottom-centre radio line.
+const READOUT_MARGIN := 10.0
+const READOUT_FONT_SIZE := 13
+const READOUT_LINE_H := 16.0
+const RADIO_BOTTOM_PX := 8.0
+const SPEAKER_RING_PX := 15.0
 const TRAIL_INTERVAL_S := 60.0
 const TRAIL_LENGTH := 24
 const EFFECT_LIFE_S := 2.2
 const NICE_STEPS_NM: Array[float] = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
 
-const COL_OCEAN := Color(0.024, 0.055, 0.086)
-const COL_OCEAN_TOP := Color("102b3a")
-const COL_OCEAN_BOTTOM := Color("0b202e")
-# Land is a chart tint, not a photograph: a shade above the water in luminance, pulled off the
-# blue so it separates without ever competing with a contact symbol drawn on top of it.
-const COL_LAND := Color("344943")
-const COL_LAND_HIGH := Color("344943")
-const COL_COAST := Color("a0b4a0")
-const COL_LAND_LABEL := Color(0.55, 0.68, 0.66, 0.75)
+## Deep water where no floor layer is drawing (a map outside the tree): the chart's 2000 m band.
+const COL_OCEAN := Color8(0, 0, 98)
+# Flat land for the views without the chart's land shader (the scenario editor and the mission
+# preview): the chart's lowland green, and a darker green coastline.
+const COL_LAND := Color8(0, 98, 0)
+const COL_COAST := Color8(90, 170, 80)
+## The chart's own coastline stroke over the shaded land: thin and dark, a hard land/sea edge.
+const COL_COASTLINE := Color8(0, 58, 6, 235)
+const COL_LAND_LABEL := Color(0.86, 0.92, 0.84, 0.85)
 const COAST_MIN_STEP_PX := 1.2  # coastline detail finer than this is dropped as it is invisible
 const LAND_LABEL_MIN_PX := 90.0
-const COL_GRID := Color(0.20, 0.42, 0.55, 0.11)
-const COL_GRID_MINOR := Color(0.20, 0.42, 0.55, 0.045)
-const COL_GRID_TEXT := Color(0.35, 0.60, 0.72, 0.8)
-const COL_RINGS := Color(0.24, 0.56, 0.65, 0.16)
+## Graticule and range rings (both off by default): thin white over the relief.
+const COL_GRID := Color(1.0, 1.0, 1.0, 0.20)
+const COL_GRID_MINOR := Color(1.0, 1.0, 1.0, 0.08)
+const COL_GRID_TEXT := Color(1.0, 1.0, 1.0, 0.75)
+const COL_RINGS := Color(1.0, 1.0, 1.0, 0.22)
 const COL_TEXT := Color(0.80, 0.90, 0.96)
 const COL_SELECT := Color(1.0, 1.0, 1.0, 0.92)
 const COL_BOX := Color(0.6, 0.9, 1.0, 0.8)
@@ -78,10 +87,13 @@ const COL_WEAPON_RING := Color(1.0, 0.72, 0.35, 0.55)
 const COL_MISSILE := Color(1.0, 0.85, 0.35)
 const COL_MISSILE_HOSTILE := Color(1.0, 0.45, 0.35)
 const COL_INTERCEPTOR := Color(0.55, 0.95, 1.0)
-const COL_HEADER := UITheme.COL_PANEL_DEEP
 const COL_ACCENT := UITheme.COL_ACCENT
 const COL_AMBER := UITheme.COL_AMBER
+## Label plate behind unit and track labels. The world view's labels share it.
 const COL_LABEL_BG := Color("08111a", 0.9)
+const COL_READOUT := Color.WHITE
+const COL_READOUT_SHADOW := Color(0.0, 0.0, 0.0, 0.9)
+const COL_RADIO_ALERT := Color("ff5050")
 const COL_FIRE := Color(1.0, 0.55, 0.22)
 const COL_SMOKE := Color(0.66, 0.66, 0.68)
 const COL_FLOOD := Color(0.35, 0.62, 1.0)
@@ -102,7 +114,12 @@ var selected_track: Track = null
 var show_key := false
 var show_rings := false
 var show_trails := true
+## Relief shading on land and sea floor (F6). Land and water are always drawn.
 var show_terrain := true
+## Lat/long graticule (off, as on the classic display) and the bottom-left readouts.
+var show_graticule := false
+var show_latlon := true
+var show_scale := true
 
 var _drag_mode := DragMode.NONE
 var _drag_button := MOUSE_BUTTON_NONE
@@ -127,17 +144,14 @@ var _trail_last_s := -1.0e9
 var _effects: Array = []  # {pos, t0, kind, color}
 var _anim := 0.0
 var _threats: Array = []
-var _water: ImageTexture
 var _weapon_trails: Dictionary = {}  # weapon id -> PackedVector2Array of recent positions
 var _hit_flash := 0.0
-var _land_meshes: Dictionary = {}  # Landmass -> cached triangulated fill
 var show_range_grid := false
-var _land_generation := -1
-var _plot_buttons: Dictionary = {}
-var _overview: TacticalOverview
 var _floor: ChartFloor
-var _context_hint: Label
-var _card_style: StyleBoxFlat
+var _land: ChartLand
+var _radio := RadioLine.new()
+var _coast_runs: Dictionary = {}  # Landmass -> Array[PackedVector2Array], clip edges removed
+var _coast_key := ""
 
 
 func _ready() -> void:
@@ -145,144 +159,28 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_CLICK
 	clip_contents = true
 	_font = UITheme.body_font()
-	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	_water = _build_water()
 	mouse_entered.connect(func() -> void: _mouse_inside = true)
 	mouse_exited.connect(func() -> void: _mouse_inside = false)
 	resized.connect(_apply_pending_fit)
+	# The shaded chart: sea floor first, then the scenario's land, both behind this item's own drawing.
 	_floor = ChartFloor.new()
 	_floor.name = "ChartFloor"
 	_floor.map = self
 	add_child(_floor)
 	move_child(_floor, 0)
-	_build_plot_controls()
-
-
-func _build_plot_controls() -> void:
-	# View cluster: zoom and framing, down the right edge under the compass.
-	var cluster := PanelContainer.new()
-	cluster.name = "ViewControls"
-	cluster.theme_type_variation = "ToolbarPanel"
-	cluster.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	cluster.offset_left = -52
-	cluster.offset_right = -12
-	cluster.offset_top = HEADER_H + 84
-	cluster.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(cluster)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 2)
-	cluster.add_child(column)
-	for item in [
-		["plus", "zoom_in", "Zoom in  [+]"],
-		["minus", "zoom_out", "Zoom out  [−]"],
-		[],
-		["fit", "fleet", "Fit the task group  [Home]"],
-		["theatre", "theatre", "Fit the whole operation area"],
-		["focus", "center", "Centre the selection and target  [C]"],
-		["follow", "follow", "Follow the selection  [F]"],
-	]:
-		if item.is_empty():
-			var rule := UITheme.hairline()
-			column.add_child(rule)
-			continue
-		column.add_child(_plot_button(item[0], "", item[1], item[2]))
-
-	# Mode and layers: the move tool and the overlays, bottom-left above the chart footer.
-	var toolbar := PanelContainer.new()
-	toolbar.name = "PlotToolbar"
-	toolbar.theme_type_variation = "ToolbarPanel"
-	toolbar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	toolbar.offset_left = 12
-	toolbar.offset_top = -(FOOTER_H + 10 + 44)
-	toolbar.offset_bottom = -(FOOTER_H + 10)
-	toolbar.grow_horizontal = Control.GROW_DIRECTION_END
-	toolbar.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(toolbar)
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 2)
-	toolbar.add_child(h)
-	h.add_child(_plot_button("route", "PLOT MOVE", "move", "Arm a left-click move order. Shift adds waypoints; Escape cancels.  [G]"))
-	var rule := UITheme.hairline(true)
-	rule.custom_minimum_size.x = 1
-	h.add_child(rule)
-	h.add_child(_plot_button("sensors", "SENSORS", "sensors", "Show the selection's sensor coverage  [F4]"))
-	h.add_child(_plot_button("vectors", "VECTORS", "vectors", "Show 30-minute motion vectors for every track  [V]"))
-	h.add_child(_plot_button("rings", "RINGS", "range_grid", "Show range rings around the reference unit"))
-	h.add_child(_plot_button("eye", "WORLD", "world", "Open the 3D world view: what you can see, and what you hold on the plot  [T]"))
-
-	_context_hint = Label.new()
-	_context_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	_context_hint.offset_left = 14
-	_context_hint.offset_right = -240
-	_context_hint.offset_top = -(FOOTER_H + 10 + 44 + 26)
-	_context_hint.offset_bottom = -(FOOTER_H + 10 + 44 + 6)
-	_context_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_context_hint.theme_type_variation = "MapHintLabel"
-	_context_hint.clip_text = true
-	_context_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_context_hint)
-	_overview = TacticalOverview.new()
-	_overview.map = self
-	_overview.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_overview.offset_left = -220
-	_overview.offset_top = -(FOOTER_H + 10 + 146)
-	_overview.offset_right = -12
-	_overview.offset_bottom = -(FOOTER_H + 10)
-	add_child(_overview)
-	_sync_plot_controls()
-
-
-func _plot_button(icon_name: String, text: String, action: String, tip: String) -> Button:
-	var button := Button.new()
-	button.theme_type_variation = "QuietButton"
-	button.text = text
-	button.tooltip_text = tip
-	button.accessibility_name = tip.get_slice("  [", 0)
-	UIIcons.apply(button, icon_name, 18)
-	button.custom_minimum_size = Vector2(32, 32) if text == "" else Vector2(0, 32)
-	button.add_theme_font_size_override("font_size", 11)
-	button.focus_mode = Control.FOCUS_ALL
-	if action in ["move", "follow", "sensors", "vectors", "range_grid"]:
-		button.toggle_mode = true
-	button.pressed.connect(_plot_action.bind(action))
-	_plot_buttons[action] = button
-	return button
-
-
-func _plot_action(action: String) -> void:
-	match action:
-		"zoom_out":
-			_zoom_at(size * .5, 1.0 / ZOOM_STEP)
-		"zoom_in":
-			_zoom_at(size * .5, ZOOM_STEP)
-		"fleet":
-			fit_to_fleet()
-		"theatre":
-			if simulation != null:
-				fit_to(simulation.map_center, simulation.map_extent_nm)
-		"range_grid":
-			toggle_layer("range_grid")
-		"center":
-			center_on_selection()
-		"move":
-			set_move_mode(interaction_mode != InteractionMode.MOVE)
-		"follow":
-			set_follow_selection(not follow_selection)
-		"sensors":
-			toggle_layer("sensors")
-		"vectors":
-			toggle_layer("vectors")
-		"world":
-			world_view_requested.emit()
-	_sync_plot_controls()
+	_land = ChartLand.new()
+	_land.name = "ChartLand"
+	_land.map = self
+	add_child(_land)
+	move_child(_land, 1)
 
 
 func zoom_at_center(factor: float) -> void:
 	_zoom_at(size * 0.5, factor)
 
 
-## One state path serves both buttons and shortcuts, so the display can never say a layer is on
-## while the corresponding toolbar control appears off.
+## One state path serves the shortcuts, the palette and the menus. "terrain" (F6) and "relief" are
+## the same switch: relief shading. Land and water are always drawn.
 func toggle_layer(layer: String) -> bool:
 	var enabled := false
 	match layer:
@@ -295,7 +193,7 @@ func toggle_layer(layer: String) -> bool:
 		"trails":
 			show_trails = not show_trails
 			enabled = show_trails
-		"terrain":
+		"terrain", "relief":
 			show_terrain = not show_terrain
 			enabled = show_terrain
 		"vectors":
@@ -304,19 +202,25 @@ func toggle_layer(layer: String) -> bool:
 		"range_grid":
 			show_range_grid = not show_range_grid
 			enabled = show_range_grid
-	_sync_plot_controls()
+		"graticule":
+			show_graticule = not show_graticule
+			enabled = show_graticule
+		"latlon":
+			show_latlon = not show_latlon
+			enabled = show_latlon
+		"scale":
+			show_scale = not show_scale
+			enabled = show_scale
 	return enabled
 
 
 func set_follow_selection(enabled: bool) -> void:
 	follow_selection = enabled and (selected.size() == 1 or selected_track != null)
-	_sync_plot_controls()
 
 
 func set_move_mode(enabled: bool) -> void:
 	var next := InteractionMode.MOVE if enabled and _has_controllable_selection() else InteractionMode.SELECT
 	if interaction_mode == next:
-		_sync_plot_controls()
 		return
 	interaction_mode = next
 	# A pan or box drag in progress would otherwise never see its release, which the move tool
@@ -325,7 +229,6 @@ func set_move_mode(enabled: bool) -> void:
 		_end_drag()
 	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode == InteractionMode.MOVE else Control.CURSOR_ARROW
 	interaction_mode_changed.emit(interaction_mode == InteractionMode.MOVE)
-	_sync_plot_controls()
 
 
 func cancel_interaction_mode() -> bool:
@@ -351,42 +254,20 @@ func _normalize_interaction_state() -> void:
 		interaction_mode_changed.emit(false)
 	if follow_selection and selected_track == null and selected.size() != 1:
 		follow_selection = false
-	_sync_plot_controls()
 
 
-func _sync_plot_controls() -> void:
-	if _plot_buttons.has("move"):
-		(_plot_buttons["move"] as Button).button_pressed = interaction_mode == InteractionMode.MOVE
-		(_plot_buttons["move"] as Button).disabled = not _has_controllable_selection()
-	if _plot_buttons.has("follow"):
-		(_plot_buttons["follow"] as Button).button_pressed = follow_selection
-		(_plot_buttons["follow"] as Button).disabled = selected_track == null and selected.size() != 1
-	if _plot_buttons.has("sensors"):
-		(_plot_buttons["sensors"] as Button).button_pressed = show_rings
-	if _plot_buttons.has("vectors"):
-		(_plot_buttons["vectors"] as Button).button_pressed = show_vectors
-	if _plot_buttons.has("range_grid"):
-		(_plot_buttons["range_grid"] as Button).button_pressed = show_range_grid
-	if _context_hint != null:
-		if interaction_mode == InteractionMode.MOVE:
-			_context_hint.text = "PLOT MOVE  ·  left-click water to commit  ·  Shift adds waypoints  ·  Esc or right-click cancels"
-			_context_hint.add_theme_color_override("font_color", UITheme.COL_ACCENT)
-		elif selected.is_empty():
-			_context_hint.text = "SELECT A PLATFORM  ·  drag to box-select  ·  middle/right or Option-drag to pan  ·  wheel to zoom"
-			_context_hint.add_theme_color_override("font_color", UITheme.COL_DIM)
-		elif selected_track == null:
-			_context_hint.text = "%s  ·  G plots a move  ·  click a contact to target  ·  N cycles priority contacts" % selection_label()
-			_context_hint.add_theme_color_override("font_color", UITheme.COL_TEXT)
-		else:
-			_context_hint.text = "%s  →  TARGET %s  ·  engagement controls are ready below" % [selection_label(), selected_track.id]
-			_context_hint.add_theme_color_override("font_color", COL_AMBER)
+## Compatibility shim: the chart no longer carries a theatre inset (the regional map replaced it),
+## but the world view still calls this when its inset card opens and closes.
+func set_overview_suppressed(_suppressed: bool) -> void:
+	pass
 
 
-## The world view's inset card shares the corner with the theatre overview, so it asks the
-## overview to step aside while it is showing.
-func set_overview_suppressed(suppressed: bool) -> void:
-	if _overview != null:
-		_overview.visible = not suppressed
+## A line on the radio line, bottom-centre: held HOLD_S, then faded; the newest few stack with the
+## latest at the bottom. "alert" severity reads red. With a speaker (an own Unit, or a Track as the
+## plot holds it) the line reads "<callsign>: <text>" and the speaker's symbol is ringed in white
+## while the line is up.
+func post_message(text: String, severity := "info", speaker = null) -> void:
+	_radio.post(text, severity, speaker, _anim)
 
 
 func selection_label() -> String:
@@ -412,21 +293,7 @@ func _process(delta: float) -> void:
 			_center_world_in_chart((selected[0] as Unit).position)
 	_record_trails()
 	_record_weapon_trails()
-	_sync_plot_controls()
 	queue_redraw()
-
-
-## A seamless noise tile, generated once, gives the water a slow living texture without a
-## single asset. Tiled and scrolled at draw time.
-func _build_water() -> ImageTexture:
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.seed = 7
-	noise.frequency = 0.012
-	noise.fractal_octaves = 4
-	noise.fractal_lacunarity = 2.1
-	var img := noise.get_seamless_image(256, 256)
-	return ImageTexture.create_from_image(img)
 
 
 ## Recent positions of every round in flight, so a missile draws a real curved trail rather
@@ -500,8 +367,7 @@ func add_effect(pos: Vector2, kind: String, own := false) -> void:
 
 
 func reset_presentation() -> void:
-	_land_meshes.clear()
-	_land_generation = -1
+	_radio.clear()
 	_trails.clear()
 	_weapon_trails.clear()
 	_effects.clear()
@@ -520,17 +386,14 @@ func screen_to_world(s: Vector2) -> Vector2:
 	return Vector2(center_nm.x + (s.x - size.x * 0.5) / ppn, center_nm.y - (s.y - size.y * 0.5) / ppn)
 
 
-## Bounds left clear for fitted units and targets: the map header, command strip, tactical
-## overview, and optional symbol key remain controls, not places where a supposedly focused
-## symbol can disappear.
+## Bounds left clear for fitted units and targets. The chart carries no chrome, so this is the whole
+## control, less the symbol key's strip on the left while the key is showing.
 func unobstructed_chart_rect() -> Rect2:
-	var right := maxf(size.x - OVERVIEW_UI_RESERVED_PX, 1.0)
-	var bottom := maxf(size.y - BOTTOM_UI_RESERVED_PX, HEADER_H + 1.0)
 	var left := 0.0
 	if show_key:
 		var key := _symbol_key_rect()
-		left = minf(key.position.x + key.size.x + 8.0, maxf(right - 1.0, 0.0))
-	return Rect2(Vector2(left, HEADER_H), Vector2(maxf(right - left, 1.0), bottom - HEADER_H))
+		left = minf(key.position.x + key.size.x + 8.0, maxf(size.x - 1.0, 0.0))
+	return Rect2(Vector2(left, 0.0), Vector2(maxf(size.x - left, 1.0), maxf(size.y, 1.0)))
 
 
 func fit_to(center: Vector2, extent_nm: float) -> void:
@@ -564,7 +427,7 @@ func center_on(world_pos: Vector2) -> void:
 
 
 func _center_world_in_chart(world_pos: Vector2) -> void:
-	if size.x <= OVERVIEW_UI_RESERVED_PX + 1.0 or size.y <= BOTTOM_UI_RESERVED_PX + HEADER_H + 1.0:
+	if size.x <= 1.0 or size.y <= 1.0:
 		center_nm = world_pos
 		return
 	var target := unobstructed_chart_rect().get_center()
@@ -659,8 +522,8 @@ func _keyboard_zoom(delta: float) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
-		# A drag owns its matching release even when the pointer crosses the custom header/key.
-		# Otherwise the rejected release leaves the pan/box latch active indefinitely.
+		# A drag owns its matching release even when the pointer leaves the chart. Otherwise the
+		# rejected release leaves the pan/box latch active indefinitely.
 		var finishes_drag := not mouse.pressed and _drag_mode != DragMode.NONE and mouse.button_index == _drag_button
 		if not finishes_drag and not _chart_accepts_point(mouse.position):
 			accept_event()
@@ -680,12 +543,9 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 
+## The whole chart takes commands: there is no header, footer or card to click through to.
 func _chart_accepts_point(point: Vector2) -> bool:
-	if point.y < HEADER_H or point.y > size.y - FOOTER_H:
-		return false
-	if show_key and _symbol_key_rect().has_point(point):
-		return false
-	return true
+	return Rect2(Vector2.ZERO, size).has_point(point)
 
 
 func _handle_mouse_button(e: InputEventMouseButton) -> void:
@@ -998,14 +858,16 @@ func _draw() -> void:
 	_label_rects.clear()
 	if selected_track != null and not show_key:
 		_label_rects.append(_solution_rect())
+	# Labels keep clear of the readout block and the radio line.
+	_label_rects.append(_readout_rect())
+	_label_rects.append(_radio_rect())
 	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
 	_draw_ocean()
 	_draw_land()
-	_draw_neatline()
-	_draw_grid()
+	if show_graticule:
+		_draw_grid()
 	if show_range_grid:
 		_draw_range_rings()
-	_draw_compass()
 	_draw_chart_labels()
 	_draw_objectives()
 	_draw_move_preview()
@@ -1021,6 +883,7 @@ func _draw() -> void:
 		_draw_units()
 		_draw_weapons()
 		_draw_effects()
+		_draw_speaker_rings()
 	if _hit_flash > 0.0:
 		var a := 0.35 * (_hit_flash / 1.2)
 		var clear := Color(1.0, 0.3, 0.25, 0.0)
@@ -1034,8 +897,8 @@ func _draw() -> void:
 		var r := Rect2(_drag_start, _mouse - _drag_start).abs()
 		draw_rect(r, Color(COL_BOX, 0.08))
 		draw_rect(r, COL_BOX, false, 1.0)
-	_draw_header()
-	_draw_footer()
+	_draw_readout()
+	_draw_radio_line()
 	_draw_key()
 	_draw_solution_card()
 	_draw_hover_card()
@@ -1092,96 +955,91 @@ func _nice_step(min_px: float) -> float:
 	return NICE_STEPS_NM[-1]
 
 
-## Deep water: a vertical gradient with a darker rim so the picture reads as a scope, not a
-## flat rectangle.
+## The sea is ChartFloor's, painted behind this item. A map outside the tree (a test, a tool) has no
+## floor, and gets plain deep water instead.
 func _draw_ocean() -> void:
-	var charted_floor := _floor != null and _floor.active()
-	if not charted_floor:
-		# No bathymetry under this chart: the plain scope ocean. With a floor, ChartFloor has
-		# already painted the water behind this item and it must not be covered.
+	if _floor == null or not _floor.is_inside_tree():
 		draw_rect(Rect2(Vector2.ZERO, size), COL_OCEAN)
-		var pts := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
-		var cols := PackedColorArray([COL_OCEAN_TOP, COL_OCEAN_TOP, COL_OCEAN_BOTTOM, COL_OCEAN_BOTTOM])
-		draw_polygon(pts, cols)
-	if _water != null:
-		# Two layers drifting against each other, scaled with the zoom so the texture reads as
-		# surface rather than wallpaper. A rough sea shows more of it.
-		var strength := (0.045 + 0.004 * Detection.sea_state) * (0.6 if charted_floor else 1.0)
-		var scale := clampf(ppn * 0.5, 0.6, 3.0)
-		var tile := 256.0 * scale
-		var off1 := Vector2(fmod(_anim * 4.0 + center_nm.x * ppn, tile), fmod(_anim * 2.5 - center_nm.y * ppn, tile))
-		var off2 := Vector2(fmod(-_anim * 3.0 + center_nm.x * ppn * 0.7, tile), fmod(_anim * 1.5 - center_nm.y * ppn * 0.7, tile))
-		draw_texture_rect(_water, Rect2(-off1 - Vector2(tile, tile), size + Vector2(tile * 2.0, tile * 2.0)), true, Color(0.35, 0.75, 1.0, strength))
-		draw_texture_rect(_water, Rect2(-off2 - Vector2(tile, tile), size + Vector2(tile * 2.0, tile * 2.0)), true, Color(0.2, 0.55, 0.8, strength * 0.7))
 
 
-## The scope's darkened rim. Drawn after the land so a coast at the edge of the picture falls away
-## into it the way the water does.
-func _draw_vignette() -> void:
-	var rim := Color(0.0, 0.0, 0.0, 0.0)
-	var edge := Color(0.0, 0.01, 0.03, 0.55)
-	var w := minf(size.x * 0.22, 260.0)
-	var h := minf(size.y * 0.22, 200.0)
-	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, size.y), Vector2(0, size.y)]), PackedColorArray([edge, rim, rim, edge]))
-	draw_polygon(PackedVector2Array([Vector2(size.x - w, 0), Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x - w, size.y)]), PackedColorArray([rim, edge, edge, rim]))
-	draw_polygon(PackedVector2Array([Vector2(0, size.y - h), Vector2(size.x, size.y - h), Vector2(size.x, size.y), Vector2(0, size.y)]), PackedColorArray([rim, rim, edge, edge]))
-
-
-## Geographic land fill and coastline casing, shared with movement geometry.
-## The casing has a constant pixel width and carries no bathymetric meaning.
+## The scenario's coastline, the land the simulation uses. ChartLand has already filled it with
+## the shaded land tint; this strokes a crisp, thin, anti-aliased edge over the fill's hard pixel
+## edge. With no ChartLand (a map outside the tree) the land is filled flat.
 func _draw_land() -> void:
-	if not show_terrain or Terrain.is_empty():
+	if Terrain.is_empty():
 		return
 	var view := Rect2(screen_to_world(Vector2.ZERO), Vector2.ZERO).expand(screen_to_world(size))
-	if _land_generation != Terrain.generation:
-		_rebuild_land_cache()
+	var flat := _land == null or not _land.is_inside_tree()
+	var meshes := ChartLand.land_meshes() if flat else {}
 	var transform := Transform2D(Vector2(ppn, 0), Vector2(0, ppn), world_to_screen(Vector2.ZERO))
+	var box := ChartFloor.charted_box(simulation)
+	var key := "%d:%s" % [Terrain.generation, box]
+	if key != _coast_key:
+		_coast_key = key
+		_coast_runs.clear()
+		for l: Landmass in Terrain.landmasses:
+			_coast_runs[l] = coast_runs(l.points, box)
 	for l: Landmass in Terrain.landmasses:
 		if not l.bounds.intersects(view):
 			continue
-		var mesh: ArrayMesh = _land_meshes.get(l)
+		var mesh: ArrayMesh = meshes.get(l)
 		if mesh != null:
 			draw_mesh(mesh, null, transform, COL_LAND)
-		var ring := _project_coast(l.points)
-		if ring.size() < 2:
-			continue
-		ring.append(ring[0])
-		# A fixed-pixel coastal casing, not an invented shallow-water contour.
-		draw_polyline(ring, Color("1e3a40"), 4.0, true)
-		draw_polyline(ring, COL_COAST, 1.1, true)
+		for run: PackedVector2Array in _coast_runs.get(l, []):
+			var line := _project_coast(run)
+			if line.size() >= 2:
+				draw_polyline(line, COL_COASTLINE, 1.25, true)
 		if l.name != "":
 			_draw_land_name(l, view)
 
 
-## Where the scenario's coastline polygons end. Beyond it the floor shader shows the raster's coarser
-## coast, dimmed; this line says so instead of leaving a change of detail unexplained.
-func _draw_neatline() -> void:
-	if _floor == null or not _floor.active():
-		return
-	var r := _floor.charted_rect()
-	if r.size.x <= 0.0:
-		return
-	var a := world_to_screen(Vector2(r.position.x, r.end.y))
-	var b := world_to_screen(Vector2(r.end.x, r.position.y))
-	var screen := Rect2(a, b - a)
-	if screen.encloses(Rect2(Vector2.ZERO, size)):
-		return
-	draw_rect(screen, Color(COL_GRID_TEXT, 0.35), false, 1.0)
-	# Label whichever edge is in view, just inside the chart, so it never floats over nothing.
-	var view := Rect2(Vector2(10.0, HEADER_H + 34.0), size - Vector2(220.0, HEADER_H + 150.0))
-	var x := clampf(screen.position.x + 8.0, view.position.x, view.end.x)
-	var y := clampf(screen.position.y + 14.0, view.position.y, view.end.y)
-	var at := Vector2.INF
-	if screen.position.y > view.position.y - 10.0 and screen.position.y < view.end.y:
-		at = Vector2(x, screen.position.y + 14.0)
-	elif screen.end.y > view.position.y and screen.end.y < view.end.y + 60.0:
-		at = Vector2(x, screen.end.y - 6.0)
-	elif screen.position.x > view.position.x and screen.position.x < view.end.x:
-		at = Vector2(screen.position.x + 8.0, y)
-	elif screen.end.x > view.position.x and screen.end.x < size.x - 20.0:
-		at = Vector2(screen.end.x - 150.0, y)
-	if at != Vector2.INF:
-		draw_string(_font, at, "LIMIT OF CHARTED COAST", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_GRID_TEXT, 0.55))
+## A coastline as the runs to stroke. Where a polygon runs along the charted box's edge the scenario
+## clipped it there: that straight edge is not a coast (the land carries on past it on the raster),
+## so the ring is split and those segments are left out. A ring with no clip edge comes back whole
+## and closed.
+static func coast_runs(points: PackedVector2Array, box: Rect2) -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
+	var n := points.size()
+	if n < 2:
+		return out
+	var start := -1
+	if box.size.x > 0.0:
+		for i in n:
+			if _on_box_edge(points[i], points[(i + 1) % n], box):
+				start = i
+				break
+	if start < 0:
+		var ring := points.duplicate()
+		ring.append(points[0])
+		out.append(ring)
+		return out
+	var run := PackedVector2Array()
+	for k in n:
+		var i := (start + 1 + k) % n
+		var a := points[i]
+		var b := points[(i + 1) % n]
+		if _on_box_edge(a, b, box):
+			if run.size() >= 2:
+				out.append(run)
+			run = PackedVector2Array()
+			continue
+		if run.is_empty():
+			run.append(a)
+		run.append(b)
+	if run.size() >= 2:
+		out.append(run)
+	return out
+
+
+static func _on_box_edge(a: Vector2, b: Vector2, box: Rect2) -> bool:
+	const EPS := 0.01
+	for x in [box.position.x, box.end.x]:
+		if absf(a.x - x) < EPS and absf(b.x - x) < EPS:
+			return true
+	for y in [box.position.y, box.end.y]:
+		if absf(a.y - y) < EPS and absf(b.y - y) < EPS:
+			return true
+	return false
 
 
 ## Names the coast in the middle of the part of it that is actually on screen, so a mainland
@@ -1197,8 +1055,8 @@ func _draw_land_name(l: Landmass, view: Rect2) -> void:
 		anchor = l.centroid
 	var text := l.name.to_upper()
 	var at := world_to_screen(anchor)
-	at.x -= _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x * 0.5
-	draw_string(_font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_LAND_LABEL)
+	at.x -= _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x * 0.5
+	_shadow_text(at, text, 11, COL_LAND_LABEL)
 
 
 ## Projects a coastline and throws away detail finer than a pixel or so. A scenario chart is
@@ -1212,36 +1070,29 @@ func _project_coast(world: PackedVector2Array) -> PackedVector2Array:
 	out.append(last)
 	for i in range(1, world.size()):
 		var p := world_to_screen(world[i])
-		if p.distance_squared_to(last) < COAST_MIN_STEP_PX * COAST_MIN_STEP_PX:
+		if p.distance_squared_to(last) < COAST_MIN_STEP_PX * COAST_MIN_STEP_PX and i < world.size() - 1:
 			continue
 		out.append(p)
 		last = p
 	return out
 
 
-## Triangulate once per terrain generation, rather than for every frame and zoom level.
-func _rebuild_land_cache() -> void:
-	_land_meshes.clear()
-	for l: Landmass in Terrain.landmasses:
-		_land_meshes[l] = ChartMesh.build(l.points)
-	_land_generation = Terrain.generation
-
-
 func _geo_map() -> Dictionary:
 	return simulation.scenario.get("map", {}) if simulation != null else {}
 
 
+## The scenario's place names, in the chart's white bold with a shadow and no plate.
 func _draw_chart_labels() -> void:
 	var m := _geo_map()
-	var safe := Rect2(Vector2(50, HEADER_H + 30), size - Vector2(110, HEADER_H + 130))
+	var safe := Rect2(Vector2(8, 8), size - Vector2(16, 16))
 	var occupied: Array[Rect2] = []
+	var font := _readout_font()
 	for entry in m.get("labels", []):
 		var p: Array = entry["position_nm"]
 		var at := world_to_screen(Vector2(p[0], p[1]))
 		var text := str(entry["text"])
 		var water: bool = entry.get("kind", "land") == "water"
-		var font_size := 13 if water else 11
-		var width := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 		var rect := Rect2(at - Vector2(width / 2, 12), Vector2(width, 18))
 		if not safe.encloses(rect):
 			continue
@@ -1250,7 +1101,7 @@ func _draw_chart_labels() -> void:
 			if other.grow(10).intersects(rect): collision = true
 		if collision: continue
 		occupied.append(rect)
-		draw_string(_font, at - Vector2(width/2, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("567e90") if water else Color("c0c9b3"))
+		_shadow_text(at - Vector2(width / 2, 0), text, 11, Color(COL_READOUT, 0.72 if water else 0.9))
 
 
 func _chart_axis(value: float, positive: String, negative: String) -> String:
@@ -1271,25 +1122,25 @@ func _draw_grid() -> void:
 		var x := floorf(tl.x / minor) * minor
 		while x <= br.x:
 			var sx := world_to_screen(Vector2(x, 0.0)).x
-			draw_line(Vector2(sx, HEADER_H), Vector2(sx, size.y), COL_GRID_MINOR, 1.0)
+			draw_line(Vector2(sx, 0.0), Vector2(sx, size.y), COL_GRID_MINOR, 1.0)
 			x += minor
 		var y := floorf(br.y / minor) * minor
 		while y <= tl.y:
 			var sy := world_to_screen(Vector2(0.0, y)).y
-			if sy > HEADER_H:
+			if sy > 0.0:
 				draw_line(Vector2(0.0, sy), Vector2(size.x, sy), COL_GRID_MINOR, 1.0)
 			y += minor
 	var x := floorf(tl.x / step) * step
 	while x <= br.x:
 		var sx := world_to_screen(Vector2(x, 0.0)).x
-		draw_line(Vector2(sx, HEADER_H), Vector2(sx, size.y), COL_GRID, 1.0)
+		draw_line(Vector2(sx, 0.0), Vector2(sx, size.y), COL_GRID, 1.0)
 		var label := _chart_axis(x, "E", "W")
-		draw_string(_font, Vector2(sx + 4.0, size.y - 8.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
+		draw_string(_font, Vector2(sx + 4.0, 14.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
 		x += step
 	var y := floorf(br.y / step) * step
 	while y <= tl.y:
 		var sy := world_to_screen(Vector2(0.0, y)).y
-		if sy > HEADER_H + 6.0:
+		if sy > 20.0:
 			draw_line(Vector2(0.0, sy), Vector2(size.x, sy), COL_GRID, 1.0)
 			draw_string(_font, Vector2(5.0, sy - 4.0), _chart_axis(y, "N", "S"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
 		y += step
@@ -1309,7 +1160,7 @@ func _draw_range_rings() -> void:
 		var r := step * i * ppn
 		draw_arc(c, r, 0.0, TAU, 160, COL_RINGS, 1.0, true)
 		var lp := c + Vector2(sin(deg_to_rad(45.0)), -cos(deg_to_rad(45.0))) * r
-		if Rect2(Vector2(0, HEADER_H), size - Vector2(0, HEADER_H)).has_point(lp):
+		if Rect2(Vector2.ZERO, size).has_point(lp):
 			draw_string(_font, lp + Vector2(3.0, -3.0), ("%d m" % int(roundf(step * i * 1852.0))) if step < 0.5 else Geo.format_nm(step * i), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_GRID_TEXT, 0.7))
 		i += 1
 	for deg in range(0, 360, 90):
@@ -1338,24 +1189,17 @@ func _draw_graticule() -> void:
 	var lat := ceilf(br.x / lat_step) * lat_step
 	while lat <= tl.x:
 		var y := world_to_screen(Vector2(0, (lat - lat0)*60)).y
-		if y > HEADER_H + 22 and y < size.y - 85:
+		if y > 22 and y < size.y - 85:
 			draw_line(Vector2(0, y), Vector2(size.x, y), COL_GRID, 1)
 			draw_string(_font, Vector2(7, y-5), Geo.format_latlon(lat), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
 		lat += lat_step
 	var lon := ceilf(tl.y / lon_step) * lon_step
 	while lon <= br.y:
 		var x := world_to_screen(Vector2((lon-lon0)*60*coslat, 0)).x
-		draw_line(Vector2(x, HEADER_H), Vector2(x, size.y - FOOTER_H), COL_GRID, 1)
+		draw_line(Vector2(x, 0.0), Vector2(x, size.y), COL_GRID, 1)
 		if x > 90 and x < size.x-100:
-			draw_string(_font, Vector2(x+4, HEADER_H+15), Geo.format_latlon(lon, false), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
+			draw_string(_font, Vector2(x+4, 15), Geo.format_latlon(lon, false), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_GRID_TEXT)
 		lon += lon_step
-
-
-func _draw_compass() -> void:
-	var c := Vector2(size.x - 32, HEADER_H + 46)
-	draw_line(c + Vector2(0, 15), c - Vector2(0, 12), COL_COAST, 1.5, true)
-	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -16), c + Vector2(-4, -6), c + Vector2(4, -6)]), COL_COAST)
-	draw_string(_font, c + Vector2(-4, -22), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_TEXT)
 
 
 func _draw_objectives() -> void:
@@ -1470,8 +1314,8 @@ func _draw_weapon_ring() -> void:
 		draw_arc(sp, outer, 0.0, TAU, 160, COL_WEAPON_RING, 1.2, true)
 		if weapon_ring.min_range_nm > 0.5:
 			draw_arc(sp, inner, 0.0, TAU, 48, Color(COL_WEAPON_RING, 0.4), 1.0, true)
-		# Keep the ring's name on the chart when its top edge runs up under the header.
-		var ring_label := sp + Vector2(0.0, maxf(-outer - 5.0, HEADER_H + 16.0 - sp.y))
+		# Keep the ring's name on the chart when its top edge runs off the top.
+		var ring_label := sp + Vector2(0.0, maxf(-outer - 5.0, 16.0 - sp.y))
 		draw_string(_font, ring_label, "%s  %s nm" % [weapon_ring.display_name.to_upper(), Geo.format_nm(weapon_ring.max_range_nm)], HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color(COL_WEAPON_RING, 0.9))
 		if selected_track != null and Combat.suits_track(weapon_ring, selected_track) and Combat.check_engagement(u, weapon_ring, selected_track)["ok"]:
 			# The firing solution: where the round would meet the contact if it held course.
@@ -1696,7 +1540,7 @@ func _draw_motion_vector(pos: Vector2, course: float, speed: float, domain: Stri
 
 
 func _solution_rect() -> Rect2:
-	return Rect2(14, HEADER_H + 14, 290, 143)
+	return Rect2(READOUT_MARGIN, READOUT_MARGIN, 320.0, READOUT_LINE_H * 4.0 + 8.0)
 
 
 func _draw_relative_motion() -> void:
@@ -1720,32 +1564,22 @@ func _draw_relative_motion() -> void:
 	draw_string(_font, middle + Vector2(0, -3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_ACCENT)
 
 
+## The hooked contact's geometry from the reference unit, top-left, as plain readout lines.
 func _draw_solution_card() -> void:
 	if selected_track == null or show_key:
 		return
 	var t := selected_track
 	var ref := reference_unit()
-	var rect := _solution_rect()
-	var x := rect.position.x + 12.0
-	var y := rect.position.y
-	var col := track_color(t)
-	_draw_card_frame(rect, col)
-	x += 4.0
-	draw_string(UITheme.eyebrow_font(), Vector2(x, y + 22), "CONTACT SOLUTION", HORIZONTAL_ALIGNMENT_LEFT, 150, 10, UITheme.COL_MUTED)
-	draw_string(UITheme.heading_font(), Vector2(rect.end.x - 14.0 - UITheme.heading_font().get_string_size(t.id, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x, y + 23), t.id, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, col)
-	draw_string(_font, Vector2(x, y + 41), "%s · LAST OBS %s" % [t.source.replace("sonar_", "").to_upper(), Track._fmt_age(t.age_s(SimClock.sim_time))], HORIZONTAL_ALIGNMENT_LEFT, 265, 10, UITheme.COL_DIM)
-	draw_line(Vector2(x, y + 51), Vector2(rect.end.x - 14, y + 51), UITheme.COL_HAIRLINE, 1.0)
-	var range_text := t.range_text_from(ref.position) if ref != null else "NO REFERENCE SHIP"
-	draw_string(_font, Vector2(x, y + 70), range_text, HORIZONTAL_ALIGNMENT_LEFT, 265, 14, COL_TEXT)
+	var lines := PackedStringArray()
+	lines.append("%s  %s" % [t.id, t.description()])
+	lines.append(t.range_text_from(ref.position) if ref != null else "No reference ship")
 	var solution := RelativeMotion.solution(ref, t, SimClock.sim_time)
 	if solution.valid:
-		draw_string(_font, Vector2(x, y + 92), "CPA ~%.1f nm  /  IN %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)], HORIZONTAL_ALIGNMENT_LEFT, 265, 13, COL_ACCENT)
-		draw_string(_font, Vector2(x, y + 112), "CLOSING %.0f kn · UNCERTAINTY ±%.1f nm" % [solution.closing_kn, solution.uncertainty_nm], HORIZONTAL_ALIGNMENT_LEFT, 265, 10, COL_TEXT)
-		draw_string(_font, Vector2(x, y + 132), "Constant course · horizontal estimate", HORIZONTAL_ALIGNMENT_LEFT, 265, 10, UITheme.COL_DIM)
+		lines.append("CPA %.1f nm in %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)])
+		lines.append("Closing %.0f kts  +/-%.1f nm" % [solution.closing_kn, solution.uncertainty_nm])
 	else:
-		draw_string(_font, Vector2(x, y + 94), solution.reason, HORIZONTAL_ALIGNMENT_LEFT, 265, 10, COL_AMBER)
-		var note := "Constant course · horizontal estimate" if solution.has("closing_kn") else "Manoeuvre or regain contact to refine."
-		draw_string(_font, Vector2(x, y + 116), note, HORIZONTAL_ALIGNMENT_LEFT, 265, 10, UITheme.COL_DIM)
+		lines.append(str(solution.reason))
+	_draw_text_block(_solution_rect().position + Vector2(0.0, READOUT_FONT_SIZE), lines)
 
 
 func _draw_wake(u: Unit, sp: Vector2) -> void:
@@ -1960,109 +1794,123 @@ func _draw_effects() -> void:
 				draw_arc(sp, 3.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.5 * (1.0 - f)), 1.0, true)
 
 
-func _draw_header() -> void:
-	draw_rect(Rect2(0, 0, size.x, HEADER_H), COL_HEADER)
-	draw_line(Vector2(0, HEADER_H - 0.5), Vector2(size.x, HEADER_H - 0.5), UITheme.COL_HAIRLINE, 1)
-	var eyebrow := UITheme.eyebrow_font()
-	draw_string(eyebrow, Vector2(14, 21), "TACTICAL PLOT", HORIZONTAL_ALIGNMENT_LEFT, -1, UITheme.SIZE_EYEBROW, UITheme.COL_MUTED)
-	var x := 14.0 + eyebrow.get_string_size("TACTICAL PLOT", HORIZONTAL_ALIGNMENT_LEFT, -1, UITheme.SIZE_EYEBROW).x + 14.0
-	var ref := reference_unit()
-	if ref != null:
-		var name_font := UITheme.semibold_font()
-		var label := ref.callsign
-		var room := maxf(size.x - x - 330.0, 60.0)
-		draw_string(name_font, Vector2(x, 22), label, HORIZONTAL_ALIGNMENT_LEFT, room, 12, COL_TEXT)
-		x += minf(name_font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, room) + 12.0
-		if ref.datalink_connected():
-			_chip(x, "LINK", COL_ACCENT)
-		else:
-			_chip(x, "OWN SENSORS", COL_AMBER)
-	var text := "NORTH UP  ·  SCROLL TO ZOOM  ·  F2 KEY"
-	var w := eyebrow.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	draw_string(eyebrow, Vector2(size.x - w - 14.0, 21), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_FAINT)
+# --- Readouts and radio line --------------------------------------------------------------
+
+## The chart's text face: the theme's boldest data font.
+func _readout_font() -> Font:
+	return UITheme.semibold_font()
 
 
-func _chip(x: float, text: String, col: Color) -> float:
-	var f := UITheme.eyebrow_font()
-	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 14.0
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(col, 0.12)
-	box.border_color = Color(col, 0.45)
-	box.set_border_width_all(1)
-	box.set_corner_radius_all(3)
-	draw_style_box(box, Rect2(x, 9, w, 17))
-	draw_string(f, Vector2(x + 7, 21), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, col)
-	return x + w + 8.0
+## White bold text with a 1 px black drop shadow and no plate, the chart's only text style.
+func _shadow_text(at: Vector2, text: String, font_size: int, col := COL_READOUT, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
+	var font := _readout_font()
+	draw_string(font, at + Vector2(1.0, 1.0), text, align, width, font_size, Color(COL_READOUT_SHADOW, COL_READOUT_SHADOW.a * col.a))
+	draw_string(font, at, text, align, width, font_size, col)
 
 
-## The chart footer: source note (or the cursor position while the pointer is over the chart) on
-## the left, the scale bar on the right.
-func _draw_footer() -> void:
-	var top := size.y - FOOTER_H
-	draw_rect(Rect2(0, top, size.x, FOOTER_H), COL_HEADER)
-	draw_line(Vector2(0, top + 0.5), Vector2(size.x, top + 0.5), UITheme.COL_HAIRLINE, 1)
-	_draw_scale_bar()
-	if _mouse_inside and _mouse.y > HEADER_H and _mouse.y < top:
-		_draw_readout()
-		return
-	var m := _geo_map()
-	if not m.has("anchor_lat"):
-		return
-	var note := "NATURAL EARTH 1:10M  ·  LOCAL PROJECTION  ·  NO DEPTH DATA"
-	if _floor != null and _floor.active():
-		note = "NATURAL EARTH 1:10M LAND + BATHYMETRY  ·  CONTOURS 200–4000 M  ·  NOT FOR NAVIGATION"
-	draw_string(UITheme.eyebrow_font(), Vector2(14, size.y - 8), note, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 260), 9, UITheme.COL_FAINT)
+func _draw_text_block(first_baseline: Vector2, lines: PackedStringArray, col := COL_READOUT) -> void:
+	for i in lines.size():
+		_shadow_text(first_baseline + Vector2(0.0, i * READOUT_LINE_H), lines[i], READOUT_FONT_SIZE, col)
 
 
-func _draw_scale_bar() -> void:
-	var nm := _nice_step(80.0)
-	var px := nm * ppn
-	var right := size.x - 16.0
-	var y := size.y - 8.0
-	var col := Color(COL_TEXT, 0.8)
-	draw_line(Vector2(right - px, y), Vector2(right, y), col, 1.5)
-	draw_line(Vector2(right - px, y - 5.0), Vector2(right - px, y), col, 1.5)
-	draw_line(Vector2(right - px * 0.5, y - 3.0), Vector2(right - px * 0.5, y), col, 1.0)
-	draw_line(Vector2(right, y - 5.0), Vector2(right, y), col, 1.5)
-	var text := ("%d m" % int(roundf(nm * 1852.0))) if nm < 0.5 else "%s nm" % Geo.format_nm(nm)
-	var f := UITheme.mono_font()
-	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	draw_string(f, Vector2(right - px - w - 8.0, y + 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, col)
+## Where the bottom-left readout sits, so labels can keep clear of it.
+func _readout_rect() -> Rect2:
+	var h := READOUT_LINE_H * 4.0 + READOUT_MARGIN
+	return Rect2(Vector2(0.0, size.y - h), Vector2(ChartReadout.SCALE_MAX_PX + 120.0, h))
 
 
+## The world point the readout describes: the cursor over the chart, otherwise the chart's centre.
+func _readout_point() -> Vector2:
+	if _mouse_inside and Rect2(Vector2.ZERO, size).has_point(_mouse):
+		return screen_to_world(_mouse)
+	return screen_to_world(size * 0.5)
+
+
+## Bottom-left: "DD-MM N / DDD-MM E", "Depth: 1,014 ft" or "Height: 337 ft", then the scale bar
+## with its length in nmi under it. Always on (the chart's centre when the cursor is elsewhere).
 func _draw_readout() -> void:
-	if not _mouse_inside:
+	var x := READOUT_MARGIN
+	var baseline := size.y - READOUT_MARGIN - 2.0
+	if show_scale:
+		var nm := ChartReadout.scale_step_nm(ppn)
+		var px := roundf(nm * ppn)
+		_shadow_text(Vector2(x, baseline), ChartReadout.format_nmi(nm), READOUT_FONT_SIZE)
+		var bar_y := roundf(baseline - READOUT_FONT_SIZE - 3.0) + 0.5
+		for pass_i in 2:
+			var o := Vector2(1.0, 1.0) if pass_i == 0 else Vector2.ZERO
+			var col := COL_READOUT_SHADOW if pass_i == 0 else COL_READOUT
+			draw_line(Vector2(x, bar_y) + o, Vector2(x + px, bar_y) + o, col, 1.0)
+			draw_line(Vector2(x + 0.5, bar_y - 5.0) + o, Vector2(x + 0.5, bar_y) + o, col, 1.0)
+			draw_line(Vector2(x + px - 0.5, bar_y - 5.0) + o, Vector2(x + px - 0.5, bar_y) + o, col, 1.0)
+		baseline = bar_y - 10.0
+	if not show_latlon:
 		return
-	var w := screen_to_world(_mouse)
-	var text := "CURSOR  %s  %s" % [Geo.format_axis(w.x, "E", "W"), Geo.format_axis(w.y, "N", "S")]
+	var w := _readout_point()
+	var line := _depth_readout(w)
+	if line != "":
+		_shadow_text(Vector2(x, baseline), line, READOUT_FONT_SIZE)
+		baseline -= READOUT_LINE_H
 	var m := _geo_map()
+	var position := ChartReadout.format_offset(w)
 	if m.has("anchor_lat"):
 		var ll := Geo.world_to_latlon(w, float(m["anchor_lat"]), float(m["anchor_lon"]))
-		text = "%s  %s" % [Geo.format_latlon(ll.x), Geo.format_latlon(ll.y, false)]
-	var ref := reference_unit()
-	if ref != null:
-		text += "    FROM %s:  BRG %s  RNG %.1f nm" % [ref.callsign, Geo.format_bearing(Geo.bearing_deg(ref.position, w)), Geo.distance_nm(ref.position, w)]
-	var mono := UITheme.mono_font()
-	var baseline := size.y - 8.0
-	draw_string(mono, Vector2(14.0, baseline), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(COL_TEXT, 0.85))
-	var wide := mono.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	if not Terrain.is_empty() and Terrain.is_land(w):
-		draw_string(mono, Vector2(14.0 + wide + 16.0, baseline), "LAND", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_AMBER)
-	elif Bathymetry.active:
-		var depth := Bathymetry.depth_at(w)
-		if depth >= 1.0:
-			var water := "DEPTH %s" % Bathymetry.format_depth(depth)
-			if Acoustics.layer_present_at(depth):
-				water += "  ·  LAYER %d m" % int(Acoustics.layer_depth_m())
-			if depth >= Acoustics.CZ_MIN_DEPTH_M and Acoustics.cz_range_nm() > 0.0:
-				water += "  ·  CZ WATER"
-			draw_string(mono, Vector2(14.0 + wide + 16.0, baseline), water, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.55, 0.82, 0.92, 0.9))
+		position = ChartReadout.format_position(ll.x, ll.y)
+	_shadow_text(Vector2(x, baseline), position, READOUT_FONT_SIZE)
+
+
+## Depth over water, height over land, from the chart's rasters. Inside the charted box the
+## scenario's coastline says which is which; beyond it the raster's own coast does.
+func _depth_readout(w: Vector2) -> String:
+	var land := not Terrain.is_empty() and Terrain.is_land(w)
+	var depth := Bathymetry.depth_at(w)
+	if not land and Bathymetry.active:
+		var charted := _floor.charted_rect() if _floor != null else Rect2()
+		land = not charted.has_point(w) and depth >= 0.0 and depth < 0.5
+	var height := ChartRelief.height_at(w) if land else -1.0
+	if land and height < 0.0 and not Bathymetry.active:
+		return ""
+	return ChartReadout.depth_line(land, maxf(height, 0.0), depth)
+
+
+func _radio_rect() -> Rect2:
+	var h := READOUT_LINE_H * RadioLine.MAX_LINES + RADIO_BOTTOM_PX
+	return Rect2(Vector2(size.x * 0.25, size.y - h), Vector2(size.x * 0.5, h))
+
+
+## Bottom-centre: the newest radio lines, the latest at the bottom, each fading after its hold.
+func _draw_radio_line() -> void:
+	var lines := _radio.visible(_anim)
+	var baseline := size.y - RADIO_BOTTOM_PX - 3.0
+	for i in range(lines.size() - 1, -1, -1):
+		var e: Dictionary = lines[i]
+		var alpha := RadioLine.alpha_at(_anim - float(e["t0"]))
+		var col := COL_RADIO_ALERT if e["severity"] == "alert" else COL_READOUT
+		_shadow_text(Vector2(0.0, baseline), e["text"], READOUT_FONT_SIZE, Color(col, alpha), HORIZONTAL_ALIGNMENT_CENTER, size.x)
+		baseline -= READOUT_LINE_H
+
+
+## A white circle round each platform whose message is on the radio line: it is transmitting.
+## Only symbols the chart draws anyway: an own unit on the board, or a contact the plot holds.
+func _draw_speaker_rings() -> void:
+	var speakers := _radio.speakers(_anim)
+	if speakers.is_empty():
+		return
+	var own := _own_units()
+	var tracks := _visible_tracks()
+	for s in speakers:
+		var at := Vector2.INF
+		if s is Unit and (s as Unit).alive and own.has(s):
+			at = world_to_screen((s as Unit).position)
+		elif s is Track and tracks.has(s):
+			at = world_to_screen((s as Track).position)
+		if at != Vector2.INF:
+			draw_arc(at, SPEAKER_RING_PX, 0.0, TAU, 40, COL_READOUT, 1.5, true)
 
 
 ## Labels: a dark pill with an identity bar, a primary line and an optional secondary line, placed
 ## where it does not collide with another label. Leader line back to the symbol.
 func _place_label(sp: Vector2, text: String, color: Color, important: bool, sub: String) -> void:
-	if not Rect2(Vector2(0, HEADER_H + 20.0), size - Vector2(0, HEADER_H + FOOTER_H + 60.0)).has_point(sp):
+	if not Rect2(Vector2.ZERO, size).has_point(sp):
 		return
 	var w1 := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 	var w2 := _font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x if sub != "" else 0.0
@@ -2074,7 +1922,7 @@ func _place_label(sp: Vector2, text: String, color: Color, important: bool, sub:
 		var r := Rect2(sp + offset, Vector2(width, height))
 		if r.end.x > size.x - 12:
 			r.position.x = sp.x - width - 22
-		if r.position.y < HEADER_H + 4.0 or r.end.y > size.y - FOOTER_H - 60.0 or r.end.x > size.x - 60.0:
+		if r.position.y < 4.0 or r.end.y > size.y - 4.0 or r.end.x > size.x - 12.0:
 			continue
 		var overlaps := false
 		for used in _label_rects:
@@ -2095,51 +1943,46 @@ func _place_label(sp: Vector2, text: String, color: Color, important: bool, sub:
 		return
 
 
+## F2: the symbol key, top-left, in the chart's plain white readout style with no card behind it.
 func _draw_key() -> void:
 	if not show_key:
 		return
 	var rect := _symbol_key_rect()
-	var w := rect.size.x
 	var x := rect.position.x
 	var y := rect.position.y
-	if _card_style == null:
-		_card_style = UITheme.floating_panel(0)
-	draw_style_box(_card_style, rect)
-	draw_string(UITheme.eyebrow_font(), Vector2(x + 12, y + 18), "SYMBOL KEY", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_MUTED)
-	draw_string(_font, Vector2(x + w - 62, y + 18), "F2 hides", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_FAINT)
-	var cx := x + 26.0
-	var cy := y + 42.0
-	MapSymbols.draw_key_entry(self, Vector2(cx, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "surface", "DD", "Friendly", _font, COL_TEXT)
-	MapSymbols.draw_key_entry(self, Vector2(cx + 110, cy), COL_HOSTILE, MapSymbols.Frame.HOSTILE, "surface", "", "Hostile", _font, COL_TEXT)
-	MapSymbols.draw_key_entry(self, Vector2(cx + 215, cy), COL_UNKNOWN, MapSymbols.Frame.UNKNOWN, "surface", "", "Unknown", _font, COL_TEXT)
+	_shadow_text(Vector2(x, y + 12), "SYMBOL KEY  (F2 hides)", 11)
+	var cx := x + 14.0
+	var cy := y + 36.0
+	MapSymbols.draw_key_entry(self, Vector2(cx, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "surface", "DD", "Friendly", _font, COL_READOUT)
+	MapSymbols.draw_key_entry(self, Vector2(cx + 110, cy), COL_HOSTILE, MapSymbols.Frame.HOSTILE, "surface", "", "Hostile", _font, COL_READOUT)
+	MapSymbols.draw_key_entry(self, Vector2(cx + 215, cy), COL_UNKNOWN, MapSymbols.Frame.UNKNOWN, "surface", "", "Unknown", _font, COL_READOUT)
 	cy += 30.0
-	MapSymbols.draw_key_entry(self, Vector2(cx, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "air", "F", "Air", _font, COL_TEXT)
-	MapSymbols.draw_key_entry(self, Vector2(cx + 110, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "subsurface", "SN", "Subsurface", _font, COL_TEXT)
-	MapSymbols.draw_key_entry(self, Vector2(cx + 215, cy), COL_NEUTRAL, MapSymbols.Frame.NEUTRAL, "surface", "M", "Neutral", _font, COL_TEXT)
+	MapSymbols.draw_key_entry(self, Vector2(cx, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "air", "F", "Air", _font, COL_READOUT)
+	MapSymbols.draw_key_entry(self, Vector2(cx + 110, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "subsurface", "SN", "Subsurface", _font, COL_READOUT)
+	MapSymbols.draw_key_entry(self, Vector2(cx + 215, cy), COL_NEUTRAL, MapSymbols.Frame.NEUTRAL, "surface", "M", "Neutral", _font, COL_READOUT)
+	var lines := PackedStringArray([
+		"Glyph: CV carrier, CG cruiser, DD, FF, SS/SN sub, F fighter, E AEW",
+		"Ellipse: uncertainty. Vectors: 30 min. Dots: history",
+		"Rings: radar, sonar, ESM, jammer, weapon range",
+		"Lamps: radiating, link, weapons posture, pinging, repairing",
+		"Land: tinted by height, relief shading on F6. Masks radar",
+		"Sea: lighter is shallower, bands at 20 m to 4,000 m",
+		"Ctrl+right-click a contact: engage. Right-click a waypoint: drop it",
+		"Double-click: recentre. Home: fit fleet. C: centre. +/-: zoom",
+	])
 	cy += 26.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Glyph: CV carrier · CG cruiser · DD · FF · SS/SN sub · F fighter · E AEW · EA jammer", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
-	cy += 18.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Ellipse: uncertainty · vectors: 30 min (selection, or VECTORS) · dots: history", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
-	cy += 16.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Rings: radar blue · sonar green · ESM violet · jammer magenta · weapon amber", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
-	cy += 16.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Lamps: radiating · link · weapons posture · pinging · repairing", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
-	cy += 16.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Land: masks radar, ESM and sonar · ships cannot enter it", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
-	cy += 16.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Sea: lighter is shallower · contours 200-4000 m · CZ bands dashed green", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
-	cy += 16.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Ctrl+right-click a contact: engage · right-click a waypoint: drop that leg", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
-	cy += 16.0
-	draw_string(_font, Vector2(x + 12, cy + 4), "Double-click: recentre · Home: fit fleet · C: centre selection · +/−: zoom", HORIZONTAL_ALIGNMENT_LEFT, int(w - 20), 9, Color(COL_TEXT, 0.7))
+	for line in lines:
+		_shadow_text(Vector2(x, cy), line, 11, Color(COL_READOUT, 0.9))
+		cy += 15.0
 
 
 func _symbol_key_rect() -> Rect2:
-	# Top-left avoids the command toolbar and makes the whole custom-drawn card a no-command zone.
-	return Rect2(12.0, HEADER_H + 12.0, 368.0, 236.0)
+	# Top-left, clear of the bottom-left readout. Fitted content keeps out of it while it shows.
+	return Rect2(12.0, 12.0, 390.0, 206.0)
 
 
-## Hovering over a symbol shows what the console knows about it, without a click.
+## Hovering over a symbol shows what the console knows about it, without a click: plain readout
+## lines beside the cursor, no card.
 func _draw_hover_card() -> void:
 	if not _mouse_inside or _drag_mode != DragMode.NONE:
 		return
@@ -2147,78 +1990,51 @@ func _draw_hover_card() -> void:
 	if not wp.is_empty():
 		var wu: Unit = wp["unit"]
 		var lines := PackedStringArray()
-		lines.append("%s WAYPOINT %d/%d" % [wu.callsign, int(wp["index"]) + 1, wu.waypoints.size()])
-		lines.append("right-click to remove this leg")
-		_draw_card(lines, COL_WAYPOINT)
+		lines.append("%s waypoint %d/%d" % [wu.callsign, int(wp["index"]) + 1, wu.waypoints.size()])
+		lines.append("Right-click to remove this leg")
+		_draw_card(lines)
 		return
 	var lines := PackedStringArray()
-	var col := COL_TEXT
 	var u := _unit_at(_mouse)
 	if u != null:
-		col = COL_FRIENDLY
 		lines.append(u.callsign)
 		lines.append(u.spec.display_name)
 		lines.append("%s  ·  %s" % [Damage.condition_text(u), Damage.damage_report(u)])
 		lines.append(u.status_line())
-		_draw_card(lines, col, PlatformArt.profile(u.spec.id))
+		_draw_card(lines)
 		return
-	else:
-		var t := _track_at(_mouse)
-		if t == null:
-			var lw := screen_to_world(_mouse)
-			var l := Terrain.land_at(lw) if not Terrain.is_empty() else null
-			if l == null:
-				return
-			col = COL_LAND_LABEL
-			lines.append(l.name if l.name != "" else "LAND")
-			lines.append("coastline · masks radar, ESM and sonar")
-			lines.append("masking height %d m (game estimate)" % int(l.elevation_m))
-			lines.append("%s  %s" % [Geo.format_axis(lw.x, "E", "W"), Geo.format_axis(lw.y, "N", "S")])
-			_draw_card(lines, col)
+	var t := _track_at(_mouse)
+	if t == null:
+		var lw := screen_to_world(_mouse)
+		var l := Terrain.land_at(lw) if not Terrain.is_empty() else null
+		if l == null:
 			return
-		col = track_color(t)
-		lines.append("%s  %s" % [t.id, t.description()])
-		lines.append("%s · %s · %s" % [t.identity, t.status_text(SimClock.sim_time), t.source.to_upper().replace("_", " ")])
-		if t.has_kinematics:
-			lines.append("CSE %s  SPD %.0f kn (est)" % [Geo.format_bearing(t.course_deg), t.speed_kn])
-		else:
-			lines.append("kinematics estimating")
-		lines.append("±%.1f nm  ·  observed %s" % [t.position_error_nm, Track._fmt_age(t.observation_time_s)])
-	_draw_card(lines, col)
+		lines.append(l.name if l.name != "" else "Land")
+		lines.append("Masks radar, ESM and sonar")
+		lines.append("Masking height %d m (game estimate)" % int(l.elevation_m))
+		_draw_card(lines)
+		return
+	lines.append("%s  %s" % [t.id, t.description()])
+	lines.append("%s · %s · %s" % [t.identity, t.status_text(SimClock.sim_time), t.source.to_upper().replace("_", " ")])
+	if t.has_kinematics:
+		lines.append("CSE %s  SPD %.0f kts (est)" % [Geo.format_bearing(t.course_deg), t.speed_kn])
+	else:
+		lines.append("Kinematics estimating")
+	lines.append("+/-%.1f nm  ·  observed %s" % [t.position_error_nm, Track._fmt_age(t.observation_time_s)])
+	_draw_card(lines)
 
 
-## A hover card: text lines, and for an own unit its recognition profile across the top so the
-## class is recognisable before the name is read.
-## A floating card over the chart, in the same style as the interface's floating panels, with a
-## thin identity stripe down its left edge.
-func _draw_card_frame(rect: Rect2, col: Color) -> void:
-	if _card_style == null:
-		_card_style = UITheme.floating_panel(0)
-	draw_style_box(_card_style, rect)
-	var stripe := StyleBoxFlat.new()
-	stripe.bg_color = col
-	stripe.corner_radius_top_left = 8
-	stripe.corner_radius_bottom_left = 8
-	draw_style_box(stripe, Rect2(rect.position, Vector2(3.0, rect.size.y)))
-
-
-func _draw_card(lines: PackedStringArray, col: Color, art: Texture2D = null) -> void:
+## Hover text beside the cursor, flipped to stay on the chart.
+func _draw_card(lines: PackedStringArray) -> void:
+	var font := _readout_font()
 	var width := 0.0
 	for l in lines:
-		width = maxf(width, _font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x)
-	width += 24.0
-	var art_h := 0.0
-	if art != null:
-		width = maxf(width, 200.0)
-		art_h = (width - 20.0) * float(art.get_height()) / maxf(float(art.get_width()), 1.0) + 6.0
-	var height := 16.0 + lines.size() * 15.0 + art_h
-	var pos := _mouse + Vector2(18.0, 18.0)
-	if pos.x + width > size.x:
+		width = maxf(width, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x)
+	var height := lines.size() * 15.0
+	var pos := _mouse + Vector2(18.0, 16.0)
+	if pos.x + width > size.x - 4.0:
 		pos.x = _mouse.x - width - 12.0
-	if pos.y + height > size.y:
-		pos.y = _mouse.y - height - 12.0
-	_draw_card_frame(Rect2(pos, Vector2(width, height)), col)
-	if art != null:
-		draw_texture_rect(art, Rect2(pos + Vector2(12.0, 10.0), Vector2(width - 24.0, art_h - 6.0)), false, col)
+	if pos.y + height > size.y - 4.0:
+		pos.y = _mouse.y - height - 10.0
 	for i in lines.size():
-		draw_string(UITheme.semibold_font() if i == 0 else _font, pos + Vector2(13.0, 20.0 + art_h + i * 15.0), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col if i == 0 else Color(COL_TEXT, 0.85))
+		_shadow_text(pos + Vector2(0.0, 12.0 + i * 15.0), lines[i], 12)

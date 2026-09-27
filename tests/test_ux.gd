@@ -55,20 +55,22 @@ func test_priority_track_cycle_selects_centers_and_wraps() -> void:
 	manager.free()
 
 
-func test_tactical_overview_transform_round_trips_with_offset_theatre() -> void:
+func test_regional_map_transform_round_trips_with_offset_theatre() -> void:
 	var simulation := Simulation.new()
 	simulation.map_center = Vector2(320, -175)
 	simulation.map_extent_nm = 480.0
 	var map := TacticalMap.new()
 	map.simulation = simulation
-	var overview := TacticalOverview.new()
-	overview.map = map
-	overview.size = Vector2(236, 158)
+	var regional := RegionalMap.new()
+	regional.map = map
+	regional.size = Vector2(288, 288)
 	for world in [Vector2(320, -175), Vector2(410, -80), Vector2(210, -290)]:
-		var recovered := overview.overview_to_world(overview.world_to_overview(world))
-		assert_near(recovered.x, world.x, 0.001, "overview preserves world x")
-		assert_near(recovered.y, world.y, 0.001, "overview preserves world y")
-	overview.free()
+		var recovered := regional.regional_to_world(regional.world_to_regional(world))
+		assert_near(recovered.x, world.x, 0.001, "regional map preserves world x")
+		assert_near(recovered.y, world.y, 0.001, "regional map preserves world y")
+	assert_eq(regional.world_to_regional(Vector2(320, -175)), Vector2(144, 144), "the theatre centre is the pane centre")
+	assert_near(regional.world_to_regional(Vector2(320, -175 + 240)).y, 0.0, 0.001, "the theatre extent spans the square pane, north up")
+	regional.free()
 	map.free()
 	simulation.free()
 
@@ -83,9 +85,18 @@ func test_tactical_map_layer_toggles_return_and_store_the_new_state() -> void:
 	assert_true(map.show_vectors)
 	assert_true(not map.toggle_layer("trails"), "trails start on and turn off")
 	assert_true(not map.show_trails)
-	assert_true(not map.toggle_layer("terrain"), "terrain starts on and turns off")
+	assert_true(not map.toggle_layer("terrain"), "relief shading (F6) starts on and turns off")
+	assert_true(not map.show_terrain)
+	assert_true(map.toggle_layer("relief"), "relief is the same switch under its own name")
+	assert_true(map.show_terrain)
 	assert_true(map.toggle_layer("range_grid"), "range grid turns on")
 	assert_true(map.toggle_layer("key"), "symbol key turns on")
+	assert_true(map.toggle_layer("graticule"), "the graticule starts off and turns on")
+	assert_true(map.show_graticule)
+	assert_true(not map.toggle_layer("latlon"), "the lat/long readout starts on and turns off")
+	assert_true(not map.show_latlon)
+	assert_true(not map.toggle_layer("scale"), "the scale bar starts on and turns off")
+	assert_true(not map.show_scale)
 	map.free()
 
 
@@ -114,9 +125,10 @@ func test_multi_selection_focus_fits_the_group_with_margin() -> void:
 	]
 	map.center_on_selection()
 	var chart := map.unobstructed_chart_rect()
+	assert_eq(chart, Rect2(Vector2.ZERO, map.size), "the chart has no chrome: the whole control is chart")
 	var visual_center := map.world_to_screen(Vector2(10, 10))
 	assert_near(visual_center.x, chart.get_center().x, 0.001, "group centre lands in the unobstructed chart centre")
-	assert_near(visual_center.y, chart.get_center().y, 0.001, "group centre clears header and command overlays")
+	assert_near(visual_center.y, chart.get_center().y, 0.001, "group centre lands in the chart centre")
 	assert_near(map.ppn, minf(chart.size.x, chart.size.y) / 60.0, 0.001, "group focus includes the documented margin inside safe bounds")
 	for u: Unit in map.selected:
 		var screen := map.world_to_screen(u.position)
@@ -162,7 +174,7 @@ func test_manual_recovery_clears_follow_and_uses_safe_chart_center() -> void:
 	map.free()
 
 
-func test_drag_release_over_header_clears_the_input_latch() -> void:
+func test_drag_release_at_the_chart_edge_clears_the_input_latch() -> void:
 	var map := TacticalMap.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
 	root.add_child(map)
@@ -176,9 +188,9 @@ func test_drag_release_over_header_clears_the_input_latch() -> void:
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_RIGHT
 	release.pressed = false
-	release.position = Vector2(400, 4)
+	release.position = Vector2(400, -12)
 	map._gui_input(release)
-	assert_eq(map._drag_mode, TacticalMap.DragMode.NONE, "release over the header still ends the owned drag")
+	assert_eq(map._drag_mode, TacticalMap.DragMode.NONE, "release past the chart's top edge still ends the owned drag")
 	map.free()
 
 
