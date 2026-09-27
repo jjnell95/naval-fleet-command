@@ -112,6 +112,18 @@ func zoom_by(factor: float) -> void:
 	zoom = clampf(zoom * factor, MIN_ZOOM, MAX_ZOOM)
 
 
+## A new scenario: forget events, stations and the detached eye. The mode, orbit and zoom are the
+## player's and are kept.
+func reset() -> void:
+	_queue.clear()
+	_action = {}
+	_station_valid = false
+	_detached_valid = false
+	_last_eye_valid = false
+	_valid = false
+	_cut = true
+
+
 func reset_orbit() -> void:
 	orbit_az = DEFAULT_AZ
 	orbit_pitch = DEFAULT_PITCH

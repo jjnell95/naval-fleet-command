@@ -209,7 +209,7 @@ func reset_presentation() -> void:
 	_focus = {}
 	_focus_key = ""
 	_chart_generation = -1
-	rig.cut()
+	rig.reset()
 
 
 # --- Visibility ----------------------------------------------------------------------------

@@ -599,6 +599,12 @@ func test_action_drops_stale_events_and_lets_a_lost_round_go() -> void:
 	for i in 10:
 		cam.notify("launch", Vector3(0, 0, 9), "w:%d" % (10 + i))
 	assert_true(cam._queue.size() <= WorldCamera.ACTION_QUEUE, "the queue is bounded")
+	cam.orbit(50.0, 0.0)
+	var az := cam.orbit_az
+	cam.reset()
+	assert_true(cam._queue.is_empty() and cam.action().is_empty(), "a new scenario forgets the last one's events")
+	assert_eq(cam.mode, WorldCamera.ACTION, "but keeps the player's mode")
+	assert_eq(cam.orbit_az, az, "and orbit")
 
 
 func test_watch_station_stands_off_along_the_line_of_sight() -> void:
@@ -753,3 +759,43 @@ func test_scene_draws_launches_from_fresh_rounds_and_offers_them_to_action() -> 
 	wm.free()
 	root.remove_child(scene)
 	scene.free()
+
+
+func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() -> void:
+	var view := WorldView.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(view)
+	var seen: Array[int] = []
+	view.camera_mode_changed.connect(func(m: int) -> void: seen.append(m))
+	assert_eq(view.camera_mode_name(), "Tether", "Tether by default")
+	view.cycle_camera_mode()
+	assert_eq(view.camera_mode_name(), "Fly-by")
+	view.set_camera_mode(WorldView.CAM_DETACHED)
+	assert_eq(view.camera_mode_name(), "Detached")
+	view.set_preset_by_name("action")
+	assert_eq(view.camera_mode(), WorldView.CAM_ACTION, "modes by name")
+	view.set_preset_by_name("chase")
+	assert_eq(view.camera_mode(), WorldView.CAM_TETHER, "an old preset becomes a tether framing")
+	assert_near(view.rig.orbit_az, 180.0, 0.001, "chase sits dead astern")
+	assert_eq(seen, [WorldView.CAM_FLYBY, WorldView.CAM_DETACHED, WorldView.CAM_ACTION, WorldView.CAM_TETHER] as Array[int], "each change is announced once")
+	assert_eq(view.anchor_right, 1.0, "the pane fills its parent")
+	assert_eq(view.anchor_bottom, 1.0)
+	assert_eq(view.size_flags_horizontal, Control.SIZE_EXPAND_FILL, "and expands in a container slot")
+	assert_true(not view.visible, "hidden until the shell or Main shows it")
+	view.size = Vector2(702, 282)
+	view.set_mode(WorldView.Mode.INSET)
+	assert_true(view.visible and view.is_processing(), "shown, it renders")
+	assert_eq(view._viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
+	view.set_suspended(true)
+	assert_true(not view.is_processing(), "behind a modal screen it stops")
+	assert_eq(view._viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED)
+	view.set_suspended(false)
+	assert_true(view.is_processing(), "and starts again after")
+	view.cycle_mode()
+	assert_eq(view.mode_name(), "full", "the legacy cycle still runs")
+	view.cycle_mode()
+	assert_true(not view.visible and not view.is_processing(), "hidden, nothing renders")
+	view.add_effect(Vector2.ZERO, "hit", true)
+	view.reset_presentation()
+	root.remove_child(view)
+	view.free()
