@@ -184,5 +184,5 @@ func _draw_aircraft(c: Vector2, category: String, ink: Color) -> void:
 	pts.append(pts[0])
 	draw_polyline(pts, ink, 1.5, true)
 	if category.contains("electronic"):
-		draw_arc(c + Vector2(0, 8), 30.0, PI * 1.15, PI * 1.85, 16, Color("f08cf0"), 1.5, true)
-		draw_arc(c + Vector2(0, 8), 40.0, PI * 1.2, PI * 1.8, 16, Color("f08cf0", 0.5), 1.0, true)
+		draw_arc(c + Vector2(0, 8), 30.0, PI * 1.15, PI * 1.85, 16, UITheme.COL_EW, 1.5, true)
+		draw_arc(c + Vector2(0, 8), 40.0, PI * 1.2, PI * 1.8, 16, Color(UITheme.COL_EW, 0.5), 1.0, true)

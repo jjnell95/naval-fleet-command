@@ -15,6 +15,7 @@ func test_bbcode_twins_match_their_colours() -> void:
 		[UITheme.HEX_INK_BLUE, UITheme.INK_BLUE], [UITheme.HEX_INK_RED, UITheme.INK_RED], [UITheme.HEX_INK_GREEN, UITheme.INK_GREEN],
 		[UITheme.HEX_INK_AMBER, UITheme.INK_AMBER], [UITheme.HEX_DATA_TITLE, UITheme.DATA_TITLE], [UITheme.HEX_DATA_LABEL, UITheme.DATA_LABEL],
 		[UITheme.HEX_DATA_VALUE, UITheme.DATA_VALUE], [UITheme.HEX_DATA_ALERT, UITheme.DATA_ALERT],
+		[UITheme.HEX_EW, UITheme.COL_EW], [UITheme.HEX_FLOOD, UITheme.COL_FLOOD], [UITheme.HEX_CHIP, UITheme.COL_RAISED],
 	]
 	for pair: Array in pairs:
 		assert_eq(pair[0], "#" + (pair[1] as Color).to_html(false), "a BBCode hex drifted from its colour")

@@ -81,6 +81,8 @@ const BEVEL_OUTER := Color("edf3f1")
 const BEVEL_MID := Color("c9ccdb")
 const BEVEL_INNER := Color("6b678c")
 const BEVEL_WIDTH := 3
+## The faint shade behind an in-mission dialog: the originals drew them straight over the chart.
+const DIALOG_SHADE := Color(0.0, 0.0, 0.0, 0.12)
 
 # --- Navy data surfaces, darkest to lightest (the status boards and data wells) -------------
 const COL_BG := Color("080e26")
@@ -108,6 +110,9 @@ const COL_AMBER := Color("ffc83c")
 const COL_RED := Color("ff4040")
 const COL_GREEN := Color("30e030")
 const COL_BLUE := Color("40c8ff")
+## Electronic warfare (jamming) and flooding, on the data surface.
+const COL_EW := Color("f08cf0")
+const COL_FLOOD := Color("5aa0ff")
 
 const HEX_TEXT := "#e6e6e6"
 const HEX_DIM := "#b4bad2"
@@ -118,6 +123,10 @@ const HEX_AMBER := "#ffc83c"
 const HEX_RED := "#ff4040"
 const HEX_GREEN := "#30e030"
 const HEX_BLUE := "#40c8ff"
+const HEX_EW := "#f08cf0"
+const HEX_FLOOD := "#5aa0ff"
+## The background of a status chip inside data text.
+const HEX_CHIP := "#16204a"
 
 # --- Type scale (px at the 1600 × 900 reference canvas) ------------------------------------
 const SIZE_EYEBROW := 11

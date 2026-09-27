@@ -45,6 +45,7 @@ extends RefCounted
 ##   --tab=N                     open command-dock tab N (0 navigation … 3 doctrine), for screenshots
 ##   --ignite=CALLSIGN           start a fire and some flooding aboard one own ship, for screenshots
 ##   --show-report               end the mission as a victory and open the after-action report
+##   --status                    open the briefing as the in-mission status board (a grey dialog)
 ##   --dump                      print a full state report and quit, without touching the renderer
 ##   --hold=S --screenshot=PATH  wait S seconds, save a PNG, dump state and quit (windowed only)
 
@@ -199,6 +200,9 @@ func handle_flags() -> void:
 		main._stats = {"hostile_rounds": 6, "intercepted": 4, "decoyed": 1, "hits_taken": 1, "launched": 9, "decoys_used": 3, "own_rounds": 4, "hits_scored": 2, "contacts": 5, "classified": 2, "sorties": 1}
 		main._kills = PackedStringArray(["Rassvet"])
 		main._on_mission_ended("VICTORY", "The convoy reached the handover box with its cargo intact.")
+	if args.has("--status"):
+		main._show_briefing()
+		print("[Dev] mission status board opened")
 	for a in args:
 		if a.begins_with("--world-view="):
 			var how := a.get_slice("=", 1)

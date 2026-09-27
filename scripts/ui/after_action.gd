@@ -22,7 +22,7 @@ func _ready() -> void:
 	z_index = 180
 	accessibility_name = "After-action report"
 	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.15)
+	shade.color = UITheme.DIALOG_SHADE
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(shade)

@@ -55,7 +55,7 @@ func _draw() -> void:
 		if r["kind"] == "fuel" and v < 0.3:
 			col = UITheme.COL_RED
 		draw_string(_font, Vector2(0, y + 12), r["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_DIM)
-		draw_rect(Rect2(bar_x, y + 7, bar_w, 3), Color("13232f"))
+		draw_rect(Rect2(bar_x, y + 7, bar_w, 3), UITheme.COL_PANEL_DEEP)
 		draw_rect(Rect2(bar_x, y + 7, bar_w * v, 3), Color(col, 0.85))
 		if r["kind"] == "sys" and v < Damage.REPAIR_CAP - 1e-4 and Damage.repairing(unit):
 			var mark := bar_x + bar_w * Damage.REPAIR_CAP

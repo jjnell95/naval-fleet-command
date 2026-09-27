@@ -158,7 +158,7 @@ func _apply_style() -> void:
 		remove_theme_stylebox_override("panel")
 	else:
 		var shade := StyleBoxFlat.new()
-		shade.bg_color = Color(0, 0, 0, 0.12)
+		shade.bg_color = UITheme.DIALOG_SHADE
 		add_theme_stylebox_override("panel", shade)
 	_sheet.theme_type_variation = "MenuPanel" if _pre_mission else "JfcDialog"
 	_eyebrow.theme_type_variation = "MenuCaption" if _pre_mission else "TitleLabel"

@@ -47,7 +47,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	# The dialog sits straight over the chart, as the originals did, with the faintest shade.
 	var shade := StyleBoxFlat.new()
-	shade.bg_color = Color(0, 0, 0, 0.12)
+	shade.bg_color = UITheme.DIALOG_SHADE
 	add_theme_stylebox_override("panel", shade)
 	var center := CenterContainer.new()
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE

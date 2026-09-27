@@ -43,7 +43,7 @@ func _ready() -> void:
 func _build_interface() -> void:
 	var shade := ColorRect.new()
 	shade.name = "Backdrop"
-	shade.color = Color(0, 0, 0, 0.14)
+	shade.color = UITheme.DIALOG_SHADE
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(shade)
