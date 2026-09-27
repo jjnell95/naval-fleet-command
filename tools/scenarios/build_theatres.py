@@ -275,7 +275,7 @@ def hormuz():
            "Convoy defence in confined water: fast-attack-craft swarms, one-way attack drones, a midget submarine, shore-based cruise and ballistic missiles, and neutral traffic everywhere",
            "Bring at least two of the three tankers out into the Gulf of Oman. The escorts survive by shooting early; the tankers survive by your station-keeping.",
            ["Put Paul Ignatius ahead of the convoy in the outbound lane and Duncan on the Iranian side; Languedoc's sonar belongs astern where the Ghadir waits.",
-            "The swarm comes from Qeshm at fifty knots. Radar on, weapons free, and guns for anything inside five miles.",
+            "The swarm comes from Qeshm at fifty knots. Radar on, weapons free, and guns for anything inside five miles: a Harpoon or an Exocet that loses a boat in the strait will find a dhow, and a neutral sunk by your fire ends the mission.",
             "The Khalij Fars battery fires on drone reports. Killing the drones early is cheaper than stopping the missiles late."],
            setting_note="A fictional May 2027 crisis. Real geography and traffic lanes, real class names; the deployment and the engagement are invented.")
     convoy = [("MT Gulf Horizon", 26.45, 55.92), ("MT Ras Laffan Pride", 26.42, 55.80), ("MT Aegean Dawn", 26.48, 55.72)]
