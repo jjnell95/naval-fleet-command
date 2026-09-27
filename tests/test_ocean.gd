@@ -98,6 +98,15 @@ func test_runtime_constants_match_the_built_rasters() -> void:
 			assert_eq(img.get_height(), int(meta["size_px"][1]), "%s raster height" % name)
 		assert_true(ResourceLoader.exists(Bathymetry.chart_path(name)), "%s has a chart texture" % name)
 		assert_true(ResourceLoader.exists(Bathymetry.relief_path(name)), "%s has a relief texture" % name)
+		# The chart's land relief shares the sea floor's grid, so one transform samples both.
+		var land_meta_path := "res://data/bathymetry/%s_land.json" % name
+		assert_true(FileAccess.file_exists(land_meta_path), "%s has land relief metadata" % name)
+		if FileAccess.file_exists(land_meta_path):
+			var land: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(land_meta_path))
+			assert_eq(land["bounds_lon_lat"], meta["bounds_lon_lat"], "%s land relief covers the sea floor's bounds" % name)
+			assert_eq(land["size_px"], meta["size_px"], "%s land relief is on the sea floor's grid" % name)
+		assert_true(ResourceLoader.exists("res://data/bathymetry/%s_land.png" % name), "%s has a land height texture" % name)
+		assert_true(ResourceLoader.exists("res://data/bathymetry/%s_land_relief.png" % name), "%s has a land relief texture" % name)
 
 
 func test_anchor_selects_the_region_with_the_most_margin() -> void:

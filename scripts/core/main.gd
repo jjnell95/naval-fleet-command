@@ -808,7 +808,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if k.keycode == KEY_SPACE:
 		SimClock.toggle_pause()
-	elif not (k.ctrl_pressed or k.meta_pressed or k.alt_pressed):
+	elif (focus == null or focus == map) and not (k.ctrl_pressed or k.meta_pressed or k.alt_pressed or k.shift_pressed):
+		# Only from the chart: on the status boards Tab still walks the controls.
 		map.cycle_symbol_mode()
 	else:
 		return
