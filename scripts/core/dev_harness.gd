@@ -31,6 +31,15 @@ extends RefCounted
 ##   --world-camera=NAME         3D camera: tether, flyby, action or detached
 ##   --boards[=N]                open the status boards (0 orders, 1 task group, 2 track file, 3 comms)
 ##   --cds-menu                  open the right-click CDS menu over the chart, for screenshots
+##   --graticule                 turn the chart's lat/long graticule on, for screenshots
+##   --key                       show the chart's symbol key (F2), for screenshots
+##   --no-relief                 turn the chart's relief shading off (F6), for screenshots
+##   --symbols=N                 chart symbol mode: 0 NTDS, 1 small, 2 medium, 3 large graphic symbols
+##   --tags                      show the chart's tags (second line under each track number)
+##   --range-circle=NM           fix a quick range circle of NM round the hooked unit, for screenshots
+##   --route=DX,DY[;DX,DY...]    order the hooked units along legs offset in nm from the first, for screenshots
+##   --chart-view=X,Y[,PPN]      centre the chart on this world point (nm), optionally at this scale
+##   --radio=TEXT                post a line on the chart's radio line (spoken by the selection)
 ##   --world-focus=track         drop the selection and hook the first plotted contact, for screenshots
 ##   --world-azimuth=DEG         turn the world view camera this far round its focus
 ##   --tab=N                     open the orders board on tab N (0 navigation … 3 doctrine), for screenshots
@@ -75,6 +84,15 @@ func handle_flags() -> void:
 		Debug.enabled = true
 	if args.has("--rings"):
 		main.map.show_rings = true
+	if args.has("--key"):
+		main.map.show_key = true
+	if args.has("--graticule"):
+		main.map.show_graticule = true
+	if args.has("--no-relief"):
+		main.map.show_terrain = false
+	if args.has("--tags"):
+		main.map.show_tags = true
+	main.map.set_symbol_mode(int(arg(args, "--symbols=", 0.0)))
 	if args.has("--autopilot"):
 		print("[Dev] the AI is commanding both sides")
 	if args.has("--no-ai"):
@@ -170,6 +188,20 @@ func handle_flags() -> void:
 			main._library._stage.set_view(a.get_slice("=", 1))
 		elif a.begins_with("--zoom="):
 			_zoom_after_layout(float(a.get_slice("=", 1)))
+		elif a.begins_with("--chart-view="):
+			_chart_view_after_layout(a.get_slice("=", 1))
+		elif a.begins_with("--route=") and not main.map.selected.is_empty():
+			var origin: Vector2 = main.map.selected[0].position
+			var legs := a.get_slice("=", 1).split(";")
+			for u: Unit in main.map.selected:
+				for i in legs.size():
+					var d := legs[i].split(",")
+					main.simulation.unit_manager.issue_order(u, Order.move(origin + Vector2(float(d[0]), float(d[1])), i > 0))
+		elif a.begins_with("--range-circle="):
+			_range_circle_after_layout(float(a.get_slice("=", 1)))
+		elif a.begins_with("--radio="):
+			var speaker: Unit = main.map.selected[0] if not main.map.selected.is_empty() else null
+			main.map.post_message(a.get_slice("=", 1), "info", speaker)
 		elif a.begins_with("--tab="):
 			main.status_boards.open_board(StatusBoards.BOARD_ORDERS)
 			main.orders_panel._tabs.current_tab = int(a.get_slice("=", 1))
@@ -215,6 +247,30 @@ func handle_flags() -> void:
 		return
 	if shot != "":
 		_screenshot_after(shot, arg(args, "--hold=", 3.0))
+
+
+
+## After the layout (and any --zoom), so nothing refits the view afterwards.
+func _chart_view_after_layout(text: String) -> void:
+	for i in 3:
+		await main.get_tree().process_frame
+	var parts := text.split(",")
+	if parts.size() >= 3:
+		main.map.ppn = clampf(float(parts[2]), TacticalMap.MIN_PPN, TacticalMap.MAX_PPN)
+	main.map.center_on(Vector2(float(parts[0]), float(parts[1]) if parts.size() > 1 else 0.0))
+
+
+## Arms the quick range circle with the cursor NM east of the hooked unit, then fixes it, after
+## any --zoom or --chart-view has settled.
+func _range_circle_after_layout(nm: float) -> void:
+	for i in 5:
+		await main.get_tree().process_frame
+	var map := main.map
+	var centre: Vector2 = map.selected[0].position if not map.selected.is_empty() else (map.selected_track.position if map.selected_track != null else map.center_nm)
+	map._mouse = map.world_to_screen(centre + Vector2(nm, 0.0))
+	map.toggle_range_circle()
+	map.toggle_range_circle()
+	print("[Dev] range circle %s" % ChartReadout.format_range_nmi(map.range_circle_nm()))
 
 
 func _zoom_after_layout(value: float) -> void:
