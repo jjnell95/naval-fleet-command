@@ -65,7 +65,7 @@ var _disc_material: StandardMaterial3D
 var _materials: Dictionary = {}
 var _events: Array[Dictionary] = []
 var _launch_clock: Dictionary = {}  # launcher key -> anim time of its last launch cloud or flash
-var _flagged: Dictionary = {}  # aircraft keys whose launch or recovery has been reported
+var _flagged: Dictionary = {}  # aircraft key -> the last deck event reported for it: "launch" or "recovery"
 var _ground: Dictionary = {}  # installation key -> ground height, computed once
 var _warm := false
 var _sun_key := Vector2(INF, INF)
@@ -622,18 +622,20 @@ func _gun_burst(e: Dictionary) -> void:
 ## An aircraft of ours leaving the deck or coming back to it, for the Action camera.
 func _air_events(rec: Dictionary, e: Dictionary, fresh: bool) -> void:
 	var u: Unit = e.get("unit")
-	if u == null or _flagged.has(e["key"]):
+	var seen: String = _flagged.get(e["key"], "")
+	if u == null or seen == "recovery":
 		return
 	var base: Unit = u.recovery_base if u.recovery_base != null else u.home
 	if base == null or not base.alive:
 		return
 	var d := u.position.distance_to(base.position)
 	var nm: Vector2 = rec["nm"]
-	if fresh and _warm and d <= AIR_LAUNCH_NM and u.flight_state == Unit.FlightState.AIRBORNE:
-		_flagged[e["key"]] = true
+	# A sortie whose launch was shown still has its recovery to show.
+	if seen == "" and fresh and _warm and d <= AIR_LAUNCH_NM and u.flight_state == Unit.FlightState.AIRBORNE:
+		_flagged[e["key"]] = "launch"
 		_events.append({"kind": "air_launch", "at": Vector3(nm.x, nm.y, float(e["height_m"])), "key": e["key"]})
 	elif u.flight_state == Unit.FlightState.RECOVERING and d <= RECOVERY_WATCH_NM:
-		_flagged[e["key"]] = true
+		_flagged[e["key"]] = "recovery"
 		_events.append({"kind": "recovery", "at": Vector3(base.position.x, base.position.y, 20.0), "key": ""})
 
 

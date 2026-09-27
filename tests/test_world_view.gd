@@ -791,6 +791,43 @@ func test_scene_draws_launches_from_fresh_rounds_and_offers_them_to_action() -> 
 	scene.free()
 
 
+func _kinds(events: Array) -> Array:
+	return events.map(func(e: Dictionary) -> String: return e["kind"])
+
+
+func test_action_is_offered_both_the_launch_and_the_recovery_of_one_sortie() -> void:
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	var cv := _unit("cw90_nimitz", "BLUE", Vector2.ZERO)
+	cv.id = 1
+	var jet := _unit("cw90_f14a", "BLUE", Vector2(0.3, 0.0))
+	jet.id = 2
+	jet.home = cv
+	var cv_e := WorldPresentation.own_entry(cv)
+	scene.update(0.016, [cv_e], cv_e["key"])
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	jet.altitude_m = 300.0
+	scene.update(0.016, [cv_e, WorldPresentation.own_entry(jet)], cv_e["key"])
+	assert_eq(_kinds(scene.take_events()), ["air_launch"], "the jet leaving the deck is offered")
+	jet.position = Vector2(20.0, 0.0)
+	for i in 10:
+		scene.update(0.016, [cv_e, WorldPresentation.own_entry(jet)], cv_e["key"])
+	assert_true(scene.take_events().is_empty(), "nothing while it is out on CAP inside the view")
+	jet.position = Vector2(1.0, 0.0)
+	jet.flight_state = Unit.FlightState.RECOVERING
+	for i in 10:
+		scene.update(0.016, [cv_e, WorldPresentation.own_entry(jet)], cv_e["key"])
+	assert_eq(_kinds(scene.take_events()), ["recovery"], "and coming back aboard the same sortie is offered too, once")
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	for i in 10:
+		scene.update(0.016, [cv_e, WorldPresentation.own_entry(jet)], cv_e["key"])
+	assert_true(scene.take_events().is_empty(), "a wave-off after the recovery was shown is not a new launch")
+	root.remove_child(scene)
+	scene.free()
+
+
 func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() -> void:
 	var view := WorldView.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
