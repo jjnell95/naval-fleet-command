@@ -10,6 +10,11 @@
     "triangles": 228
   },
   {
+    "id": "agm65e_maverick",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
     "id": "agm_114_hellfire",
     "kind": "weapon",
     "triangles": 1424
@@ -75,6 +80,11 @@
     "triangles": 1460
   },
   {
+    "id": "asraam_aam",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
     "id": "aster15_family",
     "kind": "weapon",
     "triangles": 1548
@@ -95,6 +105,251 @@
     "triangles": 7540
   },
   {
+    "id": "cw90_53_65",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_aim54a",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
+    "id": "cw90_aim9m",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
+    "id": "cw90_airfield",
+    "kind": "platform",
+    "triangles": 1220
+  },
+  {
+    "id": "cw90_ak100",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "cw90_ak130",
+    "kind": "weapon",
+    "triangles": 320
+  },
+  {
+    "id": "cw90_ak176",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "cw90_ak630",
+    "kind": "weapon",
+    "triangles": 544
+  },
+  {
+    "id": "cw90_at1",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_e2c",
+    "kind": "platform",
+    "triangles": 3528
+  },
+  {
+    "id": "cw90_f14a",
+    "kind": "platform",
+    "triangles": 4492
+  },
+  {
+    "id": "cw90_fort",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_harpoon",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_ka27",
+    "kind": "platform",
+    "triangles": 1908
+  },
+  {
+    "id": "cw90_kh22",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_kinzhal",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_los_angeles",
+    "kind": "platform",
+    "triangles": 2344
+  },
+  {
+    "id": "cw90_merchant",
+    "kind": "platform",
+    "triangles": 7312
+  },
+  {
+    "id": "cw90_mk45",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "cw90_mk46",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_mk48",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_mk75",
+    "kind": "weapon",
+    "triangles": 228
+  },
+  {
+    "id": "cw90_moskit",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_nanuchka",
+    "kind": "platform",
+    "triangles": 8068
+  },
+  {
+    "id": "cw90_nimitz",
+    "kind": "platform",
+    "triangles": 9632
+  },
+  {
+    "id": "cw90_osa_m",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_p120",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_p3c",
+    "kind": "platform",
+    "triangles": 6160
+  },
+  {
+    "id": "cw90_p500",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_perry",
+    "kind": "platform",
+    "triangles": 9132
+  },
+  {
+    "id": "cw90_phalanx",
+    "kind": "weapon",
+    "triangles": 852
+  },
+  {
+    "id": "cw90_rastrub",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
+    "id": "cw90_s3a",
+    "kind": "platform",
+    "triangles": 3968
+  },
+  {
+    "id": "cw90_sea_sparrow",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_set65",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_sh3h",
+    "kind": "platform",
+    "triangles": 5932
+  },
+  {
+    "id": "cw90_sh60b",
+    "kind": "platform",
+    "triangles": 3092
+  },
+  {
+    "id": "cw90_shtil",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_slava",
+    "kind": "platform",
+    "triangles": 12036
+  },
+  {
+    "id": "cw90_sm1mr",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_sm2mr",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "cw90_sovremenny",
+    "kind": "platform",
+    "triangles": 12196
+  },
+  {
+    "id": "cw90_spruance",
+    "kind": "platform",
+    "triangles": 13284
+  },
+  {
+    "id": "cw90_test71",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "cw90_ticonderoga",
+    "kind": "platform",
+    "triangles": 11860
+  },
+  {
+    "id": "cw90_tu22m3",
+    "kind": "platform",
+    "triangles": 2540
+  },
+  {
+    "id": "cw90_udaloy",
+    "kind": "platform",
+    "triangles": 7128
+  },
+  {
+    "id": "cw90_victor3",
+    "kind": "platform",
+    "triangles": 2532
+  },
+  {
+    "id": "deu_ffg_sachsen",
+    "kind": "platform",
+    "triangles": 7576
+  },
+  {
     "id": "deu_fsg_braunschweig",
     "kind": "platform",
     "triangles": 5504
@@ -110,9 +365,29 @@
     "triangles": 7408
   },
   {
+    "id": "esp_lhd_juan_carlos_i",
+    "kind": "platform",
+    "triangles": 9528
+  },
+  {
     "id": "essm_family",
     "kind": "weapon",
     "triangles": 1424
+  },
+  {
+    "id": "f21_torpedo",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "fra_aew_e2c",
+    "kind": "platform",
+    "triangles": 3464
+  },
+  {
+    "id": "fra_cvn_charles_de_gaulle",
+    "kind": "platform",
+    "triangles": 8388
   },
   {
     "id": "fra_ffg_fremm",
@@ -125,6 +400,36 @@
     "triangles": 3572
   },
   {
+    "id": "fra_helo_panther",
+    "kind": "platform",
+    "triangles": 4852
+  },
+  {
+    "id": "fra_lhd_mistral",
+    "kind": "platform",
+    "triangles": 10744
+  },
+  {
+    "id": "fra_mpa_atlantic2",
+    "kind": "platform",
+    "triangles": 5144
+  },
+  {
+    "id": "fra_ssn_suffren",
+    "kind": "platform",
+    "triangles": 1936
+  },
+  {
+    "id": "iris_t_aam",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "ita_ddg_horizon",
+    "kind": "platform",
+    "triangles": 8560
+  },
+  {
     "id": "jsm_missile",
     "kind": "weapon",
     "triangles": 1424
@@ -133,6 +438,11 @@
     "id": "kalibr_asm",
     "kind": "weapon",
     "triangles": 1448
+  },
+  {
+    "id": "kh31a",
+    "kind": "weapon",
+    "triangles": 2032
   },
   {
     "id": "kh32_family",
@@ -165,7 +475,17 @@
     "triangles": 1424
   },
   {
+    "id": "meteor_aam",
+    "kind": "weapon",
+    "triangles": 1680
+  },
+  {
     "id": "mica_em",
+    "kind": "weapon",
+    "triangles": 1376
+  },
+  {
+    "id": "mistral_naval",
     "kind": "weapon",
     "triangles": 1376
   },
@@ -225,6 +545,11 @@
     "triangles": 228
   },
   {
+    "id": "otomat_mk2",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
     "id": "p1000_vulkan",
     "kind": "weapon",
     "triangles": 1424
@@ -245,6 +570,11 @@
     "triangles": 1568
   },
   {
+    "id": "raf_fighter_typhoon",
+    "kind": "platform",
+    "triangles": 4232
+  },
+  {
     "id": "ram_block2",
     "kind": "weapon",
     "triangles": 1376
@@ -256,6 +586,11 @@
   },
   {
     "id": "rbs15_mk3",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
+    "id": "rbs15f",
     "kind": "weapon",
     "triangles": 1424
   },
@@ -288,6 +623,11 @@
     "id": "rfn_ffg_admiral_gorshkov",
     "kind": "platform",
     "triangles": 7612
+  },
+  {
+    "id": "rfn_ffg_admiral_grigorovich",
+    "kind": "platform",
+    "triangles": 9176
   },
   {
     "id": "rfn_fighter_su35s",
@@ -343,6 +683,11 @@
     "id": "rfn_strike_su30sm",
     "kind": "platform",
     "triangles": 3972
+  },
+  {
+    "id": "rfn_strike_su34",
+    "kind": "platform",
+    "triangles": 4320
   },
   {
     "id": "rfn_uav_orion",
@@ -435,6 +780,11 @@
     "triangles": 1220
   },
   {
+    "id": "shtil1",
+    "kind": "weapon",
+    "triangles": 1424
+  },
+  {
     "id": "sm2_family",
     "kind": "weapon",
     "triangles": 1424
@@ -460,14 +810,49 @@
     "triangles": 1460
   },
   {
+    "id": "swe_fighter_gripen_c",
+    "kind": "platform",
+    "triangles": 3708
+  },
+  {
+    "id": "swe_fsg_visby",
+    "kind": "platform",
+    "triangles": 5648
+  },
+  {
+    "id": "swe_ssk_gotland",
+    "kind": "platform",
+    "triangles": 2456
+  },
+  {
     "id": "tomahawk_block_v",
     "kind": "weapon",
     "triangles": 1448
   },
   {
+    "id": "torpedo47",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
+    "id": "torpedo62",
+    "kind": "weapon",
+    "triangles": 1460
+  },
+  {
     "id": "ugst_torpedo",
     "kind": "weapon",
     "triangles": 1460
+  },
+  {
+    "id": "usaf_fighter_f16c",
+    "kind": "platform",
+    "triangles": 4396
+  },
+  {
+    "id": "usmc_fighter_av8b",
+    "kind": "platform",
+    "triangles": 5208
   },
   {
     "id": "usn_aew_e2d",
@@ -533,6 +918,11 @@
     "id": "usn_helo_mh60s",
     "kind": "platform",
     "triangles": 3092
+  },
+  {
+    "id": "usn_lha_america",
+    "kind": "platform",
+    "triangles": 10864
   },
   {
     "id": "usn_mpa_p8a",
