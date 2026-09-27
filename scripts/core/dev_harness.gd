@@ -20,6 +20,11 @@ extends RefCounted
 ##   --open-air-ops              open aircraft type selection and landing controls
 ##   --aviation-smoke            verify launch, landing, turnaround and Air Operations UI
 ##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
+##   --run[=N]                   unpause at time-compression step N (0 is 1x) before the hold, so
+##                               a screenshot shows things moving
+##   --log-launches              print the simulation time of every launch and impact, to find a moment to shoot
+##   --engage-after=S            S seconds into the hold, the selection fires on the hooked or
+##                               nearest hostile track, so a screenshot catches the launch
 ##   --open-editor               open the scenario editor on the loaded scenario, for screenshots
 ##   --open-menu[=SHELF]         open the operations desk, on one shelf (cold_war, atlantic, pacific, gulf_med, all)
 ##   --brief                     open the briefing board
@@ -27,10 +32,14 @@ extends RefCounted
 ##   --reload-check              fight a while, restart, and report that state was cleared
 ##   --debug                     turn on the truth overlay
 ##   --rings                     show the sensor coverage layer (F4), for screenshots
-##   --world-view=inset|full     open the 3D world view in that mode, for screenshots
-##   --world-camera=NAME         world view camera preset: bridge, orbit, overhead or chase
+##   --world-view=inset|full|pane  open the 3D world view filling the chart, or in a dev frame at
+##                               the command screen's bottom-centre pane size, for screenshots
+##   --world-camera=NAME         camera mode (tether, fly-by, action, detached) or an old preset
+##                               (bridge, orbit, overhead, chase) as a tether framing
 ##   --world-focus=track         drop the selection and hook the first plotted contact, for screenshots
-##   --world-azimuth=DEG         turn the world view camera this far round its focus
+##   --world-azimuth=DEG         turn the tether this far round its subject from the default
+##   --world-look=DEG            turn the tether so the camera looks along this true bearing
+##   --world-pitch=DEG / --world-zoom=F   the tether's height angle and range multiple
 ##   --tab=N                     open command-dock tab N (0 navigation … 3 doctrine), for screenshots
 ##   --ignite=CALLSIGN           start a fire and some flooding aboard one own ship, for screenshots
 ##   --show-report               end the mission as a victory and open the after-action report
@@ -83,6 +92,13 @@ func handle_flags() -> void:
 			if u.has_sonar() and not u.is_submarine():
 				main.simulation.unit_manager.issue_order(u, Order.active_sonar())
 		print("[Dev] player surface units are pinging")
+	if args.has("--log-launches"):
+		main.simulation.weapon_manager.weapon_launched.connect(func(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
+			print("[Dev] t=%.0f %s fires %d x %s at %s" % [SimClock.sim_time, shooter.callsign, rounds, spec.display_name, t.id]))
+		main.simulation.weapon_manager.interceptor_launched.connect(func(shooter: Unit, spec: WeaponSpec, _threat: Weapon, rounds: int) -> void:
+			print("[Dev] t=%.0f %s defends with %d x %s" % [SimClock.sim_time, shooter.callsign, rounds, spec.display_name]))
+		main.simulation.weapon_manager.weapon_impact.connect(func(_faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
+			print("[Dev] t=%.0f %s %s %s" % [SimClock.sim_time, spec.display_name, "hits" if hit else "misses", target.callsign]))
 	if fast_forward > 0.0:
 		SimClock.advance(fast_forward)
 		print("[Dev] fast-forwarded %.0f s" % fast_forward)
@@ -183,18 +199,33 @@ func handle_flags() -> void:
 		main._on_mission_ended("VICTORY", "The convoy reached the handover box with its cargo intact.")
 	for a in args:
 		if a.begins_with("--world-view="):
-			main._world_view.set_mode(WorldView.Mode.FULL if a.get_slice("=", 1) == "full" else WorldView.Mode.INSET)
-			print("[Dev] world view %s" % main._world_view.mode_name())
+			var how := a.get_slice("=", 1)
+			if how == "pane":
+				_world_view_in_pane()
+			main._world_view.set_mode(WorldView.Mode.FULL if how == "full" else WorldView.Mode.INSET)
+			print("[Dev] world view %s, camera %s" % [how, main._world_view.camera_mode_name()])
 		elif a.begins_with("--world-camera="):
 			main._world_view.set_preset_by_name(a.get_slice("=", 1))
 		elif a.begins_with("--world-azimuth="):
-			main._world_view._az_offset = float(a.get_slice("=", 1))
+			main._world_view.set_orbit(WorldCamera.DEFAULT_AZ + float(a.get_slice("=", 1)))
+		elif a.begins_with("--world-look="):
+			var heading: float = main.map.selected[0].heading_deg if not main.map.selected.is_empty() else 0.0
+			main._world_view.set_orbit(float(a.get_slice("=", 1)) + 180.0 - heading)
+		elif a.begins_with("--world-pitch="):
+			main._world_view.set_orbit(main._world_view.rig.orbit_az, float(a.get_slice("=", 1)))
+		elif a.begins_with("--world-zoom="):
+			main._world_view.set_orbit(main._world_view.rig.orbit_az, NAN, float(a.get_slice("=", 1)))
 		elif a == "--world-focus=track":
 			main.map.select_units([])
 			for t: Track in main.simulation.track_manager.get_tracks(main.simulation.player_faction):
 				if WorldPresentation.plottable(t):
 					main.map.select_track(t)
 					break
+	for a in args:
+		if a == "--run" or a.begins_with("--run="):
+			SimClock.set_speed_index(int(a.get_slice("=", 1)) if a.contains("=") else 0)
+			SimClock.set_paused(false)
+			print("[Dev] running at %dx" % int(SimClock.multiplier()))
 	if args.has("--visual-smoke"):
 		_visual_smoke()
 		return
@@ -202,8 +233,44 @@ func handle_flags() -> void:
 		_dump_state()
 		main.get_tree().quit()
 		return
+	var engage_after := arg(args, "--engage-after=", -1.0)
+	if engage_after >= 0.0:
+		_engage_after(engage_after)
 	if shot != "":
 		_screenshot_after(shot, arg(args, "--hold=", 3.0))
+
+
+## Dev only: puts the world view where the command screen will hold it, the bottom-centre pane
+## of a 68/32 split (regional 32% of the height square, then 54% of the rest), inside a 3 px
+## bevel, so screenshots show the pane at its real size before the screen shell exists.
+func _world_view_in_pane() -> void:
+	var view: WorldView = main._world_view
+	var frame := Panel.new()
+	frame.name = "DevWorldPane"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("6b678c")
+	style.border_color = Color("c9ccdb")
+	style.set_border_width_all(2)
+	frame.add_theme_stylebox_override("panel", style)
+	var strip := 0.32
+	var size := main.get_viewport_rect().size
+	var left := size.y * strip / size.x
+	var right := left + (1.0 - left) * 0.54
+	frame.anchor_left = left
+	frame.anchor_right = right
+	frame.anchor_top = 1.0 - strip
+	frame.anchor_bottom = 1.0
+	main.add_child(frame)
+	var slot := Control.new()
+	slot.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	slot.offset_left = 3.0
+	slot.offset_top = 3.0
+	slot.offset_right = -3.0
+	slot.offset_bottom = -3.0
+	frame.add_child(slot)
+	view.get_parent().remove_child(view)
+	slot.add_child(view)
+	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 func _zoom_after_layout(value: float) -> void:
@@ -299,6 +366,32 @@ func _auto_engage_faction(faction: String) -> void:
 			if Combat.check_engagement(u, spec, best_track)["ok"]:
 				main.simulation.unit_manager.issue_order(u, Order.engage(best_track, spec.id, 4))
 				break
+
+
+## Dev helper: a few seconds into the hold, the selected units (or all of ours) fire on the hooked
+## hostile track, or the nearest one, so a screenshot can catch a launch as it happens.
+func _engage_after(seconds: float) -> void:
+	await main.get_tree().create_timer(seconds).timeout
+	var faction := main.simulation.player_faction
+	var shooters: Array = main.map.selected if not main.map.selected.is_empty() else main.simulation.unit_manager.get_faction_units(faction)
+	var fired := 0
+	for u: Unit in shooters:
+		var target: Track = main.map.selected_track
+		if target == null or target.identity != "HOSTILE" or target.status != Track.Status.ACTIVE:
+			target = null
+			var best_d := INF
+			for t: Track in main.simulation.track_manager.get_tracks(faction):
+				if t.identity == "HOSTILE" and t.status == Track.Status.ACTIVE and u.position.distance_to(t.position) < best_d:
+					best_d = u.position.distance_to(t.position)
+					target = t
+		if target == null:
+			continue
+		for spec in u.offensive_weapons():
+			if Combat.check_engagement(u, spec, target)["ok"]:
+				main.simulation.unit_manager.issue_order(u, Order.engage(target, spec.id, 2))
+				fired += 1
+				break
+	print("[Dev] engage-after: %d units fired" % fired)
 
 
 func _dump_state() -> void:
