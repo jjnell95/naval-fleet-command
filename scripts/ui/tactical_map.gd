@@ -107,6 +107,8 @@ const COL_ALLIED := Color8(255, 150, 40)
 const COL_HOSTILE := Color8(235, 30, 30)
 const COL_UNKNOWN := Color8(245, 235, 30)
 const COL_NEUTRAL := Color8(40, 220, 60)
+## Destroyed: a lost own platform's grey, and the darker grey for anything else the player saw
+## destroyed (the chart itself only ever marks its own losses; a kill report is the shell's).
 const COL_DESTROYED_OWN := Color8(200, 200, 200)
 const COL_DESTROYED := Color8(110, 110, 110)
 ## Sensor rings (F4) are thin own-identity circles; these keep their older names for callers.
