@@ -275,26 +275,103 @@ func test_weapon_heights() -> void:
 
 # --- Focus, culling, axes ----------------------------------------------------------------
 
-func test_focus_prefers_selection_then_hook_then_first_ship() -> void:
+func test_focus_prefers_hooked_unit_then_hooked_contact_then_force_centre() -> void:
 	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2(3, 4))
+	var escort := _unit("cw90_ticonderoga", "BLUE", Vector2(7, 4))
 	var jet := _unit("cw90_f14a", "BLUE", Vector2(30, 5))
 	jet.flight_state = Unit.FlightState.AIRBORNE
 	var stowed := _unit("cw90_f14a", "BLUE", Vector2(3, 4))
 	stowed.home = ship
-	var m := _managers([jet, ship, stowed])
+	var m := _managers([jet, ship, escort, stowed])
 	var red := _unit("cw90_slava", "RED", Vector2(40, 0))
 	var t := _hold(m["tm"], "T1001", red, Vector2(38, 2), Track.Classification.SURFACE)
 	var own: Array = m["um"].get_faction_units("BLUE")
-	assert_eq(WorldPresentation.choose_focus([jet], t, own)["key"], "u:%d" % jet.id, "the first selected unit wins")
+	assert_eq(WorldPresentation.choose_focus([jet], t, own)["key"], "u:%d" % jet.id, "the hooked own unit wins")
 	assert_eq(WorldPresentation.choose_focus([stowed], t, own)["key"], "u:%d" % ship.id, "a deck-bound airframe stands for its ship")
 	var hooked := WorldPresentation.choose_focus([], t, own)
 	assert_eq(hooked["key"], "t:T1001", "then the hooked contact")
-	assert_eq(hooked["position"], t.position)
-	assert_eq(WorldPresentation.choose_focus([], null, own)["key"], "u:%d" % ship.id, "then the first ship rather than an aircraft")
+	assert_eq(hooked["position"], t.position, "where the plot holds it")
+	var force := WorldPresentation.choose_focus([], null, own)
+	assert_eq(force["key"], "force", "with nothing hooked, the force centre")
+	assert_eq(force["position"], Vector2(5, 4), "the centre of the ships, not pulled out by the aircraft")
+	assert_true(float(force["length_m"]) >= WorldPresentation.FORCE_MIN_FRAME_M, "framed to take in the group")
 	t.bearing_only = true
-	assert_eq(WorldPresentation.choose_focus([], t, own)["key"], "u:%d" % ship.id, "a bearing cannot be looked at")
+	assert_eq(WorldPresentation.choose_focus([], t, own)["key"], "force", "a bearing cannot be looked at")
 	assert_true(WorldPresentation.choose_focus([], null, []).is_empty())
 	_free_all(m)
+
+
+func test_force_centre_reads_only_own_units_and_falls_back_to_aircraft() -> void:
+	var jet := _unit("cw90_f14a", "BLUE", Vector2(30, 10))
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	jet.heading_deg = 90.0
+	jet.speed_kn = 400.0
+	var force := WorldPresentation.force_focus([jet])
+	assert_eq(force["position"], Vector2(30, 10), "only aircraft left: they are the force")
+	assert_near(float(force["heading_deg"]), 90.0, 0.01, "facing the way they fly")
+	var dead := _unit("cw90_ticonderoga", "BLUE", Vector2(-50, -50))
+	dead.alive = false
+	force = WorldPresentation.force_focus([jet, dead])
+	assert_eq(force["position"], Vector2(30, 10), "a sunk ship is not part of the force")
+	var far := _unit("cw90_ticonderoga", "BLUE", Vector2(0, 0))
+	var near := _unit("cw90_ticonderoga", "BLUE", Vector2(40, 0))
+	force = WorldPresentation.force_focus([far, near])
+	assert_near(float(force["length_m"]), clampf(20.0 * WorldPresentation.NM_TO_M * 0.7, WorldPresentation.FORCE_MIN_FRAME_M, WorldPresentation.FORCE_MAX_FRAME_M), 0.01, "a spread group is framed by its spread")
+
+
+func test_hooked_contact_in_sight_is_followed_as_the_sighted_unit() -> void:
+	var own := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var red := _unit("cw90_slava", "RED", Vector2(5, 0))
+	var m := _managers([own, red])
+	var t := _hold(m["tm"], "T1001", red, Vector2(5.5, 0.5), Track.Classification.SURFACE)
+	var entries := WorldPresentation.unit_entries(m["um"], m["tm"], "BLUE", ENV)
+	var focus := WorldPresentation.choose_focus([], t, [own])
+	assert_eq(WorldPresentation.resolve_focus_key(entries, focus), "u:%d" % red.id, "drawn once, as the ship a lookout sees, so followed as that")
+	red.position = Vector2(30, 0)
+	entries = WorldPresentation.unit_entries(m["um"], m["tm"], "BLUE", ENV)
+	assert_eq(WorldPresentation.resolve_focus_key(entries, focus), "t:T1001", "out of sight it is the plotted contact again")
+	assert_eq(WorldPresentation.resolve_focus_key(entries, WorldPresentation.choose_focus([own], null, [own])), "u:%d" % own.id, "an own unit is itself")
+	_free_all(m)
+
+
+func test_events_are_drawn_only_where_the_player_could_witness_them() -> void:
+	var own := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var red := _unit("cw90_slava", "RED", Vector2(40, 0))
+	var m := _managers([own, red])
+	assert_eq(WorldPresentation.witness_point(Vector2(6, 0), [own], [], ENV), Vector2(6, 0), "inside visibility of one of ours: seen where it happens")
+	assert_eq(WorldPresentation.witness_point(Vector2(40, 0), [own], [], ENV), Vector2.INF, "far off and not on the plot: not drawn at all")
+	var t := _hold(m["tm"], "T1001", red, Vector2(39.4, 0.6), Track.Classification.SURFACE)
+	t.position_error_nm = 0.5
+	var tracks: Array = m["tm"].get_tracks("BLUE")
+	assert_eq(WorldPresentation.witness_point(Vector2(40, 0), [own], tracks, ENV), t.position, "a hit on a held contact is drawn where the plot has it, not at the truth")
+	t.bearing_only = true
+	t.tma_quality = 0.1
+	assert_eq(WorldPresentation.witness_point(Vector2(40, 0), [own], tracks, ENV), Vector2.INF, "a bearing is not a place")
+	_free_all(m)
+
+
+func test_gun_rounds_are_flagged_and_drawn_as_tracers() -> void:
+	var own := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var wm := WeaponManager.new()
+	var shell := Weapon.new()
+	shell.id = 3
+	shell.spec = DataDB.weapon("cw90_mk45")
+	shell.faction = "BLUE"
+	shell.shooter = own
+	shell.position = Vector2(1, 0)
+	wm.in_flight.append(shell)
+	var missile := Weapon.new()
+	missile.id = 4
+	missile.spec = DataDB.weapon("cw90_harpoon")
+	missile.faction = "BLUE"
+	missile.shooter = own
+	missile.position = Vector2(2, 0)
+	wm.in_flight.append(missile)
+	var entries := WorldPresentation.weapon_entries(wm, null, "BLUE", own)
+	assert_true(_find(entries, "w:3")["gun"], "a gun round is a gun round")
+	assert_eq(_find(entries, "w:3")["length_m"], WorldPresentation.TRACER_LENGTH_M, "drawn as its tracer streak")
+	assert_true(not _find(entries, "w:4")["gun"], "a missile is not")
+	wm.free()
 
 
 func test_cull_keeps_the_nearest_within_range_and_caps_the_count() -> void:
@@ -386,3 +463,339 @@ func test_scene_pools_models_and_keeps_a_lost_hull_while_it_sinks() -> void:
 	assert_true(not scene._records.has("t:T1"), "a contact that drops off the plot goes at once")
 	root.remove_child(scene)
 	scene.free()
+
+
+# --- Camera --------------------------------------------------------------------------------
+
+func _frame(pos: Vector3, heading: float, length := 150.0, speed := 9.0) -> Dictionary:
+	return {"position": pos, "length": length, "heading": heading, "domain": "surface", "speed_mps": speed}
+
+
+func test_camera_modes_cycle_and_name_themselves() -> void:
+	var cam := WorldCamera.new()
+	assert_eq(cam.mode, WorldCamera.TETHER, "Tether is the default")
+	var names: Array[String] = []
+	for i in 5:
+		names.append(cam.mode_name())
+		cam.cycle_mode()
+	assert_eq(names, ["Tether", "Fly-by", "Action", "Detached", "Tether"] as Array[String], "T cycles the four modes in order")
+	cam.set_mode(99)
+	assert_eq(cam.mode, WorldCamera.DETACHED, "out-of-range modes clamp")
+
+
+func test_tether_sits_behind_and_above_and_keeps_the_players_orbit() -> void:
+	var cam := WorldCamera.new()
+	var ship := _frame(Vector3.ZERO, 0.0)
+	var shot := cam.update(0.016, Vector2.ZERO, ship, Callable())
+	var eye: Vector3 = shot["eye"]
+	assert_true(shot["cut"], "the first shot is a cut")
+	assert_true(eye.z > 0.0, "a ship heading north is watched from the south: astern")
+	assert_true(eye.x < 0.0, "off the port quarter by default")
+	assert_true(eye.y > 0.0, "and above the water")
+	assert_near(eye.length(), WorldCamera.tether_distance(150.0, 1.0), 0.01, "at the tether range")
+	assert_eq(shot["look"], Vector3.ZERO, "looking at the subject")
+	cam.orbit(-100.0, 40.0)
+	cam.zoom_by(2.0)
+	var az := cam.orbit_az
+	var pitch := cam.orbit_pitch
+	cam.cut()
+	shot = cam.update(0.016, Vector2.ZERO, _frame(Vector3(500, 0, 0), 90.0, 40.0), Callable())
+	assert_eq(cam.orbit_az, az, "a new subject keeps the player's orbit")
+	assert_eq(cam.orbit_pitch, pitch)
+	assert_near((shot["eye"] - Vector3(500, 0, 0)).length(), WorldCamera.tether_distance(40.0, 2.0), 0.01, "and zoom, scaled to the new subject")
+	cam.zoom_by(1000.0)
+	assert_eq(cam.zoom, WorldCamera.MAX_ZOOM, "zoom is bounded")
+	cam.orbit(0.0, 1.0e6)
+	assert_eq(cam.orbit_pitch, WorldCamera.MAX_PITCH, "and so is pitch")
+
+
+func test_tether_follows_a_turn_smoothly_not_in_one_jump() -> void:
+	var cam := WorldCamera.new()
+	cam.update(0.016, Vector2.ZERO, _frame(Vector3.ZERO, 0.0), Callable())
+	var shot := cam.update(0.016, Vector2.ZERO, _frame(Vector3.ZERO, 90.0), Callable())
+	var want := WorldCamera.orbit_offset(90.0 + WorldCamera.DEFAULT_AZ, WorldCamera.DEFAULT_PITCH, WorldCamera.tether_distance(150.0, 1.0))
+	assert_true(not shot["cut"], "following is not a cut")
+	assert_true((shot["eye"] as Vector3).distance_to(want) > 50.0, "one frame after a turn the camera has not snapped round")
+	for i in 400:
+		shot = cam.update(0.016, Vector2.ZERO, _frame(Vector3.ZERO, 90.0), Callable())
+	assert_true((shot["eye"] as Vector3).distance_to(want) < 1.0, "a few seconds later it has swung astern again")
+
+
+func test_flyby_waits_ahead_and_beside_then_moves_on_once_passed() -> void:
+	var station := WorldCamera.flyby_station(Vector2.ZERO, 0.0, 10.0, 150.0, "surface")
+	assert_true(station.y > 0.0, "ahead of a ship heading north")
+	assert_true(station.x > 0.0, "and off its starboard side")
+	assert_near(station.y * WorldPresentation.NM_TO_M, maxf(10.0 * WorldCamera.FLYBY_LEAD_S, 150.0 * WorldCamera.FLYBY_LEAD_LENGTHS), 0.5, "far enough ahead to watch it come")
+	assert_true(station.z > 0.0 and station.z < 60.0, "low over the water")
+	assert_true(not WorldCamera.flyby_passed(station, Vector2.ZERO, 0.0, 150.0), "not passed while approaching")
+	var beyond := Vector2(0.0, station.y + 150.0 * (WorldCamera.FLYBY_PAST_LENGTHS + 0.5) / WorldPresentation.NM_TO_M)
+	assert_true(WorldCamera.flyby_passed(station, beyond, 0.0, 150.0), "passed once it has run on by a few lengths")
+	assert_true(WorldCamera.flyby_passed(station, Vector2(-5, 0), 180.0, 150.0), "or when it has gone far off the other way")
+	var air := WorldCamera.flyby_station(Vector2.ZERO, 90.0, 250.0, 20.0, "air", 3000.0)
+	assert_true(air.z > 3000.0, "an aircraft is met at its own height")
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.FLYBY)
+	var first := cam.update(0.016, Vector2.ZERO, _frame(Vector3.ZERO, 0.0), Callable())
+	var still := cam.update(0.016, Vector2(0, 0.05), _frame(Vector3.ZERO, 0.0), Callable())
+	assert_true(not still["cut"], "the camera holds its station while the ship comes on")
+	assert_near((WorldCamera.to_chart(first["eye"], Vector2.ZERO) - WorldCamera.to_chart(still["eye"], Vector2(0, 0.05))).length(), 0.0, 1e-6, "fixed in the chart as the origin slides")
+	var moved := cam.update(0.016, beyond, _frame(Vector3.ZERO, 0.0), Callable())
+	assert_true(moved["cut"], "once passed, it cuts to a new station")
+
+
+func test_detached_freezes_the_eye_and_keeps_looking() -> void:
+	var cam := WorldCamera.new()
+	var shot := cam.update(0.016, Vector2.ZERO, _frame(Vector3.ZERO, 0.0), Callable())
+	var eye_chart := WorldCamera.to_chart(shot["eye"], Vector2.ZERO)
+	cam.set_mode(WorldCamera.DETACHED)
+	var origin := Vector2(0.0, 0.5)
+	var later := cam.update(0.016, origin, _frame(Vector3.ZERO, 0.0), Callable())
+	assert_near(WorldCamera.to_chart(later["eye"], origin).distance_to(eye_chart), 0.0, 1e-6, "the eye stays where it was when detached")
+	assert_eq(later["look"], Vector3.ZERO, "while it keeps looking at the subject as it moves away")
+
+
+func test_action_cuts_to_events_holds_then_returns_to_the_tether() -> void:
+	var cam := WorldCamera.new()
+	cam.notify("hit", Vector3(1, 1, 9))
+	assert_true(cam.action().is_empty(), "outside Action, events are ignored")
+	cam.set_mode(WorldCamera.ACTION)
+	var ship := _frame(Vector3.ZERO, 0.0)
+	cam.update(0.016, Vector2.ZERO, ship, Callable())
+	cam.notify("launch", Vector3(0, 0, 10), "w:5")
+	var round := {"position": Vector3(0, 30, -200), "length": 6.0, "heading": 0.0, "domain": "weapon"}
+	var lookup := func(key: String) -> Dictionary: return round if key == "w:5" else {}
+	var shot := cam.update(0.016, Vector2.ZERO, ship, lookup)
+	assert_eq(cam.action()["kind"], "launch", "a launch of ours is shown")
+	assert_true(shot["cut"], "with a cut")
+	assert_eq(shot["look"], round["position"], "following the round")
+	assert_eq(cam.mode_name(), "Action", "the mode stays Action throughout")
+	cam.notify("destroyed", Vector3(0.5, 0.5, 9))
+	shot = cam.update(WorldCamera.MIN_SHOT_S + 0.1, Vector2.ZERO, ship, lookup)
+	assert_eq(cam.action()["kind"], "destroyed", "a kill cuts away from a launch once the launch has been seen a moment")
+	assert_true((shot["look"] as Vector3).distance_to(WorldCamera.to_world(Vector3(0.5, 0.5, 9), Vector2.ZERO)) < 10.0, "and watches the point")
+	for i in int(WorldCamera.ACTION_HOLD_S / 0.25) + 2:
+		shot = cam.update(0.25, Vector2.ZERO, ship, lookup)
+	assert_true(cam.action().is_empty(), "about six seconds later it is over")
+	assert_near((shot["eye"] as Vector3).length(), WorldCamera.tether_distance(150.0, 1.0), 1.0, "and the camera is back on the tether")
+
+
+func test_action_drops_stale_events_and_lets_a_lost_round_go() -> void:
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.ACTION)
+	var ship := _frame(Vector3.ZERO, 0.0)
+	cam.notify("hit", Vector3(1, 1, 9))
+	cam.notify("launch", Vector3(0, 0, 9), "w:1")
+	cam.update(0.016, Vector2.ZERO, ship, func(_k: String) -> Dictionary: return {})
+	assert_eq(cam.action()["kind"], "hit", "the higher priority event goes first")
+	for i in 30:
+		cam.update(0.25, Vector2.ZERO, ship, func(_k: String) -> Dictionary: return {})
+	assert_true(cam.action().is_empty(), "the launch waited too long to be worth a cut")
+	cam.notify("launch", Vector3(0, 0, 9), "w:2")
+	cam.update(0.016, Vector2.ZERO, ship, func(_k: String) -> Dictionary: return {})
+	assert_eq(cam.action()["kind"], "launch")
+	for i in 12:
+		cam.update(0.25, Vector2.ZERO, ship, func(_k: String) -> Dictionary: return {})
+	assert_true(cam.action().is_empty(), "a round that has gone is watched briefly, not for the full follow")
+	for i in 10:
+		cam.notify("launch", Vector3(0, 0, 9), "w:%d" % (10 + i))
+	assert_true(cam._queue.size() <= WorldCamera.ACTION_QUEUE, "the queue is bounded")
+	cam.orbit(50.0, 0.0)
+	var az := cam.orbit_az
+	cam.reset()
+	assert_true(cam._queue.is_empty() and cam.action().is_empty(), "a new scenario forgets the last one's events")
+	assert_eq(cam.mode, WorldCamera.ACTION, "but keeps the player's mode")
+	assert_eq(cam.orbit_az, az, "and orbit")
+
+
+func test_watch_station_stands_off_along_the_line_of_sight() -> void:
+	var at := Vector3(0, 0, 10)
+	var from := Vector3(0, -1, 100)
+	var st := WorldCamera.watch_station(at, from, "hit")
+	assert_true(st.y < 0.0, "on the side the camera was already looking from")
+	assert_near(Vector2(st.x, st.y).length() * WorldPresentation.NM_TO_M, 650.0, 0.5, "close enough to see a hit")
+	assert_true(st.z > at.z, "and a little above it")
+	var chart := Vector3(1.5, -2.0, 30.0)
+	var back := WorldCamera.to_chart(WorldCamera.to_world(chart, Vector2(3, 3)), Vector2(3, 3))
+	assert_near(back.distance_to(chart), 0.0, 1e-6, "chart and world coordinates round-trip")
+
+
+# --- Land and effects ----------------------------------------------------------------------
+
+func test_land_climates_and_filter_weights() -> void:
+	assert_eq(WorldLand.climate("arabian_sea", 12.0), "arid", "the Red Sea is desert")
+	assert_eq(WorldLand.climate("north_atlantic", 68.0), "boreal", "Lofoten is boreal")
+	assert_eq(WorldLand.climate("west_pacific", 10.0), "tropical")
+	assert_eq(WorldLand.climate("mediterranean", 32.0), "arid", "the Libyan shore is desert")
+	assert_eq(WorldLand.climate("mediterranean", 43.0), "mediterranean")
+	for t in [0.0, 0.3, 0.77, 1.0]:
+		var sum := 0.0
+		for i in 4:
+			sum += WorldLand.bspline_weight(t, i)
+		assert_near(sum, 1.0, 1e-5, "B-spline weights sum to one at %.2f" % t)
+	var mesh := WorldLand.grid_mesh()
+	var verts: PackedVector3Array = mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	assert_eq(verts.size(), (WorldLand.MESH_CELLS + 1) * (WorldLand.MESH_CELLS + 1), "one static grid")
+	var n := WorldLand.MESH_CELLS + 1
+	var centre_step: float = verts[n / 2 + 1].x - verts[n / 2].x
+	var edge_step: float = verts[n - 1].x - verts[n - 2].x
+	assert_true(centre_step < edge_step * 0.2, "dense at the focus, sparse at the edge")
+	assert_near(verts[n - 1].x, WorldLand.MESH_HALF_NM * WorldPresentation.NM_TO_M, 0.5, "reaching the edge of the window")
+
+
+func test_land_follows_the_chart_coast_and_heights() -> void:
+	var sc := {"map": {"anchor_lat": 68.8, "anchor_lon": 13.5, "chart_region": "north_atlantic"}, "terrain": {"land": [{"id": "isle", "points_nm": [[0, 0], [4, 0], [4, 4], [0, 4]], "elevation_m": 200}]}}
+	Bathymetry.load_for(sc)
+	Terrain.load_from(sc)
+	var land := WorldLand.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(land)
+	land.build()
+	land.update(Vector2(2, 2))
+	assert_true(land.is_land(Vector2(2, 2)), "inside the coastline is land")
+	assert_true(not land.is_land(Vector2(-3, 2)), "outside it is sea, whatever the raster says")
+	assert_eq(land.height_at(Vector2(-3, 2)), 0.0, "and has no ground")
+	assert_true(land.height_at(Vector2(2, 2)) >= WorldLand.BASE_M + WorldLand.MIN_INLAND_M - 0.01, "land stands above the water")
+	assert_true(land.height_at(Vector2(2, 2), 10.0) < land.height_at(Vector2(2, 2), 3000.0), "and rises inland from the beach")
+	assert_true(land._mesh.visible, "the grid is drawn when there is land in the window")
+	land.update(Vector2(500, 500))
+	land.update(Vector2(500, 500))
+	assert_true(not land._mesh.visible, "and not over open ocean")
+	root.remove_child(land)
+	land.free()
+	Terrain.clear()
+	Bathymetry.clear()
+
+
+func test_smoke_trails_linger_after_the_round_and_then_go() -> void:
+	var fx := WorldEffects.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(fx)
+	fx.eye = Vector3(0, 50, 500)
+	var seed := PackedVector3Array([Vector3(0, 0, 12), Vector3(0, 0, 80)])
+	fx.trail_extend("w:1", Vector2(0, 0.1), 200.0, 30.0, seed)
+	for i in 20:
+		fx.tick(0.1)
+		fx.trail_extend("w:1", Vector2(0, 0.1 + i * 0.02), 200.0, 30.0)
+		fx.draw_trails()
+	assert_true(fx.has_trail("w:1"), "a flying round lays a trail")
+	var pts: PackedVector4Array = fx._trails["w:1"]["pts"]
+	assert_eq(Vector2(pts[0].x, pts[0].y), Vector2.ZERO, "starting at the launcher")
+	assert_true(pts.size() <= WorldEffects.TRAIL_SAMPLES, "with a bounded number of samples")
+	fx.trail_release("w:1")
+	fx.tick(WorldEffects.TRAIL_LIFE_S * 0.5)
+	fx.draw_trails()
+	assert_true(fx.has_trail("w:1"), "the smoke lingers after the round has gone")
+	fx.rate = 0.0
+	fx.tick(WorldEffects.TRAIL_LIFE_S * 2.0)
+	fx.draw_trails()
+	assert_true(fx.has_trail("w:1"), "and holds still while the simulation is paused")
+	fx.rate = 1.0
+	fx.tick(WorldEffects.TRAIL_LIFE_S)
+	fx.draw_trails()
+	assert_true(not fx.has_trail("w:1"), "then fades out and is released")
+	for i in WorldEffects.MAX_TRAILS + 6:
+		fx.trail_extend("w:%d" % (100 + i), Vector2(i, 0), 10.0, 30.0)
+		fx.trail_release("w:%d" % (100 + i))
+	assert_true(fx.trail_count() <= WorldEffects.MAX_TRAILS, "the number of trails is bounded")
+	root.remove_child(fx)
+	fx.free()
+
+
+func test_scene_draws_launches_from_fresh_rounds_and_offers_them_to_action() -> void:
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	ship.id = 11
+	var own := WorldPresentation.own_entry(ship)
+	scene.update(0.016, [own], own["key"])
+	var wm := WeaponManager.new()
+	var sam := Weapon.new()
+	sam.id = 21
+	sam.spec = DataDB.weapon("cw90_sm2mr")
+	sam.faction = "BLUE"
+	sam.shooter = ship
+	sam.position = Vector2(0.01, 0.0)
+	sam.time_alive_s = 0.25
+	var shell := Weapon.new()
+	shell.id = 22
+	shell.spec = DataDB.weapon("cw90_phalanx")
+	shell.faction = "BLUE"
+	shell.shooter = ship
+	shell.position = Vector2(0.02, 0.0)
+	shell.time_alive_s = 0.25
+	wm.in_flight.append(sam)
+	wm.in_flight.append(shell)
+	var entries: Array = [own]
+	entries.append_array(WorldPresentation.weapon_entries(wm, null, "BLUE", ship))
+	scene.update(0.016, entries, own["key"])
+	assert_eq(scene._records["w:22"]["model_id"], "marker:tracer", "a gun round is drawn as a tracer")
+	assert_true(scene.effects._flashes.size() >= 2, "a launch flash and a muzzle flash")
+	assert_true(scene.effects.has_trail("w:21"), "the missile lays smoke")
+	assert_true(not scene.effects.has_trail("w:22"), "the shell does not")
+	var pts: PackedVector4Array = scene.effects._trails["w:21"]["pts"]
+	assert_near(Vector2(pts[0].x, pts[0].y).distance_to(ship.position), 0.0, 0.01, "from the launcher")
+	var events := scene.take_events()
+	assert_eq(events.size(), 1, "one launch of ours for the Action camera; a gun burst is not an event")
+	assert_eq(events[0]["key"], "w:21")
+	assert_true(scene.take_events().is_empty(), "events are handed over once")
+	scene.update(0.016, [own], own["key"])
+	assert_true(not scene._records.has("w:21"), "the round has gone")
+	assert_true(scene.effects.has_trail("w:21"), "but its smoke has not")
+	var late := Weapon.new()
+	late.id = 23
+	late.spec = DataDB.weapon("cw90_sm2mr")
+	late.faction = "BLUE"
+	late.shooter = ship
+	late.position = Vector2(3.0, 0.0)
+	late.time_alive_s = 60.0
+	wm.in_flight.append(late)
+	entries = [own]
+	entries.append_array(WorldPresentation.weapon_entries(wm, null, "BLUE", ship))
+	scene.update(0.016, entries, own["key"])
+	var late_pts: PackedVector4Array = scene.effects._trails["w:23"]["pts"]
+	assert_near(Vector2(late_pts[0].x, late_pts[0].y).distance_to(late.position), 0.0, 0.01, "a round first seen mid-flight starts its smoke where it was seen, not at a launcher it was not seen leaving")
+	wm.free()
+	root.remove_child(scene)
+	scene.free()
+
+
+func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() -> void:
+	var view := WorldView.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(view)
+	var seen: Array[int] = []
+	view.camera_mode_changed.connect(func(m: int) -> void: seen.append(m))
+	assert_eq(view.camera_mode_name(), "Tether", "Tether by default")
+	view.cycle_camera_mode()
+	assert_eq(view.camera_mode_name(), "Fly-by")
+	view.set_camera_mode(WorldView.CAM_DETACHED)
+	assert_eq(view.camera_mode_name(), "Detached")
+	view.set_preset_by_name("action")
+	assert_eq(view.camera_mode(), WorldView.CAM_ACTION, "modes by name")
+	view.set_preset_by_name("chase")
+	assert_eq(view.camera_mode(), WorldView.CAM_TETHER, "an old preset becomes a tether framing")
+	assert_near(view.rig.orbit_az, 180.0, 0.001, "chase sits dead astern")
+	assert_eq(seen, [WorldView.CAM_FLYBY, WorldView.CAM_DETACHED, WorldView.CAM_ACTION, WorldView.CAM_TETHER] as Array[int], "each change is announced once")
+	assert_eq(view.anchor_right, 1.0, "the pane fills its parent")
+	assert_eq(view.anchor_bottom, 1.0)
+	assert_eq(view.size_flags_horizontal, Control.SIZE_EXPAND_FILL, "and expands in a container slot")
+	assert_true(not view.visible, "hidden until the shell or Main shows it")
+	view.size = Vector2(702, 282)
+	view.set_mode(WorldView.Mode.INSET)
+	assert_true(view.visible and view.is_processing(), "shown, it renders")
+	assert_eq(view._viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
+	view.set_suspended(true)
+	assert_true(not view.is_processing(), "behind a modal screen it stops")
+	assert_eq(view._viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED)
+	view.set_suspended(false)
+	assert_true(view.is_processing(), "and starts again after")
+	view.cycle_mode()
+	assert_eq(view.mode_name(), "full", "the legacy cycle still runs")
+	view.cycle_mode()
+	assert_true(not view.visible and not view.is_processing(), "hidden, nothing renders")
+	view.add_effect(Vector2.ZERO, "hit", true)
+	view.reset_presentation()
+	root.remove_child(view)
+	view.free()

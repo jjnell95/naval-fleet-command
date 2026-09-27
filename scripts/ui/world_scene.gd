@@ -1,46 +1,58 @@
 class_name WorldScene
 extends Node3D
-## The 3D world behind the World View: sky and sun, the ocean, land within sight, and a pool of
+## The 3D world behind the World View: sky and sun, the sea, land within sight, and a pool of
 ## entity nodes fed from the entries WorldPresentation produces. Nothing here decides what may be
 ## shown; it only draws what it is handed, at 1 unit per metre about a floating origin.
+##
+## The mood is the late-1990s fleet-command games' (a violet-blue sky over a dark, glinting sea,
+## long white missile trails, black smoke over a burning ship) drawn with what a modern renderer
+## can afford in the browser: shader sky, hand-lit sea, height-field land and pooled particles.
 
 const ORIGIN_WRAP_M := 65536.0
 const WAKE_SAMPLES := 26
 const WAKE_LIFE_S := 150.0
-const RIBBON_SAMPLES := 40
-const RIBBON_LIFE_S := 30.0
-const LAND_REBUILD_NM := 8.0
-const KELVIN_SPREAD := 0.035  # half-width growth per metre astern of the visible foam lane
-
+const KELVIN_SPREAD := 0.09  # half-width growth per metre astern: the arms of the wake open out
+## A round first seen younger than this (in simulation seconds, per unit of time compression)
+## was seen leaving its launcher, so it gets a launch cloud and a trail from the launcher.
+const FRESH_LAUNCH_S := 2.0
+## One launch cloud per launcher this often, however big the salvo.
+const LAUNCH_COOLDOWN_S := 0.7
+const GUN_COOLDOWN_S := 0.09
+const GUN_BURST_S := 1.5  # a gun round this fresh still flashes at its mount
+## An aircraft of ours this close to its deck when it first appears has just launched.
+const AIR_LAUNCH_NM := 1.5
+const RECOVERY_WATCH_NM := 2.5
+## Sky, sea and light for day, twilight and night: [sky top, horizon, zenith, haze, fog].
+const DAY := [Color("685cda"), Color("9d99cc"), Color("5a4ec8"), Color("aeaad6"), Color("938fbe")]
+const TWILIGHT := [Color("2e2a66"), Color("8c6f86"), Color("1d1a48"), Color("a08492"), Color("3a3450")]
+const NIGHT := [Color("05060f"), Color("141626"), Color("020308"), Color("1a1c2c"), Color("0b0c14")]
 
 var origin_nm := Vector2.ZERO
 var camera: Camera3D
 var effects: WorldEffects
+var land: WorldLand
 var daylight := 1.0
 var sea_state := -1
 var anim := 0.0
 var sim_now := 0.0
-var shadows_allowed := true
-var focus_ring := true  # the accent ring under the focus; off for the bridge camera
+## Simulation seconds since the last tick, for drawing moving things where they are between ticks.
+var lead_s := 0.0
+var paused := false
+## The simulation's time compression, for the pace of smoke and fire.
+var time_rate := 1.0
+var shadows_allowed := false
 
 var _env: Environment
-var _sky_material: ProceduralSkyMaterial
+var _sky_material: ShaderMaterial
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
 var _ocean: MeshInstance3D
 var _ocean_material: ShaderMaterial
 var _wake_material: ShaderMaterial
-var _ribbon_material: StandardMaterial3D
-var _land_material: StandardMaterial3D
-var _land_root: Node3D
-var _land_origin_nm := Vector2(INF, INF)
-var _land_generation := -1
 var _entities: Node3D
 var _records: Dictionary = {}
 var _trails: Dictionary = {}  # key -> Array[Vector3] (nm x, nm y, sim time), oldest first
-var _ribbons: Dictionary = {}  # key -> Array[Vector4] (nm x, nm y, height m, sim time)
 var _headings: Dictionary = {}  # key -> Vector3 (heading, sim time, bank)
-var _anchored: Array[Dictionary] = []  # {node, nm, height, until}
 var _models := WorldModels.new()
 var _strip_pool: Array[MeshInstance3D] = []
 var _swell := Vector4.ZERO
@@ -51,31 +63,36 @@ var _ring_mesh: ArrayMesh
 var _disc_mesh: PlaneMesh
 var _disc_material: StandardMaterial3D
 var _materials: Dictionary = {}
+var _events: Array[Dictionary] = []
+var _launch_clock: Dictionary = {}  # launcher key -> anim time of its last launch cloud or flash
+var _flagged: Dictionary = {}  # aircraft keys whose launch or recovery has been reported
+var _ground: Dictionary = {}  # installation key -> ground height, computed once
+var _warm := false
+var _sun_key := Vector2(INF, INF)
 
 
-# --- Construction ------------------------------------------------------------------------
+# --- Construction --------------------------------------------------------------------------
 
 func build() -> void:
 	name = "WorldScene"
 	_env = Environment.new()
 	_env.background_mode = Environment.BG_SKY
-	_sky_material = ProceduralSkyMaterial.new()
-	_sky_material.sun_angle_max = 3.0
-	_sky_material.sun_curve = 0.1
-	_sky_material.use_debanding = true
+	_sky_material = ShaderMaterial.new()
+	_sky_material.shader = load("res://scripts/ui/world_sky.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = _sky_material
-	sky.radiance_size = Sky.RADIANCE_SIZE_64
-	sky.process_mode = Sky.PROCESS_MODE_REALTIME
+	sky.radiance_size = Sky.RADIANCE_SIZE_32
+	sky.process_mode = Sky.PROCESS_MODE_AUTOMATIC
 	_env.sky = sky
 	_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	_env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	_env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	_env.tonemap_white = 6.0
+	# Linear, so the sky and sea land on their palette exactly; nothing here is bright enough to
+	# need a curve.
+	_env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	_env.fog_enabled = true
 	_env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	_env.fog_sky_affect = 0.25
-	_env.fog_sun_scatter = 0.12
+	_env.fog_sky_affect = 0.0
+	_env.fog_sun_scatter = 0.08
 	var env_node := WorldEnvironment.new()
 	env_node.environment = _env
 	add_child(env_node)
@@ -90,13 +107,14 @@ func build() -> void:
 	add_child(_sun)
 	_moon = DirectionalLight3D.new()
 	_moon.name = "Moon"
-	_moon.light_color = Color(0.62, 0.72, 0.95)
+	_moon.light_color = Color(0.62, 0.68, 0.95)
 	_moon.light_energy = 0.0
 	_moon.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	add_child(_moon)
 	camera = Camera3D.new()
 	camera.name = "Camera"
-	camera.fov = 55.0
+	camera.keep_aspect = Camera3D.KEEP_WIDTH
+	camera.fov = WorldCamera.FOV_DEG
 	camera.near = 2.0
 	camera.far = 420000.0
 	add_child(camera)
@@ -112,20 +130,10 @@ func build() -> void:
 	_wake_material = ShaderMaterial.new()
 	_wake_material.shader = load("res://scripts/ui/world_wake.gdshader")
 	_wake_material.render_priority = 1
-	_ribbon_material = StandardMaterial3D.new()
-	_ribbon_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_ribbon_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_ribbon_material.vertex_color_use_as_albedo = true
-	_ribbon_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_ribbon_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-	_land_material = StandardMaterial3D.new()
-	_land_material.vertex_color_use_as_albedo = true
-	_land_material.roughness = 1.0
-	_land_material.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
-	_land_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_land_root = Node3D.new()
-	_land_root.name = "Land"
-	add_child(_land_root)
+	land = WorldLand.new()
+	add_child(land)
+	land.build()
+	_ocean_material.set_shader_parameter("coast_mask", land.coast_texture())
 	_entities = Node3D.new()
 	_entities.name = "Entities"
 	add_child(_entities)
@@ -142,9 +150,22 @@ func build() -> void:
 	_disc_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	_disc_material.render_priority = 1
 	set_weather(0, WorldPresentation.DEFAULT_VISIBILITY_NM, {})
+	set_time_of_day(Vector3(0.3, 0.6, 0.5).normalized(), 40.0)
 
 
-# --- Environment -------------------------------------------------------------------------
+## The chart box whose coast the polygons define; outside it the raster's land carries on.
+func set_chart(charted: Rect2) -> void:
+	if land != null and land.charted != charted:
+		land.charted = charted
+		land.reset()
+
+
+## The pane stopped or started drawing. Nothing to do yet but keep the hook for the shell.
+func set_running(_live: bool) -> void:
+	pass
+
+
+# --- Environment ---------------------------------------------------------------------------
 
 ## Sea state and visibility from the scenario. Cheap to call every frame; it only touches the
 ## renderer when something changed.
@@ -159,48 +180,59 @@ func set_weather(state: int, visibility_nm: float, env: Dictionary) -> void:
 	_ocean_material.set_shader_parameter("sea_state", float(state))
 	_ocean_material.set_shader_parameter("swell_a", _swell)
 	_ocean_material.set_shader_parameter("swell_dir", Vector4(_wind.x, _wind.y, _wind2.x, _wind2.y))
-	_env.fog_density = 1.7 / (visibility_nm * WorldPresentation.NM_TO_M)
+	# Thin haze: the sea stays dark to the horizon as the old games drew it, and the weather still
+	# closes it in when the visibility drops.
+	_env.fog_density = 0.45 / (visibility_nm * WorldPresentation.NM_TO_M)
 	var wind_kn := float(env.get("wind_kn", 8.0 + 4.0 * state))
 	effects.wind = Vector3(_wind.x, 0.0, _wind.y) * wind_kn * 0.51
 
 
-## Sky, sun, moon, ambient and fog for a solar elevation. Three keyframes, night, twilight and
-## day, are blended by elevation. The warmth of dawn and dusk rides on the sun's own halo, so it
-## sits toward the sun instead of all round the horizon, and the fog takes the horizon's colour
-## at the scene's brightness so a dark dawn is not washed out by a bright haze.
+## Sky, sun, moon, ambient and haze for a solar elevation. Three palettes, night, twilight and
+## day, are blended by elevation; the day is the violet-blue and lavender of the old games. Only
+## touches the renderer when the sun has moved enough to matter.
 func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
+	var key := Vector2(snappedf(elevation_deg, 0.05), snappedf(atan2(sun_dir.x, sun_dir.z), 0.002))
+	if key == _sun_key:
+		return
+	_sun_key = key
 	var twilight := smoothstep(-14.0, -3.0, elevation_deg)
-	var day := smoothstep(-3.0, 12.0, elevation_deg)
-	var top := Color(0.010, 0.018, 0.045).lerp(Color(0.10, 0.17, 0.34), twilight).lerp(Color(0.24, 0.45, 0.74), day)
-	var horizon := Color(0.035, 0.050, 0.090).lerp(Color(0.74, 0.60, 0.52), twilight).lerp(Color(0.70, 0.79, 0.87), day)
-	_sky_material.sky_top_color = top
-	_sky_material.sky_horizon_color = horizon
-	_sky_material.sky_curve = 0.13
-	_sky_material.sky_energy_multiplier = 0.7 + 0.5 * day
-	_sky_material.ground_horizon_color = horizon.darkened(0.35)
-	_sky_material.ground_bottom_color = Color(0.015, 0.030, 0.050).lerp(Color(0.07, 0.14, 0.20), day)
-	_sky_material.sun_angle_max = lerpf(28.0, 6.0, day)
-	_sky_material.sun_curve = lerpf(0.06, 0.12, day)
-	var sun_up := smoothstep(-1.0, 8.0, elevation_deg)
-	var sun_color := Color(1.0, 0.50, 0.24).lerp(Color(1.0, 0.96, 0.90), clampf(elevation_deg / 22.0, 0.0, 1.0))
+	var day := smoothstep(-3.0, 10.0, elevation_deg)
+	var pal: Array[Color] = []
+	for i in DAY.size():
+		pal.append((NIGHT[i] as Color).lerp(TWILIGHT[i], twilight).lerp(DAY[i], day))
+	var top: Color = pal[0]
+	var horizon: Color = pal[1]
+	_sky_material.set_shader_parameter("top_color", top)
+	_sky_material.set_shader_parameter("horizon_color", horizon)
+	_sky_material.set_shader_parameter("zenith_color", pal[2])
+	_sky_material.set_shader_parameter("haze_color", pal[3])
+	_sky_material.set_shader_parameter("below_color", Color(0.075, 0.094, 0.137) * (0.3 + 0.7 * (0.08 + 0.42 * twilight + 0.5 * day)))
+	_sky_material.set_shader_parameter("sun_dir", sun_dir)
+	var sun_up := smoothstep(-1.0, 6.0, elevation_deg)
+	var sun_color := Color(1.0, 0.76, 0.56).lerp(Color(1.0, 0.97, 0.92), clampf(elevation_deg / 14.0, 0.0, 1.0))
+	_sky_material.set_shader_parameter("sun_color", sun_color)
+	_sky_material.set_shader_parameter("sun_visible", smoothstep(-2.0, 0.5, elevation_deg))
+	_sky_material.set_shader_parameter("sun_glow", lerpf(0.55, 0.22, day))
+	_sky_material.set_shader_parameter("stars", 0.8 * (1.0 - twilight))
 	_sun.light_color = sun_color
-	_sun.light_energy = 1.7 * sun_up
+	_sun.light_energy = 1.15 * sun_up
 	_sun.shadow_enabled = shadows_allowed and sun_up > 0.1
 	if sun_dir.length_squared() > 1e-6:
 		var up := Vector3.UP if absf(sun_dir.y) < 0.999 else Vector3.FORWARD
 		_sun.look_at_from_position(sun_dir * 1000.0, Vector3.ZERO, up)
-	_moon.light_energy = 0.16 * (1.0 - twilight)
+	_moon.light_energy = 0.18 * (1.0 - twilight)
 	var moon_dir := Vector3(-sun_dir.x, 0.65, -sun_dir.z).normalized()
 	_moon.look_at_from_position(moon_dir * 1000.0, Vector3.ZERO, Vector3.UP)
-	_env.ambient_light_color = Color(0.10, 0.13, 0.22).lerp(Color(0.42, 0.47, 0.60), twilight).lerp(Color(0.60, 0.70, 0.82), day)
-	_env.ambient_light_energy = 0.28 + 0.22 * twilight + 0.15 * day
-	var brightness := 0.15 + 0.4 * twilight + 0.45 * day
-	_env.fog_light_color = horizon.lerp(Color(0.5, 0.5, 0.5), 0.2) * brightness
+	_env.ambient_light_color = Color(0.10, 0.11, 0.20).lerp(Color(0.44, 0.40, 0.60), twilight).lerp(Color(0.56, 0.56, 0.74), day)
+	_env.ambient_light_energy = 0.28 + 0.14 * twilight + 0.1 * day
+	_env.fog_light_color = pal[4]
 	_env.fog_light_energy = 1.0
 	daylight = 0.08 + 0.42 * twilight + 0.5 * day
 	effects.daylight = daylight
-	_ocean_material.set_shader_parameter("sky_color", Vector3(horizon.r, horizon.g, horizon.b) * (0.35 + 0.65 * brightness))
-	_ocean_material.set_shader_parameter("sun_color", Vector3(sun_color.r, sun_color.g, sun_color.b))
+	land.set_daylight(daylight)
+	_ocean_material.set_shader_parameter("sky_top", top)
+	_ocean_material.set_shader_parameter("sky_horizon", horizon)
+	_ocean_material.set_shader_parameter("sun_color", sun_color)
 	_ocean_material.set_shader_parameter("sun_dir", sun_dir)
 	_ocean_material.set_shader_parameter("sun_strength", smoothstep(-1.5, 5.0, elevation_deg))
 	_ocean_material.set_shader_parameter("daylight", daylight)
@@ -219,44 +251,25 @@ func swell_at(p: Vector3) -> float:
 	return WorldPresentation.swell_height(Vector2(p.x + off.x, p.z + off.y), anim, _swell, _wind, _wind2)
 
 
-# --- Land --------------------------------------------------------------------------------
-
-func _update_land() -> void:
-	if _land_generation != Terrain.generation or _land_origin_nm.distance_to(origin_nm) > LAND_REBUILD_NM:
-		_rebuild_land()
-	_land_root.position = WorldPresentation.to_world(_land_origin_nm, origin_nm, 0.0)
-
-
-## Every landmass within LAND_RANGE_NM: a low coastal shelf, then two terraces whose height
-## follows the landmass's elevation, so a headland has a silhouette against the sky.
-func _rebuild_land() -> void:
-	for child in _land_root.get_children():
-		child.queue_free()
-	_land_origin_nm = origin_nm
-	_land_generation = Terrain.generation
-	for l: Landmass in Terrain.landmasses:
-		if not l.valid() or not l.bounds.grow(WorldPresentation.LAND_RANGE_NM).has_point(origin_nm):
-			continue
-		var mesh := WorldLand.build(l, _land_origin_nm)
-		if mesh == null:
-			continue
-		var mi := MeshInstance3D.new()
-		mi.mesh = mesh
-		mi.material_override = _land_material
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_land_root.add_child(mi)
+## Height of the ground under a point in origin-relative metres, 0 at sea. Errs high, for the
+## camera's clearance.
+func ground_at(p: Vector3) -> float:
+	if land == null:
+		return 0.0
+	var c := WorldCamera.to_chart(p, origin_nm)
+	return land.height_at(Vector2(c.x, c.y))
 
 
-# --- Entities ----------------------------------------------------------------------------
+# --- Entities ------------------------------------------------------------------------------
 
 ## Syncs the pool with this frame's entries. `entries` are WorldPresentation dictionaries; the
-## ones missing since last frame are retired, which for a unit that has just died means sinking.
+## ones missing since last frame are retired, which for a unit that has just died means sinking,
+## and for a round means leaving its smoke behind.
 func update(delta: float, entries: Array, focus_key: String) -> void:
 	anim += delta
-	if camera != null:
-		_ocean.position = Vector3(camera.global_position.x, 0.0, camera.global_position.z)
-	_ocean_material.set_shader_parameter("origin_offset", _origin_offset())
-	_update_land()
+	effects.origin_nm = origin_nm
+	effects.rate = 0.0 if paused else clampf(time_rate, 1.0, WorldEffects.MAX_RATE)
+	land.update(origin_nm)
 	var wanted: Dictionary = {}
 	for e: Dictionary in entries:
 		wanted[e["key"]] = true
@@ -264,20 +277,40 @@ func update(delta: float, entries: Array, focus_key: String) -> void:
 	for key in _records.keys():
 		if not wanted.has(key):
 			_retire(key)
-	for i in range(_anchored.size() - 1, -1, -1):
-		var a := _anchored[i]
-		var node: Node3D = a["node"]
-		if float(a["until"]) <= anim or not is_instance_valid(node):
-			if is_instance_valid(node):
-				effects.release(node as CPUParticles3D)
-			_anchored.remove_at(i)
-			continue
-		node.position = WorldPresentation.to_world(a["nm"], origin_nm, float(a["height"]))
+	for key in _flagged.keys():
+		if not wanted.has(key):
+			_flagged.erase(key)
+	effects.tick(delta)
+	_warm = true
+
+
+## After the camera has been placed for the frame: the sea follows it, and the ribbons and glows
+## that face it are rebuilt.
+func camera_moved() -> void:
+	if camera == null:
+		return
+	var eye := camera.global_position
+	_ocean.position = Vector3(eye.x, 0.0, eye.z)
+	_ocean_material.set_shader_parameter("origin_offset", _origin_offset())
+	_ocean_material.set_shader_parameter("swell_time", anim)
+	_ocean_material.set_shader_parameter("coast_window", land.coast_window())
+	effects.eye = eye
+	effects.draw_trails()
+
+
+## Launches, aircraft leaving or reaching a deck: things the Action camera may cut to, since the
+## last call. Each is {kind, at: Vector3 chart (nm, nm, m), key}.
+func take_events() -> Array[Dictionary]:
+	var out := _events
+	_events = []
+	return out
 
 
 func _model_for(e: Dictionary) -> String:
 	if e["kind"] == "buoy":
 		return "marker:buoy"
+	if e["kind"] == "weapon" and e.get("gun", false):
+		return "marker:tracer"
 	var model: String = e["model"]
 	if model != "" and ResourceLoader.exists("res://assets/models/%s.glb" % model):
 		return model
@@ -287,12 +320,31 @@ func _model_for(e: Dictionary) -> String:
 	return "marker:" + (domain if domain in ["surface", "air", "subsurface"] else "surface")
 
 
+## Where to draw an entry: what the simulation last said, carried on along its course for the
+## part of a tick that has passed since, so nothing moves in quarter-second hops. Only things
+## drawn at truth (ours, sighted, rounds) are carried on; a plotted contact stays on its plot.
+func _render_position(e: Dictionary) -> Vector2:
+	var pos: Vector2 = e["position"]
+	if lead_s <= 0.0 or not e["has_heading"]:
+		return pos
+	var speed_nm_s := 0.0
+	match e["kind"]:
+		"own", "visual":
+			var u: Unit = e.get("unit")
+			speed_nm_s = u.speed_kn / 3600.0 if u != null else 0.0
+		"weapon":
+			var w: Weapon = e.get("weapon")
+			speed_nm_s = w.speed_nm_per_s() if w != null else 0.0
+	return pos + Geo.heading_to_vector(e["heading_deg"]) * speed_nm_s * lead_s
+
+
 func _apply_entry(e: Dictionary, focus_key: String) -> void:
 	var key: String = e["key"]
 	var model_id := _model_for(e)
 	var rec: Dictionary = _records.get(key, {})
-	if rec.is_empty():
-		rec = {"key": key, "model_id": "", "ring": null, "disc": null, "wake": null, "ribbon": null, "smoke": null, "plume": null, "dying_since": -1.0, "tint": ""}
+	var fresh := rec.is_empty()
+	if fresh:
+		rec = {"key": key, "model_id": "", "ring": null, "disc": null, "wake": null, "fire": null, "plume": null, "glow": null, "dying_since": -1.0, "tint": ""}
 		_records[key] = rec
 	if rec["model_id"] != model_id:
 		if rec["model_id"] != "":
@@ -311,7 +363,9 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 	var scale := WorldPresentation.model_scale(length)
 	var height_units := bounds.size.y
 	rec["height_m"] = height_units * scale
-	var base := WorldPresentation.to_world(e["position"], origin_nm, float(e["height_m"]))
+	var pos := _render_position(e)
+	rec["nm"] = pos
+	var base := WorldPresentation.to_world(pos, origin_nm, float(e["height_m"]))
 	var heading: float = e["heading_deg"] if e["has_heading"] else 0.0
 	var yaw := WorldPresentation.heading_to_yaw(heading)
 	var pitch := 0.0
@@ -322,19 +376,19 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 	root.visible = true
 	root.scale = Vector3.ONE * scale
 	match domain:
-		"surface", "land":
-			if domain == "land":
-				lift = -bounds.position.y * scale + WorldLand.SHELF_M + 0.3
-			else:
-				lift = WorldPresentation.hull_lift_m(height_units, scale)
-			if domain == "surface":
-				var motion := _sea_motion(base, heading, length, scale)
-				lift += motion.x
-				pitch = motion.y
-				roll = motion.z
+		"surface":
+			lift = WorldPresentation.hull_lift_m(height_units, scale)
+			var motion := _sea_motion(base, heading, length, scale)
+			lift += motion.x
+			pitch = motion.y
+			roll = motion.z
 			if unit != null:
+				# Flooding settles a hull and lists it toward the side taking water.
 				roll += deg_to_rad(13.0) * unit.flooding * (1.0 if unit.id % 2 == 0 else -1.0)
+				pitch += deg_to_rad(2.5) * unit.flooding
 				lift -= unit.flooding * rec["height_m"] * 0.12
+		"land":
+			lift = -bounds.position.y * scale + _ground_under(key, pos) - rec["height_m"] * 0.06
 		"air":
 			roll = _bank_for(key, heading)
 		"subsurface":
@@ -350,12 +404,30 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 	root.rotation = Vector3(roll, yaw, pitch)
 	rec["anchor"] = root.position + Vector3(0.0, rec["height_m"] * 0.5 + 2.0, 0.0)
 	_apply_look(rec, e, focus_key)
-	_apply_trails(rec, e, base, heading, length, scale)
+	if fresh and e["kind"] == "weapon":
+		_on_new_round(rec, e)
+	_apply_trails(rec, e, base, heading, length)
 	_apply_emitters(rec, e, root.position, heading)
+	if e["kind"] == "own" and domain == "air":
+		_air_events(rec, e, fresh)
+
+
+## Ground height under an installation, worked out once: it does not move.
+func _ground_under(key: String, pos: Vector2) -> float:
+	if _ground.has(key):
+		return _ground[key]
+	var inland := Terrain.distance_to_land_nm(pos)
+	var l := Terrain.land_at(pos)
+	if l != null:
+		inland = l.distance_to_shore_nm(pos)
+	var h := land.height_at(pos, inland * WorldPresentation.NM_TO_M) if land != null else WorldLand.BASE_M
+	h = maxf(h, WorldLand.BASE_M)
+	_ground[key] = h
+	return h
 
 
 ## Heave, pitch and roll from the swell under a hull. Big ships answer the sea less.
-func _sea_motion(base: Vector3, heading: float, length: float, scale: float) -> Vector3:
+func _sea_motion(base: Vector3, heading: float, length: float, _scale: float) -> Vector3:
 	if sea_state <= 0:
 		return Vector3.ZERO
 	var fwd := WorldPresentation.heading_vector(heading)
@@ -391,10 +463,9 @@ func _ballistic_climbing(e: Dictionary) -> bool:
 	return w != null and w.distance_flown_nm < w.spec.max_range_nm * 0.5
 
 
-## Tint, translucency and the ring on the water for anything that is not simply ours.
-func _apply_look(rec: Dictionary, e: Dictionary, focus_key: String) -> void:
+## Tint, translucency and the ring on the water for a contact drawn from the plot.
+func _apply_look(rec: Dictionary, e: Dictionary, _focus_key: String) -> void:
 	var kind: String = e["kind"]
-	var domain: String = e["domain"]
 	var color: Color = e["color"]
 	var under := float(e["height_m"]) < -0.5
 	var tint := ""
@@ -404,26 +475,26 @@ func _apply_look(rec: Dictionary, e: Dictionary, focus_key: String) -> void:
 		tint = ("ghost:%s" if under else "tint:%s") % color.to_html(false)
 	elif kind == "weapon" and under:
 		tint = "ghost:%s" % Color(0.7, 0.85, 0.95).to_html(false)
+	elif rec["model_id"] == "marker:tracer":
+		tint = "glow:%s" % Color(1.0, 0.78, 0.4).to_html(false)
 	elif rec["model_id"].begins_with("marker:") and kind != "buoy":
 		tint = "marker:%s" % color.to_html(false)
 	if tint != rec["tint"]:
 		_set_tint(rec, tint)
-	var wants_ring: bool = kind == "plotted" or kind == "visual" or (kind == "own" and focus_ring and e["key"] == focus_key)
+	# A plotted contact is an estimate; the ring on the water says how good one.
 	var ring: MeshInstance3D = rec["ring"]
-	if wants_ring:
+	if kind == "plotted":
 		if ring == null:
 			ring = MeshInstance3D.new()
 			ring.mesh = _ring_mesh
 			ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_entities.add_child(ring)
 			rec["ring"] = ring
-		var radius: float = maxf(float(e["length_m"]) * (0.7 if kind == "own" else 0.8), 24.0)
+		var radius: float = maxf(float(e["length_m"]) * 0.8, 24.0)
 		var track: Track = e.get("track")
-		if track != null and kind == "plotted":
+		if track != null:
 			radius = clampf(maxf(radius, track.position_error_nm * WorldPresentation.NM_TO_M), radius, 3.0 * WorldPresentation.NM_TO_M)
-		var ring_color := TacticalMap.COL_ACCENT if kind == "own" else color
-		var ring_alpha := 0.3 if kind == "own" else 0.55
-		ring.material_override = _flat_material("ring:%s:%.2f" % [ring_color.to_html(false), ring_alpha], Color(ring_color, ring_alpha), false)
+		ring.material_override = _flat_material("ring:%s:0.45" % color.to_html(false), Color(color, 0.45), false)
 		var root: Node3D = rec["root"]
 		var at := Vector3(root.position.x, 0.0, root.position.z)
 		ring.position = Vector3(at.x, swell_at(at) + 0.6, at.z)
@@ -447,6 +518,8 @@ func _set_tint(rec: Dictionary, tint: String) -> void:
 				material = _flat_material(tint, Color(color, 0.62), false)
 			"marker":
 				material = _flat_material(tint, Color(color, 0.42), false)
+			"glow":
+				material = _flat_material(tint, Color(color, 0.95), false)
 	for mi: MeshInstance3D in meshes:
 		if mi.mesh == null:
 			continue
@@ -472,12 +545,102 @@ func _flat_material(key: String, color: Color, ghost: bool) -> StandardMaterial3
 	if key.begins_with("ring:"):
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	if key.begins_with("glow:"):
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	_materials[key] = m
 	return m
 
 
-## Wakes, periscope feathers, torpedo tracks and missile ribbons.
-func _apply_trails(rec: Dictionary, e: Dictionary, base: Vector3, heading: float, length: float, scale: float) -> void:
+# --- Launches and flight deck events -------------------------------------------------------
+
+## A round seen for the first time. If it has only just left its launcher and the launcher is on
+## the view (ours, or sighted), the launch is drawn there: a cloud of white smoke for a missile,
+## a muzzle flash for a gun, a splash for a torpedo, and the trail starts at the launcher. Our own
+## launches are offered to the Action camera whether or not the launcher is in view.
+func _on_new_round(rec: Dictionary, e: Dictionary) -> void:
+	var w: Weapon = e.get("weapon")
+	if w == null or not _warm or w.shooter == null:
+		return
+	if w.time_alive_s > FRESH_LAUNCH_S * maxf(time_rate, 1.0) + 0.5:
+		return
+	var gun: bool = e.get("gun", false)
+	var nm: Vector2 = rec["nm"]
+	if e["own"] and not gun:
+		_events.append({"kind": "launch", "at": Vector3(nm.x, nm.y, float(e["height_m"])), "key": e["key"]})
+	var shooter_key := "u:%d" % w.shooter.id
+	var srec: Dictionary = _records.get(shooter_key, {})
+	if srec.is_empty() or srec.get("root") == null or not (srec["entry"]["kind"] in ["own", "visual"]):
+		return
+	var sroot: Node3D = srec["root"]
+	var sentry: Dictionary = srec["entry"]
+	var slen: float = sentry["length_m"]
+	var aloft: bool = sentry["domain"] == "air"
+	var at := sroot.position + Vector3(0.0, 0.0 if aloft else float(srec["height_m"]) * 0.12, 0.0)
+	if gun:
+		var toward := WorldPresentation.heading_vector(float(e["heading_deg"]))
+		at += toward * slen * 0.3
+	var at_nm := WorldCamera.to_chart(at, origin_nm)
+	var last: float = _launch_clock.get(shooter_key, -INF)
+	if gun:
+		_gun_burst(e)
+		return
+	if e.get("torpedo", false):
+		effects.burst("miss", Vector2(at_nm.x, at_nm.y), 0.0, 0.5)
+		return
+	if anim - last >= LAUNCH_COOLDOWN_S:
+		effects.launch_puff(Vector2(at_nm.x, at_nm.y), at_nm.z, clampf(slen / 140.0, 0.35, 1.4) if not aloft else 0.35)
+		_launch_clock[shooter_key] = anim
+	# The smoke starts at the launcher; a vertical launch climbs before it turns.
+	var seed := PackedVector3Array([at_nm])
+	if not aloft and (w.is_interceptor() or float(e["height_m"]) > 40.0):
+		seed.append(at_nm + Vector3(0.0, 0.0, 70.0))
+	effects.trail_extend(e["key"], nm, float(e["height_m"]), _trail_spacing(e), seed)
+
+
+## Muzzle flashes for as long as a gun's rounds are fresh: a close-in weapon's burst flickers at
+## the mount. Only for a launcher that is on the view.
+func _gun_burst(e: Dictionary) -> void:
+	var w: Weapon = e.get("weapon")
+	if w == null or w.shooter == null or w.time_alive_s > GUN_BURST_S:
+		return
+	var shooter_key := "u:%d" % w.shooter.id
+	var srec: Dictionary = _records.get(shooter_key, {})
+	if srec.is_empty() or srec.get("root") == null or not (srec["entry"]["kind"] in ["own", "visual"]):
+		return
+	if anim - float(_launch_clock.get(shooter_key + ":gun", -INF)) < GUN_COOLDOWN_S:
+		return
+	_launch_clock[shooter_key + ":gun"] = anim
+	var sroot: Node3D = srec["root"]
+	var slen: float = srec["entry"]["length_m"]
+	var toward := WorldPresentation.heading_vector(float(e["heading_deg"]))
+	var at := sroot.position + Vector3(0.0, float(srec["height_m"]) * 0.12, 0.0) + toward * slen * 0.3
+	var at_nm := WorldCamera.to_chart(at, origin_nm)
+	effects.gun_flash(Vector2(at_nm.x, at_nm.y), at_nm.z, clampf(slen / 120.0, 0.5, 1.5))
+
+
+## An aircraft of ours leaving the deck or coming back to it, for the Action camera.
+func _air_events(rec: Dictionary, e: Dictionary, fresh: bool) -> void:
+	var u: Unit = e.get("unit")
+	if u == null or _flagged.has(e["key"]):
+		return
+	var base: Unit = u.recovery_base if u.recovery_base != null else u.home
+	if base == null or not base.alive:
+		return
+	var d := u.position.distance_to(base.position)
+	var nm: Vector2 = rec["nm"]
+	if fresh and _warm and d <= AIR_LAUNCH_NM and u.flight_state == Unit.FlightState.AIRBORNE:
+		_flagged[e["key"]] = true
+		_events.append({"kind": "air_launch", "at": Vector3(nm.x, nm.y, float(e["height_m"])), "key": e["key"]})
+	elif u.flight_state == Unit.FlightState.RECOVERING and d <= RECOVERY_WATCH_NM:
+		_flagged[e["key"]] = true
+		_events.append({"kind": "recovery", "at": Vector3(base.position.x, base.position.y, 20.0), "key": ""})
+
+
+# --- Wakes and trails ----------------------------------------------------------------------
+
+## Wakes, periscope feathers and torpedo tracks on the water; smoke trails for rounds in the air.
+func _apply_trails(rec: Dictionary, e: Dictionary, base: Vector3, heading: float, length: float) -> void:
 	var key: String = e["key"]
 	var kind: String = e["kind"]
 	var unit: Unit = e.get("unit")
@@ -503,22 +666,24 @@ func _apply_trails(rec: Dictionary, e: Dictionary, base: Vector3, heading: float
 		spread = 0.005
 		life = 45.0
 		spacing_nm = 30.0 / WorldPresentation.NM_TO_M
+	var pos: Vector2 = rec["nm"]
 	if moving:
 		if not _trails.has(key):
-			_seed_trail(key, e["position"], heading, _speed_kn(e), spacing_nm)
-		_sample_trail(key, e["position"], spacing_nm)
+			_seed_trail(key, pos, heading, _speed_kn(e), spacing_nm)
+		_sample_trail(key, pos, spacing_nm)
 		var stern := base - WorldPresentation.heading_vector(heading) * length * 0.46
 		stern.y = 0.0
-		_build_wake(rec, stern, beam, spread, life)
+		_build_wake(rec, stern, -WorldPresentation.heading_vector(heading), beam, spread, life)
 	elif rec["wake"] != null:
 		(rec["wake"] as MeshInstance3D).visible = false
-	if kind == "weapon" and not e.get("torpedo", false):
-		if not _ribbons.has(key):
-			_seed_ribbon(key, e["position"], float(e["height_m"]), heading, _speed_kn(e))
-		_sample_ribbon(key, e["position"], float(e["height_m"]))
-		_build_ribbon(rec, base, e["color"])
-	elif rec["ribbon"] != null:
-		(rec["ribbon"] as MeshInstance3D).visible = false
+	if kind == "weapon" and not e.get("torpedo", false) and not e.get("gun", false):
+		effects.trail_extend(key, pos, float(e["height_m"]), _trail_spacing(e))
+	elif kind == "weapon" and e.get("gun", false) and _warm:
+		_gun_burst(e)
+
+
+func _trail_spacing(e: Dictionary) -> float:
+	return clampf(_speed_kn(e) * 0.5144 * 0.12, 25.0, 140.0)
 
 
 func _sample_trail(key: String, pos: Vector2, spacing_nm: float) -> void:
@@ -530,16 +695,6 @@ func _sample_trail(key: String, pos: Vector2, spacing_nm: float) -> void:
 	_trails[key] = trail
 
 
-func _sample_ribbon(key: String, pos: Vector2, height: float) -> void:
-	var ribbon: Array = _ribbons.get(key, [])
-	var spacing := 60.0 / WorldPresentation.NM_TO_M
-	if ribbon.is_empty() or Vector2(ribbon[-1].x, ribbon[-1].y).distance_to(pos) >= spacing:
-		ribbon.append(Vector4(pos.x, pos.y, height, sim_now))
-		while ribbon.size() > RIBBON_SAMPLES:
-			ribbon.pop_front()
-	_ribbons[key] = ribbon
-
-
 func _speed_kn(e: Dictionary) -> float:
 	var unit: Unit = e.get("unit")
 	if unit != null:
@@ -548,7 +703,7 @@ func _speed_kn(e: Dictionary) -> float:
 	return w.spec.speed_kn if w != null else 0.0
 
 
-## The view often opens on something that has been under way for an hour. A trail laid straight
+## The view often opens on something that has been under way for an hour. A wake laid straight
 ## back along the heading stands in for the history nobody recorded, and real samples replace it.
 func _seed_trail(key: String, pos: Vector2, heading: float, speed_kn: float, spacing_nm: float) -> void:
 	var trail: Array = []
@@ -557,16 +712,6 @@ func _seed_trail(key: String, pos: Vector2, heading: float, speed_kn: float, spa
 	for i in range(WAKE_SAMPLES - 2, 0, -1):
 		trail.append(Vector3(pos.x - back.x * spacing_nm * i, pos.y - back.y * spacing_nm * i, sim_now - per_sample * i))
 	_trails[key] = trail
-
-
-func _seed_ribbon(key: String, pos: Vector2, height: float, heading: float, speed_kn: float) -> void:
-	var ribbon: Array = []
-	var back := Geo.heading_to_vector(heading)
-	var spacing := 60.0 / WorldPresentation.NM_TO_M
-	var per_sample := spacing / maxf(speed_kn / 3600.0, 1.0e-4)
-	for i in range(14, 0, -1):
-		ribbon.append(Vector4(pos.x - back.x * spacing * i, pos.y - back.y * spacing * i, height, sim_now - per_sample * i))
-	_ribbons[key] = ribbon
 
 
 func _acquire_strip(material: Material) -> MeshInstance3D:
@@ -593,8 +738,9 @@ func _release_strip(mi: MeshInstance3D) -> void:
 
 
 ## A strip from the stern back along the sampled track, widening as a Kelvin wake does and
-## fading with distance and age. The foam itself is the wake shader's business.
-func _build_wake(rec: Dictionary, stern: Vector3, beam: float, spread: float, life: float) -> void:
+## fading with distance and age. `astern` is the unit vector aft. The foam itself is the wake
+## shader's business.
+func _build_wake(rec: Dictionary, stern: Vector3, astern: Vector3, beam: float, spread: float, life: float) -> void:
 	var trail: Array = _trails.get(rec["key"], [])
 	var mi: MeshInstance3D = rec["wake"]
 	if mi == null:
@@ -607,8 +753,8 @@ func _build_wake(rec: Dictionary, stern: Vector3, beam: float, spread: float, li
 	for i in range(trail.size() - 1, -1, -1):
 		var s: Vector3 = trail[i]
 		var w := WorldPresentation.to_world(Vector2(s.x, s.y), origin_nm, 0.0)
-		if w.distance_to(points[-1]) < 1.0:
-			continue
+		if w.distance_to(points[-1]) < 1.0 or (points.size() == 1 and (w - stern).dot(astern) < 1.0):
+			continue  # too close, or a sample still under the hull, ahead of the stern
 		points.append(w)
 		times.append(s.z)
 	if points.size() < 2:
@@ -622,7 +768,7 @@ func _build_wake(rec: Dictionary, stern: Vector3, beam: float, spread: float, li
 		mi.visible = false
 		return
 	mi.visible = true
-	var shade := 0.55 + 0.45 * daylight
+	var shade := 0.45 + 0.55 * daylight
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	for j in points.size():
 		var p := points[j]
@@ -636,7 +782,7 @@ func _build_wake(rec: Dictionary, stern: Vector3, beam: float, spread: float, li
 		var hw := beam * 0.6 + d * spread
 		var fade := pow(1.0 - d / total, 1.3) * clampf(1.0 - (sim_now - times[j]) / life, 0.0, 1.0)
 		var y := swell_at(p) + 0.35
-		var c := Color(shade, shade, shade, fade * 0.7)
+		var c := Color(0.92 * shade, 0.95 * shade, 0.97 * shade, fade * 0.8)
 		im.surface_set_color(c)
 		im.surface_set_uv(Vector2(0.0, d))
 		im.surface_set_normal(Vector3.UP)
@@ -648,86 +794,48 @@ func _build_wake(rec: Dictionary, stern: Vector3, beam: float, spread: float, li
 	im.surface_end()
 
 
-## A camera-facing ribbon of a missile's recent positions, fading toward its tail.
-func _build_ribbon(rec: Dictionary, head: Vector3, color: Color) -> void:
-	var samples: Array = _ribbons.get(rec["key"], [])
-	var mi: MeshInstance3D = rec["ribbon"]
-	if mi == null:
-		mi = _acquire_strip(_ribbon_material)
-		rec["ribbon"] = mi
-	var im := mi.mesh as ImmediateMesh
-	im.clear_surfaces()
-	var points: Array[Vector3] = [head]
-	var times: Array[float] = [sim_now]
-	for i in range(samples.size() - 1, -1, -1):
-		var s: Vector4 = samples[i]
-		var w := WorldPresentation.to_world(Vector2(s.x, s.y), origin_nm, s.z)
-		if w.distance_to(points[-1]) < 2.0:
-			continue
-		points.append(w)
-		times.append(s.w)
-	if points.size() < 2 or camera == null:
-		mi.visible = false
-		return
-	var dists: Array[float] = [0.0]
-	for i in range(1, points.size()):
-		dists.append(dists[i - 1] + points[i].distance_to(points[i - 1]))
-	var total: float = dists[-1]
-	if total < 5.0:
-		mi.visible = false
-		return
-	mi.visible = true
-	var eye := camera.global_position
-	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	for j in points.size():
-		var p := points[j]
-		var dir := points[mini(j + 1, points.size() - 1)] - points[maxi(j - 1, 0)]
-		var to_eye := eye - p
-		var side := dir.cross(to_eye)
-		side = side.normalized() if side.length_squared() > 1e-6 else Vector3.RIGHT
-		var d := dists[j]
-		var f := d / total
-		var hw := maxf(1.2 + 5.0 * f, to_eye.length() * 0.0012)
-		var fade := pow(1.0 - f, 1.6) * clampf(1.0 - (sim_now - times[j]) / RIBBON_LIFE_S, 0.0, 1.0)
-		var c := Color(0.85, 0.85, 0.85).lerp(color, 0.35)
-		c = Color(c.r * (0.4 + 0.6 * daylight), c.g * (0.4 + 0.6 * daylight), c.b * (0.4 + 0.6 * daylight), 0.55 * fade)
-		im.surface_set_color(c)
-		im.surface_set_uv(Vector2(0.0, d))
-		im.surface_add_vertex(p - side * hw)
-		im.surface_set_color(c)
-		im.surface_set_uv(Vector2(1.0, d))
-		im.surface_add_vertex(p + side * hw)
-	im.surface_end()
+# --- Emitters ------------------------------------------------------------------------------
 
-
-## Fire aboard, a missile's plume, and the downwash under a hovering helicopter.
+## Fire and black smoke aboard, a missile's exhaust, an aircraft's engine glow and the downwash
+## under a hovering helicopter.
 func _apply_emitters(rec: Dictionary, e: Dictionary, at: Vector3, heading: float) -> void:
 	var unit: Unit = e.get("unit")
 	var kind: String = e["kind"]
 	var length: float = e["length_m"]
 	var fwd := WorldPresentation.heading_vector(heading)
 	var speed_mps := 0.0
+	var w: Weapon = e.get("weapon")
 	if unit != null:
 		speed_mps = unit.speed_kn * 0.5144
-	elif e.get("weapon") != null:
-		speed_mps = (e["weapon"] as Weapon).spec.speed_kn * 0.5144
+	elif w != null:
+		speed_mps = w.spec.speed_kn * 0.5144
 	var velocity := fwd * speed_mps
-	if unit != null and unit.fire > 0.0 and (kind == "own" or kind == "visual"):
-		if rec["smoke"] == null:
-			rec["smoke"] = effects.acquire_smoke()
-		effects.drive_smoke(rec["smoke"], at + Vector3(0.0, rec["height_m"] * 0.45, 0.0), velocity, unit.fire, length)
-	elif rec["smoke"] != null and rec["dying_since"] < 0.0:
-		effects.release(rec["smoke"])
-		rec["smoke"] = null
-	if kind == "weapon" and not e.get("torpedo", false):
+	var eye := camera.global_position if camera != null else Vector3.ZERO
+	var burning: bool = unit != null and unit.fire > 0.0 and (kind == "own" or kind == "visual") and e["domain"] != "air"
+	if burning:
+		if rec["fire"] == null:
+			rec["fire"] = effects.acquire_fire()
+		effects.drive_fire(rec["fire"], at + Vector3(0.0, rec["height_m"] * 0.18, 0.0) - fwd * length * 0.1, velocity, unit.fire, length)
+	elif rec["fire"] != null and rec["dying_since"] < 0.0:
+		effects.release_fire(rec["fire"])
+		rec["fire"] = null
+	if kind == "weapon" and not e.get("torpedo", false) and not e.get("gun", false):
 		if rec["plume"] == null:
 			rec["plume"] = effects.acquire_plume()
-		var scale := WorldPresentation.model_scale(length)
-		var nozzle := at - fwd * 4.6 * scale
-		effects.drive_plume(rec["plume"], nozzle, velocity, 1.0, camera.global_position.distance_to(nozzle) if camera != null else 0.0)
+		var nozzle := at - fwd * length * 0.5
+		effects.drive_plume(rec["plume"], nozzle, velocity, eye.distance_to(nozzle))
 	elif rec["plume"] != null:
 		effects.release_plume(rec["plume"])
 		rec["plume"] = null
+	var jet: bool = unit != null and e["domain"] == "air" and (kind == "own" or kind == "visual") and not unit.spec.can_hover and not rec["model_id"].begins_with("marker:")
+	if jet:
+		if rec["glow"] == null:
+			rec["glow"] = effects.acquire_glow()
+		var tail := at - fwd * length * 0.5
+		effects.drive_glow(rec["glow"], tail, maxf(length * 0.09, 1.2), eye.distance_to(tail))
+	elif rec["glow"] != null:
+		effects.release_glow(rec["glow"])
+		rec["glow"] = null
 	var disc: MeshInstance3D = rec["disc"]
 	if unit != null and unit.is_hovering():
 		if disc == null:
@@ -746,10 +854,10 @@ func _apply_emitters(rec: Dictionary, e: Dictionary, at: Vector3, heading: float
 		disc.visible = false
 
 
-# --- Retirement --------------------------------------------------------------------------
+# --- Retirement ----------------------------------------------------------------------------
 
 ## An entry that has gone. A unit that died on screen sinks or falls first; everything else,
-## including a track that dropped and a round that hit, goes at once.
+## including a track that dropped and a round that hit, goes at once, a round leaving its smoke.
 func _retire(key: String) -> void:
 	var rec: Dictionary = _records[key]
 	var e: Dictionary = rec["entry"]
@@ -762,18 +870,21 @@ func _retire(key: String) -> void:
 	_release(key)
 
 
-## Returns true while the animation still runs.
+## Returns true while the animation still runs. A ship settles by the stern, lists and goes down
+## with its fire still burning; an aircraft tumbles into the sea.
 func _animate_dying(rec: Dictionary, e: Dictionary, unit: Unit) -> bool:
 	var root: Node3D = rec["root"]
 	var aircraft: bool = e["domain"] == "air"
 	var duration := WorldPresentation.FALL_DURATION_S if aircraft else WorldPresentation.SINK_DURATION_S
 	var p := (anim - float(rec["dying_since"])) / duration
+	var nm: Vector2 = rec.get("nm", e["position"])
 	if p >= 1.0:
-		if aircraft:
-			var sea := WorldPresentation.to_world(e["position"], origin_nm, 0.0)
-			effects.burst("splash", Vector3(sea.x, swell_at(sea), sea.z), 1.5)
+		var sea := WorldPresentation.to_world(nm, origin_nm, 0.0)
+		effects.burst("splash", nm, 0.0, 1.5 if aircraft else 2.2)
+		if not aircraft:
+			effects.burst("miss", nm + Geo.heading_to_vector(float(e["heading_deg"])) * 0.02, swell_at(sea), 1.4)
 		return false
-	var base := WorldPresentation.to_world(e["position"], origin_nm, float(e["height_m"]))
+	var base := WorldPresentation.to_world(nm, origin_nm, float(e["height_m"]))
 	var heading: float = e["heading_deg"] if e["has_heading"] else 0.0
 	var yaw := WorldPresentation.heading_to_yaw(heading)
 	var sign := 1.0 if unit.id % 2 == 0 else -1.0
@@ -785,15 +896,19 @@ func _animate_dying(rec: Dictionary, e: Dictionary, unit: Unit) -> bool:
 	else:
 		var ease := p * p * (3.0 - 2.0 * p)
 		var height: float = rec["height_m"]
-		var lift := WorldPresentation.hull_lift_m(rec["bounds"].size.y, root.scale.x) - height * 0.8 * p * p
+		var lift := WorldPresentation.hull_lift_m(rec["bounds"].size.y, root.scale.x) - height * 0.85 * p * p
 		root.position = base + Vector3(0.0, lift + swell_at(base), 0.0)
-		root.rotation = Vector3(sign * deg_to_rad(42.0) * ease, yaw, deg_to_rad(-9.0) * ease)
-		if rec["smoke"] != null:
-			effects.drive_smoke(rec["smoke"], root.position + Vector3(0.0, height * 0.3, 0.0), Vector3.ZERO, maxf(0.9 - p, 0.1), float(e["length_m"]))
+		root.rotation = Vector3(sign * deg_to_rad(38.0) * ease, yaw, deg_to_rad(-11.0) * ease)
+		if rec["fire"] == null:
+			rec["fire"] = effects.acquire_fire()
+		effects.drive_fire(rec["fire"], root.position + Vector3(0.0, height * 0.15 * (1.0 - p), 0.0), Vector3.ZERO, maxf(0.95 - p, 0.1), float(e["length_m"]))
 	if rec["ring"] != null:
 		(rec["ring"] as MeshInstance3D).visible = false
 	if rec["wake"] != null:
 		(rec["wake"] as MeshInstance3D).visible = false
+	if rec["glow"] != null:
+		effects.release_glow(rec["glow"])
+		rec["glow"] = null
 	return true
 
 
@@ -805,15 +920,17 @@ func _release(key: String) -> void:
 		if node != null:
 			node.queue_free()
 	_release_strip(rec["wake"])
-	_release_strip(rec["ribbon"])
-	if rec["smoke"] != null:
-		effects.release(rec["smoke"])
+	if rec["fire"] != null:
+		effects.release_fire(rec["fire"])
 	if rec["plume"] != null:
 		effects.release_plume(rec["plume"])
+	if rec["glow"] != null:
+		effects.release_glow(rec["glow"])
+	effects.trail_release(key)
 	_records.erase(key)
 	_trails.erase(key)
-	_ribbons.erase(key)
 	_headings.erase(key)
+	_ground.erase(key)
 
 
 ## Hands a record's model back to the pool, untinted.
@@ -827,7 +944,7 @@ func _release_model(rec: Dictionary) -> void:
 	rec["root"] = null
 
 
-# --- Queries for the HUD -----------------------------------------------------------------
+# --- Queries -------------------------------------------------------------------------------
 
 ## Where to put a label for each shown entity: {key, world, label, sublabel, color, kind, distance_m}.
 func anchors() -> Array[Dictionary]:
@@ -844,7 +961,19 @@ func anchors() -> Array[Dictionary]:
 	return out
 
 
-## The world position, model length and heading of the focus entity, or {} before it exists.
+## True while the view holds something for this key, alive or going down.
+func has_record(key: String) -> bool:
+	return _records.has(key)
+
+
+## True while the entity with this key is going down: sinking, or falling into the sea.
+func is_dying(key: String) -> bool:
+	var rec: Dictionary = _records.get(key, {})
+	return not rec.is_empty() and float(rec["dying_since"]) >= 0.0
+
+
+## The world frame of an entity for the camera: position (a little above its middle), model
+## length, height, heading, domain and speed. {} when it is not on the view.
 func focus_frame(key: String) -> Dictionary:
 	var rec: Dictionary = _records.get(key, {})
 	if rec.is_empty() or rec.get("root") == null:
@@ -852,7 +981,7 @@ func focus_frame(key: String) -> Dictionary:
 	var e: Dictionary = rec["entry"]
 	var root: Node3D = rec["root"]
 	var height: float = rec["height_m"]
-	return {"position": root.position + Vector3(0.0, height * 0.22, 0.0), "length": float(e["length_m"]), "height": height, "heading": float(e["heading_deg"]) if e["has_heading"] else 0.0, "domain": e["domain"]}
+	return {"position": root.position + Vector3(0.0, height * 0.22, 0.0), "length": float(e["length_m"]), "height": height, "heading": float(e["heading_deg"]) if e["has_heading"] else 0.0, "domain": e["domain"], "speed_mps": _speed_kn(e) * 0.5144}
 
 
 ## The nearest own unit to a point on the view, within `radius_px`, for double-click selection.
@@ -876,11 +1005,11 @@ func pick_own_unit(screen: Vector2, radius_px := 30.0) -> Unit:
 	return best
 
 
-# --- Effects and reset -------------------------------------------------------------------
+# --- Effects and reset ---------------------------------------------------------------------
 
 ## A simulation event at a chart position. `height_m` places an airburst; below zero means the
-## surface. Long-lived smoke is anchored to the chart position, not to the sliding origin.
-func add_effect(pos_nm: Vector2, kind: String, own: bool, height_m := -1.0) -> void:
+## surface. Returns the height it was drawn at.
+func add_effect(pos_nm: Vector2, kind: String, _own: bool, height_m := -1.0) -> float:
 	var h := height_m
 	if h < 0.0:
 		match kind:
@@ -894,24 +1023,25 @@ func add_effect(pos_nm: Vector2, kind: String, own: bool, height_m := -1.0) -> v
 				h = 9.0
 			_:
 				h = 0.0
-	var at := WorldPresentation.to_world(pos_nm, origin_nm, h)
 	if h < 1.0:
-		at.y += swell_at(at)
+		h += swell_at(WorldPresentation.to_world(pos_nm, origin_nm, 0.0))
 	var scale := 1.0
 	if kind == "intercept" and height_m > 2000.0:
 		scale = 2.5
-	for anchored in effects.burst(kind, at, scale):
-		_anchored.append({"node": anchored["node"], "nm": pos_nm, "height": h, "until": anim + float(anchored["until"]) - effects._clock})
+	effects.burst(kind, pos_nm, h, scale)
+	return h
 
 
 func reset() -> void:
 	for key in _records.keys():
 		_release(key)
-	for a in _anchored:
-		if is_instance_valid(a["node"]):
-			effects.release(a["node"] as CPUParticles3D)
-	_anchored.clear()
+	effects.reset()
 	_trails.clear()
-	_ribbons.clear()
 	_headings.clear()
-	_land_generation = -1
+	_ground.clear()
+	_events.clear()
+	_launch_clock.clear()
+	_flagged.clear()
+	_warm = false
+	if land != null:
+		land.reset()

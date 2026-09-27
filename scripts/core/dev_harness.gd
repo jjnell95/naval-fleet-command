@@ -20,6 +20,12 @@ extends RefCounted
 ##   --open-air-ops              open aircraft type selection and landing controls
 ##   --aviation-smoke            verify launch, landing, turnaround and Air Operations UI
 ##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
+##   --run[=N]                   unpause at time-compression step N (0 is 1x) before the hold, so
+##                               a screenshot shows things moving
+##   --sink-after=S              S seconds into the hold, the selected unit is lost, to show it sink
+##   --log-launches              print the simulation time of every launch and impact, to find a moment to shoot
+##   --engage-after=S            S seconds into the hold, the selection fires on the hooked or
+##                               nearest hostile track, so a screenshot catches the launch
 ##   --open-editor               open the scenario editor on the loaded scenario, for screenshots
 ##   --open-menu[=SHELF]         open the operations desk, on one shelf (cold_war, atlantic, pacific, gulf_med, all)
 ##   --brief                     open the briefing board
@@ -41,8 +47,12 @@ extends RefCounted
 ##   --chart-view=X,Y[,PPN]      centre the chart on this world point (nm), optionally at this scale
 ##   --radio=TEXT                post a line on the chart's radio line (spoken by the selection)
 ##   --world-focus=track         drop the selection and hook the first plotted contact, for screenshots
-##   --world-azimuth=DEG         turn the world view camera this far round its focus
+##   --world-azimuth=DEG         turn the tether this far round its subject from the default
 ##   --tab=N                     open the orders board on tab N (0 navigation … 3 doctrine), for screenshots
+##   --world-hours=H             move the world view's sun H hours on, to look at dusk or night
+##   --world-look=DEG            turn the tether so the camera looks along this true bearing
+##   --world-pitch=DEG / --world-zoom=F   the tether's height angle and range multiple
+##   --run[=N]                   resume the clock at speed index N after the other flags, for screenshots
 ##   --ignite=CALLSIGN           start a fire and some flooding aboard one own ship, for screenshots
 ##   --show-report               end the mission as a victory and open the after-action report
 ##   --dump                      print a full state report and quit, without touching the renderer
@@ -103,6 +113,13 @@ func handle_flags() -> void:
 			if u.has_sonar() and not u.is_submarine():
 				main.simulation.unit_manager.issue_order(u, Order.active_sonar())
 		print("[Dev] player surface units are pinging")
+	if args.has("--log-launches"):
+		main.simulation.weapon_manager.weapon_launched.connect(func(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
+			print("[Dev] t=%.0f %s fires %d x %s at %s" % [SimClock.sim_time, shooter.callsign, rounds, spec.display_name, t.id]))
+		main.simulation.weapon_manager.interceptor_launched.connect(func(shooter: Unit, spec: WeaponSpec, _threat: Weapon, rounds: int) -> void:
+			print("[Dev] t=%.0f %s defends with %d x %s" % [SimClock.sim_time, shooter.callsign, rounds, spec.display_name]))
+		main.simulation.weapon_manager.weapon_impact.connect(func(_faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
+			print("[Dev] t=%.0f %s %s %s" % [SimClock.sim_time, spec.display_name, "hits" if hit else "misses", target.callsign]))
 	if fast_forward > 0.0:
 		SimClock.advance(fast_forward)
 		print("[Dev] fast-forwarded %.0f s" % fast_forward)
@@ -229,7 +246,16 @@ func handle_flags() -> void:
 			var modes := {"tether": WorldView.CAM_TETHER, "flyby": WorldView.CAM_FLYBY, "action": WorldView.CAM_ACTION, "detached": WorldView.CAM_DETACHED}
 			main._world_view.set_camera_mode(int(modes.get(a.get_slice("=", 1), WorldView.CAM_TETHER)))
 		elif a.begins_with("--world-azimuth="):
-			main._world_view._az_offset = float(a.get_slice("=", 1))
+			main._world_view.set_orbit(WorldCamera.DEFAULT_AZ + float(a.get_slice("=", 1)))
+		elif a.begins_with("--world-look="):
+			var heading: float = main.map.selected[0].heading_deg if not main.map.selected.is_empty() else 0.0
+			main._world_view.set_orbit(float(a.get_slice("=", 1)) + 180.0 - heading)
+		elif a.begins_with("--world-hours="):
+			main._world_view.sun_offset_s = float(a.get_slice("=", 1)) * 3600.0
+		elif a.begins_with("--world-pitch="):
+			main._world_view.set_orbit(main._world_view.rig.orbit_az, float(a.get_slice("=", 1)))
+		elif a.begins_with("--world-zoom="):
+			main._world_view.set_orbit(main._world_view.rig.orbit_az, NAN, float(a.get_slice("=", 1)))
 		elif a == "--world-focus=track":
 			main.map.select_units([])
 			for t: Track in main.simulation.track_manager.get_tracks(main.simulation.player_faction):
@@ -238,6 +264,11 @@ func handle_flags() -> void:
 					break
 	if args.has("--cds-menu"):
 		main._on_map_context(main.map.size * 0.5, {"kind": "empty"})
+	for a in args:
+		if a == "--run" or a.begins_with("--run="):
+			SimClock.set_speed_index(int(a.get_slice("=", 1)) if a.contains("=") else 0)
+			SimClock.set_paused(false)
+			print("[Dev] running at %dx" % int(SimClock.multiplier()))
 	if args.has("--visual-smoke"):
 		_visual_smoke()
 		return
@@ -245,6 +276,12 @@ func handle_flags() -> void:
 		_dump_state()
 		main.get_tree().quit()
 		return
+	var sink_after := arg(args, "--sink-after=", -1.0)
+	if sink_after >= 0.0:
+		_sink_after(sink_after)
+	var engage_after := arg(args, "--engage-after=", -1.0)
+	if engage_after >= 0.0:
+		_engage_after(engage_after)
 	if shot != "":
 		_screenshot_after(shot, arg(args, "--hold=", 3.0))
 
@@ -366,6 +403,43 @@ func _auto_engage_faction(faction: String) -> void:
 			if Combat.check_engagement(u, spec, best_track)["ok"]:
 				main.simulation.unit_manager.issue_order(u, Order.engage(best_track, spec.id, 4))
 				break
+
+
+## Dev helper: a few seconds into the hold, the selected units (or all of ours) fire on the hooked
+## hostile track, or the nearest one, so a screenshot can catch a launch as it happens.
+func _engage_after(seconds: float) -> void:
+	await main.get_tree().create_timer(seconds).timeout
+	var faction := main.simulation.player_faction
+	var shooters: Array = main.map.selected if not main.map.selected.is_empty() else main.simulation.unit_manager.get_faction_units(faction)
+	var fired := 0
+	for u: Unit in shooters:
+		var target: Track = main.map.selected_track
+		if target == null or target.identity != "HOSTILE" or target.status != Track.Status.ACTIVE:
+			target = null
+			var best_d := INF
+			for t: Track in main.simulation.track_manager.get_tracks(faction):
+				if t.identity == "HOSTILE" and t.status == Track.Status.ACTIVE and u.position.distance_to(t.position) < best_d:
+					best_d = u.position.distance_to(t.position)
+					target = t
+		if target == null:
+			continue
+		for spec in u.offensive_weapons():
+			if Combat.check_engagement(u, spec, target)["ok"]:
+				main.simulation.unit_manager.issue_order(u, Order.engage(target, spec.id, 2))
+				fired += 1
+				break
+	print("[Dev] engage-after: %d units fired" % fired)
+
+
+## Dev helper: a few seconds into the hold, the first selected unit is lost, so a screenshot can
+## show a ship going down.
+func _sink_after(seconds: float) -> void:
+	await main.get_tree().create_timer(seconds).timeout
+	if main.map.selected.is_empty():
+		return
+	var u: Unit = main.map.selected[0]
+	Damage.apply(u, u.health + 1.0)
+	print("[Dev] sink-after: %s alive=%s" % [u.callsign, u.alive])
 
 
 func _dump_state() -> void:
