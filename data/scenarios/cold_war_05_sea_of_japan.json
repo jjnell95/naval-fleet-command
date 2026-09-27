@@ -9,14 +9,14 @@
   "duration_minutes": 30,
   "role": "Carrier battle group commander",
   "learning": "Fleet air defence against a regimental Backfire raid, a surface group with long-range missiles, and a nuclear boat in deep water",
-  "commander_intent": "Keep Carl Vinson and Antietam afloat for three hours, or break the Soviet surface group before it reaches the Tsugaru approaches.",
+  "commander_intent": "Keep Carl Vinson and Antietam afloat for four hours, or break the Soviet surface group before it reaches the Tsugaru approaches.",
   "first_orders": [
     "Launch the E-2C and a pair of F-14A+ toward Vladivostok; the raid will come from the north-west, the cruiser from the west.",
     "Antietam is the inner missile screen. Keep her radiating and between the carrier and the Soviet group; hold Fife and Curts on the flanks for the Victor III.",
     "Honolulu is quiet and ahead of the group. Let her work the Victor before you send the Vikings."
   ],
   "historical_note": "Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
-  "description": "23 September 1990, Sea of Japan. A fictional crisis has brought Carl Vinson's battle group into the Sea of Japan. The Pacific Fleet's newest cruiser, Chervona Ukraina, a Sovremennyy and an Udaloy have sortied from Vladivostok toward the Tsugaru Strait, a Victor III is in deep water ahead of them, and Backfires from Kamenny Ruchey are ready. Airborne radar buys the warning; the Aegis cruiser and the escorts must stop what the fighters miss.",
+  "description": "23 September 1990, Sea of Japan. A fictional crisis has brought Carl Vinson's battle group into the Sea of Japan. The Pacific Fleet's newest cruiser, Chervona Ukraina, a Sovremennyy and an Udaloy sortied from Vladivostok overnight and are already in the Japan Basin heading for the Tsugaru Strait, a Victor III is in deep water ahead of them, and Backfires from Kamenny Ruchey are ready. Airborne radar buys the warning; the Aegis cruiser and the escorts must stop what the fighters miss.",
   "start_time_utc": "1990-09-22T20:00:00",
   "player_faction": "BLUE",
   "neutral_factions": [
@@ -424,17 +424,13 @@
       "callsign": "Chervona Ukraina",
       "faction": "RED",
       "position_nm": [
-        -153.4926,
-        84.0
+        27.0869,
+        42.0
       ],
-      "heading_deg": 150,
-      "speed_kn": 20,
+      "heading_deg": 120,
+      "speed_kn": 24,
       "ai_posture": "breakout",
       "patrol_nm": [
-        [
-          18.058,
-          48.0
-        ],
         [
           162.5216,
           12.0
@@ -446,17 +442,13 @@
       "callsign": "Osmotritelny",
       "faction": "RED",
       "position_nm": [
-        -139.9492,
-        90.0
+        38.3732,
+        48.0
       ],
-      "heading_deg": 150,
-      "speed_kn": 20,
+      "heading_deg": 120,
+      "speed_kn": 24,
       "ai_posture": "breakout",
       "patrol_nm": [
-        [
-          27.0869,
-          54.0
-        ],
         [
           162.5216,
           12.0
@@ -468,17 +460,13 @@
       "callsign": "Admiral Tributs",
       "faction": "RED",
       "position_nm": [
-        -167.0361,
-        78.0
+        15.8007,
+        36.0
       ],
-      "heading_deg": 150,
-      "speed_kn": 20,
+      "heading_deg": 120,
+      "speed_kn": 24,
       "ai_posture": "breakout",
       "patrol_nm": [
-        [
-          9.029,
-          42.0
-        ],
         [
           162.5216,
           12.0
@@ -521,7 +509,7 @@
       "air_wing": [
         {
           "platform": "cw90_tu22m3",
-          "count": 4,
+          "count": 3,
           "callsign": "Backfire raid",
           "squadron": "Naval missile aviation regiment",
           "first_modex": 1,
@@ -542,13 +530,13 @@
   "victory_mode": "any",
   "force_note": "Period identities; fictional 1990 deployment. Tactical magazines and reduced air detachments represent weapons available in this mission, not full real-world readiness.",
   "objectives": {
-    "text": "Survive the 3-hour watch, or neutralize Chervona Ukraina and Osmotritelny. Carl Vinson or Antietam lost, or the cruiser reaching the Tsugaru approaches, means defeat.",
+    "text": "Survive the 4-hour watch, or neutralize Chervona Ukraina and Osmotritelny. Carl Vinson or Antietam lost, or the cruiser reaching the Tsugaru approaches, means defeat.",
     "victory": [
       {
         "id": "watch",
         "type": "time_elapsed",
         "text": "Complete the watch with protected units intact",
-        "seconds": 10800
+        "seconds": 14400
       },
       {
         "id": "neutralize",
@@ -586,7 +574,7 @@
       }
     ]
   },
-  "forces": "NATO: Carl Vinson, Antietam, Fife, Curts, Honolulu; F-14A+, E-2C, S-3A, SH-3H, SH-60B; Misawa P-3C / USSR: Chervona Ukraina, Osmotritelny, Admiral Tributs, 1 Victor III, 4 Backfire-C",
+  "forces": "NATO: Carl Vinson, Antietam, Fife, Curts, Honolulu; F-14A+, E-2C, S-3A, SH-3H, SH-60B; Misawa P-3C / USSR: Chervona Ukraina, Osmotritelny, Admiral Tributs, 1 Victor III, 3 Backfire-C",
   "terrain": {
     "land": [
       {

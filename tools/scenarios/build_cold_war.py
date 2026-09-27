@@ -445,11 +445,11 @@ def scenarios():
 
     s=Mission("cold_war_05_sea_of_japan","SEA OF JAPAN: THE VLADIVOSTOK SORTIE",41.2,136.0,800,-5,"1990-09-22T20:00:00",
       "Advanced",30,"Carrier battle group commander","Fleet air defence against a regimental Backfire raid, a surface group with long-range missiles, and a nuclear boat in deep water",
-      "Keep Carl Vinson and Antietam afloat for three hours, or break the Soviet surface group before it reaches the Tsugaru approaches.",
+      "Keep Carl Vinson and Antietam afloat for four hours, or break the Soviet surface group before it reaches the Tsugaru approaches.",
       ["Launch the E-2C and a pair of F-14A+ toward Vladivostok; the raid will come from the north-west, the cruiser from the west.",
        "Antietam is the inner missile screen. Keep her radiating and between the carrier and the Soviet group; hold Fife and Curts on the flanks for the Victor III.",
        "Honolulu is quiet and ahead of the group. Let her work the Victor before you send the Vikings."],
-      "23 September 1990, Sea of Japan. A fictional crisis has brought Carl Vinson's battle group into the Sea of Japan. The Pacific Fleet's newest cruiser, Chervona Ukraina, a Sovremennyy and an Udaloy have sortied from Vladivostok toward the Tsugaru Strait, a Victor III is in deep water ahead of them, and Backfires from Kamenny Ruchey are ready. Airborne radar buys the warning; the Aegis cruiser and the escorts must stop what the fighters miss.",
+      "23 September 1990, Sea of Japan. A fictional crisis has brought Carl Vinson's battle group into the Sea of Japan. The Pacific Fleet's newest cruiser, Chervona Ukraina, a Sovremennyy and an Udaloy sortied from Vladivostok overnight and are already in the Japan Basin heading for the Tsugaru Strait, a Victor III is in deep water ahead of them, and Backfires from Kamenny Ruchey are ready. Airborne radar buys the warning; the Aegis cruiser and the escorts must stop what the fighters miss.",
       theatre="Sea of Japan")
     s.d["environment"].update(sea_state=4,wind_kn=20,visibility_nm=9,layer_depth_m=110,layer_strength=.55,cz_range_nm=30)
     cv="USS Carl Vinson (CVN 70)"
@@ -462,18 +462,18 @@ def scenarios():
     s.unit("los_angeles","USS Honolulu (SSN 718)","BLUE",41.6,134.6,320,7,depth_m=160,radar_on=False)
     s.unit("airfield","Misawa Air Base","BLUE",40.703,141.368,
            air_wing=[dict(platform=ident("p3c"),count=1,callsign="Orion",squadron="Patrol Squadron detachment",first_modex=21,patrol_nm=[s.xy(41.6,135.4),s.xy(40.6,136.8)])])
-    s.unit("slava","Chervona Ukraina","RED",42.6,132.6,150,20,ai_posture="breakout",patrol_nm=[s.xy(42.0,136.4),tsugaru])
-    s.unit("sovremenny","Osmotritelny","RED",42.7,132.9,150,20,ai_posture="breakout",patrol_nm=[s.xy(42.1,136.6),tsugaru])
-    s.unit("udaloy","Admiral Tributs","RED",42.5,132.3,150,20,ai_posture="breakout",patrol_nm=[s.xy(41.9,136.2),tsugaru])
+    s.unit("slava","Chervona Ukraina","RED",41.9,136.6,120,24,ai_posture="breakout",patrol_nm=[tsugaru])
+    s.unit("sovremenny","Osmotritelny","RED",42.0,136.85,120,24,ai_posture="breakout",patrol_nm=[tsugaru])
+    s.unit("udaloy","Admiral Tributs","RED",41.8,136.35,120,24,ai_posture="breakout",patrol_nm=[tsugaru])
     s.unit("victor3","Soviet submarine (Victor III)","RED",41.7,135.3,160,7,depth_m=170,radar_on=False,
            patrol_nm=[s.xy(41.0,136.4),s.xy(41.8,134.8)])
     s.unit("airfield","Kamenny Ruchey","RED",49.235,140.194,
-           air_wing=[dict(platform=ident("tu22m3"),count=4,callsign="Backfire raid",squadron="Naval missile aviation regiment",first_modex=1,patrol_nm=[s.xy(42.4,137.6),s.xy(40.6,136.4)])])
-    s.objectives("Survive the 3-hour watch, or neutralize Chervona Ukraina and Osmotritelny. Carl Vinson or Antietam lost, or the cruiser reaching the Tsugaru approaches, means defeat.",
-       [hold(10800),destroyed(["Chervona Ukraina","Osmotritelny"])],
+           air_wing=[dict(platform=ident("tu22m3"),count=3,callsign="Backfire raid",squadron="Naval missile aviation regiment",first_modex=1,patrol_nm=[s.xy(42.4,137.6),s.xy(40.6,136.4)])])
+    s.objectives("Survive the 4-hour watch, or neutralize Chervona Ukraina and Osmotritelny. Carl Vinson or Antietam lost, or the cruiser reaching the Tsugaru approaches, means defeat.",
+       [hold(14400),destroyed(["Chervona Ukraina","Osmotritelny"])],
        [loss([cv,cg],"Carrier or air-defence commander lost"),area("tsugaru",["Chervona Ukraina"],tsugaru,"Chervona Ukraina reached the Tsugaru approaches",radius=8)],mode="any")
     s.d["map"].update(focus_center_nm=s.xy(40.6,136.2),focus_extent_nm=240)
-    s.d["forces"]="NATO: Carl Vinson, Antietam, Fife, Curts, Honolulu; F-14A+, E-2C, S-3A, SH-3H, SH-60B; Misawa P-3C / USSR: Chervona Ukraina, Osmotritelny, Admiral Tributs, 1 Victor III, 4 Backfire-C"
+    s.d["forces"]="NATO: Carl Vinson, Antietam, Fife, Curts, Honolulu; F-14A+, E-2C, S-3A, SH-3H, SH-60B; Misawa P-3C / USSR: Chervona Ukraina, Osmotritelny, Admiral Tributs, 1 Victor III, 3 Backfire-C"
     yield s.write()
 
 

@@ -219,12 +219,12 @@ def catalogue():
 
     platform("pla_ddg_type055", "Type 055 large destroyer (Renhai)", "DDG Type 055", "China", "destroyer",
              ["pla_type346b", "pla_type518", "pla_hsjd9", "pla_hsjg311", "pla_esm"],
-             {"pla_hhq9b": 48, "pla_yj18": 16, "pla_yj21": 8, "pla_cj10": 8, "pla_yu8": 8, "pla_hhq10": 24, "pla_hpj11_ciws": 100, "pla_hpj45_130mm": 300, "pla_yu7": 6},
+             {"pla_hhq9b": 48, "pla_yj18": 16, "pla_yj21": 6, "pla_cj10": 8, "pla_yu8": 8, "pla_hhq10": 24, "pla_hpj11_ciws": 100, "pla_hpj45_130mm": 300, "pla_yu7": 6},
              length_m=180.0, displacement_t=13000.0, health=150.0, signature_factor=1.2, mast_height_m=34.0,
              fire_control_channels=8, decoy_count=16, aircraft_capacity=2, vls_cells=112,
              default_air_wing={"pla_helo_z20f": 2},
              role="Area air defence / long-range strike / group flagship",
-             service_note="112 universal cells shared between HHQ-9B, YJ-18, YJ-21, CJ-10 and Yu-8; the allocation here is a scenario load. Two helicopters aboard. Cruiser-sized by Western reckoning; the PLAN rates it a destroyer.")
+             service_note="112 universal cells shared between HHQ-9B, YJ-18, YJ-21, CJ-10 and Yu-8; the allocation here is a scenario load of 86 cells. Two helicopters aboard. Cruiser-sized by Western reckoning; the PLAN rates it a destroyer.")
     platform("pla_ddg_type052d", "Type 052D destroyer (Luyang III)", "DDG Type 052D", "China", "destroyer",
              ["pla_type346a", "pla_type518", "pla_hsjd9", "pla_hsjg311", "pla_esm"],
              {"pla_hhq9b": 32, "pla_yj18": 8, "pla_yu8": 8, "pla_hhq10": 24, "pla_hpj12_ciws": 100, "pla_hpj45_130mm": 300, "pla_yu7": 6},
@@ -335,7 +335,7 @@ def catalogue():
          role="Long-range air defence of an island or a coast",
          service_note="An engagement radar and four launchers; it defends everything within reach exactly as a ship's air defence does.")
     site("pla_asbm_df21d", "DF-21D anti-ship ballistic missile battery", "Battery DF-21D", "China", "ballistic missile battery",
-         [], {"pla_df21d": 6}, health=50.0, signature_factor=0.8, mast_height_m=10.0,
+         [], {"pla_df21d": 4}, health=50.0, signature_factor=0.8, mast_height_m=10.0,
          role="Long-range anti-carrier fires from inland",
          service_note="No sensors of its own: it fires on a classified track handed to it over the network, which is the whole operational problem it poses and the one it has.")
 
@@ -460,7 +460,7 @@ def catalogue():
     weapon("irn_nasr1", "Nasr-1 light anti-ship missile", "asm", ["surface"], 19, 480, 25,
            min_range_nm=1.0, base_pk=0.60, defensive_difficulty=0.9, signature_factor=0.08, seeker_range_nm=4.0)
     weapon("irn_khalij_fars", "Khalij Fars anti-ship ballistic missile", "asm", ["surface"], 190, 4000, 90,
-           min_range_nm=30.0, base_pk=0.45, salvo_default=2, profile="ballistic", guidance="inertial_electro_optical",
+           min_range_nm=30.0, base_pk=0.40, salvo_default=2, profile="ballistic", guidance="inertial_electro_optical",
            altitude_m=40000.0, defensive_difficulty=1.9, signature_factor=0.5, soft_kill_resistance=5.0,
            turn_rate_deg_s=6.0, launch_interval_s=25.0)
     weapon("irn_sayyad4_sam", "Sayyad-4 long-range surface-to-air missile", "sam", ["missile", "air"], 110, 2300, 42,
@@ -519,7 +519,7 @@ def catalogue():
          role="Coastal anti-ship fires over the strait",
          service_note="Launchers in the hills behind the coast with a surveillance radar above them.")
     site("irn_asbm_khalij_fars", "Khalij Fars anti-ship ballistic missile battery", "Battery Khalij Fars", "Iran", "ballistic missile battery",
-         [], {"irn_khalij_fars": 6}, health=40.0, signature_factor=0.8, mast_height_m=10.0,
+         [], {"irn_khalij_fars": 4}, health=40.0, signature_factor=0.8, mast_height_m=10.0,
          role="Ballistic anti-ship fires on a handed-off track",
          service_note="Fires on the picture its drones and coastal radars supply; it has no sensor of its own.")
     site("irn_drone_site_shahed", "One-way attack drone launch site", "Drone site", "Iran", "drone launch site",
