@@ -42,7 +42,8 @@ scripts/simulation/       SimulationClock, World, UnitManager, SensorManager, Tr
                           WeaponManager, MissionManager
 scripts/entities/         Unit → SurfaceShip / Submarine / Aircraft; Weapon
 scripts/systems/          Movement, Detection, Combat, Damage, AI, Terrain + Landmass
-scripts/ui/               TacticalMap, UnitPanel, ContactPanel, OrdersPanel, TimeControls
+scripts/ui/               TacticalMap + chart layers, RegionalMap, WorldView, DataDisplay, StatusBoards,
+                          CdsMenus, RadioNet, the old dock panels, dialogs and the front end
 data/platforms/{surface,submarines,aircraft,helicopters}/   platform specs (nation is a field,
                           not a directory)
 data/sensors/  data/weapons/  data/scenarios/
@@ -60,14 +61,20 @@ Main (Control, main.gd)            theme = UITheme.build(); global hotkeys; rout
 │   ├── ThreatManager (Node)        per-faction picture of detected incoming rounds
 │   ├── WeaponManager (Node)        salvos, weapons in flight, seeker acquisition, hits, intercepts
 │   └── MissionManager (Node)       victory / loss evaluation
-└── Layout (VBox)
-    ├── TopBar (PanelContainer)     time, pause, 1x-60x, objective readout, brief/restart/menu
-    ├── Middle (HBox)
-    │   ├── UnitPanel               selected unit(s) detail
-    │   ├── TacticalMap (Control)   custom _draw(); zoom/pan/select; emits order requests
-    │   └── ContactPanel            track list + detail (reads Tracks only)
-    └── OrdersPanel                 speed/course/weapon controls -> emits Order
-Overlays (children of Main, above the layout): ScenarioMenu, BriefingPanel, mission banner.
+└── Layout (VBox)                   the CDS screen
+    ├── Upper (Control)             top 68%: the chart, or the 3D view when G has swapped them
+    │   ├── TacticalMap (Control)   ChartFloor + ChartLand behind a custom _draw(); zoom/pan/select;
+    │   │                           right-click → move_order_requested / context_menu_requested
+    │   └── StatusBoards            the ASTABs (A): OrdersPanel, UnitPanel, ContactPanel, comms
+    ├── MapEdge (BevelFrame)        the bevel under the chart
+    └── BottomStrip (HBox)          bottom 32%, each pane in a BevelFrame
+        ├── RegionalFrame → RegionalMap   square; the whole battle space, the chart's view box
+        ├── ViewFrame → WorldView         the always-on 3D view (or the chart when swapped)
+        └── DataFrame → DataDisplay       the hooked item's data, TIME / SCALE, message lamp
+Created in code: RadioNet (message traffic: radio line, comms board, lamp), CdsMenus (right-click
+menus), KeyCommands (H), and the full-screen surfaces.
+Overlays (children of Main, above the layout): ScenarioMenu, ScenarioEditor, BriefingPanel, AfterAction,
+CommandPalette, AirOperations, KeyCommands, PlatformLibrary.
 Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 ```
 

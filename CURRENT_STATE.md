@@ -1,4 +1,12 @@
-# Current State: M23 World Theatres, Shore Batteries and the World View
+# Current State: M24 The CDS Screen
+
+The command screen was rebuilt as a late-1990s fleet-command CDS screen, matched against that era's manual and screenshots and rendered at modern quality, with original code and art. A relief-shaded tactical chart runs edge to edge across the top two-thirds of the window. Below it are a square regional map, an always-on 3D view of the hooked platform with tether, fly-by, action and detached cameras, and a navy data display with the watch time, time scale and a message lamp. The top bar, status rail and side panels are gone: orders go through right-click menus, hotkeys and grey pop-up dialogs, and the old dock, task group and track file panels live on the status boards (A). The radio line at the foot of the chart carries each unit's traffic, and another side's units are named only by the track the plot holds.
+
+The chart is a hypsometric relief map: land heights from GMTED2010 (USGS, public domain) on each region's sea-floor grid, the sea in stepped blue bands, NTDS symbols with white track numbers and velocity leaders, and graphic symbols on Tab. Dialogs, menus and the front end wear a 1999 grey skin over an original dusk render from the game's own 3D scene. Several keys moved to make room for the CDS bindings (G swap, F8–F12 cameras, F10 full-screen 3D, A boards, H key commands); H lists them all. See the [M24 notes](docs/2026-09-27-cds-screen.md).
+
+Validation: see the M24 notes.
+
+## Previous: M23 World Theatres, Shore Batteries and the World View
 
 The game now spans four chart regions and twenty-two operations. Global Natural Earth land and bathymetry were extracted into regional charts for the North Atlantic, the Western Pacific, the Arabian Sea and Red Sea, and the Mediterranean; the runtime picks the region from the scenario anchor, so every mission has a continuous sea floor under it. A generated 2027 catalogue adds 45 platforms, 43 weapons and 58 sensors for the PLAN, the Japanese Self-Defense Forces, Iran, Russian coastal forces and civilian tankers, each with an inspectable model and recognition art built by a Blender-free pipeline.
 

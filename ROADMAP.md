@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M24 the CDS screen
+
+The command screen rebuilt in the manner of the late-1990s fleet-command games: an edge-to-edge relief chart, regional map, always-on 3D view and data display; right-click orders, status boards, a radio line and the CDS key map; a 1999 grey skin on every dialog and screen. See the [M24 notes](docs/2026-09-27-cds-screen.md).
+
+The most useful next steps are a measured frame budget for the always-on 3D view on real browsers and GPUs, an allied identity in the track model so the orange symbols have something to mean, and higher-resolution land heights for close-in coastal work.
+
 ## M23 world theatres, shore batteries and the world view
 
 Four Natural Earth chart regions, a 2027 Pacific, Gulf and Mediterranean catalogue of 45 platforms with art and models, installations ashore that fight and can be struck, ski-jump carriers, seven new operations (22 in all) with full briefing cards on every mission, theatre shelves on the operations desk, and a 3D world view that obeys the information model. See the [M23 notes](docs/2026-09-27-world-theatres.md).
