@@ -84,7 +84,8 @@ func _ready() -> void:
 	data_display.simulation = simulation
 	data_display.pause_requested.connect(SimClock.toggle_pause)
 	data_display.scale_step_requested.connect(func(step: int) -> void: SimClock.set_speed_index(SimClock.speed_index + step))
-	data_display.messages_requested.connect(func() -> void: _toggle_boards(StatusBoards.BOARD_COMMS))
+	data_display.messages_requested.connect(_on_message_lamp)
+	status_boards.comms_shown.connect(func() -> void: data_display.unread_alerts = 0)
 	data_display.threat_requested.connect(_focus_urgent_threat)
 	regional = RegionalMap.new()
 	regional.name = "RegionalMap"
@@ -95,6 +96,7 @@ func _ready() -> void:
 	_cds_menus.name = "CdsMenus"
 	_cds_menus.theme_source = theme
 	_cds_menus.action_chosen.connect(_run_cds_action)
+	_cds_menus.menu_closed.connect(func() -> void: map.menu_open = false)
 	add_child(_cds_menus)
 	orders_panel.weapon_manager = simulation.weapon_manager
 	map.unit_manager = simulation.unit_manager
@@ -253,9 +255,16 @@ func start_scenario(path: String) -> void:
 	map.reset_presentation()
 	if _world_view != null:
 		_world_view.reset_presentation()
+	# A new operation opens on the command screen's own layout, and its chart is fitted once the
+	# top area has been laid out again (bringing the bottom strip back only queues that).
+	if _views_swapped or _world_full:
+		_views_swapped = false
+		_world_full = false
+		_arrange_views()
 	var chart: Dictionary = simulation.scenario.get("map", {})
 	var focus: Array = chart.get("focus_center_nm", [simulation.map_center.x, simulation.map_center.y])
 	map.fit_to(Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
+	map.call_deferred("fit_to", Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
 	radio.clear()
 	radio.set_scenario_name(simulation.scenario_name)
 	status_boards.close_boards()
@@ -306,6 +315,9 @@ func _fit_bottom_strip() -> void:
 ## holds the chart and the bottom-centre pane the 3D view; G swaps them, and F10 gives the 3D view
 ## the whole window by collapsing the bottom strip under it. Both keep running throughout.
 func _arrange_views() -> void:
+	# A control that leaves the tree mid-drag never hears the release that would end the drag.
+	map.cancel_drag()
+	regional.cancel_drag()
 	var top: Control = _world_view if (_views_swapped or _world_full) else map
 	var pane: Control = map if top == _world_view else _world_view
 	for pair: Array in [[top, _upper], [pane, _view_frame]]:
@@ -334,12 +346,20 @@ func _toggle_world_full() -> void:
 
 
 ## The status boards (ASTABs). A board number opens that board, or closes it if it is already up.
+## Opening the comms board by any route clears the message lamp (StatusBoards.comms_shown).
 func _toggle_boards(board := -1) -> void:
 	status_boards.toggle(board)
-	if status_boards.showing_comms():
-		data_display.unread_alerts = 0
 	if not status_boards.visible:
 		_focus_map_if_clear()
+
+
+## The lamp on the data display: it opens the comms board, and closes it only when it is already
+## what is on screen, so a click on a lit lamp always shows the messages it is lit for.
+func _on_message_lamp() -> void:
+	if status_boards.showing_comms():
+		_toggle_boards(StatusBoards.BOARD_COMMS)
+	else:
+		status_boards.open_board(StatusBoards.BOARD_COMMS)
 
 
 func _build_screens() -> void:
@@ -588,7 +608,7 @@ func _close_report() -> void:
 
 
 func _focus_map_if_clear() -> void:
-	if not _has_visible_modal() and map.focus_mode != Control.FOCUS_NONE:
+	if not _has_visible_modal() and map.focus_mode != Control.FOCUS_NONE and map.is_visible_in_tree():
 		map.grab_focus()
 
 
@@ -812,7 +832,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if k.keycode == KEY_SPACE:
 		SimClock.toggle_pause()
-	elif (focus == null or focus == map) and not (k.ctrl_pressed or k.meta_pressed or k.alt_pressed or k.shift_pressed):
+	elif map.is_visible_in_tree() and not map.menu_open and (focus == null or focus == map) and not (k.ctrl_pressed or k.meta_pressed or k.alt_pressed or k.shift_pressed):
 		# Only from the chart: on the status boards Tab still walks the controls.
 		map.cycle_symbol_mode()
 	else:
@@ -1113,7 +1133,7 @@ func _on_weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit) -> void:
 	map.add_effect(threat.position, "decoy")
 	_world_view.add_effect(threat.position, "decoy", own, threat.spec.altitude_m)
 	if own or from_unit.faction == simulation.player_faction:
-		radio.flash("%s decoyed off %s — re-acquired %s" % [threat.spec.display_name, from_unit.callsign, to_unit.callsign], "alert" if own else "warn")
+		radio.flash("%s decoyed off %s — re-acquired %s" % [threat.spec.display_name, _radio_name(from_unit), _radio_name(to_unit)], "alert" if own else "warn")
 	print("[Defence] %s decoyed off %s, re-acquired %s" % [threat.spec.display_name, from_unit.callsign, to_unit.callsign])
 
 
@@ -1158,7 +1178,12 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 			casualties += " · FLOODING"
 		radio.flash("Hit — %s%s" % [Damage.condition_text(target).to_lower(), casualties], "alert", target)
 	else:
-		radio.flash("HIT on %s — %.0f%% remaining" % [target.callsign, Damage.health_fraction(target) * 100.0], "good")
+		# Only what the plot holds: the contact's track label, never its true name or health.
+		var t := _held_track(target)
+		if t != null:
+			radio.flash("Hit", "good", t)
+		elif faction == simulation.player_faction:
+			radio.flash("Weapon hit", "good")
 	print("[Combat] %s hit %s (%s, %.0f%%)" % [spec.display_name, target.callsign, Damage.condition_text(target), Damage.health_fraction(target) * 100.0])
 
 
@@ -1167,15 +1192,36 @@ func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
 	_world_view.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
 	SoundFx.play("impact", 0.0)
-	var how := "LOST TO FIRE AND FLOODING" if _foundered.has(u) else "DESTROYED"
 	if u.faction == simulation.player_faction:
 		_losses.append(u.callsign)
-		radio.flash("%s %s" % [u.callsign, how], "alert")
+		radio.flash("%s %s" % [u.callsign, "LOST TO FIRE AND FLOODING" if _foundered.has(u) else "DESTROYED"], "alert")
 	else:
 		if killer_faction == simulation.player_faction:
-			_kills.append(u.callsign)
-		radio.flash("%s %s" % [u.callsign, how], "good")
+			_kills.append(u.callsign)  # for the after-action report, once the mission is over
+		# A loss the plot can see goes out under its track label; how an enemy's damage-control
+		# fight ended is not ours to know, and a kill we never held has no name to give.
+		var t := _held_track(u)
+		if t != null:
+			radio.flash("Destroyed", "good", t)
+		elif killer_faction == simulation.player_faction:
+			radio.flash("Target destroyed", "good")
 	print("[Combat] %s destroyed by %s" % [u.callsign, killer_faction])
+
+
+## The player's own track on another side's unit, if the plot holds it (association is the one
+## sanctioned use of a track's truth link).
+func _held_track(u: Unit) -> Track:
+	var t := simulation.track_manager.find_track(simulation.player_faction, u)
+	return t if t != null and t.status != Track.Status.LOST else null
+
+
+## How the radio names a unit: an own unit by its callsign, anything else by the track the plot
+## holds on it, or not at all.
+func _radio_name(u: Unit) -> String:
+	if u.faction == simulation.player_faction:
+		return u.callsign
+	var t := _held_track(u)
+	return t.label() if t != null else "another contact"
 
 
 func _on_engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String) -> void:
@@ -1253,6 +1299,7 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			items = CdsMenus.waypoint_items(owner, int(context.get("waypoint_index", 0)))
 		_:
 			items = CdsMenus.cds_items(_cds_state())
+	map.menu_open = true
 	_cds_menus.open(items, context.get("viewport_pos", map.get_global_transform_with_canvas() * screen_pos))
 
 
@@ -1269,7 +1316,11 @@ func _run_cds_action(action: Dictionary) -> void:
 		"altitude":
 			_apply_unit_orders(_altitude_orders(float(action["metres"])))
 		"depth":
-			_apply_unit_orders(_depth_orders(float(action["metres"])))
+			var pairs := _depth_orders(float(action["metres"]))
+			if pairs.is_empty():
+				radio.flash("No boat can get under the layer here" if float(action["metres"]) == -2.0 else "No hooked platform can dive", "warn")
+			else:
+				_apply_unit_orders(pairs)
 		"formation":
 			_apply_formation(str(action["pattern"]))
 		"engage":

@@ -426,7 +426,7 @@ func _gui_input(event: InputEvent) -> void:
 	if _time_rect.grow(3.0).has_point(mb.position) and mb.button_index == MOUSE_BUTTON_LEFT:
 		pause_requested.emit()
 		accept_event()
-	elif _scale_rect.grow(3.0).has_point(mb.position):
+	elif _scale_rect.grow(3.0).has_point(mb.position) and mb.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
 		scale_step_requested.emit(1 if mb.button_index == MOUSE_BUTTON_LEFT else -1)
 		accept_event()
 	elif _lamp_rect.grow(6.0).has_point(mb.position):

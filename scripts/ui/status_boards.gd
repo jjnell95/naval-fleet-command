@@ -10,6 +10,8 @@ extends PanelContainer
 ## drive N and Shift+N).
 
 signal closed
+## The comms history came on screen, by any route: the lamp, A, or a click on the COMMS tab.
+signal comms_shown
 
 const BOARD_ORDERS := 0
 const BOARD_TASK_GROUP := 1
@@ -45,6 +47,8 @@ func _ready() -> void:
 	_tabs = TabContainer.new()
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(_tabs)
+	_tabs.tab_changed.connect(func(_tab: int) -> void: _announce_comms())
+	visibility_changed.connect(_announce_comms)
 	_comms = RichTextLabel.new()
 	_comms.name = "Comms"
 	_comms.bbcode_enabled = true
@@ -97,6 +101,11 @@ func close_boards() -> void:
 		return
 	hide()
 	closed.emit()
+
+
+func _announce_comms() -> void:
+	if showing_comms():
+		comms_shown.emit()
 
 
 func current_board() -> int:

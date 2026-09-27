@@ -223,3 +223,50 @@ func test_key_commands_board_lists_the_cds_bindings() -> void:
 	var keys := " | ".join(KeyCommands.all_keys())
 	for binding in ["Space", "G", "F10", "T", "F9 / F11 / F12 / F8", "A", "Tab", "H", "W", "Ctrl+K", "Ctrl+F10 twice", "Right-click"]:
 		assert_true(keys.contains(binding), "the key board lists %s" % binding)
+
+
+func test_under_the_layer_is_greyed_with_the_reason_where_there_is_no_layer() -> void:
+	var saved: Dictionary = Detection.environment.duplicate()
+	Detection.environment["layer_depth_m"] = 0.0
+	var boat := _unit("fra_ssn_suffren")
+	var items := CdsMenus.orders_items([boat], null, true, true)
+	var under := _find(items, "Under the layer")
+	assert_true(not under.is_empty(), "a submarine has the preset")
+	assert_true(bool(under["disabled"]), "with no layer the preset is greyed rather than silently doing nothing")
+	assert_true(str(under["tooltip"]).contains("No layer"), "and says why")
+	assert_true(not bool(_find(items, "Patrol")["disabled"]), "the other depths stay available")
+	Detection.environment = saved
+
+
+func test_the_scale_footer_answers_left_and_right_clicks_only() -> void:
+	var display := DataDisplay.new()
+	display._scale_rect = Rect2(100, 100, 60, 18)
+	var steps: Array = []
+	display.scale_step_requested.connect(func(step: int) -> void: steps.append(step))
+	for button in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+		var e := InputEventMouseButton.new()
+		e.button_index = button
+		e.pressed = true
+		e.position = Vector2(120, 108)
+		display._gui_input(e)
+	assert_eq(steps, [1, -1], "the wheel and middle button do not touch the clock")
+	display.free()
+
+
+func test_reading_the_comms_board_by_any_route_announces_it() -> void:
+	var boards := StatusBoards.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(boards)
+	for board in 3:
+		boards.host(Control.new(), board)
+	boards.finish_boards()
+	var shown := [0]
+	boards.comms_shown.connect(func() -> void: shown[0] += 1)
+	boards.open_board(StatusBoards.BOARD_ORDERS)
+	assert_eq(shown[0], 0, "the orders board is not the comms board")
+	boards._tabs.current_tab = StatusBoards.BOARD_COMMS
+	assert_eq(shown[0], 1, "a click on the COMMS tab counts as reading it")
+	boards.close_boards()
+	boards.open_board(StatusBoards.BOARD_COMMS)
+	assert_true(shown[0] >= 2, "so does opening the boards straight onto it")
+	boards.queue_free()

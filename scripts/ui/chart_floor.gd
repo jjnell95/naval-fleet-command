@@ -44,11 +44,27 @@ func _process(delta: float) -> void:
 static func charted_box(sim: Simulation) -> Rect2:
 	if Terrain.is_empty():
 		return Rect2()
-	var box = sim.scenario.get("map", {}).get("charted_nm", []) if sim != null else []
+	var stated := stated_charted_box(sim)
+	# Polygons with no stated box own the coast wherever they reach.
+	return stated if stated.has_area() else Terrain.bounds
+
+
+## The box the scenario states in map.charted_nm, or an empty rect when it states none. Only a
+## stated box has clip edges: the polygons' own bounds are real coast all the way round.
+static func stated_charted_box(sim: Simulation) -> Rect2:
+	if Terrain.is_empty() or sim == null:
+		return Rect2()
+	var box = sim.scenario.get("map", {}).get("charted_nm", [])
 	if typeof(box) != TYPE_ARRAY or box.size() != 4:
-		# Polygons with no stated box own the coast wherever they reach.
-		return Terrain.bounds
+		return Rect2()
 	return Rect2(float(box[0]), float(box[1]), float(box[2]) - float(box[0]), float(box[3]) - float(box[1]))
+
+
+## Where the polygons own the coast: the charted box less the clip margin, inside which the raster
+## keeps its own land because the polygons often stop short of the box. Empty when too small.
+func owned_rect() -> Rect2:
+	var owned := _charted.grow(-CLIP_MARGIN_NM)
+	return owned if owned.size.x > 0.0 and owned.size.y > 0.0 else Rect2()
 
 
 func _draw() -> void:
@@ -58,8 +74,8 @@ func _draw() -> void:
 	_material.set_shader_parameter("nm_per_px", 1.0 / maxf(px_per_nm, 0.0001))
 	var world := Bathymetry.world_rect()
 	var box := Vector4(-10.0, -10.0, -9.0, -9.0)
-	var owned := _charted.grow(-CLIP_MARGIN_NM)
-	if owned.size.x > 0.0 and owned.size.y > 0.0 and world.size.x > 0.0:
+	var owned := owned_rect()
+	if owned.has_area() and world.size.x > 0.0:
 		var a := _to_uv(Vector2(owned.position.x, owned.end.y), world)
 		var b := _to_uv(Vector2(owned.end.x, owned.position.y), world)
 		box = Vector4(a.x, a.y, b.x, b.y)

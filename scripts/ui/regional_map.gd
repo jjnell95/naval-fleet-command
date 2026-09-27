@@ -65,6 +65,11 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+## Drops a drag in progress, for when the pane is hidden or moved under the pointer (F10).
+func cancel_drag() -> void:
+	_dragging = false
+
+
 func toggle_radar_coverage() -> bool:
 	show_radar_coverage = not show_radar_coverage
 	return show_radar_coverage

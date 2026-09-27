@@ -14,6 +14,8 @@ extends Node
 ## layer, symbols, board, inspect.
 
 signal action_chosen(action: Dictionary)
+## The menu went away, chosen from or dismissed.
+signal menu_closed
 
 const SPEEDS_KN := [5.0, 10.0, 15.0, 20.0, 25.0]
 const DEPTHS := [["Surface", 0.0], ["Periscope", 18.0], ["Shallow", 60.0], ["Patrol", -1.0], ["Deep", 200.0], ["Under the layer", -2.0]]
@@ -85,8 +87,18 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		items.append(submenu("Altitude", alts, not controllable, why))
 	if not diving.is_empty():
 		var depths: Array = []
+		var under := -1.0
+		var floor_m := -1.0
+		for u: Unit in diving:
+			var d := Acoustics.below_layer_depth_m(u)
+			if d > under:
+				under = d
+				floor_m = Acoustics.bottom_m(u)
+			elif floor_m < 0.0:
+				floor_m = Acoustics.bottom_m(u)
 		for d in DEPTHS:
-			depths.append(item(d[0], {"kind": "depth", "metres": d[1]}))
+			var blocked: bool = d[1] == -2.0 and under < 0.0
+			depths.append(item(d[0], {"kind": "depth", "metres": d[1]}, blocked, under_layer_reason(under, floor_m) if d[1] == -2.0 else ""))
 		items.append(submenu("Depth", depths, not controllable, why))
 	var sensors: Array = []
 	if any_radar:
@@ -129,6 +141,15 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		items.append(item("Reference  [F7]", {"kind": "inspect", "id": (units[0] as Unit).spec.id}))
 	items.append(item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}))
 	return items
+
+
+## The orders board's wording for the under-the-layer preset, so the menu and the board agree.
+static func under_layer_reason(under_m: float, floor_m: float) -> String:
+	if under_m >= 0.0:
+		return "Run at %d m, under the %d m layer." % [int(under_m), int(Acoustics.layer_depth_m())]
+	if Acoustics.layer_depth_m() <= 0.0:
+		return "No layer in this water: it is mixed from the surface down."
+	return "The %d m layer is below what this boat can reach here (floor %s)." % [int(Acoustics.layer_depth_m()), Bathymetry.format_depth(floor_m)]
 
 
 ## 1 when every unit passes, 0 otherwise; used for the check marks on state submenus.
@@ -267,6 +288,7 @@ func open(items: Array, screen_pos: Vector2) -> void:
 	at.x = minf(at.x, room.x - float(_root.size.x))
 	at.y = minf(at.y, room.y - float(_root.size.y))
 	_root.position = Vector2i(maxf(at.x, 0.0), maxf(at.y, 0.0))
+	_root.popup_hide.connect(func() -> void: menu_closed.emit())
 	_root.popup()
 
 

@@ -171,6 +171,17 @@ static func run(main: Main) -> void:
 	checks["command screen fits the viewport"] = fits
 	checks["the chart has the top two-thirds of the screen"] = absf(main.map.size.y / bounds.size.y - 0.68) < 0.03 and main.map.size.x >= bounds.size.x - 3.0
 	checks["the regional map is square"] = absf(main.regional.size.x - main.regional.size.y) < 4.0
+	# A new operation opens on the normal layout at its own framing, even from a swapped screen.
+	main.start_scenario(Main.DEFAULT_SCENARIO)
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	var opening_ppn := main.map.ppn
+	main._swap_views()
+	await main.get_tree().process_frame
+	main.start_scenario(Main.DEFAULT_SCENARIO)
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	checks["a scenario started from a swapped screen opens on the chart at its own framing"] = not main._views_swapped and main.map.get_parent() == main._upper and absf(main.map.ppn - opening_ppn) < 0.001
 	var failed := 0
 	for label: String in checks:
 		print("[Cold War UI] %s %s" % ["PASS" if checks[label] else "FAIL", label])

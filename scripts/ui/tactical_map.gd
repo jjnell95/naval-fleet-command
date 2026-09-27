@@ -186,6 +186,9 @@ var _last_click_pos := Vector2.ZERO
 var follow_selection := false
 var interaction_mode := InteractionMode.SELECT
 var keyboard_navigation_enabled := true
+## A right-click menu is up. Its window takes the keys, but the chart polls the keyboard itself, so
+## without this the arrows that walk the menu would scroll the chart underneath it.
+var menu_open := false
 var _trail_reference: Unit
 var _pending_fit := false
 var _fit_center := Vector2.ZERO
@@ -619,7 +622,7 @@ func fit_to_fleet() -> void:
 
 
 func _keyboard_pan(delta: float) -> void:
-	if not keyboard_navigation_enabled:
+	if not keyboard_navigation_enabled or menu_open or not is_visible_in_tree():
 		return
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus != null and focus != self:
@@ -643,7 +646,7 @@ func _keyboard_pan(delta: float) -> void:
 ## +/- (and the numpad equivalents) zoom on the screen centre, for a wheel-free way to work the
 ## scale — smooth and continuous while held, matching the feel of the wheel step.
 func _keyboard_zoom(delta: float) -> void:
-	if not keyboard_navigation_enabled:
+	if not keyboard_navigation_enabled or menu_open or not is_visible_in_tree():
 		return
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus != null and focus != self:
@@ -828,6 +831,13 @@ func _begin_drag(mode: DragMode, e: InputEventMouseButton) -> void:
 	_drag_moved = false
 	if mode == DragMode.PAN:
 		mouse_default_cursor_shape = Control.CURSOR_DRAG
+
+
+## Drops any drag in progress. The chart moves between the top area and the 3D pane (G, F10), and
+## a control that leaves the tree mid-drag never hears the release that would have ended it.
+func cancel_drag() -> void:
+	if _drag_mode != DragMode.NONE:
+		_end_drag()
 
 
 func _end_drag() -> void:
@@ -1184,7 +1194,8 @@ func _move_acceptance(target: Vector2) -> Dictionary:
 func _chart_land_at(w: Vector2) -> bool:
 	if not Terrain.is_empty() and Terrain.is_land(w):
 		return true
-	if _floor == null or not Bathymetry.active or _floor.charted_rect().has_point(w):
+	# The same box the floor draws with, so land in the clip margin counts as the land it shows.
+	if _floor == null or not Bathymetry.active or _floor.owned_rect().has_point(w):
 		return false
 	var depth := Bathymetry.depth_at(w)
 	return depth >= 0.0 and depth < 0.5
@@ -1214,7 +1225,7 @@ func _draw_land() -> void:
 	var flat := _land == null or not _land.is_inside_tree()
 	var meshes := ChartLand.land_meshes() if flat else {}
 	var transform := Transform2D(Vector2(ppn, 0), Vector2(0, ppn), world_to_screen(Vector2.ZERO))
-	var box := ChartFloor.charted_box(simulation)
+	var box := ChartFloor.stated_charted_box(simulation)
 	var key := "%d:%s" % [Terrain.generation, box]
 	if key != _coast_key:
 		_coast_key = key

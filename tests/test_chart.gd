@@ -482,3 +482,51 @@ func test_regional_pane_always_contains_the_chart_view() -> void:
 			assert_true(pane.encloses(regional.view_rect()), "the chart's view fits the regional pane at %.1f px/nm off %s" % [ppn, centre])
 	_free(f)
 
+
+
+func test_the_chart_counts_land_in_the_clip_margin_as_the_land_it_draws() -> void:
+	var f := _regional_fixture()
+	var floor := ChartFloor.new()
+	floor._charted = Rect2(0, 0, 100, 60)
+	assert_eq(floor.owned_rect(), Rect2(2, 2, 96, 56), "the polygons own the box less the clip margin")
+	floor._charted = Rect2(0, 0, 3, 3)
+	assert_eq(floor.owned_rect(), Rect2(), "a box too small for the margin owns nothing")
+	floor.free()
+	_free(f)
+
+
+func test_only_a_stated_charted_box_has_clip_edges() -> void:
+	var sim := Simulation.new()
+	var saved := Terrain.landmasses.duplicate()
+	var island := Landmass.new()
+	island.points = PackedVector2Array([Vector2(0, 0), Vector2(10, 1), Vector2(20, 0), Vector2(21, 10), Vector2(20, 20), Vector2(10, 19), Vector2(0, 20), Vector2(1, 10)])
+	Terrain.set_landmasses([island])
+	sim.scenario = {"map": {"center_nm": [10, 10], "extent_nm": 60}}
+	assert_eq(ChartFloor.stated_charted_box(sim), Rect2(), "an editor scenario states no box")
+	assert_eq(ChartFloor.charted_box(sim), Terrain.bounds, "so its polygons own the coast wherever they reach")
+	var runs := TacticalMap.coast_runs(island.points, ChartFloor.stated_charted_box(sim))
+	var segments := 0
+	for run: PackedVector2Array in runs:
+		segments += run.size() - 1
+	assert_eq(segments, island.points.size(), "and every stretch of its real coast is stroked")
+	sim.scenario = {"map": {"charted_nm": [-5, -5, 25, 25]}}
+	assert_eq(ChartFloor.stated_charted_box(sim), Rect2(-5, -5, 30, 30))
+	Terrain.set_landmasses(saved)
+	sim.free()
+
+
+func test_cancelling_a_drag_releases_the_chart_and_the_regional_map() -> void:
+	var f := _regional_fixture()
+	var map: TacticalMap = f["map"]
+	var regional: RegionalMap = f["regional"]
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_RIGHT
+	press.pressed = true
+	press.position = Vector2(500, 300)
+	map._begin_drag(TacticalMap.DragMode.PAN, press)
+	map.cancel_drag()
+	assert_eq(map._drag_mode, TacticalMap.DragMode.NONE, "moving the chart mid-drag must not leave it latched")
+	regional._dragging = true
+	regional.cancel_drag()
+	assert_true(not regional._dragging)
+	_free(f)
