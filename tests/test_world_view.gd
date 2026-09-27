@@ -971,6 +971,32 @@ func _free_view(f: Dictionary) -> void:
 	sim.free()
 
 
+func test_a_new_hook_takes_the_camera_off_a_ship_that_is_going_down() -> void:
+	var first := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var second := _unit("cw90_perry", "BLUE", Vector2(3, 0))
+	var f := _live_view([first, second])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [first] as Array[Unit]
+	view._process(0.016)
+	assert_eq(view._focus_key, "u:%d" % first.id, "the hooked ship is the subject")
+	first.alive = false
+	map.selected = [] as Array[Unit]  # the chart prunes the loss from the hook
+	view.refocus()
+	for i in 3:
+		view._process(0.016)
+	assert_eq(view._focus_key, "u:%d" % first.id, "a lost ship is watched as it goes down")
+	assert_true(view._scene.is_dying(view._focus_key))
+	map.selected = [second] as Array[Unit]
+	view.refocus()
+	view._process(0.016)
+	assert_eq(view._focus_key, "u:%d" % second.id, "but the player hooking another ship takes the camera there at once")
+	for i in 3:
+		view._process(0.016)
+	assert_eq(view._focus_key, "u:%d" % second.id, "and it stays there")
+	_free_view(f)
+
+
 func test_action_cuts_only_to_events_the_view_can_draw_around() -> void:
 	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
 	var far := _unit("cw90_perry", "BLUE", Vector2(60, 0))
