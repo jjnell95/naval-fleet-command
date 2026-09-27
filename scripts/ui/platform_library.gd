@@ -1,6 +1,8 @@
 class_name PlatformLibrary
 extends PanelContainer
 ## Public catalogue and interactive art viewer; it never reads unknown scenario identities.
+## The front end's REFERENCE: the dusk backdrop, a grey-metal panel, a starred-list look for the
+## catalogue, the 3D stage in the three-line frame and the dossier in a text box.
 signal closed()
 var _list: ItemList
 var _detail: RichTextLabel
@@ -23,37 +25,41 @@ var _spin_button: Button
 func _ready() -> void:
 	theme_type_variation = "OverlayPanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(UITheme.backdrop())
 	var margin := MarginContainer.new()
 	for side in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + side, 40)
+		margin.add_theme_constant_override("margin_" + side, 36)
 	for side in ["top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 30)
+		margin.add_theme_constant_override("margin_" + side, 24)
 	add_child(margin)
+	var sheet := PanelContainer.new()
+	sheet.theme_type_variation = "MenuPanel"
+	margin.add_child(sheet)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 16)
-	margin.add_child(v)
+	v.add_theme_constant_override("separation", 12)
+	sheet.add_child(v)
 	var masthead := HBoxContainer.new()
 	v.add_child(masthead)
 	var heading := VBoxContainer.new()
 	heading.add_theme_constant_override("separation", 2)
 	masthead.add_child(heading)
-	var kicker := UITheme.eyebrow("Recognition library  ·  Platforms & ordnance")
-	kicker.add_theme_color_override("font_color", UITheme.COL_BRASS)
-	heading.add_child(kicker)
-	var brand := Label.new()
-	brand.text = "FLEET RECOGNITION"
-	brand.add_theme_font_override("font", UITheme.heading_font())
+	var brand := UITheme.caption("Reference")
 	brand.add_theme_font_size_override("font_size", 34)
 	heading.add_child(brand)
+	var kicker := Label.new()
+	kicker.text = "Platforms and ordnance: recognition, fit and game envelope"
+	kicker.theme_type_variation = "MenuLabel"
+	heading.add_child(kicker)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	masthead.add_child(spacer)
 	var back := Button.new()
 	back.text = "CLOSE"
-	back.theme_type_variation = "QuietButton"
-	back.tooltip_text = "Close the library  [F7 / Esc]"
+	back.theme_type_variation = "MenuBigButton"
+	back.add_theme_font_size_override("font_size", 18)
+	back.custom_minimum_size = Vector2(140, 40)
+	back.tooltip_text = "Close the reference  [F7 / Esc]"
 	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	UIIcons.apply(back, "close", 16)
 	back.pressed.connect(func() -> void: closed.emit())
 	masthead.add_child(back)
 	var toolbar := HBoxContainer.new()
@@ -85,13 +91,15 @@ func _ready() -> void:
 	modes.add_child(_weapon_button)
 	_search = LineEdit.new()
 	_search.placeholder_text = "Search class, aircraft, weapon, nation or role"
-	_search.right_icon = UIIcons.get_icon("search", 18, UITheme.COL_MUTED, 1.0)
-	_search.custom_minimum_size.y = 40
+	_search.right_icon = UIIcons.get_icon("search", 16, UITheme.INK_FAINT, 1.0)
+	_search.custom_minimum_size.y = 30
+	_search.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_search.text_changed.connect(_filter)
 	toolbar.add_child(_search)
 	_domain_picker = OptionButton.new()
-	_domain_picker.custom_minimum_size.x = 170
+	_domain_picker.custom_minimum_size = Vector2(190, 30)
+	_domain_picker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_domain_picker.item_selected.connect(func(index: int) -> void:
 		_domain = _domain_picker.get_item_metadata(index)
 		_filter(_search.text))
@@ -104,13 +112,14 @@ func _ready() -> void:
 	var left := VBoxContainer.new()
 	left.custom_minimum_size.x = 258
 	body.add_child(left)
-	_count = Label.new()
-	_count.theme_type_variation = "HeaderLabel"
+	_count = UITheme.caption("")
+	_count.add_theme_font_size_override("font_size", 17)
 	left.add_child(_count)
 	_list = ItemList.new()
+	_list.theme_type_variation = "MenuList"
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.fixed_icon_size = Vector2i(48, 30)
-	_list.add_theme_constant_override("v_separation", 14)
+	_list.add_theme_constant_override("v_separation", 6)
 	_list.add_theme_font_size_override("font_size", 13)
 	_list.item_selected.connect(_select)
 	left.add_child(_list)
@@ -120,20 +129,26 @@ func _ready() -> void:
 	body.add_child(center)
 	_eyebrow = Label.new()
 	_eyebrow.theme_type_variation = "HeaderLabel"
+	_eyebrow.add_theme_color_override("font_color", UITheme.INK_BLUE)
 	center.add_child(_eyebrow)
 	_title = Label.new()
-	_title.add_theme_font_override("font", UITheme.heading_font())
-	_title.add_theme_font_size_override("font_size", 46)
+	_title.add_theme_font_override("font", UITheme.caption_font())
+	_title.add_theme_font_size_override("font_size", 40)
+	_title.add_theme_color_override("font_color", UITheme.MENU_INK)
 	_title.clip_text = true
 	center.add_child(_title)
 	_subtitle = Label.new()
-	_subtitle.theme_type_variation = "DimLabel"
+	_subtitle.theme_type_variation = "MenuLabel"
 	_subtitle.clip_text = true
 	center.add_child(_subtitle)
+	var stage_frame := PanelContainer.new()
+	stage_frame.theme_type_variation = "BevelFrame"
+	stage_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center.add_child(stage_frame)
 	_stage = ModelStage.new()
 	_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_stage.custom_minimum_size = Vector2(260, 240)
-	center.add_child(_stage)
+	stage_frame.add_child(_stage)
 	var view_bar := HBoxContainer.new()
 	center.add_child(view_bar)
 	var view_frame := PanelContainer.new()
@@ -144,7 +159,7 @@ func _ready() -> void:
 	view_frame.add_child(views)
 	for view in [["3D", "three_quarter"], ["PROFILE", "profile"], ["PLAN", "plan"]]:
 		var button := Button.new()
-		button.theme_type_variation = "SegmentButton"
+		button.theme_type_variation = "TabButton"
 		button.custom_minimum_size = Vector2(76, 28)
 		button.text = view[0]
 		button.pressed.connect(func() -> void:
@@ -160,13 +175,13 @@ func _ready() -> void:
 	view_bar.add_child(_spin_button)
 	var hint := Label.new()
 	hint.text = "  DRAG TO ORBIT  ·  SCROLL TO ZOOM"
-	hint.theme_type_variation = "DimLabel"
-	hint.add_theme_font_size_override("font_size", 10)
+	hint.theme_type_variation = "MenuLabel"
+	hint.add_theme_font_size_override("font_size", 11)
 	hint.clip_text = true
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	view_bar.add_child(hint)
-	_loadout_title = Label.new()
-	_loadout_title.theme_type_variation = "HeaderLabel"
+	_loadout_title = UITheme.caption("")
+	_loadout_title.add_theme_font_size_override("font_size", 16)
 	center.add_child(_loadout_title)
 	var belt := ScrollContainer.new()
 	belt.custom_minimum_size.y = 116
@@ -177,14 +192,14 @@ func _ready() -> void:
 	belt.add_child(_loadout)
 	var dossier := PanelContainer.new()
 	dossier.theme_type_variation = "CardPanel"
-	dossier.add_theme_stylebox_override("panel", UITheme.stripe_card(UITheme.COL_BRASS, 18))
-	dossier.custom_minimum_size.x = 282
+	dossier.custom_minimum_size.x = 300
 	body.add_child(dossier)
 	var dossier_v := VBoxContainer.new()
 	dossier.add_child(dossier_v)
 	var dh := Label.new()
 	dh.text = "CAPABILITY DOSSIER"
-	dh.theme_type_variation = "HeaderLabel"
+	dh.add_theme_color_override("font_color", UITheme.INK_BLUE)
+	dh.add_theme_font_override("font", UITheme.data_font())
 	dossier_v.add_child(dh)
 	_detail = RichTextLabel.new()
 	_detail.bbcode_enabled = true
@@ -194,8 +209,7 @@ func _ready() -> void:
 	dossier_v.add_child(_detail)
 	var note := Label.new()
 	note.text = "Illustrative class models  ·  public recognition features  ·  combat figures describe the game fit"
-	note.theme_type_variation = "DimLabel"
-	note.add_theme_color_override("font_color", UITheme.COL_FAINT)
+	note.theme_type_variation = "MenuLabel"
 	note.add_theme_font_size_override("font_size", 11)
 	v.add_child(note)
 	_filter("")
@@ -279,20 +293,20 @@ func _select(index: int) -> void:
 	_subtitle.text = p.display_name
 	var lines := PackedStringArray()
 	lines.append("[font_size=18][b]%s[/b][/font_size]\n" % p.role)
-	lines.append("[color=%s]LENGTH[/color]   %.1f m" % [UITheme.HEX_DIM, p.length_m])
+	lines.append("[color=%s]LENGTH[/color]   %.1f m" % [UITheme.HEX_INK_DIM, p.length_m])
 	if p.aircraft_capacity > 0:
-		lines.append("[color=%s]AVIATION[/color]   %s" % [UITheme.HEX_DIM, p.flight_facility().to_upper()])
+		lines.append("[color=%s]AVIATION[/color]   %s" % [UITheme.HEX_INK_DIM, p.flight_facility().to_upper()])
 		lines.append("%d game airframes" % p.aircraft_capacity)
 	elif p.domain == "air":
-		lines.append("[color=%s]BASING[/color]   %s" % [UITheme.HEX_DIM, p.flight_requirement().to_upper()])
+		lines.append("[color=%s]BASING[/color]   %s" % [UITheme.HEX_INK_DIM, p.flight_requirement().to_upper()])
 	if p.vls_cells > 0:
-		lines.append("[color=%s]VLS CELLS[/color]   %d / %d allocated" % [UITheme.HEX_DIM, p.occupied_vls_cells(), p.vls_cells])
-	lines.append("\n" + UITheme.section_bb("Sensor fit"))
+		lines.append("[color=%s]VLS CELLS[/color]   %d / %d allocated" % [UITheme.HEX_INK_DIM, p.occupied_vls_cells(), p.vls_cells])
+	lines.append("\n" + UITheme.section_bb("Sensor fit", true))
 	for sid in p.sensor_ids:
 		var sensor := DataDB.sensor(sid)
 		if sensor != null:
 			lines.append("• " + sensor.display_name)
-	lines.append("\n[color=%s]%s[/color]" % [UITheme.HEX_DIM, p.service_note])
+	lines.append("\n[color=%s]%s[/color]" % [UITheme.HEX_INK_DIM, p.service_note])
 	_detail.text = "\n".join(lines)
 	_loadout_title.text = "FITTED ORDNANCE  /  SELECT TO INSPECT"
 	for wid in p.weapon_loadout:
@@ -306,7 +320,7 @@ func _show_weapon(w: WeaponSpec) -> void:
 	_eyebrow.text = "ORDNANCE  /  %s  /  %s" % [w.type.to_upper(), ("GUN MOUNT" if w.type in ["gun", "ciws"] else w.profile.replace("_", " ").to_upper())]
 	_title.text = w.family.to_upper()
 	_subtitle.text = w.display_name
-	_detail.text = "[font_size=18][b]%s[/b][/font_size]\n\n[font_size=11][color=%s]TARGET DOMAIN[/color][/font_size]\n%s\n\n[font_size=11][color=%s]GUIDANCE MODEL[/color][/font_size]\n%s\n\n[font_size=11][color=%s]GAME ENVELOPE[/color][/font_size]\n%.1f–%.1f nm\n\n[font_size=11][color=%s]SYSTEM PROFILE[/color][/font_size]\n%s\n\n[color=%s]Family recognition model. Variants and real configurations differ. These figures describe simulation tuning.[/color]" % [w.display_name, UITheme.HEX_MUTED, ", ".join(w.target_types).to_upper(), UITheme.HEX_MUTED, w.guidance.replace("_", " "), UITheme.HEX_MUTED, w.min_range_nm, w.max_range_nm, UITheme.HEX_MUTED, ("Gun mount / projectile" if w.type in ["gun", "ciws"] else w.profile.replace("_", " ")), UITheme.HEX_DIM]
+	_detail.text = "[font_size=18][b]%s[/b][/font_size]\n\n[font_size=11][color=%s]TARGET DOMAIN[/color][/font_size]\n%s\n\n[font_size=11][color=%s]GUIDANCE MODEL[/color][/font_size]\n%s\n\n[font_size=11][color=%s]GAME ENVELOPE[/color][/font_size]\n%.1f–%.1f nm\n\n[font_size=11][color=%s]SYSTEM PROFILE[/color][/font_size]\n%s\n\n[color=%s]Family recognition model. Variants and real configurations differ. These figures describe simulation tuning.[/color]" % [w.display_name, UITheme.HEX_INK_BLUE, ", ".join(w.target_types).to_upper(), UITheme.HEX_INK_BLUE, w.guidance.replace("_", " "), UITheme.HEX_INK_BLUE, w.min_range_nm, w.max_range_nm, UITheme.HEX_INK_BLUE, ("Gun mount / projectile" if w.type in ["gun", "ciws"] else w.profile.replace("_", " ")), UITheme.HEX_INK_DIM]
 	_loadout_title.text = "CARRIED BY  /  SELECT TO INSPECT"
 	for p: PlatformSpec in DataDB.all_platforms():
 		if not p.weapon_loadout.has(w.id):

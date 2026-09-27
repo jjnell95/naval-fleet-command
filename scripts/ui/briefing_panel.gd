@@ -1,7 +1,8 @@
 class_name BriefingPanel
 extends PanelContainer
 ## Orders first, with situation and command reference one tab away. The same board reports
-## objective progress when reopened during a mission.
+## objective progress when reopened during a mission. Before command it is a front-end screen
+## over the dusk backdrop; during a mission it is a grey dialog drawn straight over the chart.
 
 signal start_pressed()
 signal restart_pressed()
@@ -31,57 +32,62 @@ var _margin: MarginContainer
 var _rail: VBoxContainer
 var _pre_mission := true
 var _layout: VBoxContainer
+var _backdrop: TextureRect
+var _sheet: PanelContainer
+var _area_caption: Label
 
 
 func _ready() -> void:
-	theme_type_variation = "OverlayPanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	_backdrop = UITheme.backdrop()
+	add_child(_backdrop)
 	_margin = MarginContainer.new()
 	add_child(_margin)
+	_sheet = PanelContainer.new()
+	_margin.add_child(_sheet)
 	var v := VBoxContainer.new()
 	_layout = v
-	v.add_theme_constant_override("separation", 16)
-	_margin.add_child(v)
-	_eyebrow = UITheme.eyebrow("Operation orders  ·  Mission briefing")
-	_eyebrow.add_theme_color_override("font_color", UITheme.COL_BRASS)
+	v.add_theme_constant_override("separation", 10)
+	_sheet.add_child(v)
+	_eyebrow = UITheme.caption("Mission briefing")
 	v.add_child(_eyebrow)
-	_title = _label("", 40, Color.WHITE)
-	_title.add_theme_font_override("font", UITheme.heading_font())
+	_title = _label("", 32, UITheme.MENU_INK)
+	_title.add_theme_font_override("font", UITheme.caption_font())
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_title)
-	_meta = _label("", 12, UITheme.COL_MUTED)
+	_meta = _label("", 11, UITheme.INK_BLUE)
 	_meta.add_theme_font_override("font", UITheme.eyebrow_font())
 	_meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_meta)
 	var intent_card := PanelContainer.new()
-	intent_card.add_theme_stylebox_override("panel", UITheme.stripe_card(UITheme.COL_BRASS))
+	intent_card.theme_type_variation = "CardPanel"
 	v.add_child(intent_card)
 	var intent_box := VBoxContainer.new()
-	intent_box.add_theme_constant_override("separation", 6)
+	intent_box.add_theme_constant_override("separation", 3)
 	intent_card.add_child(intent_box)
-	intent_box.add_child(UITheme.eyebrow("Commander's intent"))
-	_intent = _label("", 21, UITheme.COL_TEXT)
+	intent_box.add_child(_label("COMMANDER'S INTENT", 12, UITheme.INK_BLUE))
+	_intent = _label("", 17, UITheme.MENU_INK)
+	_intent.add_theme_font_override("font", UITheme.data_font())
 	_intent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	intent_box.add_child(_intent)
 
 	var main := HBoxContainer.new()
 	main.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	main.add_theme_constant_override("separation", 20)
+	main.add_theme_constant_override("separation", 16)
 	v.add_child(main)
 	var reading := VBoxContainer.new()
 	reading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	reading.add_theme_constant_override("separation", 10)
+	reading.add_theme_constant_override("separation", 6)
 	main.add_child(reading)
 	var tab_row := HBoxContainer.new()
-	tab_row.add_theme_constant_override("separation", 22)
+	tab_row.add_theme_constant_override("separation", 4)
 	reading.add_child(tab_row)
 	for entry in [["orders", "ORDERS & OBJECTIVES"], ["situation", "SITUATION"], ["controls", "COMMAND REFERENCE"]]:
 		var key: String = entry[0]
 		var tab := _button(entry[1])
 		tab.theme_type_variation = "TabButton"
-		tab.custom_minimum_size.y = 36
-		tab.add_theme_font_size_override("font_size", 13)
+		tab.custom_minimum_size.y = 30
 		tab.toggle_mode = true
 		tab.pressed.connect(func() -> void: _select_section(key))
 		tab_row.add_child(tab)
@@ -97,49 +103,73 @@ func _ready() -> void:
 	_body.focus_mode = Control.FOCUS_ALL
 	_body.accessibility_name = "Mission orders and objectives"
 	_body.accessibility_description = "Scrollable briefing. Use arrows, Page Up, or Page Down while focused."
-	_body.add_theme_font_size_override("normal_font_size", 16)
-	_body.add_theme_font_size_override("bold_font_size", 16)
-	_body.add_theme_constant_override("line_separation", 7)
+	_body.add_theme_color_override("default_color", UITheme.MENU_INK)
+	_body.add_theme_font_size_override("normal_font_size", 14)
+	_body.add_theme_font_size_override("bold_font_size", 14)
+	_body.add_theme_constant_override("line_separation", 5)
 	card.add_child(_body)
 	_rail = VBoxContainer.new()
-	_rail.add_theme_constant_override("separation", 12)
+	_rail.add_theme_constant_override("separation", 6)
 	main.add_child(_rail)
-	_rail.add_child(UITheme.eyebrow("Area of operations"))
+	_area_caption = UITheme.caption("Area of operations")
+	_rail.add_child(_area_caption)
 	_preview = ScenarioPreview.new()
 	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_rail.add_child(_preview)
-	_posture = _label("", 14, UITheme.COL_DIM)
+	_posture = _label("", 13, UITheme.MENU_INK)
 	_posture.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rail.add_child(_posture)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	v.add_child(buttons)
 	_start = _button("TAKE COMMAND", true)
-	_start.custom_minimum_size.x = 250
-	_start.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	UIIcons.apply(_start, "arrow_right", 18)
+	_start.custom_minimum_size.x = 260
 	_start.pressed.connect(func() -> void:
 		SoundFx.play("click")
 		start_pressed.emit())
 	buttons.add_child(_start)
 	_restart = _button("RESTART")
-	_restart.tooltip_text = "Reload this operation from its starting positions  [F10]"
-	UIIcons.apply(_restart, "restart", 16)
+	_restart.tooltip_text = "Reload this operation from its starting positions  [Ctrl+F10]"
 	_restart.pressed.connect(func() -> void: restart_pressed.emit())
 	buttons.add_child(_restart)
 	_menu = _button("ALL OPERATIONS")
-	_menu.tooltip_text = "Return to the operations desk  [F9]"
-	UIIcons.apply(_menu, "menu", 16)
+	_menu.tooltip_text = "Return to the operations desk  [M]"
 	_menu.pressed.connect(func() -> void: menu_pressed.emit())
 	buttons.add_child(_menu)
-	var pause_note := _label("Space pauses at any time", 12, UITheme.COL_MUTED)
+	var pause_note := _label("Space pauses at any time", 12, UITheme.MENU_INK)
 	pause_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	pause_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pause_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	buttons.add_child(pause_note)
 	resized.connect(_apply_layout)
+	_apply_style()
 	_apply_layout()
 	_select_section("orders")
 	_set_focus_cycle()
+
+
+## Front end before command, grey dialog during a mission.
+func _apply_style() -> void:
+	if _sheet == null:
+		return
+	_backdrop.visible = _pre_mission
+	if _pre_mission:
+		theme_type_variation = "OverlayPanel"
+		remove_theme_stylebox_override("panel")
+	else:
+		var shade := StyleBoxFlat.new()
+		shade.bg_color = Color(0, 0, 0, 0.12)
+		add_theme_stylebox_override("panel", shade)
+	_sheet.theme_type_variation = "MenuPanel" if _pre_mission else "JfcDialog"
+	_eyebrow.theme_type_variation = "MenuCaption" if _pre_mission else "TitleLabel"
+	_area_caption.theme_type_variation = "MenuCaption" if _pre_mission else "HeaderLabel"
+	for b: Button in [_start, _restart, _menu]:
+		b.theme_type_variation = "MenuBigButton" if _pre_mission else ("PrimaryButton" if b == _start else "")
+		if _pre_mission:
+			b.add_theme_font_size_override("font_size", 20 if b == _start else 17)
+		else:
+			b.remove_theme_font_size_override("font_size")
+	_apply_layout()
 
 
 func _apply_layout() -> void:
@@ -147,16 +177,18 @@ func _apply_layout() -> void:
 		return
 	var viewport_size := get_viewport_rect().size
 	var compact := viewport_size.x < 1300 or viewport_size.y < 850
-	for side in ["left", "right"]:
-		_margin.add_theme_constant_override("margin_" + side, 32 if compact else 76)
-	for side in ["top", "bottom"]:
-		_margin.add_theme_constant_override("margin_" + side, 24 if compact else 40)
-	_rail.custom_minimum_size.x = 244 if compact else 350
-	_preview.custom_minimum_size = Vector2(244 if compact else 350, 190 if compact else 280)
-	_title.add_theme_font_size_override("font_size", 32 if compact else 40)
+	# In a mission the board is a dialog: narrower, and inset from the window's edges.
+	var side := 24 if compact else maxi(int((viewport_size.x - (1320.0 if _pre_mission else 1180.0)) * 0.5), 40)
+	for key in ["left", "right"]:
+		_margin.add_theme_constant_override("margin_" + key, side)
+	for key in ["top", "bottom"]:
+		_margin.add_theme_constant_override("margin_" + key, 16 if compact else (26 if _pre_mission else 44))
+	_rail.custom_minimum_size.x = 240 if compact else 330
+	_preview.custom_minimum_size = Vector2(240 if compact else 330, 190 if compact else 280)
+	_title.add_theme_font_size_override("font_size", 26 if compact else 32)
 	_posture.visible = not compact
-	_layout.add_theme_constant_override("separation", 12 if compact else 16)
-	_intent.add_theme_font_size_override("font_size", 20 if compact else 22)
+	_layout.add_theme_constant_override("separation", 7 if compact else 10)
+	_intent.add_theme_font_size_override("font_size", 15 if compact else 17)
 
 
 func _set_focus_cycle() -> void:
@@ -199,7 +231,7 @@ func _process(delta: float) -> void:
 func refresh(reset_scroll := false) -> void:
 	if mission_manager == null or _body == null:
 		return
-	_title.text = _scenario_name.replace(" — ", " / ")
+	_title.text = _scenario_name.replace(" — ", " / ").to_upper()
 	var details := PackedStringArray()
 	var date := str(_scenario.get("start_time_utc", ""))
 	if date.length() >= 16:
@@ -211,7 +243,7 @@ func refresh(reset_scroll := false) -> void:
 	var duration := int(_scenario.get("duration_minutes", 0))
 	if duration > 0:
 		details.append("About %d min play" % duration)
-	_meta.text = "  ·  ".join(details)
+	_meta.text = "  ·  ".join(details).to_upper()
 	_meta.visible = not details.is_empty()
 	_intent.text = _scenario.get("commander_intent", mission_manager.briefing if mission_manager.briefing != "" else "Establish the tactical picture and accomplish the objectives below.")
 	_posture.text = "The clock is paused.\n\nTake Command begins at real time. Press Space whenever you need time to assess contacts or issue orders." if _pre_mission else "The clock is paused.\n\nReview your objectives, then Resume to continue the operation."
@@ -242,7 +274,7 @@ func _append_orders(out: PackedStringArray) -> void:
 	if not first_orders.is_empty():
 		out.append(_section("OPENING ORDERS"))
 		for i in first_orders.size():
-			out.append("[color=%s][b]%02d[/b][/color]   %s\n" % [UITheme.HEX_BRASS, i + 1, _safe(str(first_orders[i]))])
+			out.append("[color=%s][b]%02d[/b][/color]   %s\n" % [UITheme.HEX_INK_BLUE, i + 1, _safe(str(first_orders[i]))])
 	elif mission_manager.briefing != "":
 		out.append(_section("YOUR TASK"))
 		out.append(_safe(mission_manager.briefing) + "\n")
@@ -278,7 +310,7 @@ func _append_situation(out: PackedStringArray) -> void:
 		env_line += " · visibility %d nm" % int(_environment["visibility_nm"])
 	out.append(env_line)
 	if sea >= 3:
-		out.append("[color=%s]Rough water reduces passive sonar reach and obscures low missiles in sea clutter.[/color]" % UITheme.HEX_AMBER)
+		out.append("[color=%s]Rough water reduces passive sonar reach and obscures low missiles in sea clutter.[/color]" % UITheme.HEX_INK_AMBER)
 	var layer := int(_environment.get("layer_depth_m", 0))
 	var cz := int(_environment.get("cz_range_nm", 0))
 	var water := PackedStringArray()
@@ -287,7 +319,7 @@ func _append_situation(out: PackedStringArray) -> void:
 		water.append("convergence zones every %d nm in deep water" % cz)
 	out.append(" · ".join(water))
 	if layer > 0:
-		out.append("[color=%s]Submarines below the layer are harder for hull sonar to hear. Dipping sonar, deep buoys and towed bodies can search across it.[/color]" % UITheme.HEX_DIM)
+		out.append("[color=%s]Submarines below the layer are harder for hull sonar to hear. Dipping sonar, deep buoys and towed bodies can search across it.[/color]" % UITheme.HEX_INK_DIM)
 	if _scenario.has("historical_note"):
 		out.append("\n" + _section("HISTORICAL CONTEXT"))
 		out.append(_safe(str(_scenario["historical_note"])))
@@ -298,29 +330,34 @@ func _append_situation(out: PackedStringArray) -> void:
 		out.append("\n" + _safe(str(_scenario["force_note"])))
 
 
+## The command reference: the key commands of the command screen, the chart, the 3D view and the
+## right-click menus.
 func _append_controls(out: PackedStringArray) -> void:
-	out.append(_section("SELECT, PLOT, COMMIT"))
-	out.append("[b]Left click[/b] selects a ship or contact. [b]Shift-click[/b] adds friendly units to a group.\n[b]G[/b] arms Plot Move; left-click water to set the destination. Hold Shift to chain waypoints. Escape or right-click cancels.\n[b]R[/b] toggles radar, [b]P[/b] active sonar, [b]E[/b] emission control.\n")
+	out.append(_section("HOOK, ORDER, ENGAGE"))
+	out.append("[b]Left click[/b] hooks a ship or contact; [b]Shift-click[/b] adds own units to the group. Left-drag boxes a group.\n[b]Right click[/b] open water: the hooked unit transits there ([b]Shift[/b] adds a waypoint). Right click an own unit for its Orders menu, a contact for Engage, empty chart for the CDS menu.\n[b]W[/b] plots a route with waypoints. [b]R[/b] radar, [b]P[/b] active sonar, [b]E[/b] emission control. [b]Period[/b] hooks the next own platform.\n")
 	out.append(_section("CHART & CONTACT PICTURE"))
-	out.append("[b]Wheel / pinch[/b] zooms. Middle/right/Option-drag pans.\n[b]B[/b] expands or restores the chart. [b]Home[/b] fits the force. [b]F[/b] follows the selected platform or contact. [b]C[/b] focuses the shooter-target problem.\n[b]N / Shift-N[/b] cycles priority contacts. The Tactical Overview recentres the chart.\n")
-	out.append(_section("AIR OPERATIONS"))
-	out.append("[b]AIR / F3[/b] opens aircraft selection, sortie size, readiness and landing controls.\nSelect airborne aircraft, choose a landing facility, then [b]Return & Land[/b]. Landed aircraft refuel and rearm before relaunch.\n")
+	out.append("[b]Wheel[/b] zooms about the cursor. Right-, middle- or Alt-drag pans; so do the arrow keys. [b]Home[/b] fits the force. [b]F[/b] follows, [b]C[/b] centres on the hooked unit.\n[b]N / Shift-N[/b] cycles priority contacts. [b]B[/b] a quick range circle. The regional map recentres the chart; drag its magenta box to pan.\n[b]Tab[/b] NTDS or graphic symbols · [b]Shift-V[/b] velocity leaders · [b]Shift-K[/b] track numbers · [b]Shift-I[/b] tags · [b]Ctrl-L[/b] position readout · [b]Ctrl-S[/b] scale bar · [b]Ctrl-W[/b] radar coverage.\n")
+	out.append(_section("3D VIEW"))
+	out.append("[b]T[/b] cycles the camera. [b]F9[/b] Tether · [b]F11[/b] Fly-by · [b]F12[/b] Action · [b]F8[/b] Detached. [b]G[/b] swaps the chart and the 3D view; [b]F10[/b] makes the 3D view full screen.\n")
+	out.append(_section("AIR OPERATIONS & STATUS BOARDS"))
+	out.append("[b]F3[/b] opens the launch dialog: light the LAUNCH lamps, then Ok. Select an airborne airframe to return it to a carrier or airfield.\n[b]A[/b] opens the status boards: orders, task group, track file, air defence and comms.\n")
 	out.append(_section("TIME & DISPLAY"))
-	out.append("[b]Space[/b] pauses. [b]1–6[/b] sets acceleration. Use real time when contacts close; accelerate when the force is on station.\n[b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] terrain · [b]V[/b] vectors · [b]M[/b] sound.\n[b]Command-K / Control-K[/b] opens the searchable Actions palette.")
+	out.append("[b]Space[/b] pauses. [b]1–6[/b] sets time compression; click TIME to pause and SCALE to step it. [b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] relief shading · [b]F7[/b] reference · [b]M[/b] missions · [b]Ctrl-M[/b] sound · [b]H[/b] key commands.\n[b]Command-K / Control-K[/b] opens the searchable Actions palette.")
 
 
 func _line(o: MissionObjective, loss := false) -> String:
-	var mark := "[color=%s]COMPLETE[/color]" % UITheme.HEX_GREEN if o.complete else "[color=%s]OPEN[/color]" % UITheme.HEX_AMBER
+	var mark := "[color=%s]COMPLETE[/color]" % UITheme.HEX_INK_GREEN if o.complete else "[color=%s]OPEN[/color]" % UITheme.HEX_INK_AMBER
 	if loss:
-		mark = "[color=%s]TRIGGERED[/color]" % UITheme.HEX_RED if o.complete else "[color=%s]AVOID[/color]" % UITheme.HEX_MUTED
+		mark = "[color=%s]TRIGGERED[/color]" % UITheme.HEX_INK_RED if o.complete else "[color=%s]AVOID[/color]" % UITheme.HEX_INK_FAINT
 	var detail := o.progress(unit_manager, SimClock.sim_time) if unit_manager != null else ""
-	return "[font_size=12]%s[/font_size]   %s\n[color=%s][font_size=13]%s[/font_size][/color]" % [mark, _safe(o.text), UITheme.HEX_MUTED, _safe(detail)]
+	return "[font_size=12][b]%s[/b][/font_size]   %s\n[color=%s][font_size=12]%s[/font_size][/color]" % [mark, _safe(o.text), UITheme.HEX_INK_FAINT, _safe(detail)]
 
 
 func set_mode(pre_mission: bool) -> void:
 	_pre_mission = pre_mission
 	_start.text = "TAKE COMMAND" if pre_mission else "RESUME OPERATION"
-	_eyebrow.text = "OPERATION ORDERS  ·  MISSION BRIEFING" if pre_mission else "OPERATION ORDERS  ·  MISSION STATUS"
+	_eyebrow.text = "MISSION BRIEFING" if pre_mission else "MISSION STATUS"
+	_apply_style()
 	if pre_mission:
 		_select_section("orders")
 	refresh()
@@ -336,7 +373,7 @@ static func _safe(value: String) -> String:
 
 
 static func _section(value: String) -> String:
-	return UITheme.section_bb(value)
+	return UITheme.section_bb(value, true)
 
 
 static func _label(value: String, font_size: int, color: Color) -> Label:
@@ -351,8 +388,7 @@ static func _button(value: String, primary := false) -> Button:
 	var result := Button.new()
 	result.text = value
 	result.focus_mode = Control.FOCUS_ALL
-	result.custom_minimum_size.y = 44
-	result.add_theme_font_size_override("font_size", 13)
+	result.custom_minimum_size.y = 40
 	if primary:
 		result.theme_type_variation = "PrimaryButton"
 	return result
