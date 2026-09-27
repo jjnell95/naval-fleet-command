@@ -111,8 +111,10 @@ func test_every_region_has_land_rasters_on_the_depth_grid() -> void:
 		var r := ChartRelief.region_rasters(name)
 		var depth := Bathymetry.source_image(name)
 		assert_true(r.get("land") != null and r.get("land_relief") != null and r.get("water") != null, "%s rasters load" % name)
-		assert_eq(int(r.get("w", 0)), depth.get_width(), "%s land raster shares the depth grid" % name)
-		assert_eq(int(r.get("h", 0)), depth.get_height(), "%s land raster shares the depth grid" % name)
+		var heights := ChartRelief.land_heights(name)
+		assert_eq(int(heights.get("w", 0)), depth.get_width(), "%s land raster shares the depth grid" % name)
+		assert_eq(int(heights.get("h", 0)), depth.get_height(), "%s land raster shares the depth grid" % name)
+		assert_eq((r["land_relief"] as Texture2D).get_size(), Vector2(depth.get_size()), "%s land relief shares it too" % name)
 
 
 func test_water_mask_is_white_on_water_and_black_on_the_raster_land() -> void:

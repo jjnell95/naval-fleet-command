@@ -12,8 +12,10 @@ const HEIGHT_SCALE_M := 6000.0
 const SEA_RELIEF := 0.35  # colour *= 1 + shade * SEA_RELIEF over water
 const UNKNOWN := -1.0
 
-## Loaded rasters by region: textures for the shaders and the land heights for height_at().
+## Loaded rasters by region: textures for the shaders, and separately the land heights on the CPU
+## for height_at(), read back only when the readout first asks.
 static var _regions: Dictionary = {}
+static var _heights: Dictionary = {}
 static var _decode := PackedFloat32Array()  # byte value -> metres
 
 
@@ -35,16 +37,24 @@ static func region_rasters(region: String) -> Dictionary:
 	out["water"] = _water_mask(region)
 	out["land"] = _load_texture(land_path(region))
 	out["land_relief"] = _load_texture(land_relief_path(region))
-	var land: Texture2D = out["land"]
-	if land != null:
-		var img := land.get_image()
-		if img != null and not img.is_empty():
-			if img.get_format() != Image.FORMAT_L8:
-				img.convert(Image.FORMAT_L8)
-			out["heights"] = img.get_data()
-			out["w"] = img.get_width()
-			out["h"] = img.get_height()
 	_regions[region] = out
+	return out
+
+
+## The land height codes on the CPU: {data, w, h}, or empty with no land raster. The raster is
+## imported as a texture for the shaders, so this reads it back once (on the web, a render-target
+## copy; about 50 ms for the largest region).
+static func land_heights(region: String) -> Dictionary:
+	if _heights.has(region):
+		return _heights[region]
+	var out := {}
+	var land: Texture2D = region_rasters(region).get("land")
+	var img := land.get_image() if land != null else null
+	if img != null and not img.is_empty():
+		if img.get_format() != Image.FORMAT_L8:
+			img.convert(Image.FORMAT_L8)
+		out = {"data": img.get_data(), "w": img.get_width(), "h": img.get_height()}
+	_heights[region] = out
 	return out
 
 
@@ -71,10 +81,10 @@ static func _water_mask(region: String) -> Texture2D:
 static func height_at(p: Vector2) -> float:
 	if not Bathymetry.active:
 		return UNKNOWN
-	var r := region_rasters(Bathymetry.region)
-	if not r.has("heights"):
+	var r := land_heights(Bathymetry.region)
+	if r.is_empty():
 		return UNKNOWN
-	return sample_heights(r["heights"], int(r["w"]), int(r["h"]), Bathymetry.world_rect(), p)
+	return sample_heights(r["data"], int(r["w"]), int(r["h"]), Bathymetry.world_rect(), p)
 
 
 ## Bilinear lookup into a height-code raster covering `world`, in metres. Split out for the tests.
