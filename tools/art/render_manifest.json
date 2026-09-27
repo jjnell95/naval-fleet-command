@@ -1,0 +1,62 @@
+{
+ "agm_84_harpoon": {
+  "kind": "weapon"
+ },
+ "irn_asbm_khalij_fars": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "irn_battery_qader": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "irn_drone_site_shahed": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "irn_sam_bavar373": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "jgsdf_ssm_type12_battery": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "pla_asbm_df21d": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "pla_battery_yj12b": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "pla_hpj13_30mm": {
+  "kind": "weapon"
+ },
+ "pla_sam_hq9b_site": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "rfn_battery_bastion": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "rfn_sam_s400_site": {
+  "kind": "platform",
+  "domain": "land"
+ },
+ "rfn_ssk_kilo_877": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.0
+ },
+ "usn_ddg_burke_iii": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.832258064516129
+ },
+ "usn_fighter_fa18e": {
+  "kind": "platform",
+  "domain": "air"
+ }
+}
