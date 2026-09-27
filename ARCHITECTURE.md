@@ -121,8 +121,8 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | UnitManager | scripts/simulation/unit_manager.gd | owns units; unit_added, order_issued |
 | ScenarioLoader | scripts/simulation/scenario_loader.gd | JSON → units |
 | Simulation | scripts/simulation/simulation.gd | sim root node |
-| TacticalMap | scripts/ui/tactical_map.gd | map render + input; selection_changed, move_order_requested |
-| MapSymbols | scripts/ui/map_symbols.gd | symbol drawing helpers |
+| TacticalMap | scripts/ui/tactical_map.gd | map render + input; selection_changed, move_order_requested, context_menu_requested |
+| MapSymbols | scripts/ui/map_symbols.gd | NTDS frames, velocity leaders, track numbers, hook brackets, weapons, graphic symbols |
 | UITheme | scripts/ui/ui_theme.gd | the design system in code: surfaces, meaning colours, type scale, button variations (Primary, Quiet, Segment, Tab, Danger) and helpers such as `eyebrow()` and `section_bb()` |
 | UIIcons | scripts/ui/ui_icons.gd | original SVG stroke icons, rasterised at 3× and cached; `UIIcons.apply(button, name)` |
 | TopBar / UnitPanel / OrdersPanel | scripts/ui/*.gd | HUD panels (children built in code) |
@@ -368,8 +368,34 @@ mechanically privileged.
 
 ## Rendering approach
 TacticalMap draws everything in one `_draw()` (no per-unit nodes). Hit-testing is manual
-(nearest symbol within 14 px). Symbol sizes are fixed in pixels; world→screen via
+(nearest symbol within 18 px, waypoints 14 px). Symbol sizes are fixed in pixels; world→screen via
 `center_nm` + `ppn` (pixels per nm), y flipped.
+
+Symbology follows the classic naval command display (`MapSymbols`): an open NTDS frame in the
+identity colour (ownside `#40C8FF`, allied orange, hostile red, unknown yellow, neutral green with
+a centre cross), 2 px strokes in a 16 px box, no fill, glow or glyph. A land installation is an X,
+a rotorcraft carries a bar over its air frame, rounds in flight are filled arrowheads (torpedoes
+dots) and sonobuoys 3 px dots. Each platform has a 1 px velocity leader (six minutes of travel,
+6-48 px) and a white four-digit track number at its lower right: a contact's comes from its track
+id, an own unit's is assigned in roster order on first sight and kept for the mission
+(`track_number_text()` gives the data display the same number). Tags (name or reported
+classification) are an off-by-default second line. The hook is four static white corner brackets;
+a contact hooked while an own unit is also hooked is the target and takes its identity colour.
+Routes are white PIM legs through white + waypoints; stale tracks draw at 55% alpha, uncertainty
+at 35%, lost own platforms stay in grey for ten minutes. The graphic symbol modes (`cycle_symbol_mode`)
+draw the platform's plan view instead, resampled once per size and tinted toward the identity
+colour; a contact gets one only once its class is known, looked up from the class the plot holds.
+Layers (`toggle_layer` / `has_layer`): leaders, track_numbers, tags, routes, trails, sensors,
+relief, graticule, latlon, scale, range_grid, key, and the identity filters hostiles, allied,
+neutrals and unknowns (a filtered contact is neither drawn nor hit, but stays in the track file).
+
+A right-click without a drag is the classic display's: with a controllable own unit hooked, open
+water (or land, for an aircraft) is a MOVE there at once (`move_order_requested`, Shift appends);
+anything else hooks the track or own unit under the cursor and emits `context_menu_requested`
+with `context_at()`'s classification (own_unit, track, waypoint, water, empty) for the shell's
+menus. Ctrl/Cmd+right-click on a track still emits `engage_requested`; the shell deletes a leg
+through `request_waypoint_delete()`. Right-press still begins a pan, and in Plot Move it cancels.
+`toggle_range_circle()` (B) arms, fixes and clears a white range circle on the hooked unit.
 
 ## Milestone 11 systems
 - **Ballistic profiles.** `WeaponSpec.profile = "ballistic"` makes `Weapon.threat_class()` return
