@@ -501,7 +501,7 @@ static func _build(on_navy: bool) -> Theme:
 	# Text colours for this surface family.
 	var text := COL_TEXT if on_navy else INK
 	var dim := COL_DIM if on_navy else INK_DIM
-	var muted := COL_MUTED if on_navy else INK_DIM
+	var muted := COL_MUTED if on_navy else INK
 	var faint := COL_FAINT if on_navy else JFC_DISABLED
 	_panels(t, on_navy)
 	_buttons(t, on_navy)
@@ -656,6 +656,9 @@ static func _buttons(t: Theme, on_navy: bool) -> void:
 		for key in ["font_pressed_color", "font_hover_pressed_color", "icon_pressed_color"]:
 			t.set_color(key, type, Color.WHITE)
 		t.set_color("font_disabled_color", type, Color("5a5a70"))
+		# A one-pixel light emboss round the navy lettering; it vanishes into the white of a pressed one.
+		t.set_color("font_outline_color", type, Color(1, 1, 1, 0.4))
+		t.set_constant("outline_size", type, 1)
 
 	# LED toggles: a toggle button that is only a lamp, red when pressed.
 	t.set_type_variation("LedToggle", "Button")
