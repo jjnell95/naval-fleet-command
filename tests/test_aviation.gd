@@ -384,17 +384,21 @@ func test_air_defence_can_engage_aircraft_but_torpedoes_cannot() -> void:
 	assert_true(sam.damage > 0.0, "and it has to actually do damage, not just intercept")
 
 
-func test_nothing_in_the_inventory_can_attack_a_shore_station() -> void:
+func test_only_land_attack_rounds_can_strike_a_shore_station() -> void:
 	var base := DataDB.platform("shore_air_station")
 	assert_true(base != null)
 	if base == null:
 		return
 	assert_eq(base.domain, "land")
 	var station := _unit(base, "RED", Vector2.ZERO)
-	for wid in ["rgm_84_harpoon", "nsm_strike_missile", "mk48_adcap", "essm_family"]:
+	for wid in ["rgm_84_harpoon", "mk48_adcap", "essm_family", "kalibr_asm"]:
 		var w := DataDB.weapon(wid)
 		if w != null:
 			assert_true(not WeaponManager.can_target(w, station), "%s cannot strike a land target" % wid)
+	for wid in ["tomahawk_block_v", "nsm_strike_missile", "agm_158b_jassm_er"]:
+		var w := DataDB.weapon(wid)
+		if w != null:
+			assert_true(WeaponManager.can_target(w, station), "%s is a land-attack round" % wid)
 
 
 # --- Movement ----------------------------------------------------------------------------

@@ -25,4 +25,5 @@ altitude_m = 0.0
 soft_kill_resistance = 0.7
 run_to_enable_nm = 0.4
 acoustic_signature = 0.65
+vls_pack = 1
 source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

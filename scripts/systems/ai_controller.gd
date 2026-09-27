@@ -137,7 +137,8 @@ func _update_unit(u: Unit, now: float) -> void:
 	_note_torpedo_datum(u, b, now)
 	_consider_launch(u, b, all_hostiles, all_unknowns, now)
 	if u.spec.max_speed_kn <= 0.0:
-		return  # a shore station has nothing to do but send aircraft up
+		_do_shore_fires(u, b, hostiles, unknowns, now)  # a battery shoots; an airfield sends aircraft up
+		return
 	var inbound := _inbound_on(u)
 	var new_state := _choose_state(u, b, hostiles, unknowns, inbound, now)
 	if new_state != b["state"]:
@@ -447,6 +448,29 @@ func _do_engage(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
 	# Last, so the shot's depth outranks whatever the follow-on movement asked for.
 	var weapon: WeaponSpec = plan["weapon"]
 	_manage_depth(u, DepthIntent.TRACK if weapon.is_torpedo() else DepthIntent.MISSILE_SHOT)
+
+
+## An installation ashore cannot manoeuvre, so its whole decision is whether to radiate and
+## whether to shoot. A coastal battery or a missile site fires on the same picture, with the same
+## reluctance about stale and unclassified contacts, as a ship; it simply never moves afterwards.
+## A battery without a radar of its own shoots on whatever the network hands it, which is the
+## operational problem such a battery poses and the one it has.
+func _do_shore_fires(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, now: float) -> void:
+	if u.weapons.is_empty():
+		return
+	# Radiate only when there is something to look at: a silent battery is a battery not found.
+	_manage_emissions(u, not hostiles.is_empty() or not unknowns.is_empty())
+	var plan := _pick_engagement(u, b, hostiles, now)
+	if plan.is_empty():
+		b["state"] = State.PATROL
+		return
+	var t: Track = plan["track"]
+	b["state"] = State.ENGAGE
+	b["target"] = t
+	if unit_manager.issue_order(u, Order.engage(t, plan["weapon"].id, plan["salvo"])):
+		b["engaged"][t.id] = now
+		var flight := Combat.time_of_flight_s(plan["weapon"], u.position.distance_to(t.position))
+		b["cooldown_%s" % t.id] = maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
 
 
 ## Turn away from the incoming bearing at speed. Opening the geometry buys the ship's own

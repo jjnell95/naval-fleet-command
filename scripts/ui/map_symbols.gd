@@ -51,6 +51,14 @@ static func category_glyph(category: String, domain: String) -> String:
 	if domain == "subsurface":
 		return "SN" if c.contains("nuclear") else "SS"
 	if domain == "land":
+		if c.contains("ballistic"):
+			return "BM"
+		if c.contains("surface-to-air") or c.contains("sam"):
+			return "SA"
+		if c.contains("drone"):
+			return "DR"
+		if c.contains("battery") or c.contains("missile"):
+			return "CB"
 		return "AB"
 	if c.contains("carrier"):
 		return "CV"

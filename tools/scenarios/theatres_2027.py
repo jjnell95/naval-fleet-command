@@ -173,7 +173,7 @@ def catalogue():
     esm("pla_air_esm", "Airborne electronic support suite", 1.7, 3)
 
     weapon("pla_yj18", "YJ-18 anti-ship cruise missile", "asm", ["surface"], 290, 560, 60,
-           min_range_nm=4.0, base_pk=0.78, salvo_default=4, defensive_difficulty=1.45, soft_kill_resistance=1.5, altitude_m=12.0)
+           vls_pack=1, min_range_nm=4.0, base_pk=0.78, salvo_default=4, defensive_difficulty=1.45, soft_kill_resistance=1.5, altitude_m=12.0)
     weapon("pla_yj83", "YJ-83 anti-ship missile", "asm", ["surface"], 100, 480, 42,
            min_range_nm=3.0, base_pk=0.76, salvo_default=4)
     weapon("pla_yj83k", "YJ-83K air-launched anti-ship missile", "asm", ["surface"], 135, 480, 42,
@@ -185,16 +185,16 @@ def catalogue():
            min_range_nm=8.0, base_pk=0.70, salvo_default=4, profile="high", altitude_m=8000.0,
            defensive_difficulty=1.8, signature_factor=0.25, soft_kill_resistance=1.3, turn_rate_deg_s=10.0)
     weapon("pla_yj21", "YJ-21 anti-ship ballistic missile", "asm", ["surface"], 600, 5000, 100,
-           min_range_nm=40.0, base_pk=0.5, salvo_default=2, profile="ballistic", guidance="inertial_terminal_seeker",
+           vls_pack=1, min_range_nm=40.0, base_pk=0.5, salvo_default=2, profile="ballistic", guidance="inertial_terminal_seeker",
            altitude_m=40000.0, defensive_difficulty=2.4, signature_factor=0.45, soft_kill_resistance=5.0,
            turn_rate_deg_s=8.0, launch_interval_s=20.0)
     weapon("pla_cj10", "CJ-10 land-attack cruise missile", "asm", ["land"], 900, 480, 55,
-           min_range_nm=15.0, base_pk=0.8, salvo_default=2, profile="high", altitude_m=60.0,
+           vls_pack=1, min_range_nm=15.0, base_pk=0.8, salvo_default=2, profile="high", altitude_m=60.0,
            guidance="inertial_terrain_matching", defensive_difficulty=1.1, soft_kill_resistance=2.0)
     weapon("pla_hhq9b", "HHQ-9B / HQ-9B long-range surface-to-air missile", "sam", ["missile", "air"], 108, 2200, 45,
-           min_range_nm=2.0, base_pk=0.52, signature_factor=0.18, altitude_m=8000.0)
+           vls_pack=1, min_range_nm=2.0, base_pk=0.52, signature_factor=0.18, altitude_m=8000.0)
     weapon("pla_hhq16", "HHQ-16 medium-range surface-to-air missile", "sam", ["missile", "air"], 30, 1900, 38,
-           min_range_nm=1.5, base_pk=0.50)
+           vls_pack=1, min_range_nm=1.5, base_pk=0.50)
     weapon("pla_hhq10", "HHQ-10 point-defence missile", "sam", ["missile", "air"], 5, 1700, 20,
            min_range_nm=0.3, base_pk=0.55)
     weapon("pla_hpj11_ciws", "H/PJ-11 eleven-barrel 30 mm CIWS", "ciws", ["missile", "air"], 1.4, 3200, 15, base_pk=0.42)
@@ -206,7 +206,7 @@ def catalogue():
            base_pk=0.70, run_to_enable_nm=1.0, acoustic_signature=0.7)
     weapon("pla_yu7", "Yu-7 lightweight torpedo", "torpedo", ["subsurface"], 6, 43, 55, base_pk=0.68, run_to_enable_nm=0.4)
     weapon("pla_yu8", "Yu-8 rocket-delivered ASW torpedo", "torpedo", ["subsurface"], 16, 240, 55,
-           base_pk=0.66, run_to_enable_nm=0.3, guidance="rocket_delivery_abstracted")
+           vls_pack=1, base_pk=0.66, run_to_enable_nm=0.3, guidance="rocket_delivery_abstracted")
     weapon("pla_yj82", "YJ-82 submarine-launched anti-ship missile", "asm", ["surface"], 22, 480, 35,
            min_range_nm=2.0, base_pk=0.70)
     weapon("pla_pl15", "PL-15 active-radar air-to-air missile", "aam", ["air"], 80, 2600, 45, base_pk=0.55, min_range_nm=1.5)
@@ -362,7 +362,7 @@ def catalogue():
            base_pk=0.82, salvo_default=4, defensive_difficulty=1.15, altitude_m=8.0, soft_kill_resistance=1.3, signature_factor=0.1)
     weapon("jmsdf_type90_ssm", "Type 90 ship-to-ship missile", "asm", ["surface"], 81, 480, 45, base_pk=0.78, salvo_default=4)
     weapon("jmsdf_type07_vla", "Type 07 vertical-launch ASW rocket", "torpedo", ["subsurface"], 12, 240, 55,
-           base_pk=0.68, run_to_enable_nm=0.4, guidance="rocket_delivery_abstracted")
+           vls_pack=1, base_pk=0.68, run_to_enable_nm=0.4, guidance="rocket_delivery_abstracted")
     weapon("jmsdf_type12_torpedo", "Type 12 lightweight torpedo", "torpedo", ["subsurface"], 6, 45, 55, base_pk=0.70, run_to_enable_nm=0.4)
     weapon("jmsdf_type97_torpedo", "Type 97 air-launched torpedo", "torpedo", ["subsurface"], 6, 45, 55, base_pk=0.70, run_to_enable_nm=0.3)
     weapon("jmsdf_type18_torpedo", "Type 18 heavyweight torpedo", "torpedo", ["surface", "subsurface"], 27, 55, 95,
