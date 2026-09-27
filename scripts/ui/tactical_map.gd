@@ -17,6 +17,7 @@ signal move_order_requested(world_pos: Vector2, append: bool)
 signal engage_requested(track: Track)
 signal waypoint_delete_requested(unit: Unit, index: int)
 signal interaction_mode_changed(active: bool)
+signal world_view_requested
 
 enum DragMode { NONE, PAN, BOX }
 enum InteractionMode { SELECT, MOVE }
@@ -207,6 +208,7 @@ func _build_plot_controls() -> void:
 	h.add_child(_plot_button("sensors", "SENSORS", "sensors", "Show the selection's sensor coverage  [F4]"))
 	h.add_child(_plot_button("vectors", "VECTORS", "vectors", "Show 30-minute motion vectors for every track  [V]"))
 	h.add_child(_plot_button("rings", "RINGS", "range_grid", "Show range rings around the reference unit"))
+	h.add_child(_plot_button("eye", "WORLD", "world", "Open the 3D world view: what you can see, and what you hold on the plot  [T]"))
 
 	_context_hint = Label.new()
 	_context_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -270,6 +272,8 @@ func _plot_action(action: String) -> void:
 			toggle_layer("sensors")
 		"vectors":
 			toggle_layer("vectors")
+		"world":
+			world_view_requested.emit()
 	_sync_plot_controls()
 
 
@@ -376,6 +380,13 @@ func _sync_plot_controls() -> void:
 		else:
 			_context_hint.text = "%s  →  TARGET %s  ·  engagement controls are ready below" % [selection_label(), selected_track.id]
 			_context_hint.add_theme_color_override("font_color", COL_AMBER)
+
+
+## The world view's inset card shares the corner with the theatre overview, so it asks the
+## overview to step aside while it is showing.
+func set_overview_suppressed(suppressed: bool) -> void:
+	if _overview != null:
+		_overview.visible = not suppressed
 
 
 func selection_label() -> String:
