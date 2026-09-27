@@ -59,6 +59,8 @@ var _mag_signature := ""
 
 
 func _ready() -> void:
+	# A data panel: navy, with the data display's text colours; buttons stay grey chrome.
+	UITheme.use_data_surface(self)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
 	add_child(v)
@@ -645,7 +647,7 @@ func _refresh_envelope() -> void:
 	if _target == null:
 		_engage_btn.disabled = true
 		_envelope.text = "no target — select a contact"
-		_envelope.modulate = Color(0.6, 0.7, 0.78)
+		_envelope.modulate = UITheme.COL_DIM
 		return
 	var ready := 0
 	var reason := ""
@@ -669,14 +671,14 @@ func _refresh_envelope() -> void:
 	_engage_btn.disabled = ready == 0
 	if carriers == 0:
 		_envelope.text = "no selected ship carries this weapon"
-		_envelope.modulate = Color(1.0, 0.6, 0.45)
+		_envelope.modulate = UITheme.COL_RED
 	elif ready > 0:
 		var tof := Combat.time_of_flight_s(spec, farthest)
 		_envelope.text = "%s  RNG %.1f-%.1f / %.0f nm  ·  %s to target  —  %d of %d in envelope" % [_target.id, nearest, farthest, spec.max_range_nm, _fmt_tof(tof), ready, carriers]
-		_envelope.modulate = Color(0.5, 1.0, 0.6) if tof < 480.0 else Color(0.95, 0.85, 0.45)
+		_envelope.modulate = UITheme.COL_GREEN if tof < 480.0 else UITheme.COL_AMBER
 	else:
 		_envelope.text = "%s  RNG %.1f / %.0f nm  —  %s" % [_target.id, nearest, spec.max_range_nm, reason]
-		_envelope.modulate = Color(1.0, 0.6, 0.45)
+		_envelope.modulate = UITheme.COL_RED
 
 
 func _fmt_tof(seconds: float) -> String:

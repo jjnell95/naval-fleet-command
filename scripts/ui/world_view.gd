@@ -21,7 +21,7 @@ const CAM_TETHER := WorldCamera.TETHER
 const CAM_FLYBY := WorldCamera.FLYBY
 const CAM_ACTION := WorldCamera.ACTION
 const CAM_DETACHED := WorldCamera.DETACHED
-const LABEL_COLOR := Color("e02020")
+const LABEL_COLOR := UITheme.CDS_CAMERA
 const LABEL_SIZE := 14
 const LABEL_PAD := Vector2(7.0, 5.0)
 const MIN_CAMERA_HEIGHT_M := 2.5
@@ -372,13 +372,6 @@ func _draw_hud() -> void:
 	_hud.draw_string(font, LABEL_PAD + Vector2(0.0, ascent), rig.mode_name(), HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE, LABEL_COLOR)
 
 
-static var _bold: Font = null
-
-
+## The camera label's face when the shell hands in none: the theme's bold data sans.
 static func _default_label_font() -> Font:
-	if _bold == null:
-		var font := FontVariation.new()
-		font.base_font = load("res://assets/fonts/IBMPlexSans.ttf")
-		font.variation_opentype = {"wght": 700.0, "wdth": 100.0}
-		_bold = font
-	return _bold
+	return UITheme.data_font()

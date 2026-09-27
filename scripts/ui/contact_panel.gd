@@ -25,6 +25,8 @@ var _shown_selection: Track
 
 
 func _ready() -> void:
+	# A data panel: navy, with the data display's text colours; buttons stay grey chrome.
+	UITheme.use_data_surface(self)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	add_child(v)
@@ -278,7 +280,7 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 			lines.append(_kv("CPA", "~%.1f nm in %s (est)" % [motion.distance_nm, Track._fmt_age(motion.time_s)]))
 			lines.append(_kv("CLOSING", "%.0f kn · constant course" % motion.closing_kn))
 		if ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
-			lines.append(_kv("EW", "[color=#f08cf0]radar jammed on this bearing[/color]"))
+			lines.append(_kv("EW", "[color=%s]radar jammed on this bearing[/color]" % UITheme.HEX_EW))
 	lines.append(_kv("OBS TIME", Track._fmt_age(t.observation_time_s)))
 	if t.classification < Track.Classification.CLASS_KNOWN:
 		var next_s := Track.CLASS_TIMES_S[mini(t.classification + 1, Track.CLASS_TIMES_S.size() - 1)]

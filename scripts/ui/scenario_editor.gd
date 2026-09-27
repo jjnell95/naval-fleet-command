@@ -64,15 +64,22 @@ func _ready() -> void:
 	theme_type_variation = "OverlayPanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	# A front-end screen: the dusk backdrop under one grey-metal panel.
+	add_child(UITheme.backdrop())
 	var margin := MarginContainer.new()
 	for side in ["left", "right"]:
-		margin.add_theme_constant_override("margin_%s" % side, 28)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 18)
+		margin.add_theme_constant_override("margin_%s" % side, 20)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_bottom", 14)
 	add_child(margin)
+	var sheet := PanelContainer.new()
+	sheet.theme_type_variation = "MenuPanel"
+	# A tighter margin than the menus': the chart wants the room.
+	sheet.add_theme_stylebox_override("panel", UITheme.metal_panel(14))
+	margin.add_child(sheet)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
-	margin.add_child(v)
+	sheet.add_child(v)
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
@@ -80,9 +87,7 @@ func _ready() -> void:
 	var title_box := VBoxContainer.new()
 	title_box.add_theme_constant_override("separation", 0)
 	head.add_child(title_box)
-	var eyebrow := Label.new()
-	eyebrow.text = "SCENARIO EDITOR"
-	eyebrow.theme_type_variation = "HeaderLabel"
+	var eyebrow := UITheme.caption("Mission editor")
 	title_box.add_child(eyebrow)
 	var title := Label.new()
 	title.text = "Build a mission"
@@ -119,6 +124,7 @@ func _ready() -> void:
 	ph.theme_type_variation = "HeaderLabel"
 	left.add_child(ph)
 	_palette = ItemList.new()
+	_palette.theme_type_variation = "MenuList"
 	_palette.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_palette.focus_mode = Control.FOCUS_ALL
 	_palette.add_theme_font_size_override("font_size", 11)
@@ -138,6 +144,7 @@ func _ready() -> void:
 	for entry in [["PLACE", Mode.PLACE], ["MOVE", Mode.MOVE], ["PATROL", Mode.PATROL], ["AREA", Mode.AREA], ["COAST", Mode.COAST]]:
 		var b := Button.new()
 		b.text = entry[0]
+		b.theme_type_variation = "SegmentButton"
 		b.toggle_mode = true
 		b.focus_mode = Control.FOCUS_ALL
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -398,7 +405,7 @@ func _spec_name(id: String) -> String:
 
 func _say(text: String, warn: bool) -> void:
 	_status.text = text
-	_status.add_theme_color_override("font_color", UITheme.COL_AMBER if warn else UITheme.COL_DIM)
+	_status.add_theme_color_override("font_color", UITheme.INK_RED if warn else UITheme.INK_DIM)
 
 
 # --- Model -------------------------------------------------------------------------------
@@ -1152,9 +1159,9 @@ class Chart extends Control:
 					editor.add_coast_point(world)
 
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color("081320"))
-		draw_rect(Rect2(Vector2.ZERO, size), UITheme.COL_BORDER, false, 1.0)
+		draw_rect(Rect2(Vector2.ZERO, size), UITheme.CHART_SEA)
 		if editor == null or editor.scenario.is_empty():
+			UITheme.draw_bevel_frame(self, Rect2(Vector2.ZERO, size))
 			return
 		var step := 10.0
 		for s in [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]:
@@ -1237,6 +1244,7 @@ class Chart extends Control:
 				draw_string(_font, draw_at + Vector2(14, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(col, 0.9))
 		draw_string(_font, Vector2(10, 16), "%s  ·  %d units  ·  sea state %d" % [str(editor.scenario.get("name", "")).to_upper(), units.size(), int(editor.scenario["environment"].get("sea_state", 0))], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_ACCENT)
 		draw_string(_font, Vector2(10, size.y - 20), "(P) protected · dashed: patrol route · box: mission chart extent · filled: land", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)
+		UITheme.draw_bevel_frame(self, Rect2(Vector2.ZERO, size))
 
 
 	## Coastlines as they will appear in the mission, plus the vertices while one is being traced.

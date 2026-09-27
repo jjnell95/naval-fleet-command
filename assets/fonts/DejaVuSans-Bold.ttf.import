@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://t0mkjy3bfo7i"
-path="res://.godot/imported/IBMPlexSans.ttf-41787be6a5ac7ec6ffd00c7fa925187b.fontdata"
+uid="uid://e0pngo28ho4t"
+path="res://.godot/imported/DejaVuSans-Bold.ttf-28339d4fde761e3a49fa62b16c3f5900.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/IBMPlexSans.ttf"
-dest_files=["res://.godot/imported/IBMPlexSans.ttf-41787be6a5ac7ec6ffd00c7fa925187b.fontdata"]
+source_file="res://assets/fonts/DejaVuSans-Bold.ttf"
+dest_files=["res://.godot/imported/DejaVuSans-Bold.ttf-28339d4fde761e3a49fa62b16c3f5900.fontdata"]
 
 [params]
 
