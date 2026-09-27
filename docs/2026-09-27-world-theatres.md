@@ -82,4 +82,11 @@ Limits worth knowing. Land is a stylised shelf with three terraces at a quarter 
 
 ## Validation
 
-See the sections below for the counts recorded at release.
+Recorded in [validation-m23.json](validation-m23.json).
+
+- **Regression suite**: 351 tests, 0 failed (`godot --headless --path . --script tests/run_tests.gd` after `--import`), up from 319: nine shore rules, nineteen world-view rules, the regional sea-floor probes, the breakout-submarine doctrine, the ballistic-window invariant and the rest.
+- **Interface suites under Xvfb**: the command-deck suite at 1600 × 900, 29 checks, 0 failed; the air-operations suite at 1600 × 1000, 19 checks, 0 failed.
+- **Scenario sweep**: SWEEP_SENTENCE
+- **Full-watch AI-versus-AI runs** of the new operations, the AI commanding both sides: the Bashi Channel to its six-hour end (victory, the Type 093B killed by ASROC and Mk 54s after it held its missiles); the Taiwan Strait for two hours on two seeds with the carrier afloat at the end of both, and once for the full five-hour watch (FULL_WATCH_SENTENCE); Hormuz, Spratly, the Sea of Japan in 2027 and 1990 and the Tartus line for two hours each without a script error or a grounded hull.
+- **Browser build**: the rebuilt pack (52.9 MB, with the 37.7 MB runtime; a 91 MB first visit) boots in headless Chromium over WebGL 2 with the engine banner, the scenario loaded and no script errors; the only console messages are the software renderer's ReadPixels notices.
+- **Art**: every one of the 139 platforms has profile, plan, beauty and thumbnail renders and an importable model; 280 models in all; the largest is Shandong at 11,152 triangles.

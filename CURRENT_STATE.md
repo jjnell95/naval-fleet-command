@@ -6,7 +6,9 @@ Installations ashore fight. Coastal missile batteries, SAM sites, ballistic-miss
 
 Seven operations are new: Bashi Channel, Taiwan Strait, Spratly, the Sea of Japan in 2027 and in 1990, the Strait of Hormuz and the Tartus line. All twenty-two carry a commander's intent, first orders, difficulty and play estimate, and the operations desk shelves them by theatre. The scenario builders validate every position, patrol leg and objective against the shipped coastline.
 
-A 3D world view (T, or the plot's WORLD button) shows the sea around the selected unit from a bridge, orbit, overhead or chase camera: own ships, aircraft and submarines as models on a sun-lit ocean, contacts only as the plot holds them, weapons only when detected. The browser build carries the new models and art: a first visit downloads 91 MB (53 MB game pack, 38 MB runtime), cached after that. See the [M23 notes](docs/2026-09-27-world-theatres.md) and the [2027 theatres ledger](docs/THEATRES_2027.md).
+A 3D world view (T, or the plot's WORLD button) shows the sea around the selected unit from a bridge, orbit, overhead or chase camera: own ships, aircraft and submarines as models on a sun-lit ocean, contacts only as the plot holds them, weapons only when detected. The browser build carries the new models and art: a first visit downloads 91 MB (53 MB game pack, 38 MB runtime), cached after that.
+
+Validation: 351 regression tests; 29 command-deck checks and 19 air-operations checks under Xvfb; VALIDATION_SWEEP full-watch AI-versus-AI runs of every new operation; the browser build booted in headless Chromium without script errors. See [validation-m23.json](docs/validation-m23.json). See the [M23 notes](docs/2026-09-27-world-theatres.md) and the [2027 theatres ledger](docs/THEATRES_2027.md).
 
 ## Previous: M22 Command Deck Redesign and Browser Release
 
