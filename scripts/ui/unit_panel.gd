@@ -188,7 +188,7 @@ func _refresh() -> void:
 			_kv("Right-click", "water: transit   ·   platform: orders   ·   contact: engage"),
 			_kv("W / Route", "arm route   ·   left-click water   ·   Shift chains"),
 			_kv("Pan", "middle/right/Option-drag"),
-			_kv("Wheel", "zoom   ·   WASD pan"),
+			_kv("Wheel", "zoom   ·   arrow keys pan"),
 			_kv("Space", "pause   ·   1–6 time speed"),
 			_kv("R / P / E", "radar · ping · emissions control"),
 			_kv("F1", "briefing   ·   F2 key   ·   F4 rings"),

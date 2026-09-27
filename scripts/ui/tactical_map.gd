@@ -13,7 +13,7 @@ extends Control
 ##
 ## Controls: wheel/pinch or +/- = zoom, middle/right/Option drag = pan, left click = hook,
 ## shift+click = add/remove unit, left drag = box select, double-click = recentre, Plot Move arms
-## the explicit left-click move tool (Shift chains waypoints), arrows/WASD = pan, Home = fit the
+## the explicit left-click move tool (Shift chains waypoints), arrow keys = pan (the letters are CDS hotkeys), Home = fit the
 ## fleet, C = focus the current command problem, F = follow it.
 ## Right-click without a drag: with a controllable own unit hooked, open water (or land, for an
 ## aircraft) orders it there at once (Shift appends a leg); on anything else it asks the shell for
@@ -625,13 +625,15 @@ func _keyboard_pan(delta: float) -> void:
 	if focus != null and focus != self:
 		return
 	var dir := Vector2.ZERO
-	if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A):
+	# Arrow keys only: A, W and S are command-screen hotkeys (status boards, route, scale), and a
+	# tap on one of them must not also nudge the chart.
+	if Input.is_key_pressed(KEY_LEFT):
 		dir.x -= 1.0
-	if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
+	if Input.is_key_pressed(KEY_RIGHT):
 		dir.x += 1.0
-	if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
+	if Input.is_key_pressed(KEY_UP):
 		dir.y += 1.0
-	if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
+	if Input.is_key_pressed(KEY_DOWN):
 		dir.y -= 1.0
 	if dir != Vector2.ZERO:
 		set_follow_selection(false)
