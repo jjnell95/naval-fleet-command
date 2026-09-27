@@ -6,3 +6,4 @@
 
 docs/play/*.import
 .claude/worktrees/
+__pycache__/

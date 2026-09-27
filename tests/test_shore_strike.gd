@@ -325,3 +325,34 @@ func test_catalogue_strike_rounds_and_decks_carry_their_new_roles() -> void:
 		assert_eq(p.domain, "land", sid)
 		assert_true(not p.weapon_loadout.is_empty(), "%s is armed" % sid)
 		assert_eq(p.max_speed_kn, 0.0, "%s does not move" % sid)
+
+
+## The single-altitude ballistic profile must never fall between the terminal interceptors'
+## ceiling and the exo-atmospheric interceptor's floor: a round nobody in the catalogue can meet
+## is a scenario the player cannot influence, not a hard one.
+func test_every_ballistic_round_has_an_interceptor_whose_window_covers_it() -> void:
+	var interceptors: Array = []
+	for w in DataDB.all_weapons():
+		if w.type == "sam" and w.target_types.has("ballistic"):
+			interceptors.append(w)
+	assert_true(interceptors.size() >= 3, "SM-3, SM-6 and Aster 30 at least")
+	var rounds := 0
+	for w in DataDB.all_weapons():
+		if w.profile != "ballistic" or w.type != "asm":
+			continue
+		rounds += 1
+		var covered: Array = []
+		for sam in interceptors:
+			if w.altitude_m >= sam.intercept_min_altitude_m and w.altitude_m <= sam.intercept_max_altitude_m:
+				covered.append(sam.id)
+		assert_true(not covered.is_empty(), "%s at %.0f m can be met by someone" % [w.id, w.altitude_m])
+	assert_true(rounds >= 4, "Kinzhal, Khalij Fars, YJ-21 and DF-21D are all in the catalogue")
+	var df21d := DataDB.weapon("pla_df21d")
+	var sm3 := DataDB.weapon("sm3_family")
+	var sm6 := DataDB.weapon("sm6_family")
+	assert_true(df21d.altitude_m >= sm3.intercept_min_altitude_m, "the DF-21D is SM-3's problem")
+	assert_true(df21d.altitude_m > sm6.intercept_max_altitude_m, "and beyond a terminal interceptor")
+	var aster := DataDB.weapon("aster30_family")
+	var khalij := DataDB.weapon("irn_khalij_fars")
+	assert_true(khalij.altitude_m <= aster.intercept_max_altitude_m, "a Type 45 can meet a Khalij Fars")
+

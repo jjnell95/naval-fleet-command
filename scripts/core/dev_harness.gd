@@ -21,6 +21,7 @@ extends RefCounted
 ##   --aviation-smoke            verify launch, landing, turnaround and Air Operations UI
 ##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
 ##   --open-editor               open the scenario editor on the loaded scenario, for screenshots
+##   --open-menu[=SHELF]         open the operations desk, on one shelf (cold_war, atlantic, pacific, gulf_med, all)
 ##   --brief                     open the briefing board
 ##   --no-ai                     disable every AI controller
 ##   --reload-check              fight a while, restart, and report that state was cleared
@@ -150,6 +151,12 @@ func handle_flags() -> void:
 		main._toggle_library()
 		main._library._search.text = "F-35"
 		main._library._filter("F-35")
+	for a in args:
+		if a == "--open-menu" or a.begins_with("--open-menu="):
+			main._show_menu()
+			if a.begins_with("--open-menu="):
+				main._menu._set_era(a.get_slice("=", 1))
+			print("[Dev] operations desk opened")
 	for a in args:
 		if a.begins_with("--inspect="):
 			main._inspect_asset(a.get_slice("=", 1), args.has("--weapon"))

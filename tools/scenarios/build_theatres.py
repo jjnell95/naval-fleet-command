@@ -75,8 +75,10 @@ def bashi_channel():
                       "patrol_nm": [s.xy(21.3, 120.9), s.xy(21.5, 122.3)]}])
     s.afloat("pla_ssn_type093b", "Type 093B (Shang II)", "RED", 21.35, 121.55, 80, 7, depth_m=180, radar_on=False,
              ai_posture="breakout", patrol=[s.xy(21.5, 122.2)], loadout={"pla_yj18": 4, "pla_yu6": 14})
-    s.afloat("pla_ssk_type039a", "Type 039A (Yuan)", "RED", 21.6, 121.4, 120, 4, depth_m=90, radar_on=False,
-             patrol=[s.xy(21.45, 121.6), s.xy(21.75, 121.3)])
+    # The picket starts a watch's steaming west of the barrier, so its missiles arrive as a
+    # mid-mission event rather than in the opening minute.
+    s.afloat("pla_ssk_type039a", "Type 039A (Yuan)", "RED", 21.7, 121.15, 120, 4, depth_m=90, radar_on=False,
+             patrol=[s.xy(21.5, 121.45), s.xy(21.85, 121.1)])
     s.site("shore_air_station", "Huian Air Base", "RED", 25.033, 118.821,
            air_wing=pla_field(j16=2, y8q=1,
                               isr_patrol=[s.xy(21.8, 120.8), s.xy(21.4, 122.0), s.xy(21.0, 121.2)],
@@ -127,9 +129,11 @@ def taiwan_strait():
     s.afloat("pla_aor_type903a", "Qiandaohu (886)", "RED", 26.5, 124.3, 200, 14, patrol=[s.xy(26.0, 124.5), s.xy(26.9, 124.1)])
     s.afloat("pla_ssn_type093b", "Type 093B (Shang II)", "RED", 23.85, 123.5, 120, 8, depth_m=170, radar_on=False,
              patrol=[s.xy(23.6, 124.6), s.xy(23.9, 123.4)])
-    # The raid: already up and heading for the group, searching with its own radars.
+    # The raid: already up over the interior and heading for the group, searching with its own
+    # radars. It starts far enough west that its launch point is forty minutes away, which is the
+    # time the picket has to get its fighters and the early-warning aircraft up.
     for i in range(4):
-        s.afloat("pla_bomber_h6j", "Badger %d" % (i + 1), "RED", 27.6 + i * 0.08, 121.4 + i * 0.15, 135, 430,
+        s.unit("pla_bomber_h6j", "Badger %d" % (i + 1), "RED", s.xy(29.0 + i * 0.08, 118.2 + i * 0.15), 135, 430,
                  ai_posture="breakout", patrol=[s.xy(24.4, 125.2), s.xy(23.6, 125.0)])
     s.site("shore_air_station", "Huian Air Base", "RED", 25.033, 118.821,
            air_wing=pla_field(j16=6, kj500=1,

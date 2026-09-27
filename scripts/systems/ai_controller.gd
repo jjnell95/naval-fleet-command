@@ -29,6 +29,7 @@ const TORPEDO_SALVO := 2
 ## special case for torpedoes.
 const MAX_TIME_OF_FLIGHT_S := 480.0
 const MIN_SOLUTION_FOR_SLOW_WEAPON := 0.5  # a bearing with no range is not a firing solution
+const BREAKOUT_TORPEDO_NM := 8.0  # a boat breaking out shoots only at what is in its way
 const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not at arm's length
 const BUOY_DROP_RANGE_NM := 9.0
 const BUOY_INTERVAL_S := 150.0
@@ -317,8 +318,16 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float) -> Di
 		if _rounds_already_committed(t) >= MAX_ROUNDS_IN_FLIGHT_PER_TRACK:
 			continue
 		for spec: WeaponSpec in u.weapons_for_track(t):
+			# A boat breaking out does not announce itself. A missile launch fixes its position for
+			# everyone listening, so it keeps its missiles and holds its torpedoes for whatever is
+			# close enough to be in its way.
+			var quiet_transit := u.ai_posture == "breakout" and u.is_submarine()
+			if quiet_transit and not spec.is_torpedo():
+				continue
 			var check := Combat.check_engagement(u, spec, t)
 			if not check["ok"]:
+				continue
+			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM:
 				continue
 			if Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S:
 				continue

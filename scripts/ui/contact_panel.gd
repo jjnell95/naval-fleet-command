@@ -181,7 +181,7 @@ func refresh() -> void:
 	var tracks: Array = map.priority_tracks() if map != null else (track_manager.tracks_for(ref) if ref != null else track_manager.get_tracks(player_faction)).duplicate()
 	if _filter != "ALL":
 		var domain: String = {"AIR": "air", "SURF": "surface", "SUB": "subsurface"}[_filter]
-		tracks = tracks.filter(func(t: Track) -> bool: return t.domain == domain)
+		tracks = tracks.filter(func(t: Track) -> bool: return t.domain == domain or (domain == "surface" and t.domain == "land"))
 	if map == null:
 		tracks.sort_custom(func(a: Track, b: Track) -> bool: return TacticalMap._track_precedes(a, b, ref))
 	_rows = tracks

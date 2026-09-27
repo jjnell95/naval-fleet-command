@@ -214,7 +214,10 @@ def catalogue():
            guidance="infrared_homing", profile="direct", min_range_nm=0.3, salvo_default=1)
     weapon("pla_df21d", "DF-21D anti-ship ballistic missile", "asm", ["surface"], 800, 6000, 110,
            min_range_nm=80.0, base_pk=0.5, salvo_default=2, profile="ballistic", guidance="inertial_terminal_seeker",
-           altitude_m=60000.0, defensive_difficulty=2.2, signature_factor=0.5, soft_kill_resistance=6.0,
+           # A medium-range ballistic round spends its flight above the atmosphere: SM-3's problem,
+           # and nobody else's. The single-altitude profile places it there rather than in the
+           # gap between the terminal interceptors' ceiling and SM-3's floor.
+           altitude_m=150000.0, defensive_difficulty=2.2, signature_factor=0.5, soft_kill_resistance=6.0,
            turn_rate_deg_s=6.0, launch_interval_s=30.0)
 
     platform("pla_ddg_type055", "Type 055 large destroyer (Renhai)", "DDG Type 055", "China", "destroyer",
