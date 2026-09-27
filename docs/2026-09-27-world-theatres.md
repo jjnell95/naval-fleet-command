@@ -77,7 +77,7 @@ Four cameras: **bridge** (from the selected ship's bridge, looking where she is 
 
 Limits worth knowing. Land is a stylised shelf with three terraces at a quarter of the charted elevation, so a coast reads as low stepped hills and a shore station sits among them; nothing is real relief. Rounds at cruise altitude are usually above the frame of a ship-orbiting camera and show as plumes. Wakes and plumes are seeded back along the heading when the view first sees a unit, and effects that happen while the view is closed are not replayed. The sea animates in real time, so at 60× the ships outrun the swell.
 
-![The Izumo group in the Sea of Japan from the world view](2026-09-27-world-view.jpg)
+![The world view on a plotted contact east of Taiwan: a neutral merchant drawn as a ghost where the plot holds her, while three YJ-12s are inbound on the carrier behind the camera](2026-09-27-world-view.jpg)
 
 ## Validation
 
