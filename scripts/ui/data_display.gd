@@ -312,7 +312,7 @@ static func mission_rows(sim: Simulation, m: TacticalMap) -> Array:
 # --- Drawing ------------------------------------------------------------------------------
 
 func _font() -> Font:
-	return UITheme.semibold_font()
+	return UITheme.data_font()
 
 
 func _font_size() -> int:

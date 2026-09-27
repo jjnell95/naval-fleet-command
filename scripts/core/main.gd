@@ -70,7 +70,7 @@ func _ready() -> void:
 	unit_panel.inspect_requested.connect(_inspect_asset)
 	orders_panel.inspect_requested.connect(func(id: String) -> void: _inspect_asset(id, true))
 	# The old command dock lives on the status boards now; the chart has the top of the screen.
-	status_boards.host(orders_panel, StatusBoards.BOARD_ORDERS)
+	status_boards.host(orders_panel, StatusBoards.BOARD_ORDERS, false)
 	status_boards.host(unit_panel, StatusBoards.BOARD_TASK_GROUP)
 	status_boards.host(contact_panel, StatusBoards.BOARD_TRACKS)
 	status_boards.finish_boards()
@@ -93,6 +93,7 @@ func _ready() -> void:
 	_bottom_strip.resized.connect(_fit_bottom_strip)
 	_cds_menus = CdsMenus.new()
 	_cds_menus.name = "CdsMenus"
+	_cds_menus.theme_source = theme
 	_cds_menus.action_chosen.connect(_run_cds_action)
 	add_child(_cds_menus)
 	orders_panel.weapon_manager = simulation.weapon_manager

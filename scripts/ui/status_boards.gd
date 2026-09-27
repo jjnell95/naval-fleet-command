@@ -34,7 +34,7 @@ func _ready() -> void:
 	box.add_child(header)
 	var title := Label.new()
 	title.text = "STATUS BOARDS"
-	title.theme_type_variation = "DialogTitle"
+	title.theme_type_variation = "HeaderLabel"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	var close := Button.new()
@@ -49,20 +49,28 @@ func _ready() -> void:
 	_comms.name = "Comms"
 	_comms.bbcode_enabled = true
 	_comms.scroll_following = false
-	_comms.theme_type_variation = "DialogText"
 
 
-## Moves a panel onto a board. Panels arrive from the scene in board order.
-func host(panel: Control, board: int) -> void:
+## Moves a panel onto a board. Panels arrive from the scene in board order. A board page is
+## always the full height of the boards; `fill` false keeps a panel at its own height at the top of
+## the page instead (the orders panel was laid out as a one-row dock, and stretched it falls apart).
+func host(panel: Control, board: int, fill := true) -> void:
 	if panel.get_parent() != null:
 		panel.get_parent().remove_child(panel)
 	while _tabs.get_tab_count() < board:
 		var spacer := Control.new()
 		_tabs.add_child(spacer)
-	_tabs.add_child(panel)
-	_tabs.set_tab_title(_tabs.get_tab_count() - 1, TITLES[board])
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var page: Control = panel
+	if not fill:
+		page = VBoxContainer.new()
+		page.name = "%sPage" % panel.name
+		page.add_child(panel)
+		panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	else:
+		panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tabs.add_child(page)
+	_tabs.set_tab_title(_tabs.get_tab_count() - 1, TITLES[board])
 
 
 ## Adds the comms board last, after the panels.

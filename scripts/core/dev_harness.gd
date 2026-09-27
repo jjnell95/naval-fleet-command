@@ -267,7 +267,7 @@ func handle_flags() -> void:
 					main.map.select_track(t)
 					break
 	if args.has("--cds-menu"):
-		main._on_map_context(main.map.size * 0.5, {"kind": "empty"})
+		_cds_menu_after_layout()
 	for a in args:
 		if a == "--run" or a.begins_with("--run="):
 			SimClock.set_speed_index(int(a.get_slice("=", 1)) if a.contains("=") else 0)
@@ -289,6 +289,13 @@ func handle_flags() -> void:
 	if shot != "":
 		_screenshot_after(shot, arg(args, "--hold=", 3.0))
 
+
+
+## Opens the right-click CDS menu at the chart's centre once the chart has its size.
+func _cds_menu_after_layout() -> void:
+	for i in 3:
+		await main.get_tree().process_frame
+	main._on_map_context(main.map.size * 0.5, main.map.context_at(main.map.size * 0.5).merged({"kind": "empty"}, true))
 
 
 ## After the layout (and any --zoom), so nothing refits the view afterwards.

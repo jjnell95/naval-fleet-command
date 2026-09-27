@@ -72,7 +72,7 @@ func _ready() -> void:
 	_panel.add_child(box)
 	var title := Label.new()
 	title.text = "KEY COMMANDS"
-	title.theme_type_variation = "DialogTitle"
+	title.theme_type_variation = "HeaderLabel"
 	box.add_child(title)
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 28)
@@ -85,7 +85,7 @@ func _ready() -> void:
 		_add_section(left if i == 1 else right, COMMANDS[i])
 	var hint := Label.new()
 	hint.text = "Any key or click to close"
-	hint.theme_type_variation = "DialogHint"
+	hint.theme_type_variation = "DimLabel"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
 
@@ -93,7 +93,7 @@ func _ready() -> void:
 func _add_section(parent: VBoxContainer, section: Array) -> void:
 	var head := Label.new()
 	head.text = str(section[0])
-	head.theme_type_variation = "DialogSection"
+	head.theme_type_variation = "HeaderLabel"
 	parent.add_child(head)
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -103,7 +103,7 @@ func _add_section(parent: VBoxContainer, section: Array) -> void:
 	for row: Array in section[1]:
 		var keys := Label.new()
 		keys.text = str(row[0])
-		keys.theme_type_variation = "DialogKey"
+		keys.theme_type_variation = "ValueLabel"
 		grid.add_child(keys)
 		var what := Label.new()
 		what.text = str(row[1])

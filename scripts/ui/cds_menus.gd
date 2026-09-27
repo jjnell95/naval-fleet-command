@@ -19,6 +19,9 @@ const SPEEDS_KN := [5.0, 10.0, 15.0, 20.0, 25.0]
 const DEPTHS := [["Surface", 0.0], ["Periscope", 18.0], ["Shallow", 60.0], ["Patrol", -1.0], ["Deep", 200.0], ["Under the layer", -2.0]]
 const ALTITUDES := [["Low", 150.0], ["Cruise", -1.0], ["High", -2.0]]
 
+## The skin the menus wear. Popups are windows, and a plain Node parent breaks theme inheritance,
+## so Main hands its theme over explicitly.
+var theme_source: Theme
 var _root: PopupMenu
 var _actions: Dictionary = {}  # popup instance id -> {item id -> action}
 
@@ -255,8 +258,16 @@ func open(items: Array, screen_pos: Vector2) -> void:
 	close()
 	_actions.clear()
 	_root = _build(items)
+	_root.theme = theme_source
 	add_child(_root)
-	_root.popup(Rect2i(Vector2i(screen_pos), Vector2i.ZERO))
+	_root.reset_size()
+	# Keep the whole menu on screen, like a desktop context menu near an edge.
+	var room := get_viewport().get_visible_rect().size
+	var at := screen_pos
+	at.x = minf(at.x, room.x - float(_root.size.x))
+	at.y = minf(at.y, room.y - float(_root.size.y))
+	_root.position = Vector2i(maxf(at.x, 0.0), maxf(at.y, 0.0))
+	_root.popup()
 
 
 func close() -> void:

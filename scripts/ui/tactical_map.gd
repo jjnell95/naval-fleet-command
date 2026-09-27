@@ -1910,11 +1910,7 @@ static var _bold_font: Font
 ## The chart's text face: a bold cut of the theme's data sans, for the track numbers and readouts.
 func _readout_font() -> Font:
 	if _bold_font == null:
-		var font := FontVariation.new()
-		font.base_font = UITheme.semibold_font().base_font if UITheme.semibold_font() is FontVariation else UITheme.semibold_font()
-		font.variation_opentype = {"wght": 700.0, "wdth": 100.0}
-		font.variation_embolden = 0.35
-		_bold_font = font
+		_bold_font = UITheme.data_font()
 	return _bold_font
 
 
