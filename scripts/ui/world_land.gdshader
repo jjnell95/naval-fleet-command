@@ -46,6 +46,22 @@ float hash21(vec2 p) {
 	return fract(p.x * p.y);
 }
 
+// Value noise and its analytic gradient: vec3(value, d/dx, d/dy).
+vec3 vnoise_d(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	vec2 du = 6.0 * f * (1.0 - f);
+	float a = hash21(i);
+	float b = hash21(i + vec2(1.0, 0.0));
+	float c = hash21(i + vec2(0.0, 1.0));
+	float d = hash21(i + vec2(1.0, 1.0));
+	float k1 = b - a;
+	float k2 = c - a;
+	float k3 = a - b - c + d;
+	return vec3(a + k1 * u.x + k2 * u.y + k3 * u.x * u.y, du * vec2(k1 + k3 * u.y, k2 + k3 * u.x));
+}
+
 float vnoise(vec2 p) {
 	vec2 i = floor(p);
 	vec2 f = fract(p);
@@ -179,7 +195,7 @@ void fragment() {
 	ROUGHNESS = 0.95 - snow * 0.4;
 	SPECULAR = 0.2 + snow * 0.3;
 	// Detail bumps for the near ground, so a hillside a mile off is not a smooth plastic sheet.
-	vec2 g = vec2(vnoise(local * 0.05 + vec2(1.3, 0.0)) - vnoise(local * 0.05 - vec2(1.3, 0.0)), vnoise(local * 0.05 + vec2(0.0, 1.3)) - vnoise(local * 0.05 - vec2(0.0, 1.3)));
+	vec2 g = vnoise_d(local * 0.05).yz * 2.6;
 	vec3 bumped = normalize(n_world + vec3(g.x, 0.0, g.y) * 0.06 * fine);
 	NORMAL = normalize((VIEW_MATRIX * vec4(bumped, 0.0)).xyz);
 }

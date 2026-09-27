@@ -175,7 +175,7 @@ func launch_puff(nm: Vector2, h: float, scale := 1.0) -> void:
 
 ## A muzzle flash and a wisp of gun smoke.
 func gun_flash(nm: Vector2, h: float, scale := 1.0) -> void:
-	flash(nm, h, 9.0 * scale, Color(1.0, 0.85, 0.45, 1.0), 0.12)
+	flash(nm, h, 11.0 * scale, Color(1.0, 0.85, 0.45, 1.0), 0.14)
 	_one_shot(_gun_smoke(scale), nm, h, 5.0)
 
 

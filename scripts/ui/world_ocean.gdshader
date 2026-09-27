@@ -51,9 +51,21 @@ float vnoise(vec2 p) {
 	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-// Gradient of value noise by central differences, for normals.
-vec2 vnoise_grad(vec2 p, float e) {
-	return vec2(vnoise(p + vec2(e, 0.0)) - vnoise(p - vec2(e, 0.0)), vnoise(p + vec2(0.0, e)) - vnoise(p - vec2(0.0, e))) / (2.0 * e);
+// Value noise and its analytic gradient: vec3(value, d/dx, d/dy). One lookup of four corners
+// instead of four lookups, which matters at every pixel of the sea.
+vec3 vnoise_d(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	vec2 du = 6.0 * f * (1.0 - f);
+	float a = hash21(i);
+	float b = hash21(i + vec2(1.0, 0.0));
+	float c = hash21(i + vec2(0.0, 1.0));
+	float d = hash21(i + vec2(1.0, 1.0));
+	float k1 = b - a;
+	float k2 = c - a;
+	float k3 = a - b - c + d;
+	return vec3(a + k1 * u.x + k2 * u.y + k3 * u.x * u.y, du * vec2(k1 + k3 * u.y, k2 + k3 * u.x));
 }
 
 float swell(vec2 p, float t) {
@@ -114,9 +126,9 @@ void fragment() {
 	g += wave(p, t * 1.05, normalize(wind + side * 2.1), 7.9, amp * 0.3, footprint, crest);
 	// Three octaves of drifting noise break up the regularity: cat's paws and chop.
 	float chop_fade = 1.0 - smoothstep(0.6, 4.0, footprint);
-	g += vnoise_grad(p * 0.045 + wind * t * 0.12, 0.3) * 0.045 * (0.9 + 0.35 * s) * (1.0 - smoothstep(3.0, 18.0, footprint));
-	g += vnoise_grad(p * 0.21 + wind * t * 0.35, 0.25) * 0.21 * (0.3 + 0.12 * s) * chop_fade;
-	g += vnoise_grad(p * 0.9 - wind * t * 0.8 + 11.0, 0.25) * 0.9 * (0.05 + 0.03 * s) * (1.0 - smoothstep(0.08, 0.7, footprint));
+	g += vnoise_d(p * 0.045 + wind * t * 0.12).yz * 0.045 * (0.9 + 0.35 * s) * (1.0 - smoothstep(3.0, 18.0, footprint));
+	g += vnoise_d(p * 0.21 + wind * t * 0.35).yz * 0.21 * (0.3 + 0.12 * s) * chop_fade;
+	g += vnoise_d(p * 0.9 - wind * t * 0.8 + 11.0).yz * 0.9 * (0.05 + 0.03 * s) * (1.0 - smoothstep(0.08, 0.7, footprint));
 	vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
 	// Far away the surface smooths into one dark sheet up to a crisp horizon.
 	float far = smoothstep(2500.0, haze_m, v_dist);

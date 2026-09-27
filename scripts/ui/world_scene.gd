@@ -18,6 +18,7 @@ const FRESH_LAUNCH_S := 2.0
 ## One launch cloud per launcher this often, however big the salvo.
 const LAUNCH_COOLDOWN_S := 0.7
 const GUN_COOLDOWN_S := 0.09
+const GUN_BURST_S := 1.5  # a gun round this fresh still flashes at its mount
 ## An aircraft of ours this close to its deck when it first appears has just launched.
 const AIR_LAUNCH_NM := 1.5
 const RECOVERY_WATCH_NM := 2.5
@@ -580,11 +581,9 @@ func _on_new_round(rec: Dictionary, e: Dictionary) -> void:
 		var toward := WorldPresentation.heading_vector(float(e["heading_deg"]))
 		at += toward * slen * 0.3
 	var at_nm := WorldCamera.to_chart(at, origin_nm)
-	var last: float = _launch_clock.get(shooter_key + (":gun" if gun else ""), -INF)
+	var last: float = _launch_clock.get(shooter_key, -INF)
 	if gun:
-		if anim - last >= GUN_COOLDOWN_S:
-			effects.gun_flash(Vector2(at_nm.x, at_nm.y), at_nm.z, clampf(slen / 120.0, 0.5, 1.5))
-			_launch_clock[shooter_key + ":gun"] = anim
+		_gun_burst(e)
 		return
 	if e.get("torpedo", false):
 		effects.burst("miss", Vector2(at_nm.x, at_nm.y), 0.0, 0.5)
@@ -597,6 +596,27 @@ func _on_new_round(rec: Dictionary, e: Dictionary) -> void:
 	if not aloft and (w.is_interceptor() or float(e["height_m"]) > 40.0):
 		seed.append(at_nm + Vector3(0.0, 0.0, 70.0))
 	effects.trail_extend(e["key"], nm, float(e["height_m"]), _trail_spacing(e), seed)
+
+
+## Muzzle flashes for as long as a gun's rounds are fresh: a close-in weapon's burst flickers at
+## the mount. Only for a launcher that is on the view.
+func _gun_burst(e: Dictionary) -> void:
+	var w: Weapon = e.get("weapon")
+	if w == null or w.shooter == null or w.time_alive_s > GUN_BURST_S:
+		return
+	var shooter_key := "u:%d" % w.shooter.id
+	var srec: Dictionary = _records.get(shooter_key, {})
+	if srec.is_empty() or srec.get("root") == null or not (srec["entry"]["kind"] in ["own", "visual"]):
+		return
+	if anim - float(_launch_clock.get(shooter_key + ":gun", -INF)) < GUN_COOLDOWN_S:
+		return
+	_launch_clock[shooter_key + ":gun"] = anim
+	var sroot: Node3D = srec["root"]
+	var slen: float = srec["entry"]["length_m"]
+	var toward := WorldPresentation.heading_vector(float(e["heading_deg"]))
+	var at := sroot.position + Vector3(0.0, float(srec["height_m"]) * 0.12, 0.0) + toward * slen * 0.3
+	var at_nm := WorldCamera.to_chart(at, origin_nm)
+	effects.gun_flash(Vector2(at_nm.x, at_nm.y), at_nm.z, clampf(slen / 120.0, 0.5, 1.5))
 
 
 ## An aircraft of ours leaving the deck or coming back to it, for the Action camera.
@@ -653,11 +673,13 @@ func _apply_trails(rec: Dictionary, e: Dictionary, base: Vector3, heading: float
 		_sample_trail(key, pos, spacing_nm)
 		var stern := base - WorldPresentation.heading_vector(heading) * length * 0.46
 		stern.y = 0.0
-		_build_wake(rec, stern, beam, spread, life)
+		_build_wake(rec, stern, -WorldPresentation.heading_vector(heading), beam, spread, life)
 	elif rec["wake"] != null:
 		(rec["wake"] as MeshInstance3D).visible = false
 	if kind == "weapon" and not e.get("torpedo", false) and not e.get("gun", false):
 		effects.trail_extend(key, pos, float(e["height_m"]), _trail_spacing(e))
+	elif kind == "weapon" and e.get("gun", false) and _warm:
+		_gun_burst(e)
 
 
 func _trail_spacing(e: Dictionary) -> float:
@@ -716,8 +738,9 @@ func _release_strip(mi: MeshInstance3D) -> void:
 
 
 ## A strip from the stern back along the sampled track, widening as a Kelvin wake does and
-## fading with distance and age. The foam itself is the wake shader's business.
-func _build_wake(rec: Dictionary, stern: Vector3, beam: float, spread: float, life: float) -> void:
+## fading with distance and age. `astern` is the unit vector aft. The foam itself is the wake
+## shader's business.
+func _build_wake(rec: Dictionary, stern: Vector3, astern: Vector3, beam: float, spread: float, life: float) -> void:
 	var trail: Array = _trails.get(rec["key"], [])
 	var mi: MeshInstance3D = rec["wake"]
 	if mi == null:
@@ -730,8 +753,8 @@ func _build_wake(rec: Dictionary, stern: Vector3, beam: float, spread: float, li
 	for i in range(trail.size() - 1, -1, -1):
 		var s: Vector3 = trail[i]
 		var w := WorldPresentation.to_world(Vector2(s.x, s.y), origin_nm, 0.0)
-		if w.distance_to(points[-1]) < 1.0:
-			continue
+		if w.distance_to(points[-1]) < 1.0 or (points.size() == 1 and (w - stern).dot(astern) < 1.0):
+			continue  # too close, or a sample still under the hull, ahead of the stern
 		points.append(w)
 		times.append(s.z)
 	if points.size() < 2:

@@ -75,8 +75,8 @@ static func _marker(kind: String) -> Node3D:
 			mi.rotation.z = deg_to_rad(-90.0)
 		"tracer":
 			var streak := CylinderMesh.new()
-			streak.top_radius = 0.16
-			streak.bottom_radius = 0.04
+			streak.top_radius = 0.35
+			streak.bottom_radius = 0.08
 			streak.height = 10.0
 			streak.radial_segments = 6
 			streak.rings = 1

@@ -693,3 +693,63 @@ func test_smoke_trails_linger_after_the_round_and_then_go() -> void:
 	assert_true(fx.trail_count() <= WorldEffects.MAX_TRAILS, "the number of trails is bounded")
 	root.remove_child(fx)
 	fx.free()
+
+
+func test_scene_draws_launches_from_fresh_rounds_and_offers_them_to_action() -> void:
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	ship.id = 11
+	var own := WorldPresentation.own_entry(ship)
+	scene.update(0.016, [own], own["key"])
+	var wm := WeaponManager.new()
+	var sam := Weapon.new()
+	sam.id = 21
+	sam.spec = DataDB.weapon("cw90_sm2mr")
+	sam.faction = "BLUE"
+	sam.shooter = ship
+	sam.position = Vector2(0.01, 0.0)
+	sam.time_alive_s = 0.25
+	var shell := Weapon.new()
+	shell.id = 22
+	shell.spec = DataDB.weapon("cw90_phalanx")
+	shell.faction = "BLUE"
+	shell.shooter = ship
+	shell.position = Vector2(0.02, 0.0)
+	shell.time_alive_s = 0.25
+	wm.in_flight.append(sam)
+	wm.in_flight.append(shell)
+	var entries: Array = [own]
+	entries.append_array(WorldPresentation.weapon_entries(wm, null, "BLUE", ship))
+	scene.update(0.016, entries, own["key"])
+	assert_eq(scene._records["w:22"]["model_id"], "marker:tracer", "a gun round is drawn as a tracer")
+	assert_true(scene.effects._flashes.size() >= 2, "a launch flash and a muzzle flash")
+	assert_true(scene.effects.has_trail("w:21"), "the missile lays smoke")
+	assert_true(not scene.effects.has_trail("w:22"), "the shell does not")
+	var pts: PackedVector4Array = scene.effects._trails["w:21"]["pts"]
+	assert_near(Vector2(pts[0].x, pts[0].y).distance_to(ship.position), 0.0, 0.01, "from the launcher")
+	var events := scene.take_events()
+	assert_eq(events.size(), 1, "one launch of ours for the Action camera; a gun burst is not an event")
+	assert_eq(events[0]["key"], "w:21")
+	assert_true(scene.take_events().is_empty(), "events are handed over once")
+	scene.update(0.016, [own], own["key"])
+	assert_true(not scene._records.has("w:21"), "the round has gone")
+	assert_true(scene.effects.has_trail("w:21"), "but its smoke has not")
+	var late := Weapon.new()
+	late.id = 23
+	late.spec = DataDB.weapon("cw90_sm2mr")
+	late.faction = "BLUE"
+	late.shooter = ship
+	late.position = Vector2(3.0, 0.0)
+	late.time_alive_s = 60.0
+	wm.in_flight.append(late)
+	entries = [own]
+	entries.append_array(WorldPresentation.weapon_entries(wm, null, "BLUE", ship))
+	scene.update(0.016, entries, own["key"])
+	var late_pts: PackedVector4Array = scene.effects._trails["w:23"]["pts"]
+	assert_near(Vector2(late_pts[0].x, late_pts[0].y).distance_to(late.position), 0.0, 0.01, "a round first seen mid-flight starts its smoke where it was seen, not at a launcher it was not seen leaving")
+	wm.free()
+	root.remove_child(scene)
+	scene.free()
