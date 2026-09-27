@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_hpj45_130mm"
+display_name = "H/PJ-45A 130 mm gun"
+family = "H/PJ-45A 130 mm gun"
+type = "gun"
+target_types = PackedStringArray("surface")
+guidance = "ballistic"
+profile = "direct"
+max_range_nm = 12.0
+min_range_nm = 0.4
+speed_kn = 1600.0
+damage = 11.0
+base_pk = 0.52
+salvo_default = 6
+launch_interval_s = 1.0
+seeker_range_nm = 0.0
+turn_rate_deg_s = 15.0
+signature_factor = 0.12
+altitude_m = 10.0
+soft_kill_resistance = 1.0
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

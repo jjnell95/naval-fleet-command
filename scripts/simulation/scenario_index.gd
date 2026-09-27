@@ -47,6 +47,8 @@ static func _scan(root: String, custom: bool, out: Array) -> void:
 					"difficulty": d.get("difficulty", "Open command"),
 					"duration_minutes": int(d.get("duration_minutes", 0)),
 					"role": d.get("role", "Task force command"),
+					"theatre": d.get("theatre", ""),
+					"region": str(d.get("map", {}).get("chart_region", "north_atlantic")),
 				})
 		name = dir.get_next()
 	dir.list_dir_end()

@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_ddg_type055"
+display_name = "Type 055 large destroyer (Renhai)"
+short_name = "DDG Type 055"
+nation = "China"
+category = "destroyer"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.8
+accel_kn_s = 0.22
+health = 150.0
+signature_factor = 1.2
+mast_height_m = 34.0
+sensor_ids = PackedStringArray("pla_type346b", "pla_type518", "pla_hsjd9", "pla_hsjg311", "pla_esm")
+weapon_loadout = {"pla_hhq9b": 48, "pla_yj18": 16, "pla_yj21": 4, "pla_cj10": 8, "pla_yu8": 8, "pla_hhq10": 24, "pla_hpj11_ciws": 100, "pla_hpj45_130mm": 300, "pla_yu7": 6}
+decoy_count = 16
+decoy_effectiveness = 0.35
+fire_control_channels = 8
+role = "Area air defence / long-range strike / group flagship"
+service_note = "112 universal cells shared between HHQ-9B, YJ-18, YJ-21, CJ-10 and Yu-8; the allocation here is a scenario load of 86 cells. Two helicopters aboard. Cruiser-sized by Western reckoning; the PLAN rates it a destroyer."
+length_m = 180.0
+displacement_t = 13000.0
+aircraft_capacity = 2
+vls_cells = 112
+default_air_wing = {"pla_helo_z20f": 2}
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

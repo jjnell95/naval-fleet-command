@@ -11,12 +11,12 @@ extends Control
 ## Presentation only. It reads Bathymetry and the map's transform and never touches simulation state.
 
 const SHADER := preload("res://scripts/ui/chart_floor.gdshader")
-const RELIEF := "res://data/bathymetry/north_atlantic_relief.png"
-## Half-float metres at half resolution, for smooth contours. Same bounds as the simulation raster.
-const CHART := "res://data/bathymetry/north_atlantic_chart.exr"
 
 var map: TacticalMap
 var _texture: Texture2D
+## Half-float metres at half resolution, for smooth contours, plus the baked relief: one pair per
+## chart region, with the same bounds as that region's simulation raster.
+var _region := ""
 var _generation := -1
 var _charted := Rect2()  # world rect covered by the scenario's coastline polygons
 var _material: ShaderMaterial
@@ -38,16 +38,18 @@ func active() -> bool:
 
 
 func _ensure_texture() -> bool:
-	if _texture != null:
+	if _texture != null and _region == Bathymetry.region:
 		return true
-	if not ResourceLoader.exists(CHART):
+	var chart := Bathymetry.chart_path(Bathymetry.region)
+	if not ResourceLoader.exists(chart):
 		return false
-	_texture = load(CHART)
+	_texture = load(chart)
 	if _texture == null:
 		return false
+	_region = Bathymetry.region
 	_material.set_shader_parameter("depth_tex", _texture)
-	if ResourceLoader.exists(RELIEF):
-		_material.set_shader_parameter("relief_tex", load(RELIEF))
+	var relief := Bathymetry.relief_path(Bathymetry.region)
+	_material.set_shader_parameter("relief_tex", load(relief) if ResourceLoader.exists(relief) else null)
 	return true
 
 

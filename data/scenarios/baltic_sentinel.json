@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -213.2,
       -251.5,
@@ -18987,6 +18988,18 @@
   "order": 2,
   "neutral_factions": [
     "WHITE"
+  ],
+  "theatre": "Baltic",
+  "year": 2027,
+  "difficulty": "Intermediate",
+  "duration_minutes": 25,
+  "role": "Convoy escort commander",
+  "learning": "Escort in shallow water full of neutral traffic, identification under weapons-tight rules, small combatants with large missile loads",
+  "commander_intent": "Deliver both merchants to their rendezvous south of Gotland. Identify every contact; the fishing fleet is not the enemy.",
+  "first_orders": [
+    "Peter Willemoes takes the eastern flank toward Liepaja; Magdeburg stays close to the merchants.",
+    "Kalibr from the Buyan-M reaches a hundred miles. Do not let the merchants sail into a firing solution you have not seen built.",
+    "Every radar contact here is a merchant until proven otherwise. Track, classify, then decide."
   ],
   "objectives": {
     "text": "Escort both merchant ships to their southern rendezvous. Loss of either merchant or the fishing vessel fails the mission.",

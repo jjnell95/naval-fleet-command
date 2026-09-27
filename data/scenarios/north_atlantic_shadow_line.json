@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -213.1,
       -224.0,
@@ -12342,6 +12343,18 @@
     }
   ],
   "order": 1,
+  "theatre": "Norwegian Sea",
+  "year": 2027,
+  "difficulty": "Intermediate",
+  "duration_minutes": 20,
+  "role": "Surface action group commander",
+  "learning": "Building a surface picture with radar, ESM and helicopters, identification before a limited missile salvo, and Aegis defence of a frigate that carries the strike",
+  "commander_intent": "Neutralize Admiral Gorshkov and Stoikiy without spending Roald Amundsen's eight missiles on the wrong ship.",
+  "first_orders": [
+    "Truxtun radiates; Roald Amundsen listens. The frigate's ESM and the destroyer's Seahawks classify before anyone shoots.",
+    "Gorshkov outranges you with Oniks. Close under emissions control or let the helicopters find her first.",
+    "NSM salvos are the mission's only offensive punch. Two ships, eight missiles, one chance each."
+  ],
   "objectives": {
     "text": "Neutralize the two surface combatants. Detached aircraft are not additional victory targets.",
     "victory": [

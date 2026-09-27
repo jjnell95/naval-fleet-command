@@ -4,7 +4,7 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M22 / Cold War 1990"
+const BUILD_MILESTONE := "M23 / World Theatres"
 const DEFAULT_SCENARIO := "res://data/scenarios/cold_war_01_convoy.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
@@ -35,6 +35,7 @@ var _command_taken := false  # the player has taken command of the loaded operat
 var _restart_armed_ms := -100000
 const RESTART_CONFIRM_MS := 4000
 var _watch: CommandOverview
+var _world_view: WorldView
 var _dev: DevHarness
 var _stats := {}
 var _losses: PackedStringArray = []
@@ -76,6 +77,11 @@ func _ready() -> void:
 	map.aviation_manager = simulation.aviation_manager
 	map.simulation = simulation
 	map.player_faction = simulation.player_faction
+	_world_view = WorldView.new()
+	_world_view.map = map
+	_world_view.simulation = simulation
+	map.add_child(_world_view)
+	map.world_view_requested.connect(_world_view.cycle_mode)
 	contact_panel.track_manager = simulation.track_manager
 	contact_panel.player_faction = simulation.player_faction
 	contact_panel.map = map
@@ -222,6 +228,8 @@ func start_scenario(path: String) -> void:
 	map.clear_selection()
 	map.weapon_ring = null
 	map.reset_presentation()
+	if _world_view != null:
+		_world_view.reset_presentation()
 	var chart: Dictionary = simulation.scenario.get("map", {})
 	var focus: Array = chart.get("focus_center_nm", [simulation.map_center.x, simulation.map_center.y])
 	map.fit_to(Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
@@ -546,6 +554,7 @@ func _palette_actions() -> Array[Dictionary]:
 	var emcon_state := orders_panel._selection_state("emcon")
 	var actions: Array[Dictionary] = [
 		{"id": "wide_chart", "label": "Expand or restore tactical chart", "description": "Toggle side panels while keeping orders, alerts and time visible.", "shortcut": "B", "enabled": true, "state": "expanded" if _wide_chart else "command deck"},
+		{"id": "world_view", "label": "World view", "description": "Cycle the 3D battle camera: an inset card, the full chart, hidden.", "shortcut": "T", "enabled": true, "state": _world_view.mode_name()},
 		{"id": "plot_move", "label": "Plot move", "description": "Arm a visible left-click route order; Shift chains waypoints.", "shortcut": "G", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Select a deployed mobile platform first."},
 		{"id": "open_engagement", "label": "Open engagement solution", "description": "Show weapon, range, time-of-flight, and fire controls for the hooked contact.", "shortcut": "", "enabled": controllable and has_target, "state": map.selected_track.id if has_target else "no target", "reason": "Select a shooter and a contact first."},
 		{"id": "next_contact", "label": "Next priority contact", "description": "Cycle hostile, unknown, fresh, and nearby contacts first.", "shortcut": "N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
@@ -585,6 +594,8 @@ func _run_palette_action(id: String) -> void:
 	match id:
 		"wide_chart":
 			_toggle_wide_chart()
+		"world_view":
+			_world_view.cycle_mode()
 		"plot_move":
 			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
 			map.grab_focus()
@@ -713,6 +724,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match k.keycode:
 		KEY_B:
 			_toggle_wide_chart()
+		KEY_T:
+			_world_view.cycle_mode()
 		KEY_F3:
 			_toggle_air_operations()
 		KEY_F7:
@@ -778,11 +791,15 @@ func _on_selection_changed(units: Array) -> void:
 	# selection is actively commandable as aircraft launch, recover, or are stowed.
 	orders_panel.set_units(units, _all_command_authorized(units), _all_mobile_command_authorized(units))
 	orders_panel.set_target_track(map.selected_track)
+	if _world_view != null:
+		_world_view.refocus()
 
 
 func _on_track_selected(t: Track) -> void:
 	contact_panel.refresh()
 	orders_panel.set_target_track(t)
+	if _world_view != null:
+		_world_view.refocus()
 	if t != null:
 		orders_panel.open_engagement()
 
@@ -814,6 +831,7 @@ func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int)
 	if own:
 		_stats["own_rounds"] += rounds
 		map.add_effect(shooter.position, "launch")
+		_world_view.add_effect(shooter.position, "launch", true)
 		SoundFx.play("launch")
 		top_bar.flash("%s — %d x %s at %s" % [shooter.callsign, rounds, spec.display_name, t.id], "good")
 
@@ -854,6 +872,7 @@ func _on_interceptor_launched(shooter: Unit, spec: WeaponSpec, threat: Weapon, r
 	if shooter.faction == simulation.player_faction:
 		_stats["launched"] += rounds
 		map.add_effect(shooter.position, "launch")
+		_world_view.add_effect(shooter.position, "launch", true)
 		SoundFx.play("launch", 0.4)
 	print("[Defence] %s fires %d x %s at inbound %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, threat.spec.display_name, shooter.position.distance_to(threat.position)])
 
@@ -867,6 +886,7 @@ func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
 			_stats["decoyed"] += 1
 			_stats["decoys_used"] += 1
 		map.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy")
+		_world_view.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy", true, threat.spec.altitude_m)
 		SoundFx.play("intercept", 0.3)
 		top_bar.flash("%s %s by %s" % [threat.spec.display_name, reason, by_unit.callsign], "good")
 	print("[Defence] %s %s by %s" % [threat.spec.display_name, reason, by_unit.callsign if by_unit != null else "?"])
@@ -877,6 +897,7 @@ func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
 func _on_weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit) -> void:
 	var own := to_unit.faction == simulation.player_faction
 	map.add_effect(threat.position, "decoy")
+	_world_view.add_effect(threat.position, "decoy", own, threat.spec.altitude_m)
 	if own or from_unit.faction == simulation.player_faction:
 		top_bar.flash("%s decoyed off %s — re-acquired %s" % [threat.spec.display_name, from_unit.callsign, to_unit.callsign], "alert" if own else "warn")
 	print("[Defence] %s decoyed off %s, re-acquired %s" % [threat.spec.display_name, from_unit.callsign, to_unit.callsign])
@@ -908,10 +929,12 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 	_stats["leaked"] += 1
 	if not hit:
 		map.add_effect(target.position, "miss")
+		_world_view.add_effect(target.position, "miss")
 		print("[Combat] %s miss on %s" % [spec.display_name, target.callsign])
 		return
 	SimClock.drop_to_realtime()
 	map.add_effect(target.position, "hit", own_target)
+	_world_view.add_effect(target.position, "hit", own_target)
 	SoundFx.play("impact", 0.2)
 	if own_target:
 		var casualties := ""
@@ -928,6 +951,7 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 	SimClock.drop_to_realtime()
 	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
+	_world_view.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
 	SoundFx.play("impact", 0.0)
 	var how := "LOST TO FIRE AND FLOODING" if _foundered.has(u) else "DESTROYED"
 	if u.faction == simulation.player_faction:
@@ -1041,6 +1065,7 @@ func _report_orders(order: Order, accepted: int, refused: int) -> void:
 		top_bar.flash("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else ""], "warn")
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
+			_world_view.add_effect(order.target_pos, "refused")
 	else:
 		top_bar.flash("Select a controllable platform first", "warn")
 

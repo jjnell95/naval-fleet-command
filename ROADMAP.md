@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M23 world theatres, shore batteries and the world view
+
+Four Natural Earth chart regions, a 2027 Pacific, Gulf and Mediterranean catalogue of 45 platforms with art and models, installations ashore that fight and can be struck, ski-jump carriers, seven new operations (22 in all) with full briefing cards on every mission, theatre shelves on the operations desk, and a 3D world view that obeys the information model. See the [M23 notes](docs/2026-09-27-world-theatres.md).
+
+The most useful next steps are a campaign thread across a theatre with persistent losses and magazines, replenishment at sea, mine warfare for the Gulf, and coast-guard and maritime-militia traffic for the South China Sea.
+
 ## M22 command deck redesign and browser release
 
 The interface was rebuilt around the chart on a code-defined design system. Twelve defects were fixed, each with a test, and a lighter browser build (71 MB first load) now publishes through GitHub Pages. CI runs the tests on every pull request. See the [M22 notes](docs/2026-09-24-presentation-and-browser.md).

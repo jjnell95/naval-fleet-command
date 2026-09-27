@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -201.7,
       -204.0,
@@ -9783,6 +9784,18 @@
     }
   ],
   "order": 6,
+  "theatre": "Norwegian Sea",
+  "year": 2027,
+  "difficulty": "Advanced",
+  "duration_minutes": 30,
+  "role": "Escort commander",
+  "learning": "Escorting a replenishment ship against a nuclear attack submarine and a Bear patrol aircraft that is spotting for it",
+  "commander_intent": "Get Maud to the northern rendezvous. Kazan wins if she gets one salvo off at the auxiliary; she does not have to sink you.",
+  "first_orders": [
+    "Maud is on course for the rendezvous at fifteen knots. Ralph Johnson's helicopters sweep ahead of her; Otto Sverdrup listens astern.",
+    "Kazan carries Kalibr and Zircon. The Bear's radar is her targeting. Silence the Bear or make it look elsewhere.",
+    "A towed array behind the convoy hears a boat trying to gain bearing on the auxiliary."
+  ],
   "objectives": {
     "text": "Escort Maud to the northern rendezvous. Her survival matters more than enemy losses.",
     "victory": [

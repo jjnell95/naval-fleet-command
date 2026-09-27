@@ -3,6 +3,7 @@
   "name": "BALTIC: THE NARROW WATER",
   "era": "Cold War",
   "year": 1990,
+  "theatre": "Baltic",
   "order": -10,
   "difficulty": "Advanced",
   "duration_minutes": 20,
@@ -232,6 +233,7 @@
       172.5,
       172.5
     ],
+    "chart_region": "north_atlantic",
     "chart_note": "Natural Earth coastline and bathymetry / 1990 scenario / not for navigation"
   },
   "environment": {

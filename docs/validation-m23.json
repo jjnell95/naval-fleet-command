@@ -1,0 +1,585 @@
+{
+  "date": "2026-09-27",
+  "milestone": "M23 World theatres, installations ashore and the world view",
+  "base_commit": "2ee4c020600a77ea038897787d4545088356d5f7",
+  "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+  "catalogue": {
+    "platforms": 139,
+    "weapons": 141,
+    "sensors": 164,
+    "missions": 22,
+    "models": 280,
+    "new_platforms": 45,
+    "new_weapons": 43,
+    "new_sensors": 58,
+    "new_missions": 7,
+    "chart_regions": 4
+  },
+  "regression_tests": {
+    "total": 351,
+    "failed": 0,
+    "failures": [],
+    "command": "godot --headless --path . --script tests/run_tests.gd"
+  },
+  "native_command_deck": {
+    "checks": 29,
+    "failed": 0,
+    "log": "cold-war-smoke.log"
+  },
+  "native_air_operations": {
+    "checks": 19,
+    "failed": 0,
+    "log": "aviation-smoke.log"
+  },
+  "scenario_sweep": {
+    "command": "python3 tools/smoke_scenarios.py <godot> <dir>",
+    "seconds_per_case": 6000,
+    "seeds": [
+      2,
+      13
+    ],
+    "both_side_ai": true,
+    "cases_total": 44,
+    "cases_ok": 44,
+    "grounded_hulls": 0,
+    "results": {
+      "running": 35,
+      "victory": 4,
+      "defeat": 5
+    },
+    "cases": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 87.1
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 252.8
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 21.8
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 40.8
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.5
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.4
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 7.3
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 29.9
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 12.1
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 98.8
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.1
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 87.3
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 144.0,
+        "note": "re-run alone after the sweep's copy hit the 900 s hang ceiling while five other Godot processes shared four cores; 144 s wall when re-run with two"
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.3
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 16.6
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.7
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 529.1
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 25.6
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 416.8
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 58.5
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 86.7
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 6.0
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 86.1
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 236.6
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 18.8
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 34.2
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.1
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.9
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 7.3
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 25.0
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 10.1
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 98.4
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.9
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 63.1
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 138.7
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.3
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 16.6
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.3
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 533.0
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 25.6
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 396.7
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 52.3
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 82.9
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 6.2
+      }
+    ]
+  },
+  "full_watch_runs": [
+    {
+      "scenario": "pacific_01_bashi_channel",
+      "log": "pacific_01_bashi_channel-4-s2.log",
+      "sim_seconds": 21600.0,
+      "result": "VICTORY",
+      "reason": "Hold the channel for six hours, or neutralize the Type 093B. The Shang crossing into the Philippine Sea, or the loss of Peralta, fails the mission.",
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "six-hour watch, seed 2"
+    },
+    {
+      "scenario": "pacific_02_taiwan_strait",
+      "log": "pacific_02_taiwan_strait-8-s2-7200.log",
+      "sim_seconds": 7200.0,
+      "result": "RUNNING",
+      "reason": null,
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "two hours, seed 2, final files"
+    },
+    {
+      "scenario": "pacific_02_taiwan_strait",
+      "log": "pacific_02_taiwan_strait-8-s3-7200.log",
+      "sim_seconds": 7200.0,
+      "result": "RUNNING",
+      "reason": null,
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "two hours, seed 3, final files"
+    },
+    {
+      "scenario": "pacific_02_taiwan_strait",
+      "log": "pacific_02_taiwan_strait-9-s5-18000.log",
+      "sim_seconds": 18000.0,
+      "result": "DEFEAT",
+      "reason": "Protected vessel lost",
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "full five-hour watch, seed 5, final files"
+    },
+    {
+      "scenario": "gulf_01_hormuz",
+      "log": "gulf_01_hormuz-9-s2-7200.log",
+      "sim_seconds": 7200.0,
+      "result": "DEFEAT",
+      "reason": "Neutral vessel sunk by own fire",
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "two hours, seed 2, final files"
+    },
+    {
+      "scenario": "pacific_03_spratly",
+      "log": "pacific_03_spratly-2.log",
+      "sim_seconds": 7200.0,
+      "result": "RUNNING",
+      "reason": null,
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "two hours, seed 2"
+    },
+    {
+      "scenario": "pacific_04_sea_of_japan",
+      "log": "pacific_04_sea_of_japan-4-s3.log",
+      "sim_seconds": 7200.0,
+      "result": "DEFEAT",
+      "reason": "Protected vessel lost",
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "two hours, seed 3"
+    },
+    {
+      "scenario": "med_01_tartus",
+      "log": "med_01_tartus-standalone-6000.log",
+      "sim_seconds": 6000.0,
+      "result": "RUNNING",
+      "reason": null,
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "6000 s, seed 2"
+    },
+    {
+      "scenario": "cold_war_05_sea_of_japan",
+      "log": "cold_war_05_sea_of_japan-3.log",
+      "sim_seconds": 7200.0,
+      "result": "RUNNING",
+      "reason": null,
+      "script_errors": 0,
+      "grounded_hulls": 0,
+      "note": "two hours, seed 2"
+    }
+  ],
+  "art": {
+    "models": 280,
+    "largest_model": {
+      "id": "usn_ddg_arleigh_burke_iia",
+      "kind": "platform",
+      "triangles": 23196
+    },
+    "pipeline": "tools/art (trimesh geometry, Godot render under Xvfb, Pillow compose); tools/blender retained for the earlier assets"
+  },
+  "build": {
+    "index.pck": {
+      "bytes": 55468544,
+      "sha256": "6861a55f879bc6c2bf0939ccb37785497a62cd4bbe3a0d094404bc3700c70340"
+    },
+    "index.wasm": {
+      "bytes": 39514754,
+      "sha256": "fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0"
+    },
+    "index.js": {
+      "bytes": 279815,
+      "sha256": "33c94cb3175f3333b82e2a3be5e8e86f77986f0aa2042b1631f6367a4e5bb6ba"
+    },
+    "index.html": {
+      "bytes": 12010,
+      "sha256": "dc37281d883a22588623bed167ba02d62bff44458c55d29765138db68fde2289"
+    }
+  },
+  "browser": {
+    "environment": "headless Chromium 1194 with SwiftShader WebGL 2, served from docs/ over HTTP",
+    "booted": true,
+    "console_errors": [],
+    "console_notices": [
+      "[.WebGL-0x54c0f6d9800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "[.WebGL-0x54c0f6d9800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+    ],
+    "first_visit_download_mb": 90.8
+  },
+  "limits": [
+    "The scenario sweep covers 6000 seconds per case with the AI commanding both sides; it checks stability and grounding, not balance or full-watch completion.",
+    "Full-watch runs are single seeds; the AI plays the player's side conservatively (radars silent on patrol), so a defeat there is not proof that a commander cannot win, and a victory is not proof of a fair fight.",
+    "Natural Earth 1:10m is generalised cartography; the reclaimed Spratly footprints are approximations; ballistic rounds fly one abstract altitude.",
+    "The world view is presentation only and was checked by screenshots under Xvfb (llvmpipe), not on a GPU."
+  ]
+}

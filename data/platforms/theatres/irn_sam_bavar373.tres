@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "irn_sam_bavar373"
+display_name = "Bavar-373 long-range surface-to-air missile site"
+short_name = "SAM site Bavar-373"
+nation = "Iran"
+category = "surface-to-air missile site"
+domain = "land"
+max_speed_kn = 0.0
+cruise_speed_kn = 0.0
+turn_rate_deg_s = 0.0
+accel_kn_s = 0.0
+health = 60.0
+signature_factor = 1.2
+mast_height_m = 20.0
+sensor_ids = PackedStringArray("irn_meraj4_radar", "irn_esm")
+weapon_loadout = {"irn_sayyad4_sam": 12}
+decoy_count = 0
+decoy_effectiveness = 0.0
+fire_control_channels = 4
+role = "Long-range air defence of the coast"
+service_note = "Representative 2027 fit; only systems the game represents are listed."
+has_datalink = true
+aircraft_capacity = 0
+aviation_facility = "none"
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

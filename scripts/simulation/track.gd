@@ -75,8 +75,19 @@ func class_short() -> String:
 		Classification.UNKNOWN:
 			return "UNK"
 		Classification.SURFACE:
-			return "SUB" if domain == "subsurface" else ("AIR" if domain == "air" else "SURF")
+			return _domain_short()
 	return known_class
+
+
+func _domain_short() -> String:
+	match domain:
+		"subsurface":
+			return "SUB"
+		"air":
+			return "AIR"
+		"land":
+			return "SHORE"
+	return "SURF"
 
 
 ## True when the contact is held on sound alone, with no usable range.
@@ -92,7 +103,14 @@ func description() -> String:
 		Classification.CLASS_KNOWN:
 			return known_class
 		Classification.SURFACE:
-			return "SUBSURFACE CONTACT" if domain == "subsurface" else ("AIR CONTACT" if domain == "air" else "SURFACE CONTACT")
+			match domain:
+				"subsurface":
+					return "SUBSURFACE CONTACT"
+				"air":
+					return "AIR CONTACT"
+				"land":
+					return "SHORE INSTALLATION"
+			return "SURFACE CONTACT"
 	return "UNKNOWN CONTACT"
 
 
@@ -104,7 +122,7 @@ func label() -> String:
 		Classification.CLASS_KNOWN:
 			return "%s %s" % [id, known_class]
 		Classification.SURFACE:
-			return "%s %s" % [id, "SUB" if domain == "subsurface" else ("AIR" if domain == "air" else "SURF")]
+			return "%s %s" % [id, _domain_short()]
 	return "%s UNK" % id
 
 

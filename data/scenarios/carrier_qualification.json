@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -155.9,
       -170.5,
@@ -13574,6 +13575,18 @@
     }
   ],
   "order": 11,
+  "theatre": "Norwegian Sea",
+  "year": 2027,
+  "difficulty": "Introductory",
+  "duration_minutes": 15,
+  "role": "Air operations officer",
+  "learning": "Launching, routing and recovering aircraft to carriers and an airfield; deck cycles and turnaround",
+  "commander_intent": "Recover one aircraft aboard a ship and one at Bodo. Nothing will shoot at you; the deck cycle is the exercise.",
+  "first_orders": [
+    "Open Air Operations (F3), pick Charles de Gaulle, a Rafale and a launch count, then Execute & Resume.",
+    "Once airborne, reopen Air Operations, select the airframe and a landing destination, then Return & Land.",
+    "Advance time. A recovered aircraft refuels and rearms before it can fly again."
+  ],
   "objectives": {
     "text": "Complete a carrier landing and an airfield landing. Use AIR F3 to select aircraft and destinations.",
     "victory": [

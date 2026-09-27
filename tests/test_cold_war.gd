@@ -71,7 +71,7 @@ func test_period_inventory_resolves_recursively_and_does_not_inherit_modern_fits
 
 func test_all_1990_missions_have_reviewable_metadata_and_only_period_actors() -> void:
 	var manifest := _manifest()
-	assert_eq(manifest["scenario_ids"].size(), 4)
+	assert_eq(manifest["scenario_ids"].size(), 5)
 	for id in manifest["scenario_ids"]:
 		var h := _mission(id)
 		var sc: Dictionary = h[2]

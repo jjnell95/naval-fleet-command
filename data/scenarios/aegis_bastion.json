@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -253.8,
       -352.5,
@@ -21962,6 +21963,18 @@
   "order": 7,
   "neutral_factions": [
     "NEUTRAL"
+  ],
+  "theatre": "Barents Sea",
+  "year": 2027,
+  "difficulty": "Advanced",
+  "duration_minutes": 30,
+  "role": "Air and missile defence commander",
+  "learning": "Layered defence of a carrier and an auxiliary against ballistic and cruise missiles, interceptor suitability and finite magazines",
+  "commander_intent": "Keep Eisenhower and Maud alive through four hours. Match the interceptor to the round; SM-3 for ballistic, SM-2 for the rest.",
+  "first_orders": [
+    "Jack H. Lucas and Gettysburg are the ballistic-missile defence layer. Station them between the group and the Kola.",
+    "Launch the Hawkeyes early so the Kinzhal carriers are seen before they release.",
+    "The Kilo is inside the screen. The Seahawks hunt her while the Aegis ships look up."
   ],
   "objectives": {
     "text": "Keep the carrier and Maud alive through a four-hour air-defence watch. Protect neutral shipping.",

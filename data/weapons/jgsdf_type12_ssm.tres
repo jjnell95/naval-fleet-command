@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "jgsdf_type12_ssm"
+display_name = "Type 12 surface-to-ship missile (coastal)"
+family = "Type 12 surface-to-ship missile (coastal)"
+type = "asm"
+target_types = PackedStringArray("surface")
+guidance = "active_radar_homing"
+profile = "sea_skimming"
+max_range_nm = 108.0
+min_range_nm = 2.0
+speed_kn = 480.0
+damage = 48.0
+base_pk = 0.8
+salvo_default = 4
+launch_interval_s = 3.0
+seeker_range_nm = 6.0
+turn_rate_deg_s = 15.0
+signature_factor = 0.1
+altitude_m = 8.0
+soft_kill_resistance = 1.3
+defensive_difficulty = 1.1
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

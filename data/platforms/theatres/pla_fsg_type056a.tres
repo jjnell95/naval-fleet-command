@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_fsg_type056a"
+display_name = "Type 056A corvette (Jiangdao)"
+short_name = "FSG Type 056A"
+nation = "China"
+category = "corvette"
+domain = "surface"
+max_speed_kn = 25.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 3.5
+accel_kn_s = 0.22
+health = 55.0
+signature_factor = 0.6
+mast_height_m = 20.0
+sensor_ids = PackedStringArray("pla_type364", "pla_hull_sonar_small", "pla_towed_small", "pla_esm")
+weapon_loadout = {"pla_yj83": 4, "pla_hhq10": 8, "pla_hpj26_76mm": 200, "pla_yu7": 6}
+decoy_count = 8
+decoy_effectiveness = 0.35
+fire_control_channels = 1
+role = "Littoral patrol / ASW screen"
+service_note = "Four YJ-83, an eight-round HHQ-10 launcher, a 76 mm gun and a towed array. A landing pad but no hangar."
+length_m = 90.0
+displacement_t = 1500.0
+aircraft_capacity = 0
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

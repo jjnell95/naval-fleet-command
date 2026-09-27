@@ -419,6 +419,56 @@ func test_silent_breakout_uses_held_bearings_to_build_picture_without_detouring(
 	h.free_all()
 
 
+func test_breakout_submarine_keeps_its_missiles_and_torpedoes_only_what_is_in_its_way() -> void:
+	var boat := _boat("RED", Vector2.ZERO)
+	var missile := _asm(60.0)
+	var torpedo := WeaponSpec.new()
+	torpedo.id = "test_heavy_torpedo"
+	torpedo.type = "torpedo"
+	torpedo.profile = "subsurface"
+	torpedo.target_types = ["surface", "subsurface"]
+	torpedo.min_range_nm = 0.5
+	torpedo.max_range_nm = 20.0
+	torpedo.speed_kn = 45.0
+	boat.weapons.append(missile)
+	boat.magazines[missile.id] = 8
+	boat.weapons.append(torpedo)
+	boat.magazines[torpedo.id] = 12
+	boat.ai_posture = "breakout"
+	boat.patrol_route = [Vector2(0, 40)]
+	var blue := _ship("BLUE", Vector2(0, 15))
+	var h := _harness([boat, blue])
+	# A submerged boat holds only what its own arrays give it, so the picture is built locally.
+	_local_surface_track(h, boat, blue, Vector2(0, 15))
+	h.ai.tick(100)
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "a boat on a quiet transit does not announce itself with a missile at a destroyer 15 nm off")
+	assert_eq(h.ai.state_name(boat), "PATROL", "it keeps going for the gate")
+	# The same destroyer astride the route, inside torpedo reach, is in the way.
+	_local_surface_track(h, boat, blue, Vector2(0, 5))
+	h.ai.tick(110)
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_true(not shots.is_empty(), "a destroyer inside %.0f nm gets a torpedo" % AIController.BREAKOUT_TORPEDO_NM)
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].weapon_id, torpedo.id, "the shot is a torpedo, never the missile that would fix the boat's position")
+	h.free_all()
+
+
+func _local_surface_track(h: Harness, observer: Unit, target: Unit, pos: Vector2) -> Track:
+	target.position = pos
+	var c := SensorContact.make(target, pos, 0.5, 0.8, 1.0, observer.position.distance_to(pos), "sonar_passive", observer)
+	h.tm.observe_contact(observer.faction, c, 0.0, 1.0)
+	var t := h.tm.find_for(observer, target)
+	t.position = pos
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "HOSTILE"
+	t.known_class = target.spec.short_name
+	t.domain = "surface"
+	t.has_kinematics = true
+	t.course_deg = 0.0
+	t.speed_kn = 10.0
+	return t
+
+
 # --- ASW search and prosecution ----------------------------------------------------------
 
 func _asw_torpedo() -> WeaponSpec:

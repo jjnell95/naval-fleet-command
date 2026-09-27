@@ -273,9 +273,9 @@ def catalogue():
              service_note="One conventional Kh-22 represents an anti-ship sortie. No Kh-32, Kinzhal or inflight refuelling. Raid strength and search geometry are fictional.")
 
 class Mission:
-    def __init__(self, sid, name, lat, lon, extent, order, date, difficulty, duration, role, learning, intent, first_orders, description):
+    def __init__(self, sid, name, lat, lon, extent, order, date, difficulty, duration, role, learning, intent, first_orders, description, theatre="North Atlantic"):
         self.lat, self.lon = lat, lon
-        self.d = dict(id=sid, name=name, era="Cold War", year=1990, order=order,
+        self.d = dict(id=sid, name=name, era="Cold War", year=1990, theatre=theatre, order=order,
             difficulty=difficulty, duration_minutes=duration, role=role, learning=learning,
             commander_intent=intent, first_orders=first_orders,
             historical_note="Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
@@ -288,6 +288,13 @@ class Mission:
     def xy(self, lat, lon):
         return g.pos(lat,lon,self.lat,self.lon)
     def unit(self, platform_id, name, faction, lat, lon, heading=0, speed=0, **extra):
+        # A hull placed ashore, or a field placed at sea, is an authoring error worth failing on.
+        ashore = g.is_land(lat, lon)
+        domain = PLATFORMS[ident(platform_id)]["domain"]
+        if domain in ("surface", "subsurface") and ashore:
+            raise ValueError("%s: %s at %.3f, %.3f is ashore" % (self.d["id"], name, lat, lon))
+        if domain == "land" and not ashore:
+            raise ValueError("%s: %s at %.3f, %.3f is not on charted land" % (self.d["id"], name, lat, lon))
         self.d["units"].append(dict(platform=ident(platform_id),callsign=name,faction=faction,
             position_nm=self.xy(lat,lon),heading_deg=heading,speed_kn=speed,**extra))
         return self
@@ -304,7 +311,9 @@ class Mission:
         land,labels=g.chart(self.lat,self.lon,m["center_nm"],m["extent_nm"])
         self.d["terrain"]=dict(land=land,source="Natural Earth 1:10m land 5.1.1; public domain",generalization_nm=.2)
         m.update(labels=labels,charted_nm=g.charted_box(m["center_nm"],m["extent_nm"]),
+                 chart_region=g.region_of(self.lat,self.lon),
                  chart_note="Natural Earth coastline and bathymetry / 1990 scenario / not for navigation")
+        g.validate_scenario(self.d, lambda pid: PLATFORMS[pid]["domain"])
         path=ROOT/"data/scenarios"/(self.d["id"]+".json")
         path.write_text(json.dumps(self.d,indent=2,ensure_ascii=False)+"\n")
         return self.d
@@ -343,7 +352,8 @@ def scenarios():
       ["Select Elrod and inspect the track list; keep its air-search radar radiating.",
        "Keep Nicholas between the convoy and the eastern threat axis; identify contacts before a Harpoon salvo.",
        "MV North Star already steers for the handover box at 14 kn. Keep it alive; use time compression between contacts."],
-      "14 September 1990, northern North Sea. A Soviet missile corvette has slipped past the outer screen. Two long-hull Perry frigates cover one final reinforcement ship on the leg toward Norway. A neutral merchant crosses the operating area. The corvette has six heavy anti-ship missiles; your Mk 13 launchers share their magazines between Standard and Harpoon.")
+      "14 September 1990, northern North Sea. A Soviet missile corvette has slipped past the outer screen. Two long-hull Perry frigates cover one final reinforcement ship on the leg toward Norway. A neutral merchant crosses the operating area. The corvette has six heavy anti-ship missiles; your Mk 13 launchers share their magazines between Standard and Harpoon.",
+      theatre="North Sea")
     gate=s.xy(61.43,1.95)
     cargo="MV North Star"
     s.unit("perry","USS Elrod (FFG 55)","BLUE",61.13,1.50,35,16)
@@ -366,7 +376,8 @@ def scenarios():
       ["Select Dallas to view its local sonar picture. Keep it slow and passive; build a solution before committing a Mk 48.",
        "Launch a Spruance SH-60B toward the suspected passage and drop sonobuoys. It has no dipping sonar.",
        "Use Keflavik's P-3C to extend the search. Protect Spruance and prevent the submarine reaching the southern gate."],
-      "16 September 1990, Iceland-Faroe Ridge. An unidentified Soviet Victor III is attempting an Atlantic breakout. USS Dallas and USS Spruance hold a compact barrier, with a P-3C detachment at Keflavik. A seasonal acoustic layer complicates the search; below-layer listening and deliberate localization matter more than speed. This is a submarine search, not a radar duel.")
+      "16 September 1990, Iceland-Faroe Ridge. An unidentified Soviet Victor III is attempting an Atlantic breakout. USS Dallas and USS Spruance hold a compact barrier, with a P-3C detachment at Keflavik. A seasonal acoustic layer complicates the search; below-layer listening and deliberate localization matter more than speed. This is a submarine search, not a radar duel.",
+      theatre="North Atlantic")
     s.d["environment"].update(sea_state=4,wind_kn=23,visibility_nm=6,layer_depth_m=140,layer_strength=.55,cz_range_nm=30)
     exit_gate=s.xy(62.98,-11.76)
     red="Soviet submarine (Victor III)"
@@ -391,7 +402,8 @@ def scenarios():
       ["Launch the E-2C Hawkeye, then a pair of F-14A+ Tomcats from Eisenhower.",
        "Send the Hawkeye and fighters northeast of the group; keep Bunker Hill's radar on.",
        "Reserve SM-2 for leakers and recall aircraft before fuel exhaustion. No task requires chasing the cruiser into its missile envelope."],
-      "18 September 1990, Norwegian Sea. A fictional crisis has brought Eisenhower north and a Soviet cruiser into the Norwegian Sea. Two Backfire-C aircraft are inbound from the northeast with conventional Kh-22 missiles. The carrier has a small playable detachment of Tomcats, Hawkeye, Vikings and Sea Kings. Airborne radar buys warning time; the screen must stop any missiles that get through the fighter patrol.")
+      "18 September 1990, Norwegian Sea. A fictional crisis has brought Eisenhower north and a Soviet cruiser into the Norwegian Sea. Two Backfire-C aircraft are inbound from the northeast with conventional Kh-22 missiles. The carrier has a small playable detachment of Tomcats, Hawkeye, Vikings and Sea Kings. Airborne radar buys warning time; the screen must stop any missiles that get through the fighter patrol.",
+      theatre="Norwegian Sea")
     s.d["environment"].update(sea_state=4,wind_kn=20,visibility_nm=10,layer_depth_m=170,cz_range_nm=30)
     cv="USS Dwight D. Eisenhower (CVN 69)"
     cg="USS Bunker Hill (CG 52)"
@@ -415,7 +427,8 @@ def scenarios():
       ["Use Elrod's radar to establish the surface picture; inspect identity and solution before firing.",
        "Keep Spruance offset from Elrod so one incoming salvo does not exhaust a single defensive sector.",
        "Attack the destroyer before it reaches the western gate; the neutral merchant is not a valid target."],
-      "20 September 1990, Bornholm Basin. A Soviet Sovremennyy-class destroyer is moving west toward the Danish straits. Two US escorts on a fictional Baltic deployment must close the passage while civilian traffic continues. The shallow basin gives no deep-water convergence-zone advantage. Eight Moskit missiles are a serious threat; identifying the right surface contact is part of the mission.")
+      "20 September 1990, Bornholm Basin. A Soviet Sovremennyy-class destroyer is moving west toward the Danish straits. Two US escorts on a fictional Baltic deployment must close the passage while civilian traffic continues. The shallow basin gives no deep-water convergence-zone advantage. Eight Moskit missiles are a serious threat; identifying the right surface contact is part of the mission.",
+      theatre="Baltic")
     s.d["environment"].update(sea_state=2,wind_kn=11,visibility_nm=5,layer_depth_m=35,layer_strength=.3,cz_range_nm=0)
     gate=s.xy(55.30,15.55)
     red="Otlichnyy"
@@ -428,6 +441,39 @@ def scenarios():
        [destroyed([red])],[loss(["USS Elrod (FFG 55)","USS Spruance (DD 963)","MV Baltic Trader"],"Escort or protected neutral lost"),
         area("breakout",[red],gate,"Otlichnyy reached the Danish-straits approach",radius=3),deadline(7200)])
     s.d["forces"]="NATO: 1 Perry frigate, 1 Spruance destroyer, 3 SH-60B / USSR: Otlichnyy, 1 Ka-27 / neutral merchant"
+    yield s.write()
+
+    s=Mission("cold_war_05_sea_of_japan","SEA OF JAPAN: THE VLADIVOSTOK SORTIE",41.2,136.0,800,-5,"1990-09-22T20:00:00",
+      "Advanced",30,"Carrier battle group commander","Fleet air defence against a regimental Backfire raid, a surface group with long-range missiles, and a nuclear boat in deep water",
+      "Keep Carl Vinson and Antietam afloat for four hours, or break the Soviet surface group before it reaches the Tsugaru approaches.",
+      ["Launch the E-2C and a pair of F-14A+ toward Vladivostok; the raid will come from the north-west, the cruiser from the west.",
+       "Antietam is the inner missile screen. Keep her radiating and between the carrier and the Soviet group; hold Fife and Curts on the flanks for the Victor III.",
+       "Honolulu is quiet and ahead of the group. Let her work the Victor before you send the Vikings."],
+      "23 September 1990, Sea of Japan. A fictional crisis has brought Carl Vinson's battle group into the Sea of Japan. The Pacific Fleet's newest cruiser, Chervona Ukraina, a Sovremennyy and an Udaloy sortied from Vladivostok overnight and are already in the Japan Basin heading for the Tsugaru Strait, a Victor III is in deep water ahead of them, and Backfires from Kamenny Ruchey are ready. Airborne radar buys the warning; the Aegis cruiser and the escorts must stop what the fighters miss.",
+      theatre="Sea of Japan")
+    s.d["environment"].update(sea_state=4,wind_kn=20,visibility_nm=9,layer_depth_m=110,layer_strength=.55,cz_range_nm=30)
+    cv="USS Carl Vinson (CVN 70)"
+    cg="USS Antietam (CG 54)"
+    tsugaru=s.xy(41.4,139.6)
+    s.unit("nimitz",cv,"BLUE",40.5,136.3,20,18)
+    s.unit("ticonderoga",cg,"BLUE",40.7,136.0,20,18)
+    s.unit("spruance","USS Fife (DD 991)","BLUE",40.3,136.6,20,18,radar_on=False)
+    s.unit("perry","USS Curts (FFG 38)","BLUE",40.35,135.85,20,18,radar_on=False)
+    s.unit("los_angeles","USS Honolulu (SSN 718)","BLUE",41.6,134.6,320,7,depth_m=160,radar_on=False)
+    s.unit("airfield","Misawa Air Base","BLUE",40.703,141.368,
+           air_wing=[dict(platform=ident("p3c"),count=1,callsign="Orion",squadron="Patrol Squadron detachment",first_modex=21,patrol_nm=[s.xy(41.6,135.4),s.xy(40.6,136.8)])])
+    s.unit("slava","Chervona Ukraina","RED",41.9,136.6,120,24,ai_posture="breakout",patrol_nm=[tsugaru])
+    s.unit("sovremenny","Osmotritelny","RED",42.0,136.85,120,24,ai_posture="breakout",patrol_nm=[tsugaru])
+    s.unit("udaloy","Admiral Tributs","RED",41.8,136.35,120,24,ai_posture="breakout",patrol_nm=[tsugaru])
+    s.unit("victor3","Soviet submarine (Victor III)","RED",41.7,135.3,160,7,depth_m=170,radar_on=False,
+           patrol_nm=[s.xy(41.0,136.4),s.xy(41.8,134.8)])
+    s.unit("airfield","Kamenny Ruchey","RED",49.235,140.194,
+           air_wing=[dict(platform=ident("tu22m3"),count=3,callsign="Backfire raid",squadron="Naval missile aviation regiment",first_modex=1,patrol_nm=[s.xy(42.4,137.6),s.xy(40.6,136.4)])])
+    s.objectives("Survive the 4-hour watch, or neutralize Chervona Ukraina and Osmotritelny. Carl Vinson or Antietam lost, or the cruiser reaching the Tsugaru approaches, means defeat.",
+       [hold(14400),destroyed(["Chervona Ukraina","Osmotritelny"])],
+       [loss([cv,cg],"Carrier or air-defence commander lost"),area("tsugaru",["Chervona Ukraina"],tsugaru,"Chervona Ukraina reached the Tsugaru approaches",radius=8)],mode="any")
+    s.d["map"].update(focus_center_nm=s.xy(40.6,136.2),focus_extent_nm=240)
+    s.d["forces"]="NATO: Carl Vinson, Antietam, Fife, Curts, Honolulu; F-14A+, E-2C, S-3A, SH-3H, SH-60B; Misawa P-3C / USSR: Chervona Ukraina, Osmotritelny, Admiral Tributs, 1 Victor III, 3 Backfire-C"
     yield s.write()
 
 

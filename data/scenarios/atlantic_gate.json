@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -341.5,
       -358.8,
@@ -17208,6 +17209,18 @@
     }
   ],
   "order": 4,
+  "theatre": "North Atlantic",
+  "year": 2027,
+  "difficulty": "Advanced",
+  "duration_minutes": 30,
+  "role": "Channel force commander",
+  "learning": "Denying a channel to a faster, heavier surface group, the Faroe-Shetland weather, three escorts against a cruiser's long-range salvo",
+  "commander_intent": "Keep the three combatants from their exits for eight hours, or destroy them. Any ship through the channel loses the watch.",
+  "first_orders": [
+    "Marshal Ustinov has sixteen Vulkan missiles and three hundred miles of reach. Find her with the Lossiemouth Poseidons before she finds you.",
+    "Hold the three escorts together so one Aegis ship covers all three; a frigate alone against the cruiser's salvo is a frigate lost.",
+    "The channel narrows south of the Faroes. That is where the geometry favours you."
+  ],
   "victory_mode": "any",
   "objectives": {
     "text": "Deny the channel for eight hours, or neutralize all three surface combatants. Any ship reaching its exit loses the mission.",

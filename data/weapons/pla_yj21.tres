@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_yj21"
+display_name = "YJ-21 anti-ship ballistic missile"
+family = "YJ-21 anti-ship ballistic missile"
+type = "asm"
+target_types = PackedStringArray("surface")
+guidance = "inertial_terminal_seeker"
+profile = "ballistic"
+max_range_nm = 600.0
+min_range_nm = 40.0
+speed_kn = 5000.0
+damage = 80.0
+base_pk = 0.5
+salvo_default = 2
+launch_interval_s = 20.0
+seeker_range_nm = 6.0
+turn_rate_deg_s = 8.0
+signature_factor = 1.0
+altitude_m = 40000.0
+soft_kill_resistance = 5.0
+vls_pack = 1
+defensive_difficulty = 2.2
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

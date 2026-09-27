@@ -1,4 +1,16 @@
-# Current State: M22 Command Deck Redesign and Browser Release
+# Current State: M23 World Theatres, Shore Batteries and the World View
+
+The game now spans four chart regions and twenty-two operations. Global Natural Earth land and bathymetry were extracted into regional charts for the North Atlantic, the Western Pacific, the Arabian Sea and Red Sea, and the Mediterranean; the runtime picks the region from the scenario anchor, so every mission has a continuous sea floor under it. A generated 2027 catalogue adds 45 platforms, 43 weapons and 58 sensors for the PLAN, the Japanese Self-Defense Forces, Iran, Russian coastal forces and civilian tankers, each with an inspectable model and recognition art built by a Blender-free pipeline.
+
+Installations ashore fight. Coastal missile batteries, SAM sites, ballistic-missile and drone sites engage from the faction picture without moving, fire out over their own coast, stand on their ground for radar horizons and masking, and can be struck by land-attack rounds (Tomahawk, NSM, JSM, JASSM-ER, CJ-10). Ski-jump carriers have their own deck rules.
+
+Seven operations are new: Bashi Channel, Taiwan Strait, Spratly, the Sea of Japan in 2027 and in 1990, the Strait of Hormuz and the Tartus line. All twenty-two carry a commander's intent, first orders, difficulty and play estimate, and the operations desk shelves them by theatre. The scenario builders validate every position, patrol leg and objective against the shipped coastline.
+
+A 3D world view (T, or the plot's WORLD button) shows the sea around the selected unit from a bridge, orbit, overhead or chase camera: own ships, aircraft and submarines as models on a sun-lit ocean, contacts only as the plot holds them, weapons only when detected. The browser build carries the new models and art: a first visit downloads 91 MB (53 MB game pack, 38 MB runtime), cached after that.
+
+Validation: 351 regression tests; 29 command-deck checks and 19 air-operations checks under Xvfb; a 44-case scenario sweep at 6000 s per case with 0 grounded hulls; full-watch AI-versus-AI runs of every new operation; the browser build booted in headless Chromium without script errors. See [validation-m23.json](docs/validation-m23.json). See the [M23 notes](docs/2026-09-27-world-theatres.md) and the [2027 theatres ledger](docs/THEATRES_2027.md).
+
+## Previous: M22 Command Deck Redesign and Browser Release
 
 The game plays in any modern desktop browser from [GitHub Pages](https://jjnell95.github.io/naval-fleet-command/). A first visit downloads 71 MB (down from 119 MB) behind a branded loader. Phones are told what they are getting into before the download.
 

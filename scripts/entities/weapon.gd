@@ -28,6 +28,9 @@ var phase: Phase = Phase.CRUISE
 var distance_flown_nm := 0.0
 var time_alive_s := 0.0
 var dead_reason := ""
+## Fired from a battery ashore: the round climbs out over its own coast before the ordinary rule
+## that a low-flying weapon ends at the first ground it meets applies to it.
+var launched_ashore := false
 
 
 func speed_nm_per_s() -> float:

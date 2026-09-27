@@ -71,8 +71,8 @@ extends Resource
 ## Recognition and configuration metadata. Performance remains estimated; capacity is physical.
 @export var role := ""
 @export var service_note := ""
-@export var aviation_facility := "auto"  # auto | none | helicopter | stovl | catobar | airfield
-@export var launch_requirement := "auto"  # auto | helicopter | stovl | catobar | runway
+@export var aviation_facility := "auto"  # auto | none | helicopter | stovl | stobar | catobar | airfield
+@export var launch_requirement := "auto"  # auto | helicopter | stovl | stobar | catobar | runway
 @export var vls_cells := 0
 
 
@@ -93,6 +93,7 @@ func launch_capacity() -> int:
 		return launch_spots
 	match flight_facility():
 		"catobar": return 4
+		"stobar": return 2
 		"stovl": return 2
 		"airfield": return 4
 		"helicopter": return 1
@@ -101,11 +102,13 @@ func launch_capacity() -> int:
 
 ## How many can be coming aboard at once. One angled deck means one at a time however big the
 ## ship is; a field with parallel runways and a STOVL deck with several landing spots do better.
+## A ski-jump carrier recovers into arrester wires like a catapult ship: one at a time.
 func recovery_capacity() -> int:
 	if recovery_spots > 0:
 		return recovery_spots
 	match flight_facility():
 		"catobar": return 1
+		"stobar": return 1
 		"stovl": return 2
 		"airfield": return 3
 		"helicopter": return 1
@@ -119,6 +122,7 @@ func turnaround_time_s() -> float:
 		return turnaround_s
 	match flight_facility():
 		"catobar": return 2700.0
+		"stobar": return 2700.0
 		"stovl": return 2700.0
 		"airfield": return 3600.0
 		"helicopter": return 1800.0
@@ -145,8 +149,14 @@ func can_operate(aircraft: PlatformSpec) -> bool:
 	if facility == "airfield":
 		return true
 	if required == "helicopter":
-		return facility in ["helicopter", "stovl", "catobar"]
-	return facility == required or (facility == "catobar" and required == "stovl")
+		return facility in ["helicopter", "stovl", "stobar", "catobar"]
+	# A ski-jump carrier flies its own ski-jump aircraft and jump jets. A catapult deck can also
+	# recover a ski-jump aircraft into its wires and launch it from the bow, so it takes those too.
+	if facility == "catobar":
+		return required in ["catobar", "stovl", "stobar"]
+	if facility == "stobar":
+		return required in ["stobar", "stovl"]
+	return facility == required
 
 
 func occupied_vls_cells() -> int:

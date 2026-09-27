@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -366.8,
       -313.4,
@@ -9574,6 +9575,18 @@
     }
   ],
   "order": 3,
+  "theatre": "North Atlantic",
+  "year": 2027,
+  "difficulty": "Intermediate",
+  "duration_minutes": 25,
+  "role": "Barrier commander",
+  "learning": "Passive search across a ridge, the deep-water layer and convergence zones, patrol aircraft laying buoys ahead of a transiting boat",
+  "commander_intent": "Deny the southern exit of the Iceland-Faroe gap for six hours, or neutralize the transiting Kilo.",
+  "first_orders": [
+    "Keep Delaware slow and under the layer south of the ridge; the boat has to come to her.",
+    "Jason Dunham's helicopters and the Keflavik Poseidons lay the buoy line across the gap; the Triton watches the surface.",
+    "The Kilo is quiet on battery. A firm solution before a torpedo, or the shot is wasted."
+  ],
   "victory_mode": "any",
   "objectives": {
     "text": "Deny passage for six hours, or neutralize the transiting submarine. A breakout loses the watch.",

@@ -122,6 +122,7 @@ func _fire_round(shooter: Unit, spec: WeaponSpec, track: Track) -> void:
 	w.shooter = shooter
 	w.target_track = track
 	w.position = shooter.position
+	w.launched_ashore = shooter.spec.domain == "land"
 	w.aim_point = _aim_for(w)
 	w.heading_deg = Geo.bearing_deg(w.position, w.aim_point)
 	in_flight.append(w)
@@ -198,6 +199,17 @@ func _step(w: Weapon, dt: float) -> void:
 func _hits_terrain(w: Weapon, travel: float) -> bool:
 	if Terrain.is_empty() or not Combat.profile_is_surface_bound(w.spec):
 		return false
+	# A round going for something ashore has to cross the coast to get there: a cruise missile
+	# follows the ground in, a gun round arcs over the beach. The land it is aimed at is the
+	# target, not an obstacle.
+	if _bound_for_land(w):
+		return false
+	# A battery's round starts on dry ground. It is exempt until it has cleared its own coast,
+	# and an ordinary low flyer from then on.
+	if w.launched_ashore:
+		if Terrain.is_land(w.position):
+			return false
+		w.launched_ashore = false
 	if Terrain.is_land(w.position):
 		return true
 	# A fast round covers enough ground in one tick to step over a narrow spit, so above a
@@ -281,6 +293,14 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	w.decoy_attempted = false  # the new target gets its own chance to decoy it
 	weapon_seduced.emit(w, from, best)
 	return best
+
+
+## Whether this round is on its way to a target ashore, by seeker lock or by the track it was
+## fired at.
+static func _bound_for_land(w: Weapon) -> bool:
+	if w.acquired != null:
+		return w.acquired.spec.domain == "land"
+	return w.target_track != null and w.target_track.domain == "land"
 
 
 ## A seeker only works in its own medium. An anti-ship missile cannot find a submerged boat, and

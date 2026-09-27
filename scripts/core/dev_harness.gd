@@ -21,11 +21,16 @@ extends RefCounted
 ##   --aviation-smoke            verify launch, landing, turnaround and Air Operations UI
 ##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
 ##   --open-editor               open the scenario editor on the loaded scenario, for screenshots
+##   --open-menu[=SHELF]         open the operations desk, on one shelf (cold_war, atlantic, pacific, gulf_med, all)
 ##   --brief                     open the briefing board
 ##   --no-ai                     disable every AI controller
 ##   --reload-check              fight a while, restart, and report that state was cleared
 ##   --debug                     turn on the truth overlay
 ##   --rings                     show the sensor coverage layer (F4), for screenshots
+##   --world-view=inset|full     open the 3D world view in that mode, for screenshots
+##   --world-camera=NAME         world view camera preset: bridge, orbit, overhead or chase
+##   --world-focus=track         drop the selection and hook the first plotted contact, for screenshots
+##   --world-azimuth=DEG         turn the world view camera this far round its focus
 ##   --tab=N                     open command-dock tab N (0 navigation … 3 doctrine), for screenshots
 ##   --ignite=CALLSIGN           start a fire and some flooding aboard one own ship, for screenshots
 ##   --show-report               end the mission as a victory and open the after-action report
@@ -151,6 +156,12 @@ func handle_flags() -> void:
 		main._library._search.text = "F-35"
 		main._library._filter("F-35")
 	for a in args:
+		if a == "--open-menu" or a.begins_with("--open-menu="):
+			main._show_menu()
+			if a.begins_with("--open-menu="):
+				main._menu._set_era(a.get_slice("=", 1))
+			print("[Dev] operations desk opened")
+	for a in args:
 		if a.begins_with("--inspect="):
 			main._inspect_asset(a.get_slice("=", 1), args.has("--weapon"))
 		elif a.begins_with("--view="):
@@ -170,6 +181,20 @@ func handle_flags() -> void:
 		main._stats = {"hostile_rounds": 6, "intercepted": 4, "decoyed": 1, "hits_taken": 1, "launched": 9, "decoys_used": 3, "own_rounds": 4, "hits_scored": 2, "contacts": 5, "classified": 2, "sorties": 1}
 		main._kills = PackedStringArray(["Rassvet"])
 		main._on_mission_ended("VICTORY", "The convoy reached the handover box with its cargo intact.")
+	for a in args:
+		if a.begins_with("--world-view="):
+			main._world_view.set_mode(WorldView.Mode.FULL if a.get_slice("=", 1) == "full" else WorldView.Mode.INSET)
+			print("[Dev] world view %s" % main._world_view.mode_name())
+		elif a.begins_with("--world-camera="):
+			main._world_view.set_preset_by_name(a.get_slice("=", 1))
+		elif a.begins_with("--world-azimuth="):
+			main._world_view._az_offset = float(a.get_slice("=", 1))
+		elif a == "--world-focus=track":
+			main.map.select_units([])
+			for t: Track in main.simulation.track_manager.get_tracks(main.simulation.player_faction):
+				if WorldPresentation.plottable(t):
+					main.map.select_track(t)
+					break
 	if args.has("--visual-smoke"):
 		_visual_smoke()
 		return

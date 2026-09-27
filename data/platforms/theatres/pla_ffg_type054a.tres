@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_ffg_type054a"
+display_name = "Type 054A frigate (Jiangkai II)"
+short_name = "FFG Type 054A"
+nation = "China"
+category = "frigate"
+domain = "surface"
+max_speed_kn = 27.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.8
+accel_kn_s = 0.22
+health = 90.0
+signature_factor = 0.85
+mast_height_m = 27.0
+sensor_ids = PackedStringArray("pla_type382", "pla_type366", "pla_hsjd9", "pla_hsjg206", "pla_esm")
+weapon_loadout = {"pla_hhq16": 24, "pla_yu8": 8, "pla_yj83": 8, "pla_hpj12_ciws": 80, "pla_hpj26_76mm": 300, "pla_yu7": 6}
+decoy_count = 12
+decoy_effectiveness = 0.35
+fire_control_channels = 4
+role = "Escort / medium-range air defence / ASW"
+service_note = "32 cells shared between HHQ-16 and Yu-8, eight YJ-83 in canisters, four MR-90 illuminators, one Z-9C. Type 366 gives over-the-horizon targeting only when it radiates."
+length_m = 134.0
+displacement_t = 4053.0
+aircraft_capacity = 1
+vls_cells = 32
+default_air_wing = {"pla_helo_z9c": 1}
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

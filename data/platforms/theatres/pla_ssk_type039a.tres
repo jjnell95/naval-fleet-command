@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_ssk_type039a"
+display_name = "Type 039A/B submarine (Yuan)"
+short_name = "SSK Type 039A"
+nation = "China"
+category = "diesel-electric attack submarine"
+domain = "subsurface"
+max_speed_kn = 20.0
+cruise_speed_kn = 7.0
+turn_rate_deg_s = 2.2
+accel_kn_s = 0.2
+health = 45.0
+signature_factor = 0.25
+mast_height_m = 8.0
+sensor_ids = PackedStringArray("pla_yuan_sonar")
+weapon_loadout = {"pla_yu6": 14, "pla_yj82": 4}
+decoy_count = 6
+decoy_effectiveness = 0.3
+fire_control_channels = 0
+role = "Air-independent ambush / barrier"
+service_note = "Stirling air-independent propulsion makes it very quiet at patrol speed; a sprint gives it away like any other boat."
+length_m = 77.6
+displacement_t = 3600.0
+acoustic_signature = 0.05
+max_depth_m = 300.0
+patrol_depth_m = 120.0
+depth_rate_m_s = 2.0
+has_datalink = true
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

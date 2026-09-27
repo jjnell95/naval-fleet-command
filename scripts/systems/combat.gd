@@ -38,6 +38,11 @@ static func profile_is_surface_bound(spec: WeaponSpec) -> bool:
 static func crosses_land(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
 	if Terrain.is_empty() or not profile_is_surface_bound(spec):
 		return false
+	# A target ashore is reached by crossing the coast, and a battery ashore fires out over its
+	# own; neither is a line-of-fire problem. Whether the round then gets there is decided in
+	# flight, against the ground it actually meets.
+	if track.domain == "land" or shooter.spec.domain == "land":
+		return false
 	var aim := intercept_point(shooter.position, spec.speed_kn, track.position, track.course_deg, track.speed_kn, track.has_kinematics)
 	return Terrain.blocks_path(shooter.position, aim)
 
@@ -140,5 +145,5 @@ static func suits_track(spec: WeaponSpec, track: Track) -> bool:
 	if track.domain == "air":
 		return spec.target_types.has("air")
 	if track.domain == "land":
-		return spec.target_types.has("land")  # nothing in the current inventory does
+		return spec.target_types.has("land")  # land-attack cruise missiles and gunfire
 	return false

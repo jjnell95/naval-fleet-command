@@ -1,8 +1,20 @@
 # Architecture
 
-Status: Milestone 20 (Air Operations). Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something.
+Status: Milestone 23 (World Theatres). Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something, in four chart regions.
 
 Presentation work should start from `HANDOFF.md`, which says what may be changed and what may not.
+
+## M23 additions
+
+**Chart regions.** `Bathymetry.REGIONS` is the runtime table of Natural Earth regions (bounds, cell sizes), in step with `tools/scenarios/regions.py` and each raster's JSON metadata; `test_ocean.gd` holds them together and probes atlas landmarks. `Bathymetry.set_anchor` picks the region whose bounds hold the scenario anchor with the most margin, or `map.chart_region` when a scenario names one; `ChartFloor` loads that region's half-float chart and relief textures. Coastlines come from per-region extractions under `tools/scenarios/coastlines/`; `geography.chart()` chooses the extraction by anchor and filters labels by region. `geography.validate_scenario()` fails a build on a hull ashore, an installation afloat, a patrol leg across the coast or an objective on land, the same rule `test_realism.gd` applies at runtime.
+
+**Installations ashore.** A `domain = "land"` platform with weapons is a battery or a site. `AIController._do_shore_fires` runs `_pick_engagement` for it every cycle and issues no movement; it radiates only while it holds a contact. `WeaponManager` marks a round `launched_ashore` and exempts it from the low-flyer terrain rule until it has cleared its own coast; a round bound for a land target (by track domain or seeker lock) is exempt for the whole flight. `Combat.crosses_land` waives the line-of-fire test to or from the shore. `Detection.mast_or_altitude_m`, `observer_height_m` and `emitter_height_m` add `Terrain.elevation_at` for land units, so a headland site sees and is seen over the water it faces and is masked from behind. Tomahawk, NSM, JSM and CJ-10 list `land` among their target types; `Track` wording and `MapSymbols` glyphs name shore installations.
+
+**STOBAR.** `PlatformSpec.flight_facility()` gains `stobar`: two launch spots, one recovery, 2700 s turnaround. A STOBAR deck operates `stobar` and `stovl` aircraft and helicopters; a CATOBAR deck also operates `stobar` aircraft; a STOVL deck does not.
+
+**Missions.** Scenario JSON gains `theatre`, `setting_note`, `map.chart_region` and, on every built-in mission, `difficulty`, `duration_minutes`, `role`, `learning`, `commander_intent` and `first_orders`. `ScenarioIndex` exposes `theatre` and `region`; `ScenarioMenu` shelves built-ins by 1990 or by chart region.
+
+**World view.** `WorldView` (scripts/ui/world_view.gd) hosts a 3D SubViewport; `WorldPresentation` decides, from the player's Units, Tracks and ThreatManager only, what may be drawn, where and as what: own units at truth, other units at truth only inside visual range, otherwise at their track's estimated position with class geometry only once the class is known, weapons only when detected. Effects arrive through the same `add_effect` calls Main already makes for the chart.
 
 ## M20 additions
 
@@ -426,9 +438,9 @@ Deliberately out of scope, and stated so in README: bathymetry, routing around a
 masking and terrain-aware interceptor geometry. Datalink is unchanged — `Track.networked` is a single
 bool, and making it a pairwise reachability test is a data-model change, not an insertion.
 
-## Sea floor (M18)
-`Bathymetry` is static and loaded by `Simulation.load_scenario` right after `Terrain`. One raster,
-`data/bathymetry/north_atlantic_depth.png`, is imported as a raw `Image` (`importer="image"` in its
+## Sea floor (M18, regional since M23)
+`Bathymetry` is static and loaded by `Simulation.load_scenario` right after `Terrain`. One raster per
+region, `data/bathymetry/<region>_depth.png`, is imported as a raw `Image` (`importer="image"` in its
 `.import`) so it loads headless and in the web pack. The local projection is equirectangular about
 each scenario's `map.anchor_lat/anchor_lon`, so world nm map to latitude and longitude affinely and
 one raster serves every chart. No anchor, or an anchor off the raster, gives `UNKNOWN` (-1), and

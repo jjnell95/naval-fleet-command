@@ -3,6 +3,7 @@
   "name": "NORTHERN CONVOY",
   "era": "Cold War",
   "year": 1990,
+  "theatre": "North Sea",
   "order": -40,
   "difficulty": "Introductory",
   "duration_minutes": 20,
@@ -232,6 +233,7 @@
       162.5,
       162.5
     ],
+    "chart_region": "north_atlantic",
     "chart_note": "Natural Earth coastline and bathymetry / 1990 scenario / not for navigation"
   },
   "environment": {

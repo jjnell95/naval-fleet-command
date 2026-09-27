@@ -8,7 +8,7 @@ static func run(main: Main) -> void:
 	main._show_menu()
 	await main.get_tree().process_frame
 	menu._set_era("cold_war")
-	checks["four period missions on the Cold War shelf"] = menu._entries.filter(func(e: Dictionary) -> bool: return str(e["path"]).begins_with("res://")).size() == 4
+	checks["five period missions on the Cold War shelf"] = menu._entries.filter(func(e: Dictionary) -> bool: return str(e["path"]).begins_with("res://")).size() == 5
 	checks["all period shelf entries are dated 1990"] = menu._entries.all(func(e: Dictionary) -> bool: return int(e["year"]) == 1990)
 	checks["period portrait uses the historical catalogue"] = menu._portrait.spec_override != null and menu._portrait.spec_override.id.begins_with("cw90_")
 	checks["mission desk exposes first orders and date"] = menu._detail.text.contains("YOUR FIRST ORDERS") and menu._mission_meta.text.contains("1990")

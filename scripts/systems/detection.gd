@@ -105,7 +105,11 @@ static func radar_horizon_nm(h1_m: float, h2_m: float) -> float:
 ## How high the sensor actually is. For a ship that is its mast; for an aircraft it is however
 ## high the aircraft is flying, which is why maritime patrol sees so much further than a frigate.
 static func observer_height_m(observer: Unit, sensor: SensorSpec) -> float:
-	return observer.altitude_m if observer.in_flight() else sensor.antenna_height_m
+	if observer.in_flight():
+		return observer.altitude_m
+	if observer.spec.domain == "land":
+		return Terrain.elevation_at(observer.position) + sensor.antenna_height_m
+	return sensor.antenna_height_m
 
 
 static func radar_range_vs_surface_nm(sensor: SensorSpec, target_signature: float, target_height_m: float, observer_height := -1.0) -> float:
@@ -189,7 +193,7 @@ static func radar_quality(observer: Unit, target: Unit) -> float:
 	if signature <= 0.0:
 		return 0.0
 	var r := best_radar_air_range_nm(observer, signature, target.altitude_m) if target.in_flight() \
-		else best_radar_range_nm(observer, signature, target.spec.mast_height_m) * clutter_factor(signature)
+		else best_radar_range_nm(observer, signature, mast_or_altitude_m(target)) * clutter_factor(signature)
 	r *= jam_penalty(observer, target.position)
 	if r <= 0.0:
 		return 0.0
@@ -351,6 +355,8 @@ static func emitter_height_m(emitter: Unit) -> float:
 	for s in emitter.sensors:
 		if s.kind == "radar":
 			best = maxf(best, s.antenna_height_m)
+	if emitter.spec.domain == "land":
+		best += Terrain.elevation_at(emitter.position)
 	return maxf(best, 5.0)
 
 
@@ -415,6 +421,10 @@ static func mast_or_altitude_m(u: Unit) -> float:
 		return u.altitude_m
 	if u.submerged():
 		return 0.0
+	if u.spec.domain == "land":
+		# An installation stands on its ground: a radar on a headland sees over the water from
+		# the headland's height, and is seen from that height too.
+		return Terrain.elevation_at(u.position) + maxf(u.spec.mast_height_m, 1.0)
 	return maxf(u.spec.mast_height_m, 1.0)
 
 

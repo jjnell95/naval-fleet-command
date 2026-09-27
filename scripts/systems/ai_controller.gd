@@ -29,6 +29,7 @@ const TORPEDO_SALVO := 2
 ## special case for torpedoes.
 const MAX_TIME_OF_FLIGHT_S := 480.0
 const MIN_SOLUTION_FOR_SLOW_WEAPON := 0.5  # a bearing with no range is not a firing solution
+const BREAKOUT_TORPEDO_NM := 8.0  # a boat breaking out shoots only at what is in its way
 const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not at arm's length
 const BUOY_DROP_RANGE_NM := 9.0
 const BUOY_INTERVAL_S := 150.0
@@ -137,7 +138,8 @@ func _update_unit(u: Unit, now: float) -> void:
 	_note_torpedo_datum(u, b, now)
 	_consider_launch(u, b, all_hostiles, all_unknowns, now)
 	if u.spec.max_speed_kn <= 0.0:
-		return  # a shore station has nothing to do but send aircraft up
+		_do_shore_fires(u, b, hostiles, unknowns, now)  # a battery shoots; an airfield sends aircraft up
+		return
 	var inbound := _inbound_on(u)
 	var new_state := _choose_state(u, b, hostiles, unknowns, inbound, now)
 	if new_state != b["state"]:
@@ -316,8 +318,16 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float) -> Di
 		if _rounds_already_committed(t) >= MAX_ROUNDS_IN_FLIGHT_PER_TRACK:
 			continue
 		for spec: WeaponSpec in u.weapons_for_track(t):
+			# A boat breaking out does not announce itself. A missile launch fixes its position for
+			# everyone listening, so it keeps its missiles and holds its torpedoes for whatever is
+			# close enough to be in its way.
+			var quiet_transit := u.ai_posture == "breakout" and u.is_submarine()
+			if quiet_transit and not spec.is_torpedo():
+				continue
 			var check := Combat.check_engagement(u, spec, t)
 			if not check["ok"]:
+				continue
+			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM:
 				continue
 			if Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S:
 				continue
@@ -447,6 +457,29 @@ func _do_engage(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
 	# Last, so the shot's depth outranks whatever the follow-on movement asked for.
 	var weapon: WeaponSpec = plan["weapon"]
 	_manage_depth(u, DepthIntent.TRACK if weapon.is_torpedo() else DepthIntent.MISSILE_SHOT)
+
+
+## An installation ashore cannot manoeuvre, so its whole decision is whether to radiate and
+## whether to shoot. A coastal battery or a missile site fires on the same picture, with the same
+## reluctance about stale and unclassified contacts, as a ship; it simply never moves afterwards.
+## A battery without a radar of its own shoots on whatever the network hands it, which is the
+## operational problem such a battery poses and the one it has.
+func _do_shore_fires(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, now: float) -> void:
+	if u.weapons.is_empty():
+		return
+	# Radiate only when there is something to look at: a silent battery is a battery not found.
+	_manage_emissions(u, not hostiles.is_empty() or not unknowns.is_empty())
+	var plan := _pick_engagement(u, b, hostiles, now)
+	if plan.is_empty():
+		b["state"] = State.PATROL
+		return
+	var t: Track = plan["track"]
+	b["state"] = State.ENGAGE
+	b["target"] = t
+	if unit_manager.issue_order(u, Order.engage(t, plan["weapon"].id, plan["salvo"])):
+		b["engaged"][t.id] = now
+		var flight := Combat.time_of_flight_s(plan["weapon"], u.position.distance_to(t.position))
+		b["cooldown_%s" % t.id] = maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
 
 
 ## Turn away from the incoming bearing at speed. Opening the geometry buys the ship's own

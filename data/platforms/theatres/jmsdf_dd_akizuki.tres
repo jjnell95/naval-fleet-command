@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "jmsdf_dd_akizuki"
+display_name = "Akizuki-class destroyer (19DD)"
+short_name = "DD Akizuki"
+nation = "Japan"
+category = "destroyer"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.8
+accel_kn_s = 0.22
+health = 100.0
+signature_factor = 0.9
+mast_height_m = 28.0
+sensor_ids = PackedStringArray("jmsdf_fcs3a", "jmsdf_oqq22", "jmsdf_oqr3", "jmsdf_nolq3")
+weapon_loadout = {"essm_family": 32, "jmsdf_type07_vla": 16, "jmsdf_type90_ssm": 8, "mk45_mod4_gun": 300, "phalanx_ciws": 60, "jmsdf_type12_torpedo": 6}
+decoy_count = 12
+decoy_effectiveness = 0.35
+fire_control_channels = 4
+role = "Escort air defence for the Aegis ships / ASW"
+service_note = "Built to cover the Aegis destroyers while they look up at ballistic missiles: FCS-3A with quad-packed ESSM, and a full ASW fit."
+length_m = 151.0
+displacement_t = 6800.0
+aircraft_capacity = 2
+vls_cells = 32
+default_air_wing = {"jmsdf_helo_sh60k": 1}
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

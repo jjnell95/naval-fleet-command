@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_helo_z18f"
+display_name = "Z-18F ASW helicopter"
+short_name = "Z-18F"
+nation = "China"
+category = "ASW helicopter"
+domain = "air"
+max_speed_kn = 145.0
+cruise_speed_kn = 89.9
+turn_rate_deg_s = 10.0
+accel_kn_s = 6.0
+health = 22.0
+signature_factor = 0.3
+mast_height_m = 5.0
+sensor_ids = PackedStringArray("pla_z20f_radar", "pla_dipping_sonar")
+weapon_loadout = {"pla_yu7": 4}
+decoy_count = 6
+decoy_effectiveness = 0.35
+fire_control_channels = 0
+role = "Carrier ASW / buoy fields"
+service_note = "Representative 2027 fit; only systems the game represents are listed."
+cruise_altitude_m = 400.0
+max_altitude_m = 3500.0
+altitude_rate_m_s = 8.0
+endurance_s = 14400.0
+launch_time_s = 60.0
+recovery_time_s = 90.0
+acoustic_signature = 0.0
+can_hover = true
+launch_requirement = "helicopter"
+length_m = 23.0
+sonobuoy_count = 32
+sonobuoy_sensitivity_nm = 15.0
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

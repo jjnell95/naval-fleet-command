@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "irn_sayyad4_sam"
+display_name = "Sayyad-4 long-range surface-to-air missile"
+family = "Sayyad-4 long-range surface-to-air missile"
+type = "sam"
+target_types = PackedStringArray("missile", "air")
+guidance = "fire_control_directed"
+profile = "high"
+max_range_nm = 110.0
+min_range_nm = 3.0
+speed_kn = 2300.0
+damage = 42.0
+base_pk = 0.45
+salvo_default = 2
+launch_interval_s = 3.0
+seeker_range_nm = 6.0
+turn_rate_deg_s = 60.0
+signature_factor = 0.2
+altitude_m = 9000.0
+soft_kill_resistance = 1.0
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

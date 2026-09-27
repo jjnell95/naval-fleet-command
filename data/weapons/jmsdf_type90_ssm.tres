@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "jmsdf_type90_ssm"
+display_name = "Type 90 ship-to-ship missile"
+family = "Type 90 ship-to-ship missile"
+type = "asm"
+target_types = PackedStringArray("surface")
+guidance = "active_radar_homing"
+profile = "sea_skimming"
+max_range_nm = 81.0
+min_range_nm = 2.0
+speed_kn = 480.0
+damage = 45.0
+base_pk = 0.78
+salvo_default = 4
+launch_interval_s = 3.0
+seeker_range_nm = 6.0
+turn_rate_deg_s = 15.0
+signature_factor = 0.12
+altitude_m = 10.0
+soft_kill_resistance = 1.0
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

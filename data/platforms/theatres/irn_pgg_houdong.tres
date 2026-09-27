@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "irn_pgg_houdong"
+display_name = "Houdong-class missile boat (Thondor)"
+short_name = "PGG Houdong"
+nation = "Iran"
+category = "fast attack craft"
+domain = "surface"
+max_speed_kn = 35.0
+cruise_speed_kn = 18.0
+turn_rate_deg_s = 6.0
+accel_kn_s = 0.5
+health = 25.0
+signature_factor = 0.35
+mast_height_m = 12.0
+sensor_ids = PackedStringArray("irn_type352_radar", "irn_esm")
+weapon_loadout = {"irn_noor": 4, "irn_oerlikon_35mm": 30}
+decoy_count = 2
+decoy_effectiveness = 0.35
+fire_control_channels = 0
+role = "Missile boat"
+service_note = "Four Noor and a Square Tie targeting radar that announces itself when it is switched on."
+length_m = 38.6
+displacement_t = 205.0
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

@@ -44,7 +44,7 @@ func _process(delta: float) -> void:
 	deselect_all()
 	for i in _rows.size():
 		var u := _rows[i]
-		var state := "AIR" if u.airborne() else ("DECK" if u.is_aircraft() else ("SUB" if u.submerged() else "SURF"))
+		var state := "AIR" if u.airborne() else ("DECK" if u.is_aircraft() else ("SUB" if u.submerged() else ("SHORE" if u.spec.domain == "land" else "SURF")))
 		if u.is_aircraft():
 			if u.flight_state == Unit.FlightState.RECOVERING:
 				state = "LAND"
