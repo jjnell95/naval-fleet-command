@@ -27,17 +27,19 @@ float vnoise(vec2 p) {
 
 void fragment() {
 	float across = abs(UV.x * 2.0 - 1.0);
-	float arm = smoothstep(0.66, 0.9, across) * (1.0 - smoothstep(0.92, 1.0, across));
-	float lane = 1.0 - smoothstep(0.0, 0.55, across);
-	float n = vnoise(vec2(UV.x * 7.0, UV.y * 0.06) + vec2(0.0, TIME * 0.15));
-	float n2 = vnoise(vec2(UV.x * 19.0, UV.y * 0.2) - vec2(TIME * 0.05, 0.0));
+	// The churned lane narrows relative to the opening arms as the wake spreads astern.
+	float lane_w = mix(0.8, 0.28, clamp(UV.y / 600.0, 0.0, 1.0));
+	float arm = smoothstep(0.7, 0.9, across) * (1.0 - smoothstep(0.93, 1.0, across));
+	float lane = 1.0 - smoothstep(lane_w * 0.4, lane_w, across);
+	float n = vnoise(vec2(UV.x * 7.0, UV.y * 0.05) + vec2(0.0, TIME * 0.15));
+	float n2 = vnoise(vec2(UV.x * 19.0, UV.y * 0.18) - vec2(TIME * 0.05, 0.0));
 	float n3 = vnoise(vec2(UV.x * 41.0, UV.y * 0.55) + vec2(TIME * 0.11, 3.0));
-	float churn = 1.0 + 1.6 * exp(-UV.y / 160.0);
-	float foam = arm * (0.4 + 0.6 * n) * (0.6 + 0.4 * n3) + lane * (0.2 + 0.8 * n * n2) * 0.85 * churn;
-	float glow = lane * (0.55 + 0.45 * n2) * exp(-UV.y / 420.0);
+	float churn = 1.0 + 1.4 * exp(-UV.y / 140.0);
+	float foam = arm * (0.35 + 0.65 * n) * (0.6 + 0.4 * n3) * 0.8 + lane * (0.35 + 0.65 * n * n2) * churn * 0.8;
+	float glow = lane * (0.6 + 0.4 * n2) * exp(-UV.y / 520.0);
 	vec3 white = COLOR.rgb;
 	vec3 under = aerated * COLOR.rgb;
 	float f = clamp(foam, 0.0, 1.0);
-	ALBEDO = mix(under, white, clamp(f * 1.4, 0.0, 1.0));
-	ALPHA = clamp(max(f, glow * 0.55) * COLOR.a, 0.0, 1.0);
+	ALBEDO = mix(under, white, clamp(f * 1.3, 0.0, 1.0));
+	ALPHA = clamp(max(f, glow * 0.6) * COLOR.a, 0.0, 1.0);
 }

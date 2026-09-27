@@ -128,6 +128,12 @@ func reset() -> void:
 	_mesh.visible = false
 
 
+## Dims the ground's own glow with the light.
+func set_daylight(daylight: float) -> void:
+	if _material != null:
+		_material.set_shader_parameter("ground_glow", 0.32 * daylight)
+
+
 ## The near mask and its window (x, z of its centre about the floating origin, half size in
 ## metres; a negative size means no coast), for the sea's surf line.
 func coast_texture() -> Texture2D:

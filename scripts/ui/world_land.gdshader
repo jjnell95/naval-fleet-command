@@ -34,6 +34,7 @@ uniform vec3 col_snow : source_color = vec3(0.92, 0.93, 0.95);
 uniform float snow_line_m = 4000.0;
 uniform float mid_m = 250.0;
 uniform float high_m = 900.0;
+uniform float ground_glow = 0.3;
 
 varying vec3 v_local;
 varying float v_height;
@@ -162,7 +163,7 @@ void fragment() {
 	float n1 = vnoise(local * 0.0021);
 	float n2 = vnoise(local * 0.017 + 17.0);
 	float n3 = vnoise(local * 0.09 + 3.0);
-	float mottle = (n1 - 0.5) * 0.08 + ((n2 - 0.5) * 0.08 + (n3 - 0.5) * 0.07) * fine;
+	float mottle = (n1 - 0.5) * 0.06 + ((n2 - 0.5) * 0.07 + (n3 - 0.5) * 0.06) * fine;
 	vec3 col = mix(col_low, col_mid, smoothstep(mid_m * 0.4, mid_m * 1.6, h + (n1 - 0.5) * mid_m));
 	col = mix(col, col_high, smoothstep(high_m * 0.6, high_m * 1.5, h + (n2 - 0.5) * high_m * 0.4));
 	col = mix(col, col_rock, smoothstep(0.28, 0.55, slope + (n2 - 0.5) * 0.15));
@@ -172,10 +173,13 @@ void fragment() {
 	col = mix(col, col_snow, snow);
 	col *= 1.0 + mottle;
 	ALBEDO = col;
+	// Some of the ground's own colour whatever the light, so a desert reads as sand under a low
+	// sun and a lavender sky, as the old games drew it, and not as mauve.
+	EMISSION = col * col * ground_glow;
 	ROUGHNESS = 0.95 - snow * 0.4;
 	SPECULAR = 0.2 + snow * 0.3;
 	// Detail bumps for the near ground, so a hillside a mile off is not a smooth plastic sheet.
 	vec2 g = vec2(vnoise(local * 0.05 + vec2(1.3, 0.0)) - vnoise(local * 0.05 - vec2(1.3, 0.0)), vnoise(local * 0.05 + vec2(0.0, 1.3)) - vnoise(local * 0.05 - vec2(0.0, 1.3)));
-	vec3 bumped = normalize(n_world + vec3(g.x, 0.0, g.y) * 0.14 * fine);
+	vec3 bumped = normalize(n_world + vec3(g.x, 0.0, g.y) * 0.06 * fine);
 	NORMAL = normalize((VIEW_MATRIX * vec4(bumped, 0.0)).xyz);
 }

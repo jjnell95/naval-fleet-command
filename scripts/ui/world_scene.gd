@@ -11,7 +11,7 @@ extends Node3D
 const ORIGIN_WRAP_M := 65536.0
 const WAKE_SAMPLES := 26
 const WAKE_LIFE_S := 150.0
-const KELVIN_SPREAD := 0.035  # half-width growth per metre astern of the visible foam lane
+const KELVIN_SPREAD := 0.09  # half-width growth per metre astern: the arms of the wake open out
 ## A round first seen younger than this (in simulation seconds, per unit of time compression)
 ## was seen leaving its launcher, so it gets a launch cloud and a trail from the launcher.
 const FRESH_LAUNCH_S := 2.0
@@ -205,16 +205,16 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_sky_material.set_shader_parameter("horizon_color", horizon)
 	_sky_material.set_shader_parameter("zenith_color", pal[2])
 	_sky_material.set_shader_parameter("haze_color", pal[3])
-	_sky_material.set_shader_parameter("below_color", pal[4].darkened(0.3))
+	_sky_material.set_shader_parameter("below_color", Color(0.075, 0.094, 0.137) * (0.3 + 0.7 * (0.08 + 0.42 * twilight + 0.5 * day)))
 	_sky_material.set_shader_parameter("sun_dir", sun_dir)
 	var sun_up := smoothstep(-1.0, 6.0, elevation_deg)
-	var sun_color := Color(1.0, 0.62, 0.36).lerp(Color(1.0, 0.96, 0.9), clampf(elevation_deg / 20.0, 0.0, 1.0))
+	var sun_color := Color(1.0, 0.76, 0.56).lerp(Color(1.0, 0.97, 0.92), clampf(elevation_deg / 14.0, 0.0, 1.0))
 	_sky_material.set_shader_parameter("sun_color", sun_color)
 	_sky_material.set_shader_parameter("sun_visible", smoothstep(-2.0, 0.5, elevation_deg))
 	_sky_material.set_shader_parameter("sun_glow", lerpf(0.55, 0.22, day))
 	_sky_material.set_shader_parameter("stars", 0.8 * (1.0 - twilight))
 	_sun.light_color = sun_color
-	_sun.light_energy = 1.25 * sun_up
+	_sun.light_energy = 1.15 * sun_up
 	_sun.shadow_enabled = shadows_allowed and sun_up > 0.1
 	if sun_dir.length_squared() > 1e-6:
 		var up := Vector3.UP if absf(sun_dir.y) < 0.999 else Vector3.FORWARD
@@ -222,12 +222,13 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_moon.light_energy = 0.18 * (1.0 - twilight)
 	var moon_dir := Vector3(-sun_dir.x, 0.65, -sun_dir.z).normalized()
 	_moon.look_at_from_position(moon_dir * 1000.0, Vector3.ZERO, Vector3.UP)
-	_env.ambient_light_color = Color(0.10, 0.11, 0.20).lerp(Color(0.46, 0.42, 0.62), twilight).lerp(Color(0.62, 0.61, 0.78), day)
-	_env.ambient_light_energy = 0.3 + 0.2 * twilight + 0.2 * day
+	_env.ambient_light_color = Color(0.10, 0.11, 0.20).lerp(Color(0.44, 0.40, 0.60), twilight).lerp(Color(0.56, 0.56, 0.74), day)
+	_env.ambient_light_energy = 0.28 + 0.14 * twilight + 0.1 * day
 	_env.fog_light_color = pal[4]
 	_env.fog_light_energy = 1.0
 	daylight = 0.08 + 0.42 * twilight + 0.5 * day
 	effects.daylight = daylight
+	land.set_daylight(daylight)
 	_ocean_material.set_shader_parameter("sky_top", top)
 	_ocean_material.set_shader_parameter("sky_horizon", horizon)
 	_ocean_material.set_shader_parameter("sun_color", sun_color)
@@ -935,6 +936,17 @@ func anchors() -> Array[Dictionary]:
 		var root: Node3D = rec["root"]
 		out.append({"key": key, "world": rec["anchor"], "label": e["label"], "sublabel": e["sublabel"], "color": e["color"], "kind": e["kind"], "distance_m": root.position.length()})
 	return out
+
+
+## True while the view holds something for this key, alive or going down.
+func has_record(key: String) -> bool:
+	return _records.has(key)
+
+
+## True while the entity with this key is going down: sinking, or falling into the sea.
+func is_dying(key: String) -> bool:
+	var rec: Dictionary = _records.get(key, {})
+	return not rec.is_empty() and float(rec["dying_since"]) >= 0.0
 
 
 ## The world frame of an entity for the camera: position (a little above its middle), model

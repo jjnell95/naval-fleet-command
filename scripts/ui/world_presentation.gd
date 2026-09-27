@@ -36,7 +36,7 @@ const BALLISTIC_APEX_PER_NM_M := 220.0
 const INTERCEPTOR_CLIMB_S := 20.0
 ## How the force-centre focus is framed: its nominal length spans the group, within these limits.
 const FORCE_MIN_FRAME_M := 350.0
-const FORCE_MAX_FRAME_M := 30000.0
+const FORCE_MAX_FRAME_M := 2500.0
 ## How close to a held contact an unseen event must fall to be drawn at that contact.
 const WITNESS_PLOT_NM := 1.0
 

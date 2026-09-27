@@ -66,6 +66,7 @@ var _spray_ramp: Gradient
 var _chaff_ramp: Gradient
 var _grow: Curve
 var _billow: Curve
+var _puff_growth: Curve
 var _shrink: Curve
 
 
@@ -90,6 +91,7 @@ func _ready() -> void:
 	_chaff_ramp = _ramp([0.0, 0.1, 0.7, 1.0], [Color(1, 1, 1, 0.0), Color(1, 1, 1, 1.0), Color(1, 1, 1, 0.6), Color(1, 1, 1, 0.0)])
 	_grow = _curve([Vector2(0.0, 0.3), Vector2(1.0, 1.0)])
 	_billow = _curve([Vector2(0.0, 0.2), Vector2(0.25, 0.75), Vector2(1.0, 1.0)])
+	_puff_growth = _curve([Vector2(0.0, 0.5), Vector2(0.12, 0.85), Vector2(1.0, 1.25)])
 	_shrink = _curve([Vector2(0.0, 1.0), Vector2(1.0, 0.15)])
 
 
@@ -446,18 +448,18 @@ func drive_fire(rig: Node3D, at: Vector3, source_velocity: Vector3, intensity: f
 	var k := clampf(intensity, 0.05, 1.0)
 	var flames := rig.get_child(0) as CPUParticles3D
 	flames.emission_box_extents = Vector3(maxf(length_m * 0.09, 2.0), 1.5, maxf(length_m * 0.035, 1.5))
-	flames.scale_amount_min = 3.0 + 6.0 * k
-	flames.scale_amount_max = 6.0 + 12.0 * k
+	flames.scale_amount_min = 4.0 + 8.0 * k
+	flames.scale_amount_max = 8.0 + 16.0 * k
 	flames.direction = (Vector3.UP * 6.0 - source_velocity * 0.4).normalized()
 	var smoke := rig.get_child(1) as CPUParticles3D
-	var drift := wind * 0.5 + Vector3(0.0, 2.2 + 2.4 * k, 0.0) - source_velocity
+	var drift := wind * 0.5 + Vector3(0.0, 5.0 + 6.0 * k, 0.0) - source_velocity
 	smoke.direction = drift.normalized() if drift.length_squared() > 1e-6 else Vector3.UP
 	smoke.initial_velocity_min = drift.length() * 0.85
 	smoke.initial_velocity_max = drift.length() * 1.15
-	smoke.gravity = wind * 0.12 + Vector3(0.0, 0.25, 0.0)
+	smoke.gravity = wind * 0.12 + Vector3(0.0, 0.35, 0.0)
 	smoke.emission_sphere_radius = maxf(length_m * 0.05, 3.0)
-	smoke.scale_amount_min = 12.0 + 26.0 * k
-	smoke.scale_amount_max = 22.0 + 46.0 * k
+	smoke.scale_amount_min = 16.0 + 34.0 * k
+	smoke.scale_amount_max = 28.0 + 62.0 * k
 	var grey := 0.09 + 0.06 * (1.0 - k)
 	var lit := 0.35 + 0.65 * daylight
 	smoke.color = Color(grey * lit, grey * lit, grey * lit * 1.05, 1.0)
@@ -636,6 +638,7 @@ func _emitter() -> CPUParticles3D:
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	p.direction = Vector3.UP
 	p.spread = 20.0
+	p.flatness = 0.0
 	p.gravity = Vector3.ZERO
 	p.damping_min = 0.0
 	p.damping_max = 0.0
@@ -737,27 +740,30 @@ func _dark_puff(scale: float, grey := 0.2) -> CPUParticles3D:
 	return p
 
 
-## The launch cloud: dense white billows that spread along the deck and climb.
+## The launch cloud: dense white billows that roll out along the deck and the water and climb.
 func _puff(scale: float) -> CPUParticles3D:
 	var p := _emitter()
 	p.material_override = _smoke_material
-	p.amount = 40
-	p.lifetime = 12.0
-	p.lifetime_randomness = 0.35
-	p.explosiveness = 0.88
-	p.emission_sphere_radius = 3.5 * scale
-	p.spread = 80.0
-	p.initial_velocity_min = 3.0 * scale
-	p.initial_velocity_max = 11.0 * scale
-	p.gravity = wind * 0.25 + Vector3(0.0, 0.45, 0.0)
-	p.damping_min = 0.7
-	p.damping_max = 1.4
-	p.scale_amount_min = 7.0 * scale
-	p.scale_amount_max = 17.0 * scale
-	p.scale_amount_curve = _billow
+	p.amount = 44
+	p.lifetime = 13.0
+	p.lifetime_randomness = 0.3
+	p.explosiveness = 0.92
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 6.0 * scale
+	p.direction = Vector3(0.0, 0.4, 0.0)
+	p.spread = 180.0
+	p.flatness = 0.45
+	p.initial_velocity_min = 2.0 * scale
+	p.initial_velocity_max = 7.5 * scale
+	p.gravity = wind * 0.25 + Vector3(0.0, 0.35, 0.0)
+	p.damping_min = 0.5
+	p.damping_max = 1.1
+	p.scale_amount_min = 11.0 * scale
+	p.scale_amount_max = 21.0 * scale
+	p.scale_amount_curve = _puff_growth
 	p.color_ramp = _smoke_ramp
 	var w := 0.35 + 0.65 * daylight
-	p.color = Color(0.97 * w, 0.97 * w, 0.99 * w, 1.0)
+	p.color = Color(1.0 * w, 1.0 * w, 1.0 * w, 1.0)
 	return p
 
 
@@ -876,11 +882,11 @@ static func puff_texture() -> Texture2D:
 			var d := Vector2(x - half, y - half) / half
 			var r := d.length()
 			var n := noise.get_noise_2d(x, y) * 0.5 + 0.5
-			var edge := clampf((1.0 - r) * 2.4 + (n - 0.5) * 1.3, 0.0, 1.0)
-			var a := edge * edge * (3.0 - 2.0 * edge)
+			var edge := clampf((1.0 - r) * 1.9 + (n - 0.5) * 0.7, 0.0, 1.0)
+			var a := edge * edge * (3.0 - 2.0 * edge) * (0.82 + 0.18 * n)
 			var nz := sqrt(maxf(0.0, 1.0 - minf(r * r, 1.0)))
 			var lit := clampf(Vector3(d.x, -d.y, nz).dot(light) * 0.5 + 0.55, 0.0, 1.0)
-			var shade := lerpf(0.58, 1.0, lit) * (0.86 + 0.14 * n)
+			var shade := lerpf(0.6, 1.0, lit) * (0.9 + 0.1 * n)
 			img.set_pixel(x, y, Color(shade, shade, shade, a))
 	img.generate_mipmaps()
 	_puff_tex = ImageTexture.create_from_image(img)

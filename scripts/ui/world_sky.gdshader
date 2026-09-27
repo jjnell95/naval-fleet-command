@@ -41,8 +41,8 @@ void sky() {
 	vec3 s = normalize(sun_dir);
 	float cs = dot(d, s);
 	float disc = smoothstep(cos(radians(sun_size_deg)), cos(radians(sun_size_deg * 0.6)), cs);
-	float halo = pow(max(cs, 0.0), 900.0) * 1.2 + pow(max(cs, 0.0), 60.0) * 0.3 + pow(max(cs, 0.0), 14.0) * sun_glow;
-	col += sun_color * (disc * 4.0 + halo) * sun_visible * smoothstep(-0.03, 0.01, y);
+	float halo = pow(max(cs, 0.0), 6000.0) * 0.9 + pow(max(cs, 0.0), 120.0) * 0.22 + pow(max(cs, 0.0), 14.0) * sun_glow;
+	col += sun_color * (disc * 2.2 + halo) * sun_visible * smoothstep(-0.03, 0.01, y);
 	if (stars > 0.0 && y > 0.0) {
 		vec3 cell = floor(d * 420.0);
 		float star = step(0.9975, hash31(cell)) * hash31(cell + 3.1);

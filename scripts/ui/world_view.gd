@@ -43,6 +43,8 @@ var rig := WorldCamera.new()
 var label_font: Font
 ## True while a modal screen covers the pane: nothing renders, nothing is processed.
 var suspended := false
+## Dev only: seconds added to the clock for the sun, to look at dusk or night on demand.
+var sun_offset_s := 0.0
 
 var _container: SubViewportContainer
 var _viewport: SubViewport
@@ -240,6 +242,10 @@ func _process(delta: float) -> void:
 	var um := simulation.unit_manager
 	var own_units: Array = um.get_faction_units(player) if um != null else []
 	var focus := WorldPresentation.choose_focus(map.selected, map.selected_track, own_units)
+	# A subject that has just been lost is watched until it has gone down.
+	var lost: Unit = _focus.get("unit")
+	if lost != null and not lost.alive and not lost.departed and focus.get("key", "") != _focus.get("key", "") and _scene.has_record(_focus_key):
+		focus = _focus
 	if String(focus.get("key", "")) != String(_focus.get("key", "")):
 		rig.cut()
 	_focus = focus
@@ -256,13 +262,14 @@ func _process(delta: float) -> void:
 	_scene.set_weather(Detection.sea_state, WorldPresentation.visibility_nm(env), env)
 	var chart: Dictionary = simulation.scenario.get("map", {})
 	var latlon := WorldPresentation.latlon_of(_origin_nm, chart)
-	var unix := float(SimClock.start_unix_time if SimClock.start_unix_time > 0 else _default_unix) + SimClock.sim_time
+	var unix := float(SimClock.start_unix_time if SimClock.start_unix_time > 0 else _default_unix) + SimClock.sim_time + sun_offset_s
 	var sun := WorldPresentation.sun_angles(unix, latlon.x, latlon.y)
 	_scene.set_time_of_day(WorldPresentation.sun_direction(unix, latlon.x, latlon.y), sun.x)
 	var entries: Array = WorldPresentation.unit_entries(um, simulation.track_manager, player, env, simulation.track_manager.neutral_factions)
 	entries.append_array(WorldPresentation.weapon_entries(simulation.weapon_manager, simulation.threat_manager, player, map.reference_unit()))
 	entries.append_array(WorldPresentation.buoy_entries(simulation.aviation_manager, player, SimClock.sim_time))
-	_focus_key = WorldPresentation.resolve_focus_key(entries, _focus)
+	if not _scene.is_dying(_focus_key):
+		_focus_key = WorldPresentation.resolve_focus_key(entries, _focus)
 	_entries = WorldPresentation.cull(entries, _origin_nm, _focus_key)
 	_scene.update(delta, _entries, _focus_key)
 	for e: Dictionary in _scene.take_events():
