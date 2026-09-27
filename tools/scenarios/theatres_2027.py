@@ -381,7 +381,7 @@ def catalogue():
 
     platform("jmsdf_ddg_maya", "Maya-class destroyer (27DDG)", "DDG Maya", "Japan", "destroyer",
              ["an_spy_1d_v", "jmsdf_oqq24", "jmsdf_oqr4", "jmsdf_nolq3"],
-             {"sm2_family": 32, "sm3_family": 8, "sm6_family": 8, "essm_family": 16, "jmsdf_type17_ssm": 8, "jmsdf_type07_vla": 8,
+             {"sm2_family": 24, "sm3_family": 8, "sm6_family": 16, "essm_family": 16, "jmsdf_type17_ssm": 8, "jmsdf_type07_vla": 8,
               "mk45_mod4_gun": 300, "phalanx_ciws": 60, "jmsdf_type12_torpedo": 6},
              length_m=170.0, displacement_t=10250.0, health=125.0, signature_factor=1.05, mast_height_m=32.0,
              fire_control_channels=6, decoy_count=14, aircraft_capacity=1, vls_cells=96,

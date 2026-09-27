@@ -123,10 +123,15 @@ def taiwan_strait():
                      {"platform": "usn_mpa_p8a", "count": 1, "squadron": "VP-47", "callsign": "Golden Sword", "first_modex": 41},
                      {"platform": "usn_uav_mq4c", "count": 1, "squadron": "VUP-19 det", "callsign": "Triton", "first_modex": 51}])
     # PLAN surface group coming down the Ryukyu chain toward the picket.
-    s.afloat("pla_ddg_type055", "Nanchang (101)", "RED", 26.1, 124.2, 200, 18, patrol=[s.xy(24.9, 124.9), s.xy(26.3, 123.9)])
-    s.afloat("pla_ddg_type052d", "Xi'an (153)", "RED", 26.25, 124.45, 200, 18, patrol=[s.xy(25.1, 125.1), s.xy(26.4, 124.2)])
-    s.afloat("pla_ffg_type054a", "Xuzhou (530)", "RED", 25.95, 123.95, 200, 18, patrol=[s.xy(24.8, 124.6), s.xy(26.2, 123.6)])
-    s.afloat("pla_aor_type903a", "Qiandaohu (886)", "RED", 26.5, 124.3, 200, 14, patrol=[s.xy(26.0, 124.5), s.xy(26.9, 124.1)])
+    # The surface group starts in the East China Sea a little beyond YJ-18 reach of the picket and
+    # works south along the Ryukyus. Its ballistic rounds and the raid arrive first; the group's
+    # own missiles become the problem in the second hour, which is the time the air wing has to
+    # find it. Started inside reach, it emptied its magazines at the carrier before the player
+    # had given an order.
+    s.afloat("pla_ddg_type055", "Nanchang (101)", "RED", 28.6, 125.8, 200, 18, patrol=[s.xy(26.8, 125.6), s.xy(25.6, 125.3)])
+    s.afloat("pla_ddg_type052d", "Xi'an (153)", "RED", 28.75, 126.05, 200, 18, patrol=[s.xy(27.0, 125.85), s.xy(25.8, 125.55)])
+    s.afloat("pla_ffg_type054a", "Xuzhou (530)", "RED", 28.45, 125.55, 200, 18, patrol=[s.xy(26.6, 125.35), s.xy(25.4, 125.05)])
+    s.afloat("pla_aor_type903a", "Qiandaohu (886)", "RED", 29.0, 125.9, 200, 14, patrol=[s.xy(27.6, 125.8), s.xy(28.8, 125.6)])
     s.afloat("pla_ssn_type093b", "Type 093B (Shang II)", "RED", 23.85, 123.5, 120, 8, depth_m=170, radar_on=False,
              patrol=[s.xy(23.6, 124.6), s.xy(23.9, 123.4)])
     # The raid: already up over the interior and heading for the group, searching with its own
@@ -305,7 +310,12 @@ def hormuz():
     s.objectives("Bring at least two tankers into the Gulf of Oman box within ten hours. Losing all three, or Paul Ignatius, fails the mission; neutral traffic is protected.",
         [arrival("transit", [c[0] for c in convoy], exit_box, 8, "Two tankers cleared the strait")],
         [{"id": "convoy_lost", "type": "all_units_lost", "callsigns": [c[0] for c in convoy], "text": "Every tanker was lost"},
-         protected(["USS Paul Ignatius (DDG 117)", "MV Khor Fakkan Trader", "Dhow Al Noor"]),
+         protected(["USS Paul Ignatius (DDG 117)"]),
+         # Neutral traffic is protected by the rules of engagement, not by the escort: a round
+         # that loses its target in the strait and finds a dhow ends the mission, and the failure
+         # has to say so.
+         {"id": "neutral_sunk", "type": "unit_lost", "callsigns": ["MV Khor Fakkan Trader", "Dhow Al Noor"],
+          "text": "Neutral vessel sunk by own fire"},
          {"id": "deadline", "type": "time_elapsed", "seconds": 36000, "text": "The transit window closed"}])
     s.d["objectives"]["victory"][0]["count"] = 2
     s.forces("US/UK/France: 1 destroyer, 1 air-defence destroyer, 1 frigate, 3 tankers, Al Dhafra patrol det  ·  Iran: 6 fast attack craft, 2 missile boats, 1 midget submarine, 1 Kilo, 2 frigates, 2 UAVs, coastal, ballistic, drone and SAM sites  ·  Neutral traffic")

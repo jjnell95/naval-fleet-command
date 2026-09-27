@@ -5480,11 +5480,18 @@
         "id": "protected",
         "type": "unit_lost",
         "callsigns": [
-          "USS Paul Ignatius (DDG 117)",
+          "USS Paul Ignatius (DDG 117)"
+        ],
+        "text": "Protected vessel lost"
+      },
+      {
+        "id": "neutral_sunk",
+        "type": "unit_lost",
+        "callsigns": [
           "MV Khor Fakkan Trader",
           "Dhow Al Noor"
         ],
-        "text": "Protected vessel lost"
+        "text": "Neutral vessel sunk by own fire"
       },
       {
         "id": "deadline",
