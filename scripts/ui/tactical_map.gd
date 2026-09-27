@@ -98,7 +98,7 @@ const COL_RINGS := Color(1.0, 1.0, 1.0, 0.22)
 ## Hook brackets, routes (PIM legs), waypoints, objective areas and the range circle: white.
 const COL_SELECT := Color.WHITE
 const COL_ROUTE := Color.WHITE
-const COL_BOX := Color(0.6, 0.9, 1.0, 0.8)
+const COL_BOX := Color(1.0, 1.0, 1.0, 0.8)
 ## The scenario editor's and the mission preview's route and objective colour.
 const COL_WAYPOINT := Color(0.55, 0.95, 0.75, 0.85)
 ## Identity colours, the classic display's: colour means identity and nothing else.
@@ -120,11 +120,11 @@ const COL_JAM := Color(COL_FRIENDLY, SENSOR_RING_ALPHA)
 const COL_TRUTH := Color(1.0, 0.5, 0.5, 0.45)
 ## The selected weapon's reach: a thin red circle.
 const COL_WEAPON_RING := Color(COL_HOSTILE, 0.9)
+## Rounds as the world view colours them (the chart draws rounds in their identity colours).
 const COL_MISSILE := Color(1.0, 0.85, 0.35)
 const COL_MISSILE_HOSTILE := Color(1.0, 0.45, 0.35)
 const COL_INTERCEPTOR := Color(0.55, 0.95, 1.0)
 const COL_ACCENT := UITheme.COL_ACCENT
-const COL_AMBER := UITheme.COL_AMBER
 ## Compatibility shim: the chart has no label plates any more, but the world view's labels use it.
 const COL_LABEL_BG := Color("08111a", 0.9)
 const COL_READOUT := Color.WHITE
@@ -485,20 +485,14 @@ func _record_trails() -> void:
 func add_effect(pos: Vector2, kind: String, own := false) -> void:
 	if own and (kind == "hit" or kind == "destroyed"):
 		_hit_flash = 1.2
-	var col := COL_AMBER
+	# Flashes are white: on this chart a colour means an identity. A refused order reads in the
+	# radio line's alert red.
+	var col := COL_READOUT
 	match kind:
-		"hit", "destroyed":
-			col = COL_HOSTILE
-		"intercept":
-			col = COL_INTERCEPTOR
-		"decoy":
-			col = COL_NEUTRAL
-		"miss", "splash":
-			col = Color(0.6, 0.7, 0.8)
+		"miss", "splash", "decoy":
+			col = Color(COL_READOUT, 0.7)
 		"refused":
-			col = COL_AMBER
-		"launch":
-			col = COL_MISSILE
+			col = COL_RADIO_ALERT
 	_effects.append({"pos": pos, "t0": _anim, "kind": kind, "color": col})
 	if _effects.size() > 40:
 		_effects.remove_at(0)

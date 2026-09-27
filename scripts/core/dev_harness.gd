@@ -35,6 +35,7 @@ extends RefCounted
 ##   --symbols=N                 chart symbol mode: 0 NTDS, 1 small, 2 medium, 3 large graphic symbols
 ##   --tags                      show the chart's tags (second line under each track number)
 ##   --range-circle=NM           fix a quick range circle of NM round the hooked unit, for screenshots
+##   --route=DX,DY[;DX,DY...]    order the hooked units along legs offset in nm from the first, for screenshots
 ##   --chart-view=X,Y[,PPN]      centre the chart on this world point (nm), optionally at this scale
 ##   --radio=TEXT                post a line on the chart's radio line (spoken by the selection)
 ##   --world-view=inset|full     open the 3D world view in that mode, for screenshots
@@ -193,6 +194,13 @@ func handle_flags() -> void:
 			_zoom_after_layout(float(a.get_slice("=", 1)))
 		elif a.begins_with("--chart-view="):
 			_chart_view_after_layout(a.get_slice("=", 1))
+		elif a.begins_with("--route=") and not main.map.selected.is_empty():
+			var origin: Vector2 = main.map.selected[0].position
+			var legs := a.get_slice("=", 1).split(";")
+			for u: Unit in main.map.selected:
+				for i in legs.size():
+					var d := legs[i].split(",")
+					main.simulation.unit_manager.issue_order(u, Order.move(origin + Vector2(float(d[0]), float(d[1])), i > 0))
 		elif a.begins_with("--range-circle="):
 			_range_circle_after_layout(float(a.get_slice("=", 1)))
 		elif a.begins_with("--radio="):
