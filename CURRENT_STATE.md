@@ -8,7 +8,7 @@ Seven operations are new: Bashi Channel, Taiwan Strait, Spratly, the Sea of Japa
 
 A 3D world view (T, or the plot's WORLD button) shows the sea around the selected unit from a bridge, orbit, overhead or chase camera: own ships, aircraft and submarines as models on a sun-lit ocean, contacts only as the plot holds them, weapons only when detected. The browser build carries the new models and art: a first visit downloads 91 MB (53 MB game pack, 38 MB runtime), cached after that.
 
-Validation: 351 regression tests; 29 command-deck checks and 19 air-operations checks under Xvfb; VALIDATION_SWEEP full-watch AI-versus-AI runs of every new operation; the browser build booted in headless Chromium without script errors. See [validation-m23.json](docs/validation-m23.json). See the [M23 notes](docs/2026-09-27-world-theatres.md) and the [2027 theatres ledger](docs/THEATRES_2027.md).
+Validation: 351 regression tests; 29 command-deck checks and 19 air-operations checks under Xvfb; a 44-case scenario sweep at 6000 s per case with 0 grounded hulls; full-watch AI-versus-AI runs of every new operation; the browser build booted in headless Chromium without script errors. See [validation-m23.json](docs/validation-m23.json). See the [M23 notes](docs/2026-09-27-world-theatres.md) and the [2027 theatres ledger](docs/THEATRES_2027.md).
 
 ## Previous: M22 Command Deck Redesign and Browser Release
 
