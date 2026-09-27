@@ -2,6 +2,7 @@ class_name AfterAction
 extends Control
 ## End-of-mission report: the result, the objectives, and what the magazines and the defences
 ## actually did. Reads a statistics dictionary that Main accumulates from simulation signals.
+## A grey in-mission dialog over the final chart.
 
 signal review_pressed()
 signal restart_pressed()
@@ -21,7 +22,7 @@ func _ready() -> void:
 	z_index = 180
 	accessibility_name = "After-action report"
 	var shade := ColorRect.new()
-	shade.color = Color(0.01, 0.025, 0.04, 0.82)
+	shade.color = Color(0, 0, 0, 0.15)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(shade)
@@ -30,7 +31,7 @@ func _ready() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var card := PanelContainer.new()
-	card.theme_type_variation = "FloatingPanel"
+	card.theme_type_variation = "JfcDialog"
 	card.custom_minimum_size = Vector2(800.0, 580.0)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	center.add_child(card)
@@ -46,22 +47,25 @@ func _ready() -> void:
 
 	var head := HBoxContainer.new()
 	v.add_child(head)
-	var eyebrow := UITheme.eyebrow("After-action report")
-	eyebrow.add_theme_color_override("font_color", UITheme.COL_BRASS)
+	var eyebrow := Label.new()
+	eyebrow.text = "AFTER-ACTION REPORT"
+	eyebrow.add_theme_font_override("font", UITheme.data_font())
+	eyebrow.add_theme_font_size_override("font_size", 14)
 	eyebrow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(eyebrow)
 	_time = Label.new()
-	_time.add_theme_font_override("font", UITheme.mono_font())
+	_time.add_theme_font_override("font", UITheme.data_font())
 	_time.add_theme_font_size_override("font_size", 12)
-	_time.add_theme_color_override("font_color", UITheme.COL_MUTED)
+	_time.add_theme_color_override("font_color", UITheme.INK_DIM)
 	head.add_child(_time)
 	_title = Label.new()
-	_title.add_theme_font_override("font", UITheme.heading_font())
-	_title.add_theme_font_size_override("font_size", 56)
+	_title.add_theme_font_override("font", UITheme.title_font())
+	_title.add_theme_font_size_override("font_size", 52)
 	v.add_child(_title)
 	_subtitle = Label.new()
-	_subtitle.add_theme_font_size_override("font_size", 15)
-	_subtitle.add_theme_color_override("font_color", UITheme.COL_DIM)
+	_subtitle.add_theme_font_override("font", UITheme.data_font())
+	_subtitle.add_theme_font_size_override("font_size", 14)
+	_subtitle.add_theme_color_override("font_color", UITheme.INK)
 	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_subtitle)
 
@@ -77,14 +81,16 @@ func _ready() -> void:
 		var tv := VBoxContainer.new()
 		tv.add_theme_constant_override("separation", 0)
 		tile.add_child(tv)
-		tv.add_child(UITheme.eyebrow(entry[1]))
+		var tile_title := UITheme.eyebrow(entry[1])
+		tile_title.add_theme_color_override("font_color", UITheme.INK_BLUE)
+		tv.add_child(tile_title)
 		var value := Label.new()
-		value.add_theme_font_override("font", UITheme.heading_font())
-		value.add_theme_font_size_override("font_size", 34)
+		value.add_theme_font_override("font", UITheme.data_font())
+		value.add_theme_font_size_override("font_size", 30)
 		tv.add_child(value)
 		var note := Label.new()
 		note.add_theme_font_size_override("font_size", 11)
-		note.add_theme_color_override("font_color", UITheme.COL_MUTED)
+		note.add_theme_color_override("font_color", UITheme.INK_FAINT)
 		note.clip_text = true
 		tv.add_child(note)
 		_tiles[entry[0]] = {"value": value, "note": note}
@@ -110,9 +116,8 @@ func _ready() -> void:
 		if entry[2]:
 			b.theme_type_variation = "PrimaryButton"
 			_review = b
-		UIIcons.apply(b, entry[3], 16)
 		b.focus_mode = Control.FOCUS_ALL
-		b.custom_minimum_size.y = 42
+		b.custom_minimum_size.y = 36
 		var sig: Signal = entry[1]
 		b.pressed.connect(func() -> void: sig.emit())
 		buttons.add_child(b)
@@ -128,9 +133,9 @@ func _ready() -> void:
 func _set_tile(key: String, value: int, note: String, good_when_high: bool) -> void:
 	var tile: Dictionary = _tiles[key]
 	(tile["value"] as Label).text = str(value)
-	var col := UITheme.COL_TEXT
+	var col := UITheme.INK
 	if value > 0:
-		col = UITheme.COL_GREEN if good_when_high else UITheme.COL_RED
+		col = UITheme.INK_GREEN if good_when_high else UITheme.INK_RED
 	(tile["value"] as Label).add_theme_color_override("font_color", col)
 	(tile["note"] as Label).text = note
 
@@ -138,7 +143,7 @@ func _set_tile(key: String, value: int, note: String, good_when_high: bool) -> v
 func show_report(result: String, summary: String, stats: Dictionary, objectives: Array, losses: Array, kills: Array, elapsed_s: float) -> void:
 	var victory := result == "VICTORY"
 	_title.text = result
-	_title.add_theme_color_override("font_color", UITheme.COL_GREEN if victory else UITheme.COL_RED)
+	_title.add_theme_color_override("font_color", UITheme.INK_GREEN if victory else UITheme.INK_RED)
 	_subtitle.text = summary
 	_time.text = "MISSION TIME  %s" % Geo.format_duration(elapsed_s)
 	var inbound := int(stats.get("hostile_rounds", 0))
@@ -149,19 +154,19 @@ func show_report(result: String, summary: String, stats: Dictionary, objectives:
 	_set_tile("losses", losses.size(), "%d enemy destroyed" % kills.size(), false)
 
 	var lines := PackedStringArray()
-	lines.append(UITheme.section_bb("Objectives"))
+	lines.append(UITheme.section_bb("Objectives", true))
 	for o in objectives:
 		var mo: MissionObjective = o
-		lines.append("%s   %s" % ["[color=%s][font_size=12]DONE[/font_size][/color]" % UITheme.HEX_GREEN if mo.complete else "[color=%s][font_size=12]OPEN[/font_size][/color]" % UITheme.HEX_AMBER, mo.text])
-	lines.append("\n" + UITheme.section_bb("The shield"))
+		lines.append("%s   %s" % ["[color=%s][font_size=12]DONE[/font_size][/color]" % UITheme.HEX_INK_GREEN if mo.complete else "[color=%s][font_size=12]OPEN[/font_size][/color]" % UITheme.HEX_INK_AMBER, mo.text])
+	lines.append("\n" + UITheme.section_bb("The shield", true))
 	lines.append("%d hostile rounds detected inbound · %d intercepted · %d decoyed · %d hits taken" % [inbound, stats.get("intercepted", 0), stats.get("decoyed", 0), stats.get("hits_taken", 0)])
-	lines.append("[color=%s]%d interceptors expended · %d decoys[/color]" % [UITheme.HEX_DIM, stats.get("launched", 0), stats.get("decoys_used", 0)])
-	lines.append("\n" + UITheme.section_bb("The sword"))
+	lines.append("[color=%s]%d interceptors expended · %d decoys[/color]" % [UITheme.HEX_INK_DIM, stats.get("launched", 0), stats.get("decoys_used", 0)])
+	lines.append("\n" + UITheme.section_bb("The sword", true))
 	lines.append("%d rounds fired by your force · %d hits scored" % [stats.get("own_rounds", 0), stats.get("hits_scored", 0)])
-	lines.append("[color=%s]%s[/color]" % [UITheme.HEX_DIM, "No enemy units destroyed" if kills.is_empty() else "Destroyed: " + ", ".join(kills)])
-	lines.append("\n" + UITheme.section_bb("Losses"))
+	lines.append("[color=%s]%s[/color]" % [UITheme.HEX_INK_DIM, "No enemy units destroyed" if kills.is_empty() else "Destroyed: " + ", ".join(kills)])
+	lines.append("\n" + UITheme.section_bb("Losses", true))
 	lines.append("None" if losses.is_empty() else ", ".join(losses))
-	lines.append("\n[color=%s]Contacts held %d  ·  classified hostile %d  ·  aircraft sorties %d[/color]" % [UITheme.HEX_MUTED, stats.get("contacts", 0), stats.get("classified", 0), stats.get("sorties", 0)])
+	lines.append("\n[color=%s]Contacts held %d  ·  classified hostile %d  ·  aircraft sorties %d[/color]" % [UITheme.HEX_INK_FAINT, stats.get("contacts", 0), stats.get("classified", 0), stats.get("sorties", 0)])
 	_body.text = "\n".join(lines)
 	show()
 	if _review != null:
