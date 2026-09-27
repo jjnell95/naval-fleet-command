@@ -105,6 +105,11 @@
     "triangles": 7540
   },
   {
+    "id": "civ_tanker_vlcc",
+    "kind": "platform",
+    "triangles": 3356
+  },
+  {
     "id": "cw90_53_65",
     "kind": "weapon",
     "triangles": 1460
@@ -425,9 +430,214 @@
     "triangles": 1424
   },
   {
+    "id": "irn_53_65ke",
+    "kind": "weapon",
+    "triangles": 1092
+  },
+  {
+    "id": "irn_asbm_khalij_fars",
+    "kind": "platform",
+    "triangles": 2760
+  },
+  {
+    "id": "irn_battery_qader",
+    "kind": "platform",
+    "triangles": 3120
+  },
+  {
+    "id": "irn_drone_site_shahed",
+    "kind": "platform",
+    "triangles": 1740
+  },
+  {
+    "id": "irn_fac_peykaap3",
+    "kind": "platform",
+    "triangles": 756
+  },
+  {
+    "id": "irn_ffg_alvand",
+    "kind": "platform",
+    "triangles": 3228
+  },
+  {
+    "id": "irn_ffg_moudge",
+    "kind": "platform",
+    "triangles": 3644
+  },
+  {
+    "id": "irn_kamand_ciws",
+    "kind": "weapon",
+    "triangles": 612
+  },
+  {
+    "id": "irn_khalij_fars",
+    "kind": "weapon",
+    "triangles": 480
+  },
+  {
+    "id": "irn_mehrab_sam",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
+    "id": "irn_nasr1",
+    "kind": "weapon",
+    "triangles": 1044
+  },
+  {
+    "id": "irn_noor",
+    "kind": "weapon",
+    "triangles": 1184
+  },
+  {
+    "id": "irn_oerlikon_35mm",
+    "kind": "weapon",
+    "triangles": 248
+  },
+  {
+    "id": "irn_pgg_houdong",
+    "kind": "platform",
+    "triangles": 1432
+  },
+  {
+    "id": "irn_qader",
+    "kind": "weapon",
+    "triangles": 1184
+  },
+  {
+    "id": "irn_sam_bavar373",
+    "kind": "platform",
+    "triangles": 4104
+  },
+  {
+    "id": "irn_sayyad4_sam",
+    "kind": "weapon",
+    "triangles": 1196
+  },
+  {
+    "id": "irn_ssk_kilo_877ekm",
+    "kind": "platform",
+    "triangles": 1480
+  },
+  {
+    "id": "irn_ssm_ghadir",
+    "kind": "platform",
+    "triangles": 480
+  },
+  {
+    "id": "irn_test71me",
+    "kind": "weapon",
+    "triangles": 1092
+  },
+  {
+    "id": "irn_uav_mohajer6",
+    "kind": "platform",
+    "triangles": 1122
+  },
+  {
     "id": "ita_ddg_horizon",
     "kind": "platform",
     "triangles": 8560
+  },
+  {
+    "id": "jasdf_aam4b",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
+    "id": "jasdf_aam5",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
+    "id": "jasdf_asm3",
+    "kind": "weapon",
+    "triangles": 1360
+  },
+  {
+    "id": "jasdf_fighter_f2",
+    "kind": "platform",
+    "triangles": 1490
+  },
+  {
+    "id": "jasdf_fighter_f35b",
+    "kind": "platform",
+    "triangles": 4900
+  },
+  {
+    "id": "jgsdf_type12_battery",
+    "kind": "platform",
+    "triangles": 3120
+  },
+  {
+    "id": "jgsdf_type12_ssm",
+    "kind": "weapon",
+    "triangles": 1184
+  },
+  {
+    "id": "jmsdf_dd_akizuki",
+    "kind": "platform",
+    "triangles": 5436
+  },
+  {
+    "id": "jmsdf_ddg_maya",
+    "kind": "platform",
+    "triangles": 7036
+  },
+  {
+    "id": "jmsdf_ddh_izumo",
+    "kind": "platform",
+    "triangles": 10242
+  },
+  {
+    "id": "jmsdf_ffm_mogami",
+    "kind": "platform",
+    "triangles": 2784
+  },
+  {
+    "id": "jmsdf_helo_sh60k",
+    "kind": "platform",
+    "triangles": 996
+  },
+  {
+    "id": "jmsdf_mpa_p1",
+    "kind": "platform",
+    "triangles": 1906
+  },
+  {
+    "id": "jmsdf_ssk_taigei",
+    "kind": "platform",
+    "triangles": 624
+  },
+  {
+    "id": "jmsdf_type07_vla",
+    "kind": "weapon",
+    "triangles": 1232
+  },
+  {
+    "id": "jmsdf_type12_torpedo",
+    "kind": "weapon",
+    "triangles": 1092
+  },
+  {
+    "id": "jmsdf_type17_ssm",
+    "kind": "weapon",
+    "triangles": 1184
+  },
+  {
+    "id": "jmsdf_type18_torpedo",
+    "kind": "weapon",
+    "triangles": 1092
+  },
+  {
+    "id": "jmsdf_type90_ssm",
+    "kind": "weapon",
+    "triangles": 1184
+  },
+  {
+    "id": "jmsdf_type97_torpedo",
+    "kind": "weapon",
+    "triangles": 1092
   },
   {
     "id": "jsm_missile",
@@ -565,6 +775,221 @@
     "triangles": 852
   },
   {
+    "id": "pla_aew_kj500",
+    "kind": "platform",
+    "triangles": 2554
+  },
+  {
+    "id": "pla_aew_z18j",
+    "kind": "platform",
+    "triangles": 1570
+  },
+  {
+    "id": "pla_aor_type903a",
+    "kind": "platform",
+    "triangles": 4360
+  },
+  {
+    "id": "pla_asbm_df21d",
+    "kind": "platform",
+    "triangles": 2760
+  },
+  {
+    "id": "pla_battery_yj12b",
+    "kind": "platform",
+    "triangles": 3120
+  },
+  {
+    "id": "pla_bomber_h6j",
+    "kind": "platform",
+    "triangles": 1866
+  },
+  {
+    "id": "pla_cj10",
+    "kind": "weapon",
+    "triangles": 1044
+  },
+  {
+    "id": "pla_cv_shandong",
+    "kind": "platform",
+    "triangles": 9904
+  },
+  {
+    "id": "pla_ddg_type052d",
+    "kind": "platform",
+    "triangles": 5852
+  },
+  {
+    "id": "pla_ddg_type055",
+    "kind": "platform",
+    "triangles": 7580
+  },
+  {
+    "id": "pla_df21d",
+    "kind": "weapon",
+    "triangles": 576
+  },
+  {
+    "id": "pla_ffg_type054a",
+    "kind": "platform",
+    "triangles": 5276
+  },
+  {
+    "id": "pla_fighter_j15",
+    "kind": "platform",
+    "triangles": 1594
+  },
+  {
+    "id": "pla_fighter_j16",
+    "kind": "platform",
+    "triangles": 1578
+  },
+  {
+    "id": "pla_fsg_type056a",
+    "kind": "platform",
+    "triangles": 3480
+  },
+  {
+    "id": "pla_helo_z18f",
+    "kind": "platform",
+    "triangles": 1626
+  },
+  {
+    "id": "pla_helo_z20f",
+    "kind": "platform",
+    "triangles": 1008
+  },
+  {
+    "id": "pla_helo_z9c",
+    "kind": "platform",
+    "triangles": 1366
+  },
+  {
+    "id": "pla_hhq10",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
+    "id": "pla_hhq16",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
+    "id": "pla_hhq9b",
+    "kind": "weapon",
+    "triangles": 1196
+  },
+  {
+    "id": "pla_hpj11_ciws",
+    "kind": "weapon",
+    "triangles": 752
+  },
+  {
+    "id": "pla_hpj12_ciws",
+    "kind": "weapon",
+    "triangles": 612
+  },
+  {
+    "id": "pla_hpj13_30mm",
+    "kind": "weapon",
+    "triangles": 212
+  },
+  {
+    "id": "pla_hpj26_76mm",
+    "kind": "weapon",
+    "triangles": 164
+  },
+  {
+    "id": "pla_hpj45_130mm",
+    "kind": "weapon",
+    "triangles": 164
+  },
+  {
+    "id": "pla_mpa_y8q",
+    "kind": "platform",
+    "triangles": 2546
+  },
+  {
+    "id": "pla_pgg_type022",
+    "kind": "platform",
+    "triangles": 1876
+  },
+  {
+    "id": "pla_pl10",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
+    "id": "pla_pl15",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
+    "id": "pla_sam_hq9b_site",
+    "kind": "platform",
+    "triangles": 4872
+  },
+  {
+    "id": "pla_ssk_type039a",
+    "kind": "platform",
+    "triangles": 1308
+  },
+  {
+    "id": "pla_ssn_type093b",
+    "kind": "platform",
+    "triangles": 920
+  },
+  {
+    "id": "pla_yj12",
+    "kind": "weapon",
+    "triangles": 1360
+  },
+  {
+    "id": "pla_yj12b",
+    "kind": "weapon",
+    "triangles": 1360
+  },
+  {
+    "id": "pla_yj18",
+    "kind": "weapon",
+    "triangles": 1184
+  },
+  {
+    "id": "pla_yj21",
+    "kind": "weapon",
+    "triangles": 576
+  },
+  {
+    "id": "pla_yj82",
+    "kind": "weapon",
+    "triangles": 1044
+  },
+  {
+    "id": "pla_yj83",
+    "kind": "weapon",
+    "triangles": 1184
+  },
+  {
+    "id": "pla_yj83k",
+    "kind": "weapon",
+    "triangles": 1044
+  },
+  {
+    "id": "pla_yu6",
+    "kind": "weapon",
+    "triangles": 1092
+  },
+  {
+    "id": "pla_yu7",
+    "kind": "weapon",
+    "triangles": 1092
+  },
+  {
+    "id": "pla_yu8",
+    "kind": "weapon",
+    "triangles": 1232
+  },
+  {
     "id": "r77_family",
     "kind": "weapon",
     "triangles": 1568
@@ -600,9 +1025,19 @@
     "triangles": 1424
   },
   {
+    "id": "rfn_48n6_sam",
+    "kind": "weapon",
+    "triangles": 1196
+  },
+  {
     "id": "rfn_aew_ka31",
     "kind": "platform",
     "triangles": 3092
+  },
+  {
+    "id": "rfn_battery_bastion",
+    "kind": "platform",
+    "triangles": 3408
   },
   {
     "id": "rfn_bomber_tu22m3",
@@ -658,6 +1093,11 @@
     "id": "rfn_mpa_tu142",
     "kind": "platform",
     "triangles": 4584
+  },
+  {
+    "id": "rfn_sam_s400_site",
+    "kind": "platform",
+    "triangles": 4872
   },
   {
     "id": "rfn_ssk_kilo",
