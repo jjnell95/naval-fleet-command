@@ -1,6 +1,6 @@
 # Current source review
 
-See [M21 Cold War 1990 sources and model limits](docs/COLD_WAR_1990.md), [M20 aviation and fleet catalogue](docs/AVIATION_ROSTER_M20.md), [M18 sea floor, acoustics and damage notes](docs/REALISM_M18.md) and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; later ledgers supersede conflicting fit and coastline claims.
+See [M23 2027 theatres ledger](docs/THEATRES_2027.md) for the PLAN, Japanese, Iranian, Russian coastal and civilian records, [M21 Cold War 1990 sources and model limits](docs/COLD_WAR_1990.md), [M20 aviation and fleet catalogue](docs/AVIATION_ROSTER_M20.md), [M18 sea floor, acoustics and damage notes](docs/REALISM_M18.md) and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; later ledgers supersede conflicting fit and coastline claims.
 
 # Data Sources
 
