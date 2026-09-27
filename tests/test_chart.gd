@@ -266,3 +266,8 @@ func test_coastline_skips_the_charted_box_clip_edges() -> void:
 	runs = TacticalMap.coast_runs(strip, box)
 	assert_eq(runs.size(), 2, "the north and south shores")
 	assert_eq(TacticalMap.coast_runs(mainland, Rect2()).size(), 1, "no charted box: the whole ring is coast")
+	# Clipped a little inside the stated box and simplified: still a clip edge, within the margin.
+	var inset := PackedVector2Array([Vector2(0.15, 60), Vector2(30, 70), Vector2(40, 98.5), Vector2(0, 98.5)])
+	runs = TacticalMap.coast_runs(inset, box)
+	assert_eq(runs.size(), 1, "near-edge clip segments are left out too")
+	assert_eq(runs[0].size(), 3)

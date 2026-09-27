@@ -29,6 +29,7 @@ extends RefCounted
 ##   --rings                     show the sensor coverage layer (F4), for screenshots
 ##   --regional-preview          float a 288x288 regional map over the chart's bottom-left corner
 ##   --graticule                 turn the chart's lat/long graticule on, for screenshots
+##   --key                       show the chart's symbol key (F2), for screenshots
 ##   --no-relief                 turn the chart's relief shading off (F6), for screenshots
 ##   --chart-view=X,Y[,PPN]      centre the chart on this world point (nm), optionally at this scale
 ##   --radio=TEXT                post a line on the chart's radio line (spoken by the selection)
@@ -78,6 +79,8 @@ func handle_flags() -> void:
 		Debug.enabled = true
 	if args.has("--rings"):
 		main.map.show_rings = true
+	if args.has("--key"):
+		main.map.show_key = true
 	if args.has("--graticule"):
 		main.map.show_graticule = true
 	if args.has("--no-relief"):

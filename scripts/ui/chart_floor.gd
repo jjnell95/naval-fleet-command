@@ -9,6 +9,10 @@ extends ChartLayer
 ## Presentation only. It reads Bathymetry, ChartRelief and the scenario's charted box.
 
 const SHADER := preload("res://scripts/ui/chart_floor.gdshader")
+## Scenario polygons are clipped at, or a little inside, their charted box. Within this margin of
+## the box's edge the raster keeps its own land as well, so a polygon that stops short of the edge
+## never leaves a sliver of water between itself and the raster's land beyond.
+const CLIP_MARGIN_NM := 2.0
 
 ## The scenario whose charted box this floor honours. Taken from `map` when there is one.
 var simulation: Simulation
@@ -54,9 +58,10 @@ func _draw() -> void:
 	_material.set_shader_parameter("nm_per_px", 1.0 / maxf(px_per_nm, 0.0001))
 	var world := Bathymetry.world_rect()
 	var box := Vector4(-10.0, -10.0, -9.0, -9.0)
-	if _charted.size.x > 0.0 and world.size.x > 0.0:
-		var a := _to_uv(Vector2(_charted.position.x, _charted.end.y), world)
-		var b := _to_uv(Vector2(_charted.end.x, _charted.position.y), world)
+	var owned := _charted.grow(-CLIP_MARGIN_NM)
+	if owned.size.x > 0.0 and owned.size.y > 0.0 and world.size.x > 0.0:
+		var a := _to_uv(Vector2(owned.position.x, owned.end.y), world)
+		var b := _to_uv(Vector2(owned.end.x, owned.position.y), world)
 		box = Vector4(a.x, a.y, b.x, b.y)
 	_material.set_shader_parameter("charted_uv", box)
 	draw_rect(Rect2(Vector2.ZERO, size), Color.WHITE)

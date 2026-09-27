@@ -858,9 +858,10 @@ func _draw() -> void:
 	_label_rects.clear()
 	if selected_track != null and not show_key:
 		_label_rects.append(_solution_rect())
-	# Labels keep clear of the readout block and the radio line.
+	# Labels keep clear of the readout block, and of the radio line while it is speaking.
 	_label_rects.append(_readout_rect())
-	_label_rects.append(_radio_rect())
+	if not _radio.visible(_anim).is_empty():
+		_label_rects.append(_radio_rect())
 	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
 	_draw_ocean()
 	_draw_land()
@@ -1031,8 +1032,11 @@ static func coast_runs(points: PackedVector2Array, box: Rect2) -> Array[PackedVe
 	return out
 
 
+## Both ends within the clip margin of the same side of the box. Scenario polygons are clipped at
+## or a little inside their stated box (and simplified afterwards), so this is a margin, not an
+## exact match; ChartFloor lets the raster own the coast inside the same margin.
 static func _on_box_edge(a: Vector2, b: Vector2, box: Rect2) -> bool:
-	const EPS := 0.01
+	const EPS := ChartFloor.CLIP_MARGIN_NM
 	for x in [box.position.x, box.end.x]:
 		if absf(a.x - x) < EPS and absf(b.x - x) < EPS:
 			return true
@@ -1558,10 +1562,8 @@ func _draw_relative_motion() -> void:
 	for endpoint in [own_end, contact_end]:
 		draw_arc(endpoint, 5.0, 0.0, TAU, 24, COL_ACCENT, 1.4, true)
 	var middle := own_end.lerp(contact_end, 0.5)
-	var text := "CPA ~%.1f nm / %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)]
-	var width := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-	draw_rect(Rect2(middle + Vector2(-5, -18), Vector2(width + 10, 22)), COL_LABEL_BG)
-	draw_string(_font, middle + Vector2(0, -3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_ACCENT)
+	var text := "CPA %.1f nm / %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)]
+	_shadow_text(middle + Vector2(4, -4), text, 11)
 
 
 ## The hooked contact's geometry from the reference unit, top-left, as plain readout lines.
@@ -1816,7 +1818,7 @@ func _draw_text_block(first_baseline: Vector2, lines: PackedStringArray, col := 
 ## Where the bottom-left readout sits, so labels can keep clear of it.
 func _readout_rect() -> Rect2:
 	var h := READOUT_LINE_H * 4.0 + READOUT_MARGIN
-	return Rect2(Vector2(0.0, size.y - h), Vector2(ChartReadout.SCALE_MAX_PX + 120.0, h))
+	return Rect2(Vector2(0.0, size.y - h), Vector2(READOUT_MARGIN + 170.0, h))
 
 
 ## The world point the readout describes: the cursor over the chart, otherwise the chart's centre.

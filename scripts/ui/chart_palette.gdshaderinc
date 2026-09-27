@@ -160,13 +160,16 @@ float value_noise(vec2 p) {
 // A fine grain about two pixels across at every zoom, anchored to the world: the lattice steps by
 // octaves with the scale and cross-fades between neighbours, so it never swims while panning and
 // never pops while zooming.
+float grain_level(vec2 w, float level) {
+	// Each octave keeps its own lattice offset, so the octave faded in above one boundary is the
+	// same one faded out below the next.
+	return value_noise(w / exp2(level) + vec2(level * 17.0, level * 31.0));
+}
+
 float grain(vec2 w) {
 	float level = log2(GRAIN_PX / max(px_per_nm, 0.0001));
 	float l0 = floor(level);
-	float s0 = exp2(l0);
-	float g0 = value_noise(w / s0);
-	float g1 = value_noise(w / (s0 * 2.0) + 17.0);
-	return mix(g0, g1, level - l0);
+	return mix(grain_level(w, l0), grain_level(w, l0 + 1.0), level - l0);
 }
 
 // Close-zoom land texture: two world-anchored octaves (~0.3 nm and ~0.08 nm), each faded in only
