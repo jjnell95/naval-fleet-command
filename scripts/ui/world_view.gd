@@ -140,7 +140,7 @@ func set_mode(next: Mode) -> void:
 	visible = mode != Mode.HIDDEN
 	_sync_visibility()
 	if visible:
-		refocus()
+		rig.cut()
 	mode_changed.emit(mode)
 
 
@@ -178,10 +178,19 @@ func set_orbit(az_deg: float, pitch_deg := NAN, zoom_factor := NAN) -> void:
 	rig.cut()
 
 
-## The subject changed: the next frame cuts to it instead of sweeping. The tether orbit and zoom
-## are the player's and are kept. Main calls it whenever the selection changes.
+## The hook changed: if that changes the subject, the next frame cuts to it instead of sweeping.
+## When the subject is the one already shown (a contact hooked beside the ship, the same ship
+## hooked again, a lost ship still being watched as it goes down) nothing happens, so a detached
+## eye stays where it is and a fly-by keeps its station. The tether orbit and zoom are the
+## player's and are always kept. Main calls it whenever the selection changes.
 func refocus() -> void:
-	rig.cut()
+	if map == null or simulation == null:
+		rig.cut()
+		return
+	var um := simulation.unit_manager
+	var own_units: Array = um.get_faction_units(simulation.player_faction) if um != null else []
+	if String(_pick_focus(own_units, _hooked_anew()).get("key", "")) != String(_focus.get("key", "")):
+		rig.cut()
 
 
 ## A simulation event at a chart position, beside the chart's own `add_effect`. `height_m`

@@ -997,6 +997,35 @@ func test_a_new_hook_takes_the_camera_off_a_ship_that_is_going_down() -> void:
 	_free_view(f)
 
 
+func test_hooking_a_contact_beside_the_ship_leaves_a_detached_eye_where_it_is() -> void:
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	ship.heading_deg = 0.0
+	var other := _unit("cw90_perry", "BLUE", Vector2(3, 0))
+	var red := _unit("cw90_slava", "RED", Vector2(30, 0))
+	var f := _live_view([ship, other, red])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [ship] as Array[Unit]
+	view._process(0.016)
+	view.set_camera_mode(WorldView.CAM_DETACHED)
+	view._process(0.016)
+	var eye := WorldCamera.to_chart(view._scene.camera.global_position, view._origin_nm)
+	ship.position = Vector2(0.0, 0.5)
+	view._process(0.016)
+	map.selected_track = _hold(f["tm"], "T1001", red, Vector2(29, 1), Track.Classification.SURFACE)
+	view.refocus()
+	view._process(0.016)
+	var after := WorldCamera.to_chart(view._scene.camera.global_position, view._origin_nm)
+	assert_near(Vector2(after.x, after.y).distance_to(Vector2(eye.x, eye.y)) * WorldPresentation.NM_TO_M, 0.0, 1.0, "the subject is still the ship, so the detached eye does not jump")
+	map.selected = [ship] as Array[Unit]
+	view.refocus()
+	assert_true(not view.rig._cut, "hooking the same ship again is no new subject either")
+	map.selected = [other] as Array[Unit]
+	view.refocus()
+	assert_true(view.rig._cut, "hooking another ship is")
+	_free_view(f)
+
+
 func test_action_cuts_only_to_events_the_view_can_draw_around() -> void:
 	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
 	var far := _unit("cw90_perry", "BLUE", Vector2(60, 0))
