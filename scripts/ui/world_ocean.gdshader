@@ -38,10 +38,13 @@ uniform vec3 coast_window = vec3(0.0, 0.0, -1.0);        // x, z of the mask's c
 varying vec3 v_world;
 varying float v_dist;
 
+// An integer hash of a lattice point. Every caller passes a floored point, so the conversion is
+// exact; a float hash (fract of a large product) runs out of mantissa tens of kilometres from the
+// origin and the chop and the sun's sparkle go flat over most of the chart.
 float hash21(vec2 p) {
-	p = fract(p * vec2(123.34, 456.21));
-	p += dot(p, p + 45.32);
-	return fract(p.x * p.y);
+	uvec2 q = uvec2(ivec2(p)) * uvec2(1597334673u, 3812015801u);
+	uint n = (q.x ^ q.y) * 1597334673u;
+	return float(n >> 8u) * (1.0 / 16777216.0);
 }
 
 float vnoise(vec2 p) {

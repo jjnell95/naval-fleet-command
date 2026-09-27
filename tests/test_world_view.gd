@@ -855,6 +855,18 @@ func test_poor_visibility_closes_in_the_sea_and_the_sky_but_a_clear_day_does_not
 	scene.free()
 
 
+func test_ocean_shader_compiles_takes_its_fog_and_hashes_its_noise_in_integers() -> void:
+	var shader: Shader = load("res://scripts/ui/world_ocean.gdshader")
+	var names: Array = shader.get_shader_uniform_list().map(func(p: Dictionary) -> String: return p["name"])
+	assert_true(names.has("fog_density") and names.has("fog_color") and names.has("origin_offset"), "the shader compiles, with its own fog")
+	var code := shader.code
+	var at := code.find("float hash21(")
+	assert_true(at >= 0, "the lattice hash is there")
+	var body := code.substr(at, code.find("}", at) - at)
+	assert_true(body.contains("uvec2") and not body.contains("fract("), "and hashes in integers: a float fract of a large product goes flat tens of kilometres from the origin")
+	assert_true(code.contains("fog_density") and code.substr(code.find("void fragment()")).contains("fog_density"), "the sea applies its fog in the fragment")
+
+
 func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() -> void:
 	var view := WorldView.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
