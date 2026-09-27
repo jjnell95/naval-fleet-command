@@ -135,10 +135,11 @@ def taiwan_strait():
     s.afloat("pla_ssn_type093b", "Type 093B (Shang II)", "RED", 23.85, 123.5, 120, 8, depth_m=170, radar_on=False,
              patrol=[s.xy(23.6, 124.6), s.xy(23.9, 123.4)])
     # The raid: already up over the interior and heading for the group, searching with its own
-    # radars. It starts far enough west that its launch point is forty minutes away, which is the
-    # time the picket has to get its fighters and the early-warning aircraft up.
+    # radars. It starts far enough west that its launch point is an hour away: the ballistic
+    # salvo arrives first, the picket has time to recover its channels and get its fighters and
+    # the early-warning aircraft out, and then the raid comes.
     for i in range(4):
-        s.unit("pla_bomber_h6j", "Badger %d" % (i + 1), "RED", s.xy(29.0 + i * 0.08, 118.2 + i * 0.15), 135, 430,
+        s.unit("pla_bomber_h6j", "Badger %d" % (i + 1), "RED", s.xy(29.7 + i * 0.08, 115.6 + i * 0.15), 135, 430,
                  ai_posture="breakout", patrol=[s.xy(24.4, 125.2), s.xy(23.6, 125.0)])
     s.site("shore_air_station", "Huian Air Base", "RED", 25.033, 118.821,
            air_wing=pla_field(j16=6, kj500=1,
