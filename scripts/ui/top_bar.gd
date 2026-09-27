@@ -34,6 +34,8 @@ var _alert_anim := 0.0
 
 
 func _ready() -> void:
+	# A data panel: navy, with the data display's text colours; buttons stay grey chrome.
+	UITheme.use_data_surface(self)
 	var bar := StyleBoxFlat.new()
 	bar.bg_color = UITheme.COL_PANEL_DEEP
 	bar.content_margin_left = 16

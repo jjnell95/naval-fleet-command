@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://cml1ey5lxkb8t"
-path="res://.godot/imported/IBMPlexMono-Regular.ttf-9776dfbf2ebf317ab969c1c02b95a7b0.fontdata"
+uid="uid://d0hdw727de4ah"
+path="res://.godot/imported/BarlowCondensed-ExtraBoldItalic.ttf-77963f1052599542056aff19bae8f946.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/IBMPlexMono-Regular.ttf"
-dest_files=["res://.godot/imported/IBMPlexMono-Regular.ttf-9776dfbf2ebf317ab969c1c02b95a7b0.fontdata"]
+source_file="res://assets/fonts/BarlowCondensed-ExtraBoldItalic.ttf"
+dest_files=["res://.godot/imported/BarlowCondensed-ExtraBoldItalic.ttf-77963f1052599542056aff19bae8f946.fontdata"]
 
 [params]
 

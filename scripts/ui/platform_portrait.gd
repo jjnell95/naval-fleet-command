@@ -5,6 +5,8 @@ extends Control
 var show_captions := true
 var panel: UnitPanel
 var spec_override: PlatformSpec  # shown instead of the panel's selection (editor palette preview)
+## Draw the three-line frame round the card, as on the front end.
+var framed := false
 var _font: Font
 
 
@@ -21,11 +23,11 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	var ink := UITheme.COL_ACCENT
 	var pts := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
-	draw_polygon(pts, PackedColorArray([Color("172d40"), Color("101f2f"), Color("091521"), Color("102435")]))
+	draw_polygon(pts, PackedColorArray([UITheme.COL_RAISED, UITheme.COL_PANEL, UITheme.COL_BG, UITheme.COL_PANEL_DEEP]))
 	for i in range(1, 5):
 		var r := size.x * (0.18 + i * 0.16)
-		draw_arc(Vector2(size.x * .55, size.y * .6), r, 0, TAU, 72, Color(.36, .63, .72, .07), 1, true)
-	draw_line(Vector2(14, size.y - 26), Vector2(size.x - 14, size.y - 26), Color(.4, .68, .77, .16), 1)
+		draw_arc(Vector2(size.x * .55, size.y * .6), r, 0, TAU, 72, Color(UITheme.COL_ACCENT, 0.07), 1, true)
+	draw_line(Vector2(14, size.y - 26), Vector2(size.x - 14, size.y - 26), Color(UITheme.COL_ACCENT, 0.16), 1)
 	var unit: Unit = null
 	if panel != null and not panel._units.is_empty():
 		unit = panel._units[0]
@@ -59,6 +61,8 @@ func _draw() -> void:
 		_draw_combatant(x, y, w, ink, category.contains("cruiser"))
 	if domain != "air" and render == null:
 		draw_line(Vector2(x - 12, y + 12), Vector2(x + w + 12, y + 12), Color(ink, 0.35), 1)
+	if framed:
+		UITheme.draw_bevel_frame(self, Rect2(Vector2.ZERO, size))
 	if not show_captions:
 		return
 	var caption := "AEGIS / MULTI-DOMAIN COMMAND" if spec == null else spec.short_name.to_upper()

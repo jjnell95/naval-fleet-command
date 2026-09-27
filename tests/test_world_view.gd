@@ -782,6 +782,8 @@ func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() ->
 	assert_eq(view.anchor_bottom, 1.0)
 	assert_eq(view.size_flags_horizontal, Control.SIZE_EXPAND_FILL, "and expands in a container slot")
 	assert_true(not view.visible, "hidden until the shell or Main shows it")
+	# A slot of the bottom strip's size: pin the anchors to the corner so the size is the pane's own.
+	view.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	view.size = Vector2(702, 282)
 	view.set_mode(WorldView.Mode.INSET)
 	assert_true(view.visible and view.is_processing(), "shown, it renders")

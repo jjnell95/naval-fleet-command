@@ -59,6 +59,8 @@ var _mag_signature := ""
 
 
 func _ready() -> void:
+	# A data panel: navy, with the data display's text colours; buttons stay grey chrome.
+	UITheme.use_data_surface(self)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
 	add_child(v)

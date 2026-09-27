@@ -22,6 +22,8 @@ var _tints: Array[Color] = []
 
 
 func _ready() -> void:
+	# A data panel: navy, with the data display's text colours; buttons stay grey chrome.
+	UITheme.use_data_surface(self)
 	theme_type_variation = "RailPanel"
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 0)

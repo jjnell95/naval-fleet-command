@@ -25,6 +25,8 @@ var _shown_selection: Track
 
 
 func _ready() -> void:
+	# A data panel: navy, with the data display's text colours; buttons stay grey chrome.
+	UITheme.use_data_surface(self)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	add_child(v)
