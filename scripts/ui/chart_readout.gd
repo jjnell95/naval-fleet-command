@@ -62,3 +62,8 @@ static func scale_step_nm(ppn: float) -> float:
 static func format_nmi(nm: float) -> String:
 	var text := "%d" % int(roundf(nm)) if is_equal_approx(nm, roundf(nm)) else ("%.3f" % nm).rstrip("0")
 	return "%s nmi" % text
+
+
+## The quick range circle's label: "7.4 nmi" under ten miles, "23 nmi" beyond.
+static func format_range_nmi(nm: float) -> String:
+	return ("%.1f nmi" % nm) if nm < 9.95 else ("%d nmi" % int(roundf(nm)))

@@ -8,24 +8,38 @@ extends Control
 ## The chart runs edge to edge with no chrome of its own: relief and depth bands underneath
 ## (ChartFloor, ChartLand), then marks and symbols, then the bottom-left position / depth / scale
 ## readout and the bottom-centre radio line (post_message), all in white bold with a 1 px shadow.
+## Platforms are NTDS symbols (MapSymbols) in the identity colours with 6-minute velocity leaders
+## and white four-digit track numbers; the graphic symbol modes draw the platforms' plan views.
 ##
-## Controls: wheel/pinch or +/- = zoom, middle/right/Option drag = pan, left click = select,
+## Controls: wheel/pinch or +/- = zoom, middle/right/Option drag = pan, left click = hook,
 ## shift+click = add/remove unit, left drag = box select, double-click = recentre, Plot Move arms
-## the explicit left-click move tool (Shift chains waypoints), right-click a track = target it
-## (Ctrl/Cmd also engages), right-click a waypoint = remove that leg, arrows/WASD = pan,
-## Home = fit the fleet, C = focus the current command problem, F = follow it.
+## the explicit left-click move tool (Shift chains waypoints), arrows/WASD = pan, Home = fit the
+## fleet, C = focus the current command problem, F = follow it.
+## Right-click without a drag: with a controllable own unit hooked, open water (or land, for an
+## aircraft) orders it there at once (Shift appends a leg); on anything else it asks the shell for
+## a menu (context_menu_requested), hooking the track or own unit under the cursor first. Ctrl/Cmd
+## + right-click on a track engages it. In Plot Move, right-click cancels the move.
 
 signal selection_changed(units: Array)
 signal track_selected(track: Track)
 signal move_order_requested(world_pos: Vector2, append: bool)
 signal engage_requested(track: Track)
+## Emitted by the shell's "Delete leg" menu item via request_waypoint_delete(); the chart no longer
+## deletes a leg on a bare right-click.
 signal waypoint_delete_requested(unit: Unit, index: int)
+## A right-click the chart does not act on by itself. `screen_pos` is in the chart's own pixels
+## (as world_to_screen); `context` is context_at(screen_pos) plus "viewport_pos" for placing a popup.
+signal context_menu_requested(screen_pos: Vector2, context: Dictionary)
 signal interaction_mode_changed(active: bool)
 ## Kept for the shell's wiring; the chart has no button of its own that emits it any more.
 signal world_view_requested
 
 enum DragMode { NONE, PAN, BOX }
 enum InteractionMode { SELECT, MOVE }
+## NTDS frames, or the platforms' plan views at three sizes (JFC's graphic symbols).
+enum SymbolMode { NTDS, SMALL, MEDIUM, LARGE }
+## The quick range circle: off, following the cursor, fixed.
+enum RangeCircle { OFF, ARMED, FIXED }
 
 const MIN_PPN := 0.2
 const MAX_PPN := 6000.0
@@ -35,8 +49,22 @@ const CLICK_RADIUS_PX := 18.0
 const WAYPOINT_HIT_PX := 14.0
 const DRAG_THRESHOLD_PX := 5.0
 const DOUBLE_CLICK_MS := 350
-const LEADER_MINUTES := 30.0
+## Velocity leaders show this much travel (MapSymbols clamps them to 6-48 px).
+const LEADER_MINUTES := MapSymbols.LEADER_MINUTES
 const KEY_PAN_PX_PER_S := 700.0
+## Graphic symbol length, bow to stern, per SymbolMode (NTDS draws frames instead).
+const GRAPHIC_SYMBOL_PX: Array[float] = [0.0, 28.0, 40.0, 56.0]
+const SYMBOL_MODE_NAMES: Array[String] = ["NTDS", "Small", "Medium", "Large"]
+## Track number: white bold, its left edge and baseline this far from the symbol centre.
+const TRACK_NUMBER_FONT_SIZE := 12
+const TRACK_NUMBER_OFFSET := Vector2(7.0, 17.0)
+const TAG_FONT_SIZE := 11
+const STALE_ALPHA := 0.55
+const UNCERTAINTY_ALPHA := 0.35
+const BEARING_LINE_ALPHA := 0.6
+const SENSOR_RING_ALPHA := 0.45
+## A sunk or shot-down own platform stays on the plot in grey this long (sim seconds).
+const WRECK_S := 600.0
 ## Compatibility shim: the chart has no footer bar any more, but the world view's inset card still
 ## anchors itself this far above the chart's bottom edge.
 const FOOTER_H := 24.0
@@ -45,7 +73,7 @@ const READOUT_MARGIN := 10.0
 const READOUT_FONT_SIZE := 13
 const READOUT_LINE_H := 16.0
 const RADIO_BOTTOM_PX := 8.0
-const SPEAKER_RING_PX := 15.0
+const SPEAKER_RING_PX := 14.0
 const TRAIL_INTERVAL_S := 60.0
 const TRAIL_LENGTH := 24
 const EFFECT_LIFE_S := 2.2
@@ -67,36 +95,42 @@ const COL_GRID := Color(1.0, 1.0, 1.0, 0.20)
 const COL_GRID_MINOR := Color(1.0, 1.0, 1.0, 0.08)
 const COL_GRID_TEXT := Color(1.0, 1.0, 1.0, 0.75)
 const COL_RINGS := Color(1.0, 1.0, 1.0, 0.22)
-const COL_TEXT := Color(0.80, 0.90, 0.96)
-const COL_SELECT := Color(1.0, 1.0, 1.0, 0.92)
+## Hook brackets, routes (PIM legs), waypoints, objective areas and the range circle: white.
+const COL_SELECT := Color.WHITE
+const COL_ROUTE := Color.WHITE
 const COL_BOX := Color(0.6, 0.9, 1.0, 0.8)
+## The scenario editor's and the mission preview's route and objective colour.
 const COL_WAYPOINT := Color(0.55, 0.95, 0.75, 0.85)
-const COL_FRIENDLY := Color(0.42, 0.75, 1.0)
-const COL_HOSTILE := Color(1.0, 0.40, 0.38)
-const COL_UNKNOWN := Color(1.0, 0.85, 0.32)
-const COL_NEUTRAL := Color(0.55, 0.90, 0.60)
-const COL_RING := Color(0.36, 0.72, 1.0, 0.45)
-const COL_RING_SILENT := Color(0.5, 0.6, 0.65, 0.35)
-const COL_SONAR_RING := Color(0.45, 0.95, 0.75, 0.32)
-const COL_SONAR_ACTIVE := Color(0.55, 1.0, 0.6, 0.55)
-const COL_BUOY := Color(0.5, 0.95, 0.8, 0.85)
-const COL_ESM_RING := Color(0.85, 0.7, 1.0, 0.30)
-const COL_JAM := Color(0.95, 0.55, 0.95)
+## Identity colours, the classic display's: colour means identity and nothing else.
+const COL_FRIENDLY := Color8(64, 200, 255)
+const COL_ALLIED := Color8(255, 150, 40)
+const COL_HOSTILE := Color8(235, 30, 30)
+const COL_UNKNOWN := Color8(245, 235, 30)
+const COL_NEUTRAL := Color8(40, 220, 60)
+const COL_DESTROYED_OWN := Color8(200, 200, 200)
+const COL_DESTROYED := Color8(110, 110, 110)
+## Sensor rings (F4) are thin own-identity circles; these keep their older names for callers.
+const COL_RING := Color(COL_FRIENDLY, SENSOR_RING_ALPHA)
+const COL_RING_SILENT := Color(COL_FRIENDLY, 0.2)
+const COL_SONAR_RING := Color(COL_FRIENDLY, SENSOR_RING_ALPHA)
+const COL_SONAR_ACTIVE := Color(COL_FRIENDLY, SENSOR_RING_ALPHA)
+const COL_BUOY := COL_FRIENDLY
+const COL_ESM_RING := Color(COL_FRIENDLY, SENSOR_RING_ALPHA)
+const COL_JAM := Color(COL_FRIENDLY, SENSOR_RING_ALPHA)
 const COL_TRUTH := Color(1.0, 0.5, 0.5, 0.45)
-const COL_WEAPON_RING := Color(1.0, 0.72, 0.35, 0.55)
+## The selected weapon's reach: a thin red circle.
+const COL_WEAPON_RING := Color(COL_HOSTILE, 0.9)
 const COL_MISSILE := Color(1.0, 0.85, 0.35)
 const COL_MISSILE_HOSTILE := Color(1.0, 0.45, 0.35)
 const COL_INTERCEPTOR := Color(0.55, 0.95, 1.0)
 const COL_ACCENT := UITheme.COL_ACCENT
 const COL_AMBER := UITheme.COL_AMBER
-## Label plate behind unit and track labels. The world view's labels share it.
+## Compatibility shim: the chart has no label plates any more, but the world view's labels use it.
 const COL_LABEL_BG := Color("08111a", 0.9)
 const COL_READOUT := Color.WHITE
 const COL_READOUT_SHADOW := Color(0.0, 0.0, 0.0, 0.9)
 const COL_RADIO_ALERT := Color("ff5050")
 const COL_FIRE := Color(1.0, 0.55, 0.22)
-const COL_SMOKE := Color(0.66, 0.66, 0.68)
-const COL_FLOOD := Color(0.35, 0.62, 1.0)
 const DEFAULT_WIND_FROM_DEG := 250.0  # prevailing winter westerlies, when a scenario names none
 
 var unit_manager: UnitManager
@@ -120,6 +154,24 @@ var show_terrain := true
 var show_graticule := false
 var show_latlon := true
 var show_scale := true
+## Symbol controls: velocity leaders (Shift+V), track numbers (Shift+K), tags (Shift+I), PIM legs.
+var show_leaders := true
+var show_track_numbers := true
+var show_tags := false
+var show_routes := true
+## Compatibility name for the velocity leaders (the old "vectors" layer, V).
+var show_vectors: bool:
+	get:
+		return show_leaders
+	set(value):
+		show_leaders = value
+## Identity filters (the CDS menu's Filters): a filtered contact is neither drawn nor hit.
+var show_hostiles := true
+var show_allied := true
+var show_neutrals := true
+var show_unknowns := true
+var symbol_mode := SymbolMode.NTDS
+var range_circle := RangeCircle.OFF
 
 var _drag_mode := DragMode.NONE
 var _drag_button := MOUSE_BUTTON_NONE
@@ -129,7 +181,6 @@ var _mouse := Vector2.ZERO
 var _mouse_inside := false
 var _last_click_ms: int = -1000000
 var _last_click_pos := Vector2.ZERO
-var show_vectors := false
 var follow_selection := false
 var interaction_mode := InteractionMode.SELECT
 var keyboard_navigation_enabled := true
@@ -138,8 +189,13 @@ var _pending_fit := false
 var _fit_center := Vector2.ZERO
 var _fit_extent := 0.0
 var _font: Font
-var _label_rects: Array[Rect2] = []
 var _trails: Dictionary = {}  # Unit -> PackedVector2Array (presentation memory only)
+var _own_numbers: Dictionary = {}  # Unit -> own track number, stable for the mission
+var _wrecks: Dictionary = {}  # own Unit lost -> {pos, domain, rotary, t} (presentation memory only)
+var _own_alive: Dictionary = {}  # own Unit -> true while it was alive at the last check
+var _range_unit: Unit
+var _range_track: Track
+var _range_radius_nm := 0.0
 var _trail_last_s := -1.0e9
 var _effects: Array = []  # {pos, t0, kind, color}
 var _anim := 0.0
@@ -158,6 +214,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_CLICK
 	clip_contents = true
+	# Graphic symbols draw 500-800 px plan views at 28-56 px: sample their mipmaps, not a shimmer.
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_font = UITheme.body_font()
 	mouse_entered.connect(func() -> void: _mouse_inside = true)
 	mouse_exited.connect(func() -> void: _mouse_inside = false)
@@ -179,39 +237,100 @@ func zoom_at_center(factor: float) -> void:
 	_zoom_at(size * 0.5, factor)
 
 
-## One state path serves the shortcuts, the palette and the menus. "terrain" (F6) and "relief" are
-## the same switch: relief shading. Land and water are always drawn.
+## Every switchable chart layer and the member that holds it. One state path serves the
+## shortcuts, the palette and the menus. "terrain" (F6) and "relief" are the same switch, relief
+## shading (land and water are always drawn); "vectors" is the old name of "leaders"; "threats"
+## is the CDS menu's name for the hostile filter.
+const LAYERS := {
+	"key": "show_key",
+	"sensors": "show_rings",
+	"trails": "show_trails",
+	"terrain": "show_terrain",
+	"relief": "show_terrain",
+	"leaders": "show_leaders",
+	"vectors": "show_leaders",
+	"track_numbers": "show_track_numbers",
+	"tags": "show_tags",
+	"routes": "show_routes",
+	"range_grid": "show_range_grid",
+	"graticule": "show_graticule",
+	"latlon": "show_latlon",
+	"scale": "show_scale",
+	"hostiles": "show_hostiles",
+	"threats": "show_hostiles",
+	"allied": "show_allied",
+	"neutrals": "show_neutrals",
+	"unknowns": "show_unknowns",
+}
+
+
+## Flips a layer and returns its new state (false for a name the chart does not know).
 func toggle_layer(layer: String) -> bool:
-	var enabled := false
-	match layer:
-		"key":
-			show_key = not show_key
-			enabled = show_key
-		"sensors":
-			show_rings = not show_rings
-			enabled = show_rings
-		"trails":
-			show_trails = not show_trails
-			enabled = show_trails
-		"terrain", "relief":
-			show_terrain = not show_terrain
-			enabled = show_terrain
-		"vectors":
-			show_vectors = not show_vectors
-			enabled = show_vectors
-		"range_grid":
-			show_range_grid = not show_range_grid
-			enabled = show_range_grid
-		"graticule":
-			show_graticule = not show_graticule
-			enabled = show_graticule
-		"latlon":
-			show_latlon = not show_latlon
-			enabled = show_latlon
-		"scale":
-			show_scale = not show_scale
-			enabled = show_scale
-	return enabled
+	if not LAYERS.has(layer):
+		return false
+	var member: String = LAYERS[layer]
+	set(member, not bool(get(member)))
+	return bool(get(member))
+
+
+## Whether a layer is showing, for menus that draw check marks.
+func has_layer(layer: String) -> bool:
+	return bool(get(LAYERS[layer])) if LAYERS.has(layer) else false
+
+
+## Tab: NTDS -> small -> medium -> large graphic symbols -> NTDS. Returns the new mode.
+func cycle_symbol_mode() -> SymbolMode:
+	set_symbol_mode((symbol_mode + 1) % SymbolMode.size())
+	return symbol_mode
+
+
+func set_symbol_mode(mode: int) -> void:
+	symbol_mode = clampi(mode, 0, SymbolMode.size() - 1) as SymbolMode
+
+
+func symbol_mode_name() -> String:
+	return SYMBOL_MODE_NAMES[symbol_mode]
+
+
+## B: the quick range circle. The first call arms a white circle centred on the hooked unit (the
+## hooked contact when no own unit is hooked) through the cursor; the second fixes its radius; the
+## third clears it. Returns the new state; with nothing hooked it stays off.
+func toggle_range_circle() -> RangeCircle:
+	match range_circle:
+		RangeCircle.OFF:
+			_range_unit = selected[0] if not selected.is_empty() else null
+			_range_track = selected_track if _range_unit == null else null
+			if _range_unit != null or _range_track != null:
+				range_circle = RangeCircle.ARMED
+				_range_radius_nm = _range_centre().distance_to(screen_to_world(_mouse))
+		RangeCircle.ARMED:
+			_range_radius_nm = _range_centre().distance_to(screen_to_world(_mouse))
+			range_circle = RangeCircle.FIXED
+		_:
+			_clear_range_circle()
+	return range_circle
+
+
+## The quick range circle's radius in nautical miles (0 when off).
+func range_circle_nm() -> float:
+	if range_circle == RangeCircle.OFF:
+		return 0.0
+	if range_circle == RangeCircle.ARMED:
+		return _range_centre().distance_to(screen_to_world(_mouse))
+	return _range_radius_nm
+
+
+func _range_centre() -> Vector2:
+	if _range_unit != null:
+		return _range_unit.position
+	return _range_track.position if _range_track != null else Vector2.ZERO
+
+
+func _clear_range_circle() -> void:
+	range_circle = RangeCircle.OFF
+	_range_unit = null
+	_range_track = null
+	_range_radius_nm = 0.0
 
 
 func set_follow_selection(enabled: bool) -> void:
@@ -285,7 +404,34 @@ func _process(delta: float) -> void:
 			_center_world_in_chart((selected[0] as Unit).position)
 	_record_trails()
 	_record_weapon_trails()
+	_record_wrecks()
+	if (_range_unit != null and not _range_unit.alive) or (_range_track != null and _range_track.status == Track.Status.LOST):
+		_clear_range_circle()
 	queue_redraw()
+
+
+## Own platforms lost this mission, remembered where they went down so the plot shows them in
+## grey for a while. Own units only: an opposing loss is never shown unless the plot saw it.
+func _record_wrecks() -> void:
+	if unit_manager == null:
+		return
+	var now := SimClock.sim_time
+	for u: Unit in unit_manager.units:
+		if u.faction != player_faction:
+			continue
+		if u.alive:
+			if not u.is_aircraft() or u.in_flight():
+				_own_alive[u] = true
+			else:
+				_own_alive.erase(u)  # back aboard: a deck loss is its ship's, not its own mark
+		elif _own_alive.has(u):
+			_own_alive.erase(u)
+			var domain := "air" if u.is_aircraft() else u.spec.domain
+			_wrecks[u] = {"pos": u.position, "domain": domain, "rotary": u.spec.can_hover, "t": now}
+	for u in _wrecks.keys():
+		var t: float = _wrecks[u]["t"]
+		if now - t > WRECK_S or now < t:
+			_wrecks.erase(u)
 
 
 ## Recent positions of every round in flight, so a missile draws a real curved trail rather
@@ -361,6 +507,10 @@ func add_effect(pos: Vector2, kind: String, own := false) -> void:
 func reset_presentation() -> void:
 	_radio.clear()
 	_trails.clear()
+	_own_numbers.clear()
+	_wrecks.clear()
+	_own_alive.clear()
+	_clear_range_circle()
 	_weapon_trails.clear()
 	_effects.clear()
 	_hit_flash = 0.0
@@ -596,18 +746,68 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 			if e.pressed:
 				_begin_drag(DragMode.PAN, e)
 			elif _drag_button == MOUSE_BUTTON_RIGHT:
-				if not _drag_moved:
-					var wp := _waypoint_at(e.position)
-					if not wp.is_empty():
-						waypoint_delete_requested.emit(wp["unit"], wp["index"])
-					else:
-						var t := _track_at(e.position)
-						if t != null:
-							if e.ctrl_pressed or e.meta_pressed:
-								engage_requested.emit(t)
-							else:
-								select_track(t)
+				var clicked := not _drag_moved
 				_end_drag()
+				if clicked:
+					_right_click(e)
+
+
+## A right-click without a drag, the classic display's way: transit at once on open water with a
+## controllable unit hooked, otherwise hook what is under the cursor and ask the shell for a menu.
+func _right_click(e: InputEventMouseButton) -> void:
+	var ctx := context_at(e.position)
+	match String(ctx["kind"]):
+		"track":
+			var t: Track = ctx["track"]
+			if e.ctrl_pressed or e.meta_pressed:
+				engage_requested.emit(t)
+				return
+			select_track(t)
+		"own_unit":
+			var u: Unit = ctx["unit"]
+			if not selected.has(u):
+				select_units([u])
+		"water", "empty":
+			var world: Vector2 = ctx["world_pos"]
+			if _has_controllable_selection() and int(_move_acceptance(world)["accepted"]) > 0:
+				move_order_requested.emit(world, e.shift_pressed)
+				return
+	ctx["viewport_pos"] = get_global_transform_with_canvas() * e.position if is_inside_tree() else e.position
+	context_menu_requested.emit(e.position, ctx)
+
+
+## What a right-click at this chart pixel is on, for the shell's menus: kind is "own_unit",
+## "track", "waypoint", "water" (open water) or "empty" (land the chart shows); the matching
+## fields are filled and the rest are null / -1. Own units win over contacts, and both over a
+## waypoint, as they do for a left-click.
+func context_at(screen_pos: Vector2) -> Dictionary:
+	var world := screen_to_world(screen_pos)
+	var ctx := {"kind": "water", "unit": null, "track": null, "waypoint_unit": null, "waypoint_index": -1, "world_pos": world}
+	var u := _unit_at(screen_pos)
+	if u != null:
+		ctx["kind"] = "own_unit"
+		ctx["unit"] = u
+		return ctx
+	var t := _track_at(screen_pos)
+	if t != null:
+		ctx["kind"] = "track"
+		ctx["track"] = t
+		return ctx
+	var wp := _waypoint_at(screen_pos)
+	if not wp.is_empty():
+		ctx["kind"] = "waypoint"
+		ctx["waypoint_unit"] = wp["unit"]
+		ctx["waypoint_index"] = wp["index"]
+		return ctx
+	if _chart_land_at(world):
+		ctx["kind"] = "empty"
+	return ctx
+
+
+## The shell's "Delete leg" for a waypoint the chart reported in a context menu.
+func request_waypoint_delete(unit: Unit, index: int) -> void:
+	if unit != null and index >= 0 and index < unit.waypoints.size():
+		waypoint_delete_requested.emit(unit, index)
 
 
 func _handle_mouse_motion(e: InputEventMouseMotion) -> void:
@@ -711,10 +911,31 @@ func _unit_at(screen_pos: Vector2) -> Unit:
 	return best
 
 
+## The contacts the chart draws: those this reference holds, less any identity the Filters hide.
+func _plotted_tracks() -> Array:
+	var all := _visible_tracks()
+	if show_hostiles and show_allied and show_neutrals and show_unknowns:
+		return all
+	return all.filter(func(t: Track) -> bool: return identity_shown(t.identity))
+
+
+func identity_shown(identity: String) -> bool:
+	match identity:
+		"HOSTILE":
+			return show_hostiles
+		"NEUTRAL":
+			return show_neutrals
+		"ALLIED":
+			return show_allied
+		"FRIENDLY":
+			return true
+	return show_unknowns
+
+
 func _track_at(screen_pos: Vector2) -> Track:
 	var best: Track = null
 	var best_d := CLICK_RADIUS_PX
-	for t: Track in _visible_tracks():
+	for t: Track in _plotted_tracks():
 		var d := world_to_screen(t.position).distance_to(screen_pos)
 		if d <= best_d:
 			best = t
@@ -826,6 +1047,29 @@ func _prune_selection() -> void:
 		_normalize_interaction_state()
 
 
+## An own platform's stable track number (1, 2, ...): roster order, assigned on first sight and
+## kept for the mission, so a loss, a launch or a landing never renumbers the rest.
+func own_track_number(u: Unit) -> int:
+	if not _own_numbers.has(u):
+		if unit_manager != null:
+			for other: Unit in unit_manager.units:
+				if other.faction == player_faction and not _own_numbers.has(other):
+					_own_numbers[other] = _own_numbers.size() + 1
+		if not _own_numbers.has(u):
+			_own_numbers[u] = _own_numbers.size() + 1
+	return int(_own_numbers[u])
+
+
+## The four-digit track number the chart prints beside an own Unit or a contact Track, for the
+## data display and menus to quote the same number.
+func track_number_text(item: Variant) -> String:
+	if item is Unit:
+		return MapSymbols.own_track_number(own_track_number(item))
+	if item is Track:
+		return MapSymbols.track_number((item as Track).id)
+	return ""
+
+
 ## The unit the display is centred on for bearings and range rings: the selection, otherwise
 ## the first surface ship the player owns.
 func reference_unit() -> Unit:
@@ -847,13 +1091,6 @@ func reference_unit() -> Unit:
 # --- Drawing ----------------------------------------------------------------------------
 
 func _draw() -> void:
-	_label_rects.clear()
-	if selected_track != null and not show_key:
-		_label_rects.append(_solution_rect())
-	# Labels keep clear of the readout block, and of the radio line while it is speaking.
-	_label_rects.append(_readout_rect())
-	if not _radio.visible(_anim).is_empty():
-		_label_rects.append(_radio_rect())
 	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
 	_draw_ocean()
 	_draw_land()
@@ -877,6 +1114,7 @@ func _draw() -> void:
 		_draw_weapons()
 		_draw_effects()
 		_draw_speaker_rings()
+	_draw_range_circle()
 	if _hit_flash > 0.0:
 		var a := 0.35 * (_hit_flash / 1.2)
 		var clear := Color(1.0, 0.3, 0.25, 0.0)
@@ -897,6 +1135,8 @@ func _draw() -> void:
 	_draw_hover_card()
 
 
+## Plot Move: dashed white legs from each hooked unit to the cursor (red past a coast in the way),
+## a crosshair at the cursor, and what a click there would do.
 func _draw_move_preview() -> void:
 	if interaction_mode != InteractionMode.MOVE or not _mouse_inside or not _chart_accepts_point(_mouse):
 		return
@@ -915,23 +1155,23 @@ func _draw_move_preview() -> void:
 		var hit := Terrain.first_land_contact(start, target) if u.needs_sea_room() and not Terrain.is_empty() else -1.0
 		if hit >= 0.0:
 			var beach := world_to_screen(start.lerp(target, hit))
-			draw_dashed_line(a, beach, COL_WAYPOINT, 2.0, 8.0)
-			draw_dashed_line(beach, _mouse, Color(COL_HOSTILE, 0.9), 2.0, 8.0)
+			draw_dashed_line(a, beach, COL_ROUTE, 1.0, 6.0)
+			draw_dashed_line(beach, _mouse, Color(COL_HOSTILE, 0.9), 1.0, 6.0)
 		else:
-			draw_dashed_line(a, _mouse, COL_WAYPOINT, 2.0, 8.0)
-	var col := COL_HOSTILE if accepted == 0 else (COL_AMBER if accepted < total else COL_WAYPOINT)
-	draw_circle(_mouse, 11.0, Color(col, 0.12))
-	draw_arc(_mouse, 11.0, 0.0, TAU, 24, col, 2.0, true)
-	draw_line(_mouse + Vector2(-16, 0), _mouse + Vector2(16, 0), Color(col, 0.7), 1.0)
-	draw_line(_mouse + Vector2(0, -16), _mouse + Vector2(0, 16), Color(col, 0.7), 1.0)
-	var label := "LAND — PICK WATER" if accepted == 0 else ("%d OF %d CAN MOVE HERE" % [accepted, total] if accepted < total else ("ADD WAYPOINT" if append else "SET COURSE"))
-	draw_string(_font, _mouse + Vector2(17, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col)
+			draw_dashed_line(a, _mouse, COL_ROUTE, 1.0, 6.0)
+	var col := COL_HOSTILE if accepted == 0 else COL_ROUTE
+	var m := _mouse.round() + Vector2(0.5, 0.5)
+	draw_arc(m, 7.0, 0.0, TAU, 24, col, 1.0, true)
+	for d: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		draw_line(m + d * 10.0, m + d * 15.0, col, 1.0)
+	var label := "Land - pick water" if accepted == 0 else ("%d of %d can move here" % [accepted, total] if accepted < total else ("Add waypoint" if append else "Set course"))
+	_shadow_text(_mouse + Vector2(17, -10), label, 11, COL_RADIO_ALERT if accepted == 0 else COL_READOUT)
 
 
 func _move_acceptance(target: Vector2) -> Dictionary:
 	var total := 0
 	var accepted := 0
-	var target_is_land := not Terrain.is_empty() and Terrain.is_land(target)
+	var target_is_land := _chart_land_at(target)
 	for u: Unit in selected:
 		if u.faction != player_faction or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0 or (u.is_aircraft() and not u.airborne()):
 			continue
@@ -939,6 +1179,18 @@ func _move_acceptance(target: Vector2) -> Dictionary:
 		if not target_is_land or not u.needs_sea_room():
 			accepted += 1
 	return {"accepted": accepted, "total": total}
+
+
+## Land as the chart draws it: the scenario's coastline polygons inside the charted box, and beyond
+## it the raster's own coast (with a floor in the tree to say where the box is). A hull is never
+## sent onto land the player can see, even where the simulation's polygons stop.
+func _chart_land_at(w: Vector2) -> bool:
+	if not Terrain.is_empty() and Terrain.is_land(w):
+		return true
+	if _floor == null or not Bathymetry.active or _floor.charted_rect().has_point(w):
+		return false
+	var depth := Bathymetry.depth_at(w)
+	return depth >= 0.0 and depth < 0.5
 
 
 func _nice_step(min_px: float) -> float:
@@ -1077,7 +1329,8 @@ func _geo_map() -> Dictionary:
 	return simulation.scenario.get("map", {}) if simulation != null else {}
 
 
-## The scenario's place names, in the chart's white bold with a shadow and no plate.
+## The scenario's place names in the chart's white bold with a shadow and no plate: a land name
+## beside a small white + at its position, a sea name centred on it.
 func _draw_chart_labels() -> void:
 	var m := _geo_map()
 	var safe := Rect2(Vector2(8, 8), size - Vector2(16, 16))
@@ -1085,11 +1338,14 @@ func _draw_chart_labels() -> void:
 	var font := _readout_font()
 	for entry in m.get("labels", []):
 		var p: Array = entry["position_nm"]
-		var at := world_to_screen(Vector2(p[0], p[1]))
+		var at := world_to_screen(Vector2(p[0], p[1])).round()
 		var text := str(entry["text"])
 		var water: bool = entry.get("kind", "land") == "water"
 		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-		var rect := Rect2(at - Vector2(width / 2, 12), Vector2(width, 18))
+		var left := roundf(at.x - width / 2) if water else at.x + 6.0
+		var rect := Rect2(Vector2(left, at.y - 12), Vector2(width, 18))
+		if not water:
+			rect = rect.expand(at - Vector2(4, 4))
 		if not safe.encloses(rect):
 			continue
 		var collision := false
@@ -1097,7 +1353,11 @@ func _draw_chart_labels() -> void:
 			if other.grow(10).intersects(rect): collision = true
 		if collision: continue
 		occupied.append(rect)
-		_shadow_text(at - Vector2(width / 2, 0), text, 11, Color(COL_READOUT, 0.72 if water else 0.9))
+		if water:
+			_shadow_text(Vector2(left, at.y), text, 11, Color(COL_READOUT, 0.72))
+		else:
+			_draw_plus(at, 3.0, COL_READOUT, 1.0, true)
+			_shadow_text(Vector2(left, at.y + 4.0), text, 11, Color(COL_READOUT, 0.9))
 
 
 func _chart_axis(value: float, positive: String, negative: String) -> String:
@@ -1198,21 +1458,23 @@ func _draw_graticule() -> void:
 		lon += lon_step
 
 
+## Mission objective areas: a thin white circle with its name over it, no plate.
 func _draw_objectives() -> void:
 	if simulation == null:
 		return
 	var mission := simulation.mission_manager
 	for o in mission.victory_objectives + mission.loss_objectives:
-		if o.kind == MissionObjective.Kind.REACH_AREA:
-			var sp := world_to_screen(o.center)
-			var r := o.radius_nm * ppn
-			var danger: bool = mission.loss_objectives.has(o)
-			var col := COL_AMBER if danger else COL_WAYPOINT
-			draw_circle(sp, r, Color(col, 0.07))
-			draw_arc(sp, r, 0.0, TAU, 80, Color(col, 0.65), 1.5, true)
-			_place_label(sp, "DENY EXIT" if danger else "OBJECTIVE AREA", col, false, "")
+		if o.kind != MissionObjective.Kind.REACH_AREA:
+			continue
+		var sp := world_to_screen(o.center)
+		var r := o.radius_nm * ppn
+		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), COL_ROUTE, 1.0, true)
+		var text := "DENY EXIT" if mission.loss_objectives.has(o) else "OBJECTIVE AREA"
+		_centred_text(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), text, 11)
 
 
+## F4: each hooked own unit's sensor reach (every own unit's under Debug) as thin own-identity
+## circles at 45% alpha: radar and sonar solid, ESM, air search, jammer and a silent radar dashed.
 func _draw_sensor_rings() -> void:
 	for u in _own_units():
 		if not (Debug.enabled or selected.has(u)):
@@ -1220,24 +1482,20 @@ func _draw_sensor_rings() -> void:
 		var sp := world_to_screen(u.position)
 		var esm := Detection.nominal_esm_ring_nm(u)
 		if esm > 0.0:
-			draw_arc(sp, esm * ppn, 0.0, TAU, 128, COL_ESM_RING, 1.0, true)
+			_draw_dashed_circle(sp, esm * ppn, COL_ESM_RING, 160)
 		var sonar := Detection.nominal_passive_ring_nm(u)
 		if sonar > 0.0:
-			draw_arc(sp, sonar * ppn, 0.0, TAU, 96, COL_SONAR_RING, 1.0, true)
+			draw_arc(sp, sonar * ppn, 0.0, TAU, _arc_segments(sonar * ppn), COL_SONAR_RING, 1.0, true)
 		if Acoustics.cz_available(u):
 			_draw_convergence_zones(sp)
 		var active := Detection.best_active_sonar_nm(u)
 		if active > 0.0:
-			draw_arc(sp, active * ppn, 0.0, TAU, 72, COL_SONAR_ACTIVE, 1.5, true)
-			# The ping itself: an expanding pulse out to the active reach.
-			var pulse := fmod(_anim * 0.35, 1.0)
-			draw_arc(sp, active * ppn * pulse, 0.0, TAU, 72, Color(COL_SONAR_ACTIVE, 0.6 * (1.0 - pulse)), 2.0, true)
+			draw_arc(sp, active * ppn, 0.0, TAU, _arc_segments(active * ppn), COL_SONAR_ACTIVE, 1.0, true)
 		if u.has_jammer():
 			for s in u.sensors:
 				if s.kind == "jammer":
-					var col := COL_JAM if u.jamming() else Color(COL_JAM, 0.35)
-					_draw_dashed_circle(sp, s.jam_range_nm * ppn, Color(col, 0.55), 64)
-					draw_string(_font, sp + Vector2(0.0, -s.jam_range_nm * ppn - 5.0), "EA REACH" if u.jamming() else "EA OFF", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color(col, 0.8))
+					_draw_dashed_circle(sp, s.jam_range_nm * ppn, COL_JAM if u.jamming() else COL_RING_SILENT, 64)
+					_ring_label(sp, s.jam_range_nm * ppn, "EA reach" if u.jamming() else "EA off")
 		var r := Detection.nominal_radar_ring_nm(u)
 		if r <= 0.0:
 			continue
@@ -1246,45 +1504,33 @@ func _draw_sensor_rings() -> void:
 			if s.kind == "radar":
 				air = maxf(air, s.range_air_nm)
 		if air > r + 1.0 and u.radar_emitting():
-			_draw_dashed_circle(sp, air * ppn, Color(COL_RING, 0.35), 96)
-			draw_string(_font, sp + Vector2(0.0, -air * ppn - 5.0), "AIR SEARCH %s nm" % Geo.format_nm(air), HORIZONTAL_ALIGNMENT_CENTER, -1, 9, Color(COL_RING, 0.7))
+			_draw_dashed_circle(sp, air * ppn, COL_RING, 96)
+			_ring_label(sp, air * ppn, "Air search %s nm" % Geo.format_nm(air))
 		if u.radar_emitting():
-			draw_arc(sp, r * ppn, 0.0, TAU, 128, COL_RING, 1.0, true)
-			_draw_sweep(sp, r * ppn)
+			draw_arc(sp, r * ppn, 0.0, TAU, _arc_segments(r * ppn), COL_RING, 1.0, true)
 		else:
-			draw_arc(sp, r * ppn, 0.0, TAU, 128, COL_RING_SILENT, 1.0, true)
-			draw_string(_font, sp + Vector2(0.0, -r * ppn - 5.0), "RADAR SILENT", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, COL_RING_SILENT)
+			_draw_dashed_circle(sp, r * ppn, COL_RING_SILENT, 128)
+			_ring_label(sp, r * ppn, "Radar silent")
 
 
 ## Convergence-zone annuli: where sound from a loud source comes back to the surface in deep
-## water. Drawn as faint bands with the zone number, because a contact out there is heard in the
-## ring, not between the rings.
+## water. Each zone is a pair of dashed rings with its number, because a contact out there is heard
+## in the ring, not between the rings.
 func _draw_convergence_zones(sp: Vector2) -> void:
 	for z: Dictionary in Acoustics.zones():
 		var r: float = float(z["range_nm"]) * ppn
 		var hw: float = float(z["half_width_nm"]) * ppn
 		if r + hw < 8.0:
 			continue
-		var fade := 0.55 if int(z["index"]) == 1 else 0.35
-		draw_arc(sp, r, 0.0, TAU, 128, Color(COL_SONAR_RING, 0.06 * fade * 2.0), maxf(hw * 2.0, 1.0), true)
-		_draw_dashed_circle(sp, r - hw, Color(COL_SONAR_RING, 0.45 * fade), 96)
-		_draw_dashed_circle(sp, r + hw, Color(COL_SONAR_RING, 0.45 * fade), 96)
-		draw_string(_font, sp + Vector2(r * 0.7071 + 4.0, -r * 0.7071), "CZ%d" % int(z["index"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(COL_SONAR_RING, 0.8 * fade + 0.2))
+		var col := Color(COL_SONAR_RING, COL_SONAR_RING.a * (1.0 if int(z["index"]) == 1 else 0.7))
+		_draw_dashed_circle(sp, r - hw, col, 96)
+		_draw_dashed_circle(sp, r + hw, col, 96)
+		_shadow_text(sp + Vector2(r * 0.7071 + 4.0, -r * 0.7071), "CZ%d" % int(z["index"]), 10, Color(COL_READOUT, 0.7))
 
 
-## A rotating sweep with a fading wake, a reminder that the ship is on the air.
-func _draw_sweep(c: Vector2, r: float) -> void:
-	var a := fmod(_anim * 1.4, TAU)
-	var steps := 18
-	var pts := PackedVector2Array([c])
-	var cols := PackedColorArray([Color(COL_RING, 0.20)])
-	for i in steps + 1:
-		var f := float(i) / float(steps)
-		var ang := a - 0.7 + f * 0.7
-		pts.append(c + Vector2(cos(ang), sin(ang)) * r)
-		cols.append(Color(COL_RING, 0.0 + f * 0.14))
-	draw_polygon(pts, cols)
-	draw_line(c, c + Vector2(cos(a), sin(a)) * r, Color(COL_RING, 0.55), 1.0, true)
+## A ring's name over its top, in the readout style.
+func _ring_label(c: Vector2, r: float, text: String) -> void:
+	_centred_text(c + Vector2(0.0, -r - 4.0), text, 10, Color(COL_READOUT, 0.8))
 
 
 func _draw_dashed_circle(c: Vector2, r: float, col: Color, segs: int) -> void:
@@ -1296,6 +1542,13 @@ func _draw_dashed_circle(c: Vector2, r: float, col: Color, segs: int) -> void:
 		draw_arc(c, r, a0, a1, 4, col, 1.0, true)
 
 
+## Enough segments that a circle stays round at any radius the chart can show.
+static func _arc_segments(r: float) -> int:
+	return clampi(int(r * 0.35), 32, 360)
+
+
+## The selected weapon's reach from each hooked shooter that carries it: a thin red circle, its
+## minimum range dashed, and the firing solution when the hooked contact can be engaged.
 func _draw_weapon_ring() -> void:
 	if weapon_ring == null:
 		return
@@ -1304,39 +1557,31 @@ func _draw_weapon_ring() -> void:
 			continue
 		var sp := world_to_screen(u.position)
 		var outer := weapon_ring.max_range_nm * ppn
-		var inner := maxf(weapon_ring.min_range_nm, 0.0) * ppn
-		if outer - inner > 2.0:
-			draw_arc(sp, (outer + inner) * 0.5, 0.0, TAU, 160, Color(COL_WEAPON_RING, 0.07), outer - inner, false)
-		draw_arc(sp, outer, 0.0, TAU, 160, COL_WEAPON_RING, 1.2, true)
+		draw_arc(sp, outer, 0.0, TAU, _arc_segments(outer), COL_WEAPON_RING, 1.0, true)
 		if weapon_ring.min_range_nm > 0.5:
-			draw_arc(sp, inner, 0.0, TAU, 48, Color(COL_WEAPON_RING, 0.4), 1.0, true)
+			_draw_dashed_circle(sp, weapon_ring.min_range_nm * ppn, Color(COL_WEAPON_RING, 0.5), 48)
 		# Keep the ring's name on the chart when its top edge runs off the top.
-		var ring_label := sp + Vector2(0.0, maxf(-outer - 5.0, 16.0 - sp.y))
-		draw_string(_font, ring_label, "%s  %s nm" % [weapon_ring.display_name.to_upper(), Geo.format_nm(weapon_ring.max_range_nm)], HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color(COL_WEAPON_RING, 0.9))
-		if selected_track != null and Combat.suits_track(weapon_ring, selected_track) and Combat.check_engagement(u, weapon_ring, selected_track)["ok"]:
-			# The firing solution: where the round would meet the contact if it held course.
-			var aim := Combat.intercept_point(u.position, weapon_ring.speed_kn, selected_track.position, selected_track.course_deg, selected_track.speed_kn, selected_track.has_kinematics)
-			var ap := world_to_screen(aim)
-			var check := Combat.check_engagement(u, weapon_ring, selected_track)
-			var lcol := COL_WEAPON_RING if check["ok"] else Color(COL_HOSTILE, 0.7)
-			draw_dashed_line(sp, ap, lcol, 1.0, 6.0)
-			draw_arc(ap, 6.0, 0.0, TAU, 16, lcol, 1.0, true)
-			draw_line(ap + Vector2(-9, 0), ap + Vector2(9, 0), lcol, 1.0)
-			draw_line(ap + Vector2(0, -9), ap + Vector2(0, 9), lcol, 1.0)
-			var tof := Combat.time_of_flight_s(weapon_ring, u.position.distance_to(aim))
-			draw_string(_font, ap + Vector2(10, -8), "%s  %ds" % ["SOLUTION" if check["ok"] else str(check["reason"]), int(tof)], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, lcol)
+		_centred_text(sp + Vector2(0.0, maxf(-outer - 5.0, 16.0 - sp.y)), "%s  %s nm" % [weapon_ring.display_name, Geo.format_nm(weapon_ring.max_range_nm)], 11)
+		if selected_track == null or not Combat.suits_track(weapon_ring, selected_track) or not Combat.check_engagement(u, weapon_ring, selected_track)["ok"]:
+			continue
+		# The firing solution: where the round would meet the contact if it held course.
+		var aim := Combat.intercept_point(u.position, weapon_ring.speed_kn, selected_track.position, selected_track.course_deg, selected_track.speed_kn, selected_track.has_kinematics)
+		var ap := world_to_screen(aim)
+		draw_dashed_line(sp, ap, Color(COL_WEAPON_RING, 0.6), 1.0, 6.0)
+		draw_arc(ap, 6.0, 0.0, TAU, 16, COL_WEAPON_RING, 1.0, true)
+		draw_line(ap + Vector2(-9, 0), ap + Vector2(9, 0), COL_WEAPON_RING, 1.0)
+		draw_line(ap + Vector2(0, -9), ap + Vector2(0, 9), COL_WEAPON_RING, 1.0)
+		var tof := Combat.time_of_flight_s(weapon_ring, u.position.distance_to(aim))
+		_shadow_text(ap + Vector2(10, -8), "Solution  %ds" % int(tof), 11)
 
 
-## Buoys are cheap, numerous and easy to lose track of, so they are drawn plainly.
+## Own sonobuoys: 3 px dots.
 func _draw_sonobuoys() -> void:
 	if aviation_manager == null:
 		return
 	for b: Sonobuoy in aviation_manager.sonobuoys:
-		if b.faction != player_faction:
-			continue
-		var sp := world_to_screen(b.position)
-		draw_circle(sp, 2.5, COL_BUOY)
-		draw_arc(sp, 5.0, 0.0, TAU, 12, Color(COL_BUOY, 0.35), 1.0, true)
+		if b.faction == player_faction:
+			MapSymbols.draw_buoy(self, world_to_screen(b.position), COL_BUOY)
 
 
 func _draw_truth() -> void:
@@ -1344,8 +1589,8 @@ func _draw_truth() -> void:
 		if not u.is_engageable() or u.faction == player_faction:
 			continue
 		var sp := world_to_screen(u.position)
-		var domain := "air" if u.airborne() else ("subsurface" if u.submerged() else u.spec.domain)
-		MapSymbols.draw_symbol(self, sp, COL_TRUTH, MapSymbols.Frame.HOSTILE, domain, u.heading_deg, true, MapSymbols.category_glyph(u.spec.category, u.spec.domain), _font, 0.9, true)
+		MapSymbols.draw_ntds(self, sp, COL_TRUTH, MapSymbols.Frame.HOSTILE, _unit_domain(u), u.spec.can_hover)
+		MapSymbols.draw_leader(self, sp, u.heading_deg, MapSymbols.leader_px(u.speed_kn, ppn), COL_TRUTH)
 		var r := Detection.nominal_radar_ring_nm(u)
 		if r > 0.0 and u.radar_on:
 			draw_arc(sp, r * ppn, 0.0, TAU, 96, Color(COL_TRUTH, 0.25), 1.0, true)
@@ -1364,72 +1609,98 @@ func track_color(t: Track) -> Color:
 			return COL_NEUTRAL
 		"FRIENDLY":
 			return COL_FRIENDLY
+		"ALLIED":
+			return COL_ALLIED
 	return COL_UNKNOWN
+
+
+## The symbol's domain as drawn: an airframe is always an air symbol and a boat deep enough to be
+## hidden a subsurface one; a boat on the surface is a surface ship.
+static func _unit_domain(u: Unit) -> String:
+	if u.is_aircraft():
+		return "air"
+	return "subsurface" if u.submerged() else u.spec.domain
 
 
 func _draw_tracks() -> void:
 	var ref := reference_unit()
-	for t: Track in _visible_tracks():
+	var view := Rect2(Vector2.ZERO, size).grow(64.0)
+	for t: Track in _plotted_tracks():
 		var sp := world_to_screen(t.position)
 		var col := track_color(t)
-		var stale := t.status == Track.Status.STALE
-		if stale:
-			col.a = 0.55
+		if t.status == Track.Status.STALE:
+			col.a = STALE_ALPHA
 		_draw_uncertainty(sp, t, col)
 		if show_trails:
 			_draw_track_history(t, col)
-		if t.has_kinematics and not t.is_bearing_only() and t.speed_kn > 0.5 and (show_vectors or selected_track == t):
-			_draw_motion_vector(t.position, t.course_deg, t.speed_kn, t.domain, col, true, selected_track == t)
-		var glyph := ""
-		if t.classification >= Track.Classification.CLASS_KNOWN:
-			glyph = MapSymbols.category_glyph(t.known_category, t.domain)
-		MapSymbols.draw_symbol(self, sp, col, MapSymbols.frame_for_identity(t.identity), t.domain, t.course_deg, t.has_kinematics, glyph, _font, 1.0, stale)
-		if t.is_bearing_only():
-			# A bearing line from the listener: this is all the contact really is.
-			if ref != null:
-				var lp := world_to_screen(ref.position)
-				draw_dashed_line(lp, sp, Color(col, 0.35), 1.0, 6.0)
+		if t.is_bearing_only() and ref != null:
+			# A bearing line from the listener through the contact: this is all it really is.
+			var from := ref.position
+			var far := from + (t.position - from).normalized() * (from.distance_to(t.position) + t.error_major_nm)
+			draw_line(world_to_screen(from), world_to_screen(far), Color(col, col.a * BEARING_LINE_ALPHA), 1.0, true)
+		if not view.has_point(sp):
+			continue
+		sp = sp.round()
+		var rotary := t.classification >= Track.Classification.CLASS_KNOWN and MapSymbols.is_rotary(t.known_category)
+		var extent := _draw_platform(sp, col, MapSymbols.frame_for_identity(t.identity), t.domain, rotary, _track_platform(t), t.course_deg if t.has_kinematics else 0.0)
+		if show_leaders and t.has_kinematics and not t.is_bearing_only():
+			MapSymbols.draw_leader(self, sp, t.course_deg, MapSymbols.leader_px(t.speed_kn, ppn), col, extent)
 		if selected_track == t:
-			MapSymbols.draw_selection(self, sp, COL_HOSTILE if t.identity == "HOSTILE" else COL_AMBER, _anim)
-		if stale:
-			draw_string(_font, sp + Vector2(10.0, -12.0), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(col, 0.9))
-		var jammed := ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position)
-		if jammed:
-			draw_string(_font, sp + Vector2(-14.0, -14.0), "J", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_JAM)
-		var text := t.label()
-		var tags := PackedStringArray()
-		if t.source == "sonar_cz": tags.append("CZ")
-		if t.is_bearing_only(): tags.append("BRG")
-		if not t.networked: tags.append("LOCAL")
-		if stale: tags.append("STALE %s" % Track._fmt_age(t.age_s(SimClock.sim_time)))
-		var sub := ""
-		if ref != null:
-			sub = "%s / %s" % [Geo.format_bearing(Geo.bearing_deg(ref.position, t.position)), "RNG ?" if t.is_bearing_only() else "~%s nm" % Geo.format_nm(Geo.distance_nm(ref.position, t.position))]
-		if not tags.is_empty():
-			sub += ("  " if sub != "" else "") + " · ".join(tags)
-		_place_label(sp, text, col, selected_track == t, sub)
+			# The hook when it stands alone; the target (in its identity colour) when a shooter is hooked too.
+			MapSymbols.draw_brackets(self, sp, COL_SELECT if selected.is_empty() else track_color(t), _bracket_box(extent))
+		_draw_track_number(sp, extent, MapSymbols.track_number(t.id), t.description(), col.a)
 
 
-## Last few plots that built the track, fading with age: the console's own memory of the contact.
+## One platform: its plan view in a graphic symbol mode when there is art for it, the NTDS frame
+## otherwise. Returns the symbol's half-size, where leaders start and the number sits.
+func _draw_platform(sp: Vector2, col: Color, frame: MapSymbols.Frame, domain: String, rotary: bool, platform_id: String, course_deg: float) -> float:
+	if symbol_mode != SymbolMode.NTDS and platform_id != "":
+		var length := GRAPHIC_SYMBOL_PX[symbol_mode]
+		if MapSymbols.draw_graphic(self, sp, platform_id, course_deg, length, col):
+			return length * 0.5
+	MapSymbols.draw_ntds(self, sp, col, frame, domain, rotary)
+	return MapSymbols.RADIUS
+
+
+## The platform whose art stands for a contact: only once its class is known, and only from what
+## the plot holds.
+func _track_platform(t: Track) -> String:
+	if symbol_mode == SymbolMode.NTDS or t.classification < Track.Classification.CLASS_KNOWN:
+		return ""
+	return MapSymbols.platform_for_class(t.known_class, t.known_category)
+
+
+static func _bracket_box(extent: float) -> float:
+	return maxf(MapSymbols.BRACKET_BOX, extent * 2.0 + 8.0)
+
+
+## The white track number at the symbol's lower right and, with tags on, the name or
+## classification under it. Both in the readout style; `alpha` fades them with a stale track.
+func _draw_track_number(sp: Vector2, extent: float, number: String, tag: String, alpha := 1.0) -> void:
+	var at := sp + TRACK_NUMBER_OFFSET + Vector2.ONE * (extent - MapSymbols.RADIUS) * 0.4
+	if show_track_numbers and number != "":
+		_shadow_text(at, number, TRACK_NUMBER_FONT_SIZE, Color(COL_READOUT, alpha))
+		at.y += TRACK_NUMBER_FONT_SIZE + 1.0
+	if show_tags and tag != "":
+		_shadow_text(at, tag, TAG_FONT_SIZE, Color(COL_READOUT, alpha))
+
+
+## F5: the last few plots that built the track, as fading 2 px dots. Reports only, never a line
+## through a gap in coverage.
 func _draw_track_history(t: Track, col: Color) -> void:
 	var n := t.history_positions.size()
 	if n < 2:
 		return
 	for i in n:
 		var age := maxf(SimClock.sim_time - t.history_times[i], 0.0)
-		var alpha := 0.42 * clampf(1.0 - age / 1440.0, 0.0, 1.0)
-		if alpha < 0.02:
-			continue
-		var p := world_to_screen(t.history_positions[i])
-		# Only join reports with continuous coverage. Do not draw a fictitious route
-		# through the interval when the contact was missing.
-		if i > 0 and t.history_times[i] - t.history_times[i - 1] <= Track.STALE_AFTER_S:
-			draw_line(world_to_screen(t.history_positions[i - 1]), p, Color(col, alpha * 0.45), 1.0, true)
-		draw_circle(p, 1.8 if selected_track == t else 1.2, Color(col, alpha))
+		var alpha := col.a * 0.5 * clampf(1.0 - age / 1440.0, 0.0, 1.0)
+		if alpha >= 0.03:
+			draw_circle(world_to_screen(t.history_positions[i]), 1.0, Color(col, alpha), true, -1.0, true)
 
 
-## Uncertainty is an ellipse. For a passive sonar contact it is a long thin sliver lying along
-## the bearing, which is the whole difference between hearing something and knowing where it is.
+## Uncertainty is an ellipse, 1 px at 35% alpha. For a passive sonar contact it is a long thin
+## sliver lying along the bearing, which is the whole difference between hearing something and
+## knowing where it is.
 func _draw_uncertainty(sp: Vector2, t: Track, col: Color) -> void:
 	var major := t.error_major_nm * ppn
 	var minor := t.error_minor_nm * ppn
@@ -1439,108 +1710,116 @@ func _draw_uncertainty(sp: Vector2, t: Track, col: Color) -> void:
 	var axis := Vector2(sin(ang), -cos(ang))
 	var perp := axis.orthogonal()
 	var pts := PackedVector2Array()
-	for i in 40:
-		var th := TAU * float(i) / 40.0
+	for i in 49:
+		var th := TAU * float(i) / 48.0
 		pts.append(sp + axis * (cos(th) * major) + perp * (sin(th) * minor))
-	draw_colored_polygon(pts, Color(col, 0.05))
-	pts.append(pts[0])
-	draw_polyline(pts, Color(col, 0.55 if selected_track == t else 0.25), 1.5 if selected_track == t else 1.0, true)
+	draw_polyline(pts, Color(col, col.a * UNCERTAINTY_ALPHA), 1.0, true)
 
 
 func _draw_units() -> void:
-	var zoomed_out := ppn < 0.7
-	var own := _own_units()
-	for u in own:
+	for u: Unit in _wrecks:
+		var wreck: Dictionary = _wrecks[u]
+		MapSymbols.draw_ntds(self, world_to_screen(wreck["pos"]).round(), COL_DESTROYED_OWN, MapSymbols.Frame.FRIENDLY, wreck["domain"], wreck["rotary"])
+	var view := Rect2(Vector2.ZERO, size).grow(64.0)
+	for u in _own_units():
 		var sp := world_to_screen(u.position)
 		if show_trails and _trails.has(u):
 			var arr: PackedVector2Array = _trails[u]
-			for i in range(1, arr.size()):
-				var f := float(i) / float(arr.size())
-				draw_line(world_to_screen(arr[i - 1]), world_to_screen(arr[i]), Color(COL_FRIENDLY, 0.05 + 0.22 * f), 1.0, true)
-		if not u.waypoints.is_empty():
-			var prev := sp
-			var prev_world := u.position
-			var check_land := selected.has(u) and u.needs_sea_room() and not Terrain.is_empty()
-			for wp in u.waypoints:
-				var wsp := world_to_screen(wp)
-				var hit := Terrain.first_land_contact(prev_world, wp) if check_land else -1.0
-				if hit >= 0.0:
-					# The leg is legal to order but the coast is in the way; show where.
-					var beach := world_to_screen(prev_world.lerp(wp, hit))
-					draw_dashed_line(prev, beach, COL_WAYPOINT, 1.0, 6.0)
-					draw_dashed_line(beach, wsp, Color(COL_HOSTILE, 0.7), 1.0, 6.0)
-					draw_line(beach - Vector2(4, 4), beach + Vector2(4, 4), COL_HOSTILE, 1.5)
-					draw_line(beach - Vector2(4, -4), beach + Vector2(4, -4), COL_HOSTILE, 1.5)
-				else:
-					draw_dashed_line(prev, wsp, COL_WAYPOINT, 1.0, 6.0)
-				var hovered := _mouse_inside and _drag_mode == DragMode.NONE and wsp.distance_to(_mouse) <= WAYPOINT_HIT_PX
-				if hovered:
-					draw_rect(Rect2(wsp - Vector2(5.5, 5.5), Vector2(11.0, 11.0)), COL_SELECT, false, 1.5)
-				else:
-					draw_rect(Rect2(wsp - Vector2(3.0, 3.0), Vector2(6.0, 6.0)), COL_WAYPOINT, false, 1.0)
-				prev = wsp
-				prev_world = wp
+			for i in arr.size():
+				var dot := world_to_screen(arr[i])
+				if dot.distance_to(sp) > MapSymbols.RADIUS + 2.0:
+					draw_circle(dot, 1.0, Color(COL_FRIENDLY, 0.1 + 0.4 * float(i + 1) / float(arr.size())), true, -1.0, true)
+		if show_routes:
+			_draw_route(u, sp)
 		if u.in_formation():
 			var station := world_to_screen(Formation.station_for(u))
-			draw_dashed_line(sp, station, Color(COL_FRIENDLY, 0.3), 1.0, 3.0)
-			draw_rect(Rect2(station - Vector2(2.5, 2.5), Vector2(5, 5)), Color(COL_FRIENDLY, 0.5), false, 1.0)
-		if u.speed_kn > 0.05 and (show_vectors or selected.has(u)):
-			_draw_motion_vector(u.position, u.heading_deg, u.speed_kn, u.spec.domain, COL_FRIENDLY, false, selected.size() == 1 and selected.has(u))
-		var health := Damage.health_fraction(u)
-		var ucol := COL_FRIENDLY.lerp(Color(1.0, 0.4, 0.3), 1.0 - health)
-		var domain := "air" if u.airborne() else ("subsurface" if u.submerged() else u.spec.domain)
-		if u.fire > 0.0:
-			_draw_smoke(u, sp)
-		if ppn >= 30.0:
-			if u.spec.domain == "surface" and u.speed_kn > 1.0 and ppn > 160.0:
-				_draw_wake(u, sp)
-			_draw_silhouette(u, sp, ucol)
-		MapSymbols.draw_symbol(self, sp, ucol, MapSymbols.Frame.FRIENDLY, domain, u.heading_deg, true, MapSymbols.category_glyph(u.spec.category, u.spec.domain), _font)
-		if selected.has(u):
-			MapSymbols.draw_selection(self, sp, COL_ACCENT, _anim)
-		_draw_threat_marks(u, sp)
-		_draw_status_lamps(u, sp)
-		if zoomed_out and not selected.has(u):
+			draw_dashed_line(sp, station, Color(COL_ROUTE, 0.3), 1.0, 3.0)
+			draw_rect(Rect2(station - Vector2(2.5, 2.5), Vector2(5, 5)), Color(COL_ROUTE, 0.5), false, 1.0)
+		if not view.has_point(sp):
 			continue
-		var name := u.callsign
-		var sub := "%03d° · %d kn" % [int(u.heading_deg), int(u.speed_kn)]
-		if u.is_submarine():
-			sub += " · %.0f m" % u.depth_m
-		elif u.is_aircraft():
-			sub += " · FL%03d · fuel %d%%" % [int(u.altitude_m / 30.48), int(u.fuel_fraction() * 100.0)]
-		if health < 0.99:
-			sub += " · hull %d%%" % int(health * 100.0)
-		if own.size() > 8 and not selected.has(u):
-			sub = ""
-		_place_label(sp, name, COL_TEXT if selected.has(u) else Color(COL_TEXT, 0.85), selected.has(u), sub)
+		sp = sp.round()
+		var extent := _draw_platform(sp, COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, _unit_domain(u), u.spec.can_hover, u.spec.id, u.heading_deg)
+		if show_leaders:
+			MapSymbols.draw_leader(self, sp, u.heading_deg, MapSymbols.leader_px(u.speed_kn, ppn), COL_FRIENDLY, extent)
+		if selected.has(u):
+			MapSymbols.draw_brackets(self, sp, COL_SELECT, _bracket_box(extent))
+		_draw_casualty_ticks(u, sp, extent)
+		_draw_threat_marks(u, sp)
+		_draw_track_number(sp, extent, track_number_text(u), u.callsign)
 
 
-## True motion: 5 minutes for aircraft, 30 for hulls, with explicit time ticks.
-func _draw_motion_vector(pos: Vector2, course: float, speed: float, domain: String, col: Color, estimated: bool, labelled: bool) -> void:
-	var minutes := 5.0 if domain == "air" else LEADER_MINUTES
-	var start := world_to_screen(pos)
-	var end := world_to_screen(pos + Geo.heading_to_vector(course) * speed * minutes / 60.0)
-	if start.distance_to(end) < 12.0:
+## A route as PIM legs: thin white lines from the symbol's edge through small white + waypoints.
+## Where the coast is in the way of a hooked hull's leg, the leg turns red past the beach, with an
+## X where it hits.
+func _draw_route(u: Unit, sp: Vector2) -> void:
+	if u.waypoints.is_empty():
 		return
-	if estimated:
-		draw_dashed_line(start, end, Color(col, 0.5), 1.0, 5.0)
-	else:
-		draw_line(start, end, Color(col, 0.5), 1.0, true)
-	var side := (end - start).normalized().orthogonal() * 3.0
-	var count := 5 if domain == "air" else 6
-	for i in range(1, count + 1):
-		var at := start.lerp(end, float(i) / count)
-		draw_line(at - side, at + side, Color(col, 0.7), 1.0, true)
-	if labelled:
-		draw_string(_font, end + Vector2(6, -5), "+%dm%s" % [int(minutes), " EST" if estimated else ""], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(col, 0.85))
+	var prev := sp
+	var first := world_to_screen(u.waypoints[0])
+	if first.distance_to(sp) > MapSymbols.RADIUS:
+		prev = sp + (first - sp).normalized() * MapSymbols.RADIUS
+	var prev_world := u.position
+	var check_land := selected.has(u) and u.needs_sea_room() and not Terrain.is_empty()
+	for wp in u.waypoints:
+		var wsp := world_to_screen(wp)
+		var hit := Terrain.first_land_contact(prev_world, wp) if check_land else -1.0
+		if hit >= 0.0:
+			# The leg is legal to order but the coast is in the way; show where.
+			var beach := world_to_screen(prev_world.lerp(wp, hit))
+			draw_line(prev, beach, COL_ROUTE, 1.0, true)
+			draw_dashed_line(beach, wsp, Color(COL_HOSTILE, 0.8), 1.0, 5.0)
+			draw_line(beach - Vector2(4, 4), beach + Vector2(4, 4), COL_HOSTILE, 1.5, true)
+			draw_line(beach - Vector2(4, -4), beach + Vector2(4, -4), COL_HOSTILE, 1.5, true)
+		else:
+			draw_line(prev, wsp, COL_ROUTE, 1.0, true)
+		var hovered := _mouse_inside and _drag_mode == DragMode.NONE and wsp.distance_to(_mouse) <= WAYPOINT_HIT_PX
+		_draw_plus(wsp, 5.0 if hovered else 3.5, COL_ROUTE, 2.0 if hovered else 1.0)
+		prev = wsp
+		prev_world = wp
+
+
+## A small + mark: waypoints and place names.
+func _draw_plus(c: Vector2, arm: float, col: Color, width := 1.0, shadow := false) -> void:
+	var p := c.round() + Vector2(0.5, 0.5)
+	if shadow:
+		var s := Color(COL_READOUT_SHADOW, COL_READOUT_SHADOW.a * col.a)
+		draw_line(p + Vector2(1.0 - arm, 1.0), p + Vector2(1.0 + arm, 1.0), s, width)
+		draw_line(p + Vector2(1.0, 1.0 - arm), p + Vector2(1.0, 1.0 + arm), s, width)
+	draw_line(p + Vector2(-arm, 0.0), p + Vector2(arm, 0.0), col, width)
+	draw_line(p + Vector2(0.0, -arm), p + Vector2(0.0, arm), col, width)
+
+
+## Fire and flooding aboard: a short orange and a short red tick left of the symbol. The rest of
+## the damage picture is the data display's.
+func _draw_casualty_ticks(u: Unit, sp: Vector2, extent: float) -> void:
+	var x := sp.x - extent - 4.0
+	if u.fire > 0.0:
+		draw_line(Vector2(x, sp.y - 7.0), Vector2(x, sp.y - 1.0), COL_FIRE, 2.0)
+		x -= 4.0
+	if u.flooding > 0.0:
+		draw_line(Vector2(x, sp.y - 7.0), Vector2(x, sp.y - 1.0), COL_HOSTILE, 2.0)
+
+
+## Rounds detected inbound on this ship: a pulsing ring, a line back to the round and its time to go.
+func _draw_threat_marks(u: Unit, sp: Vector2) -> void:
+	for entry: Dictionary in _threats:
+		if entry["target"] != u:
+			continue
+		var w: Weapon = entry["weapon"]
+		MapSymbols.draw_threat_ring(self, sp, COL_HOSTILE, _anim)
+		var wp := world_to_screen(w.position)
+		draw_line(wp, sp, Color(COL_HOSTILE, 0.35), 1.0, true)
+		_shadow_text((wp + sp) * 0.5 + Vector2(4.0, -4.0), "%ds" % int(entry["time_s"]), 11)
 
 
 func _solution_rect() -> Rect2:
 	return Rect2(READOUT_MARGIN, READOUT_MARGIN, 320.0, READOUT_LINE_H * 4.0 + 8.0)
 
 
+## The hooked pair's relative motion (the hooked own unit and its target): where each will be at
+## the closest point of approach, in thin white.
 func _draw_relative_motion() -> void:
-	if selected_track == null:
+	if selected_track == null or selected.is_empty():
 		return
 	var ref := reference_unit()
 	var solution := RelativeMotion.solution(ref, selected_track, SimClock.sim_time)
@@ -1548,14 +1827,13 @@ func _draw_relative_motion() -> void:
 		return
 	var own_end := world_to_screen(solution.own_position)
 	var contact_end := world_to_screen(solution.contact_position)
-	draw_dashed_line(world_to_screen(ref.position), own_end, Color(COL_ACCENT, 0.6), 1.5, 6.0)
-	draw_dashed_line(world_to_screen(selected_track.position), contact_end, Color(COL_AMBER, 0.65), 1.5, 6.0)
-	draw_line(own_end, contact_end, Color(COL_ACCENT, 0.85), 1.5, true)
-	for endpoint in [own_end, contact_end]:
-		draw_arc(endpoint, 5.0, 0.0, TAU, 24, COL_ACCENT, 1.4, true)
+	draw_dashed_line(world_to_screen(ref.position), own_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
+	draw_dashed_line(world_to_screen(selected_track.position), contact_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
+	draw_line(own_end, contact_end, Color(COL_ROUTE, 0.85), 1.0, true)
+	for endpoint: Vector2 in [own_end, contact_end]:
+		draw_arc(endpoint, 4.0, 0.0, TAU, 16, Color(COL_ROUTE, 0.85), 1.0, true)
 	var middle := own_end.lerp(contact_end, 0.5)
-	var text := "CPA %.1f nm / %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)]
-	_shadow_text(middle + Vector2(4, -4), text, 11)
+	_shadow_text(middle + Vector2(4, -4), "CPA %.1f nm / %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)], 11)
 
 
 ## The hooked contact's geometry from the reference unit, top-left, as plain readout lines.
@@ -1565,7 +1843,7 @@ func _draw_solution_card() -> void:
 	var t := selected_track
 	var ref := reference_unit()
 	var lines := PackedStringArray()
-	lines.append("%s  %s" % [t.id, t.description()])
+	lines.append("%s  %s" % [MapSymbols.track_number(t.id), t.description()])
 	lines.append(t.range_text_from(ref.position) if ref != null else "No reference ship")
 	var solution := RelativeMotion.solution(ref, t, SimClock.sim_time)
 	if solution.valid:
@@ -1576,182 +1854,44 @@ func _draw_solution_card() -> void:
 	_draw_text_block(_solution_rect().position + Vector2(0.0, READOUT_FONT_SIZE), lines)
 
 
-func _draw_wake(u: Unit, sp: Vector2) -> void:
-	var h := Geo.heading_to_vector(u.heading_deg)
-	var f := Vector2(h.x, -h.y)
-	var side := f.orthogonal()
-	var length := u.spec.length_m / 1852.0 * ppn
-	var stern := sp - f * length * .47
-	var wake_length := length * clampf(u.speed_kn / 18.0, .3, 1.5)
-	for j in range(5):
-		var t := float(j) / 5.0
-		var alpha := .12 * (1.0 - t)
-		for sign in [-1.0, 1.0]:
-			draw_line(stern - f * wake_length * t + side * sign * length * .035, stern - f * wake_length + side * sign * length * (.17 + t*.06), Color(.68,.86,.91,alpha), 1.4, true)
-	draw_line(stern, stern - f * wake_length * .8, Color(.64,.86,.9,.13), maxf(2, length*.04), true)
-
-
-## Close in, the symbol sits on an oriented silhouette scaled to the hull's real length, so a
-## carrier and a corvette stop looking the same size. The silhouette is the platform's rendered
-## plan view from assets/platforms when one exists, tinted with the unit colour; the polygon
-## below is the fallback for a platform without art.
-func _draw_silhouette(u: Unit, sp: Vector2, col: Color) -> void:
-	var length_px := maxf(u.spec.length_m / 1852.0 * ppn, 16.0)
-	var dir := Geo.heading_to_vector(u.heading_deg)
-	var f := Vector2(dir.x, -dir.y)
-	var s := f.orthogonal()
-	var plan: Texture2D = PlatformArt.plan(u.spec.id)
-	if plan != null and length_px < MapSymbols.RADIUS * 2.2:
-		return  # entirely under the symbol frame: nothing to see, nothing to draw
-	if plan != null:
-		if u.spec.domain == "land":
-			# A base has no length in its spec; the render is 1,800 m across and drawn to scale.
-			length_px = maxf(1800.0 / 1852.0 * ppn, 16.0)
-		var scale := length_px * PlatformArt.PLAN_MARGIN / maxf(float(plan.get_width()), 1.0)
-		var tex_size := Vector2(plan.get_size())
-		var alpha := clampf((length_px - 12.0) / 30.0, 0.35, 0.9)
-		draw_set_transform(sp, f.angle(), Vector2(scale, scale))
-		draw_texture_rect(plan, Rect2(-tex_size * 0.5, tex_size), false, Color(1, 1, 1, alpha))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		return
-	var pts := PackedVector2Array()
-	if u.is_aircraft():
-		var w := length_px * 0.9
-		pts = PackedVector2Array([sp + f * length_px * 0.5, sp + f * length_px * 0.05 + s * w * 0.5, sp - f * length_px * 0.3 + s * w * 0.15, sp - f * length_px * 0.5 + s * w * 0.3, sp - f * length_px * 0.5 - s * w * 0.3, sp - f * length_px * 0.3 - s * w * 0.15, sp + f * length_px * 0.05 - s * w * 0.5])
-	elif u.is_submarine():
-		var w := length_px * 0.12
-		pts = PackedVector2Array([sp + f * length_px * 0.5, sp + f * length_px * 0.35 + s * w, sp - f * length_px * 0.4 + s * w, sp - f * length_px * 0.5, sp - f * length_px * 0.4 - s * w, sp + f * length_px * 0.35 - s * w])
-	else:
-		var w := length_px * (0.16 if u.spec.category.contains("carrier") else 0.12)
-		pts = PackedVector2Array([sp + f * length_px * 0.5, sp + f * length_px * 0.25 + s * w, sp - f * length_px * 0.5 + s * w * 0.8, sp - f * length_px * 0.5 - s * w * 0.8, sp + f * length_px * 0.25 - s * w])
-	draw_colored_polygon(pts, Color(col, 0.18))
-	pts.append(pts[0])
-	draw_polyline(pts, Color(col, 0.6), 1.0, true)
-
-
-## A row of small lamps under the symbol: emitting, on the link, weapons posture, damage,
-## repair. Shape and colour, not text.
-func _draw_status_lamps(u: Unit, sp: Vector2) -> void:
-	var y := sp.y + MapSymbols.RADIUS + 9.0
-	var x := sp.x - 10.0
-	draw_circle(Vector2(x, y), 2.0, COL_BUOY if u.radar_emitting() else Color(0.35, 0.45, 0.5))
-	x += 6.0
-	if not u.datalink_connected():
-		draw_line(Vector2(x - 2.0, y - 2.0), Vector2(x + 2.0, y + 2.0), COL_UNKNOWN, 1.5)
-		draw_line(Vector2(x - 2.0, y + 2.0), Vector2(x + 2.0, y - 2.0), COL_UNKNOWN, 1.5)
-	else:
-		draw_circle(Vector2(x, y), 2.0, Color(COL_FRIENDLY, 0.8))
-	x += 6.0
-	match u.roe:
-		Unit.Roe.HOLD:
-			draw_rect(Rect2(x - 2.0, y - 2.0, 4.0, 4.0), COL_HOSTILE)
-		Unit.Roe.TIGHT:
-			draw_rect(Rect2(x - 2.0, y - 2.0, 4.0, 4.0), COL_AMBER)
-		_:
-			draw_rect(Rect2(x - 2.0, y - 2.0, 4.0, 4.0), Color(COL_NEUTRAL, 0.8))
-	x += 6.0
-	if u.active_sonar_emitting():
-		draw_circle(Vector2(x, y), 2.0, COL_SONAR_ACTIVE)
-		x += 6.0
-	if Damage.repairing(u):
-		var blink := 0.5 + 0.5 * sin(_anim * 6.0)
-		draw_circle(Vector2(x, y), 2.0, Color(COL_AMBER, 0.4 + 0.6 * blink))
-		x += 6.0
-	if u.fire > 0.0:
-		var flicker := 0.6 + 0.4 * sin(_anim * 11.0 + u.id)
-		draw_colored_polygon(PackedVector2Array([Vector2(x, y - 3.0), Vector2(x + 2.5, y + 2.0), Vector2(x - 2.5, y + 2.0)]), Color(COL_FIRE, flicker))
-		x += 6.0
-	if u.flooding > 0.0:
-		draw_rect(Rect2(x - 2.0, y - 1.0, 4.0, 3.0), COL_FLOOD)
-		draw_line(Vector2(x - 2.5, y - 2.0), Vector2(x + 2.5, y - 2.0), Color(COL_FLOOD, 0.6), 1.0)
-
-
-## A burning ship trails smoke downwind. Screen-space and procedural, so it reads at theatre zoom
-## and needs no particle state: puffs march out along the wind and fade as they spread. The size
-## of the plume says how bad the fire is.
-func _draw_smoke(u: Unit, sp: Vector2) -> void:
-	var wind_from := float(Detection.environment.get("wind_from_deg", DEFAULT_WIND_FROM_DEG))
-	var downwind := Geo.heading_to_vector(wind_from + 180.0)
-	var dir := Vector2(downwind.x, -downwind.y)  # screen y runs south
-	var side := Vector2(-dir.y, dir.x)
-	# Long enough to clear the ship's own label, which usually sits downwind of a westerly.
-	var length := 150.0 * (0.55 + 0.45 * u.fire)
-	var puffs := 22
-	var drift := fmod(_anim * 0.35, 1.0)
-	for i in puffs:
-		var f := (float(i) + drift) / float(puffs)
-		var wobble := sin(_anim * 0.9 + float(i) * 1.7 + u.id) * 3.0 * f
-		var at := sp + dir * (6.0 + length * f) + side * wobble
-		var r := 3.0 + 16.0 * f * (0.6 + 0.4 * u.fire)
-		var a := 0.3 * pow(1.0 - f, 0.8) * (0.55 + 0.45 * u.fire)
-		draw_circle(at, r * 1.7, Color(COL_SMOKE, a * 0.3))
-		draw_circle(at, r, Color(COL_SMOKE, a))
-	var glow := 0.5 + 0.5 * sin(_anim * 9.0 + u.id * 3.0)
-	draw_circle(sp, MapSymbols.RADIUS + 3.0 + 2.0 * glow, Color(COL_FIRE, 0.10 + 0.15 * u.fire))
-
-
-## Rounds detected inbound on this ship: a pulsing ring and a line back to the round.
-func _draw_threat_marks(u: Unit, sp: Vector2) -> void:
-	for entry: Dictionary in _threats:
-		if entry["target"] != u:
-			continue
-		var w: Weapon = entry["weapon"]
-		MapSymbols.draw_threat_ring(self, sp, COL_HOSTILE, _anim)
-		var wp := world_to_screen(w.position)
-		draw_line(wp, sp, Color(COL_HOSTILE, 0.35), 1.0, true)
-		var mid := (wp + sp) * 0.5
-		draw_string(_font, mid + Vector2(4.0, -4.0), "%ds" % int(entry["time_s"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_HOSTILE)
-
-
+## Rounds in flight: own ones always, an opposing one only while the plot holds it. Each is a small
+## filled arrowhead (a dot for a torpedo) in its identity colour with a thin fading trail.
 func _draw_weapons() -> void:
 	if weapon_manager == null:
 		return
+	var ref := reference_unit()
 	for w: Weapon in weapon_manager.in_flight:
 		var own := w.faction == player_faction
-		var detected := threat_manager != null and threat_manager.visible_to(reference_unit(), w) if reference_unit() != null else false
+		var detected := ref != null and threat_manager != null and threat_manager.visible_to(ref, w)
 		if not own and not detected and not Debug.enabled:
 			continue  # an undetected round is invisible, which is the whole problem
 		var sp := world_to_screen(w.position)
-		var col := COL_MISSILE if own else COL_MISSILE_HOSTILE
-		if w.is_interceptor():
-			col = COL_INTERCEPTOR
-			if w.intercept_target != null:
-				draw_line(sp, world_to_screen(w.intercept_target.position), Color(col, 0.3), 1.0, true)
+		var col := COL_FRIENDLY if own else COL_HOSTILE
+		if w.is_interceptor() and w.intercept_target != null:
+			draw_line(sp, world_to_screen(w.intercept_target.position), Color(col, 0.3), 1.0, true)
 		elif own and w.target_track != null and w.phase == Weapon.Phase.CRUISE:
 			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.3), 1.0, 5.0)
-		if not own and detected and not w.is_interceptor():
-			draw_arc(sp, 10.0, 0.0, TAU, 20, Color(col, 0.55), 1.0, true)
 		if _weapon_trails.has(w.id):
 			var arr: PackedVector2Array = _weapon_trails[w.id]
 			for i in range(1, arr.size()):
 				var f := float(i) / float(arr.size())
-				draw_line(world_to_screen(arr[i - 1]), world_to_screen(arr[i]), Color(col, 0.05 + 0.45 * f), 1.5 if f > 0.6 else 1.0, true)
-		_draw_weapon_sprite(w, sp, col)
-		if w.spec.profile == "ballistic" and not w.is_interceptor():
-			draw_string(_font, sp + Vector2(8.0, -6.0), "BM", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, col)
+				draw_line(world_to_screen(arr[i - 1]), world_to_screen(arr[i]), Color(col, 0.05 + 0.35 * f), 1.0, true)
+		MapSymbols.draw_weapon(self, sp, w.heading_deg, col, w.spec.is_torpedo())
 		if Debug.enabled:
 			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.4), 1.0, 5.0)
 
 
-func _draw_weapon_sprite(w: Weapon, sp: Vector2, col: Color) -> void:
-	var direction := Geo.heading_to_vector(w.heading_deg)
-	var forward := Vector2(direction.x, -direction.y)
-	var side := forward.orthogonal()
-	var torpedo := w.spec.is_torpedo()
-	var radius := 6.0 if torpedo else 7.0
-	if not torpedo:
-		# Layered exhaust is a visual treatment for a detected weapon, never a new detection.
-		for j in range(3, 0, -1):
-			draw_line(sp - forward * 4, sp - forward * (13 + j * 5), Color(col, .055 * (4 - j)), j * 2.3, true)
-		draw_line(sp - forward * 4, sp - forward * 15, Color("ffe6b0"), 1.8, true)
-	else:
-		draw_arc(sp - forward * 5, 6, forward.angle() + 1.3, forward.angle() + 5.0, 16, Color(col, .3), 1, true)
-	var body := PackedVector2Array([sp + forward * radius, sp + side * 1.6, sp - forward * radius + side * 1.4, sp - forward * radius - side * 1.4, sp - side * 1.6])
-	draw_colored_polygon(body, Color("e1eced"))
-	for sign in [-1.0, 1.0]:
-		var fin := PackedVector2Array([sp - forward * 2, sp - forward * 6 + side * 4 * sign, sp - forward * 6])
-		draw_colored_polygon(fin, col)
-	draw_circle(sp, 1.3, col)
+## B: the quick range circle, white, with its radius in nmi over its top.
+func _draw_range_circle() -> void:
+	if range_circle == RangeCircle.OFF:
+		return
+	var c := world_to_screen(_range_centre())
+	var nm := range_circle_nm()
+	var r := nm * ppn
+	if r < 2.0:
+		return
+	draw_arc(c, r, 0.0, TAU, _arc_segments(r), COL_ROUTE, 1.0, true)
+	_centred_text(c + Vector2(0.0, maxf(-r - 5.0, 16.0 - c.y)), ChartReadout.format_range_nmi(nm), READOUT_FONT_SIZE)
 
 
 func _draw_effects() -> void:
@@ -1790,9 +1930,17 @@ func _draw_effects() -> void:
 
 # --- Readouts and radio line --------------------------------------------------------------
 
-## The chart's text face: the theme's boldest data font.
+static var _bold_font: Font
+
+## The chart's text face: a bold cut of the theme's data sans, for the track numbers and readouts.
 func _readout_font() -> Font:
-	return UITheme.semibold_font()
+	if _bold_font == null:
+		var font := FontVariation.new()
+		font.base_font = UITheme.semibold_font().base_font if UITheme.semibold_font() is FontVariation else UITheme.semibold_font()
+		font.variation_opentype = {"wght": 700.0, "wdth": 100.0}
+		font.variation_embolden = 0.35
+		_bold_font = font
+	return _bold_font
 
 
 ## White bold text with a 1 px black drop shadow and no plate, the chart's only text style.
@@ -1807,10 +1955,10 @@ func _draw_text_block(first_baseline: Vector2, lines: PackedStringArray, col := 
 		_shadow_text(first_baseline + Vector2(0.0, i * READOUT_LINE_H), lines[i], READOUT_FONT_SIZE, col)
 
 
-## Where the bottom-left readout sits, so labels can keep clear of it.
-func _readout_rect() -> Rect2:
-	var h := READOUT_LINE_H * 4.0 + READOUT_MARGIN
-	return Rect2(Vector2(0.0, size.y - h), Vector2(READOUT_MARGIN + 170.0, h))
+## Readout text centred on a point of its baseline, whole-pixel aligned.
+func _centred_text(baseline_centre: Vector2, text: String, font_size: int, col := COL_READOUT) -> void:
+	var w := _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	_shadow_text(Vector2(roundf(baseline_centre.x - w * 0.5), roundf(baseline_centre.y)), text, font_size, col)
 
 
 ## The world point the readout describes: the cursor over the chart, otherwise the chart's centre.
@@ -1855,20 +2003,12 @@ func _draw_readout() -> void:
 ## Depth over water, height over land, from the chart's rasters. Inside the charted box the
 ## scenario's coastline says which is which; beyond it the raster's own coast does.
 func _depth_readout(w: Vector2) -> String:
-	var land := not Terrain.is_empty() and Terrain.is_land(w)
+	var land := _chart_land_at(w)
 	var depth := Bathymetry.depth_at(w)
-	if not land and Bathymetry.active:
-		var charted := _floor.charted_rect() if _floor != null else Rect2()
-		land = not charted.has_point(w) and depth >= 0.0 and depth < 0.5
 	var height := ChartRelief.height_at(w) if land else -1.0
 	if land and height < 0.0 and not Bathymetry.active:
 		return ""
 	return ChartReadout.depth_line(land, maxf(height, 0.0), depth)
-
-
-func _radio_rect() -> Rect2:
-	var h := READOUT_LINE_H * RadioLine.MAX_LINES + RADIO_BOTTOM_PX
-	return Rect2(Vector2(size.x * 0.25, size.y - h), Vector2(size.x * 0.5, h))
 
 
 ## Bottom-centre: the newest radio lines, the latest at the bottom, each fading after its hold.
@@ -1901,42 +2041,6 @@ func _draw_speaker_rings() -> void:
 			draw_arc(at, SPEAKER_RING_PX, 0.0, TAU, 40, COL_READOUT, 1.5, true)
 
 
-## Labels: a dark pill with an identity bar, a primary line and an optional secondary line, placed
-## where it does not collide with another label. Leader line back to the symbol.
-func _place_label(sp: Vector2, text: String, color: Color, important: bool, sub: String) -> void:
-	if not Rect2(Vector2.ZERO, size).has_point(sp):
-		return
-	var w1 := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-	var w2 := _font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x if sub != "" else 0.0
-	var width := minf(maxf(w1, w2) + 18.0, 260.0)
-	var height := 21.0 if sub == "" else 33.0
-	for attempt in 18:
-		var row := (attempt + 1) / 2
-		var offset := Vector2(20, -12 + row * (height + 4) * (1 if attempt % 2 == 0 else -1))
-		var r := Rect2(sp + offset, Vector2(width, height))
-		if r.end.x > size.x - 12:
-			r.position.x = sp.x - width - 22
-		if r.position.y < 4.0 or r.end.y > size.y - 4.0 or r.end.x > size.x - 12.0:
-			continue
-		var overlaps := false
-		for used in _label_rects:
-			if used.grow(3).intersects(r):
-				overlaps = true
-				break
-		if overlaps:
-			continue
-		_label_rects.append(r)
-		draw_line(sp, Vector2(r.position.x if r.position.x > sp.x else r.end.x, r.get_center().y), Color(color, 0.3), 1.0, true)
-		draw_rect(r, COL_LABEL_BG)
-		draw_rect(Rect2(r.position, Vector2(2.0, height)), Color(color, 0.9))
-		if important:
-			draw_rect(r, Color(color, 0.55), false, 1.0)
-		draw_string(_font, r.position + Vector2(9, 15), text, HORIZONTAL_ALIGNMENT_LEFT, int(width - 12), 12, color)
-		if sub != "":
-			draw_string(_font, r.position + Vector2(9, 28), sub, HORIZONTAL_ALIGNMENT_LEFT, int(width - 12), 10, Color(color, 0.7))
-		return
-
-
 ## F2: the symbol key, top-left, in the chart's plain white readout style with no card behind it.
 func _draw_key() -> void:
 	if not show_key:
@@ -1944,25 +2048,44 @@ func _draw_key() -> void:
 	var rect := _symbol_key_rect()
 	var x := rect.position.x
 	var y := rect.position.y
+	var font := _readout_font()
 	_shadow_text(Vector2(x, y + 12), "SYMBOL KEY  (F2 hides)", 11)
-	var cx := x + 14.0
-	var cy := y + 36.0
-	MapSymbols.draw_key_entry(self, Vector2(cx, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "surface", "DD", "Friendly", _font, COL_READOUT)
-	MapSymbols.draw_key_entry(self, Vector2(cx + 110, cy), COL_HOSTILE, MapSymbols.Frame.HOSTILE, "surface", "", "Hostile", _font, COL_READOUT)
-	MapSymbols.draw_key_entry(self, Vector2(cx + 215, cy), COL_UNKNOWN, MapSymbols.Frame.UNKNOWN, "surface", "", "Unknown", _font, COL_READOUT)
-	cy += 30.0
-	MapSymbols.draw_key_entry(self, Vector2(cx, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "air", "F", "Air", _font, COL_READOUT)
-	MapSymbols.draw_key_entry(self, Vector2(cx + 110, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "subsurface", "SN", "Subsurface", _font, COL_READOUT)
-	MapSymbols.draw_key_entry(self, Vector2(cx + 215, cy), COL_NEUTRAL, MapSymbols.Frame.NEUTRAL, "surface", "M", "Neutral", _font, COL_READOUT)
+	# Identity down, domain across: the frame is the whole symbol.
+	var col_x: Array[float] = [x + 96.0, x + 150.0, x + 204.0]
+	var cy := y + 34.0
+	for i in 3:
+		_centred_text(Vector2(col_x[i], cy), ["Air", "Surface", "Sub"][i], 11, Color(COL_READOUT, 0.8))
+	var rows := [
+		[COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "Own"],
+		[COL_ALLIED, MapSymbols.Frame.ALLIED, "Allied"],
+		[COL_HOSTILE, MapSymbols.Frame.HOSTILE, "Hostile"],
+		[COL_UNKNOWN, MapSymbols.Frame.UNKNOWN, "Unknown"],
+		[COL_NEUTRAL, MapSymbols.Frame.NEUTRAL, "Neutral"],
+	]
+	for row: Array in rows:
+		cy += 22.0
+		_shadow_text(Vector2(x, cy + 4.0), row[2], 11)
+		for i in 3:
+			MapSymbols.draw_ntds(self, Vector2(col_x[i], cy), row[0], row[1], ["air", "surface", "subsurface"][i])
+	cy += 28.0
+	var cx := x + 8.0
+	MapSymbols.draw_key_entry(self, Vector2(cx, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "land", false, "Shore", font, COL_READOUT)
+	MapSymbols.draw_key_entry(self, Vector2(cx + 74.0, cy), COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, "air", true, "Helo", font, COL_READOUT)
+	MapSymbols.draw_weapon(self, Vector2(cx + 142.0, cy), 45.0, COL_HOSTILE, false)
+	_shadow_text(Vector2(cx + 156.0, cy + 4.0), "Missile", 11)
+	MapSymbols.draw_weapon(self, Vector2(cx + 222.0, cy), 0.0, COL_HOSTILE, true)
+	_shadow_text(Vector2(cx + 232.0, cy + 4.0), "Torpedo", 11)
+	MapSymbols.draw_buoy(self, Vector2(cx + 300.0, cy), COL_FRIENDLY)
+	_shadow_text(Vector2(cx + 308.0, cy + 4.0), "Buoy", 11)
 	var lines := PackedStringArray([
-		"Glyph: CV carrier, CG cruiser, DD, FF, SS/SN sub, F fighter, E AEW",
-		"Ellipse: uncertainty. Vectors: 30 min. Dots: history",
-		"Rings: radar, sonar, ESM, jammer, weapon range",
-		"Lamps: radiating, link, weapons posture, pinging, repairing",
-		"Land: tinted by height, relief shading on F6. Masks radar",
-		"Sea: lighter is shallower, bands at 20 m to 4,000 m",
-		"Ctrl+right-click a contact: engage. Right-click a waypoint: drop it",
-		"Double-click: recentre. Home: fit fleet. C: centre. +/-: zoom",
+		"Leader: 6 minutes of travel. Grey: destroyed. Faded: stale",
+		"Ellipse: position uncertainty. Dots: history (F5)",
+		"Shift+V leaders, Shift+K track numbers, Shift+I tags",
+		"Tab: graphic symbols (now %s). B: range circle" % symbol_mode_name(),
+		"Right-click water: transit there. On a platform: menu",
+		"Ctrl/Cmd+right-click a contact: engage",
+		"Land tinted by height, relief shading on F6",
+		"Double-click: recentre. Home: fit fleet. +/-: zoom",
 	])
 	cy += 26.0
 	for line in lines:
@@ -1972,7 +2095,7 @@ func _draw_key() -> void:
 
 func _symbol_key_rect() -> Rect2:
 	# Top-left, clear of the bottom-left readout. Fitted content keeps out of it while it shows.
-	return Rect2(12.0, 12.0, 390.0, 206.0)
+	return Rect2(12.0, 12.0, 390.0, 322.0)
 
 
 ## Hovering over a symbol shows what the console knows about it, without a click: plain readout
@@ -1985,7 +2108,7 @@ func _draw_hover_card() -> void:
 		var wu: Unit = wp["unit"]
 		var lines := PackedStringArray()
 		lines.append("%s waypoint %d/%d" % [wu.callsign, int(wp["index"]) + 1, wu.waypoints.size()])
-		lines.append("Right-click to remove this leg")
+		lines.append("Right-click for leg options")
 		_draw_card(lines)
 		return
 	var lines := PackedStringArray()
@@ -2008,13 +2131,16 @@ func _draw_hover_card() -> void:
 		lines.append("Masking height %d m (game estimate)" % int(l.elevation_m))
 		_draw_card(lines)
 		return
-	lines.append("%s  %s" % [t.id, t.description()])
+	lines.append("%s  %s" % [MapSymbols.track_number(t.id), t.description()])
 	lines.append("%s · %s · %s" % [t.identity, t.status_text(SimClock.sim_time), t.source.to_upper().replace("_", " ")])
 	if t.has_kinematics:
 		lines.append("CSE %s  SPD %.0f kts (est)" % [Geo.format_bearing(t.course_deg), t.speed_kn])
 	else:
 		lines.append("Kinematics estimating")
 	lines.append("+/-%.1f nm  ·  observed %s" % [t.position_error_nm, Track._fmt_age(t.observation_time_s)])
+	var ref := reference_unit()
+	if ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
+		lines.append("Radar jammed on this bearing")
 	_draw_card(lines)
 
 

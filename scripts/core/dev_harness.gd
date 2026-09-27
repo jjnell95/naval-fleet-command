@@ -31,6 +31,10 @@ extends RefCounted
 ##   --graticule                 turn the chart's lat/long graticule on, for screenshots
 ##   --key                       show the chart's symbol key (F2), for screenshots
 ##   --no-relief                 turn the chart's relief shading off (F6), for screenshots
+##   --wide-chart                hide the command deck's side panels, for chart screenshots
+##   --symbols=N                 chart symbol mode: 0 NTDS, 1 small, 2 medium, 3 large graphic symbols
+##   --tags                      show the chart's tags (second line under each track number)
+##   --range-circle=NM           fix a quick range circle of NM round the hooked unit, for screenshots
 ##   --chart-view=X,Y[,PPN]      centre the chart on this world point (nm), optionally at this scale
 ##   --radio=TEXT                post a line on the chart's radio line (spoken by the selection)
 ##   --world-view=inset|full     open the 3D world view in that mode, for screenshots
@@ -85,6 +89,11 @@ func handle_flags() -> void:
 		main.map.show_graticule = true
 	if args.has("--no-relief"):
 		main.map.show_terrain = false
+	if args.has("--wide-chart"):
+		main._toggle_wide_chart()
+	if args.has("--tags"):
+		main.map.show_tags = true
+	main.map.set_symbol_mode(int(arg(args, "--symbols=", 0.0)))
 	if args.has("--regional-preview"):
 		_float_regional_preview()
 	if args.has("--autopilot"):
@@ -184,6 +193,8 @@ func handle_flags() -> void:
 			_zoom_after_layout(float(a.get_slice("=", 1)))
 		elif a.begins_with("--chart-view="):
 			_chart_view_after_layout(a.get_slice("=", 1))
+		elif a.begins_with("--range-circle="):
+			_range_circle_after_layout(float(a.get_slice("=", 1)))
 		elif a.begins_with("--radio="):
 			var speaker: Unit = main.map.selected[0] if not main.map.selected.is_empty() else null
 			main.map.post_message(a.get_slice("=", 1), "info", speaker)
@@ -247,6 +258,19 @@ func _chart_view_after_layout(text: String) -> void:
 	if parts.size() >= 3:
 		main.map.ppn = clampf(float(parts[2]), TacticalMap.MIN_PPN, TacticalMap.MAX_PPN)
 	main.map.center_on(Vector2(float(parts[0]), float(parts[1]) if parts.size() > 1 else 0.0))
+
+
+## Arms the quick range circle with the cursor NM east of the hooked unit, then fixes it, after
+## any --zoom or --chart-view has settled.
+func _range_circle_after_layout(nm: float) -> void:
+	for i in 5:
+		await main.get_tree().process_frame
+	var map := main.map
+	var centre: Vector2 = map.selected[0].position if not map.selected.is_empty() else (map.selected_track.position if map.selected_track != null else map.center_nm)
+	map._mouse = map.world_to_screen(centre + Vector2(nm, 0.0))
+	map.toggle_range_circle()
+	map.toggle_range_circle()
+	print("[Dev] range circle %s" % ChartReadout.format_range_nmi(map.range_circle_nm()))
 
 
 func _zoom_after_layout(value: float) -> void:

@@ -273,3 +273,193 @@ func test_coastline_skips_the_charted_box_clip_edges() -> void:
 	runs = TacticalMap.coast_runs(inset, box)
 	assert_eq(runs.size(), 1, "near-edge clip segments are left out too")
 	assert_eq(runs[0].size(), 3)
+
+
+# --- Symbology --------------------------------------------------------------------------
+
+func test_identity_colours_are_the_classic_displays() -> void:
+	assert_eq(TacticalMap.COL_FRIENDLY, Color8(64, 200, 255), "ownside light cyan-blue")
+	assert_eq(TacticalMap.COL_ALLIED, Color8(255, 150, 40), "allied orange")
+	assert_eq(TacticalMap.COL_HOSTILE, Color8(235, 30, 30), "hostile red")
+	assert_eq(TacticalMap.COL_UNKNOWN, Color8(245, 235, 30), "unknown yellow")
+	assert_eq(TacticalMap.COL_NEUTRAL, Color8(40, 220, 60), "neutral green")
+	var map := TacticalMap.new()
+	var t := Track.new()
+	for pair in [["HOSTILE", TacticalMap.COL_HOSTILE], ["NEUTRAL", TacticalMap.COL_NEUTRAL], ["ALLIED", TacticalMap.COL_ALLIED], ["UNKNOWN", TacticalMap.COL_UNKNOWN]]:
+		t.identity = pair[0]
+		assert_eq(map.track_color(t), pair[1], "%s track colour" % pair[0])
+	map.free()
+
+
+func test_ntds_frames_carry_identity_and_domain_in_a_16_px_box() -> void:
+	assert_eq(MapSymbols.frame_for_identity("HOSTILE"), MapSymbols.Frame.HOSTILE)
+	assert_eq(MapSymbols.frame_for_identity("NEUTRAL"), MapSymbols.Frame.NEUTRAL)
+	assert_eq(MapSymbols.frame_for_identity("ALLIED"), MapSymbols.Frame.ALLIED)
+	assert_eq(MapSymbols.frame_for_identity("UNKNOWN"), MapSymbols.Frame.UNKNOWN)
+	assert_eq(MapSymbols.frame_for_identity(""), MapSymbols.Frame.UNKNOWN, "no identity yet is unknown")
+	for frame in MapSymbols.Frame.values():
+		for domain in ["air", "surface", "subsurface", ""]:
+			for p: Vector2 in MapSymbols.frame_stroke(frame, domain):
+				assert_true(absf(p.x) <= MapSymbols.RADIUS + 0.5 and absf(p.y) <= MapSymbols.RADIUS + 0.5, "frame %d %s stays in the 16 px box" % [frame, domain])
+	var surface := MapSymbols.frame_stroke(MapSymbols.Frame.FRIENDLY, "surface")
+	assert_eq(surface[0], surface[surface.size() - 1], "a surface frame is closed")
+	var air := MapSymbols.frame_stroke(MapSymbols.Frame.FRIENDLY, "air")
+	assert_true(air[0] != air[air.size() - 1], "an air frame is open at the bottom")
+	assert_true(_top(air) < -3.0 and _bottom(air) <= 3.6, "the friendly air arc is the upper semicircle")
+	var sub := MapSymbols.frame_stroke(MapSymbols.Frame.FRIENDLY, "subsurface")
+	assert_true(_bottom(sub) > 3.0 and _top(sub) >= -3.6, "the friendly subsurface arc is the lower one")
+	assert_eq(MapSymbols.frame_stroke(MapSymbols.Frame.HOSTILE, "surface").size(), 5, "hostile surface is a closed diamond")
+	assert_eq(MapSymbols.frame_stroke(MapSymbols.Frame.HOSTILE, "air")[1], Vector2(0.0, -6.0), "hostile air is a chevron pointing up")
+	assert_eq(MapSymbols.frame_stroke(MapSymbols.Frame.HOSTILE, "subsurface")[1], Vector2(0.0, 6.0), "hostile subsurface points down")
+	var square := MapSymbols.frame_stroke(MapSymbols.Frame.UNKNOWN, "surface")
+	assert_eq(square.size(), 5, "unknown surface is a closed square")
+	assert_true(is_equal_approx(absf(square[0].x), absf(square[0].y)), "with square corners")
+	assert_eq(MapSymbols.frame_stroke(MapSymbols.Frame.UNKNOWN, "air").size(), 4, "unknown air is an open upper half-square")
+	assert_eq(MapSymbols.frame_stroke(MapSymbols.Frame.NEUTRAL, "surface"), surface, "neutral shares the friendly frames")
+	assert_eq(MapSymbols.frame_stroke(MapSymbols.Frame.ALLIED, "air"), air, "and so does allied")
+	assert_true(MapSymbols.is_rotary("ASW helicopter") and MapSymbols.is_rotary("shipboard rotary-wing drone"), "rotorcraft get the helicopter bar")
+	assert_true(not MapSymbols.is_rotary("fighter"))
+
+
+func _top(pts: PackedVector2Array) -> float:
+	var y := INF
+	for p in pts:
+		y = minf(y, p.y)
+	return y
+
+
+func _bottom(pts: PackedVector2Array) -> float:
+	var y := -INF
+	for p in pts:
+		y = maxf(y, p.y)
+	return y
+
+
+func test_track_numbers_are_four_digits_and_own_numbers_follow_the_roster() -> void:
+	assert_eq(MapSymbols.track_number("T1001"), "1001", "a contact's number comes from its track id")
+	assert_eq(MapSymbols.track_number("T7"), "0007", "zero-padded")
+	assert_eq(MapSymbols.track_number("T12345"), "2345", "the last four digits")
+	assert_eq(MapSymbols.track_number("TX"), "", "no digits, no number")
+	assert_eq(MapSymbols.own_track_number(1), "0001")
+	assert_eq(MapSymbols.own_track_number(0), "", "an unnumbered unit prints nothing")
+	var manager := UnitManager.new()
+	var first := _unit("BLUE", Vector2.ZERO, "First")
+	var hostile := _unit("RED", Vector2.ZERO, "Hostile")
+	var second := _unit("BLUE", Vector2.ZERO, "Second")
+	for u in [first, hostile, second]:
+		manager.add_unit(u)
+	var map := TacticalMap.new()
+	map.unit_manager = manager
+	assert_eq(map.own_track_number(second), 2, "roster order, own units only")
+	assert_eq(map.track_number_text(first), "0001")
+	first.alive = false
+	var third := _unit("BLUE", Vector2.ZERO, "Third")
+	manager.add_unit(third)
+	assert_eq(map.own_track_number(third), 3, "a unit added later takes the next number")
+	assert_eq(map.track_number_text(second), "0002", "a loss renumbers nobody")
+	var t := Track.new()
+	t.id = "T1042"
+	assert_eq(map.track_number_text(t), "1042")
+	map.reset_presentation()
+	assert_eq(map.own_track_number(third), 3, "a restart numbers the roster afresh, in order")
+	map.free()
+	manager.free()
+
+
+func test_velocity_leader_is_six_minutes_of_travel_clamped_to_6_48_px() -> void:
+	assert_eq(MapSymbols.leader_px(0.2, 10.0), 0.0, "a stopped platform has no leader")
+	assert_near(MapSymbols.leader_px(20.0, 10.0), 20.0, 0.001, "20 kts covers 2 nm in 6 minutes: 20 px at 10 px/nm")
+	assert_near(MapSymbols.leader_px(20.0, 1.0), MapSymbols.LEADER_MIN_PX, 0.001, "never shorter than 6 px")
+	assert_near(MapSymbols.leader_px(480.0, 10.0), MapSymbols.LEADER_MAX_PX, 0.001, "never longer than 48 px")
+	assert_true(MapSymbols.leader_px(30.0, 10.0) > MapSymbols.leader_px(15.0, 10.0), "faster is longer")
+
+
+func test_graphic_symbols_only_for_a_contact_whose_class_is_known() -> void:
+	var map := TacticalMap.new()
+	var spec := DataDB.platform("usn_ddg_burke_iii")
+	var t := Track.new()
+	t.id = "T1001"
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = spec.short_name
+	t.known_category = spec.category
+	assert_eq(map._track_platform(t), "", "NTDS mode draws frames")
+	map.set_symbol_mode(TacticalMap.SymbolMode.MEDIUM)
+	var id := map._track_platform(t)
+	assert_true(id != "" and PlatformArt.plan(id) != null, "a known class finds its plan view")
+	assert_eq(DataDB.platform(id).short_name, spec.short_name, "of the reported class")
+	t.classification = Track.Classification.SURFACE
+	assert_eq(map._track_platform(t), "", "an unclassified contact stays NTDS")
+	assert_eq(MapSymbols.platform_for_class("", ""), "", "no class, no art")
+	var tex := MapSymbols.graphic_texture(spec.id, 40.0)
+	assert_true(tex != null, "the plan view is prepared for the symbol size")
+	assert_eq(tex.get_width(), int(roundf(40.0 * PlatformArt.PLAN_MARGIN * 2.0)), "at twice the drawn length, for mipmapped drawing")
+	assert_eq(MapSymbols.graphic_texture(spec.id, 40.0), tex, "and cached")
+	assert_eq(MapSymbols.graphic_texture("no_such_platform", 40.0), null)
+	map.free()
+
+
+func test_quick_range_circle_arms_on_the_hook_fixes_and_clears() -> void:
+	var map := TacticalMap.new()
+	map.size = Vector2(800, 600)
+	map.ppn = 4.0
+	assert_eq(map.toggle_range_circle(), TacticalMap.RangeCircle.OFF, "nothing hooked: no circle")
+	var ship := _unit("BLUE", Vector2(10, 0))
+	map.select_units([ship])
+	map._mouse = map.world_to_screen(Vector2(20, 0))
+	assert_eq(map.toggle_range_circle(), TacticalMap.RangeCircle.ARMED, "first B arms it")
+	assert_near(map.range_circle_nm(), 10.0, 0.001, "through the cursor")
+	map._mouse = map.world_to_screen(Vector2(10, 25))
+	assert_near(map.range_circle_nm(), 25.0, 0.001, "and follows it while armed")
+	assert_eq(map.toggle_range_circle(), TacticalMap.RangeCircle.FIXED, "second B fixes it")
+	map._mouse = map.world_to_screen(Vector2(0, 0))
+	assert_near(map.range_circle_nm(), 25.0, 0.001, "a fixed circle ignores the cursor")
+	ship.position = Vector2(30, 0)
+	assert_eq(map._range_centre(), Vector2(30, 0), "and stays centred on its unit")
+	assert_eq(map.toggle_range_circle(), TacticalMap.RangeCircle.OFF, "third B clears it")
+	assert_near(map.range_circle_nm(), 0.0)
+	assert_eq(ChartReadout.format_range_nmi(7.44), "7.4 nmi")
+	assert_eq(ChartReadout.format_range_nmi(23.4), "23 nmi")
+	map.free()
+
+
+func test_identity_filters_hide_contacts_from_the_plot_only() -> void:
+	var manager := TrackManager.new()
+	var ship := _unit()
+	var hostile := Track.new()
+	hostile.id = "T1001"
+	hostile.identity = "HOSTILE"
+	hostile.owner_faction = "BLUE"
+	var unknown := Track.new()
+	unknown.id = "T1002"
+	unknown.owner_faction = "BLUE"
+	manager._tracks["BLUE"] = [hostile, unknown]
+	var map := TacticalMap.new()
+	map.track_manager = manager
+	map.selected = [ship]
+	assert_eq(map._plotted_tracks().size(), 2)
+	map.toggle_layer("unknowns")
+	assert_eq(map._plotted_tracks(), [hostile], "the unknown is filtered off the plot")
+	assert_eq(map.priority_tracks().size(), 2, "but the track file behind N still holds it")
+	map.free()
+	manager.free()
+
+
+func test_lost_own_platforms_stay_on_the_plot_in_grey_and_hostile_losses_do_not() -> void:
+	var manager := UnitManager.new()
+	var own := _unit("BLUE", Vector2(5, 5))
+	var hostile := _unit("RED", Vector2(9, 9))
+	manager.add_unit(own)
+	manager.add_unit(hostile)
+	var map := TacticalMap.new()
+	map.unit_manager = manager
+	map._record_wrecks()
+	own.alive = false
+	hostile.alive = false
+	map._record_wrecks()
+	assert_true(map._wrecks.has(own), "an own loss is remembered where it went down")
+	assert_eq(map._wrecks[own]["pos"], Vector2(5, 5))
+	assert_true(not map._wrecks.has(hostile), "an opposing loss is never shown from truth")
+	map.reset_presentation()
+	assert_true(map._wrecks.is_empty(), "a restart clears the wrecks")
+	map.free()
+	manager.free()
