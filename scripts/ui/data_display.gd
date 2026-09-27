@@ -81,7 +81,7 @@ func build_rows() -> Array:
 	if map.selected.size() == 1:
 		var u: Unit = map.selected[0]
 		if u != null and is_instance_valid_unit(u):
-			return unit_rows(u, simulation.weapon_manager)
+			return unit_rows(u, simulation.weapon_manager, map.track_number_text(u))
 	if map.selected.size() > 1:
 		return group_rows(map.selected)
 	if map.selected_track != null:
@@ -95,13 +95,9 @@ static func is_instance_valid_unit(u: Unit) -> bool:
 
 # --- Content ------------------------------------------------------------------------------
 
-static func track_number_for_unit(u: Unit) -> String:
-	return "%04d" % maxi(u.id + 1, 0)
-
-
+## A contact's four-digit track number, as the chart prints it beside the symbol.
 static func track_number_for_track(t: Track) -> String:
-	var digits := t.id.trim_prefix("T")
-	return digits if digits.is_valid_int() else t.id
+	return MapSymbols.track_number(t.id)
 
 
 static func _row(parts: Array) -> Array:
@@ -112,11 +108,13 @@ static func _kv(label: String, value: String, value_key := VALUE) -> Array:
 	return [[label + ": ", LABEL], [value, value_key]]
 
 
-static func unit_rows(u: Unit, weapon_manager: WeaponManager = null) -> Array:
+## `number` is the unit's own track number as the chart shows it (TacticalMap.track_number_text).
+static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "") -> Array:
 	var rows: Array = []
 	rows.append([[u.callsign, TITLE]])
 	rows.append(_kv("CLASS", u.spec.display_name.to_upper()))
-	rows.append(_kv("TRACK #", track_number_for_unit(u)))
+	if number != "":
+		rows.append(_kv("TRACK #", number))
 	if not u.alive:
 		rows.append(_kv("STATUS", "DESTROYED", ALERT))
 		return rows
@@ -238,6 +236,15 @@ static func track_rows(t: Track, ref: Unit, now: float) -> Array:
 			rows.append(_kv("BEARING", "%s from %s" % [brg, ref.callsign]))
 		else:
 			rows.append(_kv("RANGE", "%.1f nm, bearing %s from %s" % [ref.position.distance_to(t.position), brg, ref.callsign]))
+		# The relative-motion solution from the track as held: a planning aid, never truth.
+		var solution := RelativeMotion.solution(ref, t, now)
+		if bool(solution.get("valid", false)):
+			rows.append(_kv("CPA", "%.1f nm in %s" % [float(solution["distance_nm"]), Track._fmt_age(float(solution["time_s"]))]))
+		elif solution.has("closing_kn") and not t.is_bearing_only():
+			rows.append(_kv("CPA", str(solution["reason"]).capitalize()))
+		if solution.has("closing_kn") and not t.is_bearing_only():
+			var closing := float(solution["closing_kn"])
+			rows.append(_kv("CLOSING" if closing >= 0.0 else "OPENING", "%d KTS" % int(round(absf(closing)))))
 	return rows
 
 
@@ -405,10 +412,11 @@ func _draw() -> void:
 	draw_rect(_lamp_rect, COL_ALERT if lit else COL_LAMP_OFF)
 
 
+## The watch time without the date, as the old data displays showed it: "05:38:00Z".
 static func clock_text() -> String:
 	var s := SimClock.datetime_string()
-	var t := s.find("T")
-	return s.substr(t + 1) if t >= 0 else s
+	var cut := maxi(s.rfind(" "), s.rfind("T"))
+	return s.substr(cut + 1) if cut >= 0 else s
 
 
 func _gui_input(event: InputEvent) -> void:

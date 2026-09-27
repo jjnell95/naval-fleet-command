@@ -54,6 +54,7 @@ var _panel: PanelContainer
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	focus_mode = Control.FOCUS_ALL
 	var shade := ColorRect.new()
 	shade.color = Color(0, 0, 0, 0.15)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE

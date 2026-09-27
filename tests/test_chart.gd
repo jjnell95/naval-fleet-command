@@ -197,7 +197,8 @@ func test_regional_view_rectangle_follows_the_chart() -> void:
 	var regional: RegionalMap = f["regional"]
 	var view := regional.view_rect()
 	assert_near(view.get_center().x, 144.0, 0.01, "the rectangle is centred on the chart's centre")
-	assert_near(view.size.x, 1000.0 / 4.0 * 288.0 / 200.0, 0.01, "and as wide as the chart's view")
+	assert_near(view.size.x, 1000.0 / 4.0 * 288.0 / regional.wanted_extent_nm(), 0.01, "and as wide as the chart's view")
+	assert_near(regional.wanted_extent_nm(), 200.0 * RegionalMap.THEATRE_MARGIN, 0.01, "the pane shows the theatre with a margin")
 	map.ppn = 8.0
 	assert_near(regional.view_rect().size.x, view.size.x * 0.5, 0.01, "zooming the chart shrinks it")
 	_free(f)
@@ -207,22 +208,25 @@ func test_regional_click_recentres_drag_pans_and_wheel_zooms_the_chart() -> void
 	var f := _regional_fixture()
 	var map: TacticalMap = f["map"]
 	var regional: RegionalMap = f["regional"]
-	map.ppn = 8.0  # the rectangle spans x 54-234, y 90-198 of the pane
+	map.ppn = 8.0
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
-	click.position = Vector2(72, 72)
+	click.position = Vector2(12, 12)  # well outside the rectangle, which sits round the centre
+	assert_true(not regional.view_rect().has_point(click.position))
+	var expected := regional.regional_to_world(click.position)
 	regional._gui_input(click)
-	assert_near(map.center_nm.x, -50.0, 0.01, "a click outside the rectangle recentres the chart there")
-	assert_near(map.center_nm.y, 50.0, 0.01)
+	assert_near(map.center_nm.x, expected.x, 0.01, "a click outside the rectangle recentres the chart there")
+	assert_near(map.center_nm.y, expected.y, 0.01)
+	var scale := regional.size.x / regional.wanted_extent_nm()  # pane px per nm, now the chart has moved
 	var drag := InputEventMouseMotion.new()
 	drag.relative = Vector2(14.4, 0.0)
 	regional._gui_input(drag)
-	assert_near(map.center_nm.x, -40.0, 0.01, "dragging pans the chart by the pane's scale")
+	assert_near(map.center_nm.x, expected.x + 14.4 / scale, 0.01, "dragging pans the chart by the pane's scale")
 	click.pressed = false
 	regional._gui_input(click)
 	regional._gui_input(drag)
-	assert_near(map.center_nm.x, -40.0, 0.01, "a released drag no longer pans")
+	assert_near(map.center_nm.x, expected.x + 14.4 / scale, 0.01, "a released drag no longer pans")
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
 	wheel.pressed = true
@@ -463,3 +467,18 @@ func test_lost_own_platforms_stay_on_the_plot_in_grey_and_hostile_losses_do_not(
 	assert_true(map._wrecks.is_empty(), "a restart clears the wrecks")
 	map.free()
 	manager.free()
+
+
+func test_regional_pane_always_contains_the_chart_view() -> void:
+	var f := _regional_fixture()
+	var map: TacticalMap = f["map"]
+	var regional: RegionalMap = f["regional"]
+	var pane := Rect2(Vector2.ZERO, regional.size).grow(0.5)
+	for ppn in [8.0, 2.0, 0.6]:
+		map.ppn = ppn
+		for centre in [Vector2.ZERO, Vector2(150, -90)]:
+			map.center_nm = centre
+			regional._extent = 0.0  # settle at once rather than easing
+			assert_true(pane.encloses(regional.view_rect()), "the chart's view fits the regional pane at %.1f px/nm off %s" % [ppn, centre])
+	_free(f)
+

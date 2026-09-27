@@ -43,10 +43,8 @@ static func _text(rows: Array) -> String:
 
 func test_track_numbers_are_four_digits_for_contacts_and_own_units() -> void:
 	var t := _track("T1007", "HOSTILE", Vector2.ZERO)
-	assert_eq(DataDisplay.track_number_for_track(t), "1007")
-	var u := _unit()
-	u.id = 4
-	assert_eq(DataDisplay.track_number_for_unit(u), "0005", "own units number from one, zero-padded")
+	assert_eq(DataDisplay.track_number_for_track(t), "1007", "the data display quotes the chart's number")
+	assert_eq(DataDisplay.track_number_for_track(t), MapSymbols.track_number(t.id))
 
 
 func test_own_unit_rows_read_like_the_data_display() -> void:
@@ -54,7 +52,7 @@ func test_own_unit_rows_read_like_the_data_display() -> void:
 	u.id = 0
 	u.heading_deg = 325.4
 	u.speed_kn = 17.6
-	var text := _text(DataDisplay.unit_rows(u))
+	var text := _text(DataDisplay.unit_rows(u, null, "0001"))
 	assert_true(text.begins_with("USS Test\n"), "the name is the title line")
 	assert_true(text.contains("CLASS: %s" % u.spec.display_name.to_upper()), "class in capitals")
 	assert_true(text.contains("TRACK #: 0001"))
@@ -122,7 +120,7 @@ func test_radio_lines_name_the_speaker() -> void:
 	assert_eq(RadioNet.format_line("USS Test recovered", u), "USS Test recovered", "no doubled callsign")
 	assert_eq(RadioNet.format_line("Objective complete", null), "Objective complete")
 	var t := _track("T1003", "HOSTILE", Vector2.ZERO)
-	assert_eq(RadioNet.format_line("new contact", t), "Track 1003: new contact")
+	assert_eq(RadioNet.format_line("new contact", t), "T1003 UNK: new contact", "a contact goes by what the plot holds")
 
 
 func test_radio_net_keeps_history_and_lights_the_lamp_for_warnings() -> void:

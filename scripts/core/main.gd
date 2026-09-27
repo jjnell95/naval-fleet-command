@@ -108,7 +108,7 @@ func _ready() -> void:
 	_world_view.map = map
 	_world_view.simulation = simulation
 	_view_frame.add_child(_world_view)
-	_world_view.show_pane()
+	_world_view.set_mode(WorldView.Mode.FULL)
 	map.context_menu_requested.connect(_on_map_context)
 	contact_panel.track_manager = simulation.track_manager
 	contact_panel.player_faction = simulation.player_faction
@@ -317,7 +317,7 @@ func _arrange_views() -> void:
 	_bottom_strip.visible = not _world_full
 	$Layout/MapEdge.visible = not _world_full
 	map.visible = not _world_full
-	_world_view.show_pane()
+	_world_view.set_mode(WorldView.Mode.FULL)
 	call_deferred("_focus_map_if_clear")
 
 
@@ -471,6 +471,9 @@ func _begin_modal_pause() -> void:
 
 func _set_background_input_enabled(enabled: bool) -> void:
 	map.keyboard_navigation_enabled = enabled
+	# The 3D pane stops rendering behind a full-screen surface; nobody can see it there.
+	if _world_view != null:
+		_world_view.set_suspended(not enabled)
 	var layout := $Layout as Control
 	if enabled:
 		for node in _background_focus_modes:
@@ -676,7 +679,7 @@ static func _on_off(state: Dictionary, key: String) -> String:
 func _cds_state() -> Dictionary:
 	var state := {"symbol_mode": map.symbol_mode, "radar_coverage": regional.show_radar_coverage}
 	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "graticule", "key"]:
-		state[layer] = map.layer_enabled(layer)
+		state[layer] = map.has_layer(layer)
 	return state
 
 
@@ -755,7 +758,7 @@ func _run_palette_action(id: String) -> void:
 		"toggle_key":
 			map.toggle_layer("key")
 		"radar_coverage":
-			regional.show_radar_coverage = not regional.show_radar_coverage
+			regional.toggle_radar_coverage()
 		"range_circle":
 			map.toggle_range_circle()
 		"toggle_pause":
@@ -1249,7 +1252,7 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			items = CdsMenus.waypoint_items(owner, int(context.get("waypoint_index", 0)))
 		_:
 			items = CdsMenus.cds_items(_cds_state())
-	_cds_menus.open(items, map.get_global_transform_with_canvas() * screen_pos)
+	_cds_menus.open(items, context.get("viewport_pos", map.get_global_transform_with_canvas() * screen_pos))
 
 
 func _run_cds_action(action: Dictionary) -> void:

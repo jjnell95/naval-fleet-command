@@ -69,7 +69,9 @@ func test_regional_map_transform_round_trips_with_offset_theatre() -> void:
 		assert_near(recovered.x, world.x, 0.001, "regional map preserves world x")
 		assert_near(recovered.y, world.y, 0.001, "regional map preserves world y")
 	assert_eq(regional.world_to_regional(Vector2(320, -175)), Vector2(144, 144), "the theatre centre is the pane centre")
-	assert_near(regional.world_to_regional(Vector2(320, -175 + 240)).y, 0.0, 0.001, "the theatre extent spans the square pane, north up")
+	var half := regional.wanted_extent_nm() * 0.5
+	assert_near(regional.world_to_regional(Vector2(320, -175 + half)).y, 0.0, 0.001, "the pane's extent spans the square pane, north up")
+	assert_true(regional.wanted_extent_nm() >= 480.0, "and holds the whole theatre")
 	regional.free()
 	map.free()
 	simulation.free()

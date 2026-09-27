@@ -54,7 +54,7 @@ func clear() -> void:
 
 static func format(text: String, speaker: Variant) -> String:
 	var who := speaker_name(speaker)
-	if who == "" or text.begins_with(who + ":"):
+	if who == "" or text.begins_with(who):
 		return text
 	return "%s: %s" % [who, text]
 

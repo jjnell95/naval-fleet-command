@@ -1127,7 +1127,6 @@ func _draw() -> void:
 	_draw_readout()
 	_draw_radio_line()
 	_draw_key()
-	_draw_solution_card()
 	_draw_hover_card()
 
 
@@ -1808,10 +1807,6 @@ func _draw_threat_marks(u: Unit, sp: Vector2) -> void:
 		_shadow_text((wp + sp) * 0.5 + Vector2(4.0, -4.0), "%ds" % int(entry["time_s"]), 11)
 
 
-func _solution_rect() -> Rect2:
-	return Rect2(READOUT_MARGIN, READOUT_MARGIN, 320.0, READOUT_LINE_H * 4.0 + 8.0)
-
-
 ## The hooked pair's relative motion (the hooked own unit and its target): where each will be at
 ## the closest point of approach, in thin white.
 func _draw_relative_motion() -> void:
@@ -1830,24 +1825,6 @@ func _draw_relative_motion() -> void:
 		draw_arc(endpoint, 4.0, 0.0, TAU, 16, Color(COL_ROUTE, 0.85), 1.0, true)
 	var middle := own_end.lerp(contact_end, 0.5)
 	_shadow_text(middle + Vector2(4, -4), "CPA %.1f nm / %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)], 11)
-
-
-## The hooked contact's geometry from the reference unit, top-left, as plain readout lines.
-func _draw_solution_card() -> void:
-	if selected_track == null or show_key:
-		return
-	var t := selected_track
-	var ref := reference_unit()
-	var lines := PackedStringArray()
-	lines.append("%s  %s" % [MapSymbols.track_number(t.id), t.description()])
-	lines.append(t.range_text_from(ref.position) if ref != null else "No reference ship")
-	var solution := RelativeMotion.solution(ref, t, SimClock.sim_time)
-	if solution.valid:
-		lines.append("CPA %.1f nm in %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)])
-		lines.append("Closing %.0f kts  +/-%.1f nm" % [solution.closing_kn, solution.uncertainty_nm])
-	else:
-		lines.append(str(solution.reason))
-	_draw_text_block(_solution_rect().position + Vector2(0.0, READOUT_FONT_SIZE), lines)
 
 
 ## Rounds in flight: own ones always, an opposing one only while the plot holds it. Each is a small

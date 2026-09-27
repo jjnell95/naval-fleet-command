@@ -29,7 +29,7 @@ func flash(msg: String, severity := "info", speaker: RefCounted = null) -> void:
 	history.push_front("%s  %s" % [SimClock.datetime_string(), line])
 	if history.size() > MAX_HISTORY:
 		history.resize(MAX_HISTORY)
-	if map != null and map.has_method("post_message"):
+	if map != null:
 		map.post_message(line, severity, speaker)
 	if boards != null:
 		boards.add_message(line, severity)
@@ -38,19 +38,9 @@ func flash(msg: String, severity := "info", speaker: RefCounted = null) -> void:
 	logged.emit(line, severity)
 
 
+## "<callsign>: <text>", formatted exactly as the chart's radio line formats it.
 static func format_line(msg: String, speaker: RefCounted) -> String:
-	var who := speaker_name(speaker)
-	if who == "" or msg.begins_with(who):
-		return msg
-	return "%s: %s" % [who, msg]
-
-
-static func speaker_name(speaker: RefCounted) -> String:
-	if speaker is Unit:
-		return (speaker as Unit).callsign
-	if speaker is Track:
-		return "Track %s" % DataDisplay.track_number_for_track(speaker as Track)
-	return ""
+	return RadioLine.format(msg, speaker)
 
 
 ## The inbound-threat banner; empty clears it.

@@ -15,6 +15,12 @@ const DOT_RADIUS := 2.0
 const BRIGHTNESS := 0.55
 const SATURATION := 0.85  # the reference pane keeps most of its colour; 0.7 read grey
 const MAX_COVERAGE := 16
+## The pane shows the theatre with this much margin, and never less than the chart's whole view,
+## so the magenta rectangle always sits inside it: the regional display is the wider picture.
+const THEATRE_MARGIN := 1.8
+const VIEW_MARGIN := 1.15
+const MIN_EXTENT_NM := 240.0
+const MAX_EXTENT_NM := 2400.0
 
 var map: TacticalMap
 ## Radar-coverage discs (on by default).
@@ -23,6 +29,7 @@ var show_radar_coverage := true
 var _floor: ChartFloor
 var _land: ChartLand
 var _dragging := false
+var _extent := 0.0  # eased toward wanted_extent_nm(), so zooming the chart does not jolt the pane
 
 
 func _ready() -> void:
@@ -40,7 +47,9 @@ func _ready() -> void:
 		add_child(layer)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var wanted := wanted_extent_nm()
+	_extent = wanted if _extent <= 0.0 or wanted > _extent else lerpf(_extent, wanted, clampf(delta * 3.0, 0.0, 1.0))
 	var discs: Array[Vector3] = []
 	if show_radar_coverage:
 		discs = radar_coverage()
@@ -69,7 +78,20 @@ func _chart_center() -> Vector2:
 
 
 func _extent_nm() -> float:
-	return maxf(map.simulation.map_extent_nm if map != null and map.simulation != null else 200.0, 1.0)
+	return _extent if _extent > 0.0 else wanted_extent_nm()
+
+
+## Side of the square the pane covers, in nm: the theatre with a margin, grown to hold the whole
+## tactical chart view around the theatre centre, within sane limits.
+func wanted_extent_nm() -> float:
+	var theatre: float = map.simulation.map_extent_nm if map != null and map.simulation != null else 200.0
+	var extent := theatre * THEATRE_MARGIN
+	if map != null and map.size.x > 0.0:
+		var centre := _chart_center()
+		for corner in [Vector2.ZERO, Vector2(map.size.x, 0.0), map.size, Vector2(0.0, map.size.y)]:
+			var d: Vector2 = (map.screen_to_world(corner) - centre).abs()
+			extent = maxf(extent, 2.0 * maxf(d.x, d.y) * VIEW_MARGIN)
+	return clampf(extent, MIN_EXTENT_NM, MAX_EXTENT_NM)
 
 
 func _scale() -> float:
