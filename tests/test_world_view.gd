@@ -543,6 +543,36 @@ func test_flyby_waits_ahead_and_beside_then_moves_on_once_passed() -> void:
 	assert_true(moved["cut"], "once passed, it cuts to a new station")
 
 
+func test_flyby_holds_its_station_for_a_fast_jet_until_it_has_flown_past() -> void:
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.FLYBY)
+	var speed := 450.0 * 0.5144  # an F-14 at 450 kn, 19 m long, heading north at 3000 m
+	var jet := {"position": Vector3(0, 3000, 0), "length": 19.0, "heading": 0.0, "domain": "air", "speed_mps": speed}
+	var dt := 1.0 / 60.0
+	var cuts := 0
+	for i in 120:
+		var shot := cam.update(dt, Vector2(0.0, speed * dt * i / WorldPresentation.NM_TO_M), jet, Callable())
+		cuts += 1 if shot["cut"] else 0
+	assert_eq(cuts, 1, "the camera waits kilometres ahead of a fast jet instead of re-stationing every frame")
+	var first_pass := -1.0
+	cuts = 0
+	for i in 120:
+		var t := 2.0 + i * 0.25
+		var shot := cam.update(0.25, Vector2(0.0, speed * t / WorldPresentation.NM_TO_M), jet, Callable())
+		if shot["cut"]:
+			cuts += 1
+			if first_pass < 0.0:
+				first_pass = t
+	assert_eq(cuts, 1, "in the next half minute it moves on once, after the jet has gone by")
+	assert_true(first_pass > WorldCamera.FLYBY_LEAD_S and first_pass < WorldCamera.FLYBY_LEAD_S + 1.0, "about twenty seconds after the station was placed, got %.2f s" % first_pass)
+	var station := WorldCamera.flyby_station(Vector2.ZERO, 0.0, speed, 19.0, "air", 3000.0)
+	var start := Vector2(station.x, station.y).length() * WorldPresentation.NM_TO_M
+	var west_of := func(k: float) -> Vector2: return Vector2(station.x, station.y) + Vector2(-k * start / WorldPresentation.NM_TO_M, 0.0)
+	assert_true(not WorldCamera.flyby_passed(station, west_of.call(1.2), 90.0, 19.0, start), "a jet that has turned across its course is still waited for a little beyond the station's range")
+	assert_true(WorldCamera.flyby_passed(station, west_of.call(1.6), 90.0, 19.0, start), "and given up once it is well beyond it")
+	assert_true(WorldCamera.flyby_passed(station, west_of.call(1.2), 90.0, 19.0), "without the station's range, the old fixed give-up distance")
+
+
 func test_detached_freezes_the_eye_and_keeps_looking() -> void:
 	var cam := WorldCamera.new()
 	var shot := cam.update(0.016, Vector2.ZERO, _frame(Vector3.ZERO, 0.0), Callable())

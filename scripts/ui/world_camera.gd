@@ -59,6 +59,7 @@ var _valid := false
 var _cut := true
 var _station := Vector3.ZERO  # fly-by eye, chart coordinates
 var _station_valid := false
+var _station_range_m := 0.0  # how far the subject was from the station when it was placed
 var _detached := Vector3.ZERO  # detached eye, chart coordinates
 var _detached_valid := false
 var _last_eye := Vector3.ZERO  # the previous shot's eye, chart coordinates
@@ -229,8 +230,9 @@ func _flyby_shot(origin_nm: Vector2, subject: Dictionary) -> Dictionary:
 	var heading := float(subject.get("heading", 0.0))
 	var here := to_chart(target, origin_nm)
 	var here_nm := Vector2(here.x, here.y)
-	if not _station_valid or flyby_passed(_station, here_nm, heading, length):
+	if not _station_valid or flyby_passed(_station, here_nm, heading, length, _station_range_m):
 		_station = flyby_station(here_nm, heading, float(subject.get("speed_mps", 0.0)), length, String(subject.get("domain", "surface")), here.z)
+		_station_range_m = ((Vector2(_station.x, _station.y) - here_nm) * WorldPresentation.NM_TO_M).length()
 		_station_valid = true
 		_cut = true
 	return {"eye": to_world(_station, origin_nm), "look": target, "fov": FOV_DEG}
@@ -302,12 +304,14 @@ static func flyby_station(pos_nm: Vector2, heading_deg: float, speed_mps: float,
 
 
 ## True once the subject has run far enough past a fly-by station, or strayed so far from it that
-## waiting is pointless.
-static func flyby_passed(station: Vector3, pos_nm: Vector2, heading_deg: float, length_m: float) -> bool:
+## waiting is pointless. `start_range_m` is how far off the station was placed: a fast subject's
+## station is kilometres ahead, and it has not strayed until it is well beyond that.
+static func flyby_passed(station: Vector3, pos_nm: Vector2, heading_deg: float, length_m: float, start_range_m := 0.0) -> bool:
 	var length := maxf(length_m, 12.0)
 	var rel := (pos_nm - Vector2(station.x, station.y)) * WorldPresentation.NM_TO_M
 	var along := rel.dot(Geo.heading_to_vector(heading_deg))
-	return along > length * FLYBY_PAST_LENGTHS or rel.length() > maxf(length * FLYBY_GIVE_UP_LENGTHS, 2500.0)
+	var give_up := maxf(maxf(length * FLYBY_GIVE_UP_LENGTHS, 2500.0), start_range_m * 1.5)
+	return along > length * FLYBY_PAST_LENGTHS or rel.length() > give_up
 
 
 ## Where Action stands to watch an event at `at`: along the line from the event back toward the
