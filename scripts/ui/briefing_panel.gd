@@ -123,12 +123,12 @@ func _ready() -> void:
 		start_pressed.emit())
 	buttons.add_child(_start)
 	_restart = _button("RESTART")
-	_restart.tooltip_text = "Reload this operation from its starting positions  [F10]"
+	_restart.tooltip_text = "Reload this operation from its starting positions  [Ctrl+F10]"
 	UIIcons.apply(_restart, "restart", 16)
 	_restart.pressed.connect(func() -> void: restart_pressed.emit())
 	buttons.add_child(_restart)
 	_menu = _button("ALL OPERATIONS")
-	_menu.tooltip_text = "Return to the operations desk  [F9]"
+	_menu.tooltip_text = "Return to the operations desk  [M]"
 	UIIcons.apply(_menu, "menu", 16)
 	_menu.pressed.connect(func() -> void: menu_pressed.emit())
 	buttons.add_child(_menu)
@@ -299,14 +299,16 @@ func _append_situation(out: PackedStringArray) -> void:
 
 
 func _append_controls(out: PackedStringArray) -> void:
-	out.append(_section("SELECT, PLOT, COMMIT"))
-	out.append("[b]Left click[/b] selects a ship or contact. [b]Shift-click[/b] adds friendly units to a group.\n[b]G[/b] arms Plot Move; left-click water to set the destination. Hold Shift to chain waypoints. Escape or right-click cancels.\n[b]R[/b] toggles radar, [b]P[/b] active sonar, [b]E[/b] emission control.\n")
+	out.append(_section("HOOK, ORDER, ENGAGE"))
+	out.append("[b]Left click[/b] hooks a platform or contact. [b]Shift-click[/b] adds friendly units to a group.\n[b]Right-click[/b] water to send the hooked platform there (Shift adds a waypoint); right-click your own platform for its orders menu, a contact for [b]Engage with[/b], empty chart with nothing hooked for the display menu.\n[b]W[/b] arms a route; left-click water for each leg. [b]R[/b] radar, [b]P[/b] active sonar, [b]E[/b] emission control.\n")
 	out.append(_section("CHART & CONTACT PICTURE"))
-	out.append("[b]Wheel / pinch[/b] zooms. Middle/right/Option-drag pans.\n[b]B[/b] expands or restores the chart. [b]Home[/b] fits the force. [b]F[/b] follows the selected platform or contact. [b]C[/b] focuses the shooter-target problem.\n[b]N / Shift-N[/b] cycles priority contacts. The Tactical Overview recentres the chart.\n")
-	out.append(_section("AIR OPERATIONS"))
-	out.append("[b]AIR / F3[/b] opens aircraft selection, sortie size, readiness and landing controls.\nSelect airborne aircraft, choose a landing facility, then [b]Return & Land[/b]. Landed aircraft refuel and rearm before relaunch.\n")
+	out.append("[b]Wheel / pinch[/b] zooms. Right-drag, middle-drag or the arrow keys pan. The regional map at the bottom left pans and zooms the chart too.\n[b]Home[/b] fits the force. [b]F[/b] follows the hooked platform or contact. [b]C[/b] centres the shooter-target problem. [b]B[/b] draws a range circle.\n[b]N / Shift-N[/b] cycles priority contacts; [b].[/b] hooks the next own platform. [b]Tab[/b] switches NTDS and graphic symbols; [b]Shift-V / K / I[/b] velocity leaders, track numbers, tags.\n")
+	out.append(_section("3D VIEW"))
+	out.append("[b]T[/b] cycles the cameras: [b]F9[/b] tether, [b]F11[/b] fly-by, [b]F12[/b] action, [b]F8[/b] detached. [b]G[/b] swaps the chart and the 3D view. [b]F10[/b] gives the 3D view the whole window.\n")
+	out.append(_section("BOARDS, AIR OPERATIONS AND SCREENS"))
+	out.append("[b]A[/b] opens the status boards: orders, task group, track file and comms. [b]F3[/b] air operations: aircraft type, sortie size, readiness and where to land. [b]F7[/b] reference. [b]M[/b] missions, [b]Ctrl-E[/b] editor, [b]Ctrl-F10[/b] twice restarts.\n")
 	out.append(_section("TIME & DISPLAY"))
-	out.append("[b]Space[/b] pauses. [b]1–6[/b] sets acceleration. Use real time when contacts close; accelerate when the force is on station.\n[b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] terrain · [b]V[/b] vectors · [b]M[/b] sound.\n[b]Command-K / Control-K[/b] opens the searchable Actions palette.")
+	out.append("[b]Space[/b] pauses, or click TIME on the data display. [b]1–6[/b] sets acceleration, or click SCALE. Use real time when contacts close; accelerate when the force is on station.\n[b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] relief shading · [b]Ctrl-L / S / W[/b] lat-long, scale, radar coverage · [b]Ctrl-M[/b] sound.\n[b]H[/b] lists every key command. [b]Command-K / Control-K[/b] opens the searchable Actions palette.")
 
 
 func _line(o: MissionObjective, loss := false) -> String:

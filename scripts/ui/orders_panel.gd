@@ -80,7 +80,7 @@ func _ready() -> void:
 	_status.add_theme_font_size_override("font_size", 13)
 	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chain.add_child(_status)
-	_move_btn = _quick_toggle("PLOT MOVE", "Arm a visible left-click move order. Shift adds waypoints; Escape cancels.  [G]", func() -> void:
+	_move_btn = _quick_toggle("PLOT MOVE", "Arm a visible left-click move order. Shift adds waypoints; Escape cancels. Right-click water moves at once.  [W]", func() -> void:
 		move_mode_requested.emit(_move_btn.button_pressed))
 	UIIcons.apply(_move_btn, "route", 16)
 	quick.add_child(_move_btn)

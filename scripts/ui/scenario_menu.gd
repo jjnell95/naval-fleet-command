@@ -192,7 +192,7 @@ func _ready() -> void:
 	_play.pressed.connect(_on_play)
 	buttons.add_child(_play)
 	var edit := _button("SCENARIO EDITOR")
-	edit.tooltip_text = "Build or modify a mission  [F8]"
+	edit.tooltip_text = "Build or modify a mission  [Ctrl+E]"
 	UIIcons.apply(edit, "route", 18)
 	edit.pressed.connect(func() -> void: editor_requested.emit())
 	buttons.add_child(edit)

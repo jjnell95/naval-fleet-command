@@ -103,7 +103,7 @@ func _ready() -> void:
 	buttons.add_theme_constant_override("separation", 8)
 	v.add_child(buttons)
 	var focus_buttons: Array[Button] = []
-	for entry in [["REVIEW THE PICTURE", review_pressed, true, "eye", "Close the report and look over the final chart  [Esc]"], ["RESTART", restart_pressed, false, "restart", "Run this operation again  [F10]"], ["ALL OPERATIONS", menu_pressed, false, "menu", "Choose another operation  [F9]"]]:
+	for entry in [["REVIEW THE PICTURE", review_pressed, true, "eye", "Close the report and look over the final chart  [Esc]"], ["RESTART", restart_pressed, false, "restart", "Run this operation again  [Ctrl+F10]"], ["ALL OPERATIONS", menu_pressed, false, "menu", "Choose another operation  [M]"]]:
 		var b := Button.new()
 		b.text = entry[0]
 		b.tooltip_text = entry[4]

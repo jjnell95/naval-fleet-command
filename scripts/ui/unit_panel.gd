@@ -185,13 +185,16 @@ func _refresh() -> void:
 		_body.text = "\n".join([
 			_h("CONTROLS"),
 			_kv("Click", "select   ·   Shift+click add"),
-			_kv("G / Move", "arm route   ·   left-click water   ·   Shift chains"),
+			_kv("Right-click", "water: transit   ·   platform: orders   ·   contact: engage"),
+			_kv("W / Route", "arm route   ·   left-click water   ·   Shift chains"),
 			_kv("Pan", "middle/right/Option-drag"),
 			_kv("Wheel", "zoom   ·   WASD pan"),
 			_kv("Space", "pause   ·   1–6 time speed"),
 			_kv("R / P / E", "radar · ping · emissions control"),
 			_kv("F1", "briefing   ·   F2 key   ·   F4 rings"),
-			_kv("F3", "air operations   ·   F5 trails   ·   F6 land"),
+			_kv("F3", "air operations   ·   F5 trails   ·   F6 relief"),
+			_kv("G / F10", "swap chart and 3D   ·   3D full screen"),
+			_kv("A / H", "status boards   ·   key commands"),
 			_h("HOW TO FIGHT"),
 			"Build the picture first: get your airborne early warning up, keep the fighters on the threat axis, and let contacts classify before you shoot. Ships defend themselves; you decide emissions, posture, station and magazines.",
 		])
