@@ -1,0 +1,34 @@
+{
+ "region": "mediterranean",
+ "source": "AWS Open Data Terrain Tiles (Tilezen), Terrarium encoding, zoom 6: GMTED2010 on land",
+ "url": "https://registry.opendata.aws/terrain-tiles/",
+ "credit": "GMTED2010 terrain data courtesy of the U.S. Geological Survey",
+ "license": "Public domain (U.S. Government work)",
+ "tiles": 84,
+ "tiles_sha256": "a61652060141ee04b0898f6ffc54877106767a418480335d5f4078496d0fdc27",
+ "bounds_lon_lat": [
+  -7.0,
+  29.0,
+  43.0,
+  47.0
+ ],
+ "size_px": [
+  1500,
+  1080
+ ],
+ "cell_deg": [
+  0.03333333333333333,
+  0.016666666666666666
+ ],
+ "row_order": "north_to_south",
+ "encoding": "height_m = height_scale_m * (value / 255)^2; 0 is sea level or below",
+ "height_scale_m": 6000.0,
+ "relief": {
+  "file": "mediterranean_land_relief.png",
+  "azimuth_deg": 315.0,
+  "altitude_deg": 45.0,
+  "vertical_exaggeration": 7.0,
+  "encoding": "128 is flat"
+ },
+ "note": "Presentation only: the chart's land tint and relief. The simulation never reads it."
+}

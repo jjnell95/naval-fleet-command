@@ -1,0 +1,34 @@
+{
+ "region": "west_pacific",
+ "source": "AWS Open Data Terrain Tiles (Tilezen), Terrarium encoding, zoom 6: GMTED2010 on land",
+ "url": "https://registry.opendata.aws/terrain-tiles/",
+ "credit": "GMTED2010 terrain data courtesy of the U.S. Geological Survey",
+ "license": "Public domain (U.S. Government work)",
+ "tiles": 182,
+ "tiles_sha256": "28c29d15c38054b1bf7250beedadd7a0a35ec1d7ebfec70133835d1dd2fcc944",
+ "bounds_lon_lat": [
+  99.0,
+  -2.0,
+  152.0,
+  52.0
+ ],
+ "size_px": [
+  1272,
+  2592
+ ],
+ "cell_deg": [
+  0.041666666666666664,
+  0.020833333333333332
+ ],
+ "row_order": "north_to_south",
+ "encoding": "height_m = height_scale_m * (value / 255)^2; 0 is sea level or below",
+ "height_scale_m": 6000.0,
+ "relief": {
+  "file": "west_pacific_land_relief.png",
+  "azimuth_deg": 315.0,
+  "altitude_deg": 45.0,
+  "vertical_exaggeration": 7.0,
+  "encoding": "128 is flat"
+ },
+ "note": "Presentation only: the chart's land tint and relief. The simulation never reads it."
+}
