@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "jmsdf_ddh_izumo"
+display_name = "Izumo-class multi-purpose destroyer (F-35B conversion)"
+short_name = "DDH Izumo"
+nation = "Japan"
+category = "aircraft carrier"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 18.0
+turn_rate_deg_s = 1.2
+accel_kn_s = 0.12
+health = 300.0
+signature_factor = 2.5
+mast_height_m = 40.0
+sensor_ids = PackedStringArray("jmsdf_ops50", "jmsdf_oqq23", "jmsdf_nolq3")
+weapon_loadout = {"ram_block2": 22, "phalanx_ciws": 60}
+decoy_count = 20
+decoy_effectiveness = 0.35
+fire_control_channels = 2
+role = "STOVL carrier / ASW helicopter group / flagship"
+service_note = "After the deck modification for F-35B. The fighters belong to the Air Self-Defense Force and embark as a detachment."
+length_m = 248.0
+displacement_t = 27000.0
+aircraft_capacity = 28
+aviation_facility = "stovl"
+launch_spots = 2
+recovery_spots = 2
+turnaround_s = 2700.0
+default_air_wing = {"jasdf_fighter_f35b": 6, "jmsdf_helo_sh60k": 3}
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

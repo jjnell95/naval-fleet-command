@@ -29,8 +29,9 @@ channel, a wreck or under-keel clearance, and must never be read as a navigation
 
 Build-only dependencies: pyshp==3.1.6, shapely==2.1.2, numpy, scipy, pillow, OpenEXR.
 Usage:
-    python import_bathymetry.py /path/to/ne_10m_bathymetry_all   # directory of .shp/.shx/.dbf
-    python import_bathymetry.py /path/to/ne_10m_bathymetry_all.zip
+    python import_bathymetry.py /path/to/ne_10m_bathymetry_all [region ...]   # directory of .shp/.shx/.dbf
+    python import_bathymetry.py /path/to/ne_10m_bathymetry_all.zip [region ...]
+Regions are the chart regions in regions.py; with none named every region is built.
 The source is the official Natural Earth 5.1.1 release, identical to the v5.1.1 tag of
 github.com/nvkelso/natural-earth-vector (10m_physical/ne_10m_bathymetry_all).
 """
@@ -51,11 +52,15 @@ from shapely import segmentize
 from shapely.geometry import box, shape
 from shapely.ops import transform
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from regions import REGIONS
+
 ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = ROOT / "data" / "bathymetry"
-NAME = "north_atlantic"
 
-# Same region as tools/scenarios/coastlines.json, so every chart that has land has a floor.
+# Filled in per region from regions.py, the same table the coastline extraction uses, so every
+# chart that has land has a floor.
+NAME = "north_atlantic"
 LON_MIN, LAT_MIN, LON_MAX, LAT_MAX = -46.0, 52.0, 55.0, 81.0
 DLAT = 1.0 / 60.0  # one nautical mile north-south
 DLON = 1.0 / 30.0  # 0.3 to 1.2 nm east-west across the region
@@ -70,6 +75,16 @@ RELIEF_EXAGGERATION = 24.0  # sea-floor slopes are gentle; shading needs a verti
 RELIEF_AZIMUTH_DEG, RELIEF_ALTITUDE_DEG = 315.0, 45.0
 EARTH_R_NM = 3440.065
 LAT0, LON0 = math.radians(66.5), math.radians(4.5)
+
+
+def select_region(name):
+    """Point the module constants at one chart region."""
+    global NAME, LON_MIN, LAT_MIN, LON_MAX, LAT_MAX, DLON, DLAT, LAT0, LON0
+    r = REGIONS[name]
+    NAME = name
+    LON_MIN, LAT_MIN, LON_MAX, LAT_MAX = r["bounds"]
+    DLON, DLAT = r["dlon"], r["dlat"]
+    LAT0, LON0 = math.radians(r["stereo"][0]), math.radians(r["stereo"][1])
 
 
 def stereo(lon, lat):
@@ -227,6 +242,7 @@ def main(source):
                       {"R": np.ascontiguousarray(chart)}) as exr:
         exr.write(str(chart_exr))
     meta = {
+        "region": NAME,
         "source": "Natural Earth 1:10m physical vectors, bathymetry (all depths)",
         "version": "5.1.1",
         "url": "https://github.com/nvkelso/natural-earth-vector/tree/v5.1.1/10m_physical/ne_10m_bathymetry_all",
@@ -256,4 +272,7 @@ def main(source):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    for region in sys.argv[2:] or list(REGIONS):
+        select_region(region)
+        print(f"== {region}: {REGIONS[region]['title']}")
+        main(sys.argv[1])

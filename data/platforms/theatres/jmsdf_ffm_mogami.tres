@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "jmsdf_ffm_mogami"
+display_name = "Mogami-class frigate (FFM)"
+short_name = "FFM Mogami"
+nation = "Japan"
+category = "frigate"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.8
+accel_kn_s = 0.22
+health = 85.0
+signature_factor = 0.55
+mast_height_m = 26.0
+sensor_ids = PackedStringArray("jmsdf_opy2", "jmsdf_oqq25", "jmsdf_nolq3")
+weapon_loadout = {"jmsdf_type17_ssm": 8, "ram_block2": 11, "mk45_mod4_gun": 250, "jmsdf_type12_torpedo": 6}
+decoy_count = 12
+decoy_effectiveness = 0.35
+fire_control_channels = 2
+role = "Multi-role frigate / mine and littoral warfare"
+service_note = "A stealthy hull with a unified mast. SeaRAM is its only missile air defence; the vertical launcher fitted to later hulls is left empty here."
+length_m = 133.0
+displacement_t = 5500.0
+aircraft_capacity = 1
+default_air_wing = {"jmsdf_helo_sh60k": 1}
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

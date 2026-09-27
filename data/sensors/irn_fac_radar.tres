@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "irn_fac_radar"
+display_name = "Fast-attack-craft navigation radar"
+kind = "radar"
+emits = true
+range_surface_nm = 12.0
+range_air_nm = 6.0
+antenna_height_m = 6.0
+classify_rate = 0.5
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

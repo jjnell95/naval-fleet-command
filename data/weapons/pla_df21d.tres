@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_df21d"
+display_name = "DF-21D anti-ship ballistic missile"
+family = "DF-21D anti-ship ballistic missile"
+type = "asm"
+target_types = PackedStringArray("surface")
+guidance = "inertial_terminal_seeker"
+profile = "ballistic"
+max_range_nm = 800.0
+min_range_nm = 80.0
+speed_kn = 6000.0
+damage = 110.0
+base_pk = 0.5
+salvo_default = 2
+launch_interval_s = 30.0
+seeker_range_nm = 6.0
+turn_rate_deg_s = 6.0
+signature_factor = 0.5
+altitude_m = 60000.0
+soft_kill_resistance = 6.0
+defensive_difficulty = 2.2
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

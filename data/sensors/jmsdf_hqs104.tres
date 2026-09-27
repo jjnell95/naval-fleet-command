@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "jmsdf_hqs104"
+display_name = "HQS-104 dipping sonar"
+kind = "sonar"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 0.0
+classify_rate = 1.1
+passive_sensitivity_nm = 34.0
+active_range_nm = 11.0
+bearing_accuracy_deg = 1.6
+self_noise_tolerance = 0.5
+array_depth_m = 300.0
+requires_hover = true
+cz_capable = false
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

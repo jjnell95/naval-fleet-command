@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "irn_ffg_alvand"
+display_name = "Alvand-class frigate (Vosper Mk 5)"
+short_name = "FFG Alvand"
+nation = "Iran"
+category = "frigate"
+domain = "surface"
+max_speed_kn = 34.0
+cruise_speed_kn = 15.0
+turn_rate_deg_s = 3.2
+accel_kn_s = 0.22
+health = 55.0
+signature_factor = 0.7
+mast_height_m = 22.0
+sensor_ids = PackedStringArray("irn_aws1_radar", "irn_esm")
+weapon_loadout = {"irn_noor": 4, "mk8_114mm_gun": 200, "irn_oerlikon_35mm": 40}
+decoy_count = 4
+decoy_effectiveness = 0.35
+fire_control_channels = 0
+role = "Surface patrol"
+service_note = "A 1970s hull rearmed with Noor; no missile air defence since the Seacat was landed."
+length_m = 94.5
+displacement_t = 1540.0
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

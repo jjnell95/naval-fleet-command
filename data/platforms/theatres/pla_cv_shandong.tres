@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_cv_shandong"
+display_name = "Type 002 aircraft carrier (Shandong)"
+short_name = "CV Shandong"
+nation = "China"
+category = "aircraft carrier"
+domain = "surface"
+max_speed_kn = 31.0
+cruise_speed_kn = 18.0
+turn_rate_deg_s = 1.0
+accel_kn_s = 0.1
+health = 350.0
+signature_factor = 2.8
+mast_height_m = 48.0
+sensor_ids = PackedStringArray("pla_type346a", "pla_type382", "pla_esm")
+weapon_loadout = {"pla_hhq10": 54, "pla_hpj11_ciws": 120}
+decoy_count = 24
+decoy_effectiveness = 0.35
+fire_control_channels = 2
+role = "Ski-jump carrier / fleet air defence"
+service_note = "STOBAR deck: a ski jump forward and arrester wires aft, so J-15s launch with reduced fuel and stores and recover one at a time. The represented detachment is a scenario allocation, not the full air group."
+length_m = 305.0
+displacement_t = 66000.0
+aircraft_capacity = 36
+aviation_facility = "stobar"
+launch_spots = 2
+recovery_spots = 1
+turnaround_s = 2700.0
+default_air_wing = {"pla_fighter_j15": 8, "pla_aew_z18j": 1, "pla_helo_z18f": 2, "pla_helo_z9c": 1}
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

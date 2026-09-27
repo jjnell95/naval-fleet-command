@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_yu7"
+display_name = "Yu-7 lightweight torpedo"
+family = "Yu-7 lightweight torpedo"
+type = "torpedo"
+target_types = PackedStringArray("subsurface")
+guidance = "acoustic_homing"
+profile = "subsurface"
+max_range_nm = 6.0
+min_range_nm = 0.4
+speed_kn = 43.0
+damage = 55.0
+base_pk = 0.68
+salvo_default = 2
+launch_interval_s = 20.0
+seeker_range_nm = 2.2
+turn_rate_deg_s = 12.0
+signature_factor = 0.12
+altitude_m = 0.0
+soft_kill_resistance = 0.7
+run_to_enable_nm = 0.4
+acoustic_signature = 0.65
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

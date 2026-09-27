@@ -134,7 +134,7 @@ func _recovered_count(um: UnitManager) -> int:
 			continue
 		var matching := facility == "" or int(a.completed_sorties_by_facility.get(facility, 0)) > 0
 		if facility == "deck":
-			for kind in ["catobar", "stovl", "helicopter"]:
+			for kind in ["catobar", "stobar", "stovl", "helicopter"]:
 				matching = matching or int(a.completed_sorties_by_facility.get(kind, 0)) > 0
 		if matching:
 			recovered += 1

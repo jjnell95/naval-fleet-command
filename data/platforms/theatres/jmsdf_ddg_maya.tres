@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "jmsdf_ddg_maya"
+display_name = "Maya-class destroyer (27DDG)"
+short_name = "DDG Maya"
+nation = "Japan"
+category = "destroyer"
+domain = "surface"
+max_speed_kn = 30.0
+cruise_speed_kn = 16.0
+turn_rate_deg_s = 2.8
+accel_kn_s = 0.22
+health = 125.0
+signature_factor = 1.05
+mast_height_m = 32.0
+sensor_ids = PackedStringArray("an_spy_1d_v", "jmsdf_oqq24", "jmsdf_oqr4", "jmsdf_nolq3")
+weapon_loadout = {"sm2_family": 32, "sm3_family": 8, "sm6_family": 8, "essm_family": 16, "jmsdf_type17_ssm": 8, "jmsdf_type07_vla": 8, "mk45_mod4_gun": 300, "phalanx_ciws": 60, "jmsdf_type12_torpedo": 6}
+decoy_count = 14
+decoy_effectiveness = 0.35
+fire_control_channels = 6
+role = "Aegis area air and ballistic missile defence"
+service_note = "Aegis Baseline J7 with cooperative engagement; 96 cells shared between Standard, SM-3, SM-6, ESSM and the Type 07 rocket. Eight Type 17 in canisters."
+length_m = 170.0
+displacement_t = 10250.0
+aircraft_capacity = 1
+vls_cells = 96
+default_air_wing = {"jmsdf_helo_sh60k": 1}
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

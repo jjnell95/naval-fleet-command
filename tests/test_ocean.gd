@@ -75,18 +75,68 @@ func _reset() -> void:
 
 # --- The chart --------------------------------------------------------------------------
 
-func test_runtime_constants_match_the_built_raster() -> void:
-	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/bathymetry/north_atlantic_depth.json"))
-	assert_near(float(meta["bounds_lon_lat"][0]), Bathymetry.LON_MIN, 1e-6, "west edge")
-	assert_near(float(meta["bounds_lon_lat"][3]), Bathymetry.LAT_MAX, 1e-6, "north edge")
-	assert_near(float(meta["cell_deg"][0]), Bathymetry.CELL_LON_DEG, 1e-9, "longitude cell")
-	assert_near(float(meta["cell_deg"][1]), Bathymetry.CELL_LAT_DEG, 1e-9, "latitude cell")
-	assert_near(float(meta["depth_scale_m"]), Bathymetry.DEPTH_SCALE_M, 1e-6, "encoding scale")
-	var img := Bathymetry.source_image()
-	assert_true(img != null, "the raster loads without a renderer")
-	if img != null:
-		assert_eq(img.get_width(), int(meta["size_px"][0]), "raster width")
-		assert_eq(img.get_height(), int(meta["size_px"][1]), "raster height")
+func test_runtime_constants_match_the_built_rasters() -> void:
+	for name: String in Bathymetry.REGIONS:
+		var r: Dictionary = Bathymetry.REGIONS[name]
+		var meta_path := "res://data/bathymetry/%s_depth.json" % name
+		assert_true(FileAccess.file_exists(meta_path), "%s has raster metadata" % name)
+		if not FileAccess.file_exists(meta_path):
+			continue
+		var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(meta_path))
+		assert_eq(str(meta.get("region", name)), name, "%s metadata names its region" % name)
+		assert_near(float(meta["bounds_lon_lat"][0]), float(r["lon_min"]), 1e-6, "%s west edge" % name)
+		assert_near(float(meta["bounds_lon_lat"][1]), float(r["lat_min"]), 1e-6, "%s south edge" % name)
+		assert_near(float(meta["bounds_lon_lat"][2]), float(r["lon_max"]), 1e-6, "%s east edge" % name)
+		assert_near(float(meta["bounds_lon_lat"][3]), float(r["lat_max"]), 1e-6, "%s north edge" % name)
+		assert_near(float(meta["cell_deg"][0]), float(r["cell_lon"]), 1e-9, "%s longitude cell" % name)
+		assert_near(float(meta["cell_deg"][1]), float(r["cell_lat"]), 1e-9, "%s latitude cell" % name)
+		assert_near(float(meta["depth_scale_m"]), Bathymetry.DEPTH_SCALE_M, 1e-6, "%s encoding scale" % name)
+		var img := Bathymetry.source_image(name)
+		assert_true(img != null, "%s raster loads without a renderer" % name)
+		if img != null:
+			assert_eq(img.get_width(), int(meta["size_px"][0]), "%s raster width" % name)
+			assert_eq(img.get_height(), int(meta["size_px"][1]), "%s raster height" % name)
+		assert_true(ResourceLoader.exists(Bathymetry.chart_path(name)), "%s has a chart texture" % name)
+		assert_true(ResourceLoader.exists(Bathymetry.relief_path(name)), "%s has a relief texture" % name)
+
+
+func test_anchor_selects_the_region_with_the_most_margin() -> void:
+	assert_eq(Bathymetry.region_for(68.0, 8.0), "north_atlantic")
+	assert_eq(Bathymetry.region_for(56.8, 18.5), "north_atlantic", "the Baltic is on the Atlantic raster")
+	assert_eq(Bathymetry.region_for(24.0, 122.0), "west_pacific")
+	assert_eq(Bathymetry.region_for(40.0, 134.0), "west_pacific", "the Sea of Japan")
+	assert_eq(Bathymetry.region_for(26.5, 56.5), "arabian_sea")
+	assert_eq(Bathymetry.region_for(14.5, 42.8), "arabian_sea", "the Red Sea")
+	assert_eq(Bathymetry.region_for(34.5, 33.0), "mediterranean")
+	assert_eq(Bathymetry.region_for(-50.0, -100.0), "", "the Southern Ocean is uncharted")
+	assert_eq(Bathymetry.region_for(31.3, 32.3), "mediterranean", "Port Said sits deeper inside the Mediterranean sheet than the Red Sea one")
+
+
+func test_regional_rasters_know_shelf_from_trench() -> void:
+	# A handful of features anyone can check against an atlas. Interpolated between Natural
+	# Earth contours, so the test asks for the right band, not a sounding.
+	var probes := [
+		["west_pacific", 11.37, 142.59, 5000.0, INF, "Challenger Deep"],
+		["west_pacific", 24.8, 119.7, 0.5, 200.0, "Taiwan Strait shelf"],
+		["west_pacific", 42.0, 136.0, 3000.0, INF, "Japan Basin"],
+		["west_pacific", 39.5, 134.5, 200.0, 2000.0, "Yamato Rise"],
+		["west_pacific", 20.5, 121.0, 1000.0, INF, "Bashi Channel"],
+		["arabian_sea", 26.6, 52.0, 0.5, 200.0, "Persian Gulf"],
+		["arabian_sea", 24.0, 60.0, 2000.0, INF, "Gulf of Oman"],
+		["arabian_sea", 14.0, 42.0, 0.5, 2000.0, "southern Red Sea"],
+		["mediterranean", 36.5, 19.0, 3000.0, INF, "Ionian Basin"],
+		["mediterranean", 33.5, 33.5, 1000.0, INF, "Levantine Basin"],
+		["mediterranean", 45.0, 13.0, 0.5, 200.0, "northern Adriatic shelf"],
+	]
+	for probe in probes:
+		var name: String = probe[0]
+		Bathymetry.set_anchor(float(probe[1]), float(probe[2]))
+		assert_eq(Bathymetry.region, name, "%s anchors on %s" % [probe[5], name])
+		if not Bathymetry.active:
+			continue
+		var d := Bathymetry.depth_at(Vector2.ZERO)
+		assert_true(d >= float(probe[3]) and d <= float(probe[4]), "%s: %.0f m in [%.0f, %.0f]" % [probe[5], d, probe[3], probe[4]])
+	_reset()
 
 
 func _world(lat: float, lon: float, lat0: float, lon0: float) -> Vector2:
@@ -114,8 +164,8 @@ func test_no_anchor_means_an_unknown_floor_and_no_effect() -> void:
 	assert_eq(Bathymetry.depth_at(Vector2(10, 10)), Bathymetry.UNKNOWN, "unknown, not zero")
 	var boat := _unit(_boat_spec(), "RED", Vector2.ZERO, 5.0, 200.0)
 	assert_near(Acoustics.max_operating_depth_m(boat), 300.0, 1e-6, "hull limit only")
-	Bathymetry.set_anchor(10.0, 150.0)
-	assert_true(Bathymetry.is_empty(), "an anchor off the raster is no chart either")
+	Bathymetry.set_anchor(-50.0, -100.0)
+	assert_true(Bathymetry.is_empty(), "an anchor off every raster is no chart either")
 
 
 func test_every_shipped_mission_has_a_floor_and_its_boats_start_in_water() -> void:

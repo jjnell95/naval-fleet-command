@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_aew_kj500"
+display_name = "KJ-500 airborne early warning aircraft"
+short_name = "KJ-500"
+nation = "China"
+category = "airborne early warning"
+domain = "air"
+max_speed_kn = 300.0
+cruise_speed_kn = 260.0
+turn_rate_deg_s = 3.0
+accel_kn_s = 4.0
+health = 35.0
+signature_factor = 1.2
+mast_height_m = 5.0
+sensor_ids = PackedStringArray("pla_kj500_radar", "pla_air_esm")
+weapon_loadout = {}
+decoy_count = 8
+decoy_effectiveness = 0.35
+fire_control_channels = 0
+role = "Airborne radar picture / raid direction"
+service_note = "Representative 2027 fit; only systems the game represents are listed."
+cruise_altitude_m = 8000.0
+max_altitude_m = 10000.0
+altitude_rate_m_s = 25.0
+endurance_s = 28800.0
+launch_time_s = 60.0
+recovery_time_s = 90.0
+acoustic_signature = 0.0
+length_m = 34.0
+launch_requirement = "runway"
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

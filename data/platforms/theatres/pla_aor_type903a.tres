@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_aor_type903a"
+display_name = "Type 903A replenishment ship (Fuchi II)"
+short_name = "AOR Type 903A"
+nation = "China"
+category = "replenishment ship"
+domain = "surface"
+max_speed_kn = 19.0
+cruise_speed_kn = 14.0
+turn_rate_deg_s = 1.5
+accel_kn_s = 0.1
+health = 130.0
+signature_factor = 1.8
+mast_height_m = 30.0
+sensor_ids = PackedStringArray("pla_nav_radar", "pla_esm")
+weapon_loadout = {}
+decoy_count = 4
+decoy_effectiveness = 0.35
+fire_control_channels = 0
+role = "Underway replenishment / protected asset"
+service_note = "Unarmed in this representation; its value is what the group cannot do without it."
+length_m = 178.5
+displacement_t = 23000.0
+aircraft_capacity = 2
+default_air_wing = {}
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

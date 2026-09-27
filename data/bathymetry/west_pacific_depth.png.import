@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://b5bnrxw7o5fcx"
+path="res://.godot/imported/west_pacific_depth.png-9daf8936fb533e7a6456d2285d856843.image"
+
+[deps]
+
+source_file="res://data/bathymetry/west_pacific_depth.png"
+dest_files=["res://.godot/imported/west_pacific_depth.png-9daf8936fb533e7a6456d2285d856843.image"]
+
+[params]
+

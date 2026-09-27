@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://bfxmuxd633gcw"
+path="res://.godot/imported/mediterranean_depth.png-ef07e73f42fc9bb0c14e85105f11f0e6.image"
+
+[deps]
+
+source_file="res://data/bathymetry/mediterranean_depth.png"
+dest_files=["res://.godot/imported/mediterranean_depth.png-ef07e73f42fc9bb0c14e85105f11f0e6.image"]
+
+[params]
+

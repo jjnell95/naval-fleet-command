@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PlatformSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/platform_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "irn_asbm_khalij_fars"
+display_name = "Khalij Fars anti-ship ballistic missile battery"
+short_name = "Battery Khalij Fars"
+nation = "Iran"
+category = "ballistic missile battery"
+domain = "land"
+max_speed_kn = 0.0
+cruise_speed_kn = 0.0
+turn_rate_deg_s = 0.0
+accel_kn_s = 0.0
+health = 40.0
+signature_factor = 0.8
+mast_height_m = 10.0
+sensor_ids = PackedStringArray()
+weapon_loadout = {"irn_khalij_fars": 6}
+decoy_count = 0
+decoy_effectiveness = 0.0
+fire_control_channels = 0
+role = "Ballistic anti-ship fires on a handed-off track"
+service_note = "Fires on the picture its drones and coastal radars supply; it has no sensor of its own."
+has_datalink = true
+aircraft_capacity = 0
+aviation_facility = "none"
+source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

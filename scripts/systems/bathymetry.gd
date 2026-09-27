@@ -1,44 +1,58 @@
 class_name Bathymetry
 ## The sea floor under the chart.
 ##
-## One regional raster, built offline from Natural Earth 1:10m bathymetry by
-## `tools/scenarios/import_bathymetry.py`, covers every mission area. A scenario reaches it through
-## its map anchor: the game's local projection is equirectangular about that point, so world
-## nautical miles map onto latitude and longitude by a plain scale and offset, and one raster can
-## serve any chart without being cut or reprojected per mission.
+## Regional rasters, built offline from Natural Earth 1:10m bathymetry by
+## `tools/scenarios/import_bathymetry.py`, cover every theatre the game plays in. A scenario reaches
+## its region through its map anchor: the game's local projection is equirectangular about that
+## point, so world nautical miles map onto latitude and longitude by a plain scale and offset, and
+## one raster per region serves any chart in it without being cut or reprojected per mission.
 ##
 ## Static, like Terrain, so the movement, sensor and rendering code can all ask without a reference
-## being plumbed through. A scenario with no anchor, or an anchor outside the raster, leaves the
+## being plumbed through. A scenario with no anchor, or an anchor outside every region, leaves the
 ## floor unknown: `depth_at` returns UNKNOWN and every consumer treats unknown as "no effect", which
 ## is what keeps hand-built test worlds and the older open-ocean scenarios exactly as they were.
 ## `environment.bottom_m` sets a uniform floor instead, for a synthetic chart or a test.
 ##
-## The raster honours Natural Earth's 0/200/1000/2000/3000/4000/5000 m contours and interpolates
+## Each raster honours Natural Earth's 0/200/1000/2000/3000/4000/5000 m contours and interpolates
 ## between them. It is a 1:10 million chart: good for shelf against basin and ridge against trough,
 ## silent about shoals, channels and under-keel clearance. It is never a navigation chart.
 
-const SOURCE := "res://data/bathymetry/north_atlantic_depth.png"
-## Must match data/bathymetry/north_atlantic_depth.json; a test holds them together.
-const LON_MIN := -46.0
-const LAT_MAX := 81.0
-const CELL_LON_DEG := 1.0 / 30.0
-const CELL_LAT_DEG := 1.0 / 60.0
+## The chart regions, in step with tools/scenarios/regions.py and the metadata written beside each
+## raster (data/bathymetry/<region>_depth.json); tests/test_ocean.gd holds them together.
+const REGIONS := {
+	"north_atlantic": {"lon_min": -46.0, "lat_min": 52.0, "lon_max": 55.0, "lat_max": 81.0, "cell_lon": 1.0 / 30.0, "cell_lat": 1.0 / 60.0,
+		"title": "North Atlantic, Norwegian Sea, Barents Sea and Baltic"},
+	"west_pacific": {"lon_min": 99.0, "lat_min": -2.0, "lon_max": 152.0, "lat_max": 52.0, "cell_lon": 1.0 / 24.0, "cell_lat": 1.0 / 48.0,
+		"title": "Western Pacific: East and South China Seas, Philippine Sea, Sea of Japan"},
+	"arabian_sea": {"lon_min": 30.0, "lat_min": 8.0, "lon_max": 76.0, "lat_max": 32.0, "cell_lon": 1.0 / 24.0, "cell_lat": 1.0 / 48.0,
+		"title": "Persian Gulf, Gulf of Oman, Arabian Sea and Red Sea"},
+	"mediterranean": {"lon_min": -7.0, "lat_min": 29.0, "lon_max": 43.0, "lat_max": 47.0, "cell_lon": 1.0 / 30.0, "cell_lat": 1.0 / 60.0,
+		"title": "Mediterranean and Black Sea approaches"},
+}
+const DEFAULT_REGION := "north_atlantic"
 const DEPTH_SCALE_M := 6000.0
 const CONTOURS_M: Array[float] = [200.0, 1000.0, 2000.0, 3000.0, 4000.0, 5000.0]
 const UNKNOWN := -1.0
 
-static var _data := PackedByteArray()
-static var _w := 0
-static var _h := 0
-static var _loaded_source := false
+## Loaded rasters, by region: {data: PackedByteArray, w: int, h: int}.
+static var _rasters: Dictionary = {}
+static var _missing: Dictionary = {}
 static var _decode := PackedFloat32Array()  # byte value -> metres
 
 ## Per-scenario state.
 static var active := false
+static var region := DEFAULT_REGION
 static var uniform_m := UNKNOWN
 static var anchor_lat := 0.0
 static var anchor_lon := 0.0
 static var _nm_per_deg_lon := 60.0
+static var _lon_min := -46.0
+static var _lat_max := 81.0
+static var _cell_lon := 1.0 / 30.0
+static var _cell_lat := 1.0 / 60.0
+static var _data := PackedByteArray()
+static var _w := 0
+static var _h := 0
 ## Bumped whenever the floor changes, so the renderer can rebuild its texture and transform.
 static var generation := 0
 
@@ -59,15 +73,39 @@ static func load_for(scenario: Dictionary) -> void:
 	var m = scenario.get("map", {})
 	if typeof(m) != TYPE_DICTIONARY or not m.has("anchor_lat") or not m.has("anchor_lon"):
 		return
-	set_anchor(float(m["anchor_lat"]), float(m["anchor_lon"]))
+	set_anchor(float(m["anchor_lat"]), float(m["anchor_lon"]), str(m.get("chart_region", "")))
 
 
-static func set_anchor(lat: float, lon: float) -> void:
+## The region whose bounds hold the point with the most margin to an edge, or "" for none.
+static func region_for(lat: float, lon: float) -> String:
+	var best := ""
+	var best_margin := -1.0
+	for name: String in REGIONS:
+		var r: Dictionary = REGIONS[name]
+		var margin := minf(minf(lon - float(r["lon_min"]), float(r["lon_max"]) - lon), minf(lat - float(r["lat_min"]), float(r["lat_max"]) - lat))
+		if margin >= 0.0 and margin > best_margin:
+			best = name
+			best_margin = margin
+	return best
+
+
+static func set_anchor(lat: float, lon: float, preferred := "") -> void:
 	clear()
-	if not _ensure_source():
+	var name := preferred if REGIONS.has(preferred) else region_for(lat, lon)
+	if name == "" or not _ensure_source(name):
 		return
-	if lon < LON_MIN or lon > LON_MIN + _w * CELL_LON_DEG or lat > LAT_MAX or lat < LAT_MAX - _h * CELL_LAT_DEG:
+	var r: Dictionary = REGIONS[name]
+	if lon < float(r["lon_min"]) or lon > float(r["lon_max"]) or lat > float(r["lat_max"]) or lat < float(r["lat_min"]):
 		return
+	region = name
+	_lon_min = float(r["lon_min"])
+	_lat_max = float(r["lat_max"])
+	_cell_lon = float(r["cell_lon"])
+	_cell_lat = float(r["cell_lat"])
+	var raster: Dictionary = _rasters[name]
+	_data = raster["data"]
+	_w = int(raster["w"])
+	_h = int(raster["h"])
 	anchor_lat = lat
 	anchor_lon = lon
 	_nm_per_deg_lon = 60.0 * maxf(cos(deg_to_rad(lat)), 0.001)
@@ -78,44 +116,60 @@ static func is_empty() -> bool:
 	return not active and uniform_m < 0.0
 
 
-static func _ensure_source() -> bool:
-	if _loaded_source:
-		return _w > 0
-	_loaded_source = true
-	if not ResourceLoader.exists(SOURCE):
-		push_warning("Bathymetry: %s is missing; the sea floor is unknown" % SOURCE)
+static func depth_path(name: String) -> String:
+	return "res://data/bathymetry/%s_depth.png" % name
+
+
+static func chart_path(name: String) -> String:
+	return "res://data/bathymetry/%s_chart.exr" % name
+
+
+static func relief_path(name: String) -> String:
+	return "res://data/bathymetry/%s_relief.png" % name
+
+
+static func _ensure_source(name: String) -> bool:
+	if _rasters.has(name):
+		return true
+	if _missing.has(name):
 		return false
-	var img := load(SOURCE) as Image
+	var path := depth_path(name)
+	if not ResourceLoader.exists(path):
+		push_warning("Bathymetry: %s is missing; the %s sea floor is unknown" % [path, name])
+		_missing[name] = true
+		return false
+	var img := load(path) as Image
 	if img == null or img.is_empty():
+		_missing[name] = true
 		return false
 	if img.get_format() != Image.FORMAT_L8:
 		img = img.duplicate() as Image
 		img.convert(Image.FORMAT_L8)
-	_data = img.get_data()
-	_w = img.get_width()
-	_h = img.get_height()
-	_decode.resize(256)
-	for v in 256:
-		_decode[v] = DEPTH_SCALE_M * pow(v / 255.0, 2.0)
+	_rasters[name] = {"data": img.get_data(), "w": img.get_width(), "h": img.get_height()}
+	if _decode.is_empty():
+		_decode.resize(256)
+		for v in 256:
+			_decode[v] = DEPTH_SCALE_M * pow(v / 255.0, 2.0)
 	return true
 
 
-## The raster as an Image, for the chart renderer. Null when there is none.
-static func source_image() -> Image:
-	if not _ensure_source():
+## A region's raster as an Image, for the chart renderer and tests. Null when there is none.
+static func source_image(name := "") -> Image:
+	var which := name if name != "" else region
+	if not _ensure_source(which):
 		return null
-	var img := Image.create_from_data(_w, _h, false, Image.FORMAT_L8, _data)
-	return img
+	var raster: Dictionary = _rasters[which]
+	return Image.create_from_data(int(raster["w"]), int(raster["h"]), false, Image.FORMAT_L8, raster["data"])
 
 
-## World rectangle, in nautical miles, that the whole raster covers under the current anchor.
+## World rectangle, in nautical miles, that the active raster covers under the current anchor.
 static func world_rect() -> Rect2:
 	if not active:
 		return Rect2()
-	var x0 := (LON_MIN - anchor_lon) * _nm_per_deg_lon
-	var x1 := (LON_MIN + _w * CELL_LON_DEG - anchor_lon) * _nm_per_deg_lon
-	var y1 := (LAT_MAX - anchor_lat) * 60.0
-	var y0 := (LAT_MAX - _h * CELL_LAT_DEG - anchor_lat) * 60.0
+	var x0 := (_lon_min - anchor_lon) * _nm_per_deg_lon
+	var x1 := (_lon_min + _w * _cell_lon - anchor_lon) * _nm_per_deg_lon
+	var y1 := (_lat_max - anchor_lat) * 60.0
+	var y0 := (_lat_max - _h * _cell_lat - anchor_lat) * 60.0
 	return Rect2(x0, y0, x1 - x0, y1 - y0)
 
 
@@ -126,8 +180,8 @@ static func depth_at(p: Vector2) -> float:
 		return uniform_m
 	var lon := anchor_lon + p.x / _nm_per_deg_lon
 	var lat := anchor_lat + p.y / 60.0
-	var fx := (lon - LON_MIN) / CELL_LON_DEG - 0.5
-	var fy := (LAT_MAX - lat) / CELL_LAT_DEG - 0.5
+	var fx := (lon - _lon_min) / _cell_lon - 0.5
+	var fy := (_lat_max - lat) / _cell_lat - 0.5
 	if fx < -0.5 or fy < -0.5 or fx > _w - 0.5 or fy > _h - 0.5:
 		return UNKNOWN
 	var x0 := clampi(int(floor(fx)), 0, _w - 1)

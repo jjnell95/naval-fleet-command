@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://diy3oh1n53otu"
+path="res://.godot/imported/arabian_sea_depth.png-a55377cef8a846caeba79576964f4c86.image"
+
+[deps]
+
+source_file="res://data/bathymetry/arabian_sea_depth.png"
+dest_files=["res://.godot/imported/arabian_sea_depth.png-a55377cef8a846caeba79576964f4c86.image"]
+
+[params]
+
