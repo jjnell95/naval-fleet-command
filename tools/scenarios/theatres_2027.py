@@ -437,7 +437,7 @@ def catalogue():
              signature_factor=0.7, length_m=15.5, launch_requirement="runway", can_refuel=True,
              role="Anti-ship strike / air defence",
              service_note="Built around the anti-ship mission: two ASM-3 supersonic missiles and a self-defence air-to-air load.")
-    site("jgsdf_ssm_type12_battery", "Type 12 surface-to-ship missile battery", "Battery Type 12", "Japan", "coastal missile battery",
+    site("jgsdf_type12_battery", "Type 12 surface-to-ship missile battery", "Battery Type 12", "Japan", "coastal missile battery",
          ["jgsdf_coastal_radar", "jasdf_esm"], {"jgsdf_type12_ssm": 12}, health=60.0,
          role="Ground Self-Defense Force coastal anti-ship fires",
          service_note="The baseline Type 12; the extended-range version being fielded is not represented.")

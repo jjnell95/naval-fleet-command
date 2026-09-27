@@ -3,6 +3,7 @@
   "name": "NORWEGIAN SEA: CARRIER WATCH",
   "era": "Cold War",
   "year": 1990,
+  "theatre": "Norwegian Sea",
   "order": -20,
   "difficulty": "Advanced",
   "duration_minutes": 30,
@@ -237,6 +238,7 @@
       400.0,
       400.0
     ],
+    "chart_region": "north_atlantic",
     "chart_note": "Natural Earth coastline and bathymetry / 1990 scenario / not for navigation"
   },
   "environment": {

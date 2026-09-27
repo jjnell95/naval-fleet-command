@@ -3,6 +3,7 @@
   "name": "THE ICELAND-FAROE BARRIER",
   "era": "Cold War",
   "year": 1990,
+  "theatre": "North Atlantic",
   "order": -30,
   "difficulty": "Intermediate",
   "duration_minutes": 25,
@@ -237,6 +238,7 @@
       460.0,
       460.0
     ],
+    "chart_region": "north_atlantic",
     "chart_note": "Natural Earth coastline and bathymetry / 1990 scenario / not for navigation"
   },
   "environment": {

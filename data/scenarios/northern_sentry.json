@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -191.6,
       -201.0,
@@ -16021,6 +16022,18 @@
     }
   ],
   "order": 5,
+  "theatre": "Norwegian Sea",
+  "year": 2027,
+  "difficulty": "Intermediate",
+  "duration_minutes": 25,
+  "role": "ASW group commander",
+  "learning": "Localizing a diesel submarine off a fjord coast with helicopters, a P-8 detachment and a towed array, while strike aircraft threaten the ships",
+  "commander_intent": "Neutralize the Kilo threatening the Vestfjorden approaches. The aircraft are a threat to manage, not a target to chase.",
+  "first_orders": [
+    "Nansen listens on CAPTAS; Bulkeley's Seahawks dip along the shelf edge where the Kilo has room to hide under the layer.",
+    "The Evenes Poseidons lay buoys ahead of the boat's likely track; the Triton keeps the surface picture.",
+    "Two Su-30s with Kh-35 are inbound. Keep Bulkeley radiating so her SM-2s see them coming."
+  ],
   "objectives": {
     "text": "Neutralize the submarine threatening the approaches. Surviving aircraft do not prevent completion.",
     "victory": [

@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1")
-id = "jgsdf_ssm_type12_battery"
+id = "jgsdf_type12_battery"
 display_name = "Type 12 surface-to-ship missile battery"
 short_name = "Battery Type 12"
 nation = "Japan"

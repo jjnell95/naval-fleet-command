@@ -49,6 +49,30 @@ class Scenario:
         if seed is not None:
             self.d["seed"] = seed
         self.lat0, self.lon0 = lat0, lon0
+        self.extra_land = []
+        self.height_m = None
+
+    def meta(self, theatre, difficulty, duration, role, learning, intent, first_orders, setting_note=None, year=2027):
+        """The commander-facing card: what the mission is for, how hard it is and what to do first."""
+        self.d.update(theatre=theatre, year=year, difficulty=difficulty, duration_minutes=duration, role=role,
+                      learning=learning, commander_intent=intent, first_orders=list(first_orders))
+        if setting_note:
+            self.d["setting_note"] = setting_note
+        return self
+
+    def site(self, platform, callsign, faction, lat, lon, **kw):
+        """A fixed installation. It has to stand on charted land, or its radar horizon and the AI's
+        idea of where it may be shot from are both wrong; the build fails loudly rather than
+        shipping a battery in the water."""
+        if not g.is_land(lat, lon):
+            raise ValueError("%s: %s at %.3f, %.3f is not on charted land" % (self.d["id"], callsign, lat, lon))
+        return self.unit(platform, callsign, faction, self.xy(lat, lon), 0, 0, **kw)
+
+    def afloat(self, platform, callsign, faction, lat, lon, heading=0, speed=0.0, **kw):
+        """A hull or boat; refuses a start position ashore."""
+        if g.is_land(lat, lon):
+            raise ValueError("%s: %s at %.3f, %.3f is ashore" % (self.d["id"], callsign, lat, lon))
+        return self.unit(platform, callsign, faction, self.xy(lat, lon), heading, speed, **kw)
 
     def land(self, *keys):
         # Coast coverage is derived from the complete chart, not a whitelist of islands.
@@ -113,15 +137,19 @@ class Scenario:
 
     def write(self):
         dropped = self._frame()
-        land, labels = g.chart(self.lat0, self.lon0, self.d["map"]["center_nm"], self.d["map"]["extent_nm"])
+        land, labels = g.chart(self.lat0, self.lon0, self.d["map"]["center_nm"], self.d["map"]["extent_nm"], self.height_m)
+        land.extend(self.extra_land)
         self.d["terrain"] = {"land": land, "source": "Natural Earth 1:10m land 5.1.1; public domain", "generalization_nm": 0.2}
+        if self.extra_land:
+            self.d["terrain"]["source"] += "; reclaimed outposts added from public imagery, approximate"
         self.d["map"]["labels"] = labels
+        self.d["map"]["chart_region"] = g.region_of(self.lat0, self.lon0)
         # Where the coastline polygons stop. Beyond it the renderer falls back to the coarser
         # bathymetry raster's own coast, dimmed, rather than showing a straight clip line.
         self.d["map"]["charted_nm"] = g.charted_box(self.d["map"]["center_nm"], self.d["map"]["extent_nm"])
         self.d["map"]["chart_note"] = "Natural Earth 1:10m land and bathymetry · local projection · not for navigation"
         self.d["map"]["projection"] = "local_equirectangular"
-        self.d["force_note"] = "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+        self.d.setdefault("force_note", "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment.")
         # Start on the fleet, with a separate theatre overview for distant land-based aviation.
         afloat = [u["position_nm"] for u in self.d["units"] if u["faction"] == self.d["player_faction"] and not any(word in u["platform"] for word in ("shore", "fighter", "mpa", "uav", "strike", "helo"))]
         if afloat and self.d["map"]["extent_nm"] > 600:
@@ -135,6 +163,7 @@ class Scenario:
                 if wing["platform"].startswith("rfn_"):
                     wing["squadron"] = "Scenario air detachment"
 
+        g.validate_scenario(self.d, platform_domain)
         path = os.path.join(OUT, self.d["id"] + ".json")
         with open(path, "w") as f:
             json.dump(self.d, f, indent=2)
@@ -145,6 +174,25 @@ class Scenario:
               % (self.d["id"], len(self.d["units"]), wing, len(self.d["terrain"]["land"]),
                  self.d["map"]["extent_nm"], self.d["map"]["center_nm"],
                  ("  dropped off-chart: " + ", ".join(dropped)) if dropped else ""))
+
+
+_DOMAINS = {}
+
+
+def platform_domain(platform_id):
+    """Domain of a catalogue platform, read once from its resource file."""
+    if not _DOMAINS:
+        import re
+        for sub in os.listdir(os.path.join(ROOT, "data", "platforms")):
+            folder = os.path.join(ROOT, "data", "platforms", sub)
+            if not os.path.isdir(folder):
+                continue
+            for name in os.listdir(folder):
+                if name.endswith(".tres"):
+                    text = open(os.path.join(folder, name)).read()
+                    m = re.search(r'^domain = "(\w+)"', text, re.M)
+                    _DOMAINS[name[:-5]] = m.group(1) if m else "surface"
+    return _DOMAINS.get(platform_id, "surface")
 
 
 def destroy(faction, text):
@@ -253,6 +301,12 @@ def iceland_faroe_gap():
     s = Scenario("giuk_passage", "ICELAND-FAROE GAP", 63.4, -15.0, 340, 3, layer=(300, 0.6), cz_range_nm=32, sea_state=4, wind_kn=22,
                  visibility_nm=6, start="2027-03-02T02:10:00",
                  description=('A diesel-electric submarine is approaching the Iceland–Faroe barrier. Two escorts, a Virginia-class submarine and patrol aircraft detached to Keflavik must deny its southern exit. The route and six-hour deadline define the game problem. Water deepens sharply south of the Iceland–Faroe Ridge, where a deep winter mixed layer and convergence zones shape the acoustic picture.'))
+    s.meta("North Atlantic", "Intermediate", 25, "Barrier commander",
+           "Passive search across a ridge, the deep-water layer and convergence zones, patrol aircraft laying buoys ahead of a transiting boat",
+           "Deny the southern exit of the Iceland-Faroe gap for six hours, or neutralize the transiting Kilo.",
+           ["Keep Delaware slow and under the layer south of the ridge; the boat has to come to her.",
+            "Jason Dunham's helicopters and the Keflavik Poseidons lay the buoy line across the gap; the Triton watches the surface.",
+            "The Kilo is quiet on battery. A firm solution before a torpedo, or the shot is wasted."])
     s.land("iceland", "faroes")
     s.unit("usn_ssn_virginia", "USS Delaware (SSN 791)", "BLUE", s.xy(63.3, -16.2), 110, 8,
            depth_m=120, radar_on=False)
@@ -278,6 +332,12 @@ def norwegian_sea_shadow():
     s = Scenario("north_atlantic_shadow_line", "NORWEGIAN SEA — SHADOW LINE", 68.0, 8.0, 260, 1,layer=(200, 0.6), cz_range_nm=30,
                  sea_state=4, wind_kn=20, start="2027-03-14T05:30:00",
                  description=('A surface action group has been detached to the Norwegian Sea. Your Flight IIA destroyer provides air defence and ASW; the Norwegian frigate carries the anti-ship missiles. Two MH-60Rs aboard the destroyer support the search. Identify the opposing combatants before committing your limited magazines.'))
+    s.meta("Norwegian Sea", "Intermediate", 20, "Surface action group commander",
+           "Building a surface picture with radar, ESM and helicopters, identification before a limited missile salvo, and Aegis defence of a frigate that carries the strike",
+           "Neutralize Admiral Gorshkov and Stoikiy without spending Roald Amundsen's eight missiles on the wrong ship.",
+           ["Truxtun radiates; Roald Amundsen listens. The frigate's ESM and the destroyer's Seahawks classify before anyone shoots.",
+            "Gorshkov outranges you with Oniks. Close under emissions control or let the helicopters find her first.",
+            "NSM salvos are the mission's only offensive punch. Two ships, eight missiles, one chance each."])
     s.land("northern_norway")
     s.unit("usn_ddg_arleigh_burke_iia", "USS Truxtun (DDG 103)", "BLUE", s.xy(67.4, 6.9), 45, 16)
     s.unit("rnon_ffg_fridtjof_nansen", "HNoMS Roald Amundsen (F 311)", "BLUE", s.xy(67.6, 7.6), 45, 16,
@@ -297,6 +357,12 @@ def faroe_shetland_gate():
     s = Scenario("atlantic_gate", "FAROE-SHETLAND CHANNEL", 61.0, -3.5, 260, 4, layer=(350, 0.8), sea_state=5,
                  wind_kn=28, visibility_nm=5, start="2027-03-05T21:40:00",
                  description=('Three opposing surface combatants are moving south through the Faroe–Shetland Channel. Three NATO escorts and a maritime patrol detachment at RAF Lossiemouth cover the passage. Prevent any combatant from reaching its marked exit during an eight-hour watch; destroying the surface group also completes the mission.'))
+    s.meta("North Atlantic", "Advanced", 30, "Channel force commander",
+           "Denying a channel to a faster, heavier surface group, the Faroe-Shetland weather, three escorts against a cruiser's long-range salvo",
+           "Keep the three combatants from their exits for eight hours, or destroy them. Any ship through the channel loses the watch.",
+           ["Marshal Ustinov has sixteen Vulkan missiles and three hundred miles of reach. Find her with the Lossiemouth Poseidons before she finds you.",
+            "Hold the three escorts together so one Aegis ship covers all three; a frigate alone against the cruiser's salvo is a frigate lost.",
+            "The channel narrows south of the Faroes. That is where the geometry favours you."])
     s.land("faroes", "shetland", "orkney", "north_scotland", "hebrides")
     s.unit("usn_ddg_arleigh_burke_iia", "USS Forrest Sherman (DDG 98)", "BLUE", s.xy(60.8, -3.9), 340, 18)
     s.unit("rnon_ffg_fridtjof_nansen", "HNoMS Thor Heyerdahl (F 314)", "BLUE", s.xy(60.6, -2.9), 340, 18,
@@ -323,6 +389,12 @@ def baltic():
     s = Scenario("baltic_sentinel", "GOTLAND BASIN", 56.8, 18.5, 220, 2, layer=(65, 0.9), sea_state=2, wind_kn=10,
                  visibility_nm=12, start="2027-02-18T14:20:00", neutral_factions=["WHITE"],
                  description=('Two merchant ships are making a southbound passage east of Gotland, protected by a Danish frigate and a German corvette. Opposing Baltic Fleet combatants are in the basin. Escort the merchants to their separate rendezvous and protect fishing traffic. Identification and convoy progress matter more than destroying every contact.'))
+    s.meta("Baltic", "Intermediate", 25, "Convoy escort commander",
+           "Escort in shallow water full of neutral traffic, identification under weapons-tight rules, small combatants with large missile loads",
+           "Deliver both merchants to their rendezvous south of Gotland. Identify every contact; the fishing fleet is not the enemy.",
+           ["Peter Willemoes takes the eastern flank toward Liepaja; Magdeburg stays close to the merchants.",
+            "Kalibr from the Buyan-M reaches a hundred miles. Do not let the merchants sail into a firing solution you have not seen built.",
+            "Every radar contact here is a merchant until proven otherwise. Track, classify, then decide."])
     s.land("gotland", "oland", "bornholm", "south_sweden", "baltic_east_shore",
            "baltic_south_shore", "estonian_isles")
     s.unit("dnk_ffg_iver_huitfeldt", "HDMS Peter Willemoes (F 362)", "BLUE", s.xy(57.0, 19.4), 160, 14,
@@ -351,6 +423,12 @@ def vestfjorden_asw():
     s = Scenario("northern_sentry", "VESTFJORDEN APPROACHES", 68.8, 13.5, 220, 5, layer=(120, 0.5), sea_state=3,
                  wind_kn=16, visibility_nm=8, start="2027-03-09T08:00:00",
                  description=('An older Project 877 Kilo threatens the waters northwest of Lofoten. The destroyer carries two MH-60Rs; a Norwegian P-8 detachment operates from Evenes with an attached US Triton. Two opposing strike aircraft are already airborne. The submarine is the mission target; the aircraft are supporting opposition.'))
+    s.meta("Norwegian Sea", "Intermediate", 25, "ASW group commander",
+           "Localizing a diesel submarine off a fjord coast with helicopters, a P-8 detachment and a towed array, while strike aircraft threaten the ships",
+           "Neutralize the Kilo threatening the Vestfjorden approaches. The aircraft are a threat to manage, not a target to chase.",
+           ["Nansen listens on CAPTAS; Bulkeley's Seahawks dip along the shelf edge where the Kilo has room to hide under the layer.",
+            "The Evenes Poseidons lay buoys ahead of the boat's likely track; the Triton keeps the surface picture.",
+            "Two Su-30s with Kh-35 are inbound. Keep Bulkeley radiating so her SM-2s see them coming."])
     s.land("northern_norway")
     s.unit("usn_ddg_arleigh_burke_iia", "USS Bulkeley (DDG 84)", "BLUE", s.xy(68.4, 12.6), 30, 14,
            patrol=[s.xy(68.2, 11.9), s.xy(69.1, 14.2)])
@@ -379,6 +457,12 @@ def norwegian_sea_convoy():
     s = Scenario("northern_shield", "NORWEGIAN SEA — REPLENISHMENT GROUP", 66.5, 3.5, 280, 6,layer=(220, 0.6), cz_range_nm=30,
                  sea_state=5, wind_kn=26, visibility_nm=6, start="2027-03-11T19:15:00",
                  description=('Maud must reach a replenishment rendezvous in the Norwegian Sea. A nuclear attack submarine and maritime patrol aircraft threaten the transit. The destroyer supplies the embarked ASW helicopters; the Norwegian ships retain landing facilities without an assumed NH90 detachment. Escort the auxiliary through rather than pursuing every contact.'))
+    s.meta("Norwegian Sea", "Advanced", 30, "Escort commander",
+           "Escorting a replenishment ship against a nuclear attack submarine and a Bear patrol aircraft that is spotting for it",
+           "Get Maud to the northern rendezvous. Kazan wins if she gets one salvo off at the auxiliary; she does not have to sink you.",
+           ["Maud is on course for the rendezvous at fifteen knots. Ralph Johnson's helicopters sweep ahead of her; Otto Sverdrup listens astern.",
+            "Kazan carries Kalibr and Zircon. The Bear's radar is her targeting. Silence the Bear or make it look elsewhere.",
+            "A towed array behind the convoy hears a boat trying to gain bearing on the auxiliary."])
     s.land("mid_norway")
     s.unit("rnon_aux_maud", "HNoMS Maud (A 530)", "BLUE", s.xy(65.9, 2.6), 40, 15,
            patrol=[s.xy(67.4, 6.4), s.xy(68.0, 9.0)])
@@ -402,6 +486,12 @@ def barents_strike():
                  wind_kn=24, visibility_nm=7, start="2027-03-21T04:45:00",
                  neutral_factions=["NEUTRAL"], seed=13,
                  description=('A carrier group north of the North Cape faces three surface combatants and a fictional mixed air detachment operating from Kola airfields. Neutralize the surface group while keeping the carrier and civilian traffic safe. Aircraft and the submarine remain threats, but they are not mandatory victory targets.'))
+    s.meta("Barents Sea", "Advanced", 35, "Carrier strike group commander",
+           "A carrier group against a surface action group and three Kola airfields: strike planning, fighter coverage and civil traffic in the operating area",
+           "Neutralize Marshal Ustinov, Vice-Admiral Kulakov and Admiral Gorshkov while the carrier and the civilian ships survive.",
+           ["Get a Hawkeye and a Growler up before the first Backfire launch; the Kola raid comes from the south-east.",
+            "The surface group is off the Murman coast. LRASM from the Super Hornets reaches it; Harpoon from the escorts does not.",
+            "Delaware is forward. Let her report before the strike goes in."])
     s.land("kola_peninsula", "northern_norway", "bear_island")
     # Blue: carrier strike group, north-west of the North Cape.
     s.unit("usn_cvn_nimitz", "USS Dwight D. Eisenhower (CVN 69)", "BLUE", s.xy(72.0, 24.0), 70, 20,
@@ -449,6 +539,12 @@ def bmd_picket():
                  sea_state=3, wind_kn=15, visibility_nm=9, start="2027-03-19T11:05:00",
                  neutral_factions=["NEUTRAL"],
                  description=('A fictional mixed missile raid threatens the carrier and replenishment ship north of the North Cape. A Flight III destroyer and a legacy BMD cruiser provide the principal defensive layers. Preserve the protected ships for four hours. Interception and flight profiles are game abstractions; interceptor suitability still matters.'))
+    s.meta("Barents Sea", "Advanced", 30, "Air and missile defence commander",
+           "Layered defence of a carrier and an auxiliary against ballistic and cruise missiles, interceptor suitability and finite magazines",
+           "Keep Eisenhower and Maud alive through four hours. Match the interceptor to the round; SM-3 for ballistic, SM-2 for the rest.",
+           ["Jack H. Lucas and Gettysburg are the ballistic-missile defence layer. Station them between the group and the Kola.",
+            "Launch the Hawkeyes early so the Kinzhal carriers are seen before they release.",
+            "The Kilo is inside the screen. The Seahawks hunt her while the Aegis ships look up."])
     s.land("kola_peninsula", "northern_norway")
     s.unit("usn_ddg_burke_iii", "USS Jack H. Lucas (DDG 125)", "BLUE", s.xy(71.3, 29.0), 90, 16,
            patrol=[s.xy(71.0, 30.5), s.xy(71.6, 27.5)])
@@ -486,6 +582,12 @@ def joint_task_force():
                  sea_state=4, wind_kn=22, visibility_nm=8, start="2027-03-24T06:30:00",
                  neutral_factions=["NEUTRAL"], seed=7,
                  description=('Two carriers operate west of Norway: a CATOBAR carrier with Super Hornets, Growlers and Hawkeyes, and a STOVL carrier with F-35Bs and Merlin helicopters. Supporting patrol aircraft fly from Evenes; the opposing scenario air detachment is at Olenya on the Kola Peninsula. Preserve both carriers and Maud through six hours of pressure. Air groups are reduced fictional detachments.'))
+    s.meta("Norwegian Sea", "Advanced", 40, "Joint task force commander",
+           "Two carriers, two air wings and a replenishment ship under six hours of pressure from the Kola: sortie management, a breakout surface group and a submarine inside the screen",
+           "Both carriers and Maud survive six hours. The Russian surface group is coming south; it need not be sunk, only stopped short.",
+           ["Ford's Hawkeyes cover the north-east; Queen Elizabeth's Crowsnest covers the south-west. Between them nothing arrives unseen.",
+            "Marshal Ustinov and Gorshkov are on a breakout course. Type 45s and the Flight III destroyer meet the salvo; the Super Hornets meet the ships.",
+            "Astute is ahead of the group and Vladikavkaz is inside it. The Merlins and the Romeos have different jobs."])
     s.land("northern_norway", "mid_norway", "jan_mayen")
     # US carrier strike group.
     s.unit("usn_cvn_ford", "USS Gerald R. Ford (CVN 78)", "BLUE", s.xy(68.4, 4.4), 50, 20,
@@ -534,6 +636,12 @@ def sandbox():
     s = Scenario("sandbox_m1", "VESTFJORDEN EXERCISE AREA", 68.2, 12.0, 180, 10, layer=(100, 0.5), sea_state=2,
                  wind_kn=8, visibility_nm=14, start="2027-01-08T09:00:00",
                  description=('A low-pressure gunnery and ASW familiarization scenario west of Lofoten. USS Winston S. Churchill represents a Flight IIA destroyer with two MH-60Rs. Practise class recognition, ship handling, sensing and weapon assignment against a corvette exercise target.'))
+    s.meta("Norwegian Sea", "Introductory", 15, "Commanding officer",
+           "Ship handling, sensors, the contact picture and a first weapon assignment with nothing at stake",
+           "Take Winston S. Churchill through the exercise area and sink the target corvette when you are ready.",
+           ["Select the ship, press G and plot a course toward the target's last reported position.",
+            "Switch the radar on with R, watch the contact classify, then hook it and open the engagement controls.",
+            "Fly a Seahawk from the Aviation tab if you want to see the target before the missiles do."])
     s.land("northern_norway")
     s.unit("usn_ddg_arleigh_burke_iia", "USS Winston S. Churchill (DDG 81)", "BLUE", s.xy(67.9, 11.2), 45, 12)
     s.unit("rfn_fsg_steregushchiy", "Exercise target", "RED", s.xy(68.5, 13.0), 225, 10,
@@ -554,6 +662,12 @@ def carrier_qualification():
                               "and LAND AT destination, and issue RETURN & LAND. Recover one aircraft aboard ship "
                               "and one at Bodo. CATOBAR, STOVL, helicopter and runway aircraft have different basing limits. "
                               "Advance time after issuing orders; landing is followed by a refuel/rearm cycle."))
+    s.meta("Norwegian Sea", "Introductory", 15, "Air operations officer",
+           "Launching, routing and recovering aircraft to carriers and an airfield; deck cycles and turnaround",
+           "Recover one aircraft aboard a ship and one at Bodo. Nothing will shoot at you; the deck cycle is the exercise.",
+           ["Open Air Operations (F3), pick Charles de Gaulle, a Rafale and a launch count, then Execute & Resume.",
+            "Once airborne, reopen Air Operations, select the airframe and a landing destination, then Return & Land.",
+            "Advance time. A recovered aircraft refuels and rearms before it can fly again."])
     s.unit("fra_cvn_charles_de_gaulle", "Charles de Gaulle (R 91)", "BLUE", s.xy(67.30, 12.20), 0, 0,
            air_wing=[{"platform": "fra_fighter_rafale_m", "count": 4, "callsign": "Marine", "first_modex": 11},
                      {"platform": "fra_aew_e2c", "count": 1, "callsign": "Hawkeye", "first_modex": 21},

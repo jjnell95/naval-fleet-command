@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -181.1,
       -184.0,
@@ -12134,6 +12135,18 @@
     }
   ],
   "order": 10,
+  "theatre": "Norwegian Sea",
+  "year": 2027,
+  "difficulty": "Introductory",
+  "duration_minutes": 15,
+  "role": "Commanding officer",
+  "learning": "Ship handling, sensors, the contact picture and a first weapon assignment with nothing at stake",
+  "commander_intent": "Take Winston S. Churchill through the exercise area and sink the target corvette when you are ready.",
+  "first_orders": [
+    "Select the ship, press G and plot a course toward the target's last reported position.",
+    "Switch the radar on with R, watch the contact classify, then hook it and open the engagement controls.",
+    "Fly a Seahawk from the Aviation tab if you want to see the target before the missiles do."
+  ],
   "objectives": {
     "text": "Nothing is at stake. Sink the target when you feel like it.",
     "victory": [

@@ -59,7 +59,7 @@ func _ready() -> void:
 	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	brand.add_theme_constant_override("separation", 0)
 	masthead.add_child(brand)
-	var eyebrow := UITheme.eyebrow("Cold War / 1990  ·  North Atlantic & Northern Europe")
+	var eyebrow := UITheme.eyebrow("Cold War 1990  ·  North Atlantic  ·  Western Pacific  ·  Gulf & Mediterranean")
 	eyebrow.add_theme_color_override("font_color", UITheme.COL_BRASS)
 	brand.add_child(eyebrow)
 	_title = _label("NAVAL FLEET COMMAND", 46, Color.WHITE)
@@ -87,11 +87,11 @@ func _ready() -> void:
 	var segments := HBoxContainer.new()
 	segments.add_theme_constant_override("separation", 2)
 	filter_frame.add_child(segments)
-	for entry in [["cold_war", "COLD WAR 1990"], ["modern", "MODERN"], ["all", "ALL OPERATIONS"]]:
+	for entry in [["cold_war", "COLD WAR 1990"], ["atlantic", "ATLANTIC 2027"], ["pacific", "PACIFIC 2027"], ["gulf_med", "GULF & MED 2027"], ["all", "ALL OPERATIONS"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
 		button.theme_type_variation = "SegmentButton"
-		button.custom_minimum_size = Vector2(128, 32)
+		button.custom_minimum_size = Vector2(118, 32)
 		button.add_theme_font_size_override("font_size", 12)
 		button.toggle_mode = true
 		button.pressed.connect(func() -> void: _set_era(key))
@@ -244,12 +244,12 @@ func _apply_layout() -> void:
 
 func refresh(current_path := "") -> void:
 	_all_entries = ScenarioIndex.list_all()
-	# First visit opens the Cold War shelf. Reopening a mission keeps its era and selection.
+	# First visit opens the Cold War shelf. Reopening a mission keeps its shelf and selection.
 	if current_path != "":
 		for entry: Dictionary in _all_entries:
 			if entry["path"] == current_path:
 				if not _initial_refresh:
-					_era = "all" if entry["custom"] else ("cold_war" if _is_cold_war(entry) else "modern")
+					_era = "all" if entry["custom"] else _shelf_of(entry)
 				break
 	var has_cold_war := false
 	for entry: Dictionary in _all_entries:
@@ -272,9 +272,10 @@ func _populate(current_path := "") -> void:
 		var button: Button = _filters[key]
 		button.set_pressed_no_signal(key == _era)
 	for entry: Dictionary in _all_entries:
-		if _era == "cold_war" and not _is_cold_war(entry):
-			continue
-		if _era == "modern" and (_is_cold_war(entry) or entry["custom"]):
+		if _era == "modern":
+			if _is_cold_war(entry) or entry["custom"]:
+				continue
+		elif _era != "all" and (entry["custom"] or _shelf_of(entry) != _era):
 			continue
 		_entries.append(entry)
 	var selected := 0
@@ -287,7 +288,7 @@ func _populate(current_path := "") -> void:
 		_list.set_item_tooltip(i, "%s\n%s\n%s" % [e["name"], e.get("role", "Task force command"), e["description"]])
 		if e["path"] == current_path:
 			selected = i
-	_count.text = "%d OPERATIONS  /  %s" % [_entries.size(), "1990" if _era == "cold_war" else ("CONTEMPORARY" if _era == "modern" else "ALL ERAS + CUSTOM")]
+	_count.text = "%d OPERATIONS  /  %s" % [_entries.size(), SHELF_NAMES.get(_era, "ALL ERAS + CUSTOM")]
 	_play.disabled = _entries.is_empty()
 	if not _entries.is_empty():
 		_list.select(selected)
@@ -305,6 +306,23 @@ func _populate(current_path := "") -> void:
 
 static func _is_cold_war(entry: Dictionary) -> bool:
 	return int(entry.get("year", 0)) == 1990
+
+
+const SHELF_NAMES := {"cold_war": "1990", "atlantic": "NORTH ATLANTIC 2027", "pacific": "WESTERN PACIFIC 2027", "gulf_med": "GULF & MEDITERRANEAN 2027", "modern": "CONTEMPORARY"}
+
+
+## Which shelf a built-in operation sits on: the 1990 pack, or a modern theatre by chart region.
+static func _shelf_of(entry: Dictionary) -> String:
+	if _is_cold_war(entry):
+		return "cold_war"
+	match str(entry.get("region", "north_atlantic")):
+		"west_pacific":
+			return "pacific"
+		"arabian_sea", "mediterranean":
+			return "gulf_med"
+	return "atlantic"
+
+
 
 
 func allow_back(can_go_back: bool) -> void:
@@ -327,6 +345,8 @@ func _on_selected(i: int) -> void:
 	var date := str(sc.get("start_time_utc", ""))
 	if date.length() >= 10:
 		details.append(date.substr(0, 10))
+	if str(e.get("theatre", "")) != "":
+		details.append(str(e["theatre"]))
 	details.append(str(e.get("role", "Task force command")))
 	details.append(str(e.get("difficulty", "Open command")))
 	var duration := int(e.get("duration_minutes", 0))
@@ -389,6 +409,9 @@ func _on_selected(i: int) -> void:
 	if sc.has("historical_note"):
 		lines.append(_section("HISTORICAL CONTEXT"))
 		lines.append("[color=%s]%s[/color]" % [UITheme.HEX_DIM, _safe(str(sc["historical_note"]))])
+	elif sc.has("setting_note"):
+		lines.append(_section("SETTING"))
+		lines.append("[color=%s]%s[/color]" % [UITheme.HEX_DIM, _safe(str(sc["setting_note"]))])
 	elif sc.has("force_note"):
 		lines.append("[color=%s]%s[/color]" % [UITheme.HEX_DIM, _safe(str(sc["force_note"]))])
 	_detail.text = "\n".join(lines)

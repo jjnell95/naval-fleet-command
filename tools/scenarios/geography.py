@@ -211,6 +211,34 @@ def region_of(lat0, lon0):
     return region_for(lat0, lon0)
 
 
+@lru_cache(maxsize=4)
+def _land_index(region):
+    from shapely.strtree import STRtree
+    polys = [Polygon(ring) for ring in dataset(region)["rings_lon_lat"]]
+    return polys, STRtree(polys)
+
+
+def is_land(lat, lon):
+    """Whether a latitude/longitude falls inside a Natural Earth land polygon of its region."""
+    from shapely.geometry import Point
+    polys, tree = _land_index(region_of(lat, lon))
+    pt = Point(lon, lat)
+    return any(polys[i].contains(pt) for i in tree.query(pt))
+
+
+def reclaimed_island(lat, lon, length_nm, width_nm, bearing_deg, lat0, lon0, name, elevation_m=6.0):
+    """A small rectangular landmass in nm about the anchor, for reclaimed outposts that postdate
+    the Natural Earth coastline. Approximate footprints from public satellite imagery."""
+    cx, cy = project(lat, lon, lat0, lon0)
+    a = math.radians(bearing_deg)
+    ux, uy = math.sin(a), math.cos(a)
+    vx, vy = -uy, ux
+    hl, hw = length_nm / 2.0, width_nm / 2.0
+    pts = [[round(cx + ux * hl * sx + vx * hw * sy, 4), round(cy + uy * hl * sx + vy * hw * sy, 4)]
+           for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    return {"id": "reclaimed_" + name.lower().replace(" ", "_"), "name": name, "elevation_m": elevation_m, "points_nm": pts}
+
+
 def labels_for(region):
     lon_min, lat_min, lon_max, lat_max = REGIONS[region]["bounds"]
     return [(name, lat, lon, kind) for name, lat, lon, kind in LABELS
@@ -267,3 +295,42 @@ def chart(lat0, lon0, center, extent, height_m=None):
     labels=[{"text":name,"position_nm":pos(lat,lon,lat0,lon0),"kind":kind}
             for name,lat,lon,kind in labels_for(region)]
     return result, labels
+
+
+def validate_scenario(d, domain_of):
+    """Fail loudly on what the runtime test would fail on: a hull ashore, an installation afloat,
+    a surface or submarine patrol leg that crosses the shipped coastline polygons, an objective area
+    on land. `domain_of(platform_id)` gives surface / subsurface / air / land."""
+    from shapely.geometry import LineString, Point
+    from shapely.strtree import STRtree
+    polys = [Polygon(l["points_nm"]) for l in d["terrain"]["land"]]
+    tree = STRtree(polys)
+
+    def ashore(p):
+        pt = Point(p)
+        return any(polys[i].contains(pt) for i in tree.query(pt))
+
+    def crosses(a, b):
+        line = LineString([a, b])
+        return any(polys[i].intersects(line) for i in tree.query(line))
+
+    problems = []
+    for u in d["units"]:
+        domain = domain_of(u["platform"])
+        pos = u["position_nm"]
+        if domain == "land" and not ashore(pos):
+            problems.append("%s is not on charted land at %s" % (u["callsign"], pos))
+        if domain in ("surface", "subsurface"):
+            if ashore(pos):
+                problems.append("%s starts ashore at %s" % (u["callsign"], pos))
+            prev = pos
+            for i, leg in enumerate(u.get("patrol_nm", [])):
+                if crosses(prev, leg):
+                    problems.append("%s patrol leg %d %s -> %s crosses the coast" % (u["callsign"], i, prev, leg))
+                prev = leg
+    for kind in ("victory", "loss"):
+        for o in d.get("objectives", {}).get(kind, []):
+            if o.get("type") == "reach_area" and ashore(o["center_nm"]):
+                problems.append("objective %s is on land" % o.get("id"))
+    if problems:
+        raise ValueError("%s:\n  " % d["id"] + "\n  ".join(problems))

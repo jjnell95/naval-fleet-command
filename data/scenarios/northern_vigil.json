@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -331.8,
       -594.5,
@@ -59649,6 +59650,18 @@
     "NEUTRAL"
   ],
   "seed": 7,
+  "theatre": "Norwegian Sea",
+  "year": 2027,
+  "difficulty": "Advanced",
+  "duration_minutes": 40,
+  "role": "Joint task force commander",
+  "learning": "Two carriers, two air wings and a replenishment ship under six hours of pressure from the Kola: sortie management, a breakout surface group and a submarine inside the screen",
+  "commander_intent": "Both carriers and Maud survive six hours. The Russian surface group is coming south; it need not be sunk, only stopped short.",
+  "first_orders": [
+    "Ford's Hawkeyes cover the north-east; Queen Elizabeth's Crowsnest covers the south-west. Between them nothing arrives unseen.",
+    "Marshal Ustinov and Gorshkov are on a breakout course. Type 45s and the Flight III destroyer meet the salvo; the Super Hornets meet the ships.",
+    "Astute is ahead of the group and Vladikavkaz is inside it. The Merlins and the Romeos have different jobs."
+  ],
   "objectives": {
     "text": "Sustain a six-hour joint air-defence watch. Both carriers, Maud and civilian shipping must survive.",
     "victory": [

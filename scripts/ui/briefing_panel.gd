@@ -291,6 +291,9 @@ func _append_situation(out: PackedStringArray) -> void:
 	if _scenario.has("historical_note"):
 		out.append("\n" + _section("HISTORICAL CONTEXT"))
 		out.append(_safe(str(_scenario["historical_note"])))
+	elif _scenario.has("setting_note"):
+		out.append("\n" + _section("SETTING"))
+		out.append(_safe(str(_scenario["setting_note"])))
 	elif _scenario.has("force_note"):
 		out.append("\n" + _safe(str(_scenario["force_note"])))
 

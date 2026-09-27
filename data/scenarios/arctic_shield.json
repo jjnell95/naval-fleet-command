@@ -207,6 +207,7 @@
         "kind": "land"
       }
     ],
+    "chart_region": "north_atlantic",
     "charted_nm": [
       -328.1,
       -408.5,
@@ -26591,6 +26592,18 @@
     "NEUTRAL"
   ],
   "seed": 13,
+  "theatre": "Barents Sea",
+  "year": 2027,
+  "difficulty": "Advanced",
+  "duration_minutes": 35,
+  "role": "Carrier strike group commander",
+  "learning": "A carrier group against a surface action group and three Kola airfields: strike planning, fighter coverage and civil traffic in the operating area",
+  "commander_intent": "Neutralize Marshal Ustinov, Vice-Admiral Kulakov and Admiral Gorshkov while the carrier and the civilian ships survive.",
+  "first_orders": [
+    "Get a Hawkeye and a Growler up before the first Backfire launch; the Kola raid comes from the south-east.",
+    "The surface group is off the Murman coast. LRASM from the Super Hornets reaches it; Harpoon from the escorts does not.",
+    "Delaware is forward. Let her report before the strike goes in."
+  ],
   "objectives": {
     "text": "Neutralize the three opposing surface combatants while preserving the carrier and civilian traffic.",
     "victory": [
