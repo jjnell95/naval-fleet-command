@@ -37,15 +37,20 @@ Public identities and broad fits are documented in the [2027 theatres ledger](do
 
 ## Command the force
 
-- **Select and move:** click a friendly symbol or roster row. Press **G**, then click water to plot a route. Shift adds waypoints; Escape cancels. Wheel/pinch zooms; middle/right/Option-drag pans. **Home** fits the force, **C** frames your selection and target, **F** follows it, and **B** expands/restores the chart.
-- **Build the picture:** **R** toggles radar, **E** emissions control, **P** active sonar. Contacts begin uncertain and classify through observation. A passive bearing is not a measured range. **N / Shift-N** cycles the current contact filter.
-- **Engage:** select a shooter and a held contact, then choose weapon, salvo and **Engage**. Automatic ship defence depends on detection, channels, ammunition, damage and weapons state. Unknown and neutral contacts are not free targets. Land-attack rounds can be fired at a battery or an airfield once it is classified.
-- **Fly:** **F3** opens Air Operations. Select a host, aircraft type and quantity, then launch. **Execute & Resume** runs the clock. Choose an airborne airframe and compatible **Land At** destination, then **Return & Land**. Recovery, refuelling and rearming precede relaunch. Ski-jump carriers launch two at a time and recover one.
-- **See it:** **T** opens the world view, a 3D battle camera around the selected unit that shows what your ships can see and what you hold on the plot, and nothing you do not know.
-- **Manage the watch:** **Space** pauses; **1–6** selects 1×–60× time. Combat interrupts acceleration. The status rail under the top bar opens mission orders, the next filtered contact, an inbound threat, aircraft controls or the wide chart.
-- **Find a command:** **Command-K / Control-K** opens Actions from anywhere. **F1** orders and help, **F2** symbol key, **F4** sensors, **F5** trails, **F6** terrain, **F7** fleet gallery, **F8** editor, **F9** missions, **F10** restart (press twice to confirm).
+The command screen is laid out the way the late-1990s fleet-command games laid theirs out: the relief-shaded tactical chart across the top two-thirds of the window, and along the bottom the regional map, the 3D view of the hooked platform and the data display.
 
-The interface targets a desktop/laptop with keyboard and mouse/trackpad and is laid out for 1600 × 900 or larger; wider windows get a wider chart. Browser play requires WebGL 2. Touch-only phone play is not supported, and the browser build says so before it downloads.
+- **Hook and move:** left-click a symbol to hook it (Shift adds). **Right-click water** to send the hooked platform there at once; Shift+right-click adds a waypoint. **W** arms a multi-leg route. Right-drag, middle-drag or the arrow keys pan; the wheel zooms. **Home** fits the force, **C** centres the hook and its target, **F** follows it, **.** hooks the next own platform.
+- **Give orders:** **right-click your own platform** for its Orders menu (speed, course, altitude or depth, sensors, EMCON, weapons state, flight deck, formation, route). **R** radar, **P** active sonar, **E** emission control.
+- **Engage:** hook a shooter, then **right-click a contact** for **Engage with**: the weapons that suit it, each with its rounds and a salvo size. Unknown and neutral contacts are not free targets. Land-attack rounds can be fired at a battery or an airfield once it is classified.
+- **Build the picture:** contacts begin uncertain and classify through observation. A passive bearing is not a measured range. **N / Shift-N** cycles priority contacts. **Tab** switches NTDS and graphic symbols; **Shift-V / K / I** toggle velocity leaders, track numbers and tags.
+- **Read the data display:** the hooked platform's class, track number, course, speed, damage, orders, sensors and weapons, or a contact as held, or the mission's tasking with nothing hooked. Its footer carries the watch time and the time scale (click them to pause or step the scale) and a lamp that flashes for new warnings.
+- **See it:** the 3D view follows the hook. **T** cycles the cameras: **F9** tether, **F11** fly-by, **F12** action, **F8** detached. **G** swaps the chart and the 3D view; **F10** gives the 3D view the whole window.
+- **Fly:** **F3** opens Air Operations. Select a host, aircraft type and quantity, then launch. Choose an airborne airframe and a compatible **Land At** destination, then **Return & Land**. Recovery, refuelling and rearming precede relaunch.
+- **Status boards:** **A** opens the orders board, the task group (roster, readiness, event log), the track file (with the air-defence board) and the comms history over the chart. The game keeps running.
+- **Manage the watch:** **Space** pauses; **1–6** selects 1×–60× time. Combat interrupts acceleration. Radio traffic reads along the bottom of the chart, and whoever is talking is ringed in white.
+- **Find a command:** **H** lists every key command. **Command-K / Control-K** opens Actions from anywhere. Right-click the chart with nothing hooked for the display and screens menu. **F1** orders and help, **F2** symbol key, **F4** sensors, **F5** trails, **F6** relief shading, **F7** reference, **M** missions, **Ctrl-E** editor, **Ctrl-F10** restart (press twice to confirm), **Ctrl-M** sound.
+
+The interface targets a desktop/laptop with keyboard and mouse/trackpad and is laid out for 1600 × 900 or larger. Browser play requires WebGL 2. Touch-only phone play is not supported, and the browser build says so before it downloads.
 
 ## What realism means here
 
