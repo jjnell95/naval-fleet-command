@@ -172,12 +172,35 @@ float grain(vec2 w) {
 	return mix(grain_level(w, l0), grain_level(w, l0 + 1.0), level - l0);
 }
 
-// Close-zoom land texture: two world-anchored octaves (~0.3 nm and ~0.08 nm), each faded in only
-// once it is several pixels across so it never aliases into noise at a wide zoom.
-float land_detail(vec2 w) {
-	float a = value_noise(w / 0.3 + 5.0) * smoothstep(1.5, 5.0, 0.3 * px_per_nm);
-	float b = value_noise(w / 0.08 + 41.0) * smoothstep(1.5, 5.0, 0.08 * px_per_nm);
-	return a * 0.6 + b * 0.4;
+// Value noise and its gradient (per lattice cell), for procedural hill shading.
+vec3 value_noise_d(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = p - i;
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	vec2 du = 6.0 * f * (1.0 - f);
+	float a = hash12(i);
+	float b = hash12(i + vec2(1.0, 0.0));
+	float c = hash12(i + vec2(0.0, 1.0));
+	float d = hash12(i + vec2(1.0, 1.0));
+	float k = a - b - c + d;
+	float v = a + (b - a) * u.x + (c - a) * u.y + k * u.x * u.y;
+	return vec3(v * 2.0 - 1.0, du * vec2(b - a + k * u.y, c - a + k * u.x) * 2.0);
+}
+
+// Hill shading of one noise octave, lit from the north-west like the baked relief, faded in once
+// its cells are a few pixels across so it never aliases at a wide zoom.
+float noise_relief(vec2 w, float cell_nm, float offset) {
+	vec3 n = value_noise_d(w / cell_nm + offset);
+	return -dot(n.yz, vec2(-0.7071, 0.7071)) * 0.5 * smoothstep(1.5, 5.0, cell_nm * px_per_nm);
+}
+
+// Close-zoom land texture. The rasters hold nothing finer than a ~2 km cell, so below that the land
+// gets world-anchored procedural relief: a broad octave (~1.2 nm) that only rugged high ground
+// carries, then two fine octaves (~0.3 nm and ~0.08 nm) everywhere, at a few percent.
+float land_detail(vec2 w, float rugged) {
+	float broad = noise_relief(w, 1.2, 3.0) * rugged;
+	float fine = noise_relief(w, 0.3, 5.0) * 0.6 + noise_relief(w, 0.08, 41.0) * 0.4;
+	return broad * 2.0 + fine;
 }
 
 // Land colour at a raster position: tint by height, then hill shading that lifts lit slopes more
@@ -192,7 +215,8 @@ vec3 land_colour(vec2 uv, vec2 w) {
 	}
 	vec3 c = land_tint(h);
 	c *= 1.0 + shade * (shade > 0.0 ? 0.9 : 0.7) * relief;
-	return c * (1.0 + land_detail(w) * DETAIL);
+	float rugged = smoothstep(80.0, 900.0, h) * relief;
+	return c * (1.0 + land_detail(w, rugged) * DETAIL);
 }
 
 // The shared finish: grain, then the regional map's tone and radar-coverage discs.

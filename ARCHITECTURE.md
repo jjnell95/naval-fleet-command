@@ -135,7 +135,13 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | ScenarioEditor | scripts/ui/scenario_editor.gd | in-game mission builder; writes the scenario JSON schema to user://scenarios |
 | Bathymetry | scripts/systems/bathymetry.gd | static regional sea-floor raster; `depth_at(world)` through the scenario's map anchor |
 | Acoustics | scripts/systems/acoustics.gd | static water-column rules: floor limit, layer, array depths, shelf losses, convergence zones |
-| ChartFloor | scripts/ui/chart_floor.gd (+ .gdshader) | shader-drawn sea floor behind the TacticalMap: tint, relief, contours, charted-coast limit |
+| ChartLayer | scripts/ui/chart_layer.gd | base of the chart's shader-drawn layers (`show_behind_parent`); follows a TacticalMap's view or one its owner sets |
+| ChartFloor | scripts/ui/chart_floor.gd (+ .gdshader) | stepped depth bands with sea-floor relief, and the raster's own land beyond the charted box |
+| ChartLand | scripts/ui/chart_land.gd (+ .gdshader) | the scenario's coastline polygons filled with the hypsometric land tint and relief |
+| ChartRelief | scripts/ui/chart_relief.gd | presentation rasters per region (depth, relief, water mask, land height and hill-shade); `height_at(world)` |
+| chart palette | scripts/ui/chart_palette.gdshaderinc | the chart's colours, samplers and grain, shared by both chart shaders |
+| ChartReadout / RadioLine | scripts/ui/chart_readout.gd, radio_line.gd | pure text and timing for the chart's bottom-left readout and bottom-centre radio line |
+| RegionalMap | scripts/ui/regional_map.gd | the theatre overview pane: same rasters, darker; unit dots, view rectangle, radar coverage |
 | TestCase | tests/test_case.gd | assertion base; runner tests/run_tests.gd |
 
 ## Sensor / track pipeline
@@ -426,7 +432,7 @@ Where it is read:
 | `UnitManager.issue_order` | returns `false` for a MOVE onto land by a hull |
 | `Formation.station_for` | an inland station is reflected into water |
 | `AIController` | `_sea_room`, `_standoff_point`, `_open_bearing`; no buoy or dip over land |
-| `TacticalMap._draw_land` | fill, shelf band and coastline, under the graticule and everything else |
+| `ChartLand` / `TacticalMap._draw_land` | shaded fill, then a thin coastline stroke, under everything else |
 | `ScenarioEditor` | COAST mode; its own `Array[Landmass]`, never the static, which the game owns |
 
 A weapon is terrain-bound by `WeaponSpec.profile`: `sea_skimming`, `direct` and `subsurface` stop at
@@ -448,13 +454,20 @@ every consumer treats unknown as no effect; `environment.bottom_m` sets a unifor
 which is how the tests build water. The constants in `bathymetry.gd` must match the raster's JSON
 metadata; `test_ocean.gd` holds them together.
 
-The chart does not use that raster. `ChartFloor` is a child of `TacticalMap` with
-`show_behind_parent`, because the map is a single `_draw()` and a canvas item carries one material.
-It samples `north_atlantic_chart.exr` (half-float metres, half resolution) with a cubic B-spline for
-smooth contours, and `north_atlantic_relief.png` (baked hill-shade). `TacticalMap._draw_ocean` skips
-its opaque fill while the floor is active. `map.charted_nm`, written by the scenario generator, is
-the box the coastline polygons were clipped to; beyond it the shader draws the raster's own coast,
-dimmed, and the map draws a neatline.
+The chart draws from presentation rasters that `ChartRelief` loads per region: `<region>_chart.exr`
+(half-float metres, half resolution) and `_relief.png` for the sea, a water mask built from the
+depth raster for the raster's own coast, and `<region>_land.png` / `_land_relief.png` (GMTED2010
+height and hill-shade, presentation only, on the depth raster's grid). Two `ChartLayer` children of
+`TacticalMap` carry the shaders, because the map is a single `_draw()` and a canvas item carries one
+material: `ChartFloor` paints stepped depth bands with the sea relief, and `ChartLand` fills the
+scenario's coastline polygons (the land the simulation uses) with the hypsometric tint and relief;
+the map then strokes a thin coastline. Both share `chart_palette.gdshaderinc`, sample the rasters at
+each fragment's world position and add a world-anchored grain. `map.charted_nm`, written by the
+scenario generator, is the box the coastline polygons were clipped to: inside it the raster's own
+land is painted as coastal water under the polygons; beyond it (and within a 2 nm margin of its
+edge) the raster's coast carries on in the same tint, so the chart runs edge to edge with no
+neatline. F6 toggles relief shading only. `RegionalMap` draws the same layers darker for the theatre
+pane. The simulation never reads the land rasters; its masking heights stay in `Terrain`.
 
 ## Water column (M18)
 `Acoustics` sits between `Detection` (how loud, how good an array) and the sensor cycle:

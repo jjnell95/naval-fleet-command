@@ -270,14 +270,6 @@ func post_message(text: String, severity := "info", speaker = null) -> void:
 	_radio.post(text, severity, speaker, _anim)
 
 
-func selection_label() -> String:
-	if selected.is_empty():
-		return "NO PLATFORM"
-	if selected.size() == 1:
-		return (selected[0] as Unit).callsign.to_upper()
-	return "%d PLATFORMS" % selected.size()
-
-
 func _process(delta: float) -> void:
 	_anim += delta
 	if selected_track != null and not selected_track.visible_to(reference_unit()):
