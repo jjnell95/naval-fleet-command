@@ -124,6 +124,7 @@ void fragment() {
 	g += wave(p, t * 1.03, normalize(wind + side * 0.9), 23.0, amp * 0.9, footprint, crest);
 	g += wave(p, t * 0.97, normalize(wind - side * 0.75), 13.7, amp * 0.55, footprint, crest);
 	g += wave(p, t * 1.05, normalize(wind + side * 2.1), 7.9, amp * 0.3, footprint, crest);
+	g += wave(p, t * 0.93, normalize(wind - side * 1.6), 4.3, amp * 0.16, footprint, crest);
 	// Three octaves of drifting noise break up the regularity: cat's paws and chop.
 	float chop_fade = 1.0 - smoothstep(0.6, 4.0, footprint);
 	g += vnoise_d(p * 0.045 + wind * t * 0.12).yz * 0.045 * (0.9 + 0.35 * s) * (1.0 - smoothstep(3.0, 18.0, footprint));
@@ -148,9 +149,9 @@ void fragment() {
 	col = mix(col, far_color * (0.3 + 0.7 * daylight), far);
 	// Sunlight: a broad sheen on the sun's side and hard glints where a facet catches it.
 	float rs = max(dot(r, sd), 0.0);
-	float sheen = pow(rs, 24.0) * 0.12 + pow(rs, 180.0) * 0.6;
-	float glint = pow(rs, 900.0) * 5.0 * (1.0 - far);
-	float sparkle = step(0.94, vnoise(p * 1.9 + t * vec2(0.7, -0.5))) * pow(rs, 60.0) * 2.0 * (1.0 - smoothstep(0.05, 0.6, footprint));
+	float sheen = pow(rs, 24.0) * 0.12 + pow(rs, 180.0) * 0.35;
+	float glint = pow(rs, 1400.0) * 2.6 * (1.0 - far);
+	float sparkle = step(0.92, vnoise(p * 2.3 + t * vec2(0.7, -0.5))) * pow(rs, 50.0) * 2.2 * (1.0 - smoothstep(0.05, 0.8, footprint));
 	col += sun_color * (sheen + glint + sparkle) * sun_strength;
 	// Whitecaps on the steep crests, from sea state 2 up.
 	float steep = length(g);
