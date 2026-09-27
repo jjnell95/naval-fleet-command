@@ -6,7 +6,7 @@ extends RefCounted
 ## talking, a lamp on the data display for anything that needs attention, and the full history on
 ## the comms board.
 ##
-## Keeps the old TopBar surface (flash, set_alert, set_objective_text, set_scenario_name, history,
+## Keeps the surface the old top bar had (flash, set_alert, set_objective_text, set_scenario_name, history,
 ## logged) so the wiring in Main reads the same.
 
 signal logged(text: String, severity: String)

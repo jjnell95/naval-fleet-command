@@ -27,11 +27,13 @@ extends RefCounted
 ##   --reload-check              fight a while, restart, and report that state was cleared
 ##   --debug                     turn on the truth overlay
 ##   --rings                     show the sensor coverage layer (F4), for screenshots
-##   --world-view=inset|full     open the 3D world view in that mode, for screenshots
-##   --world-camera=NAME         world view camera preset: bridge, orbit, overhead or chase
+##   --world-view=full|swap      give the 3D view the whole window, or swap it with the chart
+##   --world-camera=NAME         3D camera: tether, flyby, action or detached
+##   --boards[=N]                open the status boards (0 orders, 1 task group, 2 track file, 3 comms)
+##   --cds-menu                  open the right-click CDS menu over the chart, for screenshots
 ##   --world-focus=track         drop the selection and hook the first plotted contact, for screenshots
 ##   --world-azimuth=DEG         turn the world view camera this far round its focus
-##   --tab=N                     open command-dock tab N (0 navigation … 3 doctrine), for screenshots
+##   --tab=N                     open the orders board on tab N (0 navigation … 3 doctrine), for screenshots
 ##   --ignite=CALLSIGN           start a fire and some flooding aboard one own ship, for screenshots
 ##   --show-report               end the mission as a victory and open the after-action report
 ##   --dump                      print a full state report and quit, without touching the renderer
@@ -169,7 +171,10 @@ func handle_flags() -> void:
 		elif a.begins_with("--zoom="):
 			_zoom_after_layout(float(a.get_slice("=", 1)))
 		elif a.begins_with("--tab="):
+			main.status_boards.open_board(StatusBoards.BOARD_ORDERS)
 			main.orders_panel._tabs.current_tab = int(a.get_slice("=", 1))
+		elif a.begins_with("--boards"):
+			main.status_boards.open_board(int(a.get_slice("=", 1)) if a.contains("=") else StatusBoards.BOARD_ORDERS)
 		elif a.begins_with("--ignite="):
 			for u in main.simulation.unit_manager.units:
 				if u.callsign == a.get_slice("=", 1):
@@ -183,10 +188,14 @@ func handle_flags() -> void:
 		main._on_mission_ended("VICTORY", "The convoy reached the handover box with its cargo intact.")
 	for a in args:
 		if a.begins_with("--world-view="):
-			main._world_view.set_mode(WorldView.Mode.FULL if a.get_slice("=", 1) == "full" else WorldView.Mode.INSET)
-			print("[Dev] world view %s" % main._world_view.mode_name())
+			if a.get_slice("=", 1) == "full":
+				main._toggle_world_full()
+			elif a.get_slice("=", 1) == "swap":
+				main._swap_views()
+			print("[Dev] world view %s" % a.get_slice("=", 1))
 		elif a.begins_with("--world-camera="):
-			main._world_view.set_preset_by_name(a.get_slice("=", 1))
+			var modes := {"tether": WorldView.CAM_TETHER, "flyby": WorldView.CAM_FLYBY, "action": WorldView.CAM_ACTION, "detached": WorldView.CAM_DETACHED}
+			main._world_view.set_camera_mode(int(modes.get(a.get_slice("=", 1), WorldView.CAM_TETHER)))
 		elif a.begins_with("--world-azimuth="):
 			main._world_view._az_offset = float(a.get_slice("=", 1))
 		elif a == "--world-focus=track":
@@ -195,6 +204,8 @@ func handle_flags() -> void:
 				if WorldPresentation.plottable(t):
 					main.map.select_track(t)
 					break
+	if args.has("--cds-menu"):
+		main._on_map_context(main.map.size * 0.5, {"kind": "empty"})
 	if args.has("--visual-smoke"):
 		_visual_smoke()
 		return
