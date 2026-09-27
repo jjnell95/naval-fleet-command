@@ -181,8 +181,12 @@ func set_weather(state: int, visibility_nm: float, env: Dictionary) -> void:
 	_ocean_material.set_shader_parameter("swell_a", _swell)
 	_ocean_material.set_shader_parameter("swell_dir", Vector4(_wind.x, _wind.y, _wind2.x, _wind2.y))
 	# Thin haze: the sea stays dark to the horizon as the old games drew it, and the weather still
-	# closes it in when the visibility drops.
-	_env.fog_density = 0.45 / (visibility_nm * WorldPresentation.NM_TO_M)
+	# closes it in when the visibility drops. The sea lights itself and keeps the environment's fog
+	# off, so it takes its own share, which is nothing on a clear day; the sky is washed toward the
+	# fog colour as the visibility falls, so the horizon softens instead of standing out sharp.
+	_env.fog_density = haze_density(visibility_nm)
+	_env.fog_sky_affect = sky_murk(visibility_nm)
+	_ocean_material.set_shader_parameter("fog_density", sea_fog_density(visibility_nm))
 	var wind_kn := float(env.get("wind_kn", 8.0 + 4.0 * state))
 	effects.wind = Vector3(_wind.x, 0.0, _wind.y) * wind_kn * 0.51
 
@@ -227,6 +231,7 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_env.ambient_light_energy = 0.28 + 0.14 * twilight + 0.1 * day
 	_env.fog_light_color = pal[4]
 	_env.fog_light_energy = 1.0
+	_ocean_material.set_shader_parameter("fog_color", pal[4])
 	daylight = 0.08 + 0.42 * twilight + 0.5 * day
 	effects.daylight = daylight
 	land.set_daylight(daylight)
@@ -236,6 +241,23 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_ocean_material.set_shader_parameter("sun_dir", sun_dir)
 	_ocean_material.set_shader_parameter("sun_strength", smoothstep(-1.5, 5.0, elevation_deg))
 	_ocean_material.set_shader_parameter("daylight", daylight)
+
+
+## The environment's fog per metre for a visibility: a thin haze that hulls, land and smoke fade
+## into with distance.
+static func haze_density(visibility_nm: float) -> float:
+	return 0.45 / (maxf(visibility_nm, 0.1) * WorldPresentation.NM_TO_M)
+
+
+## The sea's own fog per metre: none at a clear day's visibility or better, rising toward the
+## environment's haze as the weather closes in.
+static func sea_fog_density(visibility_nm: float) -> float:
+	return maxf(haze_density(visibility_nm) - haze_density(WorldPresentation.DEFAULT_VISIBILITY_NM), 0.0)
+
+
+## How far the sky is washed toward the fog colour: none on a clear day, most of the way in fog.
+static func sky_murk(visibility_nm: float) -> float:
+	return clampf(1.0 - visibility_nm / WorldPresentation.DEFAULT_VISIBILITY_NM, 0.0, 0.9)
 
 
 func _origin_offset() -> Vector2:

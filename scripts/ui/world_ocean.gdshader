@@ -6,9 +6,11 @@ render_mode cull_disabled, depth_draw_opaque, unshaded, fog_disabled;
 // the waves a modern renderer can afford. Two long swell trains move the surface itself (the
 // same trains WorldPresentation.swell_height evaluates, so hulls and wakes ride the same water);
 // six short wind-wave trains and two octaves of noise give it its normals, faded out with
-// distance before they alias. Lighting is done here by hand so the palette holds exactly; the
-// environment's fog is still applied on top. Nothing here needs a texture beyond the coast mask,
-// a compute pass or anything the GL Compatibility renderer and the browser lack.
+// distance before they alias. Lighting is done here by hand so the palette holds exactly, and so
+// is the weather: the environment's fog is kept off so a clear day stays dark to the horizon, and
+// the sea closes into the fog colour by its own `fog_density`, which WorldScene raises only when
+// the visibility drops below a clear day's. Nothing here needs a texture beyond the coast mask, a
+// compute pass or anything the GL Compatibility renderer and the browser lack.
 
 uniform vec3 deep_color : source_color = vec3(0.043, 0.059, 0.106);   // #0B0F1B
 uniform vec3 body_color : source_color = vec3(0.105, 0.135, 0.185);   // a wave face toward the light
@@ -22,6 +24,8 @@ uniform float daylight : hint_range(0.0, 1.0) = 1.0;
 uniform float reflect_strength = 0.22;
 uniform vec3 far_color : source_color = vec3(0.075, 0.094, 0.137);   // the sea just short of the horizon
 uniform float haze_m = 30000.0;                                       // distance over which it gets there
+uniform float fog_density = 0.0;                                      // per metre; 0 in clear weather
+uniform vec3 fog_color : source_color = vec3(0.576, 0.561, 0.745);   // the environment's fog colour
 uniform float sea_state : hint_range(0.0, 6.0) = 2.0;    // Detection.sea_state
 uniform vec4 swell_a = vec4(0.4, 90.0, 0.2, 55.0);       // amplitude, wavelength of two swell trains (m)
 uniform vec4 swell_dir = vec4(1.0, 0.0, 0.8, 0.6);       // unit xz directions of the two trains
@@ -169,5 +173,7 @@ void fragment() {
 			col = mix(col, foam_color * (0.3 + 0.7 * daylight), surf * 0.75 * (1.0 - far));
 		}
 	}
+	// Poor visibility: the sea fades into the murk with distance, as everything else on the view does.
+	col = mix(col, fog_color, 1.0 - exp(-dist * fog_density));
 	ALBEDO = col;
 }

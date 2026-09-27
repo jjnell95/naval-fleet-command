@@ -828,6 +828,33 @@ func test_action_is_offered_both_the_launch_and_the_recovery_of_one_sortie() -> 
 	scene.free()
 
 
+func test_poor_visibility_closes_in_the_sea_and_the_sky_but_a_clear_day_does_not() -> void:
+	var clear := WorldPresentation.DEFAULT_VISIBILITY_NM
+	assert_eq(WorldScene.sea_fog_density(clear), 0.0, "a clear day leaves the sea dark to the horizon")
+	assert_eq(WorldScene.sea_fog_density(clear * 2.0), 0.0, "and a better one too")
+	assert_eq(WorldScene.sky_murk(clear), 0.0, "and the sky as it is")
+	assert_true(WorldScene.sea_fog_density(5.0) > 0.0 and WorldScene.sky_murk(5.0) > 0.0, "5 nm visibility closes both in")
+	assert_true(WorldScene.sea_fog_density(1.0) > WorldScene.sea_fog_density(5.0) and WorldScene.sky_murk(1.0) > WorldScene.sky_murk(5.0), "and 1 nm more so")
+	var two_nm := 1.0 - exp(-2.0 * WorldPresentation.NM_TO_M * WorldScene.sea_fog_density(1.0))
+	assert_true(two_nm > 0.3, "in 1 nm visibility the sea 2 nm out is well into the murk, got %.2f" % two_nm)
+	assert_true(WorldScene.sea_fog_density(1.0) <= WorldScene.haze_density(1.0), "never thicker than what hulls and land fade into")
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	scene.set_weather(3, 1.0, {})
+	assert_near(float(scene._ocean_material.get_shader_parameter("fog_density")), WorldScene.sea_fog_density(1.0), 1e-9, "the sea is handed its fog")
+	assert_near(scene._env.fog_sky_affect, WorldScene.sky_murk(1.0), 1e-6, "and the sky washed toward it")
+	assert_near(scene._env.fog_density, WorldScene.haze_density(1.0), 1e-9)
+	scene.set_weather(3, clear, {})
+	assert_eq(float(scene._ocean_material.get_shader_parameter("fog_density")), 0.0, "clearing weather clears the sea")
+	assert_eq(scene._env.fog_sky_affect, 0.0)
+	scene.set_time_of_day(Vector3(0.3, 0.6, 0.7).normalized(), 35.0)
+	assert_eq(scene._ocean_material.get_shader_parameter("fog_color"), scene._env.fog_light_color, "the sea fades into the fog's own colour")
+	root.remove_child(scene)
+	scene.free()
+
+
 func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() -> void:
 	var view := WorldView.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
