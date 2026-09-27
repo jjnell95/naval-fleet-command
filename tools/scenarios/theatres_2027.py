@@ -187,9 +187,13 @@ def catalogue():
     # A ship-launched round with a smaller warhead than the DF-21D and the same class of terminal
     # problem for a defender. Six at 100 damage sank a carrier four times out of four AI runs; four
     # at 80 leave the watch to be won or lost by the picket, which is the mission.
+    # Ballistic rounds are detected at a radar's full air range: what a defender needs against a
+    # 5,000-knot round is warning time, and a round detected at 64 nm gives an SM-6 shooter a
+    # mile away from the carrier no shot at all. At full range a picket twenty or thirty miles
+    # out can meet it, which is the mission.
     weapon("pla_yj21", "YJ-21 anti-ship ballistic missile", "asm", ["surface"], 600, 5000, 80,
            vls_pack=1, min_range_nm=40.0, base_pk=0.5, salvo_default=2, profile="ballistic", guidance="inertial_terminal_seeker",
-           altitude_m=40000.0, defensive_difficulty=2.2, signature_factor=0.45, soft_kill_resistance=5.0,
+           altitude_m=40000.0, defensive_difficulty=2.2, signature_factor=1.0, soft_kill_resistance=5.0,
            turn_rate_deg_s=8.0, launch_interval_s=20.0)
     weapon("pla_cj10", "CJ-10 land-attack cruise missile", "asm", ["land"], 900, 480, 55,
            vls_pack=1, min_range_nm=15.0, base_pk=0.8, salvo_default=2, profile="high", altitude_m=60.0,
@@ -220,7 +224,7 @@ def catalogue():
            # A medium-range ballistic round spends its flight above the atmosphere: SM-3's problem,
            # and nobody else's. The single-altitude profile places it there rather than in the
            # gap between the terminal interceptors' ceiling and SM-3's floor.
-           altitude_m=150000.0, defensive_difficulty=2.2, signature_factor=0.5, soft_kill_resistance=6.0,
+           altitude_m=150000.0, defensive_difficulty=2.2, signature_factor=1.0, soft_kill_resistance=6.0,
            turn_rate_deg_s=6.0, launch_interval_s=30.0)
 
     platform("pla_ddg_type055", "Type 055 large destroyer (Renhai)", "DDG Type 055", "China", "destroyer",
@@ -467,7 +471,7 @@ def catalogue():
            min_range_nm=1.0, base_pk=0.60, defensive_difficulty=0.9, signature_factor=0.08, seeker_range_nm=4.0)
     weapon("irn_khalij_fars", "Khalij Fars anti-ship ballistic missile", "asm", ["surface"], 190, 4000, 90,
            min_range_nm=30.0, base_pk=0.40, salvo_default=2, profile="ballistic", guidance="inertial_electro_optical",
-           altitude_m=40000.0, defensive_difficulty=1.9, signature_factor=0.5, soft_kill_resistance=5.0,
+           altitude_m=40000.0, defensive_difficulty=1.9, signature_factor=1.0, soft_kill_resistance=5.0,
            turn_rate_deg_s=6.0, launch_interval_s=25.0)
     weapon("irn_sayyad4_sam", "Sayyad-4 long-range surface-to-air missile", "sam", ["missile", "air"], 110, 2300, 42,
            min_range_nm=3.0, base_pk=0.45, signature_factor=0.2, altitude_m=9000.0)
