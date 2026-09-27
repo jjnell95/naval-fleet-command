@@ -350,6 +350,34 @@ func test_events_are_drawn_only_where_the_player_could_witness_them() -> void:
 	_free_all(m)
 
 
+func test_an_event_on_a_unit_is_seen_only_if_a_lookout_could_see_that_unit() -> void:
+	var own := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var boat := _unit("cw90_victor3", "RED", Vector2(4, 0))
+	boat.depth_m = 150.0
+	var ship := _unit("cw90_slava", "RED", Vector2(30, 0))
+	var m := _managers([own, boat, ship])
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], [], ENV, boat), Vector2.INF, "the kill of a deep boat nobody holds is not drawn, 4 nm from one of ours or not")
+	boat.alive = false
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], [], ENV, boat), Vector2.INF, "nor once it is dead")
+	var t := _hold(m["tm"], "T1002", boat, Vector2(4.3, 0.2), Track.Classification.UNKNOWN, "subsurface")
+	var tracks: Array = m["tm"].get_tracks("BLUE")
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], tracks, ENV, boat), t.position, "held, it is drawn where the plot has it")
+	t.status = Track.Status.STALE
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], tracks, ENV, boat), Vector2.INF, "a stale track puts nothing on the view to draw it at")
+	boat.depth_m = 0.0
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], [], ENV, boat), boat.position, "surfaced within sight, it is seen where it happens")
+	var clear := {"visibility_nm": 100.0}
+	assert_true(Detection.radar_horizon_nm(27.0, 27.0) < 30.0, "fixture: 30 nm is over the horizon between two masts")
+	assert_eq(WorldPresentation.witness_point(ship.position, [own], [], clear, ship), Vector2.INF, "a ship over the horizon is not seen however clear the day")
+	assert_eq(WorldPresentation.witness_point(ship.position, [own], [], {"visibility_nm": 3.0}, ship), Vector2.INF, "nor one beyond the murk")
+	ship.position = Vector2(2, 0)
+	assert_eq(WorldPresentation.witness_point(ship.position, [own], [], {"visibility_nm": 3.0}, ship), ship.position, "but one inside it is")
+	var sub := _unit("cw90_los_angeles", "BLUE", Vector2(-3, 0))
+	sub.depth_m = 150.0
+	assert_eq(WorldPresentation.witness_point(sub.position, [own, sub], [], ENV, sub), sub.position, "a miss on one of ours is seen where it is, even a boat of ours running deep")
+	_free_all(m)
+
+
 func test_gun_rounds_are_flagged_and_drawn_as_tracers() -> void:
 	var own := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
 	var wm := WeaponManager.new()
@@ -957,4 +985,26 @@ func test_action_cuts_only_to_events_the_view_can_draw_around() -> void:
 	assert_true(view.rig._queue.is_empty(), "a hit 60 nm off, beyond everything the view holds, is not cut to")
 	view.add_effect(near.position, "hit", true)
 	assert_eq(view.rig._queue.size(), 1, "one 8 nm off is")
+	_free_view(f)
+
+
+func test_action_never_cuts_to_the_kill_of_a_boat_nobody_holds() -> void:
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var boat := _unit("cw90_victor3", "RED", Vector2(4, 0))
+	boat.depth_m = 150.0
+	var surface := _unit("cw90_slava", "RED", Vector2(0, 5))
+	var f := _live_view([ship, boat, surface])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [ship] as Array[Unit]
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view._process(0.016)
+	var flashes := view._scene.effects._flashes.size()
+	boat.alive = false
+	view.add_effect(boat.position, "destroyed", false)
+	view.add_effect(boat.position, "miss")
+	assert_true(view.rig._queue.is_empty(), "no cut to a deep boat that is not on the plot, 4 nm from one of ours or not")
+	assert_eq(view._scene.effects._flashes.size(), flashes, "and nothing drawn over it")
+	view.add_effect(surface.position, "hit", false)
+	assert_eq(view.rig._queue.size(), 1, "a hit on a ship in plain sight is cut to")
 	_free_view(f)

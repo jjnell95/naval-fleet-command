@@ -182,11 +182,13 @@ func refocus() -> void:
 
 
 ## A simulation event at a chart position, beside the chart's own `add_effect`. `height_m`
-## places an airburst; leave it negative for something at the surface. Only events the player
-## could witness are drawn, and one known only from the plot is drawn where the plot has it;
-## launches are drawn from the rounds themselves as they appear. Action cuts only to events
-## inside the view's range, where what they happened to can be drawn around them.
-func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0) -> void:
+## places an airburst; leave it negative for something at the surface. `target` is the unit a
+## hit, miss or kill happened to; left out, it is taken to be the unit standing at `pos`, which is
+## where Main reports those events. Only events the player could witness are drawn, and one known
+## only from the plot is drawn where the plot has it; launches are drawn from the rounds
+## themselves as they appear. Action cuts only to events inside the view's range, where what they
+## happened to can be drawn around them.
+func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0, target: Unit = null) -> void:
 	if _scene == null or not _live() or simulation == null:
 		return
 	if kind == "launch" or kind == "refused":
@@ -195,12 +197,30 @@ func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0) -> v
 	var tm := simulation.track_manager
 	var own_units: Array = um.get_faction_units(simulation.player_faction) if um != null else []
 	var tracks: Array = tm.get_tracks(simulation.player_faction) if tm != null else []
-	var at := pos if own else WorldPresentation.witness_point(pos, own_units, tracks, Detection.environment)
+	var at := pos
+	if not own:
+		if target == null and kind in ["hit", "miss", "destroyed"]:
+			target = _unit_at(pos)
+		at = WorldPresentation.witness_point(pos, own_units, tracks, Detection.environment, target)
 	if at == Vector2.INF:
 		return
 	var h := _scene.add_effect(at, kind, own, height_m)
 	if kind in ["hit", "destroyed", "intercept"] and at.distance_to(_origin_nm) <= WorldPresentation.MAX_RANGE_NM:
 		rig.notify(kind, Vector3(at.x, at.y, h))
+
+
+## The unit an event at `pos` happened to, when the caller gave only the place: a unit standing
+## exactly there, dead or alive, but not an airframe parked on a deck.
+func _unit_at(pos: Vector2) -> Unit:
+	var um := simulation.unit_manager
+	if um == null:
+		return null
+	for u: Unit in um.units:
+		if u.alive and not u.is_engageable():
+			continue
+		if u.position.is_equal_approx(pos):
+			return u
+	return null
 
 
 ## A new scenario: forget wakes, smoke, sinking hulls and the camera's memory of the last one.
