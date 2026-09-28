@@ -350,6 +350,34 @@ func test_events_are_drawn_only_where_the_player_could_witness_them() -> void:
 	_free_all(m)
 
 
+func test_an_event_on_a_unit_is_seen_only_if_a_lookout_could_see_that_unit() -> void:
+	var own := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var boat := _unit("cw90_victor3", "RED", Vector2(4, 0))
+	boat.depth_m = 150.0
+	var ship := _unit("cw90_slava", "RED", Vector2(30, 0))
+	var m := _managers([own, boat, ship])
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], [], ENV, boat), Vector2.INF, "the kill of a deep boat nobody holds is not drawn, 4 nm from one of ours or not")
+	boat.alive = false
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], [], ENV, boat), Vector2.INF, "nor once it is dead")
+	var t := _hold(m["tm"], "T1002", boat, Vector2(4.3, 0.2), Track.Classification.UNKNOWN, "subsurface")
+	var tracks: Array = m["tm"].get_tracks("BLUE")
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], tracks, ENV, boat), t.position, "held, it is drawn where the plot has it")
+	t.status = Track.Status.STALE
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], tracks, ENV, boat), Vector2.INF, "a stale track puts nothing on the view to draw it at")
+	boat.depth_m = 0.0
+	assert_eq(WorldPresentation.witness_point(boat.position, [own], [], ENV, boat), boat.position, "surfaced within sight, it is seen where it happens")
+	var clear := {"visibility_nm": 100.0}
+	assert_true(Detection.radar_horizon_nm(27.0, 27.0) < 30.0, "fixture: 30 nm is over the horizon between two masts")
+	assert_eq(WorldPresentation.witness_point(ship.position, [own], [], clear, ship), Vector2.INF, "a ship over the horizon is not seen however clear the day")
+	assert_eq(WorldPresentation.witness_point(ship.position, [own], [], {"visibility_nm": 3.0}, ship), Vector2.INF, "nor one beyond the murk")
+	ship.position = Vector2(2, 0)
+	assert_eq(WorldPresentation.witness_point(ship.position, [own], [], {"visibility_nm": 3.0}, ship), ship.position, "but one inside it is")
+	var sub := _unit("cw90_los_angeles", "BLUE", Vector2(-3, 0))
+	sub.depth_m = 150.0
+	assert_eq(WorldPresentation.witness_point(sub.position, [own, sub], [], ENV, sub), sub.position, "a miss on one of ours is seen where it is, even a boat of ours running deep")
+	_free_all(m)
+
+
 func test_gun_rounds_are_flagged_and_drawn_as_tracers() -> void:
 	var own := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
 	var wm := WeaponManager.new()
@@ -541,6 +569,36 @@ func test_flyby_waits_ahead_and_beside_then_moves_on_once_passed() -> void:
 	assert_near((WorldCamera.to_chart(first["eye"], Vector2.ZERO) - WorldCamera.to_chart(still["eye"], Vector2(0, 0.05))).length(), 0.0, 1e-6, "fixed in the chart as the origin slides")
 	var moved := cam.update(0.016, beyond, _frame(Vector3.ZERO, 0.0), Callable())
 	assert_true(moved["cut"], "once passed, it cuts to a new station")
+
+
+func test_flyby_holds_its_station_for_a_fast_jet_until_it_has_flown_past() -> void:
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.FLYBY)
+	var speed := 450.0 * 0.5144  # an F-14 at 450 kn, 19 m long, heading north at 3000 m
+	var jet := {"position": Vector3(0, 3000, 0), "length": 19.0, "heading": 0.0, "domain": "air", "speed_mps": speed}
+	var dt := 1.0 / 60.0
+	var cuts := 0
+	for i in 120:
+		var shot := cam.update(dt, Vector2(0.0, speed * dt * i / WorldPresentation.NM_TO_M), jet, Callable())
+		cuts += 1 if shot["cut"] else 0
+	assert_eq(cuts, 1, "the camera waits kilometres ahead of a fast jet instead of re-stationing every frame")
+	var first_pass := -1.0
+	cuts = 0
+	for i in 120:
+		var t := 2.0 + i * 0.25
+		var shot := cam.update(0.25, Vector2(0.0, speed * t / WorldPresentation.NM_TO_M), jet, Callable())
+		if shot["cut"]:
+			cuts += 1
+			if first_pass < 0.0:
+				first_pass = t
+	assert_eq(cuts, 1, "in the next half minute it moves on once, after the jet has gone by")
+	assert_true(first_pass > WorldCamera.FLYBY_LEAD_S and first_pass < WorldCamera.FLYBY_LEAD_S + 1.0, "about twenty seconds after the station was placed, got %.2f s" % first_pass)
+	var station := WorldCamera.flyby_station(Vector2.ZERO, 0.0, speed, 19.0, "air", 3000.0)
+	var start := Vector2(station.x, station.y).length() * WorldPresentation.NM_TO_M
+	var west_of := func(k: float) -> Vector2: return Vector2(station.x, station.y) + Vector2(-k * start / WorldPresentation.NM_TO_M, 0.0)
+	assert_true(not WorldCamera.flyby_passed(station, west_of.call(1.2), 90.0, 19.0, start), "a jet that has turned across its course is still waited for a little beyond the station's range")
+	assert_true(WorldCamera.flyby_passed(station, west_of.call(1.6), 90.0, 19.0, start), "and given up once it is well beyond it")
+	assert_true(WorldCamera.flyby_passed(station, west_of.call(1.2), 90.0, 19.0), "without the station's range, the old fixed give-up distance")
 
 
 func test_detached_freezes_the_eye_and_keeps_looking() -> void:
@@ -761,6 +819,82 @@ func test_scene_draws_launches_from_fresh_rounds_and_offers_them_to_action() -> 
 	scene.free()
 
 
+func _kinds(events: Array) -> Array:
+	return events.map(func(e: Dictionary) -> String: return e["kind"])
+
+
+func test_action_is_offered_both_the_launch_and_the_recovery_of_one_sortie() -> void:
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	var cv := _unit("cw90_nimitz", "BLUE", Vector2.ZERO)
+	cv.id = 1
+	var jet := _unit("cw90_f14a", "BLUE", Vector2(0.3, 0.0))
+	jet.id = 2
+	jet.home = cv
+	var cv_e := WorldPresentation.own_entry(cv)
+	scene.update(0.016, [cv_e], cv_e["key"])
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	jet.altitude_m = 300.0
+	scene.update(0.016, [cv_e, WorldPresentation.own_entry(jet)], cv_e["key"])
+	assert_eq(_kinds(scene.take_events()), ["air_launch"], "the jet leaving the deck is offered")
+	jet.position = Vector2(20.0, 0.0)
+	for i in 10:
+		scene.update(0.016, [cv_e, WorldPresentation.own_entry(jet)], cv_e["key"])
+	assert_true(scene.take_events().is_empty(), "nothing while it is out on CAP inside the view")
+	jet.position = Vector2(1.0, 0.0)
+	jet.flight_state = Unit.FlightState.RECOVERING
+	for i in 10:
+		scene.update(0.016, [cv_e, WorldPresentation.own_entry(jet)], cv_e["key"])
+	assert_eq(_kinds(scene.take_events()), ["recovery"], "and coming back aboard the same sortie is offered too, once")
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	for i in 10:
+		scene.update(0.016, [cv_e, WorldPresentation.own_entry(jet)], cv_e["key"])
+	assert_true(scene.take_events().is_empty(), "a wave-off after the recovery was shown is not a new launch")
+	root.remove_child(scene)
+	scene.free()
+
+
+func test_poor_visibility_closes_in_the_sea_and_the_sky_but_a_clear_day_does_not() -> void:
+	var clear := WorldPresentation.DEFAULT_VISIBILITY_NM
+	assert_eq(WorldScene.sea_fog_density(clear), 0.0, "a clear day leaves the sea dark to the horizon")
+	assert_eq(WorldScene.sea_fog_density(clear * 2.0), 0.0, "and a better one too")
+	assert_eq(WorldScene.sky_murk(clear), 0.0, "and the sky as it is")
+	assert_true(WorldScene.sea_fog_density(5.0) > 0.0 and WorldScene.sky_murk(5.0) > 0.0, "5 nm visibility closes both in")
+	assert_true(WorldScene.sea_fog_density(1.0) > WorldScene.sea_fog_density(5.0) and WorldScene.sky_murk(1.0) > WorldScene.sky_murk(5.0), "and 1 nm more so")
+	var two_nm := 1.0 - exp(-2.0 * WorldPresentation.NM_TO_M * WorldScene.sea_fog_density(1.0))
+	assert_true(two_nm > 0.3, "in 1 nm visibility the sea 2 nm out is well into the murk, got %.2f" % two_nm)
+	assert_true(WorldScene.sea_fog_density(1.0) <= WorldScene.haze_density(1.0), "never thicker than what hulls and land fade into")
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	scene.set_weather(3, 1.0, {})
+	assert_near(float(scene._ocean_material.get_shader_parameter("fog_density")), WorldScene.sea_fog_density(1.0), 1e-9, "the sea is handed its fog")
+	assert_near(scene._env.fog_sky_affect, WorldScene.sky_murk(1.0), 1e-6, "and the sky washed toward it")
+	assert_near(scene._env.fog_density, WorldScene.haze_density(1.0), 1e-9)
+	scene.set_weather(3, clear, {})
+	assert_eq(float(scene._ocean_material.get_shader_parameter("fog_density")), 0.0, "clearing weather clears the sea")
+	assert_eq(scene._env.fog_sky_affect, 0.0)
+	scene.set_time_of_day(Vector3(0.3, 0.6, 0.7).normalized(), 35.0)
+	assert_eq(scene._ocean_material.get_shader_parameter("fog_color"), scene._env.fog_light_color, "the sea fades into the fog's own colour")
+	root.remove_child(scene)
+	scene.free()
+
+
+func test_ocean_shader_compiles_takes_its_fog_and_hashes_its_noise_in_integers() -> void:
+	var shader: Shader = load("res://scripts/ui/world_ocean.gdshader")
+	var names: Array = shader.get_shader_uniform_list().map(func(p: Dictionary) -> String: return p["name"])
+	assert_true(names.has("fog_density") and names.has("fog_color") and names.has("origin_offset"), "the shader compiles, with its own fog")
+	var code := shader.code
+	var at := code.find("float hash21(")
+	assert_true(at >= 0, "the lattice hash is there")
+	var body := code.substr(at, code.find("}", at) - at)
+	assert_true(body.contains("uvec2") and not body.contains("fract("), "and hashes in integers: a float fract of a large product goes flat tens of kilometres from the origin")
+	assert_true(code.contains("fog_density") and code.substr(code.find("void fragment()")).contains("fog_density"), "the sea applies its fog in the fragment")
+
+
 func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() -> void:
 	var view := WorldView.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
@@ -801,3 +935,131 @@ func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() ->
 	view.reset_presentation()
 	root.remove_child(view)
 	view.free()
+
+
+# --- The pane over a simulation --------------------------------------------------------------
+
+## A live pane over hand-built managers, with a chart that only holds the hook.
+func _live_view(units: Array) -> Dictionary:
+	var sim := Simulation.new()
+	sim.unit_manager = UnitManager.new()
+	sim.track_manager = TrackManager.new()
+	for u in units:
+		sim.unit_manager.add_unit(u)
+	var map := TacticalMap.new()
+	map.simulation = sim
+	map.unit_manager = sim.unit_manager
+	var view := WorldView.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(view)
+	view.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	view.size = Vector2(640, 360)
+	view.map = map
+	view.simulation = sim
+	view.set_mode(WorldView.Mode.INSET)
+	Detection.environment = {}
+	return {"view": view, "map": map, "sim": sim, "tm": sim.track_manager}
+
+
+func _free_view(f: Dictionary) -> void:
+	var view: WorldView = f["view"]
+	view.get_parent().remove_child(view)
+	view.free()
+	(f["map"] as Node).free()
+	var sim: Simulation = f["sim"]
+	sim.unit_manager.free()
+	sim.track_manager.free()
+	sim.free()
+
+
+func test_a_new_hook_takes_the_camera_off_a_ship_that_is_going_down() -> void:
+	var first := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var second := _unit("cw90_perry", "BLUE", Vector2(3, 0))
+	var f := _live_view([first, second])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [first] as Array[Unit]
+	view._process(0.016)
+	assert_eq(view._focus_key, "u:%d" % first.id, "the hooked ship is the subject")
+	first.alive = false
+	map.selected = [] as Array[Unit]  # the chart prunes the loss from the hook
+	view.refocus()
+	for i in 3:
+		view._process(0.016)
+	assert_eq(view._focus_key, "u:%d" % first.id, "a lost ship is watched as it goes down")
+	assert_true(view._scene.is_dying(view._focus_key))
+	map.selected = [second] as Array[Unit]
+	view.refocus()
+	view._process(0.016)
+	assert_eq(view._focus_key, "u:%d" % second.id, "but the player hooking another ship takes the camera there at once")
+	for i in 3:
+		view._process(0.016)
+	assert_eq(view._focus_key, "u:%d" % second.id, "and it stays there")
+	_free_view(f)
+
+
+func test_hooking_a_contact_beside_the_ship_leaves_a_detached_eye_where_it_is() -> void:
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	ship.heading_deg = 0.0
+	var other := _unit("cw90_perry", "BLUE", Vector2(3, 0))
+	var red := _unit("cw90_slava", "RED", Vector2(30, 0))
+	var f := _live_view([ship, other, red])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [ship] as Array[Unit]
+	view._process(0.016)
+	view.set_camera_mode(WorldView.CAM_DETACHED)
+	view._process(0.016)
+	var eye := WorldCamera.to_chart(view._scene.camera.global_position, view._origin_nm)
+	ship.position = Vector2(0.0, 0.5)
+	view._process(0.016)
+	map.selected_track = _hold(f["tm"], "T1001", red, Vector2(29, 1), Track.Classification.SURFACE)
+	view.refocus()
+	view._process(0.016)
+	var after := WorldCamera.to_chart(view._scene.camera.global_position, view._origin_nm)
+	assert_near(Vector2(after.x, after.y).distance_to(Vector2(eye.x, eye.y)) * WorldPresentation.NM_TO_M, 0.0, 1.0, "the subject is still the ship, so the detached eye does not jump")
+	map.selected = [ship] as Array[Unit]
+	view.refocus()
+	assert_true(not view.rig._cut, "hooking the same ship again is no new subject either")
+	map.selected = [other] as Array[Unit]
+	view.refocus()
+	assert_true(view.rig._cut, "hooking another ship is")
+	_free_view(f)
+
+
+func test_action_cuts_only_to_events_the_view_can_draw_around() -> void:
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var far := _unit("cw90_perry", "BLUE", Vector2(60, 0))
+	var near := _unit("cw90_perry", "BLUE", Vector2(8, 0))
+	var f := _live_view([ship, far, near])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [ship] as Array[Unit]
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view._process(0.016)
+	view.add_effect(far.position, "hit", true)
+	assert_true(view.rig._queue.is_empty(), "a hit 60 nm off, beyond everything the view holds, is not cut to")
+	view.add_effect(near.position, "hit", true)
+	assert_eq(view.rig._queue.size(), 1, "one 8 nm off is")
+	_free_view(f)
+
+
+func test_action_never_cuts_to_the_kill_of_a_boat_nobody_holds() -> void:
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var boat := _unit("cw90_victor3", "RED", Vector2(4, 0))
+	boat.depth_m = 150.0
+	var surface := _unit("cw90_slava", "RED", Vector2(0, 5))
+	var f := _live_view([ship, boat, surface])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [ship] as Array[Unit]
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view._process(0.016)
+	var flashes := view._scene.effects._flashes.size()
+	boat.alive = false
+	view.add_effect(boat.position, "destroyed", false)
+	view.add_effect(boat.position, "miss")
+	assert_true(view.rig._queue.is_empty(), "no cut to a deep boat that is not on the plot, 4 nm from one of ours or not")
+	assert_eq(view._scene.effects._flashes.size(), flashes, "and nothing drawn over it")
+	view.add_effect(surface.position, "hit", false)
+	assert_eq(view.rig._queue.size(), 1, "a hit on a ship in plain sight is cut to")
+	_free_view(f)

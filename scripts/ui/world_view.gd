@@ -53,6 +53,9 @@ var _hud: Control
 var _origin_nm := Vector2.ZERO
 var _focus: Dictionary = {}
 var _focus_key := ""
+## What the hook held on the last frame, to tell a new hook from one that only lost something.
+var _hook_units: Array[Unit] = []
+var _hook_track: Track = null
 var _dragging := false
 var _entries: Array = []
 var _default_unix := 0
@@ -137,7 +140,7 @@ func set_mode(next: Mode) -> void:
 	visible = mode != Mode.HIDDEN
 	_sync_visibility()
 	if visible:
-		refocus()
+		rig.cut()
 	mode_changed.emit(mode)
 
 
@@ -175,17 +178,29 @@ func set_orbit(az_deg: float, pitch_deg := NAN, zoom_factor := NAN) -> void:
 	rig.cut()
 
 
-## The subject changed: the next frame cuts to it instead of sweeping. The tether orbit and zoom
-## are the player's and are kept. Main calls it whenever the selection changes.
+## The hook changed: if that changes the subject, the next frame cuts to it instead of sweeping.
+## When the subject is the one already shown (a contact hooked beside the ship, the same ship
+## hooked again, a lost ship still being watched as it goes down) nothing happens, so a detached
+## eye stays where it is and a fly-by keeps its station. The tether orbit and zoom are the
+## player's and are always kept. Main calls it whenever the selection changes.
 func refocus() -> void:
-	rig.cut()
+	if map == null or simulation == null:
+		rig.cut()
+		return
+	var um := simulation.unit_manager
+	var own_units: Array = um.get_faction_units(simulation.player_faction) if um != null else []
+	if String(_pick_focus(own_units, _hooked_anew()).get("key", "")) != String(_focus.get("key", "")):
+		rig.cut()
 
 
 ## A simulation event at a chart position, beside the chart's own `add_effect`. `height_m`
-## places an airburst; leave it negative for something at the surface. Only events the player
-## could witness are drawn, and one known only from the plot is drawn where the plot has it;
-## launches are drawn from the rounds themselves as they appear.
-func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0) -> void:
+## places an airburst; leave it negative for something at the surface. `target` is the unit a
+## hit, miss or kill happened to; left out, it is taken to be the unit standing at `pos`, which is
+## where Main reports those events. Only events the player could witness are drawn, and one known
+## only from the plot is drawn where the plot has it; launches are drawn from the rounds
+## themselves as they appear. Action cuts only to events inside the view's range, where what they
+## happened to can be drawn around them.
+func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0, target: Unit = null) -> void:
 	if _scene == null or not _live() or simulation == null:
 		return
 	if kind == "launch" or kind == "refused":
@@ -194,12 +209,30 @@ func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0) -> v
 	var tm := simulation.track_manager
 	var own_units: Array = um.get_faction_units(simulation.player_faction) if um != null else []
 	var tracks: Array = tm.get_tracks(simulation.player_faction) if tm != null else []
-	var at := pos if own else WorldPresentation.witness_point(pos, own_units, tracks, Detection.environment)
+	var at := pos
+	if not own:
+		if target == null and kind in ["hit", "miss", "destroyed"]:
+			target = _unit_at(pos)
+		at = WorldPresentation.witness_point(pos, own_units, tracks, Detection.environment, target)
 	if at == Vector2.INF:
 		return
 	var h := _scene.add_effect(at, kind, own, height_m)
-	if kind in ["hit", "destroyed", "intercept"]:
+	if kind in ["hit", "destroyed", "intercept"] and at.distance_to(_origin_nm) <= WorldPresentation.MAX_RANGE_NM:
 		rig.notify(kind, Vector3(at.x, at.y, h))
+
+
+## The unit an event at `pos` happened to, when the caller gave only the place: a unit standing
+## exactly there, dead or alive, but not an airframe parked on a deck.
+func _unit_at(pos: Vector2) -> Unit:
+	var um := simulation.unit_manager
+	if um == null:
+		return null
+	for u: Unit in um.units:
+		if u.alive and not u.is_engageable():
+			continue
+		if u.position.is_equal_approx(pos):
+			return u
+	return null
 
 
 ## A new scenario: forget wakes, smoke, sinking hulls and the camera's memory of the last one.
@@ -208,6 +241,8 @@ func reset_presentation() -> void:
 		_scene.reset()
 	_focus = {}
 	_focus_key = ""
+	_hook_units.clear()
+	_hook_track = null
 	_chart_generation = -1
 	rig.reset()
 
@@ -241,11 +276,10 @@ func _process(delta: float) -> void:
 	var player := simulation.player_faction
 	var um := simulation.unit_manager
 	var own_units: Array = um.get_faction_units(player) if um != null else []
-	var focus := WorldPresentation.choose_focus(map.selected, map.selected_track, own_units)
-	# A subject that has just been lost is watched until it has gone down.
-	var lost: Unit = _focus.get("unit")
-	if lost != null and not lost.alive and not lost.departed and focus.get("key", "") != _focus.get("key", "") and _scene.has_record(_focus_key):
-		focus = _focus
+	var hooked_anew := _hooked_anew()
+	var focus := _pick_focus(own_units, hooked_anew)
+	_hook_units = map.selected.duplicate()
+	_hook_track = map.selected_track
 	if String(focus.get("key", "")) != String(_focus.get("key", "")):
 		rig.cut()
 	_focus = focus
@@ -268,13 +302,37 @@ func _process(delta: float) -> void:
 	var entries: Array = WorldPresentation.unit_entries(um, simulation.track_manager, player, env, simulation.track_manager.neutral_factions)
 	entries.append_array(WorldPresentation.weapon_entries(simulation.weapon_manager, simulation.threat_manager, player, map.reference_unit()))
 	entries.append_array(WorldPresentation.buoy_entries(simulation.aviation_manager, player, SimClock.sim_time))
-	if not _scene.is_dying(_focus_key):
+	# A subject going down keeps the camera until it has gone, or until something new is hooked.
+	if hooked_anew or not _scene.is_dying(_focus_key):
 		_focus_key = WorldPresentation.resolve_focus_key(entries, _focus)
 	_entries = WorldPresentation.cull(entries, _origin_nm, _focus_key)
 	_scene.update(delta, _entries, _focus_key)
 	for e: Dictionary in _scene.take_events():
 		rig.notify(e["kind"], e["at"], e.get("key", ""))
 	_update_camera(delta)
+
+
+## The subject for this frame: what is hooked (WorldPresentation.choose_focus), except that a
+## subject that has just been lost is watched until it has gone down, unless the player has
+## hooked something new since.
+func _pick_focus(own_units: Array, hooked_anew: bool) -> Dictionary:
+	var focus := WorldPresentation.choose_focus(map.selected, map.selected_track, own_units)
+	var lost: Unit = _focus.get("unit")
+	if not hooked_anew and lost != null and not lost.alive and not lost.departed and String(focus.get("key", "")) != String(_focus.get("key", "")) and _scene.has_record(_focus_key):
+		return _focus
+	return focus
+
+
+## True when the hook holds a unit or a contact it did not hold on the last frame: the player has
+## hooked something. A hook that only lost something (a ship sunk and pruned from it, a contact
+## dropped) is not a new one.
+func _hooked_anew() -> bool:
+	if map.selected_track != null and map.selected_track != _hook_track:
+		return true
+	for u: Unit in map.selected:
+		if not _hook_units.has(u):
+			return true
+	return false
 
 
 func _update_camera(delta: float) -> void:

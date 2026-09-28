@@ -297,11 +297,29 @@ static func buoy_entries(aviation_manager: AviationManager, player_faction: Stri
 
 # --- Events ------------------------------------------------------------------------------
 
-## Where the player could witness an event at `pos`, or Vector2.INF when they could not. Within
-## the weather's visibility of one of their own units the flash is seen where it happens; failing
-## that, an event close to a held contact is drawn at the contact's plotted position, because the
-## plot is all the player has of it. Only own units and the player's tracks are read.
-static func witness_point(pos: Vector2, own_units: Array, tracks: Array, env: Dictionary) -> Vector2:
+## Where the player could witness an event at `pos`, or Vector2.INF when they could not.
+##
+## With the `target` it happened to (a hit, a miss or a kill), the flash is seen where it happens
+## when the target is one of ours, or when a lookout of ours could see it: within visual range and
+## over the horizon, and never when it is a boat running deep. Failing that it is drawn where a
+## held track of that target is plotted, because the plot is all the player has of it. Nothing
+## else is read through the target.
+##
+## With no target, within the weather's visibility of one of their own units the flash is seen
+## where it happens; failing that, an event close to a held contact is drawn at the contact's
+## plotted position. Only own units and the player's tracks are read.
+static func witness_point(pos: Vector2, own_units: Array, tracks: Array, env: Dictionary, target: Unit = null) -> Vector2:
+	if target != null:
+		if own_units.has(target):
+			return pos
+		# The same lookouts the view sights contacts with: our units at sea or in the air.
+		var lookouts: Array = own_units.filter(func(u: Unit) -> bool: return u != null and u.is_engageable())
+		if in_visual_range(lookouts, target, env):
+			return pos
+		for t: Track in tracks:
+			if t.truth == target and plottable(t):
+				return t.position
+		return Vector2.INF
 	var vis := visibility_nm(env)
 	for u: Unit in own_units:
 		if u != null and u.alive and u.position.distance_to(pos) <= vis:
