@@ -487,7 +487,15 @@ func _record_trails() -> void:
 
 ## Called by Main when the simulation reports something worth a flash on the map.
 ## kind: "hit", "miss", "intercept", "decoy", "destroyed", "launch", "splash", "refused".
-func add_effect(pos: Vector2, kind: String, own := false) -> void:
+## `own` marks our own events: our launches and defences, hits on and losses of our units. Any
+## other event flashes only where the player could know of it, by the 3D view's witness rule: at
+## the truth if a lookout could see it, at the plotted position if the plot holds `target`, and
+## not at all otherwise. A refused order is the player's own mark and always shows.
+func add_effect(pos: Vector2, kind: String, own := false, target: Unit = null) -> void:
+	if not own and kind != "refused":
+		pos = _witness(pos, target)
+		if pos == Vector2.INF:
+			return
 	if own and (kind == "hit" or kind == "destroyed"):
 		_hit_flash = 1.2
 	# Flashes are white: on this chart a colour means an identity. A refused order reads in the
@@ -501,6 +509,14 @@ func add_effect(pos: Vector2, kind: String, own := false) -> void:
 	_effects.append({"pos": pos, "t0": _anim, "kind": kind, "color": col})
 	if _effects.size() > 40:
 		_effects.remove_at(0)
+
+
+## Where the player could place an event at `pos` (see `add_effect`), or Vector2.INF.
+func _witness(pos: Vector2, target: Unit) -> Vector2:
+	if unit_manager == null:
+		return pos  # a chart with no picture behind it has nothing to keep back
+	var tracks: Array = track_manager.get_tracks(player_faction) if track_manager != null else []
+	return WorldPresentation.witness_point(pos, unit_manager.get_faction_units(player_faction), tracks, Detection.environment, target)
 
 
 func reset_presentation() -> void:
