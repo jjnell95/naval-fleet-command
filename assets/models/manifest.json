@@ -695,6 +695,11 @@
     "triangles": 1376
   },
   {
+    "id": "millennium_35mm",
+    "kind": "weapon",
+    "triangles": 612
+  },
+  {
     "id": "mistral_naval",
     "kind": "weapon",
     "triangles": 1376
@@ -1228,6 +1233,11 @@
     "id": "sm2_family",
     "kind": "weapon",
     "triangles": 1424
+  },
+  {
+    "id": "sm39_exocet",
+    "kind": "weapon",
+    "triangles": 1184
   },
   {
     "id": "sm3_family",

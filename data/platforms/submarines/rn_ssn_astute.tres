@@ -28,8 +28,8 @@ depth_rate_m_s = 2.0
 fire_control_channels = 0
 decoy_count = 8
 decoy_effectiveness = 0.30
-weapon_loadout = {"spearfish": 24}
+weapon_loadout = {"spearfish": 24, "tomahawk_block_v": 12}
 
-role = "Covert sea control • heavyweight torpedoes"
+role = "Covert sea control • heavyweight torpedoes and Tomahawk"
 
-service_note = "Scenario carries torpedoes; land attack is outside this mission fit."
+service_note = "Six tubes with stowage for up to 38 weapons, here 24 Spearfish and 12 Tomahawk. The fielded Tomahawk block is not asserted; the game uses one Tomahawk family."

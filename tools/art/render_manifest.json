@@ -22,6 +22,9 @@
   "kind": "platform",
   "domain": "land"
  },
+ "millennium_35mm": {
+  "kind": "weapon"
+ },
  "pla_asbm_df21d": {
   "kind": "platform",
   "domain": "land"
@@ -49,6 +52,9 @@
   "kind": "platform",
   "domain": "subsurface",
   "waterline_y": 0.0
+ },
+ "sm39_exocet": {
+  "kind": "weapon"
  },
  "usn_ddg_burke_iii": {
   "kind": "platform",

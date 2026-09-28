@@ -25,10 +25,12 @@ fire_control_channels = 5
 decoy_count = 12
 decoy_effectiveness = 0.35
 weapon_loadout = {
-"rgm_84_harpoon": 8,
+"rgm_84_harpoon": 16,
 "oto_76mm_gun": 300,
 "sm2_family": 16,
-"essm_family": 24
+"essm_family": 24,
+"mu90": 12,
+"millennium_35mm": 40
 }
 
 role = "Frigate • maritime operations"

@@ -29,7 +29,10 @@ fire_control_channels = 0
 decoy_count = 6
 decoy_effectiveness = 0.30
 weapon_loadout = {
-"ugst_torpedo": 14
+"ugst_torpedo": 14,
+"kalibr_asm": 4
 }
 
-role = "Diesel-Electric Submarine • maritime operations"
+role = "Diesel-Electric Submarine • torpedoes and Kalibr"
+
+service_note = "Improved Kilo (636.3): four Kalibr cruise missiles launched from the torpedo tubes, with the remaining weapons torpedoes. Project 877 carries no missile and is a separate entry."
