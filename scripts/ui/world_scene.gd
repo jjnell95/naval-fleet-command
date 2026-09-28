@@ -34,6 +34,15 @@ const LAMP_MASTHEAD := Vector4(1.0, 0.0, 0.0, -0.3827)  # 225 degrees
 const LAMP_PORT := Vector4(0.5556, 0.0, -0.8315, 0.5556)  # 112.5 degrees, centred 56.25 to port
 const LAMP_STARBOARD := Vector4(0.5556, 0.0, 0.8315, 0.5556)
 const LAMP_STERN := Vector4(-1.0, 0.0, 0.0, 0.3827)  # 135 degrees
+const LAMP_ALL_ROUND := Vector4(1.0, 0.0, 0.0, -2.0)
+## Colour and flash period (seconds, 0 steady) of each kind of lamp.
+const LAMP_KINDS := {
+	"white": [Color(1.0, 0.96, 0.86), 0.0],
+	"red": [Color(1.0, 0.16, 0.1), 0.0],
+	"green": [Color(0.2, 1.0, 0.45), 0.0],
+	"beacon": [Color(1.0, 0.12, 0.08), 1.1],
+}
+const BEACON_PHASES := 4
 ## Sun shadows: the reach around the subject, as a multiple of its length.
 const SHADOW_REACH := 4.0
 ## Sky, sea and light for day, twilight and night: [sky top, horizon, zenith, haze, fog].
@@ -179,14 +188,6 @@ func build() -> void:
 	_rotor_material.render_priority = 2
 	_lamp_mesh = QuadMesh.new()
 	_lamp_mesh.size = Vector2(LAMP_SIZE, LAMP_SIZE)
-	var lamp_shader: Shader = load("res://scripts/ui/world_light.gdshader")
-	for lamp in [["white", Color(1.0, 0.96, 0.86), 0.0], ["red", Color(1.0, 0.16, 0.1), 0.0], ["green", Color(0.2, 1.0, 0.45), 0.0], ["beacon", Color(1.0, 0.12, 0.08), 1.1]]:
-		var m := ShaderMaterial.new()
-		m.shader = lamp_shader
-		m.set_shader_parameter("color", lamp[1])
-		m.set_shader_parameter("flash_period", lamp[2])
-		m.render_priority = 3
-		_lamp_materials[lamp[0]] = m
 	_disc_mesh = PlaneMesh.new()
 	_disc_mesh.size = Vector2(2.0, 2.0)
 	_disc_material = StandardMaterial3D.new()
@@ -452,7 +453,7 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 	var rec: Dictionary = _records.get(key, {})
 	var fresh := rec.is_empty()
 	if fresh:
-		rec = {"key": key, "model_id": "", "ring": null, "disc": null, "bow": null, "wake": null, "fire": null, "plume": null, "glow": null, "dying_since": -1.0, "tint": "", "speed_set": -1.0, "lamps_on": false}
+		rec = {"key": key, "model_id": "", "ring": null, "disc": null, "bow": null, "wake": null, "fire": null, "plume": null, "glow": null, "dying_since": -1.0, "tint": "", "way": -2, "lamps_on": false}
 		_records[key] = rec
 	if rec["model_id"] != model_id:
 		if rec["model_id"] != "":
@@ -463,7 +464,6 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 		rec["bounds"] = acquired["bounds"]
 		rec["meshes"] = acquired["meshes"]
 		rec["tint"] = ""
-		rec["speed_set"] = -1.0
 		rec["lamps_on"] = false
 		_fit_out(rec, e)
 	rec["entry"] = e
@@ -530,11 +530,11 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 ## fittings are children of the model's node, so they stay with it in the pool.
 func _fit_out(rec: Dictionary, e: Dictionary) -> void:
 	var domain: String = e["domain"]
-	var at_sea := 1.0 if domain in ["surface", "subsurface"] else 0.0
+	var way := 0 if domain in ["surface", "subsurface"] else WorldMaterials.ALOFT
+	rec["way"] = way
 	for mi: MeshInstance3D in rec["meshes"]:
 		if mi.has_meta("finish"):
-			mi.set_instance_shader_parameter("at_sea", at_sea)
-			mi.set_instance_shader_parameter("hull_speed", 0.0)
+			WorldMaterials.set_way(mi, way)
 	var root: Node3D = rec["root"]
 	var bounds: AABB = rec["bounds"]
 	if rec["model_id"].begins_with("marker:"):
@@ -580,16 +580,30 @@ func _lamps_for(root: Node3D, b: AABB, domain: String) -> Array:
 	for spot: Array in spots:
 		var lamp := MeshInstance3D.new()
 		lamp.mesh = _lamp_mesh
-		lamp.material_override = _lamp_materials[spot[0]]
+		var arc: Vector4 = spot[2] if spot.size() > 2 else LAMP_ALL_ROUND
+		lamp.material_override = _lamp_material(spot[0], arc, randi() % BEACON_PHASES if spot[0] == "beacon" else 0)
 		lamp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		lamp.position = spot[1]
 		lamp.visible = false
-		lamp.set_instance_shader_parameter("phase", randf())
-		if spot.size() > 2:
-			lamp.set_instance_shader_parameter("arc", spot[2])
 		root.add_child(lamp)
 		lamps.append(lamp)
 	return lamps
+
+
+## One material per kind of lamp, arc and beacon phase, shared by every model that shows it.
+func _lamp_material(kind: String, arc: Vector4, phase: int) -> ShaderMaterial:
+	var key := "%s/%s/%d" % [kind, arc, phase]
+	if _lamp_materials.has(key):
+		return _lamp_materials[key]
+	var m := ShaderMaterial.new()
+	m.shader = load("res://scripts/ui/world_light.gdshader")
+	m.set_shader_parameter("color", LAMP_KINDS[kind][0])
+	m.set_shader_parameter("flash_period", LAMP_KINDS[kind][1])
+	m.set_shader_parameter("phase", float(phase) / BEACON_PHASES)
+	m.set_shader_parameter("arc", arc)
+	m.render_priority = 3
+	_lamp_materials[key] = m
+	return m
 
 
 ## The hull's way through the water: its speed to the finishes (for the bow's spray) and the bow
@@ -598,13 +612,13 @@ func _apply_way(rec: Dictionary, e: Dictionary, root: Node3D, yaw: float, length
 	var unit: Unit = e.get("unit")
 	var domain: String = e["domain"]
 	var speed := unit.speed_kn * 0.5144 if unit != null else 0.0
-	if domain in ["surface", "subsurface"] and absf(speed - float(rec["speed_set"])) > 0.4:
-		rec["speed_set"] = speed
-		for mi: MeshInstance3D in rec["meshes"]:
-			if mi.has_meta("finish"):
-				mi.set_instance_shader_parameter("hull_speed", speed)
-		if rec["bow"] != null:
-			(rec["bow"] as MeshInstance3D).set_instance_shader_parameter("hull_speed", speed)
+	if domain in ["surface", "subsurface"]:
+		var way := WorldMaterials.way_for(speed)
+		if way != int(rec["way"]):
+			rec["way"] = way
+			for mi: MeshInstance3D in rec["meshes"]:
+				if mi.has_meta("finish"):
+					WorldMaterials.set_way(mi, way, rec["tint"] == "")
 	var bow: MeshInstance3D = rec["bow"]
 	var under_way: bool = domain == "surface" and unit != null and speed > 0.3 and e["kind"] in ["own", "visual"] and not rec["model_id"].begins_with("marker:")
 	if not under_way:
@@ -616,16 +630,20 @@ func _apply_way(rec: Dictionary, e: Dictionary, root: Node3D, yaw: float, length
 	if bow == null:
 		bow = MeshInstance3D.new()
 		bow.mesh = _bow_mesh
-		bow.material_override = _bow_material
+		bow.material_override = _bow_material.duplicate()  # its own: beam and speed are the hull's
 		bow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		bow.extra_cull_margin = 8.0
 		_entities.add_child(bow)
-		bow.set_instance_shader_parameter("hull_speed", speed)
 		rec["bow"] = bow
 		rec["bow_beam"] = -1.0
-	if not is_equal_approx(float(rec.get("bow_beam", -1.0)), beam):
+		rec["bow_speed"] = -1.0
+	var bow_material := bow.material_override as ShaderMaterial
+	if not is_equal_approx(float(rec["bow_beam"]), beam):
 		rec["bow_beam"] = beam
-		bow.set_instance_shader_parameter("hull_beam", beam)
+		bow_material.set_shader_parameter("hull_beam", beam)
+	if absf(speed - float(rec["bow_speed"])) > 0.2:
+		rec["bow_speed"] = speed
+		bow_material.set_shader_parameter("hull_speed", speed)
 	bow.visible = true
 	bow.position = Vector3(root.position.x, 0.0, root.position.z)
 	bow.rotation = Vector3(0.0, yaw, 0.0)

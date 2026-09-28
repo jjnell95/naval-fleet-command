@@ -58,6 +58,8 @@ static func _hard_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager, now: f
 	var d := u.position.distance_to(w.position)
 	if d > minf(spec.max_range_nm, HARD_KILL_RANGE_NM) or d < spec.min_range_nm:
 		return 0
+	if Detection.terrain_hides_weapon(u, w):
+		return 0  # heard over the datalink, but the round cannot run through the land between
 	var fired := weapon_manager.launch_interceptor(u, spec, w, 1, now)
 	w.hard_kill_shots += fired
 	return fired
@@ -79,6 +81,7 @@ static func _soft_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager) -> int
 	if u.torpedo_decoys > 0:
 		u.torpedo_decoys -= 1
 		used += 1
+		weapon_manager.decoys_spent.emit(u, 1)
 		if weapon_manager.rng.randf() < chance:
 			weapon_manager.seduce(w, u)
 	return used

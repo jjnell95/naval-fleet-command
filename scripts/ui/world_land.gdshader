@@ -175,7 +175,7 @@ void fragment() {
 	float h = v_height;
 	// Ground texture, world-anchored: a broad, faint variation and a fine grain that fades out with
 	// distance before it can alias.
-	float fine = smoothstep(9000.0, 1500.0, v_dist);
+	float fine = 1.0 - smoothstep(1500.0, 9000.0, v_dist);
 	float n1 = vnoise(local * 0.0021);
 	float n2 = vnoise(local * 0.017 + 17.0);
 	float n3 = vnoise(local * 0.09 + 3.0);

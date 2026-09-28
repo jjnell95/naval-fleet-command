@@ -24,6 +24,8 @@ const ENGAGE_STANDOFF_FRACTION := 0.80  # sit inside the weapon envelope, not on
 const CONTACT_MEMORY_S := 1200.0
 const ASM_SALVO := 4
 const TORPEDO_SALVO := 2
+## Paket-NK rounds the AI keeps back from an attack for torpedoes coming at its own ship.
+const ANTI_TORPEDO_RESERVE := 2
 ## A weapon that takes too long to arrive is shooting at where the target used to be. This one
 ## rule keeps the AI from firing a 50 knot torpedo across twenty miles of ocean without needing a
 ## special case for torpedoes.
@@ -229,7 +231,7 @@ func _note_torpedo_datum(u: Unit, b: Dictionary, now: float) -> void:
 	if threat_manager == null:
 		return
 	for w: Weapon in threat_manager.get_threats(faction):
-		if w.spec.is_torpedo() and threat_manager.visible_to(u, w):
+		if w.spec.is_torpedo() and not w.is_interceptor() and threat_manager.visible_to(u, w):
 			b["last_contact"] = w.position
 			b["last_contact_time"] = now
 			return
@@ -324,6 +326,8 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float) -> Di
 			var quiet_transit := u.ai_posture == "breakout" and u.is_submarine()
 			if quiet_transit and not spec.is_torpedo():
 				continue
+			if _offensive_rounds(u, spec) <= 0:
+				continue
 			var check := Combat.check_engagement(u, spec, t)
 			if not check["ok"]:
 				continue
@@ -341,12 +345,19 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float) -> Di
 
 
 func _salvo_for(u: Unit, spec: WeaponSpec) -> int:
-	var rounds := u.magazine_count(spec.id)
+	var rounds := _offensive_rounds(u, spec)
 	if spec.is_gun():
 		return mini(spec.salvo_default, rounds)
 	if spec.is_torpedo():
 		return clampi(TORPEDO_SALVO, 1, rounds)
 	return clampi(ASM_SALVO, 1, rounds)
+
+
+## Rounds a weapon can spend on an attack: all of them, less what a launcher that also answers
+## torpedoes (Paket-NK) keeps back for one coming at the ship.
+static func _offensive_rounds(u: Unit, spec: WeaponSpec) -> int:
+	var rounds := u.magazine_count(spec.id)
+	return rounds - ANTI_TORPEDO_RESERVE if spec.target_types.has("torpedo") else rounds
 
 
 # --- Behaviour ---------------------------------------------------------------------------

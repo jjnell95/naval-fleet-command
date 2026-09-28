@@ -433,6 +433,7 @@ func _draw() -> void:
 	var y := MARGIN.y
 	var flow_x := -1.0  # where the next flowing item may start on the current line, or -1
 	var index := 0
+	grid_hidden = 0
 	while index < _rows.size():
 		var row: Array = _rows[index]
 		index += 1
@@ -441,9 +442,10 @@ func _draw() -> void:
 			while index < _rows.size() and _is_cell(_rows[index]):
 				block.append(_rows[index])
 				index += 1
-			# Rows after the grid (a carrier's air wing) keep their lines.
-			var after := _rows.size() - index
-			y = _draw_grid(block, y, int(floor((limit_y - y) / line_h)) - after, font, fs, line_h, ascent)
+			# Rows after the grid (a carrier's air wing) keep their lines, unless that would leave the
+			# grid none: its "+N MORE" matters more than they do.
+			var free := int(floor((limit_y - y) / line_h))
+			y = _draw_grid(block, y, maxi(free - (_rows.size() - index), mini(free, 1)), font, fs, line_h, ascent)
 			flow_x = -1.0
 			continue
 		var flowing: bool = row.size() > 0 and str(row[row.size() - 1][0]) == "FLOW"
@@ -457,6 +459,8 @@ func _draw() -> void:
 		else:
 			x = MARGIN.x
 		if y + line_h > limit_y:
+			for rest in range(index - 1, _rows.size()):
+				grid_hidden += 1 if _is_cell(_rows[rest]) else 0
 			break
 		for s: Array in spans:
 			var text := str(s[0])

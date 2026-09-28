@@ -8,6 +8,10 @@ extends RefCounted
 ## Navy and the European fleets, the blue-grey of Russian hulls, the PLA Navy's pale grey. Weathering
 ## follows the same lines. Surfaces the table does not name keep their own material.
 ##
+## A hull in the water also wears its way: the waterline, wetness and bow spray are drawn at one of
+## a few speeds (WAY_BANDS), each a shared variant of the finish, set with `set_way`. They are not
+## instance uniforms because WebGL gives instance uniforms room for 255 instances in all.
+##
 ## The GLBs themselves are untouched: the reference gallery and the renders use them as authored.
 
 const HULL_SHADER := "res://scripts/ui/world_hull.gdshader"
@@ -65,8 +69,13 @@ const NAVIES := {
 }
 const DEFAULT_NAVY := [Color("80888d"), 0.45]
 
+## Speeds through the water, in metres per second, that the finishes are drawn at: stopped, and
+## about 5, 10, 16 and 23 knots. A way of -1 is aloft or ashore: no waterline at all.
+const WAY_BANDS := [0.0, 2.5, 5.0, 8.0, 12.0]
+const ALOFT := -1
+
 static var _shader: Shader
-static var _cache: Dictionary = {}  # "navy/material" -> ShaderMaterial
+static var _cache: Dictionary = {}  # "navy/material/way" -> ShaderMaterial
 
 
 ## Swaps every named surface under `root` for the world view's finish, and remembers the result on
@@ -92,12 +101,35 @@ static func restore(mi: MeshInstance3D) -> void:
 		mi.set_surface_override_material(i, dressed[i])
 
 
-## The shared material for a named surface in a navy's paint, or null to keep the model's own.
-static func material_for(material_name: String, navy: String) -> ShaderMaterial:
+## Moves a dressed mesh's finishes to a way (an index into WAY_BANDS, or ALOFT). They are put on
+## the mesh only when `apply` is set: a mesh wearing a tint keeps it and gets them back on `restore`.
+static func set_way(mi: MeshInstance3D, way: int, apply := true) -> void:
+	var dressed: Array = mi.get_meta("finish", [])
+	for i in dressed.size():
+		var m: ShaderMaterial = dressed[i]
+		if m != null:
+			dressed[i] = material_for(m.resource_name, m.get_meta("navy", ""), way)
+	mi.set_meta("finish", dressed)
+	if apply:
+		restore(mi)
+
+
+## The band of WAY_BANDS nearest a speed through the water in metres per second.
+static func way_for(speed_m_s: float) -> int:
+	var best := 0
+	for i in WAY_BANDS.size():
+		if absf(speed_m_s - WAY_BANDS[i]) < absf(speed_m_s - WAY_BANDS[best]):
+			best = i
+	return best
+
+
+## The shared material for a named surface in a navy's paint at a way, or null to keep the model's
+## own.
+static func material_for(material_name: String, navy: String, way := ALOFT) -> ShaderMaterial:
 	var row: Array = TABLE.get(material_name, [])
 	if row.is_empty():
 		return null
-	var key := "%s/%s" % [navy, material_name]
+	var key := "%s/%s/%d" % [navy, material_name, way]
 	if _cache.has(key):
 		return _cache[key]
 	if _shader == null:
@@ -106,11 +138,14 @@ static func material_for(material_name: String, navy: String) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = _shader
 	m.resource_name = material_name
+	m.set_meta("navy", navy)
 	m.set_shader_parameter("finish", int(row[0]))
 	m.set_shader_parameter("albedo", paint[0] if row[1] == null else row[1])
 	m.set_shader_parameter("roughness", float(row[2]))
 	m.set_shader_parameter("metallic", float(row[3]))
 	m.set_shader_parameter("weathering", float(paint[1]))
+	m.set_shader_parameter("at_sea", 0.0 if way == ALOFT else 1.0)
+	m.set_shader_parameter("hull_speed", 0.0 if way == ALOFT else float(WAY_BANDS[way]))
 	_cache[key] = m
 	return m
 

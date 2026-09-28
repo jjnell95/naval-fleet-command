@@ -234,3 +234,77 @@ func test_the_defence_board_says_what_a_ship_has_against_a_torpedo() -> void:
 	assert_eq(DefenceBoard.torpedo_answer(ship), "ATT")
 	ship.magazines[paket.id] = 0
 	assert_eq(DefenceBoard.torpedo_answer(ship), "EVADE", "an empty magazine is no answer")
+
+
+func test_paket_nk_is_not_fired_through_land() -> void:
+	# The terrain grid is a mile to the cell, so the land has to be wider than that to register.
+	Terrain.load_from({"terrain": {"land": [{"id": "test_headland", "name": "Test Headland", "elevation_m": 10.0, "points_nm": [[-3, 0.15], [3, 0.15], [3, 1.4], [-3, 1.4]]}]}})
+	var ship := _ship(_hull())
+	var paket := DataDB.weapon("paket_nk")
+	ship.weapons.append(paket)
+	ship.magazines[paket.id] = 8
+	var h := _harness([ship])
+	_homing(h, ship, Vector2(0.0, 1.55))
+	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
+	assert_eq(ship.magazine_count(paket.id), 8, "a round cannot run through the headland to a torpedo heard beyond it")
+	Terrain.clear()
+	_cleanup(h)
+
+
+func test_only_expendable_decoys_count_as_spent() -> void:
+	var ship := _ship(_hull(true, 4, 10.0))
+	var h := _harness([ship], _lucky_seed())
+	var spent: Array = [0]
+	(h[2] as WeaponManager).decoys_spent.connect(func(_u: Unit, n: int) -> void: spent[0] += n)
+	var torp := _homing(h, ship, Vector2(0.0, 1.5))
+	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
+	assert_eq(torp.dead_reason, "DECOYED")
+	assert_eq(spent[0], 0, "the towed body did it, and nothing was used up")
+	var second := _ship(_hull(false, 4, 0.0))
+	var h2 := _harness([second])
+	var spent2: Array = [0]
+	(h2[2] as WeaponManager).decoys_spent.connect(func(_u: Unit, n: int) -> void: spent2[0] += n)
+	_homing(h2, second, Vector2(0.0, 1.0))
+	TorpedoDefence.run_cycle(h2[0], h2[1], h2[2], 0.0)
+	assert_eq(spent2[0], 1, "an expendable that failed was still spent")
+	_cleanup(h)
+	_cleanup(h2)
+
+
+func test_the_ai_keeps_paket_nk_rounds_back_for_torpedoes() -> void:
+	var ship := _ship(_hull())
+	var paket := DataDB.weapon("paket_nk")
+	var harpoon := DataDB.weapon("rgm_84_harpoon")
+	ship.weapons.append(paket)
+	ship.weapons.append(harpoon)
+	ship.magazines[paket.id] = 8
+	ship.magazines[harpoon.id] = 8
+	assert_eq(AIController._offensive_rounds(ship, paket), 8 - AIController.ANTI_TORPEDO_RESERVE)
+	assert_eq(AIController._offensive_rounds(ship, harpoon), 8, "a weapon that cannot stop a torpedo keeps nothing back")
+	ship.magazines[paket.id] = AIController.ANTI_TORPEDO_RESERVE
+	assert_true(AIController._offensive_rounds(ship, paket) <= 0, "the last rounds are for defence")
+
+
+func test_an_anti_torpedo_round_is_not_a_submarine_datum() -> void:
+	var ship := _ship(_hull(), Vector2.ZERO, 15.0, "RED")
+	var h := _harness([ship])
+	var ai := AIController.new()
+	ai.faction = "BLUE"
+	ai.threat_manager = h[1]
+	var listener := _ship(_hull(), Vector2(0.0, 3.0))
+	var round_out := Weapon.new()
+	round_out.id = 900
+	round_out.spec = DataDB.weapon("paket_nk")
+	round_out.faction = "RED"
+	round_out.position = Vector2(0.0, 1.0)
+	round_out.intercept_target = Weapon.new()
+	(h[1] as ThreatManager).mark_detected("BLUE", round_out, 0.0, listener)
+	var b := {}
+	ai._note_torpedo_datum(listener, b, 10.0)
+	assert_true(not b.has("last_contact"), "it says where a surface ship is, not a submarine")
+	var torp := _homing(h, listener, Vector2(0.0, 2.0))
+	(h[1] as ThreatManager).mark_detected("BLUE", torp, 0.0, listener)
+	ai._note_torpedo_datum(listener, b, 10.0)
+	assert_eq(b.get("last_contact"), torp.position, "a torpedo running at us is")
+	ai.free()
+	_cleanup(h)

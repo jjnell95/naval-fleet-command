@@ -214,23 +214,39 @@ static func _key(code: Key) -> InputEventKey:
 	return k
 
 
-## Draws the board for the hull with the most weapon systems in the catalogue on the real pane, and
-## reports whether the weapons grid showed every one of them.
+## Draws the board for the hull with the most weapon systems in the catalogue on the real pane, as
+## it stands in play (its sensors, and its air wing aboard, each a line of their own), and reports
+## whether the weapons grid showed every one of them. Ties go to a hull that carries aircraft.
 static func _largest_loadout_fits(main: Main) -> bool:
 	var biggest: PlatformSpec = null
+	var most := -1
 	for spec: PlatformSpec in DataDB.all_platforms():
-		if spec.domain != "air" and (biggest == null or spec.weapon_loadout.size() > biggest.weapon_loadout.size()):
+		var size := spec.weapon_loadout.size() * 2 + (1 if spec.aircraft_capacity > 0 else 0)
+		if spec.domain != "air" and size > most:
 			biggest = spec
+			most = size
 	var u := Unit.new()
 	u.spec = biggest
 	u.callsign = biggest.display_name
 	u.alive = true
 	u.health = biggest.health
+	for sid in biggest.sensor_ids:
+		var sensor := DataDB.sensor(sid)
+		if sensor != null:
+			u.sensors.append(sensor)
 	for wid in biggest.weapon_loadout:
 		var w := DataDB.weapon(str(wid))
 		if w != null:
 			u.weapons.append(w)
 			u.magazines[w.id] = int(biggest.weapon_loadout[wid])
+	if biggest.aircraft_capacity > 0:
+		var aircraft := Unit.new()
+		aircraft.alive = true
+		for spec: PlatformSpec in DataDB.all_platforms():
+			if spec.domain == "air":
+				aircraft.spec = spec
+				break
+		u.embarked.append(aircraft)
 	var display := main.data_display
 	display._accum = -60.0  # hold off the board's own refresh while this one is drawn
 	display._rows = DataDisplay.unit_rows(u, null, "0001")

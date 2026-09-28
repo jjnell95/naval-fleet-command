@@ -138,6 +138,7 @@ func _ready() -> void:
 	simulation.weapon_manager.interceptor_launched.connect(_on_interceptor_launched)
 	simulation.weapon_manager.weapon_defeated.connect(_on_weapon_defeated)
 	simulation.weapon_manager.weapon_seduced.connect(_on_weapon_seduced)
+	simulation.weapon_manager.decoys_spent.connect(_on_decoys_spent)
 	simulation.casualty_event.connect(_on_casualty_event)
 	simulation.operation_message.connect(func(message: String) -> void:
 		radio.flash(message, "info")
@@ -1085,6 +1086,8 @@ func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int)
 
 
 func _on_threat_detected(faction: String, w: Weapon) -> void:
+	if w.is_interceptor():
+		return  # the other side's SAM or anti-torpedo round, after one of ours: not inbound on us
 	if faction != simulation.player_faction or (map.reference_unit() != null and not simulation.threat_manager.visible_to(map.reference_unit(), w)):
 		return
 	SimClock.drop_to_realtime()
@@ -1130,12 +1133,21 @@ func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
 			_stats["intercepted"] += 1
 		elif reason == "DECOYED":
 			_stats["decoyed"] += 1
-			_stats["decoys_used"] += 1
 		map.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy", true)
-		_world_view.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy", true, threat.spec.altitude_m)
+		_world_view.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy", true, _effect_height(threat))
 		SoundFx.play("intercept", 0.3)
 		radio.flash("%s %s" % [threat.spec.display_name, reason.to_lower()], "good", by_unit)
 	Debug.event("[Defence] %s %s by %s" % [threat.spec.display_name, reason, by_unit.callsign if by_unit != null else "?"])
+
+
+## Where the 3D view draws what happened to a round: at its height, or on the sea over a torpedo.
+static func _effect_height(threat: Weapon) -> float:
+	return 0.0 if threat.spec.is_torpedo() else threat.spec.altitude_m
+
+
+func _on_decoys_spent(u: Unit, count: int) -> void:
+	if u.faction == simulation.player_faction:
+		_stats["decoys_used"] += count
 
 
 ## Decoys pulled a round off one ship and it found another. Worth saying out loud: the escort's
@@ -1143,7 +1155,7 @@ func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
 func _on_weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit) -> void:
 	var own := to_unit.faction == simulation.player_faction
 	map.add_effect(threat.position, "decoy", own)
-	_world_view.add_effect(threat.position, "decoy", own, threat.spec.altitude_m)
+	_world_view.add_effect(threat.position, "decoy", own, _effect_height(threat))
 	if own or from_unit.faction == simulation.player_faction:
 		radio.flash("%s decoyed off %s — re-acquired %s" % [threat.spec.display_name, _radio_name(from_unit), _radio_name(to_unit)], "alert" if own else "warn")
 	Debug.event("[Defence] %s decoyed off %s, re-acquired %s" % [threat.spec.display_name, from_unit.callsign, to_unit.callsign])

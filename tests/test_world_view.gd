@@ -1167,3 +1167,44 @@ func test_navigation_light_arcs_follow_the_rules_of_the_road() -> void:
 	assert_near(rad_to_deg(acos(WorldScene.LAMP_PORT.w)) * 2.0, 112.5, 0.1, "each sidelight over 112.5 degrees")
 	assert_near(rad_to_deg(acos(WorldScene.LAMP_STERN.w)) * 2.0, 135.0, 0.1, "stern light over 135 degrees")
 	assert_true(WorldScene.LAMP_PORT.z < 0.0 and WorldScene.LAMP_STARBOARD.z > 0.0, "red to port (-Z), green to starboard (+Z)")
+
+
+func test_no_world_shader_spends_the_instance_uniform_buffer() -> void:
+	# Each instance that carries instance uniforms takes 16 of the 4096 slots WebGL allows the
+	# buffer, so 255 instances in all; a carrier group's meshes and lamps would run out of them.
+	for file in DirAccess.get_files_at("res://scripts/ui"):
+		if file.ends_with(".gdshader") or file.ends_with(".gdshaderinc"):
+			var code := FileAccess.get_file_as_string("res://scripts/ui/" + file)
+			var declares := false
+			for line in code.split("\n"):
+				if line.strip_edges().begins_with("instance uniform"):
+					declares = true
+			assert_true(not declares, "%s declares an instance uniform" % file)
+
+
+func test_a_hull_wears_its_way_as_shared_variants_and_a_tint_lifts_back_to_it() -> void:
+	assert_eq(WorldMaterials.way_for(0.0), 0, "stopped")
+	assert_eq(WorldMaterials.way_for(4.9), 2, "about ten knots")
+	assert_eq(WorldMaterials.way_for(30.0), WorldMaterials.WAY_BANDS.size() - 1, "flank speed and beyond")
+	var aloft := WorldMaterials.material_for("naval_paint", "UK")
+	assert_eq(float(aloft.get_shader_parameter("at_sea")), 0.0, "the default is aloft or ashore")
+	var node := (load("res://assets/models/rn_ddg_type45.glb") as PackedScene).instantiate()
+	WorldMaterials.dress(node, "rn_ddg_type45")
+	var mi: MeshInstance3D = null
+	for m: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+		if m.has_meta("finish"):
+			mi = m
+			break
+	WorldMaterials.set_way(mi, 3)
+	var dressed := mi.get_surface_override_material(0) as ShaderMaterial
+	assert_eq(float(dressed.get_shader_parameter("at_sea")), 1.0)
+	assert_near(float(dressed.get_shader_parameter("hull_speed")), WorldMaterials.WAY_BANDS[3], 1e-6)
+	assert_true(dressed == WorldMaterials.material_for(dressed.resource_name, "UK", 3), "one variant per way, shared")
+	var tint := StandardMaterial3D.new()
+	mi.set_surface_override_material(0, tint)
+	WorldMaterials.set_way(mi, 1, false)
+	assert_eq(mi.get_surface_override_material(0), tint, "a tinted hull keeps its tint while its way changes")
+	WorldMaterials.restore(mi)
+	var lifted := mi.get_surface_override_material(0) as ShaderMaterial
+	assert_near(float(lifted.get_shader_parameter("hull_speed")), WorldMaterials.WAY_BANDS[1], 1e-6, "and comes back at the way it has now")
+	node.free()

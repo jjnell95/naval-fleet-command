@@ -3,8 +3,8 @@ render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
 
 // The water a hull pushes aside: foam along both sides of a ship under way and the two arms of the
 // bow wave opening from the stem, drawn on a patch of sea around the hull that rides the swell. The
-// node is scaled to the patch in metres (x along the hull, z across it) and carries the hull's beam
-// and speed as instance uniforms; the wake strip takes over astern. Nothing shows when stopped.
+// node is scaled to the patch in metres (x along the hull, z across it) and its own material carries
+// the hull's beam and speed; the wake strip takes over astern. Nothing shows when stopped.
 
 #include "res://scripts/ui/world_swell.gdshaderinc"
 
@@ -12,8 +12,8 @@ const float PATCH_LENGTH = 1.5;  // patch length as a multiple of the hull's
 
 global uniform float world_daylight;
 
-instance uniform float hull_beam = 15.0;
-instance uniform float hull_speed = 0.0;  // metres per second
+uniform float hull_beam = 15.0;
+uniform float hull_speed = 0.0;  // metres per second
 
 varying vec2 v_hull;   // metres in the hull's frame: x toward the bow, y to starboard
 varying vec3 v_world;

@@ -45,9 +45,12 @@ global uniform vec4 world_horizon_color;  // what a grazing reflection sees
 global uniform float world_ambient;       // the hemisphere's strength for the time of day
 
 // 1 for a hull in the water (waterline, wetness, bow spray), 0 for anything aloft or ashore.
-instance uniform float at_sea = 0.0;
+// Material uniforms, not instance uniforms: WorldMaterials keeps one variant per band of speed
+// (see WAY_BANDS), because each instance with instance uniforms takes sixteen slots of a buffer
+// that WebGL holds to 4096, and a carrier group's meshes, lights and bow waves would exhaust it.
+uniform float at_sea = 0.0;
 // Metres per second through the water, for the bow's spray.
-instance uniform float hull_speed = 0.0;
+uniform float hull_speed = 0.0;
 
 varying vec3 v_local;   // model space in metres: +X to the bow, +Y up, +Z to starboard
 varying vec3 v_world;
