@@ -4,7 +4,7 @@ Every ship and submarine loadout was audited against its class's public fit. Sev
 
 The data display's WEAPONS line now states each hull's reach, one figure per job (`STRIKE 250  AAW 100  CIWS 1.2  GUN 13  TORP 12 NM`), so a ship with a single close-in gun reads as exactly that. The unit panel no longer rounds a Phalanx's 1.2 nm to "1 nm".
 
-Validation: 483 regression tests (466 before), 46 command-screen checks and 19 aviation checks pass. The before-and-after scenario sweep is still running as this is written. The browser build was not rebuilt.
+Validation: 483 regression tests (466 before), 46 command-screen checks and 19 aviation checks pass. A before-and-after scenario sweep of all 22 operations at two seeds passed 44 of 44 on each side with no grounded hulls, and changed the outcome in one case of 44 (Bashi Channel at seed 13, running to a win, by ordinary divergence: no Tomahawk was fired in it). The browser build was not rebuilt.
 
 See [the M27 notes](docs/2026-09-28-ship-fits.md) and [the source ledger](DATA_SOURCES.md#ship-fit-review-28-september-2026).
 
