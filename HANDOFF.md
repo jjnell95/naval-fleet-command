@@ -100,6 +100,11 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
   view. The gallery and the renders always use the authored materials.
 - **Shader globals are declared in `project.godot`** (`[shader_globals]`, the `world_*` values). A shader
   that reads a `global uniform` nobody declared fails to compile, in the browser as well.
+- **No `instance uniform` in the world view's shaders.** Each instance that has them takes 16 of the 4096
+  slots the renderer allows (the WebGL uniform-block limit, on the desktop build too), so about 255 instances
+  in all, and pooled models keep theirs while hidden. Past that Godot prints "Too many instances using shader
+  instance variables" and the values go wrong. Use shared material variants instead, as
+  `WorldMaterials.set_way` and `WorldScene._lamp_material` do; a test fails if one comes back.
 - **Data that a generator writes is regenerated, not edited.** `tools/scenarios/build_cold_war.py`, then
   `build_theatres.py`, then `operation_design.py` reproduce `data/` byte for byte; the 1990 and 2027
   catalogues' platforms and weapons (short names and torpedo countermeasures included) live in those

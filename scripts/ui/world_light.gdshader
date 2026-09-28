@@ -14,8 +14,8 @@ uniform vec4 color : source_color = vec4(1.0);
 uniform float flash_period = 0.0;  // seconds; 0 burns steadily
 
 // Each kind of lamp is its own material (WorldScene._lamp_material), not an instance uniform on a
-// shared one: there are four lamps to a hull, and WebGL has room for only 255 instances that carry
-// instance uniforms. Beacons take one of a few phases so a flight does not flash in step.
+// shared one: there are four lamps to a hull, and WebGL has room for only about 255 instances that
+// carry instance uniforms. Beacons take one of a few phases so a flight does not flash in step.
 uniform float phase = 0.0;
 // The arc the light shows over: its centre as a direction in the model (+X the bow, +Z starboard)
 // and the cosine of half its width. A w below -1 shows all round.

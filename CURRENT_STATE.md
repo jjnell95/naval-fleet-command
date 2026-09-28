@@ -6,7 +6,7 @@ France's MdCN land-attack cruise missile is on the Aquitaine-class FREMM (8) and
 
 The browser build is rebuilt (57.1 MB) and runs in headless Chromium with no console errors.
 
-Validation: 505 regression tests (483 before), 47 command-screen checks and 19 aviation checks pass. SWEEP_SUMMARY_PLACEHOLDER The frame budget under the chart is unchanged within a few tenths of a millisecond; full screen with shadows costs 17 more draw calls.
+Validation: 511 regression tests (483 before), 47 command-screen checks and 19 aviation checks pass. SWEEP_SUMMARY_PLACEHOLDER The frame budget under the chart is unchanged within a few tenths of a millisecond; full screen with shadows costs 17 more draw calls.
 
 See [the M28 notes](docs/2026-09-28-live-view.md), [validation](docs/validation-m28.json) and [the source ledger](DATA_SOURCES.md#deep-strike-and-torpedo-defence-28-september-2026-later-the-same-day).
 

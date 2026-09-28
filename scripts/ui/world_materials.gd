@@ -10,7 +10,7 @@ extends RefCounted
 ##
 ## A hull in the water also wears its way: the waterline, wetness and bow spray are drawn at one of
 ## a few speeds (WAY_BANDS), each a shared variant of the finish, set with `set_way`. They are not
-## instance uniforms because WebGL gives instance uniforms room for 255 instances in all.
+## instance uniforms because WebGL gives instance uniforms room for about 255 instances in all.
 ##
 ## The GLBs themselves are untouched: the reference gallery and the renders use them as authored.
 

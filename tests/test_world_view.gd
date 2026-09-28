@@ -1171,7 +1171,7 @@ func test_navigation_light_arcs_follow_the_rules_of_the_road() -> void:
 
 func test_no_world_shader_spends_the_instance_uniform_buffer() -> void:
 	# Each instance that carries instance uniforms takes 16 of the 4096 slots WebGL allows the
-	# buffer, so 255 instances in all; a carrier group's meshes and lamps would run out of them.
+	# buffer, so about 255 instances in all; a carrier group's meshes and lamps would run out of them.
 	for file in DirAccess.get_files_at("res://scripts/ui"):
 		if file.ends_with(".gdshader") or file.ends_with(".gdshaderinc"):
 			var code := FileAccess.get_file_as_string("res://scripts/ui/" + file)
