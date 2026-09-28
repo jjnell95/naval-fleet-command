@@ -9,6 +9,9 @@ var sensor_manager: SensorManager
 var weapon_manager: WeaponManager
 ## Fire and flooding aboard a ship: `fire`, `fire_out`, `flooding_controlled`, `lost`.
 signal casualty_event(unit: Unit, event: String)
+signal operation_message(message: String)
+var operation_events: Array = []
+var completed_events: Dictionary = {}
 var threat_manager: ThreatManager
 var aviation_manager: AviationManager
 var mission_manager: MissionManager
@@ -103,6 +106,8 @@ func load_scenario(path: String) -> bool:
 	ScenarioLoader.populate(unit_manager, scenario)
 	mission_manager.player_faction = player_faction
 	mission_manager.configure(scenario)
+	operation_events = scenario.get("events", []).duplicate(true)
+	completed_events.clear()
 	_build_ai()
 	SimClock.reset(ScenarioLoader.start_unix_time(scenario))
 	return true
@@ -123,12 +128,15 @@ func reload() -> bool:
 
 
 ## One controller per faction the player does not command. Each sees only its own picture.
-func _build_ai() -> void:
-	for c in ai_controllers.values():
-		c.queue_free()
-	ai_controllers.clear()
+func _build_ai(reset := true) -> void:
+	if reset:
+		for c in ai_controllers.values():
+			c.queue_free()
+		ai_controllers.clear()
 	var seen: Dictionary = {}
 	for u in unit_manager.units:
+		if ai_controllers.has(u.faction):
+			continue
 		if seen.has(u.faction) or track_manager.neutral_factions.has(u.faction):
 			continue
 		if u.faction == player_faction and not ai_plays_player:
@@ -174,6 +182,7 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 
 
 func _on_tick(dt: float) -> void:
+	_tick_operation_events(SimClock.sim_time)
 	unit_manager.tick(dt)
 	for e: Dictionary in Damage.tick(unit_manager.units, dt):
 		var u: Unit = e["unit"]
@@ -196,3 +205,25 @@ func _on_tick(dt: float) -> void:
 			for c in ai_controllers.values():
 				c.tick(SimClock.sim_time)
 	mission_manager.tick(SimClock.sim_time)
+
+
+## Authored reinforcements enter once, through the same loader as the opening force.
+## They receive no tracks or target truth. Only the authored command message is public;
+## enemy reinforcements must still be detected by the player's sensors.
+func _tick_operation_events(now: float) -> void:
+	if mission_manager.result != MissionManager.Result.RUNNING:
+		return
+	for i in operation_events.size():
+		var event: Dictionary = operation_events[i]
+		var key := str(event.get("id", str(i)))
+		if completed_events.has(key) or now < float(event.get("at_s", 0.0)):
+			continue
+		if not mission_manager.prerequisites_complete(PackedStringArray(event.get("after", []))):
+			continue
+		completed_events[key] = true
+		if not event.get("reinforcements", []).is_empty():
+			ScenarioLoader.populate(unit_manager, {"units": event["reinforcements"]})
+			_build_ai(false)
+		var message := str(event.get("message", ""))
+		if message != "":
+			operation_message.emit(message)

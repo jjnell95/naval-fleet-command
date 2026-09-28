@@ -379,3 +379,77 @@ func test_rounds_threatening_nobody_are_ignored() -> void:
 	_run(h, 60.0)
 	assert_eq(ship.magazine_count("essm"), 32, "no interceptors wasted on a round going elsewhere")
 	_cleanup(h)
+
+
+func test_inner_sam_layer_retains_shots_after_outer_layer_misses() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, 100, [_sam("area", 50, 0), _sam("point", 12, 1)])
+	var h := _harness([ship])
+	var incoming := _incoming(h[2], _asm(), "RED", Vector2(0, 20), ship)
+	_run(h, 180)
+	assert_eq(incoming.dead_reason, "INTERCEPTED")
+	assert_eq(ship.magazine_count("area"), 30, "outer layer gets two attempts")
+	assert_true(ship.magazine_count("point") < 32, "inner SAMs can stop the leaker")
+	assert_near(ship.health, 100, 0.01)
+	_cleanup(h)
+
+
+func test_launcher_cadence_applies_across_multiple_inbounds() -> void:
+	var sam := _sam("area", 50, 1)
+	sam.launch_interval_s = 4
+	var ship := _ship("BLUE", Vector2.ZERO, 100, [sam])
+	var h := _harness([ship])
+	var first := _incoming(h[2], _asm(), "RED", Vector2(0, 20), ship)
+	var second := _incoming(h[2], _asm(), "RED", Vector2(1, 20), ship, 901)
+	assert_eq(h[2].launch_interceptor(ship, sam, first, 2, 0), 1, "one SAM leaves at a time")
+	assert_eq(h[2].launch_interceptor(ship, sam, second, 2, 1), 0, "new target cannot bypass cadence")
+	assert_eq(h[2].launch_interceptor(ship, sam, second, 2, 4), 1)
+	assert_eq(ship.magazine_count("area"), 30, "rejected launch consumes nothing")
+	_cleanup(h)
+
+
+func test_radar_dependent_sam_loses_support_but_active_seeker_does_not() -> void:
+	var sam := _sam("supported", 50, 1)
+	sam.guidance = "fire_control_directed"
+	var active := _sam("active", 50, 1)
+	var ship := _ship("BLUE", Vector2.ZERO, 100, [sam, active])
+	var h := _harness([ship])
+	var incoming := _incoming(h[2], _asm(), "RED", Vector2(0, 10), ship)
+	ship.radar_on = false
+	assert_eq(h[2].launch_interceptor(ship, sam, incoming, 1, 0), 0)
+	ship.radar_on = true
+	assert_eq(h[2].launch_interceptor(ship, sam, incoming, 1, 0), 1)
+	var guided: Weapon = h[2].in_flight.back()
+	assert_eq(h[2].launch_interceptor(ship, active, incoming, 1, 0), 1)
+	var autonomous: Weapon = h[2].in_flight.back()
+	ship.radar_on = false
+	h[2].tick(0.25, 0.25)
+	assert_eq(guided.dead_reason, "GUIDANCE LOST")
+	assert_true(autonomous.phase != Weapon.Phase.DEAD)
+	_cleanup(h)
+
+
+func test_each_ship_retains_its_own_close_in_burst_allowance() -> void:
+	var ciws := _sam("ciws", 2, 0, 3, "ciws")
+	var first := _ship("BLUE", Vector2.ZERO, 100, [ciws])
+	var second := _ship("BLUE", Vector2(0.1, 0), 100, [ciws])
+	var h := _harness([first, second])
+	var incoming := _incoming(h[2], _asm(), "RED", Vector2(0, 1.5), first)
+	incoming.close_in_commitments[first.id] = 2
+	assert_eq(AirDefence._engage_threat(first, incoming, h[2], false, 0), 0)
+	assert_eq(AirDefence._engage_threat(second, incoming, h[2], false, 0), 3, "consort still has a last-ditch shot")
+	assert_true(AirDefence._count_committed(h[2]).is_empty(), "gun bursts do not occupy SAM allowance")
+	_cleanup(h)
+
+
+func test_remote_detection_cannot_illuminate_below_own_radar_horizon() -> void:
+	Terrain.clear()
+	var sam := _sam("supported", 80, 1)
+	sam.guidance = "fire_control_directed"
+	var ship := _ship("BLUE", Vector2.ZERO, 100, [sam])
+	var h := _harness([ship])
+	var incoming := _incoming(h[2], _asm(), "RED", Vector2(0, 40), ship)
+	h[1].mark_detected("BLUE", incoming, 0)
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 0), 0, "cue does not remove local horizon")
+	incoming.position = Vector2(0, 10)
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 1), 1)
+	_cleanup(h)

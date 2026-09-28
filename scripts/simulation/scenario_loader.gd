@@ -70,11 +70,15 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 				continue
 			u.weapons.append(wspec)
 			u.magazines[wid] = int(loadout[wid])
+		if u.is_aircraft():
+			u.sortie_loadout = u.magazines.duplicate()
 		um.add_unit(u)
 		hosts.append({"unit": u, "data": ud})
 	_link_aircraft(um)
 	for host: Dictionary in hosts:
 		_embark_air_wing(um, host["unit"], host["data"])
+	for host: Dictionary in hosts:
+		_stock_aviation(host["unit"], host["data"])
 	_launch_off_map_aircraft(um)
 	_check_sea_room(um)
 	var sensor_count := 0
@@ -101,7 +105,7 @@ static func _check_sea_room(um: UnitManager) -> void:
 ## Aircraft name their parent by callsign, so the link is resolved once every unit exists.
 static func _link_aircraft(um: UnitManager) -> void:
 	for a in um.units:
-		if not a.is_aircraft() or a.home_callsign == "":
+		if not a.alive or not a.is_aircraft() or a.home_callsign == "" or a.home != null:
 			continue
 		for candidate in um.units:
 			if candidate.callsign == a.home_callsign and candidate.faction == a.faction and candidate.spec.can_operate(a.spec) and candidate.embarked.size() < candidate.spec.aircraft_capacity:
@@ -146,6 +150,18 @@ static func _embark_air_wing(um: UnitManager, host: Unit, data: Dictionary) -> v
 					push_warning("ScenarioLoader: %s air wing exceeds capacity %d" % [host.callsign, host.spec.aircraft_capacity])
 				return
 			var a := _spawn_aircraft(spec, host, "%s %d" % [base_call, first + i], squadron)
+			if entry.has("loadout"):
+				a.weapons.clear()
+				a.magazines.clear()
+				for wid: String in entry["loadout"]:
+					var weapon := DataDB.weapon(wid)
+					if weapon != null and spec.weapon_loadout.has(wid):
+						a.weapons.append(weapon)
+						a.magazines[wid] = maxi(int(entry["loadout"][wid]), 0)
+			a.sortie_loadout = a.magazines.duplicate()
+			if float(entry.get("ready_after_s", 0.0)) > 0.0:
+				a.flight_state = Unit.FlightState.RESERVE
+				a.state_timer_s = float(entry["ready_after_s"])
 			for leg in entry.get("patrol_nm", []):
 				a.patrol_route.append(Vector2(leg[0], leg[1]))
 			um.add_unit(a)
@@ -208,6 +224,7 @@ static func _spawn_aircraft(spec: PlatformSpec, host: Unit, callsign: String, sq
 			continue
 		a.weapons.append(w)
 		a.magazines[wid] = int(spec.weapon_loadout[wid])
+	a.sortie_loadout = a.magazines.duplicate()
 	return a
 
 
@@ -216,7 +233,7 @@ static func _spawn_aircraft(spec: PlatformSpec, host: Unit, callsign: String, sq
 ## whole scenario, invisible and useless, which is the failure mode this exists to prevent.
 static func _launch_off_map_aircraft(um: UnitManager) -> void:
 	for a in um.units:
-		if not a.is_aircraft() or a.home != null or a.flight_state != Unit.FlightState.STOWED:
+		if not a.alive or not a.is_aircraft() or a.home != null or a.flight_state != Unit.FlightState.STOWED:
 			continue
 		a.flight_state = Unit.FlightState.AIRBORNE
 		a.altitude_m = a.spec.cruise_altitude_m
@@ -224,6 +241,26 @@ static func _launch_off_map_aircraft(um: UnitManager) -> void:
 		if a.ordered_speed_kn <= 0.0:
 			a.ordered_speed_kn = a.spec.cruise_speed_kn
 			a.speed_kn = a.spec.cruise_speed_kn
+
+
+## Two extra full wing reloads by default, in addition to weapons already on the aircraft.
+## Scenario authors may provide exact limited stocks. These are game endurance budgets,
+## never a claim about real carrier magazine capacities.
+static func _stock_aviation(host: Unit, data: Dictionary) -> void:
+	if host.spec.aircraft_capacity <= 0:
+		return
+	host.aviation_stores.clear()
+	host.aviation_buoys = 0
+	var reloads := maxi(int(data.get("aviation_reload_cycles", 2)), 0)
+	for a in host.embarked:
+		for wid: String in a.magazines:
+			host.aviation_stores[wid] = int(host.aviation_stores.get(wid, 0)) + int(a.magazines[wid]) * reloads
+		host.aviation_buoys += a.spec.sonobuoy_count * reloads
+	if data.has("aviation_stores"):
+		host.aviation_stores.clear()
+		for wid: String in data["aviation_stores"]:
+			host.aviation_stores[wid] = maxi(int(data["aviation_stores"][wid]), 0)
+	host.aviation_buoys = maxi(int(data.get("aviation_buoys", host.aviation_buoys)), 0)
 
 
 static func start_unix_time(scenario: Dictionary) -> int:

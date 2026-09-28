@@ -77,7 +77,7 @@ func _ready() -> void:
 	var filter_row := HBoxContainer.new()
 	filter_row.add_theme_constant_override("separation", 10)
 	v.add_child(filter_row)
-	for entry in [["cold_war", "COLD WAR 1990"], ["atlantic", "ATLANTIC 2027"], ["pacific", "PACIFIC 2027"], ["gulf_med", "GULF & MED 2027"], ["all", "ALL OPERATIONS"]]:
+	for entry in [["cold_war", "COLD WAR 1990"], ["atlantic", "ATLANTIC 2027"], ["pacific", "PACIFIC 2027"], ["gulf_med", "GULF / MED"], ["exercises", "EXERCISES"], ["all", "ALL MISSIONS"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
 		button.theme_type_variation = "MenuBigButton"
@@ -295,11 +295,13 @@ static func _is_cold_war(entry: Dictionary) -> bool:
 	return int(entry.get("year", 0)) == 1990
 
 
-const SHELF_NAMES := {"cold_war": "1990", "atlantic": "NORTH ATLANTIC 2027", "pacific": "WESTERN PACIFIC 2027", "gulf_med": "GULF & MEDITERRANEAN 2027", "modern": "CONTEMPORARY"}
+const SHELF_NAMES := {"cold_war": "1990", "atlantic": "NORTH ATLANTIC 2027", "pacific": "WESTERN PACIFIC 2027", "gulf_med": "GULF & MEDITERRANEAN 2027", "modern": "CONTEMPORARY", "exercises": "TRAINING & SHORT ENGAGEMENTS"}
 
 
 ## Which shelf a built-in operation sits on: the 1990 pack, or a modern theatre by chart region.
 static func _shelf_of(entry: Dictionary) -> String:
+	if entry.get("collection", "operations") == "exercises":
+		return "exercises"
 	if _is_cold_war(entry):
 		return "cold_war"
 	match str(entry.get("region", "north_atlantic")):
@@ -388,6 +390,10 @@ func _on_selected(i: int) -> void:
 	lines.append("[color=%s]%d surface  ·  %d submarine%s  ·  %d aircraft[/color]\n" % [UITheme.HEX_INK_FAINT, own_surface, subs, "" if subs == 1 else "s", air])
 	lines.append(_section("SITUATION"))
 	lines.append(_safe(str(e["description"])) + "\n")
+	if not sc.get("operation_plan", []).is_empty():
+		lines.append(_section("OPERATION SEQUENCE"))
+		for phase: Dictionary in sc["operation_plan"]:
+			lines.append("[b]%s[/b]  %s\n" % [_safe(str(phase["title"])), _safe(str(phase["task"]))])
 	if sc.has("learning"):
 		lines.append(_section("COMMAND CHALLENGE"))
 		lines.append(_safe(str(sc["learning"])) + "\n")

@@ -63,7 +63,7 @@ static func run(main: Main) -> void:
 	checks["exercise completes only after both kinds of landing"] = main.simulation.mission_manager.result == MissionManager.Result.VICTORY
 	checks["shore recovery releases its incoming reservation"] = divert.recovery_base == null and not field.inbound_aircraft.has(divert)
 	SimClock.advance(3800.0)
-	checks["turnaround refuels rearms and makes aircraft ready"] = divert.ready_to_launch() and is_equal_approx(divert.fuel_fraction(), 1.0) and divert.magazine_count(weapon_id) == int(divert.spec.weapon_loadout[weapon_id])
+	checks["diversion refuels but cannot create unavailable foreign ordnance"] = divert.ready_to_launch() and is_equal_approx(divert.fuel_fraction(), 1.0) and divert.magazine_count(weapon_id) == 0 and int(field.aviation_stores.get(weapon_id, 0)) == 0
 	main._close_report()
 	main.map.select_units([field])
 	SimClock.set_paused(true)

@@ -1,7 +1,7 @@
 {
   "id": "pacific_01_bashi_channel",
   "name": "BASHI CHANNEL: SILENT PASSAGE",
-  "description": "A Type 093B attack submarine is trying to reach the Philippine Sea through the Bashi Channel between Taiwan and the Batanes, screened by a Type 039A picket ahead of it. USS Vermont, a Flight IIA destroyer with two Seahawks and a P-8A detachment at Clark hold the barrier. A maritime patrol aircraft and a pair of J-16s from Fujian are working the channel against you. Deep water east of the sill carries convergence zones; the ridge itself is shelf. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "A Type 093B attack submarine is trying to reach the Philippine Sea through the Bashi Channel between Taiwan and the Batanes, screened by a Type 039A picket ahead of it. USS Vermont, a Flight IIA destroyer with two Seahawks and a P-8A detachment at Clark hold the barrier. A maritime patrol aircraft and a pair of J-16s from Fujian are working the channel against you. Deep water east of the sill carries convergence zones; the ridge itself is shelf. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-04-03T19:20:00",
   "player_faction": "BLUE",
   "map": {
@@ -79,7 +79,7 @@
         "kind": "water"
       },
       {
-        "text": "LA P\u00c9ROUSE STRAIT",
+        "text": "LA PÉROUSE STRAIT",
         "position_nm": [
           1176.3113,
           1494.0
@@ -294,7 +294,7 @@
       481.1,
       455.1
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular",
     "focus_center_nm": [
       53.2141,
@@ -24058,7 +24058,8 @@
       "heading_deg": 300,
       "speed_kn": 6,
       "depth_m": 150,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
@@ -24079,7 +24080,8 @@
           47.6126,
           45.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -24109,7 +24111,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_ssn_type093b",
@@ -24133,7 +24136,8 @@
       "loadout": {
         "pla_yj18": 4,
         "pla_yu6": 14
-      }
+      },
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_ssk_type039a",
@@ -24156,7 +24160,8 @@
         ]
       ],
       "depth_m": 90,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -24171,7 +24176,7 @@
       "air_wing": [
         {
           "platform": "pla_fighter_j16",
-          "count": 2,
+          "count": 1,
           "squadron": "Naval aviation fighter regiment",
           "callsign": "Flanker",
           "first_modex": 21,
@@ -24185,6 +24190,24 @@
               30.0
             ]
           ]
+        },
+        {
+          "platform": "pla_fighter_j16",
+          "count": 1,
+          "squadron": "Naval aviation fighter regiment",
+          "callsign": "Flanker",
+          "first_modex": 22,
+          "patrol_nm": [
+            [
+              0.0,
+              54.0
+            ],
+            [
+              50.4133,
+              30.0
+            ]
+          ],
+          "ready_after_s": 2400
         },
         {
           "platform": "pla_mpa_y8q",
@@ -24207,7 +24230,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     }
   ],
   "order": 21,
@@ -24218,22 +24242,42 @@
   "duration_minutes": 25,
   "role": "ASW barrier commander",
   "learning": "Passive bearings across a strait, convergence zones at a shelf edge, buoy barriers laid by a patrol aircraft under a fighter threat",
-  "commander_intent": "Deny the Bashi Channel for six hours, or neutralize the Type 093B. A breakout into the Philippine Sea loses the watch.",
+  "commander_intent": "Stop the Shang II or hold the barrier until relief. Do not let the named breakout boat cross its exit line.",
   "first_orders": [
     "Select Vermont and read its passive picture; keep it slow and under the layer until it has a bearing worth working.",
     "Put Peralta's helicopters across the channel narrows with buoys; the P-8A from Clark extends the line but has fighters to worry about.",
-    "The Type 039A picket is bait as much as a screen. Do not spend torpedoes on it while the Shang is still moving east."
+    "The Type 039A picket is bait as much as a screen. Do not spend torpedoes on it while the Shang is still moving east.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "setting_note": "A fictional April 2027 crisis. Real geography, real class names; the deployment and the encounter are invented.",
   "victory_mode": "any",
   "objectives": {
-    "text": "Hold the channel for six hours, or neutralize the Type 093B. The Shang crossing into the Philippine Sea, or the loss of Peralta, fails the mission.",
+    "text": "Hold Vermont on the opening station while the destroyer and patrol aircraft establish separate search areas. A second submarine complicates the search. Preserve your own acoustic advantage while localizing the breakout boat. Stop the Shang II or hold the barrier until relief. Do not let the named breakout boat cross its exit line.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Vermont (SSN 792)"
+        ],
+        "center_nm": [
+          58.8156,
+          27.0
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Vermont (SSN 792) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "hold_watch",
         "type": "time_elapsed",
         "seconds": 21600,
-        "text": "Complete the 6-hour watch"
+        "text": "Complete the 6-hour watch",
+        "after": [
+          "establish_screen"
+        ]
       },
       {
         "id": "targets",
@@ -24241,7 +24285,10 @@
         "callsigns": [
           "Type 093B (Shang II)"
         ],
-        "text": "Neutralize the Type 093B"
+        "text": "Neutralize the Type 093B",
+        "after": [
+          "establish_screen"
+        ]
       }
     ],
     "loss": [
@@ -24268,6 +24315,32 @@
       }
     ]
   },
-  "forces": "US: 1 attack submarine, 1 destroyer (2 embarked helicopters), Clark patrol det  \u00b7  PLAN: 1 nuclear attack submarine, 1 AIP submarine, Fujian patrol and fighter det",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "US: 1 attack submarine, 1 destroyer (2 embarked helicopters), Clark patrol det  ·  PLAN: 1 nuclear attack submarine, 1 AIP submarine, Fujian patrol and fighter det",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Lay the barrier",
+      "task": "Hold Vermont on the opening station while the destroyer and patrol aircraft establish separate search areas."
+    },
+    {
+      "title": "02 / Separate the contacts",
+      "task": "A second submarine complicates the search. Preserve your own acoustic advantage while localizing the breakout boat."
+    },
+    {
+      "title": "03 / Close the passage",
+      "task": "Stop the Shang II or hold the barrier until relief. Do not let the named breakout boat cross its exit line."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    }
+  ]
 }

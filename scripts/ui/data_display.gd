@@ -184,6 +184,8 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 				return "Recovering"
 			Unit.FlightState.TURNAROUND:
 				return "Refuel and rearm"
+			Unit.FlightState.RESERVE:
+				return "Reserve preparation"
 		if u.returning:
 			return "Return to base" if u.recovery_base == null else "Return to %s" % u.recovery_base.callsign
 		if u.tanking_on != null:

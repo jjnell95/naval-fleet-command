@@ -63,7 +63,7 @@ func _draw() -> void:
 			_text(point, str(label.get("text", "")), 10, Color(1, 1, 1, 0.85))
 	var player: String = scenario.get("player_faction", "BLUE")
 	for o in scenario.get("objectives", {}).get("victory", []):
-		if o.get("type", "") == "reach_area":
+		if o.get("type", "") in ["reach_area", "hold_area"]:
 			var oc: Array = o.get("center_nm", [0, 0])
 			var op := mid + Vector2((float(oc[0]) - center.x) * ppn, -(float(oc[1]) - center.y) * ppn)
 			draw_arc(op, float(o.get("radius_nm", 5.0)) * ppn, 0.0, TAU, 40, Color.WHITE, 1.0, true)

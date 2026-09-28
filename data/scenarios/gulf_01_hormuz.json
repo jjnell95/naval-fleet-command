@@ -1,7 +1,7 @@
 {
   "id": "gulf_01_hormuz",
   "name": "STRAIT OF HORMUZ: TANKER TRANSIT",
-  "description": "Three laden tankers must clear the Strait of Hormuz into the Gulf of Oman. A US destroyer, a British Type 45 and a French frigate escort them past Qeshm and Larak against an IRGC swarm, a midget submarine in the lane, a Kilo waiting outside, drones from the coast and a coastal battery above Bandar Abbas, with a ballistic-missile battery behind it that fires on whatever the drones report. A P-8A detachment at Al Dhafra can help. The destroyer's Tomahawks can reach the battery; your rules of engagement decide whether they do before it fires. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "Three laden tankers must clear the Strait of Hormuz into the Gulf of Oman. A US destroyer, a British Type 45 and a French frigate escort them past Qeshm and Larak against an IRGC swarm, a midget submarine in the lane, a Kilo waiting outside, drones from the coast and a coastal battery above Bandar Abbas, with a ballistic-missile battery behind it that fires on whatever the drones report. A P-8A detachment at Al Dhafra can help. The destroyer's Tomahawks can reach the battery; your rules of engagement decide whether they do before it fires. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-05-19T02:00:00",
   "player_faction": "BLUE",
   "map": {
@@ -182,7 +182,7 @@
       214.6,
       201.9
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -4901,7 +4901,8 @@
           -45.0
         ]
       ],
-      "radar_on": true
+      "radar_on": true,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_tanker_vlcc",
@@ -4927,7 +4928,8 @@
           -45.0
         ]
       ],
-      "radar_on": true
+      "radar_on": true,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_tanker_vlcc",
@@ -4953,7 +4955,8 @@
           -45.0
         ]
       ],
-      "radar_on": true
+      "radar_on": true,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
@@ -4972,7 +4975,8 @@
         "essm_family": 32,
         "phalanx_ciws": 60,
         "tomahawk_block_v": 8
-      }
+      },
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rn_ddg_type45",
@@ -4983,7 +4987,8 @@
         13.2
       ],
       "heading_deg": 100,
-      "speed_kn": 13
+      "speed_kn": 13,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "fra_ffg_fremm",
@@ -4994,7 +4999,8 @@
         4.8
       ],
       "heading_deg": 100,
-      "speed_kn": 13
+      "speed_kn": 13,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -5014,7 +5020,8 @@
           "callsign": "Pelican",
           "first_modex": 31
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_fac_peykaap3",
@@ -5040,7 +5047,8 @@
           0.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_fac_peykaap3",
@@ -5066,7 +5074,8 @@
           0.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_fac_peykaap3",
@@ -5092,7 +5101,8 @@
           0.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_fac_peykaap3",
@@ -5118,7 +5128,8 @@
           0.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_fac_peykaap3",
@@ -5144,7 +5155,8 @@
           0.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_fac_peykaap3",
@@ -5170,7 +5182,8 @@
           0.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_pgg_houdong",
@@ -5191,7 +5204,8 @@
           5.3789,
           19.2
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_pgg_houdong",
@@ -5212,7 +5226,8 @@
           0.0,
           21.6
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_ssm_ghadir",
@@ -5235,7 +5250,8 @@
         ]
       ],
       "depth_m": 28,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_ssk_kilo_877ekm",
@@ -5258,7 +5274,8 @@
         ]
       ],
       "depth_m": 100,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_ffg_moudge",
@@ -5279,7 +5296,8 @@
           0.0,
           3.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_ffg_alvand",
@@ -5300,7 +5318,8 @@
           43.0313,
           -51.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_battery_qader",
@@ -5311,7 +5330,8 @@
         27.6
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_asbm_khalij_fars",
@@ -5322,7 +5342,8 @@
         60.0
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_drone_site_shahed",
@@ -5333,7 +5354,8 @@
         48.0
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "irn_sam_bavar373",
@@ -5344,7 +5366,8 @@
         57.0
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -5378,7 +5401,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_merchant_bulk",
@@ -5403,7 +5427,8 @@
           -86.0627,
           3.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_fishing_trawler",
@@ -5424,7 +5449,8 @@
           -21.5157,
           0.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     }
   ],
   "order": 25,
@@ -5438,16 +5464,33 @@
   "duration_minutes": 30,
   "role": "Escort group commander",
   "learning": "Convoy defence in confined water: fast-attack-craft swarms, one-way attack drones, a midget submarine, shore-based cruise and ballistic missiles, and neutral traffic everywhere",
-  "commander_intent": "Bring at least two of the three tankers out into the Gulf of Oman. The escorts survive by shooting early; the tankers survive by your station-keeping.",
+  "commander_intent": "Keep two tankers inside the destination box for five minutes; the transit deadline remains in force.",
   "first_orders": [
     "Put Paul Ignatius ahead of the convoy in the outbound lane and Duncan on the Iranian side; Languedoc's sonar belongs astern where the Ghadir waits.",
     "The swarm comes from Qeshm at fifty knots. Radar on, weapons free, and guns for anything inside five miles: a Harpoon or an Exocet that loses a boat in the strait will find a dhow, and a neutral sunk by your fire ends the mission.",
-    "The Khalij Fars battery fires on drone reports. Killing the drones early is cheaper than stopping the missiles late."
+    "The Khalij Fars battery fires on drone reports. Killing the drones early is cheaper than stopping the missiles late.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "setting_note": "A fictional May 2027 crisis. Real geography and traffic lanes, real class names; the deployment and the engagement are invented.",
   "objectives": {
-    "text": "Bring at least two tankers into the Gulf of Oman box within ten hours. Losing all three, or Paul Ignatius, fails the mission; neutral traffic is protected.",
+    "text": "Keep Paul Ignatius on the opening station while the tankers form up. Classify small craft before firing. Escort at least two tankers through the mixed coastal, submarine and small-craft threat. Reserve short-range interceptors for leakers. Keep two tankers inside the destination box for five minutes; the transit deadline remains in force.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Paul Ignatius (DDG 117)"
+        ],
+        "center_nm": [
+          -27.9704,
+          10.2
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Paul Ignatius (DDG 117) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "transit",
         "type": "reach_area",
@@ -5462,7 +5505,32 @@
         ],
         "radius_nm": 8,
         "text": "Two tankers cleared the strait",
-        "count": 2
+        "count": 2,
+        "after": [
+          "establish_screen"
+        ],
+        "phase_only": true
+      },
+      {
+        "id": "transit_handover",
+        "type": "hold_area",
+        "callsigns": [
+          "MT Gulf Horizon",
+          "MT Ras Laffan Pride",
+          "MT Aegean Dawn"
+        ],
+        "center_nm": [
+          48.4103,
+          -45.0
+        ],
+        "radius_nm": 8,
+        "text": "Hold the required vessels in the destination box for five continuous minutes",
+        "count": 2,
+        "after": [
+          "transit"
+        ],
+        "phase_only": false,
+        "seconds": 300
       }
     ],
     "loss": [
@@ -5501,6 +5569,32 @@
       }
     ]
   },
-  "forces": "US/UK/France: 1 destroyer, 1 air-defence destroyer, 1 frigate, 3 tankers, Al Dhafra patrol det  \u00b7  Iran: 6 fast attack craft, 2 missile boats, 1 midget submarine, 1 Kilo, 2 frigates, 2 UAVs, coastal, ballistic, drone and SAM sites  \u00b7  Neutral traffic",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "US/UK/France: 1 destroyer, 1 air-defence destroyer, 1 frigate, 3 tankers, Al Dhafra patrol det  ·  Iran: 6 fast attack craft, 2 missile boats, 1 midget submarine, 1 Kilo, 2 frigates, 2 UAVs, coastal, ballistic, drone and SAM sites  ·  Neutral traffic",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Assemble the convoy",
+      "task": "Keep Paul Ignatius on the opening station while the tankers form up. Classify small craft before firing."
+    },
+    {
+      "title": "02 / Clear the strait",
+      "task": "Escort at least two tankers through the mixed coastal, submarine and small-craft threat. Reserve short-range interceptors for leakers."
+    },
+    {
+      "title": "03 / Handover in the Gulf of Oman",
+      "task": "Keep two tankers inside the destination box for five minutes; the transit deadline remains in force."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    }
+  ]
 }

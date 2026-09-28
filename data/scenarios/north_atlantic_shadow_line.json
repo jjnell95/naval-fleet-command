@@ -1,6 +1,6 @@
 {
   "id": "north_atlantic_shadow_line",
-  "name": "NORWEGIAN SEA \u2014 SHADOW LINE",
+  "name": "NORWEGIAN SEA — SHADOW LINE",
   "description": "A surface action group has been detached to the Norwegian Sea. Your Flight IIA destroyer provides air defence and ASW; the Norwegian frigate carries the anti-ship missiles. Two MH-60Rs aboard the destroyer support the search. Identify the opposing combatants before committing your limited magazines. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
   "start_time_utc": "2027-03-14T05:30:00",
   "player_faction": "BLUE",
@@ -55,7 +55,7 @@
         "kind": "water"
       },
       {
-        "text": "FAROE\u2013SHETLAND CHANNEL",
+        "text": "FAROE–SHETLAND CHANNEL",
         "position_nm": [
           -276.4597,
           -420.0
@@ -63,7 +63,7 @@
         "kind": "water"
       },
       {
-        "text": "ICELAND\u2013FAROE RIDGE",
+        "text": "ICELAND–FAROE RIDGE",
         "position_nm": [
           -449.5279,
           -294.0
@@ -159,7 +159,7 @@
         "kind": "land"
       },
       {
-        "text": "\u00d6LAND",
+        "text": "ÖLAND",
         "position_nm": [
           193.297,
           -672.0
@@ -199,7 +199,7 @@
         "kind": "land"
       },
       {
-        "text": "BJ\u00d8RN\u00d8YA",
+        "text": "BJØRNØYA",
         "position_nm": [
           247.2404,
           402.0
@@ -214,7 +214,7 @@
       246.9,
       236.0
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -12377,6 +12377,8 @@
       }
     ]
   },
-  "forces": "NATO: 1 destroyer, 1 frigate (2 US embarked helicopters)  \u00b7  Russia: 1 frigate, 1 corvette",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "NATO: 1 destroyer, 1 frigate (2 US embarked helicopters)  ·  Russia: 1 frigate, 1 corvette",
+  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment.",
+  "operation_revision": 25,
+  "collection": "exercises"
 }

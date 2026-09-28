@@ -9,14 +9,15 @@
   "duration_minutes": 30,
   "role": "Carrier group commander",
   "learning": "Early warning, fighter interception and layered air defence",
-  "commander_intent": "Keep Eisenhower afloat through the two-hour air watch. Preserve the cruiser as the inner missile screen.",
+  "commander_intent": "Complete the two-hour watch and recover at least one aircraft. A carrier or cruiser loss still ends the operation.",
   "first_orders": [
     "Launch the E-2C Hawkeye, then a pair of F-14A+ Tomcats from Eisenhower.",
     "Send the Hawkeye and fighters northeast of the group; keep Bunker Hill's radar on.",
-    "Reserve SM-2 for leakers and recall aircraft before fuel exhaustion. No task requires chasing the cruiser into its missile envelope."
+    "Reserve SM-2 for leakers and recall aircraft before fuel exhaustion. No task requires chasing the cruiser into its missile envelope.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "historical_note": "Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
-  "description": "18 September 1990, Norwegian Sea. A fictional crisis has brought Eisenhower north and a Soviet cruiser into the Norwegian Sea. Two Backfire-C aircraft are inbound from the northeast with conventional Kh-22 missiles. The carrier has a small playable detachment of Tomcats, Hawkeye, Vikings and Sea Kings. Airborne radar buys warning time; the screen must stop any missiles that get through the fighter patrol.",
+  "description": "18 September 1990, Norwegian Sea. A fictional crisis has brought Eisenhower north and a Soviet cruiser into the Norwegian Sea. Two Backfire-C aircraft approach in separate raid elements from the northeast with conventional Kh-22 missiles. The carrier has a small playable detachment of Tomcats, Hawkeye, Vikings and Sea Kings. Airborne radar buys warning time; the screen must stop any missiles that get through the fighter patrol. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "1990-09-18T04:45:00",
   "player_faction": "BLUE",
   "neutral_factions": [
@@ -259,7 +260,52 @@
         -16.2
       ],
       "heading_deg": 250,
-      "speed_kn": 18
+      "speed_kn": 18,
+      "aviation_reload_cycles": 2,
+      "air_wing": [
+        {
+          "platform": "cw90_f14a",
+          "count": 4,
+          "callsign": "Tomcat",
+          "first_modex": 101,
+          "ready_after_s": 0
+        },
+        {
+          "platform": "cw90_f14a",
+          "count": 8,
+          "callsign": "Tomcat",
+          "first_modex": 105,
+          "ready_after_s": 1800
+        },
+        {
+          "platform": "cw90_e2c",
+          "count": 1,
+          "callsign": "Hawkeye",
+          "first_modex": 601,
+          "ready_after_s": 0
+        },
+        {
+          "platform": "cw90_e2c",
+          "count": 3,
+          "callsign": "Hawkeye",
+          "first_modex": 602,
+          "ready_after_s": 1200
+        },
+        {
+          "platform": "cw90_s3a",
+          "count": 4,
+          "callsign": "Viking",
+          "first_modex": 701,
+          "ready_after_s": 0
+        },
+        {
+          "platform": "cw90_sh3h",
+          "count": 4,
+          "callsign": "Sea King",
+          "first_modex": 801,
+          "ready_after_s": 0
+        }
+      ]
     },
     {
       "platform": "cw90_ticonderoga",
@@ -270,7 +316,8 @@
         -5.4
       ],
       "heading_deg": 250,
-      "speed_kn": 18
+      "speed_kn": 18,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_spruance",
@@ -282,7 +329,8 @@
       ],
       "heading_deg": 250,
       "speed_kn": 18,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_slava",
@@ -303,7 +351,8 @@
           93.9929,
           66.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_tu22m3",
@@ -321,47 +370,49 @@
           3.0
         ]
       ],
-      "ai_posture": "breakout"
-    },
-    {
-      "platform": "cw90_tu22m3",
-      "callsign": "Backfire raid 2",
-      "faction": "RED",
-      "position_nm": [
-        114.1343,
-        202.8
-      ],
-      "heading_deg": 215,
-      "speed_kn": 490,
-      "patrol_nm": [
-        [
-          4.4759,
-          3.0
-        ]
-      ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     }
   ],
-  "victory_mode": "any",
-  "force_note": "Period identities; fictional 1990 deployment. Tactical magazines and reduced air detachments represent weapons available in this mission, not full real-world readiness.",
+  "victory_mode": "all",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
   "objectives": {
-    "text": "Survive the 2-hour carrier watch, or neutralize Slava and both raiders. Eisenhower or Bunker Hill lost means defeat.",
+    "text": "Keep Bunker Hill on the opening station while launching Hawkeye and a Tomcat section. A second Backfire element may follow the first. Keep reserve fighters and the point-defence layer available. Complete the two-hour watch and recover at least one aircraft. A carrier or cruiser loss still ends the operation.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Bunker Hill (CG 52)"
+        ],
+        "center_nm": [
+          -7.8327,
+          -5.4
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Bunker Hill (CG 52) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "watch",
         "type": "time_elapsed",
         "text": "Complete the watch with protected units intact",
-        "seconds": 7200
+        "seconds": 7200,
+        "after": [
+          "establish_screen"
+        ]
       },
       {
-        "id": "neutralize",
-        "type": "all_units_lost",
-        "text": "Neutralize the named opposing combatants",
-        "callsigns": [
-          "Slava",
-          "Backfire raid 1",
-          "Backfire raid 2"
-        ]
+        "id": "recover_air_plan",
+        "type": "aircraft_recovered",
+        "faction": "BLUE",
+        "count": 1,
+        "after": [
+          "establish_screen"
+        ],
+        "text": "Recover at least one aircraft after a sortie"
       }
     ],
     "loss": [
@@ -25873,5 +25924,56 @@
     ],
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
-  }
+  },
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Build the air picture",
+      "task": "Keep Bunker Hill on the opening station while launching Hawkeye and a Tomcat section."
+    },
+    {
+      "title": "02 / Fight successive raids",
+      "task": "A second Backfire element may follow the first. Keep reserve fighters and the point-defence layer available."
+    },
+    {
+      "title": "03 / Recover and reset",
+      "task": "Complete the two-hour watch and recover at least one aircraft. A carrier or cruiser loss still ends the operation."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    },
+    {
+      "id": "follow_on_raid",
+      "at_s": 2400,
+      "reinforcements": [
+        {
+          "platform": "cw90_tu22m3",
+          "callsign": "Backfire raid 2",
+          "faction": "RED",
+          "position_nm": [
+            114.1343,
+            202.8
+          ],
+          "heading_deg": 215,
+          "speed_kn": 490,
+          "patrol_nm": [
+            [
+              4.4759,
+              3.0
+            ]
+          ],
+          "ai_posture": "breakout",
+          "aviation_reload_cycles": 2
+        }
+      ]
+    }
+  ]
 }

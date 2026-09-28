@@ -20,6 +20,8 @@ var intercept_target: Weapon  # set when this round is a SAM or close-in round
 var decoy_attempted := false
 var seductions := 0  # times decoys have pulled this round off a lock
 var guided_interceptors_committed := 0  # SAMs ever fired at this round
+var defence_commitments: Dictionary = {}  # defensive layer -> reserved shots
+var close_in_commitments: Dictionary = {}  # defending unit id -> bursts
 var close_in_bursts_committed := 0  # close-in engagements; a round is only in that envelope briefly
 var position := Vector2.ZERO
 var heading_deg := 0.0

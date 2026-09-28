@@ -43,6 +43,7 @@ static func _scan(root: String, custom: bool, out: Array) -> void:
 					"forces": d.get("forces", ""),
 					"custom": custom,
 					"era": d.get("era", "Modern"),
+					"collection": d.get("collection", "operations"),
 					"year": int(d.get("year", str(d.get("start_time_utc", "0")).substr(0, 4))),
 					"difficulty": d.get("difficulty", "Open command"),
 					"duration_minutes": int(d.get("duration_minutes", 0)),

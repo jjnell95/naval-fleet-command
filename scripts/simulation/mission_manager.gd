@@ -39,7 +39,7 @@ func configure(scenario: Dictionary) -> void:
 ## An area objective that names neither units nor a faction means the player's own force.
 ## Without this, one written by the scenario editor would scope to nobody and never complete.
 func _scoped(o: MissionObjective) -> MissionObjective:
-	if o.kind == MissionObjective.Kind.REACH_AREA and o.faction == "" and o.callsigns.is_empty():
+	if o.kind in [MissionObjective.Kind.REACH_AREA, MissionObjective.Kind.HOLD_AREA] and o.faction == "" and o.callsigns.is_empty():
 		o.faction = player_faction
 	return o
 
@@ -53,14 +53,31 @@ func tick(now: float) -> void:
 			_finish(Result.DEFEAT, o.text)
 			return
 	var done := 0
+	var terminal_count := 0
 	for o in victory_objectives:
+		if not o.phase_only:
+			terminal_count += 1
+		o.unlocked = prerequisites_complete(o.after)
 		var was := o.complete
 		if o.evaluate(unit_manager, now):
-			done += 1
+			if not o.phase_only:
+				done += 1
 			if not was:
 				objective_completed.emit(o, false)
-	if done > 0 and (victory_mode == "any" or done == victory_objectives.size()):
+	if done > 0 and (victory_mode == "any" or done == terminal_count):
 		_finish(Result.VICTORY, briefing)
+
+
+func prerequisites_complete(ids: PackedStringArray) -> bool:
+	for id in ids:
+		var found := false
+		for o in victory_objectives:
+			if o.id == id and o.complete:
+				found = true
+				break
+		if not found:
+			return false
+	return true
 
 
 func _finish(r: Result, summary: String) -> void:

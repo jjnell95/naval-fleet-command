@@ -134,7 +134,7 @@ func test_arctic_shield_scenario_resolves_every_actor() -> void:
 	var escort_helos := 0
 	for u in um.units:
 		assert_eq(u.sensors.size(), u.spec.sensor_ids.size(), u.callsign + " sensors resolve")
-		assert_eq(u.weapons.size(), u.spec.weapon_loadout.size(), u.callsign + " weapons resolve")
+		assert_eq(u.weapons.size(), u.magazines.size(), u.callsign + " authored weapons resolve")
 		if u.has_jammer():
 			jammers += 1
 		if u.magazine_count("sm3_family") > 0:

@@ -36,6 +36,22 @@ extends Resource
 @export var intercept_min_altitude_m := 0.0
 @export var intercept_max_altitude_m := 1000000.0
 
+## Public role, not a claim about actual engagement doctrine. Separate budgets let the
+## point-defence layer engage a leaker after the outer layer has spent its allowance.
+@export var defence_layer := ""  # area | point; empty derives a conservative range band
+
+
+func defensive_layer() -> String:
+	if type == "ciws":
+		return "close_in"
+	if defence_layer != "":
+		return defence_layer
+	return "area" if max_range_nm >= 40.0 else "point"
+
+
+func requires_radar_support() -> bool:
+	return type == "sam" and guidance in ["fire_control_directed", "semi_active_radar", "semi_active_radar_homing"]
+
 
 func is_gun() -> bool:
 	return type == "gun"

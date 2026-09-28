@@ -139,6 +139,9 @@ func _ready() -> void:
 	simulation.weapon_manager.weapon_defeated.connect(_on_weapon_defeated)
 	simulation.weapon_manager.weapon_seduced.connect(_on_weapon_seduced)
 	simulation.casualty_event.connect(_on_casualty_event)
+	simulation.operation_message.connect(func(message: String) -> void:
+		radio.flash(message, "info")
+		print("[Operation] %s" % message))
 	simulation.threat_manager.threat_detected.connect(_on_threat_detected)
 	simulation.aviation_manager.aircraft_launched.connect(func(a: Unit, parent: Unit) -> void:
 		if a.faction == simulation.player_faction:

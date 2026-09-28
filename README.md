@@ -1,5 +1,7 @@
 # Naval Fleet Command
 
+**M25 Fleet Operations:** 14 expanded operations plus eight exercises, staged mission tasks, larger carrier wings, finite aviation stores, separate missile-defence layers and radar-support constraints. The Jane's-style CDS interface is preserved. See the [change notes](docs/2026-09-27-fleet-operations.md) and [validation](docs/validation-m25.json).
+
 A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-command games. Build an uncertain contact picture, protect the convoy, operate a carrier air wing, and decide when the salvo is worth the missiles. Twenty-two operations across the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, in 2027 and in 1990. Original art and code; no Jane's assets or affiliation.
 
 ## Play

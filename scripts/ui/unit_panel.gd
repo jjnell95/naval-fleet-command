@@ -148,6 +148,8 @@ func _flight_state_text(a: Unit) -> String:
 			return "landing approach"
 		Unit.FlightState.TURNAROUND:
 			return "[color=%s]turnaround, %s[/color]" % [UITheme.HEX_DIM, _mmss(a.state_timer_s)]
+		Unit.FlightState.RESERVE:
+			return "reserve preparation, %s" % _mmss(a.state_timer_s)
 	if a.tanking_on != null:
 		return "[color=%s]airborne, tanking on %s[/color]" % [UITheme.HEX_AMBER, a.tanking_on.callsign]
 	return "[color=%s]airborne, RTB[/color]" % UITheme.HEX_AMBER if a.returning else "[color=%s]airborne[/color]" % UITheme.HEX_BLUE

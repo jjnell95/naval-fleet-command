@@ -306,6 +306,7 @@ class Mission:
         self.d["objectives"]=dict(text=text,victory=win,loss=lose)
         return self
     def write(self):
+        from operation_design import enhance
         # Focus on commanded ships. A distant patrol base does not shrink the tactical opening.
         m=self.d["map"]
         land,labels=g.chart(self.lat,self.lon,m["center_nm"],m["extent_nm"])
@@ -314,6 +315,7 @@ class Mission:
                  chart_region=g.region_of(self.lat,self.lon),
                  chart_note="Natural Earth coastline and bathymetry / 1990 scenario / not for navigation")
         g.validate_scenario(self.d, lambda pid: PLATFORMS[pid]["domain"])
+        enhance(self.d)
         path=ROOT/"data/scenarios"/(self.d["id"]+".json")
         path.write_text(json.dumps(self.d,indent=2,ensure_ascii=False)+"\n")
         return self.d

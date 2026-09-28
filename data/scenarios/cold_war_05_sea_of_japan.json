@@ -9,14 +9,15 @@
   "duration_minutes": 30,
   "role": "Carrier battle group commander",
   "learning": "Fleet air defence against a regimental Backfire raid, a surface group with long-range missiles, and a nuclear boat in deep water",
-  "commander_intent": "Keep Carl Vinson and Antietam afloat for four hours, or break the Soviet surface group before it reaches the Tsugaru approaches.",
+  "commander_intent": "Survive four hours or neutralize the named surface targets. Retain aircraft and ordnance for the later watch.",
   "first_orders": [
     "Launch the E-2C and a pair of F-14A+ toward Vladivostok; the raid will come from the north-west, the cruiser from the west.",
     "Antietam is the inner missile screen. Keep her radiating and between the carrier and the Soviet group; hold Fife and Curts on the flanks for the Victor III.",
-    "Honolulu is quiet and ahead of the group. Let her work the Victor before you send the Vikings."
+    "Honolulu is quiet and ahead of the group. Let her work the Victor before you send the Vikings.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "historical_note": "Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
-  "description": "23 September 1990, Sea of Japan. A fictional crisis has brought Carl Vinson's battle group into the Sea of Japan. The Pacific Fleet's newest cruiser, Chervona Ukraina, a Sovremennyy and an Udaloy sortied from Vladivostok overnight and are already in the Japan Basin heading for the Tsugaru Strait, a Victor III is in deep water ahead of them, and Backfires from Kamenny Ruchey are ready. Airborne radar buys the warning; the Aegis cruiser and the escorts must stop what the fighters miss.",
+  "description": "23 September 1990, Sea of Japan. A fictional crisis has brought Carl Vinson's battle group into the Sea of Japan. The Pacific Fleet's newest cruiser, Chervona Ukraina, a Sovremennyy and an Udaloy sortied from Vladivostok overnight and are already in the Japan Basin heading for the Tsugaru Strait, a Victor III is in deep water ahead of them, and Backfires from Kamenny Ruchey are ready. Airborne radar buys the warning; the Aegis cruiser and the escorts must stop what the fighters miss. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "1990-09-22T20:00:00",
   "player_faction": "BLUE",
   "neutral_factions": [
@@ -339,7 +340,52 @@
         -42.0
       ],
       "heading_deg": 20,
-      "speed_kn": 18
+      "speed_kn": 18,
+      "aviation_reload_cycles": 2,
+      "air_wing": [
+        {
+          "platform": "cw90_f14a",
+          "count": 4,
+          "callsign": "Tomcat",
+          "first_modex": 101,
+          "ready_after_s": 0
+        },
+        {
+          "platform": "cw90_f14a",
+          "count": 8,
+          "callsign": "Tomcat",
+          "first_modex": 105,
+          "ready_after_s": 1800
+        },
+        {
+          "platform": "cw90_e2c",
+          "count": 1,
+          "callsign": "Hawkeye",
+          "first_modex": 601,
+          "ready_after_s": 0
+        },
+        {
+          "platform": "cw90_e2c",
+          "count": 3,
+          "callsign": "Hawkeye",
+          "first_modex": 602,
+          "ready_after_s": 1200
+        },
+        {
+          "platform": "cw90_s3a",
+          "count": 4,
+          "callsign": "Viking",
+          "first_modex": 701,
+          "ready_after_s": 0
+        },
+        {
+          "platform": "cw90_sh3h",
+          "count": 4,
+          "callsign": "Sea King",
+          "first_modex": 801,
+          "ready_after_s": 0
+        }
+      ]
     },
     {
       "platform": "cw90_ticonderoga",
@@ -350,7 +396,8 @@
         -30.0
       ],
       "heading_deg": 20,
-      "speed_kn": 18
+      "speed_kn": 18,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_spruance",
@@ -362,7 +409,8 @@
       ],
       "heading_deg": 20,
       "speed_kn": 18,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_perry",
@@ -374,7 +422,8 @@
       ],
       "heading_deg": 20,
       "speed_kn": 18,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_los_angeles",
@@ -387,7 +436,8 @@
       "heading_deg": 320,
       "speed_kn": 7,
       "depth_m": 160,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_airfield",
@@ -417,7 +467,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_slava",
@@ -435,7 +486,8 @@
           162.5216,
           12.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_sovremenny",
@@ -453,7 +505,8 @@
           162.5216,
           12.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_udaloy",
@@ -471,7 +524,8 @@
           162.5216,
           12.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_victor3",
@@ -494,7 +548,8 @@
           -54.1739,
           36.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_airfield",
@@ -509,7 +564,7 @@
       "air_wing": [
         {
           "platform": "cw90_tu22m3",
-          "count": 3,
+          "count": 1,
           "callsign": "Backfire raid",
           "squadron": "Naval missile aviation regiment",
           "first_modex": 1,
@@ -523,20 +578,58 @@
               -36.0
             ]
           ]
+        },
+        {
+          "platform": "cw90_tu22m3",
+          "count": 2,
+          "callsign": "Backfire raid",
+          "squadron": "Naval missile aviation regiment",
+          "first_modex": 2,
+          "patrol_nm": [
+            [
+              72.2318,
+              72.0
+            ],
+            [
+              18.058,
+              -36.0
+            ]
+          ],
+          "ready_after_s": 2400
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     }
   ],
   "victory_mode": "any",
-  "force_note": "Period identities; fictional 1990 deployment. Tactical magazines and reduced air detachments represent weapons available in this mission, not full real-world readiness.",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
   "objectives": {
-    "text": "Survive the 4-hour watch, or neutralize Chervona Ukraina and Osmotritelny. Carl Vinson or Antietam lost, or the cruiser reaching the Tsugaru approaches, means defeat.",
+    "text": "Hold Antietam on station while deploying Hawkeye, Tomcats and the ASW detachment. The surface group must not reach the approaches. The bomber regiment becomes ready in successive elements. Survive four hours or neutralize the named surface targets. Retain aircraft and ordnance for the later watch.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Antietam (CG 54)"
+        ],
+        "center_nm": [
+          0.0,
+          -30.0
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Antietam (CG 54) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "watch",
         "type": "time_elapsed",
         "text": "Complete the watch with protected units intact",
-        "seconds": 14400
+        "seconds": 14400,
+        "after": [
+          "establish_screen"
+        ]
       },
       {
         "id": "neutralize",
@@ -545,6 +638,9 @@
         "callsigns": [
           "Chervona Ukraina",
           "Osmotritelny"
+        ],
+        "after": [
+          "establish_screen"
         ]
       }
     ],
@@ -32336,5 +32432,31 @@
     ],
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
-  }
+  },
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Establish the screen",
+      "task": "Hold Antietam on station while deploying Hawkeye, Tomcats and the ASW detachment."
+    },
+    {
+      "title": "02 / Deny Tsugaru",
+      "task": "The surface group must not reach the approaches. The bomber regiment becomes ready in successive elements."
+    },
+    {
+      "title": "03 / Sustain the watch",
+      "task": "Survive four hours or neutralize the named surface targets. Retain aircraft and ordnance for the later watch."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    }
+  ]
 }
