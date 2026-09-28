@@ -34,6 +34,8 @@ const GREEN := "green"
 const MARGIN := Vector2(9.0, 6.0)
 const REFRESH_S := 0.25
 const MAX_WEAPONS := 12
+## The jobs the WEAPONS line states a reach for, in reading order: the label, and the weapon type it covers.
+const REACH_JOBS := [["STRIKE", "asm"], ["AAM", "aam"], ["AAW", "sam"], ["CIWS", "ciws"], ["GUN", "gun"], ["TORP", "torpedo"]]
 
 var map: TacticalMap
 var simulation: Simulation
@@ -152,7 +154,7 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 	if sensors != "":
 		rows.append(_kv("SENSORS", sensors))
 	if not u.weapons.is_empty():
-		rows.append([["WEAPONS:", LABEL]])
+		rows.append([["WEAPONS:", LABEL]] + reach_spans(u))
 		var shown := 0
 		for w in u.weapons:
 			if shown >= MAX_WEAPONS:
@@ -163,6 +165,24 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 	if u.spec.aircraft_capacity > 0 and not u.embarked.is_empty():
 		rows.append(_kv("AIR WING", "%d of %d ready" % [u.stowed_aircraft().size(), u.embarked.size()]))
 	return rows
+
+
+## What a hull can reach, one figure per job, for the head of the weapons block: the farthest missile
+## that strikes, the farthest that shoots down aircraft, the close-in mount, the gun, the torpedo.
+## The rows below list every system with its count; this line is what tells a ship that carries a
+## single close-in gun from one that carries a cruise missile. A job the hull cannot do is left out.
+static func reach_spans(u: Unit) -> Array:
+	var best := {}
+	for w in u.weapons:
+		best[w.type] = maxf(float(best.get(w.type, 0.0)), w.max_range_nm)
+	var spans: Array = []
+	for job: Array in REACH_JOBS:
+		if best.has(job[1]):
+			spans.append(["  " + str(job[0]) + " ", LABEL])
+			spans.append([Geo.format_nm(float(best[job[1]])), WHITE])
+	if not spans.is_empty():
+		spans.append([" NM", LABEL])
+	return spans
 
 
 static func group_rows(units: Array) -> Array:

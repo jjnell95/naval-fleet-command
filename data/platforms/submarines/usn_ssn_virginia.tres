@@ -29,7 +29,12 @@ fire_control_channels = 0
 decoy_count = 8
 decoy_effectiveness = 0.30
 weapon_loadout = {
-"mk48_adcap": 20
+"mk48_adcap": 20,
+"tomahawk_block_v": 12
 }
 
+vls_cells = 12
+
 role = "Nuclear Attack Submarine • maritime operations"
+
+service_note = "Block III fit: twelve payload-tube cells carry Tomahawk for surface and shore strike alongside the torpedo room. Sub-launched Harpoon is not loaded."

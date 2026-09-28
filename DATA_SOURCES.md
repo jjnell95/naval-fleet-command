@@ -332,6 +332,41 @@ The [M20 source ledger](docs/AVIATION_ROSTER_M20.md#source-ledger) records prima
 The eight naval hulls are Charles de Gaulle, America, Juan Carlos I, Mistral, Andrea Doria/Horizon, Sachsen, Visby and Admiral Grigorovich. Suffren and Gotland add submarine choices. Aircraft add AV-8B+, Typhoon FGR4, Gripen C, F-16C, Atlantique 2, Su-34, Panther and E-2C. Weapons add Meteor, ASRAAM, IRIS-T, AGM-65E, RBS15F, Kh-31A, Otomat Mk2, naval Mistral, Shtil-1, F21, Torpedo 62 and Torpedo 47.
 
 No future CIWS is granted to Juan Carlos I, no E-2D entry into French service is assumed, no helicopter-only deck operates fixed-wing jets, and no ASW fit is invented for the French Panther. Shared aircraft resources support explicitly fictional coalition detachments. Historical Su-32/Kh-31A export literature supports the family association only, not a current Russian Su-34 loadout.
+## Ship fit review (28 September 2026)
+
+Every ship and submarine loadout was checked against the class's public fit. What changed is which
+systems a hull carries; every range, hit probability and magazine count remains a GAMEPLAY_ESTIMATE, and
+a source establishing that a class carries a weapon does not establish that a particular hull does, or
+how many it holds. Counts were chosen inside the published stowage limits where one exists. The
+references are secondary or manufacturer sources read on 28 September 2026.
+
+| Hull | Change | Basis |
+|---|---|---|
+| `usn_ddg_arleigh_burke_iia`, `usn_ddg_burke_iii` | + Tomahawk Block Va x8 | The Navy's destroyer page lists Tomahawk in the Arleigh Burke armament ([SURFLANT](https://www.surflant.usff.navy.mil/Organization/Operational-Forces/Destroyers/Destroyer-Ship-Class-DDG-Info-Page/)). Two of the 16 Burkes in the game's operations (one each in Gulf and Spratly) already had this fit patched in by hand; the other 14 had no reach past their gun. No Harpoon, as before |
+| `usn_ssn_virginia` | + Tomahawk x12; `vls_cells` 12 | Block III and IV carry twelve payload-tube cells and 25 tube-launched weapons ([Virginia class](https://en.wikipedia.org/wiki/Virginia-class_submarine)). Sub-launched Harpoon is not loaded |
+| `rn_ssn_astute` | + Tomahawk x12 (with 24 Spearfish) | Six tubes, stowage for up to 38 weapons, Tomahawk and Spearfish ([Astute class](https://en.wikipedia.org/wiki/Astute-class_submarine)). The fielded Tomahawk block is not asserted; the game has one Tomahawk family |
+| `rfn_ssk_kilo` (Project 636.3) | + Kalibr x4 (with 14 torpedoes) | Project 636 and 636.3 can carry four Kalibr through two of six tubes ([Kilo class](https://en.wikipedia.org/wiki/Kilo-class_submarine)). The Project 877 boats, Russian and Iranian, carry no missile and are unchanged |
+| `fra_ssn_suffren` | F21 20 -> 16, + SM39 Exocet x4 (new weapon) | Four tubes and twenty racks for F21, MdCN and SM39 Mod 2; SM39 and MdCN have both been fired from her ([MBDA](https://www.mbda-systems.com/exocet-sm39-and-mdcn-firings-new-french-submarine-suffren), [Suffren class](https://en.wikipedia.org/wiki/Suffren-class_submarine)). MdCN, mines and special forces stay out of this fit |
+| `dnk_ffg_iver_huitfeldt` | + Millennium 35 mm CIWS x40 bursts (new weapon), + MU90 x12, Harpoon 8 -> 16 | One 35 mm Millennium CIWS and two twin MU90 launchers are permanent; the StanFlex slots usually carry two eight-cell Harpoon modules and two ESSM modules ([Iver Huitfeldt class](https://en.wikipedia.org/wiki/Iver_Huitfeldt-class_frigate)). Her data had no close-in layer and no torpedo |
+| `swe_fsg_visby` | + RBS15 x8 (the Mk3 entry stands for the fielded Mk2) | Eight RBS15 Mk2 in two four-round launchers; Sea Ceptor arrives with a future mid-life upgrade and is not assumed ([Visby class](https://en.wikipedia.org/wiki/Visby-class_corvette)) |
+
+The two new weapons follow the existing conventions. `millennium_35mm` is a `ciws` (range 1.6 nm, close-in
+layer, magazine counts bursts) and `sm39_exocet` is an `asm` with the AM39's reach, as the same missile
+family. Both have generated models and renders from `tools/art`.
+
+### Reviewed and left as they are
+
+| Hull | Fit in the data | Why it stays |
+|---|---|---|
+| `rn_cvf_queen_elizabeth` | Phalanx only | Three Phalanx and no missile defence of her own; the 30 mm DS30M is listed "for but not with", and the case for a Sea Ceptor fit is still an argument, not a programme ([Navy Lookout, September 2026](https://www.navylookout.com/a-guide-to-the-queen-elizabeth-class-aircraft-carriers/), [Wikipedia](https://en.wikipedia.org/wiki/Queen_Elizabeth-class_aircraft_carrier)). Her defence is her escorts, which is the tactical point |
+| `esp_lhd_juan_carlos_i` | unarmed | Four 20 mm guns, and the game has no mount for one ([SeaForces](https://www.seaforces.org/marint/Spanish-Navy/Amphibious-Ship/L-61-SPS-Juan-Carlos-I.htm)). Not used in any operation |
+| `rn_ffg_type26` | no anti-ship missile | Twenty-four strike-length cells can take Tomahawk, but the anti-ship weapon planned for the class arrives in the early 2030s ([TWZ](https://www.twz.com/sea/stratus-stealthy-cruise-missile-confirmed-for-uks-type-26-frigates)). Not used in any operation |
+| `rnon_ffg_fridtjof_nansen` | no close-in weapon | Deliberate since M4 |
+| `rfn_ddg_udaloy`, `cw90_udaloy` | no anti-ship missile, 6.5-7 nm SAM | The Project 1155 fit is an ASW ship |
+| `fra_lhd_mistral`, `deu_fsg_braunschweig`, `jmsdf_ffm_mogami`, `pla_fsg_type056a` | point-defence missiles only | Their class fits are point-defence missiles |
+
+`tests/test_fits.gd` pins each of these decisions, so a later change has to say why.
+
 # Cold War 1990 additions
 
 The dated platform identities, historical references, period loadout exclusions and simulation limits for the 1990 operations are recorded in [the Cold War source ledger](docs/COLD_WAR_1990.md). The missions are alternate history. Combat performance and aircraft detachments remain explicitly identified game estimates.

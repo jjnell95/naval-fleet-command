@@ -379,9 +379,17 @@ func test_shipped_submarine_and_sonar_data_loads() -> void:
 			for sid in p.sensor_ids:
 				var s := DataDB.sensor(sid)
 				assert_true(s != null and s.kind == "sonar", "%s carries a real sonar" % pid)
+			var torpedoes := 0
 			for wid in p.weapon_loadout:
 				var w := DataDB.weapon(wid)
-				assert_true(w != null and w.is_torpedo(), "%s carries torpedoes" % pid)
+				assert_true(w != null, "%s weapon %s resolves" % [pid, wid])
+				if w == null:
+					continue
+				if w.is_torpedo():
+					torpedoes += 1
+				else:
+					assert_eq(w.type, "asm", "%s: anything besides a torpedo is a strike missile" % pid)
+			assert_true(torpedoes > 0, "%s carries torpedoes" % pid)
 	for wid in ["mk48_adcap", "ugst_torpedo", "mk54_lwt", "rgm_139_vla"]:
 		var w := DataDB.weapon(wid)
 		assert_true(w != null, "%s loads" % wid)

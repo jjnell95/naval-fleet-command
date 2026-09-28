@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+id = "millennium_35mm"
+display_name = "Millennium 35 mm CIWS"
+family = "Millennium 35 mm"
+type = "ciws"
+guidance = "radar_directed"
+profile = "high"
+target_types = PackedStringArray("missile", "air")
+max_range_nm = 1.6
+min_range_nm = 0.05
+speed_kn = 2600.0
+turn_rate_deg_s = 60.0
+seeker_range_nm = 1.0
+damage = 15.0
+base_pk = 0.4
+salvo_default = 1
+launch_interval_s = 1.0
+signature_factor = 0.12
+altitude_m = 10.0
+soft_kill_resistance = 1.0
+source_status = "Magazine counts engagement bursts, not rounds. PUBLIC: weapon family and role (a remote-controlled 35 mm naval gun used as a close-in weapon). GAMEPLAY_ESTIMATE: every numeric value is a tuning parameter, not a performance claim."

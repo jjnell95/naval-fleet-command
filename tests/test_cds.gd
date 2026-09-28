@@ -65,6 +65,44 @@ func test_own_unit_rows_read_like_the_data_display() -> void:
 		assert_true(text.contains("%s - %d" % [u.weapons[0].display_name, u.magazine_count(u.weapons[0].id)]), "weapons read name - count")
 
 
+func test_the_weapons_line_states_reach_one_figure_per_job() -> void:
+	var text := _text(DataDisplay.unit_rows(_unit("usn_ddg_burke_iii")))
+	var head := ""
+	for line in text.split("\n"):
+		if line.begins_with("WEAPONS:"):
+			head = line
+	assert_true(head != "", "an armed ship has a weapons head")
+	# SM-6 is the farthest air-defence round, Tomahawk the farthest strike, Phalanx the close-in mount.
+	assert_true(head.contains("STRIKE 250"), head)
+	assert_true(head.contains("AAW 100"), head)
+	assert_true(head.contains("CIWS 1.2"), head)
+	assert_true(head.contains("GUN 13"), head)
+	assert_true(head.contains("TORP 12"), head)
+	assert_true(head.ends_with(" NM"), "the unit is stated once, at the end")
+
+
+func test_a_hull_with_one_close_in_gun_reads_as_exactly_that() -> void:
+	var head := ""
+	for line in _text(DataDisplay.unit_rows(_unit("rn_cvf_queen_elizabeth"))).split("\n"):
+		if line.begins_with("WEAPONS:"):
+			head = line
+	assert_eq(head.strip_edges(), "WEAPONS:  CIWS 1.2 NM", "no strike, no missile defence, and the display says so")
+
+
+func test_reach_leaves_out_jobs_the_hull_cannot_do_and_the_head_stays_one_row() -> void:
+	var rows := DataDisplay.unit_rows(_unit("usn_ddg_burke_iii"))
+	var heads := 0
+	for row: Array in rows:
+		if str(row[0][0]) == "WEAPONS:":
+			heads += 1
+	assert_eq(heads, 1, "reach shares the WEAPONS: row, so a long weapon list is no shorter of room than before")
+	assert_eq(DataDisplay.reach_spans(_unit("cw90_merchant")), [], "an unarmed hull states no reach")
+	# A close-in mount's reach is a mile and a bit; rounding it to a whole number would read as 1 nm.
+	var spans := DataDisplay.reach_spans(_unit("rn_cvf_queen_elizabeth"))
+	assert_eq(str(spans[1][0]), "1.2", "a tenth is kept where the reach is not a whole number of miles")
+	assert_eq(str(DataDisplay.reach_spans(_unit("usn_cg_ticonderoga"))[1][0]), "250", "a whole number of miles prints as one")
+
+
 func test_damage_and_casualties_are_flagged_in_red() -> void:
 	var u := _unit()
 	u.health = u.spec.health * 0.6
