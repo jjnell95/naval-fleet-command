@@ -35,9 +35,18 @@ const BRACKET_ARM := 7.0
 ## over deep water in its allegiance.
 const GRAPHIC_LIFT := 2.4
 const GRAPHIC_TINT := 0.85
+## Making symbols the chart has not drawn before is spread over frames: once a frame has spent this
+## long on it (it always makes at least one), the rest draw as their NTDS frame until a later frame.
+## Switching a busy plot to a graphic mode then never stalls one frame for every class on it.
+const GRAPHIC_PREP_BUDGET_USEC := 4000
+## Prepared symbols kept at most. Every platform at all three symbol sizes is about 420 entries and
+## 9 MB; the cap only guards against a caller that asks for arbitrary sizes.
+const GRAPHIC_CACHE_MAX := 512
 
 static var _class_platforms: Dictionary = {}
 static var _graphics: Dictionary = {}  # "platform@px" -> Texture2D or null
+static var _prep_frame := -1
+static var _prep_usec := 0
 
 
 static func frame_for_identity(identity: String) -> Frame:
@@ -138,13 +147,14 @@ static func leader_px(speed_kn: float, px_per_nm: float) -> float:
 
 
 ## The platform whose plan view stands for a contact of this reported class. Keyed on what the
-## plot holds (short class name and category), never on the contact's hidden truth.
+## plot holds (short class name and category), never on the contact's hidden truth. Built from
+## which platforms have plan art without loading any of it.
 static func platform_for_class(known_class: String, known_category: String) -> String:
 	if known_class == "":
 		return ""
 	if _class_platforms.is_empty():
 		for spec: PlatformSpec in DataDB.all_platforms():
-			if PlatformArt.plan(spec.id) == null:
+			if not PlatformArt.has_plan(spec.id):
 				continue
 			var key := "%s|%s" % [spec.short_name, spec.category]
 			if not _class_platforms.has(key):
@@ -255,9 +265,9 @@ static func draw_leader(ci: CanvasItem, pos: Vector2, course_deg: float, length_
 
 ## A graphic symbol: the platform's plan view (bow toward +x in the art) turned to the course and
 ## `length_px` from bow to stern, tinted toward the identity colour. False when the platform has
-## no art, so the caller can fall back to its NTDS frame.
+## no art, or its symbol waits for a later frame's budget, so the caller draws its NTDS frame.
 static func draw_graphic(ci: CanvasItem, pos: Vector2, platform_id: String, course_deg: float, length_px: float, color: Color) -> bool:
-	var tex := graphic_texture(platform_id, length_px)
+	var tex := graphic_texture_in_budget(platform_id, length_px)
 	if tex == null:
 		return false
 	var tex_size := Vector2(tex.get_size())
@@ -270,15 +280,36 @@ static func draw_graphic(ci: CanvasItem, pos: Vector2, platform_id: String, cour
 	return true
 
 
+## graphic_texture within this frame's preparation budget: a symbol already made always comes back;
+## one not made yet comes back null while this frame has spent GRAPHIC_PREP_BUDGET_USEC on others.
+static func graphic_texture_in_budget(platform_id: String, length_px: float) -> Texture2D:
+	var key := _graphic_key(platform_id, length_px)
+	if _graphics.has(key):
+		return _graphics[key]
+	var frame := Engine.get_process_frames()
+	if frame != _prep_frame:
+		_prep_frame = frame
+		_prep_usec = 0
+	elif _prep_usec >= GRAPHIC_PREP_BUDGET_USEC:
+		return null
+	var t0 := Time.get_ticks_usec()
+	var tex := graphic_texture(platform_id, length_px)
+	_prep_usec += Time.get_ticks_usec() - t0
+	return tex
+
+
 ## The plan view prepared for one symbol size, once: resampled to twice the drawn size (the
-## chart samples its mipmaps), greyed and lifted. Null for a platform with no plan art.
+## chart samples its mipmaps), greyed and lifted. Null for a platform with no plan art. Only the
+## platform drawn is loaded, from its small import (PlatformArt.PLAN_IMPORT_LIMIT), and it is let
+## go as soon as the symbol is made; only the symbol stays.
 static func graphic_texture(platform_id: String, length_px: float) -> Texture2D:
-	var key := "%s@%d" % [platform_id, int(length_px)]
+	var key := _graphic_key(platform_id, length_px)
 	if _graphics.has(key):
 		return _graphics[key]
 	var tex: Texture2D = null
 	var plan := PlatformArt.plan(platform_id) if platform_id != "" else null
 	var img := plan.get_image() if plan != null else null
+	plan = null
 	if img != null and not img.is_empty():
 		if img.is_compressed():
 			img.decompress()
@@ -290,8 +321,14 @@ static func graphic_texture(platform_id: String, length_px: float) -> Texture2D:
 		img.adjust_bcs(GRAPHIC_LIFT, 1.1, 0.0)
 		img.generate_mipmaps()
 		tex = ImageTexture.create_from_image(img)
+	if _graphics.size() >= GRAPHIC_CACHE_MAX:
+		_graphics.erase(_graphics.keys()[0])  # the oldest
 	_graphics[key] = tex
 	return tex
+
+
+static func _graphic_key(platform_id: String, length_px: float) -> String:
+	return "%s@%d" % [platform_id, int(length_px)]
 
 
 ## Hook: four static corner brackets round a `box` px square, 2 px strokes, BRACKET_ARM arms.

@@ -31,6 +31,19 @@ func test_plan_art_is_landscape_for_hulls_and_scaled_from_width() -> void:
 	assert_near(PlatformArt.PLAN_MARGIN, 1.10, 1e-6, "frame margin matches the Blender build")
 
 
+func test_plan_art_is_imported_small_but_enough_for_the_largest_symbol() -> void:
+	# The plans serve only the chart's graphic symbols, at most 56 px long and made at twice that,
+	# so they are imported no larger than PLAN_IMPORT_LIMIT (size_limit in each .import): a symbol
+	# is made from a small texture and a small read-back, never the full 768 px render.
+	var need := int(ceilf(float(TacticalMap.GRAPHIC_SYMBOL_PX.max()) * PlatformArt.PLAN_MARGIN * 2.0))
+	for spec: PlatformSpec in DataDB.all_platforms():
+		var plan := PlatformArt.plan(spec.id)
+		if plan == null:
+			continue
+		assert_true(maxi(plan.get_width(), plan.get_height()) <= PlatformArt.PLAN_IMPORT_LIMIT, spec.id + " plan is imported small: %s" % plan.get_size())
+		assert_true(plan.get_width() >= need, spec.id + " plan is wide enough for the largest graphic symbol: %s" % plan.get_size())
+
+
 func test_missing_art_returns_null_and_is_cached() -> void:
 	assert_true(PlatformArt.profile("no_such_platform") == null, "unknown id has no profile")
 	assert_true(PlatformArt.plan("no_such_platform") == null, "unknown id has no plan")

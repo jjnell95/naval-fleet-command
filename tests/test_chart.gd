@@ -166,6 +166,35 @@ func test_charted_box_hands_the_coast_to_the_polygons_only_where_there_are_polyg
 	sim.free()
 
 
+func test_land_fill_is_one_mesh_for_every_landmass() -> void:
+	# Regression: ChartLand drew one mesh per landmass, 689 draw calls a frame in the regional pane
+	# for northern_vigil. The whole coastline is one mesh now: one draw call, the same triangles.
+	var sc = JSON.parse_string(FileAccess.get_file_as_string("res://data/scenarios/northern_vigil.json"))
+	Terrain.load_from(sc)
+	assert_true(Terrain.landmasses.size() > 600, "a coastline of many islands")
+	var mesh := ChartLand.land_mesh()
+	assert_true(mesh != null and mesh.get_surface_count() == 1, "one mesh of one surface for %d landmasses" % Terrain.landmasses.size())
+	var verts := 0
+	var indices := 0
+	for l: Landmass in Terrain.landmasses:
+		var tri := Geometry2D.triangulate_polygon(l.points)
+		if not tri.is_empty():
+			verts += l.points.size()
+			indices += tri.size()
+	if mesh != null:
+		assert_eq(mesh.surface_get_array_len(0), verts, "every landmass's vertices")
+		assert_eq(mesh.surface_get_array_index_len(0), indices, "and every landmass's own triangulation")
+		var box := mesh.get_aabb()
+		var b := Terrain.bounds
+		assert_true(Vector2(box.position.x, box.position.y).is_equal_approx(Vector2(b.position.x, -b.end.y)) and Vector2(box.size.x, box.size.y).is_equal_approx(b.size), "in world nm with y negated, as the land shader reads it")
+	assert_eq(ChartLand.land_mesh(), mesh, "built once per coastline")
+	Terrain.load_from({"terrain": {"land": [ISLAND]}})
+	var island := ChartLand.land_mesh()
+	assert_true(island != null and island != mesh and island.surface_get_array_len(0) == 4, "rebuilt when the coastline changes")
+	Terrain.clear()
+	assert_eq(ChartLand.land_mesh(), null, "no land, no mesh")
+
+
 # --- Regional map -----------------------------------------------------------------------
 
 func _regional_fixture() -> Dictionary:
@@ -400,6 +429,56 @@ func test_graphic_symbols_only_for_a_contact_whose_class_is_known() -> void:
 	assert_eq(MapSymbols.graphic_texture(spec.id, 40.0), tex, "and cached")
 	assert_eq(MapSymbols.graphic_texture("no_such_platform", 40.0), null)
 	map.free()
+
+
+func _resident_plans() -> int:
+	var n := 0
+	for spec: PlatformSpec in DataDB.all_platforms():
+		if ResourceLoader.has_cached(PlatformArt.plan_path(spec.id)):
+			n += 1
+	return n
+
+
+func test_graphic_symbols_load_only_the_plan_art_they_draw_and_keep_none_of_it() -> void:
+	# Regression: the class lookup loaded every platform's plan view (139 textures, ~185 MB, most of
+	# a second) on the first graphic-mode frame, only to learn which platforms had one.
+	MapSymbols._class_platforms.clear()
+	var loaded := PlatformArt.plans_loaded
+	var spec := DataDB.platform("usn_fighter_f35c")
+	var id := MapSymbols.platform_for_class(spec.short_name, spec.category)
+	assert_true(id != "" and DataDB.platform(id).short_name == spec.short_name, "the reported class still finds its plan view")
+	assert_eq(PlatformArt.plans_loaded - loaded, 0, "without loading any plan art")
+	assert_eq(_resident_plans(), 0, "none is resident")
+	MapSymbols._graphics.erase(MapSymbols._graphic_key(id, 28.0))
+	assert_true(MapSymbols.graphic_texture(id, 28.0) != null, "the symbol drawn is made")
+	assert_eq(PlatformArt.plans_loaded - loaded, 1, "from its own plan view alone")
+	assert_eq(_resident_plans(), 0, "which is let go once the symbol is made: only the small symbol stays")
+
+
+func test_graphic_symbols_are_made_within_a_per_frame_budget() -> void:
+	# Switching a busy plot to a graphic mode spreads the new symbols over frames; a frame that has
+	# spent its budget draws the rest as NTDS frames.
+	var id := "usn_ddg_burke_iii"
+	var key := MapSymbols._graphic_key(id, 28.0)
+	MapSymbols._graphics.erase(key)
+	MapSymbols._prep_frame = Engine.get_process_frames()
+	MapSymbols._prep_usec = MapSymbols.GRAPHIC_PREP_BUDGET_USEC
+	assert_eq(MapSymbols.graphic_texture_in_budget(id, 28.0), null, "a frame that has spent its budget makes no more symbols")
+	assert_true(not MapSymbols._graphics.has(key), "and loads nothing")
+	MapSymbols._prep_frame = -1  # the next frame
+	var tex := MapSymbols.graphic_texture_in_budget(id, 28.0)
+	assert_true(tex != null, "the next frame makes it")
+	MapSymbols._prep_usec = MapSymbols.GRAPHIC_PREP_BUDGET_USEC * 10
+	assert_eq(MapSymbols.graphic_texture_in_budget(id, 28.0), tex, "a symbol already made draws whatever the budget")
+	MapSymbols._prep_frame = -1
+	MapSymbols._prep_usec = 0
+
+
+func test_graphic_symbol_cache_is_capped() -> void:
+	for i in MapSymbols.GRAPHIC_CACHE_MAX + 16:
+		MapSymbols.graphic_texture("no_such_platform", 1000.0 + i)
+	assert_true(MapSymbols._graphics.size() <= MapSymbols.GRAPHIC_CACHE_MAX, "the prepared symbols never outgrow the cap: %d" % MapSymbols._graphics.size())
+	MapSymbols._graphics.clear()
 
 
 func test_quick_range_circle_arms_on_the_hook_fixes_and_clears() -> void:

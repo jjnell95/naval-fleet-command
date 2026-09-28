@@ -1222,9 +1222,10 @@ func _draw_land() -> void:
 	if Terrain.is_empty():
 		return
 	var view := Rect2(screen_to_world(Vector2.ZERO), Vector2.ZERO).expand(screen_to_world(size))
-	var flat := _land == null or not _land.is_inside_tree()
-	var meshes := ChartLand.land_meshes() if flat else {}
-	var transform := Transform2D(Vector2(ppn, 0), Vector2(0, ppn), world_to_screen(Vector2.ZERO))
+	if (_land == null or not _land.is_inside_tree()) and Terrain.bounds.intersects(view):
+		var mesh := ChartLand.land_mesh()
+		if mesh != null:
+			draw_mesh(mesh, null, Transform2D(Vector2(ppn, 0), Vector2(0, ppn), world_to_screen(Vector2.ZERO)), COL_LAND)
 	var box := ChartFloor.stated_charted_box(simulation)
 	var key := "%d:%s" % [Terrain.generation, box]
 	if key != _coast_key:
@@ -1235,9 +1236,6 @@ func _draw_land() -> void:
 	for l: Landmass in Terrain.landmasses:
 		if not l.bounds.intersects(view):
 			continue
-		var mesh: ArrayMesh = meshes.get(l)
-		if mesh != null:
-			draw_mesh(mesh, null, transform, COL_LAND)
 		for run: PackedVector2Array in _coast_runs.get(l, []):
 			var line := _project_coast(run)
 			if line.size() >= 2:
