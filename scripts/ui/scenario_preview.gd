@@ -54,13 +54,31 @@ func _draw() -> void:
 		if _coasts[i]["mesh"] != null:
 			draw_mesh(_coasts[i]["mesh"], null, transform, UITheme.CHART_LAND)
 		draw_polyline(outlines[i], UITheme.CHART_COAST, 1.0, true)
-	# Geographic labels orient a commander without revealing the opposing force.
+	# Geographic labels orient a commander without revealing the opposing force. A name that
+	# would print over one already placed is left off: the chart is small.
 	var label_rect := Rect2(Vector2(8, 24), size - Vector2(60, 50))
+	var occupied: Array[Rect2] = []
 	for label: Dictionary in m.get("labels", []):
 		var position: Array = label.get("position_nm", [0, 0])
 		var point := mid + Vector2((float(position[0]) - center.x) * ppn, -(float(position[1]) - center.y) * ppn)
-		if label_rect.has_point(point):
-			_text(point, str(label.get("text", "")), 10, Color(1, 1, 1, 0.85))
+		if not label_rect.has_point(point):
+			continue
+		var text := str(label.get("text", ""))
+		var width := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		if label.get("kind", "land") == "water":
+			point.x = roundf(point.x - width * 0.5)
+			if point.x < 4.0:
+				continue  # a sea name centred on a point near the edge would run off the chart
+		var rect := Rect2(point.x, point.y - 9.0, minf(width, size.x - point.x - 8.0), 12.0)
+		var collides := false
+		for other in occupied:
+			if other.grow(4.0).intersects(rect):
+				collides = true
+				break
+		if collides:
+			continue
+		occupied.append(rect)
+		_text(point, text, 10, Color(1, 1, 1, 0.85))
 	var player: String = scenario.get("player_faction", "BLUE")
 	for o in scenario.get("objectives", {}).get("victory", []):
 		if o.get("type", "") in ["reach_area", "hold_area"]:

@@ -83,7 +83,7 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 	_check_sea_room(um)
 	var sensor_count := 0
 	for u in um.units: sensor_count += u.sensors.size()
-	print("[Scenario] %d actors / %d sensor installations" % [um.units.size(), sensor_count])
+	Debug.event("[Scenario] %d actors / %d sensor installations" % [um.units.size(), sensor_count])
 
 
 ## A hull placed ashore, or sent to a patrol leg ashore, is the first thing a scenario author gets

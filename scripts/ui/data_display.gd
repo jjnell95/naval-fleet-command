@@ -45,6 +45,8 @@ var threat_text := ""
 var _rows: Array = []
 var _accum := 0.0
 var _blink := 0.0
+var _lamp_drawn := false
+var _pulse_drawn := -1
 var _time_rect := Rect2()
 var _scale_rect := Rect2()
 var _lamp_rect := Rect2()
@@ -64,8 +66,19 @@ func _process(delta: float) -> void:
 	if _accum >= REFRESH_S:
 		_accum = 0.0
 		refresh()
-	elif unread_alerts > 0 or threat_text != "":
+	# The lamp and the threat line blink and pulse; redraw when they visibly change, not every frame.
+	elif unread_alerts > 0 and _lamp_lit() != _lamp_drawn:
 		queue_redraw()
+	elif threat_text != "" and _pulse_step() != _pulse_drawn:
+		queue_redraw()
+
+
+func _lamp_lit() -> bool:
+	return unread_alerts > 0 and fmod(_blink, 1.0) < 0.6
+
+
+func _pulse_step() -> int:
+	return int(_blink * 12.0)
 
 
 func refresh() -> void:
@@ -347,6 +360,7 @@ func _color(key: String) -> Color:
 
 
 func _draw() -> void:
+	var t0 := Time.get_ticks_usec()
 	draw_rect(Rect2(Vector2.ZERO, size), COL_BG)
 	var font := _font()
 	var fs := _font_size()
@@ -410,8 +424,11 @@ func _draw() -> void:
 		scale_end += 6.0 + font.get_string_size("%dx" % int(SimClock.multiplier()), HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2).x
 	_scale_rect = Rect2(sx, footer_y, scale_end - sx, line_h)
 	_lamp_rect = Rect2(size.x - MARGIN.x - 11.0, footer_y + line_h * 0.5 - 5.5, 11.0, 11.0)
-	var lit := unread_alerts > 0 and fmod(_blink, 1.0) < 0.6
+	var lit := _lamp_lit()
 	draw_rect(_lamp_rect, COL_ALERT if lit else COL_LAMP_OFF)
+	_lamp_drawn = lit
+	_pulse_drawn = _pulse_step()
+	Debug.time_add("data", Time.get_ticks_usec() - t0)
 
 
 ## The watch time without the date, as the old data displays showed it: "05:38:00Z".

@@ -341,12 +341,6 @@ static func draw_brackets(ci: CanvasItem, pos: Vector2, color: Color, box := BRA
 			ci.draw_polyline(PackedVector2Array([corner + Vector2(-sx * BRACKET_ARM, 0.0), corner, corner + Vector2(0.0, -sy * BRACKET_ARM)]), color, STROKE)
 
 
-## Compatibility name for the hook brackets (the scenario editor's selection). Static: the
-## animation time is ignored.
-static func draw_selection(ci: CanvasItem, pos: Vector2, color: Color, _t := 0.0) -> void:
-	draw_brackets(ci, pos, color)
-
-
 ## A hostile weapon closing on somebody: a thin ring that pulses outward.
 static func draw_threat_ring(ci: CanvasItem, pos: Vector2, color: Color, t: float) -> void:
 	var r := 12.0 + fmod(t * 14.0, 8.0)

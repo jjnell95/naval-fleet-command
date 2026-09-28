@@ -86,7 +86,7 @@ func test_tactical_map_layer_toggles_return_and_store_the_new_state() -> void:
 	assert_true(not map.toggle_layer("leaders"), "velocity leaders start on (Shift+V) and turn off")
 	assert_true(not map.show_leaders)
 	assert_true(map.toggle_layer("vectors"), "the old vectors name is the same switch")
-	assert_true(map.show_leaders and map.show_vectors)
+	assert_true(map.show_leaders)
 	assert_true(not map.toggle_layer("track_numbers"), "track numbers start on (Shift+K) and turn off")
 	assert_true(not map.show_track_numbers)
 	assert_true(map.toggle_layer("tags"), "tags start off (Shift+I) and turn on")

@@ -90,18 +90,26 @@ func _ready() -> void:
 	_list.item_selected.connect(_on_item_selected)
 	_list.item_activated.connect(func(_i: int) -> void: _focus_current())
 	v.add_child(_list)
+	# The contact's detail and the air-defence board share the page's width: on the boards the
+	# page is wide and not tall, and stacked they overflowed it.
+	var lower := HBoxContainer.new()
+	lower.add_theme_constant_override("separation", 8)
+	lower.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(lower)
 	_detail = RichTextLabel.new()
 	_detail.bbcode_enabled = true
 	_detail.fit_content = false
 	_detail.scroll_active = true
 	_detail.selection_enabled = false
+	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_detail.custom_minimum_size.y = 95
-	v.add_child(_detail)
+	lower.add_child(_detail)
 	var board := DefenceBoard.new()
 	board.contacts = self
-	board.custom_minimum_size.y = 196
-	v.add_child(board)
+	board.custom_minimum_size = Vector2(560, 196)
+	board.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	lower.add_child(board)
 	_sync_nav_buttons()
 
 

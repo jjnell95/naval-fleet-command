@@ -31,8 +31,6 @@ signal waypoint_delete_requested(unit: Unit, index: int)
 ## (as world_to_screen); `context` is context_at(screen_pos) plus "viewport_pos" for placing a popup.
 signal context_menu_requested(screen_pos: Vector2, context: Dictionary)
 signal interaction_mode_changed(active: bool)
-## Kept for the shell's wiring; the chart has no button of its own that emits it any more.
-signal world_view_requested
 
 enum DragMode { NONE, PAN, BOX }
 enum InteractionMode { SELECT, MOVE }
@@ -55,9 +53,9 @@ const KEY_PAN_PX_PER_S := 700.0
 ## Graphic symbol length, bow to stern, per SymbolMode (NTDS draws frames instead).
 const GRAPHIC_SYMBOL_PX: Array[float] = [0.0, 28.0, 40.0, 56.0]
 const SYMBOL_MODE_NAMES: Array[String] = ["NTDS", "Small", "Medium", "Large"]
-## Track number: white bold, its left edge and baseline this far from the symbol centre.
+## Track number: white bold, placed by ChartLabels (its left edge and baseline 7 and 17 px from
+## the symbol centre where nothing is in the way).
 const TRACK_NUMBER_FONT_SIZE := 12
-const TRACK_NUMBER_OFFSET := Vector2(7.0, 17.0)
 const TAG_FONT_SIZE := 11
 const STALE_ALPHA := 0.55
 const UNCERTAINTY_ALPHA := 0.35
@@ -65,9 +63,6 @@ const BEARING_LINE_ALPHA := 0.6
 const SENSOR_RING_ALPHA := 0.45
 ## A sunk or shot-down own platform stays on the plot in grey this long (sim seconds).
 const WRECK_S := 600.0
-## Compatibility shim: the chart has no footer bar any more, but the world view's inset card still
-## anchors itself this far above the chart's bottom edge.
-const FOOTER_H := 24.0
 ## Bottom-left readout and bottom-centre radio line.
 const READOUT_MARGIN := 10.0
 const READOUT_FONT_SIZE := 13
@@ -89,6 +84,7 @@ const COL_COAST := Color8(90, 170, 80)
 const COL_COASTLINE := Color8(0, 58, 6, 235)
 const COL_LAND_LABEL := Color(0.86, 0.92, 0.84, 0.85)
 const COAST_MIN_STEP_PX := 1.2  # coastline detail finer than this is dropped as it is invisible
+const COAST_STROKE_MIN_PX := 3.0  # a landmass smaller than this on screen is filled, not stroked
 const LAND_LABEL_MIN_PX := 90.0
 ## Graticule and range rings (both off by default): thin white over the relief.
 const COL_GRID := Color(1.0, 1.0, 1.0, 0.20)
@@ -127,8 +123,6 @@ const COL_MISSILE := Color(1.0, 0.85, 0.35)
 const COL_MISSILE_HOSTILE := Color(1.0, 0.45, 0.35)
 const COL_INTERCEPTOR := Color(0.55, 0.95, 1.0)
 const COL_ACCENT := UITheme.COL_ACCENT
-## Compatibility shim: the chart has no label plates any more, but the world view's labels use it.
-const COL_LABEL_BG := Color("08111a", 0.9)
 const COL_READOUT := Color.WHITE
 const COL_READOUT_SHADOW := Color(0.0, 0.0, 0.0, 0.9)
 const COL_RADIO_ALERT := Color("ff5050")
@@ -161,12 +155,6 @@ var show_leaders := true
 var show_track_numbers := true
 var show_tags := false
 var show_routes := true
-## Compatibility name for the velocity leaders (the old "vectors" layer, V).
-var show_vectors: bool:
-	get:
-		return show_leaders
-	set(value):
-		show_leaders = value
 ## Identity filters (the CDS menu's Filters): a filtered contact is neither drawn nor hit.
 var show_hostiles := true
 var show_allied := true
@@ -211,8 +199,19 @@ var show_range_grid := false
 var _floor: ChartFloor
 var _land: ChartLand
 var _radio := RadioLine.new()
+## Track numbers and tags are queued as the symbols are drawn and printed together afterwards,
+## each placed clear of the others (ChartLabels).
+var _labels := ChartLabels.new()
+var _label_queue: Array = []
+var _text_widths: Dictionary = {}  # "text@size" -> px
+## A status board covers the chart: its readouts and radio line are not drawn under it.
+var overlay_covered := false
 var _coast_runs: Dictionary = {}  # Landmass -> Array[PackedVector2Array], clip edges removed
 var _coast_key := ""
+## The coast projected to the screen for the current view (Landmass -> Array[PackedVector2Array]),
+## kept until the view moves: a still chart does not re-project every vertex of Norway each frame.
+var _coast_screen: Dictionary = {}
+var _coast_view := PackedFloat32Array()
 
 
 func _ready() -> void:
@@ -380,12 +379,6 @@ func _normalize_interaction_state() -> void:
 		follow_selection = false
 
 
-## Compatibility shim: the chart no longer carries a theatre inset (the regional map replaced it),
-## but the world view still calls this when its inset card opens and closes.
-func set_overview_suppressed(_suppressed: bool) -> void:
-	pass
-
-
 ## A line on the radio line, bottom-centre: held HOLD_S, then faded; the newest few stack with the
 ## latest at the bottom. "alert" severity reads red. With a speaker (an own Unit, or a Track as the
 ## plot holds it) the line reads "<callsign>: <text>" and the speaker's symbol is ringed in white
@@ -521,6 +514,8 @@ func _witness(pos: Vector2, target: Unit) -> Vector2:
 
 func reset_presentation() -> void:
 	_radio.clear()
+	_labels.clear()
+	_label_queue.clear()
 	_trails.clear()
 	_own_numbers.clear()
 	_wrecks.clear()
@@ -1115,16 +1110,20 @@ func reference_unit() -> Unit:
 # --- Drawing ----------------------------------------------------------------------------
 
 func _draw() -> void:
+	var t0 := Time.get_ticks_usec()
 	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
+	var t1 := Time.get_ticks_usec()
 	_draw_ocean()
 	_draw_land()
 	if show_graticule:
 		_draw_grid()
 	if show_range_grid:
 		_draw_range_rings()
+	var t2 := Time.get_ticks_usec()
 	_draw_chart_labels()
 	_draw_objectives()
 	_draw_move_preview()
+	var t3 := Time.get_ticks_usec()
 	if unit_manager != null:
 		if show_rings:
 			_draw_sensor_rings()
@@ -1135,10 +1134,12 @@ func _draw() -> void:
 		_draw_relative_motion()
 		_draw_tracks()
 		_draw_units()
+		_draw_labels()
 		_draw_weapons()
 		_draw_effects()
 		_draw_speaker_rings()
 	_draw_range_circle()
+	var t4 := Time.get_ticks_usec()
 	if _hit_flash > 0.0:
 		var a := 0.35 * (_hit_flash / 1.2)
 		var clear := Color(1.0, 0.3, 0.25, 0.0)
@@ -1152,10 +1153,19 @@ func _draw() -> void:
 		var r := Rect2(_drag_start, _mouse - _drag_start).abs()
 		draw_rect(r, Color(COL_BOX, 0.08))
 		draw_rect(r, COL_BOX, false, 1.0)
-	_draw_readout()
-	_draw_radio_line()
-	_draw_key()
-	_draw_hover_card()
+	if not overlay_covered:
+		_draw_readout()
+		_draw_radio_line()
+		_draw_key()
+		_draw_hover_card()
+	var t5 := Time.get_ticks_usec()
+	# The whole chart, and where it went (the parts add up to the whole).
+	Debug.time_add("chart", t5 - t0)
+	Debug.time_add("chart/threats", t1 - t0)
+	Debug.time_add("chart/coast", t2 - t1)
+	Debug.time_add("chart/names", t3 - t2)
+	Debug.time_add("chart/plot", t4 - t3)
+	Debug.time_add("chart/readout", t5 - t4)
 
 
 ## Plot Move: dashed white legs from each hooked unit to the cursor (red past a coast in the way),
@@ -1247,13 +1257,26 @@ func _draw_land() -> void:
 	if key != _coast_key:
 		_coast_key = key
 		_coast_runs.clear()
+		_coast_screen.clear()
 		for l: Landmass in Terrain.landmasses:
 			_coast_runs[l] = coast_runs(l.points, box)
+	var view_key := PackedFloat32Array([center_nm.x, center_nm.y, ppn, size.x, size.y])
+	if view_key != _coast_view:
+		_coast_view = view_key
+		_coast_screen.clear()
 	for l: Landmass in Terrain.landmasses:
 		if not l.bounds.intersects(view):
 			continue
-		for run: PackedVector2Array in _coast_runs.get(l, []):
-			var line := _project_coast(run)
+		# A skerry smaller than a pixel or two has its fill and no stroke: the hundreds of them
+		# along a coast like Norway's are most of the vertices and none of the picture.
+		if maxf(l.bounds.size.x, l.bounds.size.y) * ppn < COAST_STROKE_MIN_PX:
+			continue
+		var lines: Array = _coast_screen.get(l, [])
+		if lines.is_empty():
+			for run: PackedVector2Array in _coast_runs.get(l, []):
+				lines.append(_project_coast(run))
+			_coast_screen[l] = lines
+		for line: PackedVector2Array in lines:
 			if line.size() >= 2:
 				draw_polyline(line, COL_COASTLINE, 1.25, true)
 		if l.name != "":
@@ -1325,7 +1348,7 @@ func _draw_land_name(l: Landmass, view: Rect2) -> void:
 		anchor = l.centroid
 	var text := l.name.to_upper()
 	var at := world_to_screen(anchor)
-	at.x -= _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x * 0.5
+	at.x -= _text_width(text, 11) * 0.5
 	_shadow_text(at, text, 11, COL_LAND_LABEL)
 
 
@@ -1357,13 +1380,12 @@ func _draw_chart_labels() -> void:
 	var m := _geo_map()
 	var safe := Rect2(Vector2(8, 8), size - Vector2(16, 16))
 	var occupied: Array[Rect2] = []
-	var font := _readout_font()
 	for entry in m.get("labels", []):
 		var p: Array = entry["position_nm"]
 		var at := world_to_screen(Vector2(p[0], p[1])).round()
 		var text := str(entry["text"])
 		var water: bool = entry.get("kind", "land") == "water"
-		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		var width := _text_width(text, 11)
 		var left := roundf(at.x - width / 2) if water else at.x + 6.0
 		var rect := Rect2(Vector2(left, at.y - 12), Vector2(width, 18))
 		if not water:
@@ -1485,16 +1507,34 @@ func _draw_objectives() -> void:
 	if simulation == null:
 		return
 	var mission := simulation.mission_manager
-	for o in mission.victory_objectives + mission.loss_objectives:
+	for mark: Dictionary in objective_marks(mission.victory_objectives, mission.loss_objectives):
+		var sp := world_to_screen(mark["center"])
+		var r := float(mark["radius_nm"]) * ppn
+		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), COL_ROUTE, 1.0, true)
+		_centred_text(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), mark["text"], 11)
+
+
+## The areas the chart marks, one circle and one name each: {center, radius_nm, text}. Several
+## tasks can share an area (reach the box, then hold it), so where they do the name is the one
+## that matters now, in this order: a box to deny, a station to hold, an objective area, a station
+## to hold later. A task still to come never prints over the one in hand.
+static func objective_marks(victory: Array, loss: Array) -> Array:
+	var marks: Dictionary = {}
+	for o: MissionObjective in victory + loss:
 		if o.kind not in [MissionObjective.Kind.REACH_AREA, MissionObjective.Kind.HOLD_AREA] or o.complete:
 			continue
-		var sp := world_to_screen(o.center)
-		var r := o.radius_nm * ppn
-		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), COL_ROUTE, 1.0, true)
-		var text := "DENY EXIT" if mission.loss_objectives.has(o) else "OBJECTIVE AREA"
-		if o.kind == MissionObjective.Kind.HOLD_AREA:
+		var text := "OBJECTIVE AREA"
+		var rank := 2
+		if loss.has(o):
+			text = "DENY EXIT"
+			rank = 0
+		elif o.kind == MissionObjective.Kind.HOLD_AREA:
 			text = "HOLD STATION" if o.unlocked else "LATER HOLD AREA"
-		_centred_text(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), text, 11)
+			rank = 1 if o.unlocked else 3
+		var key := "%.3f,%.3f,%.3f" % [o.center.x, o.center.y, o.radius_nm]
+		if not marks.has(key) or rank < int(marks[key]["rank"]):
+			marks[key] = {"center": o.center, "radius_nm": o.radius_nm, "text": text, "rank": rank}
+	return marks.values()
 
 
 ## F4: each hooked own unit's sensor reach (every own unit's under Debug) as thin own-identity
@@ -1672,7 +1712,7 @@ func _draw_tracks() -> void:
 		if selected_track == t:
 			# The hook when it stands alone; the target (in its identity colour) when a shooter is hooked too.
 			MapSymbols.draw_brackets(self, sp, COL_SELECT if selected.is_empty() else track_color(t), _bracket_box(extent))
-		_draw_track_number(sp, extent, MapSymbols.track_number(t.id), t.description(), col.a)
+		_queue_label("t:" + t.id, sp, extent, MapSymbols.track_number(t.id), t.description(), col.a, selected_track == t)
 
 
 ## One platform: its plan view in a graphic symbol mode when there is art for it, the NTDS frame
@@ -1698,15 +1738,63 @@ static func _bracket_box(extent: float) -> float:
 	return maxf(MapSymbols.BRACKET_BOX, extent * 2.0 + 8.0)
 
 
-## The white track number at the symbol's lower right and, with tags on, the name or
-## classification under it. Both in the readout style; `alpha` fades them with a stale track.
-func _draw_track_number(sp: Vector2, extent: float, number: String, tag: String, alpha := 1.0) -> void:
-	var at := sp + TRACK_NUMBER_OFFSET + Vector2.ONE * (extent - MapSymbols.RADIUS) * 0.4
-	if show_track_numbers and number != "":
-		_shadow_text(at, number, TRACK_NUMBER_FONT_SIZE, Color(COL_READOUT, alpha))
-		at.y += TRACK_NUMBER_FONT_SIZE + 1.0
-	if show_tags and tag != "":
-		_shadow_text(at, tag, TAG_FONT_SIZE, Color(COL_READOUT, alpha))
+## Queues a symbol's white track number and, with tags on, the name or classification under it,
+## for `_draw_labels`. `alpha` fades them with a stale track; a `priority` label (the hook) is
+## placed first and never left off.
+func _queue_label(key: String, sp: Vector2, extent: float, number: String, tag: String, alpha: float, priority: bool) -> void:
+	var number_text := number if show_track_numbers else ""
+	var tag_text := tag if show_tags else ""
+	if number_text == "" and tag_text == "":
+		return
+	var font := _readout_font()
+	var width := 0.0
+	var ascent := 0.0
+	var height := 0.0
+	if number_text != "":
+		width = _text_width(number_text, TRACK_NUMBER_FONT_SIZE)
+		ascent = font.get_ascent(TRACK_NUMBER_FONT_SIZE)
+		height = ascent + font.get_descent(TRACK_NUMBER_FONT_SIZE)
+	if tag_text != "":
+		width = maxf(width, _text_width(tag_text, TAG_FONT_SIZE))
+		if number_text == "":
+			ascent = font.get_ascent(TAG_FONT_SIZE)
+			height = ascent + font.get_descent(TAG_FONT_SIZE)
+		else:
+			height += TRACK_NUMBER_FONT_SIZE + 1.0
+	_label_queue.append({"key": key, "at": sp, "extent": extent, "size": Vector2(width, height), "ascent": ascent, "priority": priority, "number": number_text, "tag": tag_text, "alpha": alpha})
+
+
+## Prints the queued track numbers and tags, each at the classic place below and right of its
+## symbol unless that would print over another, in which case ChartLabels has moved it or, on a
+## spot too crowded for it, left it off. Drawn after every symbol so a symbol never covers a number.
+func _draw_labels() -> void:
+	if _label_queue.is_empty():
+		return
+	if _labels.due(_anim, _label_queue.size()):
+		_labels.assign(_label_queue, _anim)
+	for l: Dictionary in _label_queue:
+		var k := _labels.slot(l["key"])
+		if k == ChartLabels.HIDDEN:
+			continue
+		var rect := ChartLabels.box(l["at"], l["extent"], l["size"], l["ascent"], ChartLabels.OFFSETS[k])
+		var at := ChartLabels.baseline(rect, l["ascent"]).round()
+		var col := Color(COL_READOUT, l["alpha"])
+		if l["number"] != "":
+			_shadow_text(at, l["number"], TRACK_NUMBER_FONT_SIZE, col)
+			at.y += TRACK_NUMBER_FONT_SIZE + 1.0
+		if l["tag"] != "":
+			_shadow_text(at, l["tag"], TAG_FONT_SIZE, col)
+	_label_queue.clear()
+
+
+## The width of a label's text, measured once per string and size.
+func _text_width(text: String, font_size: int) -> float:
+	var key := "%s@%d" % [text, font_size]
+	if not _text_widths.has(key):
+		if _text_widths.size() >= 2048:
+			_text_widths.clear()
+		_text_widths[key] = _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	return float(_text_widths[key])
 
 
 ## F5: the last few plots that built the track, as fading 2 px dots. Reports only, never a line
@@ -1719,7 +1807,7 @@ func _draw_track_history(t: Track, col: Color) -> void:
 		var age := maxf(SimClock.sim_time - t.history_times[i], 0.0)
 		var alpha := col.a * 0.5 * clampf(1.0 - age / 1440.0, 0.0, 1.0)
 		if alpha >= 0.03:
-			draw_circle(world_to_screen(t.history_positions[i]), 1.0, Color(col, alpha), true, -1.0, true)
+			_draw_dot(world_to_screen(t.history_positions[i]), Color(col, alpha))
 
 
 ## Uncertainty is an ellipse, 1 px at 35% alpha. For a passive sonar contact it is a long thin
@@ -1752,7 +1840,7 @@ func _draw_units() -> void:
 			for i in arr.size():
 				var dot := world_to_screen(arr[i])
 				if dot.distance_to(sp) > MapSymbols.RADIUS + 2.0:
-					draw_circle(dot, 1.0, Color(COL_FRIENDLY, 0.1 + 0.4 * float(i + 1) / float(arr.size())), true, -1.0, true)
+					_draw_dot(dot, Color(COL_FRIENDLY, 0.1 + 0.4 * float(i + 1) / float(arr.size())))
 		if show_routes:
 			_draw_route(u, sp)
 		if u.in_formation():
@@ -1769,7 +1857,7 @@ func _draw_units() -> void:
 			MapSymbols.draw_brackets(self, sp, COL_SELECT, _bracket_box(extent))
 		_draw_casualty_ticks(u, sp, extent)
 		_draw_threat_marks(u, sp)
-		_draw_track_number(sp, extent, track_number_text(u), u.callsign)
+		_queue_label("u:%d" % u.id, sp, extent, track_number_text(u), u.callsign, 1.0, selected.has(u))
 
 
 ## A route as PIM legs: thin white lines from the symbol's edge through small white + waypoints.
@@ -1800,6 +1888,12 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 		_draw_plus(wsp, 5.0 if hovered else 3.5, COL_ROUTE, 2.0 if hovered else 1.0)
 		prev = wsp
 		prev_world = wp
+
+
+## A 2 px dot for trails and plot history: a filled square, which costs a fraction of an
+## antialiased circle and reads the same at that size. A busy plot draws a thousand of them.
+func _draw_dot(at: Vector2, col: Color) -> void:
+	draw_rect(Rect2(at.round() - Vector2.ONE, Vector2(2.0, 2.0)), col)
 
 
 ## A small + mark: waypoints and place names.
