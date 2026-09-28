@@ -166,6 +166,35 @@ func test_charted_box_hands_the_coast_to_the_polygons_only_where_there_are_polyg
 	sim.free()
 
 
+func test_land_fill_is_one_mesh_for_every_landmass() -> void:
+	# Regression: ChartLand drew one mesh per landmass, 689 draw calls a frame in the regional pane
+	# for northern_vigil. The whole coastline is one mesh now: one draw call, the same triangles.
+	var sc = JSON.parse_string(FileAccess.get_file_as_string("res://data/scenarios/northern_vigil.json"))
+	Terrain.load_from(sc)
+	assert_true(Terrain.landmasses.size() > 600, "a coastline of many islands")
+	var mesh := ChartLand.land_mesh()
+	assert_true(mesh != null and mesh.get_surface_count() == 1, "one mesh of one surface for %d landmasses" % Terrain.landmasses.size())
+	var verts := 0
+	var indices := 0
+	for l: Landmass in Terrain.landmasses:
+		var tri := Geometry2D.triangulate_polygon(l.points)
+		if not tri.is_empty():
+			verts += l.points.size()
+			indices += tri.size()
+	if mesh != null:
+		assert_eq(mesh.surface_get_array_len(0), verts, "every landmass's vertices")
+		assert_eq(mesh.surface_get_array_index_len(0), indices, "and every landmass's own triangulation")
+		var box := mesh.get_aabb()
+		var b := Terrain.bounds
+		assert_true(Vector2(box.position.x, box.position.y).is_equal_approx(Vector2(b.position.x, -b.end.y)) and Vector2(box.size.x, box.size.y).is_equal_approx(b.size), "in world nm with y negated, as the land shader reads it")
+	assert_eq(ChartLand.land_mesh(), mesh, "built once per coastline")
+	Terrain.load_from({"terrain": {"land": [ISLAND]}})
+	var island := ChartLand.land_mesh()
+	assert_true(island != null and island != mesh and island.surface_get_array_len(0) == 4, "rebuilt when the coastline changes")
+	Terrain.clear()
+	assert_eq(ChartLand.land_mesh(), null, "no land, no mesh")
+
+
 # --- Regional map -----------------------------------------------------------------------
 
 func _regional_fixture() -> Dictionary:
