@@ -1,6 +1,6 @@
 # M24: The CDS screen
 
-27 September 2026. Built on M23 (`ff4dac5`).
+28 September 2026. Built on M23 (`ff4dac5`).
 
 The command deck is gone. In its place is the screen the late-1990s fleet-command games put in front of a task-force commander, the Combat Direction System screen, rebuilt from their manual and screenshots and rendered at modern quality. A relief-shaded tactical chart runs edge to edge across the top two-thirds of the window. Below it sit a square regional map, an always-on 3D view of whatever is hooked, and a navy data display. Orders go through right-click menus, hotkeys and grey pop-up dialogs. The old panels are still one key away, on the status boards.
 
@@ -21,7 +21,7 @@ Everything is original code and art. Nothing is copied from any other game, and 
 - **3D view.** Always running, tethered to the hooked platform (or the hooked contact as the plot holds it). **F9** Tether, **F11** Fly-by, **F12** Action (cuts to launches, hits and deck events you can see), **F8** Detached, **T** cycles them. **G** swaps the chart and the 3D view; **F10** gives the 3D view the whole window. The look is new: a violet dusk sky, a dark glinting sea with foam wakes, coastal hills from the new heights, long white missile trails, billowing launch smoke, explosions, and fires under black smoke on damaged ships.
 - **Data display.** The hooked platform's name in blue, then class, track number, course, speed, altitude or depth, damage, fuel, orders, sensors and weapons as white labels and yellow values. A contact shows what the plot holds: identity, estimated course and speed, source, position error and age, range and bearing, and the closest point of approach. With nothing hooked it shows the mission's tasking. The footer carries the watch time and the time scale; click them to pause or step the scale. A lamp flashes for unread warnings and opens the comms board.
 
-![The 3D view full screen (F10)](2026-09-27-cds-3d.jpg)
+![The 3D view full screen (F10), tethered on Paul Ignatius with the coast on the horizon](2026-09-27-cds-3d.jpg)
 
 ## Orders
 
@@ -58,7 +58,13 @@ In-mission dialogs are 1999 grey panels with bevelled buttons, navy bold text an
 
 ## Validation
 
-(Filled in at release.)
+- **445 regression tests pass**, 94 more than M23. They pin the layout, the data display's rows, the radio net, the status boards, the right-click menus, the key map, the chart's relief and symbols, the regional map and the 3D view's cameras and witnesses.
+- The 42 command-screen checks pass in the real application at 1600 × 900: boards, data display, the G swap, F10, right-click menus on water, own units and contacts, the radio net, air operations, the key board, Space with a button focused, the layout filling the window and the chart holding 68% of it. The 19 air-operations checks pass at 1600 × 1000.
+- All 22 missions run 6,000 simulated seconds at seeds 2 and 13 with the AI commanding both sides, now through the new screen: 44 of 44 exit cleanly with no script errors and no grounded hulls. The outcomes (35 still running, 4 won, 5 lost) are the same as M23's, so the new screen changed nothing underneath.
+- An adversarial review of the integrated screen confirmed 20 defects, each reproduced before it was fixed and each fix pinned by a test. Among them: the 3D view drew the kill of a submarine nobody held and cut the Action camera to it; graphic symbols loaded all 139 plan images at once (184 MB and a 0.75 s stall, now 0.2 MB); the regional map made 689 draw calls a frame for Norway's coast (now one); a new hook was ignored for up to 90 seconds while the old ship sank; the sea lost its chop across most of the chart and ignored the weather.
+- The rebuilt browser build boots in headless Chromium and runs the desk, the briefing, the command screen, the status boards, the swap and the full-screen 3D view with no console errors.
+
+The machine-readable record is [validation-m24.json](validation-m24.json).
 
 ## Known limits
 
@@ -66,3 +72,4 @@ In-mission dialogs are 1999 grey panels with bevelled buttons, navy bold text an
 - The always-on 3D view is the largest new per-frame cost. It stops behind full-screen screens and while the tab is hidden. It has been measured under software rendering, not yet on a range of real GPUs in the browser.
 - Track numbers are not decluttered where contacts overlap, as in the original.
 - There is no allied identity in the model yet, so orange never appears.
+- In the browser, the frame on which the 3D view changes size (G, F10 or resizing the window) logs a burst of WebGL buffer warnings. Nothing on screen goes wrong and the console is quiet afterwards. It is not the 3D view's anti-aliasing or mesh detail levels; the cause is still open.

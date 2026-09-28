@@ -10,7 +10,7 @@ Locally, open **Launch Preview.command** for the included browser build, or open
 
 The operations desk puts the task, first orders, theatre, difficulty and estimated play time beside the chart. The briefing separates **Orders & Objectives**, **Situation**, and **Command Reference**. All of the conflicts are fiction on real charts.
 
-![The command deck in the Strait of Hormuz: the tanker convoy and its escorts on the chart, batteries and an airfield ashore held as contacts, and the world view inset on Paul Ignatius](docs/2026-09-27-command-deck.jpg)
+![The command screen in the Strait of Hormuz: the escorts in NTDS symbols on the relief chart with the Qeshm battery hooked, and below it the regional map, the 3D view tethered on Paul Ignatius and the data display](docs/2026-09-27-cds-hormuz.jpg)
 
 ## The operations
 

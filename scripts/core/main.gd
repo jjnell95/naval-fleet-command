@@ -4,7 +4,7 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M23 / World Theatres"
+const BUILD_MILESTONE := "M24 / CDS Screen"
 const DEFAULT_SCENARIO := "res://data/scenarios/cold_war_01_convoy.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.

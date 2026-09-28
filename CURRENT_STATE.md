@@ -4,7 +4,7 @@ The command screen was rebuilt as a late-1990s fleet-command CDS screen, matched
 
 The chart is a hypsometric relief map: land heights from GMTED2010 (USGS, public domain) on each region's sea-floor grid, the sea in stepped blue bands, NTDS symbols with white track numbers and velocity leaders, and graphic symbols on Tab. Dialogs, menus and the front end wear a 1999 grey skin over an original dusk render from the game's own 3D scene. Several keys moved to make room for the CDS bindings (G swap, F8–F12 cameras, F10 full-screen 3D, A boards, H key commands); H lists them all. See the [M24 notes](docs/2026-09-27-cds-screen.md).
 
-Validation: see the M24 notes.
+Validation: 445 regression tests; 42 command-screen checks at 1600 × 900 and 19 air-operations checks under Xvfb; a 44-case scenario sweep at 6000 s per case through the new screen, all clean, 0 grounded hulls, with the same outcomes as M23; an adversarial review whose 20 confirmed findings are all fixed; the browser build driven through the desk, briefing, command screen, boards, swap and full-screen 3D in headless Chromium. See [validation-m24.json](docs/validation-m24.json).
 
 ## Previous: M23 World Theatres, Shore Batteries and the World View
 
