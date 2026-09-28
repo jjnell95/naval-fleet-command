@@ -345,7 +345,7 @@ func _mag_line(u: Unit, w: WeaponSpec) -> String:
 	var tag := ""
 	if w.target_types.has("ballistic") and w.type == "sam":
 		tag = "  [color=%s]BMD[/color]" % UITheme.HEX_ACCENT
-	return "  [color=%s]%3d[/color]  %s  [color=%s]%.0f nm[/color]%s" % [col, n, w.display_name, UITheme.HEX_DIM, w.max_range_nm, tag]
+	return "  [color=%s]%3d[/color]  %s  [color=%s]%s nm[/color]%s" % [col, n, w.display_name, UITheme.HEX_DIM, Geo.format_nm(w.max_range_nm), tag]
 
 
 func _best_air_range(u: Unit) -> float:

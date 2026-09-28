@@ -97,10 +97,10 @@ func test_reach_leaves_out_jobs_the_hull_cannot_do_and_the_head_stays_one_row() 
 			heads += 1
 	assert_eq(heads, 1, "reach shares the WEAPONS: row, so a long weapon list is no shorter of room than before")
 	assert_eq(DataDisplay.reach_spans(_unit("cw90_merchant")), [], "an unarmed hull states no reach")
-	assert_eq(DataDisplay.reach_text(1.2), "1.2")
-	assert_eq(DataDisplay.reach_text(9.5), "9.5", "a tenth is kept below ten miles")
-	assert_eq(DataDisplay.reach_text(10.4), "10")
-	assert_eq(DataDisplay.reach_text(250.0), "250")
+	# A close-in mount's reach is a mile and a bit; rounding it to a whole number would read as 1 nm.
+	var spans := DataDisplay.reach_spans(_unit("rn_cvf_queen_elizabeth"))
+	assert_eq(str(spans[1][0]), "1.2", "a tenth is kept where the reach is not a whole number of miles")
+	assert_eq(str(DataDisplay.reach_spans(_unit("usn_cg_ticonderoga"))[1][0]), "250", "a whole number of miles prints as one")
 
 
 func test_damage_and_casualties_are_flagged_in_red() -> void:

@@ -14,9 +14,9 @@ The new decks deliberately support different aircraft. Charles de Gaulle can lau
 | `fra_lhd_mistral` | Helicopter base with separate surveillance and ASW aircraft | Helicopter; 3 launches / 2 recoveries |
 | `ita_ddg_horizon` | Area-air-defence destroyer with Aster, Otomat and MU90 | One NH90 |
 | `deu_ffg_sachsen` | APAR/SMART-L escort with SM-2, ESSM and RAM | Helicopter deck; reduced NH90 scenario detachment |
-| `swe_fsg_visby` | Small, fast littoral ASW corvette with a 57 mm gun and Torpedo 47 | No resident air wing |
+| `swe_fsg_visby` | Small, fast littoral corvette with a 57 mm gun, Torpedo 47 and (since the September 2026 fit review) eight RBS15 | No resident air wing |
 | `rfn_ffg_admiral_grigorovich` | Project 11356-family escort with Kalibr, Shtil-1 and Ka-27 | One helicopter |
-| `fra_ssn_suffren` | Nuclear submarine with F21 heavyweight torpedoes | Undersea |
+| `fra_ssn_suffren` | Nuclear submarine with F21 heavyweight torpedoes and (since the September 2026 fit review) SM39 Exocet | Undersea |
 | `swe_ssk_gotland` | Compact AIP submarine with heavy and lightweight torpedoes | Undersea |
 | `usmc_fighter_av8b` | Legacy AV-8B+ airframe with AMRAAM and Maverick | STOVL / CATOBAR game abstraction / runway |
 | `raf_fighter_typhoon` | Air-superiority fighter with Meteor and ASRAAM | Runway |

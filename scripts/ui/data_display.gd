@@ -180,15 +180,10 @@ static func reach_spans(u: Unit) -> Array:
 	for job: Array in REACH_JOBS:
 		if best.has(job[1]):
 			spans.append(["  " + str(job[0]) + " ", LABEL])
-			spans.append([reach_text(float(best[job[1]])), WHITE])
+			spans.append([Geo.format_nm(float(best[job[1]])), WHITE])
 	if not spans.is_empty():
 		spans.append([" NM", LABEL])
 	return spans
-
-
-## Whole miles for anything that flies far, a tenth for a mount whose whole reach is a mile or two.
-static func reach_text(nm: float) -> String:
-	return "%d" % int(round(nm)) if nm >= 10.0 else "%.1f" % nm
 
 
 static func group_rows(units: Array) -> Array:
