@@ -1,6 +1,6 @@
 # Naval Fleet Command
 
-**M25 Fleet Operations:** 14 expanded operations plus eight exercises, staged mission tasks, larger carrier wings, finite aviation stores, separate missile-defence layers and radar-support constraints. The Jane's-style CDS interface is preserved. See the [change notes](docs/2026-09-27-fleet-operations.md) and [validation](docs/validation-m25.json).
+**M26 Final QC:** every screen reviewed, the frame budget measured and the chart's frame cost roughly halved in the largest operations, track numbers placed clear of one another, the surviving screen defects fixed, and the console, tests, code and docs cleared of noise. The Jane's-style CDS interface is unchanged. See the [QC notes](docs/2026-09-28-final-qc.md) and [validation](docs/validation-m26.json); M25's [fleet operations](docs/2026-09-27-fleet-operations.md) are the last content change.
 
 A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-command games. Build an uncertain contact picture, protect the convoy, operate a carrier air wing, and decide when the salvo is worth the missiles. Twenty-two operations across the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, in 2027 and in 1990. Original art and code; no Jane's assets or affiliation.
 
@@ -67,8 +67,9 @@ Datalink latency and topology, continuous illumination, mechanical launcher conf
 ```sh
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script tests/run_tests.gd      # regression tests
-godot --path . -- --cold-war-smoke                          # 29 command-deck checks
+godot --path . -- --cold-war-smoke                          # 46 command-screen checks
 godot --path . -- --aviation-smoke                          # 19 air-operations checks
+godot --path . -- --scenario=res://data/scenarios/northern_vigil.json --fastforward=2400 --run --perf=8   # frame budget
 godot --path .
 ```
 

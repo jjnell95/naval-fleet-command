@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M26 final QC and optimisation
+
+Every screen reviewed, the frame budget measured (`--perf`) and the chart's script cost roughly halved in the largest operations, the surviving screen defects fixed with tests, and the console, the test runner, the code and the docs cleared of noise. See the [M26 notes](docs/2026-09-28-final-qc.md).
+
+The most useful next steps are a per-view mesh for the coastline stroke (the last few milliseconds of the chart's frame in Norway), a frame budget measured on real GPUs in the browser, and a look at the sensor cycle's cost in the 115-unit operations at full time compression.
+
 ## M24 the CDS screen
 
 The command screen rebuilt in the manner of the late-1990s fleet-command games: an edge-to-edge relief chart, regional map, always-on 3D view and data display; right-click orders, status boards, a radio line and the CDS key map; a 1999 grey skin on every dialog and screen. See the [M24 notes](docs/2026-09-27-cds-screen.md).

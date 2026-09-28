@@ -1,0 +1,744 @@
+{
+  "milestone": "M26 Final QC and optimisation",
+  "date": "2026-09-28",
+  "base_commit": "4cf58fa528a240c3419eefd6378f699b35f27ed6",
+  "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+  "regression_tests": {
+    "total": 466,
+    "passed": 466,
+    "failed": 0,
+    "shutdown": "clean: no leaked instances and no resources in use at exit",
+    "command": "godot --headless --path . --script tests/run_tests.gd"
+  },
+  "native_command_screen": {
+    "checks": 46,
+    "failed": 0,
+    "resolution": "1600x900"
+  },
+  "native_air_operations": {
+    "checks": 19,
+    "failed": 0,
+    "resolution": "1600x1000"
+  },
+  "frame_budget": {
+    "method": "godot --path . --resolution 1600x900 -- --scenario=... --seed=2 --fastforward=2400 --run --perf=8; script time by path in milliseconds per frame, clock at 1x, under llvmpipe software rendering (frame times are the renderer's and are not reported here)",
+    "scenarios": {
+      "gulf_01_hormuz": {
+        "units": 33,
+        "before": {
+          "chart": {
+            "avg_ms": 2.53,
+            "worst_ms": 4.57
+          },
+          "data": {
+            "avg_ms": 0.23,
+            "worst_ms": 0.52
+          },
+          "regional": {
+            "avg_ms": 0.28,
+            "worst_ms": 0.56
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.18
+          },
+          "sim": {
+            "avg_ms": 2.17,
+            "worst_ms": 22.41
+          },
+          "world": {
+            "avg_ms": 2.65,
+            "worst_ms": 4.76
+          },
+          "draw_calls": 219,
+          "texture_mb": 77.0,
+          "nodes": 970
+        },
+        "after": {
+          "chart": {
+            "avg_ms": 2.52,
+            "worst_ms": 5.55
+          },
+          "chart/coast": {
+            "avg_ms": 0.92,
+            "worst_ms": 2.13
+          },
+          "chart/names": {
+            "avg_ms": 0.38,
+            "worst_ms": 1.23
+          },
+          "chart/plot": {
+            "avg_ms": 0.93,
+            "worst_ms": 1.97
+          },
+          "chart/readout": {
+            "avg_ms": 0.26,
+            "worst_ms": 0.59
+          },
+          "chart/threats": {
+            "avg_ms": 0.03,
+            "worst_ms": 0.09
+          },
+          "data": {
+            "avg_ms": 0.17,
+            "worst_ms": 0.78
+          },
+          "regional": {
+            "avg_ms": 0.35,
+            "worst_ms": 0.76
+          },
+          "shell": {
+            "avg_ms": 0.06,
+            "worst_ms": 1.4
+          },
+          "sim": {
+            "avg_ms": 2.28,
+            "worst_ms": 16.55
+          },
+          "world": {
+            "avg_ms": 2.77,
+            "worst_ms": 6.28
+          },
+          "draw_calls": 178,
+          "texture_mb": 77.0,
+          "nodes": 971
+        }
+      },
+      "pacific_02_taiwan_strait": {
+        "units": 106,
+        "before": {
+          "chart": {
+            "avg_ms": 9.17,
+            "worst_ms": 14.79
+          },
+          "data": {
+            "avg_ms": 0.78,
+            "worst_ms": 1.43
+          },
+          "regional": {
+            "avg_ms": 0.62,
+            "worst_ms": 0.96
+          },
+          "shell": {
+            "avg_ms": 0.03,
+            "worst_ms": 0.46
+          },
+          "sim": {
+            "avg_ms": 5.26,
+            "worst_ms": 40.18
+          },
+          "world": {
+            "avg_ms": 2.67,
+            "worst_ms": 5.13
+          },
+          "draw_calls": 673,
+          "texture_mb": 91.1,
+          "nodes": 1254
+        },
+        "after": {
+          "chart": {
+            "avg_ms": 4.08,
+            "worst_ms": 11.29
+          },
+          "chart/coast": {
+            "avg_ms": 1.69,
+            "worst_ms": 4.61
+          },
+          "chart/names": {
+            "avg_ms": 0.3,
+            "worst_ms": 1.12
+          },
+          "chart/plot": {
+            "avg_ms": 1.69,
+            "worst_ms": 4.54
+          },
+          "chart/readout": {
+            "avg_ms": 0.39,
+            "worst_ms": 0.91
+          },
+          "chart/threats": {
+            "avg_ms": 0.03,
+            "worst_ms": 0.11
+          },
+          "data": {
+            "avg_ms": 0.24,
+            "worst_ms": 0.8
+          },
+          "regional": {
+            "avg_ms": 0.66,
+            "worst_ms": 1.71
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.12
+          },
+          "sim": {
+            "avg_ms": 4.71,
+            "worst_ms": 42.74
+          },
+          "world": {
+            "avg_ms": 2.19,
+            "worst_ms": 4.5
+          },
+          "draw_calls": 286,
+          "texture_mb": 91.1,
+          "nodes": 1255
+        }
+      },
+      "northern_vigil": {
+        "units": 115,
+        "before": {
+          "chart": {
+            "avg_ms": 9.84,
+            "worst_ms": 16.99
+          },
+          "data": {
+            "avg_ms": 0.83,
+            "worst_ms": 1.86
+          },
+          "regional": {
+            "avg_ms": 0.71,
+            "worst_ms": 1.28
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.1
+          },
+          "sim": {
+            "avg_ms": 6.07,
+            "worst_ms": 37.2
+          },
+          "world": {
+            "avg_ms": 2.7,
+            "worst_ms": 5.97
+          },
+          "draw_calls": 396,
+          "texture_mb": 104.9,
+          "nodes": 1504
+        },
+        "after": {
+          "chart": {
+            "avg_ms": 5.26,
+            "worst_ms": 10.05
+          },
+          "chart/coast": {
+            "avg_ms": 3.15,
+            "worst_ms": 6.21
+          },
+          "chart/names": {
+            "avg_ms": 0.25,
+            "worst_ms": 0.54
+          },
+          "chart/plot": {
+            "avg_ms": 1.32,
+            "worst_ms": 3.58
+          },
+          "chart/readout": {
+            "avg_ms": 0.52,
+            "worst_ms": 0.96
+          },
+          "chart/threats": {
+            "avg_ms": 0.03,
+            "worst_ms": 0.14
+          },
+          "data": {
+            "avg_ms": 0.23,
+            "worst_ms": 0.62
+          },
+          "regional": {
+            "avg_ms": 0.69,
+            "worst_ms": 1.44
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.14
+          },
+          "sim": {
+            "avg_ms": 5.42,
+            "worst_ms": 25.81
+          },
+          "world": {
+            "avg_ms": 2.29,
+            "worst_ms": 6.03
+          },
+          "draw_calls": 355,
+          "texture_mb": 104.9,
+          "nodes": 1505
+        }
+      }
+    }
+  },
+  "scenario_sweep": {
+    "seeds": [
+      2,
+      13
+    ],
+    "simulated_seconds": 6000,
+    "passed": 44,
+    "failed": 0,
+    "aground": 0,
+    "results": {
+      "running": 35,
+      "won": 5,
+      "lost": 4
+    },
+    "runs": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 265.8
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 573.8
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 19.8
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 40.9
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 12.0
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 12.0
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 8.8
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 49.1
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 14.8
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 155.4
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 11.6
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 75.6
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 154.4
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 11.7
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 20.1
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 20.0
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 1021.2
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 37.8
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 856.3
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 87.9
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 103.4
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.3
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 268.2
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 559.7
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 21.9
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 41.4
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 13.6
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 11.1
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 9.5
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 54.5
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 13.1
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 161.9
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 11.7
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 70.9
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 169.5
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.8
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 26.2
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.0
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 962.5
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 38.7
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 821.0
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 85.0
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 110.4
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.8
+      }
+    ]
+  },
+  "browser": {
+    "environment": "headless Chromium (Playwright 1.56) with SwiftShader WebGL 2, served from docs/ over HTTP, 1600x900",
+    "booted": true,
+    "exercised": [
+      "operations desk",
+      "accept and briefing",
+      "take command",
+      "pause",
+      "next contact",
+      "status boards (A)",
+      "swap chart and 3D view (G)",
+      "3D view full screen (F10)"
+    ],
+    "console_errors": [],
+    "console_warnings_total": 257,
+    "console_warnings_distinct": [
+      {
+        "count": 2,
+        "text": "[.WebGL-0xcb402004600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+      },
+      {
+        "count": 127,
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "count": 127,
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "count": 1,
+        "text": "WebGL: too many errors, no more errors will be reported to the console for this context."
+      }
+    ],
+    "session_seconds": 109,
+    "console_errors_count": 0,
+    "note": "The WebGL buffer warnings come only on the two swap frames (G): one bindBuffer / bufferSubData pair per landmass on the chart. None on boot, the desk, the briefing, taking command, the boards or F10. Nothing on screen goes wrong."
+  },
+  "build": {
+    "index.pck": {
+      "bytes": 58826564,
+      "sha256": "62b04c614ebe291db2b982899333c88209562b2027fee21537593f126d0ab4d6"
+    },
+    "index.wasm": {
+      "bytes": 39514754,
+      "sha256": "fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0"
+    },
+    "index.js": {
+      "bytes": 279815,
+      "sha256": "33c94cb3175f3333b82e2a3be5e8e86f77986f0aa2042b1631f6367a4e5bb6ba"
+    },
+    "index.html": {
+      "bytes": 12233,
+      "sha256": "a5e4e469e662dab2253b6e26719b993b3c2e348b4d7da2201fd4ce28b49b42e8"
+    }
+  },
+  "limits": [
+    "The frame budget was measured under llvmpipe software rendering; the renderer's own frame times are not reported, only the script time by path and the draw calls, which carry over to a real GPU.",
+    "The scenario sweep covers 6000 simulated seconds per case with the AI commanding both sides; it checks stability and grounding, not balance.",
+    "The sweep ran with tools/smoke_scenarios.py's checks and command line, one worker per seed and a 2400 s hang ceiling instead of 900 s, because this box is about four times slower than the one M25 was recorded on (Northern Vigil at seed 2 took 1021 s)."
+  ]
+}
