@@ -38,4 +38,4 @@ Ranges, probabilities, reserve delays, magazine budgets, the 59-aircraft composi
 
 `tools/scenarios/operation_design.py` is the shared, idempotent operation pass, invoked by the modern and Cold War scenario builders. It can also reapply the pass to the shipped JSON. `operation_plan` supplies briefing stages; `events` schedules reinforcements and authored messages; objective `after` links dependencies; `phase_only` prevents enabling tasks from independently ending an any-mode mission; `hold_area` records continuous presence. Aircraft wing entries accept `loadout` and `ready_after_s`. Bases accept `aviation_reload_cycles`, `aviation_stores` and `aviation_buoys`.
 
-Validation results and limits are recorded in [validation-m25.json](validation-m25.json). The source and browser package are prepared locally. Publication requires a separate approval.
+Validation results and limits are recorded in [validation-m25.json](validation-m25.json). The source and browser package are included together; GitHub Pages publishes `docs` from `main`.

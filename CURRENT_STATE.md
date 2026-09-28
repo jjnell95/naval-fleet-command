@@ -6,7 +6,7 @@ Missile defence has separate area and point-layer budgets, per-ship close-in all
 
 Validation: 461 regression tests, 46 command-screen checks and 19 aviation workflow checks pass. All 22 scenarios passed the stability sweep; extended Northern Convoy and Carrier Watch runs reached victory. Browser deployment and air planning were checked with no console warnings or errors. Baseline shutdown resource warnings remain documented.
 
-See [the M25 change and source notes](docs/2026-09-27-fleet-operations.md) and [validation record](docs/validation-m25.json). The browser package is built locally; this change has not been published.
+See [the M25 change and source notes](docs/2026-09-27-fleet-operations.md) and [validation record](docs/validation-m25.json). The browser package is included in `docs/play` for GitHub Pages publication from `main`.
 
 ## Previous: M24 The CDS Screen
 

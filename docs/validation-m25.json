@@ -274,7 +274,7 @@
     ],
     "console_errors": 0,
     "console_warnings": 0,
-    "publication": "local only",
+    "publication": "pre-publication local validation",
     "pack_bytes": 58794072,
     "pack_sha256": "3606a76968f4dd6c3a55c63f7a7472ceaeb39269c97344472ac6bdf42fdf4570",
     "standalone_pack_check": {
