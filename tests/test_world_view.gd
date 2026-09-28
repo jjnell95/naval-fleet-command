@@ -1063,3 +1063,40 @@ func test_action_never_cuts_to_the_kill_of_a_boat_nobody_holds() -> void:
 	view.add_effect(surface.position, "hit", false)
 	assert_eq(view.rig._queue.size(), 1, "a hit on a ship in plain sight is cut to")
 	_free_view(f)
+
+
+## The chart keeps the same rule as the 3D view: a hit, miss or kill on another side's unit
+## flashes only where the player could know of it.
+func test_chart_flashes_only_what_the_player_could_know() -> void:
+	var saved := Detection.environment
+	Detection.environment = ENV
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var boat := _unit("cw90_victor3", "RED", Vector2(4, 0))
+	boat.depth_m = 150.0
+	var surface := _unit("cw90_slava", "RED", Vector2(0, 5))
+	var far := _unit("cw90_slava", "RED", Vector2(60, 0))
+	var m := _managers([ship, boat, surface, far])
+	var map := TacticalMap.new()
+	map.unit_manager = m["um"]
+	map.track_manager = m["tm"]
+	map.player_faction = "BLUE"
+	boat.alive = false
+	map.add_effect(boat.position, "destroyed", false, boat)
+	map.add_effect(boat.position, "hit", false, boat)
+	map.add_effect(boat.position, "miss", false, boat)
+	assert_true(map._effects.is_empty(), "no flash for a deep boat nobody holds, 4 nm from one of ours or not")
+	var t := _hold(m["tm"], "T1002", boat, Vector2(4.6, 0.3), Track.Classification.UNKNOWN, "subsurface")
+	map.add_effect(boat.position, "destroyed", false, boat)
+	assert_eq(map._effects.size(), 1, "a kill the plot holds is flashed")
+	assert_eq(map._effects[-1]["pos"], t.position, "where the plot has it, not where it happened")
+	map.add_effect(far.position, "destroyed", false, far)
+	assert_eq(map._effects.size(), 1, "nothing for a ship over the horizon that is not on the plot")
+	map.add_effect(surface.position, "hit", false, surface)
+	assert_eq(map._effects[-1]["pos"], surface.position, "a hit on a ship in plain sight shows where it is")
+	map.add_effect(ship.position, "hit", true, ship)
+	assert_eq(map._effects[-1]["pos"], ship.position, "a hit on one of ours shows where it is")
+	map.add_effect(Vector2(40, 40), "refused")
+	assert_eq(map._effects[-1]["pos"], Vector2(40, 40), "a refused order marks the player's own point")
+	map.free()
+	_free_all(m)
+	Detection.environment = saved

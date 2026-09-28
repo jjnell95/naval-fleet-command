@@ -1064,7 +1064,7 @@ func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int)
 	var own := shooter.faction == simulation.player_faction
 	if own:
 		_stats["own_rounds"] += rounds
-		map.add_effect(shooter.position, "launch")
+		map.add_effect(shooter.position, "launch", true)
 		_world_view.add_effect(shooter.position, "launch", true)
 		SoundFx.play("launch")
 		radio.flash("%d x %s away at track %s" % [rounds, spec.display_name, DataDisplay.track_number_for_track(t)], "good", shooter)
@@ -1105,7 +1105,7 @@ func _nearest_own_unit_pos(w: Weapon) -> Vector2:
 func _on_interceptor_launched(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int) -> void:
 	if shooter.faction == simulation.player_faction:
 		_stats["launched"] += rounds
-		map.add_effect(shooter.position, "launch")
+		map.add_effect(shooter.position, "launch", true)
 		_world_view.add_effect(shooter.position, "launch", true)
 		SoundFx.play("launch", 0.4)
 	print("[Defence] %s fires %d x %s at inbound %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, threat.spec.display_name, shooter.position.distance_to(threat.position)])
@@ -1119,7 +1119,7 @@ func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
 		elif reason == "DECOYED":
 			_stats["decoyed"] += 1
 			_stats["decoys_used"] += 1
-		map.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy")
+		map.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy", true)
 		_world_view.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy", true, threat.spec.altitude_m)
 		SoundFx.play("intercept", 0.3)
 		radio.flash("%s %s" % [threat.spec.display_name, reason.to_lower()], "good", by_unit)
@@ -1130,7 +1130,7 @@ func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
 ## chaff has just handed the missile to whoever was behind it.
 func _on_weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit) -> void:
 	var own := to_unit.faction == simulation.player_faction
-	map.add_effect(threat.position, "decoy")
+	map.add_effect(threat.position, "decoy", own)
 	_world_view.add_effect(threat.position, "decoy", own, threat.spec.altitude_m)
 	if own or from_unit.faction == simulation.player_faction:
 		radio.flash("%s decoyed off %s — re-acquired %s" % [threat.spec.display_name, _radio_name(from_unit), _radio_name(to_unit)], "alert" if own else "warn")
@@ -1162,12 +1162,12 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 			_stats["hits_scored"] += 1
 	_stats["leaked"] += 1
 	if not hit:
-		map.add_effect(target.position, "miss")
+		map.add_effect(target.position, "miss", false, target)
 		_world_view.add_effect(target.position, "miss", false, -1.0, target)
 		print("[Combat] %s miss on %s" % [spec.display_name, target.callsign])
 		return
 	SimClock.drop_to_realtime()
-	map.add_effect(target.position, "hit", own_target)
+	map.add_effect(target.position, "hit", own_target, target)
 	_world_view.add_effect(target.position, "hit", own_target, -1.0, target)
 	SoundFx.play("impact", 0.2)
 	if own_target:
@@ -1189,7 +1189,7 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 	SimClock.drop_to_realtime()
-	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
+	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, u)
 	_world_view.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, -1.0, u)
 	SoundFx.play("impact", 0.0)
 	if u.faction == simulation.player_faction:
