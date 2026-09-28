@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M27 ship fits and the reach line
+
+A weapon-fit audit of the whole fleet: seven hulls corrected to their public fits, two weapons added, the hulls that are thin in service left thin and pinned by test, and the reach of each hull's weapons stated on the data display. See the [M27 notes](docs/2026-09-28-ship-fits.md).
+
+The most useful next steps are a torpedo-defence system (a towed decoy, a hard-kill rocket) once torpedo fights matter in the operations, the MdCN cruise missile for the French hulls, and a layout that fits the largest hulls' weapon lists on the data display.
+
 ## M26 final QC and optimisation
 
 Every screen reviewed, the frame budget measured (`--perf`) and the chart's script cost roughly halved in the largest operations, the surviving screen defects fixed with tests, and the console, the test runner, the code and the docs cleared of noise. See the [M26 notes](docs/2026-09-28-final-qc.md).

@@ -71,8 +71,8 @@ func test_every_loadout_round_resolves_and_is_positive() -> void:
 # --- Corrections --------------------------------------------------------------------------
 
 func test_burkes_have_reach_beyond_the_gun() -> void:
-	# The Gulf and Spratly scenarios used to patch Tomahawk in by hand; the other ten operations that
-	# sail a Burke left it with nothing past 13 nm to strike with.
+	# Two Burkes (one each in the Gulf and Spratly operations) used to have Tomahawk patched in by hand;
+	# the other fourteen had nothing past 13 nm to strike with.
 	for id in ["usn_ddg_arleigh_burke_iia", "usn_ddg_burke_iii"]:
 		var p := _platform(id)
 		if p == null:

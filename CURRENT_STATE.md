@@ -1,4 +1,14 @@
-# Current State: M26 Final QC and Optimisation
+# Current State: M27 Ship Fits and the Reach Line
+
+Every ship and submarine loadout was audited against its class's public fit. Seven hulls were missing weapons the real ship carries and were corrected: Tomahawk on the Arleigh Burke IIA and III, the Virginia and the Astute; Kalibr on the Improved Kilo (Project 636.3, not the 877); SM39 Exocet on the Suffren; a 35 mm CIWS, MU90 and a full Harpoon fit on the Iver Huitfeldt; RBS15 on the Visby. Two weapons are new (`millennium_35mm`, `sm39_exocet`), with generated models and renders. The hulls that are thin in service are left thin and are pinned by test with the reason: the Queen Elizabeth has no missile defence of her own, Juan Carlos I carries light guns only, the Type 26 has no anti-ship missile yet.
+
+The data display's WEAPONS line now states each hull's reach, one figure per job (`STRIKE 250  AAW 100  CIWS 1.2  GUN 13  TORP 12 NM`), so a ship with a single close-in gun reads as exactly that. The unit panel no longer rounds a Phalanx's 1.2 nm to "1 nm".
+
+Validation: 483 regression tests (466 before), 46 command-screen checks and 19 aviation checks pass. The before-and-after scenario sweep is still running as this is written. The browser build was not rebuilt.
+
+See [the M27 notes](docs/2026-09-28-ship-fits.md) and [the source ledger](DATA_SOURCES.md#ship-fit-review-28-september-2026).
+
+## Previous: M26 Final QC and Optimisation
 
 A pass over the whole game as it stands, on the M24 CDS screen and the M25 operations. Every screen was screenshotted and reviewed; the frame budget was measured with a new `--perf` dev flag and the chart's script cost roughly halved in the largest operations; the defects that survived (track numbers smearing in a formation, objective labels printing over each other, the track file board overflowing its panel, readouts peeking out from under the boards, the desk's area chart printing sea names over land names) are fixed with tests; the console, the test runner, the code and the docs were cleared of noise. Nothing in the model changed except the order of two checks in the sonar pass.
 
