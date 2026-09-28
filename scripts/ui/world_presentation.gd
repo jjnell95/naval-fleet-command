@@ -19,6 +19,7 @@ const LAND_RANGE_NM := 60.0
 const MODEL_UNITS := 10.0  # every GLB is normalised so its longest dimension spans this
 const WATERLINE_FRACTION := 1.0 - PlatformArt.WATERLINE  # of a hull's height sits below the water
 const WEAPON_LENGTH_M := 6.0
+const TRACER_LENGTH_M := 28.0  # a shell is drawn as its tracer streak
 const TORPEDO_DEPTH_M := 6.0
 const PERISCOPE_MAST_M := 1.5
 const SINK_DURATION_S := 90.0
@@ -33,6 +34,11 @@ const BALLISTIC_APEX_MIN_M := 3000.0
 const BALLISTIC_APEX_MAX_M := 45000.0
 const BALLISTIC_APEX_PER_NM_M := 220.0
 const INTERCEPTOR_CLIMB_S := 20.0
+## How the force-centre focus is framed: its nominal length spans the group, within these limits.
+const FORCE_MIN_FRAME_M := 350.0
+const FORCE_MAX_FRAME_M := 2500.0
+## How close to a held contact an unseen event must fall to be drawn at that contact.
+const WITNESS_PLOT_NM := 1.0
 
 
 # --- Environment -------------------------------------------------------------------------
@@ -238,15 +244,16 @@ static func weapon_entries(weapon_manager: WeaponManager, threat_manager: Threat
 		if not own and (reference == null or threat_manager == null or not threat_manager.visible_to(reference, w)):
 			continue
 		var torpedo := w.spec.is_torpedo()
+		var gun := w.spec.type == "gun" or w.spec.type == "ciws"
 		var color := TacticalMap.COL_MISSILE if own else TacticalMap.COL_MISSILE_HOSTILE
 		if w.is_interceptor():
 			color = TacticalMap.COL_INTERCEPTOR
 		out.append({
 			"kind": "weapon", "key": "w:%d" % w.id, "model": w.spec.id,
 			"position": w.position, "heading_deg": w.heading_deg, "has_heading": true,
-			"height_m": weapon_height_m(w), "domain": "weapon", "length_m": WEAPON_LENGTH_M,
+			"height_m": weapon_height_m(w), "domain": "weapon", "length_m": TRACER_LENGTH_M if gun else WEAPON_LENGTH_M,
 			"label": "", "sublabel": "", "color": color, "unit": null, "track": null,
-			"weapon": w, "own": own, "torpedo": torpedo, "interceptor": w.is_interceptor(),
+			"weapon": w, "own": own, "torpedo": torpedo, "gun": gun, "interceptor": w.is_interceptor(),
 			"ballistic": w.spec.profile == "ballistic" and not w.is_interceptor(),
 		})
 	return out
@@ -288,10 +295,51 @@ static func buoy_entries(aviation_manager: AviationManager, player_faction: Stri
 	return out
 
 
+# --- Events ------------------------------------------------------------------------------
+
+## Where the player could witness an event at `pos`, or Vector2.INF when they could not.
+##
+## With the `target` it happened to (a hit, a miss or a kill), the flash is seen where it happens
+## when the target is one of ours, or when a lookout of ours could see it: within visual range and
+## over the horizon, and never when it is a boat running deep. Failing that it is drawn where a
+## held track of that target is plotted, because the plot is all the player has of it. Nothing
+## else is read through the target.
+##
+## With no target, within the weather's visibility of one of their own units the flash is seen
+## where it happens; failing that, an event close to a held contact is drawn at the contact's
+## plotted position. Only own units and the player's tracks are read.
+static func witness_point(pos: Vector2, own_units: Array, tracks: Array, env: Dictionary, target: Unit = null) -> Vector2:
+	if target != null:
+		if own_units.has(target):
+			return pos
+		# The same lookouts the view sights contacts with: our units at sea or in the air.
+		var lookouts: Array = own_units.filter(func(u: Unit) -> bool: return u != null and u.is_engageable())
+		if in_visual_range(lookouts, target, env):
+			return pos
+		for t: Track in tracks:
+			if t.truth == target and plottable(t):
+				return t.position
+		return Vector2.INF
+	var vis := visibility_nm(env)
+	for u: Unit in own_units:
+		if u != null and u.alive and u.position.distance_to(pos) <= vis:
+			return pos
+	var best := Vector2.INF
+	var best_d := INF
+	for t: Track in tracks:
+		if not plottable(t):
+			continue
+		var d := t.position.distance_to(pos)
+		if d <= maxf(WITNESS_PLOT_NM, t.position_error_nm * 1.5) and d < best_d:
+			best_d = d
+			best = t.position
+	return best
+
+
 # --- Focus and culling -------------------------------------------------------------------
 
-## What the camera is looking at: the first selected unit (a deck-bound airframe stands for its
-## ship), else the hooked contact when it can be placed, else the player's first ship.
+## What the camera is looking at: the hooked own unit (a deck-bound airframe stands for its
+## ship), else the hooked contact as the plot holds it, else the centre of the player's force.
 ## Returns {} when there is nothing at all.
 static func choose_focus(selected: Array, selected_track: Track, own_units: Array) -> Dictionary:
 	for u: Unit in selected:
@@ -302,13 +350,51 @@ static func choose_focus(selected: Array, selected_track: Track, own_units: Arra
 			return _unit_focus(u.home)
 	if plottable(selected_track):
 		return {"key": "t:%s" % selected_track.id, "position": selected_track.position, "unit": null, "track": selected_track, "name": selected_track.id, "detail": selected_track.description()}
+	return force_focus(own_units)
+
+
+## The force centre: the mean position of the player's ships, or of whatever is left when only
+## aircraft remain, with a heading from their mean course and a nominal length that frames the
+## whole group. Only own units are read.
+static func force_focus(own_units: Array) -> Dictionary:
+	var ships: Array[Unit] = []
+	var everything: Array[Unit] = []
 	for u: Unit in own_units:
-		if u != null and u.is_engageable() and not u.is_aircraft():
-			return _unit_focus(u)
-	for u: Unit in own_units:
-		if u != null and u.is_engageable():
-			return _unit_focus(u)
-	return {}
+		if u == null or not u.is_engageable():
+			continue
+		everything.append(u)
+		if not u.is_aircraft():
+			ships.append(u)
+	var group := ships if not ships.is_empty() else everything
+	if group.is_empty():
+		return {}
+	var centre := Vector2.ZERO
+	var course := Vector2.ZERO
+	for u in group:
+		centre += u.position
+		course += Geo.heading_to_vector(u.heading_deg) * maxf(u.speed_kn, 0.1)
+	centre /= float(group.size())
+	var spread := 0.0
+	for u in group:
+		spread = maxf(spread, u.position.distance_to(centre))
+	return {
+		"key": "force", "position": centre, "unit": null, "track": null, "name": "Force centre",
+		"detail": "%d platforms" % group.size(), "heading_deg": Geo.vector_to_heading(course) if course.length_squared() > 1e-9 else 0.0,
+		"length_m": clampf(spread * NM_TO_M * 0.7, FORCE_MIN_FRAME_M, FORCE_MAX_FRAME_M),
+	}
+
+
+## The entry key the camera should follow for a focus. A hooked contact that a lookout can also
+## see is drawn once, as the sighted unit, so the camera follows that; nothing else changes.
+static func resolve_focus_key(entries: Array, focus: Dictionary) -> String:
+	var key: String = focus.get("key", "")
+	var track: Track = focus.get("track")
+	if track == null or not key.begins_with("t:"):
+		return key
+	for e: Dictionary in entries:
+		if e["kind"] == "visual" and e.get("track") == track:
+			return e["key"]
+	return key
 
 
 static func _unit_focus(u: Unit) -> Dictionary:

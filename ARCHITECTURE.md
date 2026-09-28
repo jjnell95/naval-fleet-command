@@ -14,7 +14,9 @@ Presentation work should start from `HANDOFF.md`, which says what may be changed
 
 **Missions.** Scenario JSON gains `theatre`, `setting_note`, `map.chart_region` and, on every built-in mission, `difficulty`, `duration_minutes`, `role`, `learning`, `commander_intent` and `first_orders`. `ScenarioIndex` exposes `theatre` and `region`; `ScenarioMenu` shelves built-ins by 1990 or by chart region.
 
-**World view.** `WorldView` (scripts/ui/world_view.gd) hosts a 3D SubViewport; `WorldPresentation` decides, from the player's Units, Tracks and ThreatManager only, what may be drawn, where and as what: own units at truth, other units at truth only inside visual range, otherwise at their track's estimated position with class geometry only once the class is known, weapons only when detected. Effects arrive through the same `add_effect` calls Main already makes for the chart.
+**World view.** `WorldView` (scripts/ui/world_view.gd) is the command screen's 3D pane: it fills whatever rect its parent gives it, renders only while visible and not `set_suspended`, and draws nothing but its camera mode in red. `WorldCamera` (world_camera.gd) is the pure camera state machine: Tether (orbit and zoom kept for the session), Fly-by, Action (cuts to launches of ours, hits the player could witness and flight-deck events, then back to the tether) and Detached; chart-space anchors keep fly-by stations and detached eyes still while the floating origin slides. `WorldPresentation` decides, from the player's Units, Tracks and ThreatManager only, what may be drawn, where and as what: own units at truth, other units at truth only inside visual range, otherwise at their track's estimated position with class geometry only once the class is known, weapons only when detected; the subject is the hooked own unit, else the hooked contact as held, else the force centre; an event is drawn only where the player could witness it (`witness_point`), at the plot when the plot is all they have. `WorldScene` draws it: shader sky and hand-lit sea (world_sky/world_ocean.gdshader), land lifted from the presentation height rasters and cut to the chart's coast through polygon masks (`WorldLand`), and pooled effects (`WorldEffects`: smoke trails in chart space, launch clouds, gun flashes, explosions, fires with black smoke, engine glow). Effects arrive through the same `add_effect` calls Main already makes for the chart; launches are drawn from the rounds themselves as they first appear.
+
+**Command-screen skin.** `UITheme` builds two surface families from one function. `build()`, set on Main, is the grey chrome of the late-1990s command screen: bevel buttons with navy bold text, light fields with a navy border, drop-down lists with a square arrow button, grey pop-up menus (22 px rows, selection-blue hover), X check boxes, LED lamps for switches and the `LedToggle` variation, grey bevel tabs and scroll arrows; its base PanelContainer is the grey in-mission dialog. `data_theme()` is the navy data family (white-grey labels, yellow values, blue titles, red alerts on `#0F1837`); a panel that holds data sets it as its own `theme` (`UITheme.use_data_surface`) and everything inside follows, which is how the old dock panels read now. The `COL_*`/`HEX_*` tokens are the data surface's colours as before, retuned; `JFC_*`, `INK_*`, `DATA_*`, the front-end and the chart-preview tokens are new. Variations for the screen shell: DataPanel, DataTitle, DataLabel, DataValue, DataAlert, DataFooterLabel, CdsReadout, CdsCameraLabel, BevelFrame, JfcDialog, MenuPanel, MenuBigButton (MenuButton is a native class), MenuCaption, MenuList, MenuLabel, TitleMark. `JfcStyle` (jfc_style.gd) is a vector StyleBox for bevels, the three-line pane frame and lamps, crisp at any scale; theme icons are SVG rasterised through `DPITexture`. Faces: DejaVu Sans Bold (data), DejaVu Sans Condensed Bold (interface), Barlow Semi Condensed Black Italic (the wordmark, `TitleMark`) and Barlow Condensed ExtraBold Italic (captions and big buttons). Front-end screens (operations desk, briefing before command, reference, editor) lay `UITheme.backdrop()` under a MenuPanel; the backdrop is `assets/ui/frontend_backdrop.jpg`, rendered from WorldView by `tools/art/render_backdrop.gd`. In-mission dialogs (Air Operations, the Actions palette, the after-action report, the briefing once command is taken) are JfcDialog panels with at most `DIALOG_SHADE` behind them. Air Operations lights a LAUNCH lamp per airframe; `AirOperations.lit_lamps` keeps the lamps on exactly the airframes the deck will send.
 
 ## M20 additions
 
@@ -40,7 +42,8 @@ scripts/simulation/       SimulationClock, World, UnitManager, SensorManager, Tr
                           WeaponManager, MissionManager
 scripts/entities/         Unit → SurfaceShip / Submarine / Aircraft; Weapon
 scripts/systems/          Movement, Detection, Combat, Damage, AI, Terrain + Landmass
-scripts/ui/               TacticalMap, UnitPanel, ContactPanel, OrdersPanel, TimeControls
+scripts/ui/               TacticalMap + chart layers, RegionalMap, WorldView, DataDisplay, StatusBoards,
+                          CdsMenus, RadioNet, the old dock panels, dialogs and the front end
 data/platforms/{surface,submarines,aircraft,helicopters}/   platform specs (nation is a field,
                           not a directory)
 data/sensors/  data/weapons/  data/scenarios/
@@ -58,14 +61,20 @@ Main (Control, main.gd)            theme = UITheme.build(); global hotkeys; rout
 │   ├── ThreatManager (Node)        per-faction picture of detected incoming rounds
 │   ├── WeaponManager (Node)        salvos, weapons in flight, seeker acquisition, hits, intercepts
 │   └── MissionManager (Node)       victory / loss evaluation
-└── Layout (VBox)
-    ├── TopBar (PanelContainer)     time, pause, 1x-60x, objective readout, brief/restart/menu
-    ├── Middle (HBox)
-    │   ├── UnitPanel               selected unit(s) detail
-    │   ├── TacticalMap (Control)   custom _draw(); zoom/pan/select; emits order requests
-    │   └── ContactPanel            track list + detail (reads Tracks only)
-    └── OrdersPanel                 speed/course/weapon controls -> emits Order
-Overlays (children of Main, above the layout): ScenarioMenu, BriefingPanel, mission banner.
+└── Layout (VBox)                   the CDS screen
+    ├── Upper (Control)             top 68%: the chart, or the 3D view when G has swapped them
+    │   ├── TacticalMap (Control)   ChartFloor + ChartLand behind a custom _draw(); zoom/pan/select;
+    │   │                           right-click → move_order_requested / context_menu_requested
+    │   └── StatusBoards            the ASTABs (A): OrdersPanel, UnitPanel, ContactPanel, comms
+    ├── MapEdge (BevelFrame)        the bevel under the chart
+    └── BottomStrip (HBox)          bottom 32%, each pane in a BevelFrame
+        ├── RegionalFrame → RegionalMap   square; the whole battle space, the chart's view box
+        ├── ViewFrame → WorldView         the always-on 3D view (or the chart when swapped)
+        └── DataFrame → DataDisplay       the hooked item's data, TIME / SCALE, message lamp
+Created in code: RadioNet (message traffic: radio line, comms board, lamp), CdsMenus (right-click
+menus), KeyCommands (H), and the full-screen surfaces.
+Overlays (children of Main, above the layout): ScenarioMenu, ScenarioEditor, BriefingPanel, AfterAction,
+CommandPalette, AirOperations, KeyCommands, PlatformLibrary.
 Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 ```
 
@@ -107,7 +116,7 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | AIController | scripts/systems/ai_controller.gd | opposing-force commander: state machine, engagement scoring, orders |
 | MissionObjective | scripts/simulation/mission_objective.gd | one scenario predicate, built from JSON |
 | ScenarioIndex | scripts/simulation/scenario_index.gd | lists data/scenarios for the menu |
-| ScenarioMenu | scripts/ui/scenario_menu.gd | scenario picker; scenario_chosen |
+| ScenarioMenu | scripts/ui/scenario_menu.gd | operations desk: shelves, starred mission list, map, orders; scenario_chosen |
 | SensorContact | scripts/simulation/sensor_contact.gd | one observation, firm plot or bearing, handed to TrackManager |
 | AviationManager | scripts/simulation/aviation_manager.gd | deck cycle, fuel, return to base, sonobuoys |
 | Sonobuoy | scripts/simulation/sonobuoy.gd | a passive listener dropped in the water and left behind |
@@ -121,11 +130,14 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | UnitManager | scripts/simulation/unit_manager.gd | owns units; unit_added, order_issued |
 | ScenarioLoader | scripts/simulation/scenario_loader.gd | JSON → units |
 | Simulation | scripts/simulation/simulation.gd | sim root node |
-| TacticalMap | scripts/ui/tactical_map.gd | map render + input; selection_changed, move_order_requested |
-| MapSymbols | scripts/ui/map_symbols.gd | symbol drawing helpers |
-| UITheme | scripts/ui/ui_theme.gd | the design system in code: surfaces, meaning colours, type scale, button variations (Primary, Quiet, Segment, Tab, Danger) and helpers such as `eyebrow()` and `section_bb()` |
+| TacticalMap | scripts/ui/tactical_map.gd | map render + input; selection_changed, move_order_requested, context_menu_requested |
+| MapSymbols | scripts/ui/map_symbols.gd | NTDS frames, velocity leaders, track numbers, hook brackets, weapons, graphic symbols |
+| UITheme | scripts/ui/ui_theme.gd | the skin in code: the grey chrome (`build()`) and navy data (`data_theme()`) families, their tokens and variations, the faces, theme icons and helpers such as `caption_pair()`, `backdrop()`, `bevel_frame()` and `section_bb()` |
+| JfcStyle | scripts/ui/jfc_style.gd | vector StyleBox: bevelled faces, sunken fields and drop-downs, the three-line frame, LED lamps |
+| TitleMark | scripts/ui/title_mark.gd | the game's name as the front end's chrome-lettered wordmark |
 | UIIcons | scripts/ui/ui_icons.gd | original SVG stroke icons, rasterised at 3× and cached; `UIIcons.apply(button, name)` |
-| TopBar / UnitPanel / OrdersPanel | scripts/ui/*.gd | HUD panels (children built in code) |
+| UnitPanel / OrdersPanel / ContactPanel | scripts/ui/*.gd | the old dock panels, now hosted on the status boards (children built in code) |
+| DataDisplay / RadioNet / StatusBoards / CdsMenus / KeyCommands / BevelFrame | scripts/ui/*.gd | the CDS shell: data display, radio traffic, ASTAB boards, right-click menus, key board, pane frames |
 | AfterAction | scripts/ui/after_action.gd | end-of-mission report built from Main's statistics |
 | ReadinessBars | scripts/ui/readiness_bars.gd | hull / subsystem / fuel / decoy bars for the unit panel |
 | DefenceBoard | scripts/ui/defence_board.gd | threat evaluation and weapons assignment view |
@@ -135,7 +147,13 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | ScenarioEditor | scripts/ui/scenario_editor.gd | in-game mission builder; writes the scenario JSON schema to user://scenarios |
 | Bathymetry | scripts/systems/bathymetry.gd | static regional sea-floor raster; `depth_at(world)` through the scenario's map anchor |
 | Acoustics | scripts/systems/acoustics.gd | static water-column rules: floor limit, layer, array depths, shelf losses, convergence zones |
-| ChartFloor | scripts/ui/chart_floor.gd (+ .gdshader) | shader-drawn sea floor behind the TacticalMap: tint, relief, contours, charted-coast limit |
+| ChartLayer | scripts/ui/chart_layer.gd | base of the chart's shader-drawn layers (`show_behind_parent`); follows a TacticalMap's view or one its owner sets |
+| ChartFloor | scripts/ui/chart_floor.gd (+ .gdshader) | stepped depth bands with sea-floor relief, and the raster's own land beyond the charted box |
+| ChartLand | scripts/ui/chart_land.gd (+ .gdshader) | the scenario's coastline polygons filled with the hypsometric land tint and relief |
+| ChartRelief | scripts/ui/chart_relief.gd | presentation rasters per region (depth, relief, water mask, land height and hill-shade); `height_at(world)` |
+| chart palette | scripts/ui/chart_palette.gdshaderinc | the chart's colours, samplers and grain, shared by both chart shaders |
+| ChartReadout / RadioLine | scripts/ui/chart_readout.gd, radio_line.gd | pure text and timing for the chart's bottom-left readout and bottom-centre radio line |
+| RegionalMap | scripts/ui/regional_map.gd | the theatre overview pane: same rasters, darker; unit dots, view rectangle, radar coverage |
 | TestCase | tests/test_case.gd | assertion base; runner tests/run_tests.gd |
 
 ## Sensor / track pipeline
@@ -362,8 +380,34 @@ mechanically privileged.
 
 ## Rendering approach
 TacticalMap draws everything in one `_draw()` (no per-unit nodes). Hit-testing is manual
-(nearest symbol within 14 px). Symbol sizes are fixed in pixels; world→screen via
+(nearest symbol within 18 px, waypoints 14 px). Symbol sizes are fixed in pixels; world→screen via
 `center_nm` + `ppn` (pixels per nm), y flipped.
+
+Symbology follows the classic naval command display (`MapSymbols`): an open NTDS frame in the
+identity colour (ownside `#40C8FF`, allied orange, hostile red, unknown yellow, neutral green with
+a centre cross), 2 px strokes in a 16 px box, no fill, glow or glyph. A land installation is an X,
+a rotorcraft carries a bar over its air frame, rounds in flight are filled arrowheads (torpedoes
+dots) and sonobuoys 3 px dots. Each platform has a 1 px velocity leader (six minutes of travel,
+6-48 px) and a white four-digit track number at its lower right: a contact's comes from its track
+id, an own unit's is assigned in roster order on first sight and kept for the mission
+(`track_number_text()` gives the data display the same number). Tags (name or reported
+classification) are an off-by-default second line. The hook is four static white corner brackets;
+a contact hooked while an own unit is also hooked is the target and takes its identity colour.
+Routes are white PIM legs through white + waypoints; stale tracks draw at 55% alpha, uncertainty
+at 35%, lost own platforms stay in grey for ten minutes. The graphic symbol modes (`cycle_symbol_mode`)
+draw the platform's plan view instead, resampled once per size and tinted toward the identity
+colour; a contact gets one only once its class is known, looked up from the class the plot holds.
+Layers (`toggle_layer` / `has_layer`): leaders, track_numbers, tags, routes, trails, sensors,
+relief, graticule, latlon, scale, range_grid, key, and the identity filters hostiles, allied,
+neutrals and unknowns (a filtered contact is neither drawn nor hit, but stays in the track file).
+
+A right-click without a drag is the classic display's: with a controllable own unit hooked, open
+water (or land, for an aircraft) is a MOVE there at once (`move_order_requested`, Shift appends);
+anything else hooks the track or own unit under the cursor and emits `context_menu_requested`
+with `context_at()`'s classification (own_unit, track, waypoint, water, empty) for the shell's
+menus. Ctrl/Cmd+right-click on a track still emits `engage_requested`; the shell deletes a leg
+through `request_waypoint_delete()`. Right-press still begins a pan, and in Plot Move it cancels.
+`toggle_range_circle()` (B) arms, fixes and clears a white range circle on the hooked unit.
 
 ## Milestone 11 systems
 - **Ballistic profiles.** `WeaponSpec.profile = "ballistic"` makes `Weapon.threat_class()` return
@@ -426,7 +470,7 @@ Where it is read:
 | `UnitManager.issue_order` | returns `false` for a MOVE onto land by a hull |
 | `Formation.station_for` | an inland station is reflected into water |
 | `AIController` | `_sea_room`, `_standoff_point`, `_open_bearing`; no buoy or dip over land |
-| `TacticalMap._draw_land` | fill, shelf band and coastline, under the graticule and everything else |
+| `ChartLand` / `TacticalMap._draw_land` | shaded fill, then a thin coastline stroke, under everything else |
 | `ScenarioEditor` | COAST mode; its own `Array[Landmass]`, never the static, which the game owns |
 
 A weapon is terrain-bound by `WeaponSpec.profile`: `sea_skimming`, `direct` and `subsurface` stop at
@@ -448,13 +492,20 @@ every consumer treats unknown as no effect; `environment.bottom_m` sets a unifor
 which is how the tests build water. The constants in `bathymetry.gd` must match the raster's JSON
 metadata; `test_ocean.gd` holds them together.
 
-The chart does not use that raster. `ChartFloor` is a child of `TacticalMap` with
-`show_behind_parent`, because the map is a single `_draw()` and a canvas item carries one material.
-It samples `north_atlantic_chart.exr` (half-float metres, half resolution) with a cubic B-spline for
-smooth contours, and `north_atlantic_relief.png` (baked hill-shade). `TacticalMap._draw_ocean` skips
-its opaque fill while the floor is active. `map.charted_nm`, written by the scenario generator, is
-the box the coastline polygons were clipped to; beyond it the shader draws the raster's own coast,
-dimmed, and the map draws a neatline.
+The chart draws from presentation rasters that `ChartRelief` loads per region: `<region>_chart.exr`
+(half-float metres, half resolution) and `_relief.png` for the sea, a water mask built from the
+depth raster for the raster's own coast, and `<region>_land.png` / `_land_relief.png` (GMTED2010
+height and hill-shade, presentation only, on the depth raster's grid). Two `ChartLayer` children of
+`TacticalMap` carry the shaders, because the map is a single `_draw()` and a canvas item carries one
+material: `ChartFloor` paints stepped depth bands with the sea relief, and `ChartLand` fills the
+scenario's coastline polygons (the land the simulation uses) with the hypsometric tint and relief;
+the map then strokes a thin coastline. Both share `chart_palette.gdshaderinc`, sample the rasters at
+each fragment's world position and add a world-anchored grain. `map.charted_nm`, written by the
+scenario generator, is the box the coastline polygons were clipped to: inside it the raster's own
+land is painted as coastal water under the polygons; beyond it (and within a 2 nm margin of its
+edge) the raster's coast carries on in the same tint, so the chart runs edge to edge with no
+neatline. F6 toggles relief shading only. `RegionalMap` draws the same layers darker for the theatre
+pane. The simulation never reads the land rasters; its masking heights stay in `Terrain`.
 
 ## Water column (M18)
 `Acoustics` sits between `Detection` (how loud, how good an array) and the sensor cycle:

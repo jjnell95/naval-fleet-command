@@ -1,0 +1,34 @@
+{
+ "region": "arabian_sea",
+ "source": "AWS Open Data Terrain Tiles (Tilezen), Terrarium encoding, zoom 6: GMTED2010 on land",
+ "url": "https://registry.opendata.aws/terrain-tiles/",
+ "credit": "GMTED2010 terrain data courtesy of the U.S. Geological Survey",
+ "license": "Public domain (U.S. Government work)",
+ "tiles": 88,
+ "tiles_sha256": "2d68b0e6212c446482713de570128d88196058d27960df668dac69543cd38751",
+ "bounds_lon_lat": [
+  30.0,
+  8.0,
+  76.0,
+  32.0
+ ],
+ "size_px": [
+  1104,
+  1152
+ ],
+ "cell_deg": [
+  0.041666666666666664,
+  0.020833333333333332
+ ],
+ "row_order": "north_to_south",
+ "encoding": "height_m = height_scale_m * (value / 255)^2; 0 is sea level or below",
+ "height_scale_m": 6000.0,
+ "relief": {
+  "file": "arabian_sea_land_relief.png",
+  "azimuth_deg": 315.0,
+  "altitude_deg": 45.0,
+  "vertical_exaggeration": 7.0,
+  "encoding": "128 is flat"
+ },
+ "note": "Presentation only: the chart's land tint and relief. The simulation never reads it."
+}

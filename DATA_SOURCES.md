@@ -320,6 +320,11 @@ detection horizon from the aircraft's altitude, not the listed antenna height.
 | Damage-control shape | Public accounts of USS *Stark* (1987), HMS *Sheffield* (1982), *Moskva* (2022) | Shape only; every rate is GAMEPLAY_ESTIMATE |
 
 
+## M24: land relief for the chart (27 September 2026)
+| Data | Source | Use |
+|---|---|---|
+| Land heights | GMTED2010 (U.S. Geological Survey), public domain, read through the [AWS Open Data Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Tilezen, Terrarium encoding) at zoom 6, where land is GMTED2010 only ([source table](https://github.com/tilezen/joerd/blob/master/docs/data-sources.md)); tile count and SHA-256 in `data/bathymetry/<region>_land.json`. *GMTED2010 terrain data courtesy of the U.S. Geological Survey.* | Resampled onto each region's sea-floor grid by `tools/scenarios/import_relief.py` into a height code and a baked hill-shade; the chart's hypsometric land tint and relief only. Presentation only: grounding, radar horizons and masking still use the scenario coastlines and their per-landmass heights |
+
 ## M20 aviation and fleet catalogue (23 September 2026)
 
 The [M20 source ledger](docs/AVIATION_ROSTER_M20.md#source-ledger) records primary sources for 18 new platforms, 12 weapons and 16 sensor resources, including CATOBAR, STOVL and helicopter hosts; land-based fighters; maritime patrol; and the French E-2C. The ledger distinguishes established family identities from fictional scenario fittings and marks every combat-performance number as `GAMEPLAY_ESTIMATE`.

@@ -52,11 +52,8 @@ static func run(main: Main) -> void:
 	main._briefing.set_process(true)
 	main.start_scenario(Main.DEFAULT_SCENARIO)
 	main._show_briefing()
-	var b := InputEventKey.new()
-	b.keycode = KEY_B
-	b.pressed = true
-	main._unhandled_key_input(b)
-	checks["briefing blocks chart shortcut"] = not main._wide_chart and SimClock.paused
+	main._unhandled_key_input(_key(KEY_G))
+	checks["briefing blocks chart shortcuts"] = not main._views_swapped and SimClock.paused
 	main._briefing._select_section("orders")
 	main._briefing._start.pressed.emit()
 	checks["take command begins the mission at real time"] = not main._briefing.visible and not SimClock.paused and SimClock.speed_index == 0
@@ -69,64 +66,122 @@ static func run(main: Main) -> void:
 		search_seconds += 60.0
 		main.contact_panel.refresh()
 	checks["convoy watch develops actual sensor contacts"] = not main.contact_panel.visible_tracks().is_empty()
-	main._watch.refresh()
-	checks["watch counts follow the selected contact filter"] = main._watch._buttons[1].disabled == main.contact_panel.visible_tracks().is_empty()
+	# The status boards hold the old command dock; they sit over the chart and do not stop the clock.
+	main._unhandled_key_input(_key(KEY_A))
+	await main.get_tree().process_frame
+	checks["A opens the status boards without touching the clock"] = main.status_boards.visible and SimClock.paused and main.orders_panel.is_visible_in_tree()
+	checks["status boards carry orders, task group, track file and comms"] = main.status_boards._tabs.get_tab_count() == 4
+	main._unhandled_key_input(_key(KEY_ESCAPE))
+	checks["Escape puts the status boards away"] = not main.status_boards.visible
 	if not main.contact_panel.visible_tracks().is_empty():
-		main._watch._buttons[1].pressed.emit()
-		checks["watch contact action selects a held track"] = main.contact_panel.visible_tracks().has(main.map.selected_track)
+		main._cycle_priority_track(1)
+		checks["N hooks a held track from the filtered track file"] = main.contact_panel.visible_tracks().has(main.map.selected_track)
 	main.contact_panel._filter = "AIR"
 	main.contact_panel.refresh()
-	main._watch.refresh()
-	checks["empty contact filter disables watch cycling"] = main._watch._buttons[1].disabled == main.contact_panel.visible_tracks().is_empty()
+	checks["an empty contact filter leaves nothing to cycle"] = main.contact_panel.visible_tracks().is_empty() == (main.contact_panel.cycle_visible_track(1) == null)
 	main.contact_panel._filter = "ALL"
 	main.contact_panel.refresh()
+	# The data display describes the hook: a contact as held, a platform in full, else the mission.
+	var ship: Unit = null
+	for u in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+		if not u.is_aircraft() and u.spec.max_speed_kn > 0.0:
+			ship = u
+			break
+	main.map.select_units([])
+	var held: Array = main.contact_panel.visible_tracks()
+	if not held.is_empty():
+		main.map.select_track(held[0])
+		checks["data display describes the hooked contact"] = _rows_text(main.data_display.build_rows()).contains("TRACK #: %s" % DataDisplay.track_number_for_track(held[0]))
+	main.map.select_track(null)
+	checks["data display shows the tasking with nothing hooked"] = _rows_text(main.data_display.build_rows()).contains("CONTACTS:")
+	main.map.select_units([ship])
+	checks["data display describes the hooked platform"] = _rows_text(main.data_display.build_rows()).contains("CLASS: %s" % ship.spec.display_name.to_upper())
 	await main.get_tree().process_frame
 	await main.get_tree().process_frame
-	var before := main.map.size.x
-	main._watch._buttons[4].pressed.emit()
+	var wide := main.map.size.x
+	main._unhandled_key_input(_key(KEY_G))
 	await main.get_tree().process_frame
 	await main.get_tree().process_frame
-	checks["wide chart makes room without losing command dock"] = main._wide_chart and not main.unit_panel.visible and not main.contact_panel.visible and main.orders_panel.visible and main.map.size.x > before + 400.0
-	checks["layout change preserves pause"] = SimClock.paused
-	main._unhandled_key_input(b)
+	checks["G puts the 3D view on top and the chart in the pane"] = main._world_view.get_parent() == main._upper and main.map.get_parent() == main._view_frame and main.map.size.x < wide - 400.0
+	main._unhandled_key_input(_key(KEY_G))
 	await main.get_tree().process_frame
-	checks["B restores both side panels"] = not main._wide_chart and main.unit_panel.visible and main.contact_panel.visible
-	main._watch.refresh()
-	checks["watch strip shows scenario intent"] = main._watch._values[0].text == str(main.simulation.scenario.get("commander_intent", ""))
-	main._watch._buttons[0].pressed.emit()
-	checks["watch orders opens the mission status"] = main._briefing.visible and SimClock.paused
-	main._hide_screens()
-	checks["closing watch orders preserves prior pause"] = SimClock.paused
-	main._watch._buttons[3].pressed.emit()
 	await main.get_tree().process_frame
-	checks["watch air operations opens launch controls"] = main._air_operations.visible and SimClock.paused
+	checks["G again restores the chart to the top"] = main.map.get_parent() == main._upper and absf(main.map.size.x - wide) < 1.0
+	main._unhandled_key_input(_key(KEY_F10))
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	var screen := main.get_viewport_rect()
+	checks["F10 gives the 3D view the whole window"] = main._world_view.get_global_rect().size.y > screen.size.y * 0.95 and not main._bottom_strip.visible
+	main._unhandled_key_input(_key(KEY_ESCAPE))
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	checks["Escape returns from the full-screen 3D view"] = main._bottom_strip.visible and main.map.get_parent() == main._upper and main.map.visible
+	checks["layout changes preserve pause"] = SimClock.paused
+	# Right-click: the CDS menu with nothing hooked, the Orders menu on a platform.
+	main._on_map_context(main.map.size * 0.5, {"kind": "empty"})
+	checks["right-click opens the CDS menu"] = main._cds_menus.is_open()
+	main._cds_menus.close()
+	main._on_map_context(main.map.world_to_screen(ship.position), {"kind": "own_unit", "unit": ship})
+	checks["right-click on a platform opens its orders"] = main._cds_menus.is_open() and main._cds_menus._root.item_count >= 6
+	main._cds_menus.close()
+	var water := ship.position + Vector2(0.0, 3.0)
+	if Terrain.is_land(water):
+		water = ship.position + Vector2(0.0, -3.0)
+	main.map.move_order_requested.emit(water, false)
+	checks["right-click on water sends the hooked platform there"] = not ship.waypoints.is_empty() and ship.waypoints[ship.waypoints.size() - 1].distance_to(water) < 0.01
+	main.radio.flash("Radio check", "warn", ship)
+	checks["the radio net reaches the chart, the comms board and the lamp"] = main.radio.history[0].ends_with("%s: Radio check" % ship.callsign) and main.status_boards.message_count() > 0 and main.data_display.unread_alerts > 0
+	main._run_palette_action("air_operations")
+	await main.get_tree().process_frame
+	checks["air operations opens launch controls"] = main._air_operations.visible and SimClock.paused
 	main._close_air_operations(false)
 	checks["air operations closes without unpausing"] = not main._air_operations.visible and SimClock.paused
+	main._unhandled_key_input(_key(KEY_H))
+	checks["H shows the key commands and pauses"] = main._key_help.visible and SimClock.paused
+	main._unhandled_key_input(_key(KEY_X))
+	checks["any key puts the key commands away"] = not main._key_help.visible and SimClock.paused
 	# Space pauses exactly once even with a button holding keyboard focus; a focused button
 	# would otherwise also answer Space.
 	main._hide_screens()
+	main.status_boards.open_board(StatusBoards.BOARD_ORDERS)
+	await main.get_tree().process_frame
 	var paused_before := SimClock.paused
-	main.top_bar._pause_btn.focus_mode = Control.FOCUS_ALL
-	main.top_bar._pause_btn.grab_focus()
+	var button: Button = main.orders_panel._move_btn
+	button.focus_mode = Control.FOCUS_ALL
+	button.grab_focus()
 	var space := InputEventKey.new()
 	space.keycode = KEY_SPACE
 	space.pressed = true
 	main.get_viewport().push_input(space)
 	checks["space toggles pause once with a button focused"] = SimClock.paused != paused_before
+	main.status_boards.close_boards()
 	SimClock.set_paused(true)
 	main._toggle_command_palette()
-	checks["chart layout is discoverable in actions"] = main._command_palette._actions.any(func(a: Dictionary) -> bool: return a["id"] == "wide_chart")
+	checks["the chart and 3D layout is discoverable in actions"] = main._command_palette._actions.any(func(a: Dictionary) -> bool: return a["id"] == "swap_views")
 	main._command_palette.close_palette()
 	await main.get_tree().process_frame
 	await main.get_tree().process_frame
 	var bounds := main.get_viewport_rect().grow(1.0)
 	var fits := true
-	for control: Control in [main, main.top_bar, main._watch, main.map, main.unit_panel, main.contact_panel, main.orders_panel]:
+	for control: Control in [main, main.map, main.regional, main._world_view, main.data_display]:
 		var rect := control.get_global_rect()
 		if not bounds.encloses(rect):
 			print("[Layout] %s %s outside %s" % [control.name, rect, bounds])
 		fits = fits and bounds.encloses(rect) and rect.size.x > 0 and rect.size.y > 0
-	checks["command deck fits the viewport"] = fits
+	checks["command screen fits the viewport"] = fits
+	checks["the chart has the top two-thirds of the screen"] = absf(main.map.size.y / bounds.size.y - 0.68) < 0.03 and main.map.size.x >= bounds.size.x - 3.0
+	checks["the regional map is square"] = absf(main.regional.size.x - main.regional.size.y) < 4.0
+	# A new operation opens on the normal layout at its own framing, even from a swapped screen.
+	main.start_scenario(Main.DEFAULT_SCENARIO)
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	var opening_ppn := main.map.ppn
+	main._swap_views()
+	await main.get_tree().process_frame
+	main.start_scenario(Main.DEFAULT_SCENARIO)
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	checks["a scenario started from a swapped screen opens on the chart at its own framing"] = not main._views_swapped and main.map.get_parent() == main._upper and absf(main.map.ppn - opening_ppn) < 0.001
 	var failed := 0
 	for label: String in checks:
 		print("[Cold War UI] %s %s" % ["PASS" if checks[label] else "FAIL", label])
@@ -143,3 +198,21 @@ static func run(main: Main) -> void:
 				failed += 1
 				push_error("Failed to write Cold War command capture: %s" % error)
 	main.get_tree().quit(1 if failed else 0)
+
+
+static func _key(code: Key) -> InputEventKey:
+	var k := InputEventKey.new()
+	k.keycode = code
+	k.pressed = true
+	return k
+
+
+static func _rows_text(rows: Array) -> String:
+	var lines := PackedStringArray()
+	for row: Array in rows:
+		var line := ""
+		for span: Array in row:
+			if str(span[0]) != "FLOW":
+				line += str(span[0])
+		lines.append(line)
+	return "\n".join(lines)

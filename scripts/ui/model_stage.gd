@@ -36,7 +36,7 @@ func _ready() -> void:
 	var env_node := WorldEnvironment.new()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("0b1723")
+	env.background_color = UITheme.COL_BG
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("adc5dc")
 	env.ambient_light_energy = 0.18
@@ -193,12 +193,12 @@ func _process(delta: float) -> void:
 		_camera_pose()
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("0b1723"))
+	draw_rect(Rect2(Vector2.ZERO, size), UITheme.COL_BG)
 	# A quiet studio graticule, with no animated sweep to suggest sensor truth.
 	for x in range(0, int(size.x), 48):
-		draw_line(Vector2(x, 0), Vector2(x, size.y), Color("142738"), 1)
+		draw_line(Vector2(x, 0), Vector2(x, size.y), UITheme.COL_HAIRLINE, 1)
 	for y in range(0, int(size.y), 48):
-		draw_line(Vector2(0, y), Vector2(size.x, y), Color("142738"), 1)
+		draw_line(Vector2(0, y), Vector2(size.x, y), UITheme.COL_HAIRLINE, 1)
 	if _model == null and _fallback != null:
 		var s := minf(size.x / _fallback.get_width(), size.y / _fallback.get_height())
 		var wh := _fallback.get_size() * s

@@ -138,7 +138,9 @@ In the order I would do it.
   selected, in `OrdersPanel._refresh_row_visibility()`. Adding a fifth row will clip off the bottom
   of a 900 px window unless the map gives up height.
 - **The theme is built in code** in `ui_theme.gd` and applied to the root. There is no theme
-  resource to edit in the editor.
+  resource to edit in the editor. There are two families: `build()` (grey chrome, navy text) and
+  `data_theme()` (navy panels, light text). A panel of data sets `UITheme.use_data_surface(self)`;
+  a Label's colour follows the nearest theme, so a label on the wrong surface is unreadable.
 - **The map is one `_draw()` call**, not a node per unit. Hit testing is manual, nearest symbol
   within 14 px. If you move to nodes, selection and the box-select rectangle both need rewriting.
 - **Original assets only.** See `assets/README.md`.

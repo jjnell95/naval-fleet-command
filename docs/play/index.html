@@ -192,7 +192,7 @@ kbd {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":55468544,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":58713208,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
@@ -203,13 +203,15 @@ const engine = new Engine(GODOT_CONFIG);
 	const totalBytes = Object.values(GODOT_CONFIG.fileSizes).reduce((a, b) => a + b, 0);
 	const TIPS = [
 		"<kbd>Space</kbd> pauses the clock at any time. Think, then act.",
-		"Press <kbd>G</kbd>, then click the water, to plot a course. <kbd>Shift</kbd> adds waypoints.",
+		"Hook a ship, then <b>right-click</b> the water to send it there. <kbd>Shift</kbd> adds a waypoint.",
+		"<b>Right-click</b> your own ship for its orders, a contact to engage it. <kbd>H</kbd> lists every key command.",
 		"A passive sonar bearing is not a range. <b>Manoeuvre</b> to firm the contact up.",
 		"<kbd>F1</kbd> reopens your orders. <kbd>Ctrl</kbd> <kbd>K</kbd> or <kbd>⌘</kbd> <kbd>K</kbd> finds any command.",
 		"Unknown contacts are not free targets. <b>Classify</b> before you commit a salvo.",
 		"<kbd>1</kbd>–<kbd>6</kbd> set time compression. The clock drops to real time when contact is made.",
 		"<kbd>F3</kbd> opens air operations: launch, recover and turn round the air wing.",
-		"<kbd>T</kbd> opens the world view: the sea around your ship, showing only what you actually know.",
+		"The 3D view shows only what you actually know. <kbd>T</kbd> changes camera; <kbd>G</kbd> swaps it with the chart.",
+		"<kbd>A</kbd> opens the status boards: orders, task group, track file and comms.",
 		"A battery ashore fires on the picture it is handed. Kill the spotter and it is blind.",
 		"Ski-jump carriers launch two aircraft at a time and recover one. Plan the deck, not just the sortie.",
 	];

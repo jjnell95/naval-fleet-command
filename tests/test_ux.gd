@@ -55,20 +55,24 @@ func test_priority_track_cycle_selects_centers_and_wraps() -> void:
 	manager.free()
 
 
-func test_tactical_overview_transform_round_trips_with_offset_theatre() -> void:
+func test_regional_map_transform_round_trips_with_offset_theatre() -> void:
 	var simulation := Simulation.new()
 	simulation.map_center = Vector2(320, -175)
 	simulation.map_extent_nm = 480.0
 	var map := TacticalMap.new()
 	map.simulation = simulation
-	var overview := TacticalOverview.new()
-	overview.map = map
-	overview.size = Vector2(236, 158)
+	var regional := RegionalMap.new()
+	regional.map = map
+	regional.size = Vector2(288, 288)
 	for world in [Vector2(320, -175), Vector2(410, -80), Vector2(210, -290)]:
-		var recovered := overview.overview_to_world(overview.world_to_overview(world))
-		assert_near(recovered.x, world.x, 0.001, "overview preserves world x")
-		assert_near(recovered.y, world.y, 0.001, "overview preserves world y")
-	overview.free()
+		var recovered := regional.regional_to_world(regional.world_to_regional(world))
+		assert_near(recovered.x, world.x, 0.001, "regional map preserves world x")
+		assert_near(recovered.y, world.y, 0.001, "regional map preserves world y")
+	assert_eq(regional.world_to_regional(Vector2(320, -175)), Vector2(144, 144), "the theatre centre is the pane centre")
+	var half := regional.wanted_extent_nm() * 0.5
+	assert_near(regional.world_to_regional(Vector2(320, -175 + half)).y, 0.0, 0.001, "the pane's extent spans the square pane, north up")
+	assert_true(regional.wanted_extent_nm() >= 480.0, "and holds the whole theatre")
+	regional.free()
 	map.free()
 	simulation.free()
 
@@ -79,13 +83,48 @@ func test_tactical_map_layer_toggles_return_and_store_the_new_state() -> void:
 	assert_true(map.show_rings)
 	assert_true(not map.toggle_layer("sensors"), "sensor rings turn back off")
 	assert_true(not map.show_rings)
-	assert_true(map.toggle_layer("vectors"), "vectors turn on")
-	assert_true(map.show_vectors)
+	assert_true(not map.toggle_layer("leaders"), "velocity leaders start on (Shift+V) and turn off")
+	assert_true(not map.show_leaders)
+	assert_true(map.toggle_layer("vectors"), "the old vectors name is the same switch")
+	assert_true(map.show_leaders and map.show_vectors)
+	assert_true(not map.toggle_layer("track_numbers"), "track numbers start on (Shift+K) and turn off")
+	assert_true(not map.show_track_numbers)
+	assert_true(map.toggle_layer("tags"), "tags start off (Shift+I) and turn on")
+	assert_true(map.show_tags)
+	assert_true(not map.toggle_layer("routes"), "PIM legs start on and turn off")
 	assert_true(not map.toggle_layer("trails"), "trails start on and turn off")
 	assert_true(not map.show_trails)
-	assert_true(not map.toggle_layer("terrain"), "terrain starts on and turns off")
+	assert_true(not map.toggle_layer("terrain"), "relief shading (F6) starts on and turns off")
+	assert_true(not map.show_terrain)
+	assert_true(map.toggle_layer("relief"), "relief is the same switch under its own name")
+	assert_true(map.show_terrain)
 	assert_true(map.toggle_layer("range_grid"), "range grid turns on")
 	assert_true(map.toggle_layer("key"), "symbol key turns on")
+	assert_true(map.toggle_layer("graticule"), "the graticule starts off and turns on")
+	assert_true(map.show_graticule)
+	assert_true(not map.toggle_layer("latlon"), "the lat/long readout starts on (Ctrl+L) and turns off")
+	assert_true(not map.show_latlon)
+	assert_true(not map.toggle_layer("scale"), "the scale bar starts on (Ctrl+S) and turns off")
+	assert_true(not map.show_scale)
+	for filter in ["hostiles", "allied", "neutrals", "unknowns"]:
+		assert_true(map.has_layer(filter), "%s are shown by default" % filter)
+	assert_true(not map.toggle_layer("threats"), "the CDS menu's Threats filter hides hostiles")
+	assert_true(not map.has_layer("hostiles"))
+	assert_true(map.has_layer("tags") and map.has_layer("leaders") and not map.has_layer("track_numbers"), "has_layer reports the state menus check")
+	assert_true(not map.toggle_layer("no_such_layer") and not map.has_layer("no_such_layer"), "an unknown layer is off and stays off")
+	map.free()
+
+
+func test_symbol_mode_cycles_ntds_small_medium_large() -> void:
+	var map := TacticalMap.new()
+	assert_eq(map.symbol_mode, TacticalMap.SymbolMode.NTDS, "NTDS symbols by default")
+	assert_eq(map.cycle_symbol_mode(), TacticalMap.SymbolMode.SMALL)
+	assert_eq(map.symbol_mode_name(), "Small")
+	assert_eq(map.cycle_symbol_mode(), TacticalMap.SymbolMode.MEDIUM)
+	assert_eq(map.cycle_symbol_mode(), TacticalMap.SymbolMode.LARGE)
+	assert_eq(map.cycle_symbol_mode(), TacticalMap.SymbolMode.NTDS, "Tab wraps back to NTDS")
+	map.set_symbol_mode(2)
+	assert_eq(map.symbol_mode_name(), "Medium", "the CDS menu can pick a mode directly")
 	map.free()
 
 
@@ -114,9 +153,10 @@ func test_multi_selection_focus_fits_the_group_with_margin() -> void:
 	]
 	map.center_on_selection()
 	var chart := map.unobstructed_chart_rect()
+	assert_eq(chart, Rect2(Vector2.ZERO, map.size), "the chart has no chrome: the whole control is chart")
 	var visual_center := map.world_to_screen(Vector2(10, 10))
 	assert_near(visual_center.x, chart.get_center().x, 0.001, "group centre lands in the unobstructed chart centre")
-	assert_near(visual_center.y, chart.get_center().y, 0.001, "group centre clears header and command overlays")
+	assert_near(visual_center.y, chart.get_center().y, 0.001, "group centre lands in the chart centre")
 	assert_near(map.ppn, minf(chart.size.x, chart.size.y) / 60.0, 0.001, "group focus includes the documented margin inside safe bounds")
 	for u: Unit in map.selected:
 		var screen := map.world_to_screen(u.position)
@@ -162,7 +202,7 @@ func test_manual_recovery_clears_follow_and_uses_safe_chart_center() -> void:
 	map.free()
 
 
-func test_drag_release_over_header_clears_the_input_latch() -> void:
+func test_drag_release_at_the_chart_edge_clears_the_input_latch() -> void:
 	var map := TacticalMap.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
 	root.add_child(map)
@@ -176,10 +216,191 @@ func test_drag_release_over_header_clears_the_input_latch() -> void:
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_RIGHT
 	release.pressed = false
-	release.position = Vector2(400, 4)
+	release.position = Vector2(400, -12)
 	map._gui_input(release)
-	assert_eq(map._drag_mode, TacticalMap.DragMode.NONE, "release over the header still ends the owned drag")
+	assert_eq(map._drag_mode, TacticalMap.DragMode.NONE, "release past the chart's top edge still ends the owned drag")
 	map.free()
+
+
+## A map in the tree with a ship at (-20, 0) nm, a hostile contact at (20, 0) nm and a waypoint
+## at (0, 20) nm; 4 px/nm about the origin, so world (x, y) is at pixel (500 + 4x, 350 - 4y).
+func _right_click_fixture() -> Dictionary:
+	Terrain.clear()
+	Bathymetry.clear()
+	var manager := UnitManager.new()
+	var ship := _unit("usn_ddg_burke_iii", "BLUE", Vector2(-20, 0))
+	ship.waypoints.append(Vector2(0, 20))
+	manager.add_unit(ship)
+	var tracks := TrackManager.new()
+	var hostile := _track("T1007", "HOSTILE", Vector2(20, 0))
+	tracks._tracks["BLUE"] = [hostile]
+	var map := TacticalMap.new()
+	map.unit_manager = manager
+	map.track_manager = tracks
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(map)
+	map.size = Vector2(1000, 700)
+	map.center_nm = Vector2.ZERO
+	map.ppn = 4.0
+	var events := {"move": [], "context": [], "engage": [], "delete": []}
+	map.move_order_requested.connect(func(w: Vector2, append: bool) -> void: events["move"].append([w, append]))
+	map.context_menu_requested.connect(func(at: Vector2, ctx: Dictionary) -> void: events["context"].append([at, ctx]))
+	map.engage_requested.connect(func(t: Track) -> void: events["engage"].append(t))
+	map.waypoint_delete_requested.connect(func(u: Unit, i: int) -> void: events["delete"].append([u, i]))
+	return {"map": map, "manager": manager, "tracks": tracks, "ship": ship, "hostile": hostile, "events": events}
+
+
+func _free_fixture(f: Dictionary) -> void:
+	(f["map"] as Node).free()
+	(f["manager"] as Node).free()
+	(f["tracks"] as Node).free()
+	Terrain.clear()
+
+
+func _right_click(map: TacticalMap, at: Vector2, shift := false, ctrl := false, drag_to := Vector2.INF) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_RIGHT
+	press.pressed = true
+	press.position = at
+	map._gui_input(press)
+	if drag_to != Vector2.INF:
+		var motion := InputEventMouseMotion.new()
+		motion.position = drag_to
+		motion.relative = drag_to - at
+		map._gui_input(motion)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_RIGHT
+	release.pressed = false
+	release.position = drag_to if drag_to != Vector2.INF else at
+	release.shift_pressed = shift
+	release.ctrl_pressed = ctrl
+	map._gui_input(release)
+
+
+func test_right_click_on_open_water_transits_the_hooked_unit_there() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var events: Dictionary = f["events"]
+	map.select_units([f["ship"]])
+	_right_click(map, Vector2(500, 450))
+	assert_eq(events["move"].size(), 1, "a right-click on water is a MOVE order at once")
+	assert_eq(events["move"][0][0], Vector2(0, -25), "to the world point under the cursor")
+	assert_true(not events["move"][0][1], "a plain right-click replaces the route")
+	_right_click(map, Vector2(520, 450), true)
+	assert_true(events["move"][1][1], "Shift+right-click appends a leg")
+	assert_true(events["context"].is_empty(), "no menu when the chart acted by itself")
+	assert_eq(map._drag_mode, TacticalMap.DragMode.NONE, "the right press that began a pan is released")
+	_right_click(map, Vector2(500, 450), false, false, Vector2(560, 470))
+	assert_eq(events["move"].size(), 2, "a right-drag pans and orders nothing")
+	assert_true(events["context"].is_empty(), "and asks for no menu")
+	_free_fixture(f)
+
+
+func test_right_click_on_a_track_hooks_it_and_asks_for_the_engage_menu() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var events: Dictionary = f["events"]
+	map.select_units([f["ship"]])
+	_right_click(map, Vector2(580, 352))
+	assert_eq(map.selected_track, f["hostile"], "the contact is hooked before the menu opens")
+	assert_eq(events["context"].size(), 1)
+	var ctx: Dictionary = events["context"][0][1]
+	assert_eq(ctx["kind"], "track")
+	assert_eq(ctx["track"], f["hostile"])
+	assert_eq(events["context"][0][0], Vector2(580, 352), "the menu opens where the click was")
+	assert_true(ctx.has("viewport_pos"), "with a position to place a popup in the viewport")
+	assert_true(events["move"].is_empty(), "a contact is never a move destination")
+	_right_click(map, Vector2(580, 352), false, true)
+	assert_eq(events["engage"], [f["hostile"]], "Ctrl/Cmd+right-click still engages at once")
+	assert_eq(events["context"].size(), 1, "without a menu")
+	_free_fixture(f)
+
+
+func test_right_click_on_an_own_unit_hooks_it_for_the_orders_menu() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var events: Dictionary = f["events"]
+	_right_click(map, Vector2(421, 349))
+	assert_eq(map.selected, [f["ship"]], "the unit under the cursor is hooked")
+	assert_eq(events["context"].size(), 1)
+	assert_eq(events["context"][0][1]["kind"], "own_unit")
+	assert_eq(events["context"][0][1]["unit"], f["ship"])
+	assert_true(events["move"].is_empty(), "right-clicking the hooked unit is not a move onto itself")
+	_free_fixture(f)
+
+
+func test_right_click_on_a_waypoint_offers_the_leg_instead_of_deleting_it() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var events: Dictionary = f["events"]
+	map.select_units([f["ship"]])
+	_right_click(map, Vector2(502, 272))
+	assert_true(events["delete"].is_empty(), "a bare right-click no longer drops the leg")
+	assert_true(events["move"].is_empty(), "nor orders a move onto the waypoint")
+	var ctx: Dictionary = events["context"][0][1]
+	assert_eq(ctx["kind"], "waypoint")
+	assert_eq(ctx["waypoint_unit"], f["ship"])
+	assert_eq(ctx["waypoint_index"], 0)
+	map.request_waypoint_delete(ctx["waypoint_unit"], ctx["waypoint_index"])
+	assert_eq(events["delete"], [[f["ship"], 0]], "the shell's Delete leg goes out on the old signal")
+	map.request_waypoint_delete(f["ship"], 3)
+	assert_eq(events["delete"].size(), 1, "a leg that does not exist is not requested")
+	_free_fixture(f)
+
+
+func test_right_click_with_nothing_hooked_or_on_land_asks_for_a_menu() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var events: Dictionary = f["events"]
+	_right_click(map, Vector2(500, 450))
+	assert_eq(events["context"][0][1]["kind"], "water", "nothing hooked: the CDS menu, over water")
+	assert_eq(events["context"][0][1]["world_pos"], Vector2(0, -25))
+	assert_true(events["move"].is_empty())
+	Terrain.load_from({"terrain": {"land": [{"id": "cape", "name": "Cape", "elevation_m": 50.0, "points_nm": [[-5, -40], [5, -40], [5, -30], [-5, -30]]}]}})
+	map.select_units([f["ship"]])
+	_right_click(map, Vector2(500, 490))
+	assert_true(events["move"].is_empty(), "a hull is not ordered onto land")
+	assert_eq(events["context"][1][1]["kind"], "empty", "land with nothing on it")
+	var jet := _unit("usn_fighter_f35c", "BLUE", Vector2(-10, 10))
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	(f["manager"] as UnitManager).add_unit(jet)
+	map.select_units([jet])
+	_right_click(map, Vector2(500, 490))
+	assert_eq(events["move"].size(), 1, "an aircraft transits over land")
+	_free_fixture(f)
+
+
+func test_move_mode_right_click_still_cancels_the_tool() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var events: Dictionary = f["events"]
+	map.select_units([f["ship"]])
+	map.set_move_mode(true)
+	_right_click(map, Vector2(500, 450))
+	assert_eq(map.interaction_mode, TacticalMap.InteractionMode.SELECT, "right-click leaves Plot Move")
+	assert_true(events["move"].is_empty() and events["context"].is_empty(), "and does nothing else")
+	_free_fixture(f)
+
+
+func test_context_classification_reads_the_chart_under_the_cursor() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	assert_eq(map.context_at(Vector2(421, 349))["kind"], "own_unit")
+	assert_eq(map.context_at(Vector2(580, 352))["kind"], "track")
+	assert_eq(map.context_at(Vector2(502, 272))["kind"], "waypoint")
+	assert_eq(map.context_at(Vector2(700, 600))["kind"], "water")
+	var water := map.context_at(Vector2(700, 600))
+	assert_true(water["unit"] == null and water["track"] == null and water["waypoint_unit"] == null and water["waypoint_index"] == -1, "unused fields are empty")
+	map.toggle_layer("hostiles")
+	assert_eq(map.context_at(Vector2(580, 352))["kind"], "water", "a filtered contact cannot be clicked")
+	map.toggle_layer("hostiles")
+	var near_both := map.context_at(Vector2(420, 350))
+	(f["ship"] as Unit).position = Vector2(20, 1)
+	assert_eq(map.context_at(Vector2(580, 350))["kind"], "own_unit", "an own unit wins over a contact under it")
+	assert_eq(near_both["kind"], "own_unit")
+	Terrain.load_from({"terrain": {"land": [{"id": "isle", "name": "Isle", "elevation_m": 50.0, "points_nm": [[40, 40], [60, 40], [60, 60], [40, 60]]}]}})
+	assert_eq(map.context_at(map.world_to_screen(Vector2(50, 50)))["kind"], "empty", "land the chart shows")
+	_free_fixture(f)
 
 
 func test_stowed_aircraft_and_unsupported_system_orders_are_refused() -> void:

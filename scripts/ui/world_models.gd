@@ -50,7 +50,7 @@ func _instantiate(model_id: String) -> Node3D:
 	return node
 
 
-## Generic contact shapes and the sonobuoy float, all normalised to 10 units along +X like the
+## Generic contact shapes, a shell's tracer and the sonobuoy float, all normalised to 10 units along +X like the
 ## GLBs, so one scale rule serves everything.
 static func _marker(kind: String) -> Node3D:
 	var root := Node3D.new()
@@ -72,6 +72,15 @@ static func _marker(kind: String) -> Node3D:
 			dart.height = 10.0
 			dart.radial_segments = 10
 			mi.mesh = dart
+			mi.rotation.z = deg_to_rad(-90.0)
+		"tracer":
+			var streak := CylinderMesh.new()
+			streak.top_radius = 0.35
+			streak.bottom_radius = 0.08
+			streak.height = 10.0
+			streak.radial_segments = 6
+			streak.rings = 1
+			mi.mesh = streak
 			mi.rotation.z = deg_to_rad(-90.0)
 		"buoy":
 			var can := CylinderMesh.new()

@@ -7,7 +7,7 @@ All meshes are original procedural game art. They show public recognition featur
 | File | Purpose |
 | --- | --- |
 | `platforms/<id>_beauty.png` | Lit three-quarter model in the unit card and mission menu |
-| `platforms/<id>_plan.png` | Colour plan view on the tactical map; bow right, 1.10 framing margin |
+| `platforms/<id>_plan.png` | Colour plan view for the tactical map's graphic symbols; bow right, 1.10 framing margin. Imported no larger than 384 px (`process/size_limit=384` in its `.import`; a new platform needs it too) |
 | `platforms/<id>_profile.png` | Original monochrome recognition drawing retained as a fallback |
 | `weapons/<id>_beauty.png` | Weapon-family recognition render |
 | `platforms/<id>_thumb.png`, `weapons/<id>_thumb.png` | 240 × 128 gallery and loadout thumbnails |
@@ -66,4 +66,30 @@ Xvfb), trimesh 5.1 and Pillow.
 
 ## Fonts and licences
 
-The game bundles Barlow Condensed, IBM Plex Sans and IBM Plex Mono from the Google Fonts repository. Their SIL Open Font License files are included beside the fonts in `fonts/`. Font sources: [Barlow Condensed](https://github.com/google/fonts/tree/main/ofl/barlowcondensed), [IBM Plex Sans](https://github.com/google/fonts/tree/main/ofl/ibmplexsans), [IBM Plex Mono](https://github.com/google/fonts/tree/main/ofl/ibmplexmono).
+Every font is a permissively licensed family, subset to Latin, Latin-1 and Latin Extended-A plus the
+punctuation, arrows, geometric shapes and dingbats the interface draws (`pyftsubset`, hinting dropped;
+Godot hints at runtime). Licence files sit beside the fonts in `fonts/`.
+
+| File | Family | Used for | Licence | Source |
+|---|---|---|---|---|
+| `DejaVuSans-Bold.ttf` | DejaVu Sans Bold | the data face: data display, chart readouts, track numbers, table figures | Bitstream Vera licence with the DejaVu changes in the public domain (`DejaVu-LICENSE.txt`); the subset keeps the DejaVu name, which the licence allows (it restricts only the names "Bitstream" and "Vera") | npm `dejavu-fonts-ttf` 2.37.3 |
+| `DejaVuSansCondensed-Bold.ttf` | DejaVu Sans Condensed Bold | the interface face: dialogs, menus, lists, buttons, briefings | as above | as above |
+| `BarlowSemiCondensed-BlackItalic.ttf` | Barlow Semi Condensed Black Italic | the wordmark, NAVAL FLEET COMMAND | SIL Open Font License 1.1, no Reserved Font Name (`Barlow-OFL.txt`) | [google/fonts](https://github.com/google/fonts/tree/main/ofl/barlowsemicondensed) |
+| `BarlowCondensed-ExtraBoldItalic.ttf` | Barlow Condensed ExtraBold Italic | yellow front-end captions, the big menu buttons, dialog titles | as above | [google/fonts](https://github.com/google/fonts/tree/main/ofl/barlowcondensed) |
+
+The web page under `docs/` keeps its own woff2 copies of Barlow Condensed and IBM Plex with their
+licences in `docs/fonts/`; the game no longer ships Plex.
+
+## Front-end backdrop
+
+`ui/frontend_backdrop.jpg` (1600 x 900) is rendered from the game's own 3D world, not painted or
+photographed: `tools/art/render_backdrop.gd` loads a scenario, poses the player's task group in a
+close formation, sets the sun a few degrees above the evening horizon, renders the WorldView pane at
+full window, then darkens, softly blurs and vignettes it. Regenerate with
+
+```
+xvfb-run -a -s "-screen 0 1600x900x24" godot --path . --resolution 1600x900 \
+    --script tools/art/render_backdrop.gd -- --scenario=res://data/scenarios/aegis_bastion.json \
+    "--subject=USS Truxtun (DDG 103)" --spacing=0.2 --sun-side=22 --range=1.25 --pitch=4
+godot --headless --path . --import --quit
+```

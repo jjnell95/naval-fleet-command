@@ -21,6 +21,8 @@ var _portrait: PlatformPortrait
 
 
 func _ready() -> void:
+	# A data panel: navy, with the data display's text colours; buttons stay grey chrome.
+	UITheme.use_data_surface(self)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	add_child(v)
@@ -165,7 +167,7 @@ func _first_active_range(u: Unit) -> float:
 
 ## A status chip. Non-breaking spaces keep a chip on one line when the row wraps.
 func _chip(text: String, hex: String) -> String:
-	return "[bgcolor=#111d28][color=%s]\u00a0%s\u00a0[/color][/bgcolor]" % [hex, text.replace(" ", "\u00a0")]
+	return "[bgcolor=%s][color=%s]\u00a0%s\u00a0[/color][/bgcolor]" % [UITheme.HEX_CHIP, hex, text.replace(" ", "\u00a0")]
 
 
 func _h(text: String) -> String:
@@ -185,13 +187,16 @@ func _refresh() -> void:
 		_body.text = "\n".join([
 			_h("CONTROLS"),
 			_kv("Click", "select   ·   Shift+click add"),
-			_kv("G / Move", "arm route   ·   left-click water   ·   Shift chains"),
+			_kv("Right-click", "water: transit   ·   platform: orders   ·   contact: engage"),
+			_kv("W / Route", "arm route   ·   left-click water   ·   Shift chains"),
 			_kv("Pan", "middle/right/Option-drag"),
-			_kv("Wheel", "zoom   ·   WASD pan"),
+			_kv("Wheel", "zoom   ·   arrow keys pan"),
 			_kv("Space", "pause   ·   1–6 time speed"),
 			_kv("R / P / E", "radar · ping · emissions control"),
 			_kv("F1", "briefing   ·   F2 key   ·   F4 rings"),
-			_kv("F3", "air operations   ·   F5 trails   ·   F6 land"),
+			_kv("F3", "air operations   ·   F5 trails   ·   F6 relief"),
+			_kv("G / F10", "swap chart and 3D   ·   3D full screen"),
+			_kv("A / H", "status boards   ·   key commands"),
 			_h("HOW TO FIGHT"),
 			"Build the picture first: get your airborne early warning up, keep the fighters on the threat axis, and let contacts classify before you shoot. Ships defend themselves; you decide emissions, posture, station and magazines.",
 		])
@@ -213,11 +218,11 @@ func _refresh() -> void:
 		if not u.datalink_connected():
 			chips.append(_chip("OFF LINK", UITheme.HEX_AMBER))
 		if u.jamming():
-			chips.append(_chip("JAMMING", "#f08cf0"))
+			chips.append(_chip("JAMMING", UITheme.HEX_EW))
 		if u.fire > 0.0:
 			chips.append(_chip("FIRE %d%%%s" % [int(round(u.fire * 100.0)), " SPREADING" if Damage.fire_out_of_control(u, _units_near(u)) else ""], UITheme.HEX_RED))
 		if u.flooding > 0.0:
-			chips.append(_chip("FLOODING %d%%" % int(round(u.flooding * 100.0)), "#5aa0ff"))
+			chips.append(_chip("FLOODING %d%%" % int(round(u.flooding * 100.0)), UITheme.HEX_FLOOD))
 		if Damage.repairing(u):
 			chips.append(_chip("DAMAGE CONTROL", UITheme.HEX_AMBER))
 		lines.append(" ".join(chips))
@@ -281,7 +286,7 @@ func _refresh() -> void:
 			lines.append("  [color=%s]~%.0f nm vs surface (horizon) · %.0f nm vs air[/color]" % [UITheme.HEX_DIM, Detection.nominal_radar_ring_nm(u), _best_air_range(u)])
 		for s in u.sensors:
 			if s.kind == "jammer":
-				lines.append("  %s  [color=%s]%s[/color]" % [s.display_name, "#f08cf0" if u.jamming() else UITheme.HEX_DIM, "RADIATING %.0f nm" % s.jam_range_nm if u.jamming() else "OFF"])
+				lines.append("  %s  [color=%s]%s[/color]" % [s.display_name, UITheme.HEX_EW if u.jamming() else UITheme.HEX_DIM, "RADIATING %.0f nm" % s.jam_range_nm if u.jamming() else "OFF"])
 		if u.has_esm():
 			lines.append("  ESM passive, ~%.0f nm against a radiating ship" % Detection.nominal_esm_ring_nm(u))
 		if u.has_sonar():
