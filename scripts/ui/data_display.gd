@@ -34,6 +34,8 @@ const GREEN := "green"
 const MARGIN := Vector2(9.0, 6.0)
 const REFRESH_S := 0.25
 const MAX_WEAPONS := 12
+## The jobs the WEAPONS line states a reach for, in reading order: the label, and the weapon type it covers.
+const REACH_JOBS := [["STRIKE", "asm"], ["AAM", "aam"], ["AAW", "sam"], ["CIWS", "ciws"], ["GUN", "gun"], ["TORP", "torpedo"]]
 
 var map: TacticalMap
 var simulation: Simulation
@@ -169,9 +171,6 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 ## that strikes, the farthest that shoots down aircraft, the close-in mount, the gun, the torpedo.
 ## The rows below list every system with its count; this line is what tells a ship that carries a
 ## single close-in gun from one that carries a cruise missile. A job the hull cannot do is left out.
-const REACH_JOBS := [["STRIKE", "asm"], ["AAM", "aam"], ["AAW", "sam"], ["CIWS", "ciws"], ["GUN", "gun"], ["TORP", "torpedo"]]
-
-
 static func reach_spans(u: Unit) -> Array:
 	var best := {}
 	for w in u.weapons:
