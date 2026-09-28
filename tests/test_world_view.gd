@@ -1092,3 +1092,78 @@ func test_chart_flashes_only_what_the_player_could_know() -> void:
 	map.free()
 	_free_all(m)
 	Detection.environment = saved
+
+
+# --- Finishes -------------------------------------------------------------------------------
+
+## Every material name the shipped models use has a finish in the 3D view; a new name would keep
+## its flat authored colour there without anyone noticing.
+func test_every_model_material_has_a_world_finish() -> void:
+	var unknown := {}
+	var models := 0
+	for spec in DataDB.all_platforms() + DataDB.all_weapons():
+		var path := "res://assets/models/%s.glb" % spec.id
+		if not ResourceLoader.exists(path):
+			continue
+		var node := (load(path) as PackedScene).instantiate()
+		models += 1
+		for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+			for i in mi.mesh.get_surface_count():
+				var m := mi.mesh.surface_get_material(i)
+				var material_name := m.resource_name if m != null else ""
+				if not WorldMaterials.TABLE.has(material_name):
+					unknown[material_name] = spec.id
+		node.free()
+	assert_true(models > 250, "the whole catalogue was looked at (%d models)" % models)
+	assert_eq(unknown, {}, "material names with no finish, and a model that uses each")
+
+
+func test_dressing_swaps_finishes_by_navy_and_a_tint_lifts_back_to_them() -> void:
+	var burke := (load("res://assets/models/usn_ddg_burke_iii.glb") as PackedScene).instantiate()
+	var slava := (load("res://assets/models/rfn_cg_slava.glb") as PackedScene).instantiate()
+	WorldMaterials.dress(burke, "usn_ddg_burke_iii")
+	WorldMaterials.dress(slava, "rfn_cg_slava")
+	var paint_of := func(root: Node) -> ShaderMaterial:
+		for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+			for i in mi.mesh.get_surface_count():
+				var m := mi.get_surface_override_material(i) as ShaderMaterial
+				if m != null and m.resource_name == "naval_paint":
+					return m
+		return null
+	var us: ShaderMaterial = paint_of.call(burke)
+	var russian: ShaderMaterial = paint_of.call(slava)
+	assert_true(us != null and russian != null, "hull paint is dressed on both")
+	assert_true(us != russian, "each navy has its own paint")
+	assert_eq(us.shader.resource_path, WorldMaterials.HULL_SHADER)
+	assert_true(us == WorldMaterials.material_for("naval_paint", "USA"), "materials are shared, not one per instance")
+	var mi: MeshInstance3D = burke.find_children("*", "MeshInstance3D", true, false)[0]
+	var dressed := mi.get_surface_override_material(0)
+	mi.set_surface_override_material(0, StandardMaterial3D.new())
+	WorldMaterials.restore(mi)
+	assert_eq(mi.get_surface_override_material(0), dressed, "lifting a tint restores the finish, not the flat import")
+	burke.free()
+	slava.free()
+
+
+func test_the_rotor_disc_sits_at_the_blades() -> void:
+	var node := (load("res://assets/models/usn_helo_mh60r.glb") as PackedScene).instantiate()
+	var meshes := node.find_children("*", "MeshInstance3D", true, false)
+	var bounds := AABB()
+	var first := true
+	for mi: MeshInstance3D in meshes:
+		bounds = mi.get_aabb() if first else bounds.merge(mi.get_aabb())
+		first = false
+	var plane := WorldModels.rotor_plane("usn_helo_mh60r", meshes, bounds)
+	assert_true(plane.y > bounds.get_center().y, "the blades are above the cabin")
+	assert_true(plane.y <= bounds.end.y + 1e-4, "and not above the model")
+	assert_true(plane.w > bounds.size.x * 0.3 and plane.w < bounds.size.x * 0.55, "the disc spans the blades: radius %.2f of %.2f" % [plane.w, bounds.size.x])
+	node.free()
+
+
+func test_navigation_light_arcs_follow_the_rules_of_the_road() -> void:
+	for arc: Vector4 in [WorldScene.LAMP_MASTHEAD, WorldScene.LAMP_PORT, WorldScene.LAMP_STARBOARD, WorldScene.LAMP_STERN]:
+		assert_near(Vector3(arc.x, arc.y, arc.z).length(), 1.0, 1e-3, "an arc's centre is a direction")
+	assert_near(rad_to_deg(acos(WorldScene.LAMP_MASTHEAD.w)) * 2.0, 225.0, 0.1, "masthead over 225 degrees")
+	assert_near(rad_to_deg(acos(WorldScene.LAMP_PORT.w)) * 2.0, 112.5, 0.1, "each sidelight over 112.5 degrees")
+	assert_near(rad_to_deg(acos(WorldScene.LAMP_STERN.w)) * 2.0, 135.0, 0.1, "stern light over 135 degrees")
+	assert_true(WorldScene.LAMP_PORT.z < 0.0 and WorldScene.LAMP_STARBOARD.z > 0.0, "red to port (-Z), green to starboard (+Z)")

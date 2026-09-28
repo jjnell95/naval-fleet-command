@@ -622,7 +622,10 @@ func _apply_way(rec: Dictionary, e: Dictionary, root: Node3D, yaw: float, length
 		_entities.add_child(bow)
 		bow.set_instance_shader_parameter("hull_speed", speed)
 		rec["bow"] = bow
-	bow.set_instance_shader_parameter("hull_beam", beam)
+		rec["bow_beam"] = -1.0
+	if not is_equal_approx(float(rec.get("bow_beam", -1.0)), beam):
+		rec["bow_beam"] = beam
+		bow.set_instance_shader_parameter("hull_beam", beam)
 	bow.visible = true
 	bow.position = Vector3(root.position.x, 0.0, root.position.z)
 	bow.rotation = Vector3(0.0, yaw, 0.0)

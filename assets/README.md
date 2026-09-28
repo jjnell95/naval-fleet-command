@@ -14,7 +14,7 @@ All meshes are original procedural game art. They show public recognition featur
 | `models/<id>.glb` | Interactive inspection model; centred, longest dimension normalised to 10 units |
 | `models/manifest.json` | Model type and triangle count for each asset |
 
-The presentation set contains 139 platform and 141 weapon models (`models/manifest.json` is the authoritative list; the totals include the 1990 and 2027 catalogues). Ships have separate paint, non-skid deck, radar, glazing, metal and underwater-hull finishes. The Burke models have revised proportions, individually modelled VLS hatches, bridge windows, railings, life rafts and flight-deck markings. Carriers have recovery-lane markings and parked aircraft. Aircraft have curved canopies and class-specific wings, tails and rotor arrangements. Ordnance has family silhouettes, seeker/radome zones, fins, boosters, torpedo propellers and gun mounts.
+The presentation set contains 139 platform and 145 weapon models (`models/manifest.json` is the authoritative list; the totals include the 1990 and 2027 catalogues). Ships have separate paint, non-skid deck, radar, glazing, metal and underwater-hull finishes. The Burke models have revised proportions, individually modelled VLS hatches, bridge windows, railings, life rafts and flight-deck markings. Carriers have recovery-lane markings and parked aircraft. Aircraft have curved canopies and class-specific wings, tails and rotor arrangements. Ordnance has family silhouettes, seeker/radome zones, fins, boosters, torpedo propellers and gun mounts.
 
 The air-operations expansion adds 18 dedicated platform silhouettes and 12 weapon models. Charles de Gaulle has a compact angled flight deck and parked Rafales; America has a straight STOVL deck; Juan Carlos I has a ski jump and Harriers; Mistral has helicopter landing spots and Panthers. The smaller combatants retain their different mast, gun and deckhouse arrangements, while Suffren and Gotland have X-shaped stern controls. The aircraft set includes separate Harrier, Typhoon, Gripen, F-16, Atlantic 2, Su-34, Panther and Hawkeye shapes. The Panther has an open enclosed tail rotor; the missile additions include the external ramjet ducts on Meteor and Kh-31. These are visual recognition cues at game scale, not dimensionally authoritative reference material.
 
@@ -63,6 +63,31 @@ godot --headless --path . --import --quit
 `render_assets.gd` also accepts ids, `--out=<dir>` to write elsewhere and `--keep-raw`; the raw passes
 land in `user://art_raw`. The pipeline was verified with Godot 4.7.2 (GL Compatibility, llvmpipe under
 Xvfb), trimesh 5.1 and Pillow.
+
+## Flat-tops (M28)
+
+The seven flat-tops that sail in the operations (Nimitz, Ford, the 1990 Nimitz, Queen Elizabeth, Charles
+de Gaulle, America and Mistral) came from the Blender pipeline as a slab of hull under a slab of deck and
+are rebuilt in the Blender-free pipeline by `tools/art/build_flattops.py`, which `build_models.py`
+registers. One `FlatTop` class lofts a flared hull up to an overhanging flight deck with a thick gallery
+edge and catwalks along the sides; the deck outline is given per class as (station, half-breadth) pairs,
+so an angled deck, a port sponson or a ski-jump bow is data. On it: deck-edge lifts let into the deck
+edge over dark hangar openings in the hull, weapons sponsons (Phalanx, RAM, box launchers), the landing
+area's edge lines and dashed centreline, catapult tracks, helicopter spots, and islands in tiers with
+glazed bridges, masts and radars; the Nimitz's tripod mast, the Ford's island further aft with its flat
+arrays, Queen Elizabeth's two islands. The deck parks use new parked shapes (Super Hornet, Tomcat with
+its wings swept back, Hawkeye, Rafale, a naval helicopter) beside the pipeline's Lightning. Concave deck
+outlines are ear-clipped (`slab`), since `Model.plate` fans from the first corner and only suits convex
+ones. Every model stays under 15,000 triangles and 13 surfaces.
+
+## How the world view dresses a model
+
+The GLBs keep their flat, named PBR colours, which the gallery and the renders use as authored. The
+world view's model pool hands each instance to `WorldMaterials.dress`, which swaps every named surface
+for a shared ShaderMaterial on `scripts/ui/world_hull.gdshader`: the navy's paint, plating seams, grime
+and rust, a wet waterline with foam that follows the swell, and a hemisphere of sky and sea light in
+place of the environment's flat ambient. A new material name needs a row in `WorldMaterials.TABLE` or
+it keeps its authored look in the world view.
 
 ## Fonts and licences
 

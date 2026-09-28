@@ -1,4 +1,16 @@
-# Current State: M27 Ship Fits and the Reach Line
+# Current State: M28 The Live View, Deep Strike and Torpedo Defence
+
+The 3D view's ships, aircraft and submarines look different now, most of them without any change to their models. Each surface is dressed at runtime in a finish that knows what it is: the navy's own paint (U.S. haze grey, the Royal Navy's lighter grey, Russian blue-grey, the PLA Navy's pale grey), plating seams, grime and rust, mottled decks, airframe panel lines, a submarine's rubber tiles. It is lit by a sky-and-sea hemisphere instead of the flat lavender ambient that washed every face to the same pale grey, with sun shadows when the view is swapped or full screen. Hulls are wet and foam-edged where the swell meets them, throw a bow wave under way, and a carrier's wake is continuous: it used to break into patches because its samples fell one swell wavelength apart. Ships show navigation lights on their proper arcs after dark, helicopters a turning rotor disc, and a submerged boat is drawn through the water with its form kept. The seven flat-tops in the operations (Nimitz, Ford, the 1990 Nimitz, Queen Elizabeth, Charles de Gaulle, America, Mistral) are rebuilt with their islands, angled decks, lifts, sponsons, markings and deck parks.
+
+France's MdCN land-attack cruise missile is on the Aquitaine-class FREMM (8) and Suffren (4); in Tartus it answers the Bastion battery from outside its reach once the battery shows itself. Torpedoes are fought with acoustic decoys (Nixie, Sonar 2170, CANTO, submarine countermeasures) and the Russian Paket-NK anti-torpedo round instead of chaff, which now works only on missiles. The data display lays a ship's weapons out as a grid of short names and rounds, in job order, so the largest loadouts fit with the air-wing line; it never drops a system silently.
+
+The browser build is rebuilt (57.1 MB) and runs in headless Chromium with no console errors.
+
+Validation: 505 regression tests (483 before), 47 command-screen checks and 19 aviation checks pass. SWEEP_SUMMARY_PLACEHOLDER The frame budget under the chart is unchanged within a few tenths of a millisecond; full screen with shadows costs 17 more draw calls.
+
+See [the M28 notes](docs/2026-09-28-live-view.md), [validation](docs/validation-m28.json) and [the source ledger](DATA_SOURCES.md#deep-strike-and-torpedo-defence-28-september-2026-later-the-same-day).
+
+## Previous: M27 Ship Fits and the Reach Line
 
 Every ship and submarine loadout was audited against its class's public fit. Seven hulls were missing weapons the real ship carries and were corrected: Tomahawk on the Arleigh Burke IIA and III, the Virginia and the Astute; Kalibr on the Improved Kilo (Project 636.3, not the 877); SM39 Exocet on the Suffren; a 35 mm CIWS, MU90 and a full Harpoon fit on the Iver Huitfeldt; RBS15 on the Visby. Two weapons are new (`millennium_35mm`, `sm39_exocet`), with generated models and renders. The hulls that are thin in service are left thin and are pinned by test with the reason: the Queen Elizabeth has no missile defence of her own, Juan Carlos I carries light guns only, the Type 26 has no anti-ship missile yet.
 

@@ -18,8 +18,8 @@ void fragment() {
 	float ndv = clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0);
 	float rim = pow(1.0 - ndv, 2.4);
 	float shade = 0.5 + 0.5 * clamp(nw.y * 0.5 + 0.5, 0.0, 1.0);
-	float depth = clamp(1.0 + min(v_world.y, 0.0) / 600.0, 0.35, 1.0);
-	float bands = 1.0 - sweep * 0.22 * smoothstep(0.6, 1.0, sin(v_world.x * 0.09 + v_world.z * 0.09 - TIME * 2.2));
-	ALBEDO = tint.rgb * (shade * 0.75 + rim * 0.9) * depth * bands;
-	ALPHA = clamp(tint.a * (0.55 + 0.8 * rim) * mix(1.0, depth, sweep), 0.0, 1.0);
+	float depth = clamp(1.0 + min(v_world.y, 0.0) / 800.0, 0.55, 1.0);
+	float bands = 1.0 - sweep * 0.18 * smoothstep(0.6, 1.0, sin(v_world.x * 0.09 + v_world.z * 0.09 - TIME * 2.2));
+	ALBEDO = tint.rgb * (shade * 0.95 + rim * 1.0) * depth * bands;
+	ALPHA = clamp(tint.a * (0.8 + 0.8 * rim) * mix(1.0, depth, sweep), 0.0, 1.0);
 }

@@ -367,6 +367,29 @@ family. Both have generated models and renders from `tools/art`.
 
 `tests/test_fits.gd` pins each of these decisions, so a later change has to say why.
 
+## Deep strike and torpedo defence (28 September 2026, later the same day)
+
+This supersedes the Suffren row above: MdCN is now in her fit. As before, a source that establishes a
+class carries a system does not establish how many rounds a hull holds; counts, ranges and effectiveness
+are GAMEPLAY_ESTIMATE. Read on 28 September 2026.
+
+| Record | What it is in the game | Basis |
+|---|---|---|
+| `mdcn` (new weapon) | Land-attack cruise missile, `target_types` land only, 540 nm, subsonic, low-flying | Operational on the Aquitaine-class FREMMs from 2017 in Sylver A70 cells, and on Suffren from her torpedo tubes in a hydrodynamic capsule ([MdCN](https://en.wikipedia.org/wiki/MdCN)); Suffren fired one on 20 October 2020 ([MBDA](https://www.mbda-systems.com/exocet-sm39-and-mdcn-firings-new-french-submarine-suffren)). Range: "up to 1,000 km", production restarted in 2026 after a halt in 2021, fired operationally only in 2018 ([Defence Blog, 5 May 2026](https://defence-blog.com/france-resumes-production-of-1000-km-range-naval-cruise-missile), after *Le Parisien*). Wikipedia gives 1,400 km ship-launched and 1,000 km submarine-launched; the official line is "several hundred kilometres". The game takes 1,000 km (540 nm) for both, the figure the more recent source gives |
+| `fra_ffg_fremm` | + MdCN x8 | Sixteen A70 cells, half loaded: the national stock is small and was not being replenished until 2026 (above) |
+| `fra_ssn_suffren` | F21 16 -> 12, + MdCN x4 (SM39 x4 kept) | Twenty racks for F21, SM39 and MdCN (above) |
+| Torpedo countermeasures (new platform fields) | `torpedo_decoy`, `towed_torpedo_decoy`, `torpedo_decoy_count`, `torpedo_decoy_effectiveness` | See the rows below; chaff no longer seduces a torpedo |
+| AN/SLQ-25 Nixie: Burke IIA and III, Ticonderoga, Nimitz, Ford, America; the 1990 Perry, Spruance, Ticonderoga and Nimitz | Towed, never runs out, one try per torpedo | A towed electro-acoustic decoy used on U.S. and allied warships, able to defeat wake-, acoustic- and wire-guided torpedoes ([AN/SLQ-25 Nixie](https://en.wikipedia.org/wiki/SLQ-25_Nixie), [FAS](https://man.fas.org/dod-101/sys/ship/weaps/an-slq-25.htm)); listed in the Arleigh Burke fit ([USS Arleigh Burke](https://en.wikipedia.org/wiki/USS_Arleigh_Burke)). The carriers' anti-torpedo torpedo (CAT) was a prototype and is not modelled ([DOT&E FY2018](https://www.dote.osd.mil/Portals/97/pub/reports/FY2018/navy/2018sstd_tws_cat.pdf)) |
+| Sonar 2170 SSTD: Type 45, Type 26 | Towed, plus 16 expendable acoustic decoys | In Royal Navy service since 2004: a towed acoustic countermeasure and two launchers with sixteen expendable devices, replacing Nixie on RN warships ([SSTD](https://en.wikipedia.org/wiki/SSTD)) |
+| CANTO: FREMM (10), Suffren (8) | Expendable acoustic decoys | A confusion and dilution countermeasure for surface ships and submarines in French Navy service ([Naval Group](https://www.naval-group.com/en/underwater-weapons), [Naval News, 28 February 2023](https://www.navalnews.com/event-news/navdex-2023/2023/02/naval-group-to-provide-canto-anti-torpedo-decoy-and-mu90-torpedoes-to-uae-navy)). Which French hulls carry it is not established hull by hull; the FREMM and Suffren fits are assumed |
+| `paket_nk` (new weapon) on `rfn_ffg_admiral_gorshkov`, `rfn_fsg_steregushchiy` | One magazine of 8 for both jobs: an ASW torpedo, and an anti-torpedo round fired by `TorpedoDefence` inside 1.6 nm | Project 20380: 2x4 324 mm Paket-NK launchers with MTT torpedoes and M-15 anti-torpedoes ([russianships.info](https://russianships.info/eng/warships/project_20380.htm)); Project 22350: two quadruple launchers and Paket-NK ([Army Recognition](https://www.armyrecognition.com/military-products/navy/frigates/admiral-gorshkov-class-frigate-project-22350)). Both classes had no ASW torpedo in the data before |
+| Every submarine | Chaff stock moved to `torpedo_decoy_count`, same count and effectiveness | A submarine's "decoys" were only ever used against torpedoes; they are its countermeasure canisters, now named as such |
+
+Left without a torpedo countermeasure because no public source was found that fits it to the class:
+the Norwegian, Danish, German, Italian, Japanese, Chinese, Iranian and Russian (other than Paket-NK) surface
+ships, Queen Elizabeth, Charles de Gaulle, Mistral and the Constellation. `tests/test_torpedo_defence.gd`
+pins the fits above.
+
 # Cold War 1990 additions
 
 The dated platform identities, historical references, period loadout exclusions and simulation limits for the 1990 operations are recorded in [the Cold War source ledger](docs/COLD_WAR_1990.md). The missions are alternate history. Combat performance and aircraft detachments remain explicitly identified game estimates.

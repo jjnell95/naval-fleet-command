@@ -32,8 +32,8 @@ const TABLE := {
 	"marking_white": [Finish.MARKING, Color("d2d6d0"), 0.7, 0.0],
 	"marking_yellow": [Finish.MARKING, Color("c99c2a"), 0.7, 0.0],
 	"hazard_red": [Finish.MARKING, Color("a32e1f"), 0.62, 0.0],
-	"airframe": [Finish.AIRFRAME, Color("6f7c85"), 0.55, 0.0],
-	"airframe_light": [Finish.AIRFRAME, Color("8c979d"), 0.58, 0.0],
+	"airframe": [Finish.AIRFRAME, Color("89939c"), 0.55, 0.0],  # the tactical ghost greys, lighter underneath
+	"airframe_light": [Finish.AIRFRAME, Color("a2abb1"), 0.58, 0.0],
 	"airframe_blue": [Finish.AIRFRAME, Color("47607a"), 0.6, 0.0],
 	"missile_body": [Finish.ORDNANCE, Color("c3c8c4"), 0.5, 0.0],
 	"seeker": [Finish.ORDNANCE, Color("3b4240"), 0.3, 0.3],

@@ -222,3 +222,15 @@ func test_which_navies_fit_what() -> void:
 		assert_eq(p.decoy_count, 0, "%s carries no chaff" % p.id)
 		if p.id != "irn_ssm_ghadir":
 			assert_true(p.torpedo_decoy_count > 0 and p.torpedo_decoy_effectiveness > 0.0, "%s has countermeasure canisters" % p.id)
+
+
+func test_the_defence_board_says_what_a_ship_has_against_a_torpedo() -> void:
+	assert_eq(DefenceBoard.torpedo_answer(_ship(_hull(false, 0))), "EVADE", "nothing but her speed")
+	assert_eq(DefenceBoard.torpedo_answer(_ship(_hull(true, 0))), "DECOY")
+	var ship := _ship(_hull(false, 0))
+	var paket := DataDB.weapon("paket_nk")
+	ship.weapons.append(paket)
+	ship.magazines[paket.id] = 8
+	assert_eq(DefenceBoard.torpedo_answer(ship), "ATT")
+	ship.magazines[paket.id] = 0
+	assert_eq(DefenceBoard.torpedo_answer(ship), "EVADE", "an empty magazine is no answer")
