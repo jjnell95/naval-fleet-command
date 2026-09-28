@@ -7,7 +7,7 @@ All meshes are original procedural game art. They show public recognition featur
 | File | Purpose |
 | --- | --- |
 | `platforms/<id>_beauty.png` | Lit three-quarter model in the unit card and mission menu |
-| `platforms/<id>_plan.png` | Colour plan view on the tactical map; bow right, 1.10 framing margin |
+| `platforms/<id>_plan.png` | Colour plan view for the tactical map's graphic symbols; bow right, 1.10 framing margin. Imported no larger than 384 px (`process/size_limit=384` in its `.import`; a new platform needs it too) |
 | `platforms/<id>_profile.png` | Original monochrome recognition drawing retained as a fallback |
 | `weapons/<id>_beauty.png` | Weapon-family recognition render |
 | `platforms/<id>_thumb.png`, `weapons/<id>_thumb.png` | 240 × 128 gallery and loadout thumbnails |
