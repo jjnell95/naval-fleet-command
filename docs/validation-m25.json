@@ -1,0 +1,291 @@
+{
+  "milestone": "M25 Fleet operations",
+  "date": "2026-09-27",
+  "base_commit": "495ac7d515389b8b23a954e2a1f984a90421f575",
+  "godot": "4.7.2",
+  "regression": {
+    "tests": 461,
+    "failed": 0,
+    "baseline_tests": 446,
+    "known_baseline_shutdown": "16 ObjectDB instances and 12 resources still in use at exit; unchanged from baseline"
+  },
+  "native_ui": {
+    "command_screen_checks": 46,
+    "command_screen_failed": 0,
+    "command_screen_resolution": [
+      1600,
+      900
+    ],
+    "aviation_checks": 19,
+    "aviation_failed": 0,
+    "aviation_resolution": [
+      1600,
+      1000
+    ]
+  },
+  "scenario_sweep": {
+    "seed": 13,
+    "operations_simulated_seconds": 5400,
+    "exercises_simulated_seconds": 1200,
+    "passed": 22,
+    "failed": 0,
+    "runs": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 76.0,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 187.8,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "seconds": 1200,
+        "wall_s": 2.5,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "seconds": 1200,
+        "wall_s": 3.4,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "seconds": 1200,
+        "wall_s": 2.0,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 3.4,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 3.2,
+        "result": 1,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 16.4,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 4.6,
+        "result": 2,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 50.1,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "seconds": 1200,
+        "wall_s": 2.0,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 24.4,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 61.0,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "seconds": 1200,
+        "wall_s": 2.0,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "seconds": 1200,
+        "wall_s": 3.2,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "seconds": 1200,
+        "wall_s": 1.9,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 284.8,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 11.7,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 230.6,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 24.6,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "seconds": 5400,
+        "wall_s": 32.4,
+        "result": 1,
+        "aground": 0,
+        "ok": true
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "seconds": 1200,
+        "wall_s": 1.7,
+        "result": 0,
+        "aground": 0,
+        "ok": true
+      }
+    ],
+    "limitations": [
+      "Smoke stability, not a complete balance study.",
+      "Sandboxed headless runs reported user:// log-write and macOS initialization warnings; no script/parse errors, unresolved homes, capacity violations or grounded ships. Native integration and regression runs used normal application-data access."
+    ]
+  },
+  "extended_runs": [
+    {
+      "scenario": "cold_war_01_convoy",
+      "seed": 13,
+      "seconds": 30000,
+      "result": "VICTORY",
+      "aground": 0
+    },
+    {
+      "scenario": "cold_war_03_carrier",
+      "seed": 13,
+      "seconds": 10000,
+      "result": "VICTORY",
+      "aground": 0
+    }
+  ],
+  "content": {
+    "operations": 14,
+    "exercises": 8,
+    "scenario_files_removed": 0,
+    "modern_us_carrier_airframes": 59,
+    "cold_war_carrier_fleet_defence_detachment": 24
+  },
+  "source_replay": {
+    "scenarios": 22,
+    "mismatches": 0,
+    "idempotent": true
+  },
+  "browser": {
+    "url": "http://127.0.0.1:8877/play/",
+    "tested": [
+      "game boot",
+      "operation shelf selection",
+      "staged briefing",
+      "Take Command",
+      "pause",
+      "air operations and reload stock display"
+    ],
+    "console_errors": 0,
+    "console_warnings": 0,
+    "publication": "local only",
+    "pack_bytes": 58794072,
+    "pack_sha256": "3606a76968f4dd6c3a55c63f7a7472ceaeb39269c97344472ac6bdf42fdf4570",
+    "standalone_pack_check": {
+      "scenario": "cold_war_03_carrier",
+      "seed": 13,
+      "simulated_seconds": 3000,
+      "working_directory": "/tmp",
+      "script_errors": 0,
+      "aground": 0
+    },
+    "screenshot": "review/2026-09-27-operations-browser.png"
+  },
+  "screenshot": "review/2026-09-27-fleet-airwing.png"
+}

@@ -55,7 +55,7 @@
         "kind": "water"
       },
       {
-        "text": "FAROE\u2013SHETLAND CHANNEL",
+        "text": "FAROE–SHETLAND CHANNEL",
         "position_nm": [
           -749.0665,
           252.0
@@ -63,7 +63,7 @@
         "kind": "water"
       },
       {
-        "text": "ICELAND\u2013FAROE RIDGE",
+        "text": "ICELAND–FAROE RIDGE",
         "position_nm": [
           -1002.0407,
           378.0
@@ -159,7 +159,7 @@
         "kind": "land"
       },
       {
-        "text": "\u00d6LAND",
+        "text": "ÖLAND",
         "position_nm": [
           -62.4222,
           0.0
@@ -199,7 +199,7 @@
         "kind": "land"
       },
       {
-        "text": "BJ\u00d8RN\u00d8YA",
+        "text": "BJØRNØYA",
         "position_nm": [
           16.4269,
           1074.0
@@ -214,7 +214,7 @@
       265.8,
       227.5
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -19050,6 +19050,8 @@
       }
     ]
   },
-  "forces": "NATO: 1 frigate, 1 corvette (drone det)  \u00b7  Russia: 1 corvette, 1 missile ship  \u00b7  Neutral: dense merchant traffic",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "NATO: 1 frigate, 1 corvette (drone det)  ·  Russia: 1 corvette, 1 missile ship  ·  Neutral: dense merchant traffic",
+  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment.",
+  "operation_revision": 25,
+  "collection": "exercises"
 }

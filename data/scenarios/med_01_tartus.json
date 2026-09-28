@@ -1,7 +1,7 @@
 {
   "id": "med_01_tartus",
   "name": "EASTERN MEDITERRANEAN: THE TARTUS LINE",
-  "description": "Mistral must reach a holding box south of Cyprus with the Charles de Gaulle group screening her, on a sea lane full of neutral traffic. The Russian Mediterranean squadron is at sea between you and the Syrian coast: the frigate Admiral Grigorovich with Kalibr, a Buyan-M, the Kilo Krasnodar, Su-34s and Su-35s at Khmeimim under an S-400 umbrella, and a Bastion battery above Tartus. Typhoons and a Poseidon fly from Akrotiri. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "Mistral must reach a holding box south of Cyprus with the Charles de Gaulle group screening her, on a sea lane full of neutral traffic. The Russian Mediterranean squadron is at sea between you and the Syrian coast: the frigate Admiral Grigorovich with Kalibr, a Buyan-M, the Kilo Krasnodar, Su-34s and Su-35s at Khmeimim under an S-400 umbrella, and a Bastion battery above Tartus. Typhoons and a Poseidon fly from Akrotiri. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-10-06T04:10:00",
   "player_faction": "BLUE",
   "map": {
@@ -206,7 +206,7 @@
       264.3,
       253.5
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -6346,7 +6346,8 @@
           -9.9014,
           -33.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "fra_cvn_charles_de_gaulle",
@@ -6387,7 +6388,8 @@
           "callsign": "Panther",
           "first_modex": 41
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "ita_ddg_horizon",
@@ -6398,7 +6400,8 @@
         3.0
       ],
       "heading_deg": 80,
-      "speed_kn": 18
+      "speed_kn": 18,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "fra_ffg_fremm",
@@ -6410,7 +6413,8 @@
       ],
       "heading_deg": 80,
       "speed_kn": 18,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "fra_ssn_suffren",
@@ -6423,7 +6427,8 @@
       "heading_deg": 90,
       "speed_kn": 10,
       "depth_m": 160,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -6450,7 +6455,8 @@
           "callsign": "Poseidon",
           "first_modex": 1
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rfn_ffg_admiral_grigorovich",
@@ -6471,7 +6477,8 @@
           69.3095,
           30.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rfn_fsg_buyan_m",
@@ -6492,7 +6499,8 @@
           79.2109,
           36.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rfn_ssk_kilo",
@@ -6515,7 +6523,8 @@
         ]
       ],
       "depth_m": 110,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -6530,7 +6539,7 @@
       "air_wing": [
         {
           "platform": "rfn_strike_su34",
-          "count": 4,
+          "count": 2,
           "squadron": "Scenario air detachment",
           "callsign": "Fullback",
           "first_modex": 21,
@@ -6546,8 +6555,26 @@
           ]
         },
         {
-          "platform": "rfn_fighter_su35s",
+          "platform": "rfn_strike_su34",
           "count": 2,
+          "squadron": "Scenario air detachment",
+          "callsign": "Fullback",
+          "first_modex": 23,
+          "patrol_nm": [
+            [
+              39.6054,
+              12.0
+            ],
+            [
+              -19.8027,
+              -24.0
+            ]
+          ],
+          "ready_after_s": 2400
+        },
+        {
+          "platform": "rfn_fighter_su35s",
+          "count": 1,
           "squadron": "Scenario air detachment",
           "callsign": "Flanker",
           "first_modex": 41,
@@ -6561,6 +6588,24 @@
               -6.0
             ]
           ]
+        },
+        {
+          "platform": "rfn_fighter_su35s",
+          "count": 1,
+          "squadron": "Scenario air detachment",
+          "callsign": "Flanker",
+          "first_modex": 42,
+          "patrol_nm": [
+            [
+              29.7041,
+              18.0
+            ],
+            [
+              -9.9014,
+              -6.0
+            ]
+          ],
+          "ready_after_s": 2400
         },
         {
           "platform": "rfn_mpa_il38n",
@@ -6583,7 +6628,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rfn_battery_bastion",
@@ -6594,7 +6640,8 @@
         28.2
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rfn_sam_s400_site",
@@ -6605,7 +6652,8 @@
         58.8
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_merchant_bulk",
@@ -6626,7 +6674,8 @@
           -158.4218,
           -48.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_merchant_bulk",
@@ -6647,7 +6696,8 @@
           -99.0136,
           -132.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_tanker_vlcc",
@@ -6668,7 +6718,8 @@
           -123.767,
           -18.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     }
   ],
   "order": 26,
@@ -6682,16 +6733,33 @@
   "duration_minutes": 30,
   "role": "Task force commander",
   "learning": "Screening a high-value unit through neutral traffic, fighting a land-based air threat under a long-range SAM umbrella, and a coastal battery that only shows itself when it radiates",
-  "commander_intent": "Deliver Mistral to the box south of Cyprus. Identify before engaging; the lane is full of ships that are nobody's enemy.",
+  "commander_intent": "Keep Mistral in the holding box for five minutes after arrival. Civilian losses remain unacceptable.",
   "first_orders": [
     "Launch an E-2C and a Rafale section; keep them west of the Syrian coast and its S-400.",
     "Suffren goes east first, to find Krasnodar before Krasnodar finds Mistral.",
-    "The Bastion battery reaches 130 miles when it has a track. Stay outside its radar, or make sure nothing else is giving it one."
+    "The Bastion battery reaches 130 miles when it has a track. Stay outside its radar, or make sure nothing else is giving it one.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "setting_note": "A fictional October 2027 crisis. Real geography, real class and unit names; the deployment and the engagement are invented.",
   "objectives": {
-    "text": "Bring Mistral into the holding box south of Cyprus. Losing Mistral or Charles de Gaulle fails the mission; neutral traffic is protected.",
+    "text": "Hold Andrea Doria on station while AEW and fighter cover go up. Keep Mistral behind the screen. Strike aircraft become ready in separate elements. Use the finite Exocet and fighter stocks deliberately. Keep Mistral in the holding box for five minutes after arrival. Civilian losses remain unacceptable.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "ITS Andrea Doria (D 553)"
+        ],
+        "center_nm": [
+          -81.6862,
+          3.0
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep ITS Andrea Doria (D 553) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "holding_box",
         "type": "reach_area",
@@ -6703,7 +6771,29 @@
           -33.0
         ],
         "radius_nm": 8,
-        "text": "Mistral reached the holding box"
+        "text": "Mistral reached the holding box",
+        "after": [
+          "establish_screen"
+        ],
+        "phase_only": true
+      },
+      {
+        "id": "holding_box_handover",
+        "type": "hold_area",
+        "callsigns": [
+          "FS Mistral (L 9013)"
+        ],
+        "center_nm": [
+          -9.9014,
+          -33.0
+        ],
+        "radius_nm": 8,
+        "text": "Hold the required vessels in the destination box for five continuous minutes",
+        "after": [
+          "holding_box"
+        ],
+        "phase_only": false,
+        "seconds": 300
       }
     ],
     "loss": [
@@ -6721,6 +6811,32 @@
       }
     ]
   },
-  "forces": "France/Italy/UK: 1 carrier (air group det), 1 amphibious ship, 1 destroyer, 1 frigate, 1 submarine, Akrotiri det  \u00b7  Russia: 1 frigate, 1 missile corvette, 1 submarine, Khmeimim strike and patrol det, coastal battery and SAM site  \u00b7  Neutral traffic",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "France/Italy/UK: 1 carrier (air group det), 1 amphibious ship, 1 destroyer, 1 frigate, 1 submarine, Akrotiri det  ·  Russia: 1 frigate, 1 missile corvette, 1 submarine, Khmeimim strike and patrol det, coastal battery and SAM site  ·  Neutral traffic",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Cover the amphibious group",
+      "task": "Hold Andrea Doria on station while AEW and fighter cover go up. Keep Mistral behind the screen."
+    },
+    {
+      "title": "02 / Cross the threat axis",
+      "task": "Strike aircraft become ready in separate elements. Use the finite Exocet and fighter stocks deliberately."
+    },
+    {
+      "title": "03 / Secure the holding area",
+      "task": "Keep Mistral in the holding box for five minutes after arrival. Civilian losses remain unacceptable."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    }
+  ]
 }

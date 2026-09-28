@@ -52,6 +52,8 @@ func _process(delta: float) -> void:
 				state = "RTB"
 			elif u.flight_state == Unit.FlightState.TURNAROUND:
 				state = "REARM"
+			elif u.flight_state == Unit.FlightState.RESERVE:
+				state = "RESERVE"
 		set_item_text(i, "%s  /  %s" % [state, u.callsign])
 		set_item_tooltip(i, "%s\n%s\nDouble-click to center" % [u.spec.display_name, u.spec.role])
 		set_item_custom_fg_color(i, UITheme.COL_BLUE if not u.is_aircraft() else (UITheme.COL_ACCENT if u.in_flight() else UITheme.COL_DIM))

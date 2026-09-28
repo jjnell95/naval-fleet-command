@@ -1,7 +1,7 @@
 {
   "id": "aegis_bastion",
-  "name": "NORTH CAPE \u2014 BALLISTIC MISSILE DEFENCE",
-  "description": "A fictional mixed missile raid threatens the carrier and replenishment ship north of the North Cape. A Flight III destroyer and a legacy BMD cruiser provide the principal defensive layers. Preserve the protected ships for four hours. Interception and flight profiles are game abstractions; interceptor suitability still matters. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "name": "NORTH CAPE — BALLISTIC MISSILE DEFENCE",
+  "description": "A fictional mixed missile raid threatens the carrier and replenishment ship north of the North Cape. A Flight III destroyer and a legacy BMD cruiser provide the principal defensive layers. Preserve the protected ships for four hours. Interception and flight profiles are game abstractions; interceptor suitability still matters. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-03-19T11:05:00",
   "player_faction": "BLUE",
   "map": {
@@ -55,7 +55,7 @@
         "kind": "water"
       },
       {
-        "text": "FAROE\u2013SHETLAND CHANNEL",
+        "text": "FAROE–SHETLAND CHANNEL",
         "position_nm": [
           -591.8829,
           -600.0
@@ -63,7 +63,7 @@
         "kind": "water"
       },
       {
-        "text": "ICELAND\u2013FAROE RIDGE",
+        "text": "ICELAND–FAROE RIDGE",
         "position_nm": [
           -742.2954,
           -474.0
@@ -159,7 +159,7 @@
         "kind": "land"
       },
       {
-        "text": "\u00d6LAND",
+        "text": "ÖLAND",
         "position_nm": [
           -183.6204,
           -852.0
@@ -199,7 +199,7 @@
         "kind": "land"
       },
       {
-        "text": "BJ\u00d8RN\u00d8YA",
+        "text": "BJØRNØYA",
         "position_nm": [
           -136.7386,
           222.0
@@ -214,7 +214,7 @@
       324.2,
       225.5
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -21691,7 +21691,8 @@
           29.3011,
           36.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_cg_ticonderoga",
@@ -21712,7 +21713,8 @@
           15.6273,
           48.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_cvn_nimitz",
@@ -21728,16 +21730,50 @@
         {
           "platform": "usn_fighter_fa18e",
           "count": 4,
-          "squadron": "VFA-83",
+          "squadron": "VFA-83 / CAP",
           "callsign": "Rampager",
-          "first_modex": 301
+          "first_modex": 301,
+          "loadout": {
+            "aim120_family": 6,
+            "aim9x_air": 2
+          }
+        },
+        {
+          "platform": "usn_fighter_fa18e",
+          "count": 14,
+          "squadron": "VFA-83 / maritime strike",
+          "callsign": "Rampager",
+          "first_modex": 305,
+          "ready_after_s": 1800,
+          "loadout": {
+            "aim120_family": 2,
+            "aim9x_air": 2,
+            "agm_158c_lrasm": 2
+          }
         },
         {
           "platform": "usn_fighter_fa18f",
-          "count": 2,
-          "squadron": "VFA-32",
+          "count": 4,
+          "squadron": "VFA-32 / CAP",
           "callsign": "Gypsy",
-          "first_modex": 101
+          "first_modex": 101,
+          "loadout": {
+            "aim120_family": 2,
+            "aim9x_air": 2
+          }
+        },
+        {
+          "platform": "usn_fighter_fa18f",
+          "count": 14,
+          "squadron": "VFA-32 / maritime strike",
+          "callsign": "Gypsy",
+          "first_modex": 105,
+          "ready_after_s": 1800,
+          "loadout": {
+            "aim120_family": 2,
+            "aim9x_air": 2,
+            "agm_158c_lrasm": 2
+          }
         },
         {
           "platform": "usn_ea_ea18g",
@@ -21747,11 +21783,27 @@
           "first_modex": 501
         },
         {
+          "platform": "usn_ea_ea18g",
+          "count": 4,
+          "squadron": "VAQ-130",
+          "callsign": "Zapper",
+          "first_modex": 502,
+          "ready_after_s": 1200
+        },
+        {
           "platform": "usn_aew_e2d",
-          "count": 2,
+          "count": 1,
           "squadron": "VAW-123",
           "callsign": "Screwtop",
           "first_modex": 601
+        },
+        {
+          "platform": "usn_aew_e2d",
+          "count": 3,
+          "squadron": "VAW-123",
+          "callsign": "Screwtop",
+          "first_modex": 602,
+          "ready_after_s": 1200
         },
         {
           "platform": "usn_helo_mh60r",
@@ -21761,13 +21813,30 @@
           "first_modex": 701
         },
         {
+          "platform": "usn_helo_mh60r",
+          "count": 6,
+          "squadron": "HSM-74",
+          "callsign": "Swamp Fox",
+          "first_modex": 703,
+          "ready_after_s": 1200
+        },
+        {
           "platform": "usn_helo_mh60s",
-          "count": 1,
+          "count": 2,
           "squadron": "HSC-7",
           "callsign": "Dusty Dog",
           "first_modex": 611
+        },
+        {
+          "platform": "usn_helo_mh60s",
+          "count": 4,
+          "squadron": "HSC-7",
+          "callsign": "Dusty Dog",
+          "first_modex": 613,
+          "ready_after_s": 1200
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
@@ -21778,7 +21847,8 @@
         24.0
       ],
       "heading_deg": 60,
-      "speed_kn": 18
+      "speed_kn": 18,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rnon_ffg_fridtjof_nansen",
@@ -21789,7 +21859,8 @@
         42.0
       ],
       "heading_deg": 60,
-      "speed_kn": 18
+      "speed_kn": 18,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rnon_aux_maud",
@@ -21800,7 +21871,8 @@
         30.0
       ],
       "heading_deg": 60,
-      "speed_kn": 16
+      "speed_kn": 16,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_ssn_virginia",
@@ -21813,7 +21885,8 @@
       "heading_deg": 110,
       "speed_kn": 9,
       "depth_m": 140,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rfn_ffg_admiral_gorshkov",
@@ -21834,7 +21907,8 @@
           156.2727,
           -42.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rfn_fsg_steregushchiy",
@@ -21855,7 +21929,8 @@
           167.9932,
           -54.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "rfn_ssk_kilo_877",
@@ -21878,7 +21953,8 @@
         ]
       ],
       "depth_m": 120,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -21893,7 +21969,7 @@
       "air_wing": [
         {
           "platform": "rfn_strike_mig31k",
-          "count": 3,
+          "count": 1,
           "squadron": "Scenario air detachment",
           "callsign": "Foxhound",
           "first_modex": 31,
@@ -21909,11 +21985,37 @@
           ]
         },
         {
+          "platform": "rfn_strike_mig31k",
+          "count": 2,
+          "squadron": "Scenario air detachment",
+          "callsign": "Foxhound",
+          "first_modex": 32,
+          "patrol_nm": [
+            [
+              58.6023,
+              30.0
+            ],
+            [
+              -29.3011,
+              42.0
+            ]
+          ],
+          "ready_after_s": 2400
+        },
+        {
           "platform": "rfn_fighter_su35s",
-          "count": 4,
+          "count": 2,
           "squadron": "Scenario air detachment",
           "callsign": "Flanker",
           "first_modex": 41
+        },
+        {
+          "platform": "rfn_fighter_su35s",
+          "count": 2,
+          "squadron": "Scenario air detachment",
+          "callsign": "Flanker",
+          "first_modex": 43,
+          "ready_after_s": 2400
         },
         {
           "platform": "rfn_uav_orlan10",
@@ -21936,7 +22038,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_merchant_bulk",
@@ -21957,7 +22060,8 @@
           78.1364,
           48.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     }
   ],
   "order": 7,
@@ -21970,20 +22074,50 @@
   "duration_minutes": 30,
   "role": "Air and missile defence commander",
   "learning": "Layered defence of a carrier and an auxiliary against ballistic and cruise missiles, interceptor suitability and finite magazines",
-  "commander_intent": "Keep Eisenhower and Maud alive through four hours. Match the interceptor to the round; SM-3 for ballistic, SM-2 for the rest.",
+  "commander_intent": "Complete the four-hour watch and recover an aircraft. Launch reserve sections as the ready deck empties.",
   "first_orders": [
     "Jack H. Lucas and Gettysburg are the ballistic-missile defence layer. Station them between the group and the Kola.",
     "Launch the Hawkeyes early so the Kinzhal carriers are seen before they release.",
-    "The Kilo is inside the screen. The Seahawks hunt her while the Aegis ships look up."
+    "The Kilo is inside the screen. The Seahawks hunt her while the Aegis ships look up.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "objectives": {
-    "text": "Keep the carrier and Maud alive through a four-hour air-defence watch. Protect neutral shipping.",
+    "text": "Hold Jack H. Lucas on the opening station. Keep the carrier farther back and build airborne warning. Ballistic and low-altitude threats require different interceptors. The point-defence layer keeps its own allowance. Complete the four-hour watch and recover an aircraft. Launch reserve sections as the ready deck empties.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Jack H. Lucas (DDG 125)"
+        ],
+        "center_nm": [
+          58.6023,
+          18.0
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Jack H. Lucas (DDG 125) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "hold_watch",
         "type": "time_elapsed",
         "seconds": 14400,
-        "text": "Complete the 4-hour watch"
+        "text": "Complete the 4-hour watch",
+        "after": [
+          "establish_screen"
+        ]
+      },
+      {
+        "id": "recover_air_plan",
+        "type": "aircraft_recovered",
+        "faction": "BLUE",
+        "count": 1,
+        "after": [
+          "establish_screen"
+        ],
+        "text": "Recover at least one aircraft after a sortie"
       }
     ],
     "loss": [
@@ -21999,6 +22133,32 @@
       }
     ]
   },
-  "forces": "NATO: 1 carrier (CVW-3 det), 1 BMD cruiser, 2 destroyers, 1 frigate, 1 replenishment ship, 1 submarine  \u00b7  Russia: 1 frigate, 1 corvette, 1 submarine, Monchegorsk fighter regiment",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "NATO: 1 carrier (fictional 59-aircraft wing), 1 BMD cruiser, 2 destroyers, 1 frigate, 1 replenishment ship, 1 submarine  ·  Russia: 1 frigate, 1 corvette, 1 submarine, Monchegorsk fighter regiment",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Establish the radar picket",
+      "task": "Hold Jack H. Lucas on the opening station. Keep the carrier farther back and build airborne warning."
+    },
+    {
+      "title": "02 / Defend the force",
+      "task": "Ballistic and low-altitude threats require different interceptors. The point-defence layer keeps its own allowance."
+    },
+    {
+      "title": "03 / Reset for another strike",
+      "task": "Complete the four-hour watch and recover an aircraft. Launch reserve sections as the ready deck empties."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    }
+  ]
 }

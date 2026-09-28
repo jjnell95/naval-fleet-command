@@ -270,6 +270,10 @@ func refresh(reset_scroll := false) -> void:
 
 
 func _append_orders(out: PackedStringArray) -> void:
+	if not _scenario.get("operation_plan", []).is_empty():
+		out.append(_section("OPERATION SEQUENCE"))
+		for phase: Dictionary in _scenario["operation_plan"]:
+			out.append("[b]%s[/b]  %s\n" % [_safe(str(phase["title"])), _safe(str(phase["task"]))])
 	var first_orders: Array = _scenario.get("first_orders", [])
 	if not first_orders.is_empty():
 		out.append(_section("OPENING ORDERS"))
@@ -347,6 +351,8 @@ func _append_controls(out: PackedStringArray) -> void:
 
 func _line(o: MissionObjective, loss := false) -> String:
 	var mark := "[color=%s]COMPLETE[/color]" % UITheme.HEX_INK_GREEN if o.complete else "[color=%s]OPEN[/color]" % UITheme.HEX_INK_AMBER
+	if not o.unlocked and not o.complete:
+		mark = "[color=%s]PENDING[/color]" % UITheme.HEX_INK_FAINT
 	if loss:
 		mark = "[color=%s]TRIGGERED[/color]" % UITheme.HEX_INK_RED if o.complete else "[color=%s]AVOID[/color]" % UITheme.HEX_INK_FAINT
 	var detail := o.progress(unit_manager, SimClock.sim_time) if unit_manager != null else ""

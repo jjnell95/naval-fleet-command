@@ -1,4 +1,14 @@
-# Current State: M24 The CDS Screen
+# Current State: M25 Fleet Operations
+
+Fourteen expanded operations and eight exercises now share the preserved M24 CDS interface. Operations have staged objectives, continuous station and destination holds, reserve aircraft, follow-on raids and finite aviation reload stocks. Modern U.S. carrier operations field fictional 59-aircraft wings with separate CAP and maritime-strike fits. Cold War carriers retain an explicitly partial, period-correct fleet-defence detachment.
+
+Missile defence has separate area and point-layer budgets, per-ship close-in allowances, launcher cadence and radar-support loss. A remote cue cannot give radar-dependent interceptors line of sight through terrain or below their own horizon. Performance remains a game model, not operational fidelity.
+
+Validation: 461 regression tests, 46 command-screen checks and 19 aviation workflow checks pass. All 22 scenarios passed the stability sweep; extended Northern Convoy and Carrier Watch runs reached victory. Browser deployment and air planning were checked with no console warnings or errors. Baseline shutdown resource warnings remain documented.
+
+See [the M25 change and source notes](docs/2026-09-27-fleet-operations.md) and [validation record](docs/validation-m25.json). The browser package is built locally; this change has not been published.
+
+## Previous: M24 The CDS Screen
 
 The command screen was rebuilt as a late-1990s fleet-command CDS screen, matched against that era's manual and screenshots and rendered at modern quality, with original code and art. A relief-shaded tactical chart runs edge to edge across the top two-thirds of the window. Below it are a square regional map, an always-on 3D view of the hooked platform with tether, fly-by, action and detached cameras, and a navy data display with the watch time, time scale and a message lamp. The top bar, status rail and side panels are gone: orders go through right-click menus, hotkeys and grey pop-up dialogs, and the old dock, task group and track file panels live on the status boards (A). The radio line at the foot of the chart carries each unit's traffic, and another side's units are named only by the track the plot holds.
 

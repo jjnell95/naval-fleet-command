@@ -66,6 +66,8 @@ func clear() -> void:
 func launch_rejection_reason(parent: Unit, which := "") -> String:
 	if parent == null or not parent.alive:
 		return "BASE LOST"
+	if parent.fire >= 0.35 or float(parent.components.get("weapons", 1.0)) <= 0.15:
+		return "FLIGHT OPERATIONS SUSPENDED BY DAMAGE"
 	var chosen := _launch_candidate(parent, which)
 	if chosen == null:
 		return "REQUESTED AIRCRAFT NOT READY" if which != "" else "NO AIRCRAFT AVAILABLE"
@@ -237,10 +239,15 @@ func _run_cycle(dt: float, now: float) -> void:
 		if not u.is_aircraft() or not u.alive:
 			continue
 		# Airframes physically aboard share the fate of their base; those flying can divert.
-		if u.flight_state in [Unit.FlightState.STOWED, Unit.FlightState.LAUNCHING, Unit.FlightState.TURNAROUND] and u.home != null and not u.home.alive:
+		if u.flight_state in [Unit.FlightState.STOWED, Unit.FlightState.LAUNCHING, Unit.FlightState.TURNAROUND, Unit.FlightState.RESERVE] and u.home != null and not u.home.alive:
 			_lose_aircraft(u, "BASE LOST")
 			continue
 		match u.flight_state:
+			Unit.FlightState.RESERVE:
+				u.state_timer_s = maxf(u.state_timer_s - dt, 0.0)
+				if u.state_timer_s <= 0.0:
+					u.flight_state = Unit.FlightState.STOWED
+					aircraft_ready.emit(u, u.home)
 			Unit.FlightState.LAUNCHING:
 				_step_launch(u, dt)
 			Unit.FlightState.AIRBORNE:
@@ -260,7 +267,6 @@ func _step_launch(a: Unit, dt: float) -> void:
 	a.fuel_s = a.spec.endurance_s
 	a.ordered_altitude_m = a.spec.cruise_altitude_m
 	a.ordered_speed_kn = a.spec.cruise_speed_kn
-	a.sonobuoys = a.spec.sonobuoy_count
 	a.tanker_offload_s = a.spec.tanker_offload_s
 	a.tanking_on = null
 	aircraft_launched.emit(a, a.home)
@@ -401,12 +407,19 @@ func _step_turnaround(a: Unit, dt: float) -> void:
 	a.flight_state = Unit.FlightState.STOWED
 	a.state_timer_s = 0.0
 	a.fuel_s = a.spec.endurance_s
-	a.sonobuoys = a.spec.sonobuoy_count
 	a.tanker_offload_s = a.spec.tanker_offload_s
-	# Rearmed from the ship's magazines. Deep strike stocks are not tracked separately; what a
-	# deck can keep flying is bounded by turnaround time, not by a ship-side ordnance count.
-	for wid in a.spec.weapon_loadout:
-		a.magazines[wid] = int(a.spec.weapon_loadout[wid])
+	# Keep the authored mission fit. A diversion cannot conjure weapons its alternate lacks.
+	var fit: Dictionary = a.sortie_loadout
+	if a.home != null:
+		for wid: String in fit:
+			var missing := maxi(int(fit[wid]) - a.magazine_count(wid), 0)
+			var available := maxi(int(a.home.aviation_stores.get(wid, 0)), 0)
+			var issued := mini(missing, available)
+			a.magazines[wid] = a.magazine_count(wid) + issued
+			a.home.aviation_stores[wid] = available - issued
+		var buoys := mini(maxi(a.spec.sonobuoy_count - a.sonobuoys, 0), a.home.aviation_buoys)
+		a.sonobuoys += buoys
+		a.home.aviation_buoys -= buoys
 	aircraft_ready.emit(a, a.home)
 
 

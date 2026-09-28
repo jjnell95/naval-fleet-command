@@ -1,7 +1,7 @@
 {
   "id": "atlantic_gate",
   "name": "FAROE-SHETLAND CHANNEL",
-  "description": "Three opposing surface combatants are moving south through the Faroe\u2013Shetland Channel. Three NATO escorts and a maritime patrol detachment at RAF Lossiemouth cover the passage. Prevent any combatant from reaching its marked exit during an eight-hour watch; destroying the surface group also completes the mission. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "Three opposing surface combatants are moving south through the Faroe–Shetland Channel. Three NATO escorts and a maritime patrol detachment at RAF Lossiemouth cover the passage. Prevent any combatant from reaching its marked exit during an eight-hour watch; destroying the surface group also completes the mission. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
   "start_time_utc": "2027-03-05T21:40:00",
   "player_faction": "BLUE",
   "map": {
@@ -55,7 +55,7 @@
         "kind": "water"
       },
       {
-        "text": "FAROE\u2013SHETLAND CHANNEL",
+        "text": "FAROE–SHETLAND CHANNEL",
         "position_nm": [
           -23.2709,
           0.0
@@ -63,7 +63,7 @@
         "kind": "water"
       },
       {
-        "text": "ICELAND\u2013FAROE RIDGE",
+        "text": "ICELAND–FAROE RIDGE",
         "position_nm": [
           -247.2529,
           126.0
@@ -159,7 +159,7 @@
         "kind": "land"
       },
       {
-        "text": "\u00d6LAND",
+        "text": "ÖLAND",
         "position_nm": [
           584.6804,
           -252.0
@@ -199,7 +199,7 @@
         "kind": "land"
       },
       {
-        "text": "BJ\u00d8RN\u00d8YA",
+        "text": "BJØRNØYA",
         "position_nm": [
           654.493,
           822.0
@@ -214,7 +214,7 @@
       274.5,
       257.2
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -17290,6 +17290,8 @@
       }
     ]
   },
-  "forces": "NATO: 1 destroyer, 2 frigates, Lossiemouth patrol det  \u00b7  Russia: 1 cruiser, 1 frigate, 1 destroyer",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "NATO: 1 destroyer, 2 frigates, Lossiemouth patrol det  ·  Russia: 1 cruiser, 1 frigate, 1 destroyer",
+  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment.",
+  "operation_revision": 25,
+  "collection": "exercises"
 }

@@ -12,6 +12,11 @@ static func run(main: Main) -> void:
 	checks["all period shelf entries are dated 1990"] = menu._entries.all(func(e: Dictionary) -> bool: return int(e["year"]) == 1990)
 	checks["period portrait uses the historical catalogue"] = menu._portrait.spec_override != null and menu._portrait.spec_override.id.begins_with("cw90_")
 	checks["mission desk exposes first orders and date"] = menu._detail.text.contains("YOUR FIRST ORDERS") and menu._mission_meta.text.contains("1990")
+	menu._set_era("exercises")
+	checks["eight exercises remain available on their own shelf"] = menu._entries.size() == 8
+	menu._set_era("atlantic")
+	checks["Atlantic shelf consolidates into three expanded operations"] = menu._entries.size() == 3
+	checks["operation desk displays the authored sequence"] = menu._detail.text.contains("OPERATION SEQUENCE")
 	menu._set_era("modern")
 	checks["existing modern operations remain available"] = menu._entries.size() >= 11 and menu._entries.all(func(e: Dictionary) -> bool: return int(e["year"]) != 1990)
 	menu._set_era("all")
@@ -21,6 +26,7 @@ static func run(main: Main) -> void:
 	await main.get_tree().process_frame
 	checks["mission button loads convoy into paused briefing"] = main.simulation.scenario_path == Main.DEFAULT_SCENARIO and main._briefing.visible and not menu.visible and SimClock.paused
 	checks["briefing opens on actionable orders"] = main._briefing._active_section == "orders" and main._briefing._body.text.contains("OPENING ORDERS") and main._briefing._body.text.contains("SUCCESS CONDITIONS")
+	checks["briefing shows phased orders and pending objectives"] = main._briefing._body.text.contains("OPERATION SEQUENCE") and main._briefing._body.text.contains("PENDING")
 	main._briefing._tabs["controls"].pressed.emit()
 	checks["controls have their own page"] = main._briefing._active_section == "controls" and main._briefing._body.text.contains("CHART")
 	main._briefing._tabs["situation"].pressed.emit()

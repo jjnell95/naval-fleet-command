@@ -129,10 +129,13 @@ func test_convoy_arrival_wins_with_enemy_afloat_and_loss_overrides_it() -> void:
 	for sink in [false, true]:
 		var h := _mission("cold_war_01_convoy")
 		var cargo := _find(h[0], "MV North Star")
-		cargo.position = h[1].victory_objectives[0].center
+		h[1].tick(0)
+		h[1].tick(300)
+		cargo.position = h[1].victory_objectives[1].center
 		if sink:
 			Damage.apply(cargo, 10000)
-		h[1].tick(1)
+		h[1].tick(301)
+		h[1].tick(601)
 		assert_eq(h[1].result, MissionManager.Result.DEFEAT if sink else MissionManager.Result.VICTORY)
 		assert_true(h[0].get_engageable_units("RED").size() > 0)
 		_cleanup(h)
@@ -141,18 +144,23 @@ func test_convoy_arrival_wins_with_enemy_afloat_and_loss_overrides_it() -> void:
 func test_barrier_can_resolve_by_kill_watch_or_breakout() -> void:
 	for outcome in ["kill", "watch", "breakout"]:
 		var h := _mission("cold_war_02_barrier")
+		h[1].tick(0)
+		h[1].tick(300)
 		var boat := _find(h[0], "Soviet submarine (Victor III)")
 		if outcome == "kill":
 			Damage.apply(boat, 10000)
 		if outcome == "breakout":
 			boat.position = h[1].loss_objectives[1].center
-		h[1].tick(1 if outcome == "kill" else 10800)
+		h[1].tick(301 if outcome == "kill" else 10800)
 		assert_eq(h[1].result, MissionManager.Result.DEFEAT if outcome == "breakout" else MissionManager.Result.VICTORY)
 		_cleanup(h)
 
 
 func test_carrier_watch_and_baltic_neutral_have_meaningful_loss_conditions() -> void:
 	var h := _mission("cold_war_03_carrier")
+	h[1].tick(0)
+	h[1].tick(300)
+	_find(h[0], "Tomcat 101").completed_sorties = 1
 	h[1].tick(7200)
 	assert_eq(h[1].result, MissionManager.Result.VICTORY)
 	_cleanup(h)

@@ -1,7 +1,7 @@
 {
   "id": "pacific_02_taiwan_strait",
   "name": "TAIWAN STRAIT: THE PICKET LINE",
-  "description": "Ronald Reagan, Robert Smalls, the Flight III destroyer Jack H. Lucas and Rafael Peralta hold a picket east of Taiwan while a PLAN surface group led by the Type 055 Nanchang works south along the Ryukyu chain. Two Japanese destroyers extend the line to the north-east. A bomber raid is already airborne from the mainland, a KJ-500 is directing it, a coastal battery on the Fujian shore covers the strait itself, and a ballistic-missile battery inland will fire at anything the network classifies. Five hours of watch; the carrier and the cruiser must survive them. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "Ronald Reagan, Robert Smalls, the Flight III destroyer Jack H. Lucas and Rafael Peralta hold a picket east of Taiwan while a PLAN surface group led by the Type 055 Nanchang works south along the Ryukyu chain. Two Japanese destroyers extend the line to the north-east. A bomber raid is already airborne from the mainland, a KJ-500 is directing it, a coastal battery on the Fujian shore covers the strait itself, and a ballistic-missile battery inland will fire at anything the network classifies. Five hours of watch; the carrier and the cruiser must survive them. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-04-07T21:30:00",
   "player_faction": "BLUE",
   "map": {
@@ -79,7 +79,7 @@
         "kind": "water"
       },
       {
-        "text": "LA P\u00c9ROUSE STRAIT",
+        "text": "LA PÉROUSE STRAIT",
         "position_nm": [
           1041.4418,
           1314.0
@@ -294,7 +294,7 @@
       487.9,
       678.2
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular",
     "focus_center_nm": [
       98.66290000000001,
@@ -33044,17 +33044,51 @@
       "air_wing": [
         {
           "platform": "usn_fighter_fa18e",
-          "count": 6,
-          "squadron": "VFA-27",
+          "count": 4,
+          "squadron": "VFA-27 / CAP",
           "callsign": "Mace",
-          "first_modex": 201
+          "first_modex": 201,
+          "loadout": {
+            "aim120_family": 6,
+            "aim9x_air": 2
+          }
+        },
+        {
+          "platform": "usn_fighter_fa18e",
+          "count": 8,
+          "squadron": "VFA-27 / maritime strike",
+          "callsign": "Mace",
+          "first_modex": 205,
+          "ready_after_s": 1800,
+          "loadout": {
+            "aim120_family": 2,
+            "aim9x_air": 2,
+            "agm_158c_lrasm": 2
+          }
         },
         {
           "platform": "usn_fighter_fa18f",
-          "count": 2,
-          "squadron": "VFA-102",
+          "count": 4,
+          "squadron": "VFA-102 / CAP",
           "callsign": "Diamondback",
-          "first_modex": 101
+          "first_modex": 101,
+          "loadout": {
+            "aim120_family": 2,
+            "aim9x_air": 2
+          }
+        },
+        {
+          "platform": "usn_fighter_fa18f",
+          "count": 8,
+          "squadron": "VFA-102 / maritime strike",
+          "callsign": "Diamondback",
+          "first_modex": 105,
+          "ready_after_s": 1800,
+          "loadout": {
+            "aim120_family": 2,
+            "aim9x_air": 2,
+            "agm_158c_lrasm": 2
+          }
         },
         {
           "platform": "usn_fighter_f35c",
@@ -33064,34 +33098,75 @@
           "first_modex": 301
         },
         {
+          "platform": "usn_fighter_f35c",
+          "count": 8,
+          "squadron": "VFA-147",
+          "callsign": "Argonaut",
+          "first_modex": 305,
+          "ready_after_s": 1800
+        },
+        {
           "platform": "usn_ea_ea18g",
-          "count": 2,
+          "count": 1,
           "squadron": "VAQ-141",
           "callsign": "Shadowhawk",
           "first_modex": 501
         },
         {
+          "platform": "usn_ea_ea18g",
+          "count": 4,
+          "squadron": "VAQ-141",
+          "callsign": "Shadowhawk",
+          "first_modex": 502,
+          "ready_after_s": 1200
+        },
+        {
           "platform": "usn_aew_e2d",
-          "count": 2,
+          "count": 1,
           "squadron": "VAW-125",
           "callsign": "Torch",
           "first_modex": 601
         },
         {
-          "platform": "usn_helo_mh60r",
+          "platform": "usn_aew_e2d",
           "count": 3,
+          "squadron": "VAW-125",
+          "callsign": "Torch",
+          "first_modex": 602,
+          "ready_after_s": 1200
+        },
+        {
+          "platform": "usn_helo_mh60r",
+          "count": 2,
           "squadron": "HSM-77",
           "callsign": "Saberhawk",
           "first_modex": 701
         },
         {
+          "platform": "usn_helo_mh60r",
+          "count": 6,
+          "squadron": "HSM-77",
+          "callsign": "Saberhawk",
+          "first_modex": 703,
+          "ready_after_s": 1200
+        },
+        {
           "platform": "usn_helo_mh60s",
-          "count": 1,
+          "count": 2,
           "squadron": "HSC-12",
           "callsign": "Golden Falcon",
           "first_modex": 611
+        },
+        {
+          "platform": "usn_helo_mh60s",
+          "count": 4,
+          "squadron": "HSC-12",
+          "callsign": "Golden Falcon",
+          "first_modex": 613,
+          "ready_after_s": 1200
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_cg_ticonderoga",
@@ -33102,7 +33177,8 @@
         -27.0
       ],
       "heading_deg": 30,
-      "speed_kn": 20
+      "speed_kn": 20,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
@@ -33113,7 +33189,8 @@
         -42.0
       ],
       "heading_deg": 30,
-      "speed_kn": 20
+      "speed_kn": 20,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_ddg_burke_iii",
@@ -33124,7 +33201,8 @@
         -18.0
       ],
       "heading_deg": 30,
-      "speed_kn": 20
+      "speed_kn": 20,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "jmsdf_ddg_maya",
@@ -33145,7 +33223,8 @@
           175.4007,
           60.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "jmsdf_dd_akizuki",
@@ -33166,7 +33245,8 @@
           175.4007,
           84.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_ssn_virginia",
@@ -33179,7 +33259,8 @@
       "heading_deg": 350,
       "speed_kn": 8,
       "depth_m": 160,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -33213,7 +33294,8 @@
           "callsign": "Triton",
           "first_modex": 51
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_ddg_type055",
@@ -33234,7 +33316,8 @@
           126.0693,
           96.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_ddg_type052d",
@@ -33255,7 +33338,8 @@
           139.7725,
           108.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_ffg_type054a",
@@ -33276,7 +33360,8 @@
           112.3661,
           84.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_aor_type903a",
@@ -33297,7 +33382,8 @@
           142.5131,
           288.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_ssn_type093b",
@@ -33320,7 +33406,8 @@
         ]
       ],
       "depth_m": 170,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_bomber_h6j",
@@ -33342,7 +33429,8 @@
           -24.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_bomber_h6j",
@@ -33364,51 +33452,8 @@
           -24.0
         ]
       ],
-      "ai_posture": "breakout"
-    },
-    {
-      "platform": "pla_bomber_h6j",
-      "callsign": "Badger 3",
-      "faction": "RED",
-      "position_nm": [
-        -389.1704,
-        351.6
-      ],
-      "heading_deg": 135,
-      "speed_kn": 430,
-      "patrol_nm": [
-        [
-          120.588,
-          24.0
-        ],
-        [
-          109.6255,
-          -24.0
-        ]
-      ],
-      "ai_posture": "breakout"
-    },
-    {
-      "platform": "pla_bomber_h6j",
-      "callsign": "Badger 4",
-      "faction": "RED",
-      "position_nm": [
-        -380.9485,
-        356.4
-      ],
-      "heading_deg": 135,
-      "speed_kn": 430,
-      "patrol_nm": [
-        [
-          120.588,
-          24.0
-        ],
-        [
-          109.6255,
-          -24.0
-        ]
-      ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -33423,7 +33468,7 @@
       "air_wing": [
         {
           "platform": "pla_fighter_j16",
-          "count": 6,
+          "count": 3,
           "squadron": "Naval aviation fighter regiment",
           "callsign": "Flanker",
           "first_modex": 21,
@@ -33437,6 +33482,24 @@
               0.0
             ]
           ]
+        },
+        {
+          "platform": "pla_fighter_j16",
+          "count": 3,
+          "squadron": "Naval aviation fighter regiment",
+          "callsign": "Flanker",
+          "first_modex": 24,
+          "patrol_nm": [
+            [
+              10.9625,
+              72.0
+            ],
+            [
+              76.7378,
+              0.0
+            ]
+          ],
+          "ready_after_s": 2400
         },
         {
           "platform": "pla_aew_kj500",
@@ -33459,7 +33522,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_battery_yj12b",
@@ -33470,7 +33534,8 @@
         91.2
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_asbm_df21d",
@@ -33481,7 +33546,8 @@
         48.0
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_merchant_bulk",
@@ -33502,7 +33568,8 @@
           -60.294,
           24.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_merchant_bulk",
@@ -33523,7 +33590,8 @@
           98.6629,
           -120.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     }
   ],
   "order": 22,
@@ -33537,31 +33605,52 @@
   "duration_minutes": 35,
   "role": "Carrier strike group commander",
   "learning": "Layered air defence against a coordinated raid, ballistic missile defence, emissions discipline against an early-warning aircraft, and the cost of moving west into a coastal battery's reach",
-  "commander_intent": "Keep Reagan and Robert Smalls afloat for five hours. Break the raid before it launches; hold the picket east of the island.",
+  "commander_intent": "Complete the five-hour watch and recover at least one aircraft. A surface kill alone does not cancel the air threat.",
   "first_orders": [
     "Launch a Hawkeye and a Lightning section early; the picture is worth more than the missiles.",
     "Keep the Aegis ships between the group and the north-east, where the H-6Js and the Type 055 both are. Robert Smalls and Maya carry the SM-3s; Jack H. Lucas the SM-6s. That is the ballistic-missile defence.",
-    "Everything west of Taiwan is inside the Pingtan battery's reach. The carrier does not go there."
+    "Everything west of Taiwan is inside the Pingtan battery's reach. The carrier does not go there.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "setting_note": "A fictional April 2027 crisis in the Western Pacific. Real geography, real class names; the deployment and the engagement are invented.",
-  "victory_mode": "any",
+  "victory_mode": "all",
   "objectives": {
-    "text": "Sustain a five-hour watch east of Taiwan, or neutralize Nanchang and Xi'an. Losing the carrier or the cruiser fails the mission.",
+    "text": "Hold Robert Smalls on station while Hawkeye, CAP and the electronic-attack section build the picture. Bomber elements arrive in separate waves. Protect the eastern pickets while the carrier cycles its larger air wing. Complete the five-hour watch and recover at least one aircraft. A surface kill alone does not cancel the air threat.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Robert Smalls (CG 62)"
+        ],
+        "center_nm": [
+          101.4035,
+          -27.0
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Robert Smalls (CG 62) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "hold_watch",
         "type": "time_elapsed",
         "seconds": 18000,
-        "text": "Complete the 5-hour watch"
+        "text": "Complete the 5-hour watch",
+        "after": [
+          "establish_screen"
+        ]
       },
       {
-        "id": "targets",
-        "type": "all_units_lost",
-        "callsigns": [
-          "Nanchang (101)",
-          "Xi'an (153)"
+        "id": "recover_air_plan",
+        "type": "aircraft_recovered",
+        "faction": "BLUE",
+        "count": 1,
+        "after": [
+          "establish_screen"
         ],
-        "text": "Neutralize the surface group's air-defence ships"
+        "text": "Recover at least one aircraft after a sortie"
       }
     ],
     "loss": [
@@ -33578,6 +33667,84 @@
       }
     ]
   },
-  "forces": "US/Japan: 1 carrier (CVW-5 det), 1 cruiser, 1 Flight III and 1 Flight IIA destroyer, 2 JMSDF destroyers, 1 submarine, Kadena det  \u00b7  PLAN: 1 Type 055, 1 Type 052D, 1 Type 054A, 1 replenishment ship, 1 submarine, 4 H-6J airborne, Huian fighter and early-warning det, 2 coastal batteries  \u00b7  Neutral shipping",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "US/Japan: 1 carrier (fictional 59-aircraft wing), 1 cruiser, 1 Flight III and 1 Flight IIA destroyer, 2 JMSDF destroyers, 1 submarine, Kadena det  ·  PLAN: 1 Type 055, 1 Type 052D, 1 Type 054A, 1 replenishment ship, 1 submarine, 4 H-6J in two raid elements, Huian fighter and early-warning det, 2 coastal batteries  ·  Neutral shipping",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Establish the picket",
+      "task": "Hold Robert Smalls on station while Hawkeye, CAP and the electronic-attack section build the picture."
+    },
+    {
+      "title": "02 / Meet the follow-on strike",
+      "task": "Bomber elements arrive in separate waves. Protect the eastern pickets while the carrier cycles its larger air wing."
+    },
+    {
+      "title": "03 / Recover the air plan",
+      "task": "Complete the five-hour watch and recover at least one aircraft. A surface kill alone does not cancel the air threat."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    },
+    {
+      "id": "follow_on_raid",
+      "at_s": 2400,
+      "reinforcements": [
+        {
+          "platform": "pla_bomber_h6j",
+          "callsign": "Badger 3",
+          "faction": "RED",
+          "position_nm": [
+            -389.1704,
+            351.6
+          ],
+          "heading_deg": 135,
+          "speed_kn": 430,
+          "patrol_nm": [
+            [
+              120.588,
+              24.0
+            ],
+            [
+              109.6255,
+              -24.0
+            ]
+          ],
+          "ai_posture": "breakout",
+          "aviation_reload_cycles": 2
+        },
+        {
+          "platform": "pla_bomber_h6j",
+          "callsign": "Badger 4",
+          "faction": "RED",
+          "position_nm": [
+            -380.9485,
+            356.4
+          ],
+          "heading_deg": 135,
+          "speed_kn": 430,
+          "patrol_nm": [
+            [
+              120.588,
+              24.0
+            ],
+            [
+              109.6255,
+              -24.0
+            ]
+          ],
+          "ai_posture": "breakout",
+          "aviation_reload_cycles": 2
+        }
+      ]
+    }
+  ]
 }

@@ -10,7 +10,7 @@ const HOVER_ALTITUDE_M := 200.0
 ## STOWED is fit to fly. TURNAROUND is aboard but useless: fuelling, rearming and respotting an
 ## airframe that has just landed takes longer than the sortie in many cases, and pretending
 ## otherwise is what lets a single deck fly an unlimited war.
-enum FlightState { STOWED, LAUNCHING, AIRBORNE, RECOVERING, TURNAROUND }
+enum FlightState { STOWED, LAUNCHING, AIRBORNE, RECOVERING, TURNAROUND, RESERVE }
 enum Emcon { FREE, SILENT }
 ## What a unit may do without being told. FREE fights, TIGHT defends itself only, HOLD does
 ## nothing automatically at all.
@@ -58,6 +58,9 @@ var bottom_generation := -1
 var health := 100.0
 var weapons: Array[WeaponSpec] = []  # resolved from spec.weapon_loadout at spawn
 var magazines: Dictionary = {}  # weapon id -> rounds remaining
+var sortie_loadout: Dictionary = {}  # authored aircraft fit, retained on every turnaround
+var aviation_stores: Dictionary = {}  # host reload rounds, separate from its own launchers
+var aviation_buoys := 0
 var decoys := 0
 var patrol_route: Array[Vector2] = []  # standing orders from the scenario, used by the AI
 ## How the AI is meant to play this ship. "standard" fights and withdraws on its own judgement.

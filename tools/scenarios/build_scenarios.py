@@ -18,6 +18,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import geography as g
+from operation_design import enhance
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT = os.path.join(ROOT, "data", "scenarios")
@@ -164,6 +165,7 @@ class Scenario:
                     wing["squadron"] = "Scenario air detachment"
 
         g.validate_scenario(self.d, platform_domain)
+        enhance(self.d)
         path = os.path.join(OUT, self.d["id"] + ".json")
         with open(path, "w") as f:
             json.dump(self.d, f, indent=2)

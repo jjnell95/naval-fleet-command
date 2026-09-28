@@ -418,6 +418,11 @@ func _refresh_launch() -> void:
 		_rebuild_deck([])
 		return
 	_type_detail.text = "%s  ·  %s  ·  %s operations  ·  %d kn cruise  ·  %.0f min endurance" % [spec.display_name, spec.role, spec.flight_requirement().to_upper(), int(spec.cruise_speed_kn), spec.endurance_s / 60.0]
+	var reloads := PackedStringArray()
+	for wid: String in spec.weapon_loadout:
+		var weapon := DataDB.weapon(wid)
+		reloads.append("%s %d" % [weapon.display_name if weapon != null else wid, int(_base.aviation_stores.get(wid, 0))])
+	_type_detail.text += "\nBASE RELOAD STOCK: %s  /  %d sonobuoys" % [", ".join(reloads) if not reloads.is_empty() else "No weapon reloads required", _base.aviation_buoys]
 	var reason := simulation.aviation_manager.launch_rejection_reason(_base, _type_id)
 	var ready := 0
 	for a: Unit in _base.stowed_aircraft():
@@ -532,6 +537,7 @@ static func status_text(a: Unit) -> String:
 		Unit.FlightState.LAUNCHING: return "LAUNCHING"
 		Unit.FlightState.RECOVERING: return "LANDING"
 		Unit.FlightState.TURNAROUND: return "REFUEL / REARM"
+		Unit.FlightState.RESERVE: return "RESERVE %.0f MIN" % ceilf(a.state_timer_s / 60.0)
 	if a.returning:
 		return "RETURNING"
 	if a.tanking_on != null:

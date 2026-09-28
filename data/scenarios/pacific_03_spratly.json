@@ -1,7 +1,7 @@
 {
   "id": "pacific_03_spratly",
   "name": "SPRATLY WATCH: FIERY CROSS",
-  "description": "A chartered merchant must reach a resupply box in the eastern Spratlys. USS Dewey and the Japanese frigate Kumano escort her past Fiery Cross Reef, a reclaimed island with a runway, a coastal battery and a long-range SAM site, while a Type 054A, two corvettes and three Type 022 missile boats contest the passage. A P-8A detachment flies from Palawan. Dewey carries eight Tomahawks; whether the battery is struck before it fires is your decision and your rules of engagement. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "A chartered merchant must reach a resupply box in the eastern Spratlys. USS Dewey and the Japanese frigate Kumano escort her past Fiery Cross Reef, a reclaimed island with a runway, a coastal battery and a long-range SAM site, while a Type 054A, two corvettes and three Type 022 missile boats contest the passage. A P-8A detachment flies from Palawan. Dewey carries eight Tomahawks; whether the battery is struck before it fires is your decision and your rules of engagement. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-06-11T22:10:00",
   "player_faction": "BLUE",
   "map": {
@@ -79,7 +79,7 @@
         "kind": "water"
       },
       {
-        "text": "LA P\u00c9ROUSE STRAIT",
+        "text": "LA PÉROUSE STRAIT",
         "position_nm": [
           1624.9328,
           2154.0
@@ -294,7 +294,7 @@
       422.0,
       320.0
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -10614,7 +10614,8 @@
           -9.0
         ]
       ],
-      "radar_on": true
+      "radar_on": true,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
@@ -10633,7 +10634,8 @@
         "essm_family": 32,
         "phalanx_ciws": 60,
         "tomahawk_block_v": 8
-      }
+      },
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "jmsdf_ffm_mogami",
@@ -10644,7 +10646,8 @@
         27.0
       ],
       "heading_deg": 250,
-      "speed_kn": 12
+      "speed_kn": 12,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -10664,7 +10667,8 @@
           "callsign": "Fighting Tiger",
           "first_modex": 21
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_ffg_type054a",
@@ -10685,7 +10689,8 @@
           -76.815,
           -30.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_fsg_type056a",
@@ -10706,7 +10711,8 @@
           -41.3619,
           -48.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_fsg_type056a",
@@ -10727,7 +10733,8 @@
           -23.6354,
           48.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_pgg_type022",
@@ -10749,7 +10756,8 @@
           12.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_pgg_type022",
@@ -10771,7 +10779,8 @@
           12.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_pgg_type022",
@@ -10793,7 +10802,8 @@
           12.0
         ]
       ],
-      "ai_posture": "breakout"
+      "ai_posture": "breakout",
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "shore_air_station",
@@ -10808,7 +10818,7 @@
       "air_wing": [
         {
           "platform": "pla_fighter_j16",
-          "count": 2,
+          "count": 1,
           "squadron": "Naval aviation fighter regiment",
           "callsign": "Flanker",
           "first_modex": 21,
@@ -10822,6 +10832,24 @@
               24.0
             ]
           ]
+        },
+        {
+          "platform": "pla_fighter_j16",
+          "count": 1,
+          "squadron": "Naval aviation fighter regiment",
+          "callsign": "Flanker",
+          "first_modex": 22,
+          "patrol_nm": [
+            [
+              53.1796,
+              0.0
+            ],
+            [
+              124.0858,
+              24.0
+            ]
+          ],
+          "ready_after_s": 2400
         },
         {
           "platform": "pla_aew_kj500",
@@ -10857,7 +10885,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_battery_yj12b",
@@ -10868,7 +10897,8 @@
         -27.12
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "pla_sam_hq9b_site",
@@ -10879,7 +10909,8 @@
         -26.64
       ],
       "heading_deg": 0,
-      "speed_kn": 0
+      "speed_kn": 0,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_fishing_trawler",
@@ -10900,7 +10931,8 @@
           88.6327,
           -6.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "civ_merchant_bulk",
@@ -10921,7 +10953,8 @@
           135.9035,
           -108.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     }
   ],
   "order": 23,
@@ -10935,16 +10968,33 @@
   "duration_minutes": 25,
   "role": "Escort commander",
   "learning": "Escorting a slow merchant through littoral waters, small fast missile boats, an island base with its own air defence, and a land-attack strike as a choice rather than a reflex",
-  "commander_intent": "Get the merchant to the resupply box. Fiery Cross is a threat to be managed, not an objective; Tomahawks are for when it has become one.",
+  "commander_intent": "Hold Lapu-Lapu Trader in the resupply box for five continuous minutes after arrival.",
   "first_orders": [
     "Put Dewey between the merchant and Fiery Cross; keep Kumano on the merchant's disengaged side.",
     "The Type 022s are fast and small. Radar on, and hold ESSM for them rather than the corvettes.",
-    "A Tomahawk salvo can silence the battery. So can staying outside its horizon."
+    "A Tomahawk salvo can silence the battery. So can staying outside its horizon.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "setting_note": "A fictional June 2027 incident. Real geography including the reclaimed outposts, real class names; the deployment and the encounter are invented.",
   "objectives": {
-    "text": "Escort MV Lapu-Lapu Trader into the resupply box. Losing her or Dewey fails the mission; neutral traffic is protected.",
+    "text": "Hold Dewey near the opening station while the merchant approaches the threatened passage. Keep the merchant covered against aircraft, the surface screen and coastal missiles; protect neutral traffic. Hold Lapu-Lapu Trader in the resupply box for five continuous minutes after arrival.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Dewey (DDG 105)"
+        ],
+        "center_nm": [
+          124.0858,
+          15.0
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Dewey (DDG 105) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "resupply",
         "type": "reach_area",
@@ -10956,7 +11006,29 @@
           -9.0
         ],
         "radius_nm": 6,
-        "text": "Lapu-Lapu Trader reached the resupply box"
+        "text": "Lapu-Lapu Trader reached the resupply box",
+        "after": [
+          "establish_screen"
+        ],
+        "phase_only": true
+      },
+      {
+        "id": "resupply_handover",
+        "type": "hold_area",
+        "callsigns": [
+          "MV Lapu-Lapu Trader"
+        ],
+        "center_nm": [
+          82.7239,
+          -9.0
+        ],
+        "radius_nm": 6,
+        "text": "Hold the required vessels in the destination box for five continuous minutes",
+        "after": [
+          "resupply"
+        ],
+        "phase_only": false,
+        "seconds": 300
       }
     ],
     "loss": [
@@ -10973,6 +11045,32 @@
       }
     ]
   },
-  "forces": "US/Japan: 1 destroyer, 1 frigate, 1 chartered merchant, Palawan patrol det  \u00b7  PLAN: 1 frigate, 2 corvettes, 3 missile boats, Fiery Cross airfield, coastal battery and SAM site  \u00b7  Neutral traffic",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "US/Japan: 1 destroyer, 1 frigate, 1 chartered merchant, Palawan patrol det  ·  PLAN: 1 frigate, 2 corvettes, 3 missile boats, Fiery Cross airfield, coastal battery and SAM site  ·  Neutral traffic",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Form the resupply screen",
+      "task": "Hold Dewey near the opening station while the merchant approaches the threatened passage."
+    },
+    {
+      "title": "02 / Escort through the threat",
+      "task": "Keep the merchant covered against aircraft, the surface screen and coastal missiles; protect neutral traffic."
+    },
+    {
+      "title": "03 / Complete resupply",
+      "task": "Hold Lapu-Lapu Trader in the resupply box for five continuous minutes after arrival."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    }
+  ]
 }

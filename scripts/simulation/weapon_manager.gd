@@ -26,10 +26,14 @@ var rng := RandomNumberGenerator.new()
 var in_flight: Array[Weapon] = []
 
 var _next_id := 1
+var _defensive_ready_at: Dictionary = {}  # shooter -> weapon id -> next launch time
 var _pending: Array = []  # queued salvo rounds: {shooter, spec, track, time}
 
 
 func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: float) -> bool:
+	if not radar_support_available(shooter, spec):
+		engagement_rejected.emit(shooter, spec, "RADAR GUIDANCE UNAVAILABLE")
+		return false
 	var check := Combat.check_engagement(shooter, spec, track)
 	if not check["ok"]:
 		engagement_rejected.emit(shooter, spec, check["reason"])
@@ -55,15 +59,26 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		return 0
 	if not AirDefence._can_intercept(spec, threat):
 		return 0
+	if not interceptor_support_available(shooter, spec, threat):
+		return 0
+	var ready: Dictionary = _defensive_ready_at.get(shooter, {})
+	if now < float(ready.get(spec.id, 0.0)):
+		return 0
 	var distance := shooter.position.distance_to(threat.position)
 	if distance < spec.min_range_nm or distance > spec.max_range_nm:
 		return 0
 	if spec.type == "sam" and not channel_available(shooter, threat):
 		return 0
+	# SAMs leave one at a time at the authored launch interval. A CIWS round count is a
+	# short burst abstraction, so the whole burst is expended in one firing cycle.
 	var available := mini(rounds, shooter.magazine_count(spec.id))
+	if spec.type != "ciws":
+		available = mini(available, 1)
 	if available <= 0:
 		return 0
 	shooter.consume_magazine(spec.id, available)
+	ready[spec.id] = now + maxf(spec.launch_interval_s, 1.0)
+	_defensive_ready_at[shooter] = ready
 	for i in available:
 		var w := Weapon.new()
 		w.id = _next_id
@@ -79,8 +94,11 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		in_flight.append(w)
 	if spec.type == "ciws":
 		threat.close_in_bursts_committed += 1
+		threat.close_in_commitments[shooter.id] = int(threat.close_in_commitments.get(shooter.id, 0)) + 1
 	else:
 		threat.guided_interceptors_committed += available
+		var layer := spec.defensive_layer()
+		threat.defence_commitments[layer] = int(threat.defence_commitments.get(layer, 0)) + available
 	interceptor_launched.emit(shooter, spec, threat, available)
 	return available
 
@@ -110,6 +128,7 @@ func tick(dt: float, now: float) -> void:
 func clear() -> void:
 	in_flight.clear()
 	_pending.clear()
+	_defensive_ready_at.clear()
 	_next_id = 1
 
 
@@ -141,6 +160,10 @@ func _step(w: Weapon, dt: float) -> void:
 	if w.phase == Weapon.Phase.DEAD:
 		return
 	w.time_alive_s += dt
+	if not radar_support_available(w.shooter, w.spec):
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "GUIDANCE LOST"
+		return
 	if w.intercept_target != null:
 		_step_interceptor(w, dt)
 		return
@@ -224,6 +247,10 @@ func _step_interceptor(w: Weapon, dt: float) -> void:
 	if threat.phase == Weapon.Phase.DEAD:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "THREAT ALREADY DEFEATED"
+		return
+	if not interceptor_support_available(w.shooter, w.spec, threat):
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "GUIDANCE LOST"
 		return
 	var desired := Geo.bearing_deg(w.position, threat.position)
 	var max_turn := w.spec.turn_rate_deg_s * dt
@@ -363,3 +390,21 @@ func channel_loads() -> Dictionary:
 		if not loads.has(p["shooter"]):
 			loads[p["shooter"]] = channel_targets(p["shooter"]).size()
 	return loads
+
+
+## Command/semi-active SAMs need a working emitting fire-control system. Autonomous
+## seekers and self-contained CIWS remain independent of the ship's search-radar switch.
+static func radar_support_available(shooter: Unit, spec: WeaponSpec) -> bool:
+	if not spec.requires_radar_support():
+		return true
+	return shooter != null and shooter.alive and shooter.radar_on and shooter.emcon != Unit.Emcon.SILENT and float(shooter.components.get("sensors", 1.0)) > 0.15
+
+
+static func interceptor_support_available(shooter: Unit, spec: WeaponSpec, threat: Weapon) -> bool:
+	if not radar_support_available(shooter, spec):
+		return false
+	if not spec.requires_radar_support():
+		return true
+	# A consort's detection is a cue, not illumination through the earth or an island.
+	var horizon := Detection.radar_horizon_nm(Detection.mast_or_altitude_m(shooter), threat.spec.altitude_m)
+	return shooter.position.distance_to(threat.position) <= horizon and not Detection.terrain_hides_weapon(shooter, threat)

@@ -1486,12 +1486,14 @@ func _draw_objectives() -> void:
 		return
 	var mission := simulation.mission_manager
 	for o in mission.victory_objectives + mission.loss_objectives:
-		if o.kind != MissionObjective.Kind.REACH_AREA:
+		if o.kind not in [MissionObjective.Kind.REACH_AREA, MissionObjective.Kind.HOLD_AREA] or o.complete:
 			continue
 		var sp := world_to_screen(o.center)
 		var r := o.radius_nm * ppn
 		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), COL_ROUTE, 1.0, true)
 		var text := "DENY EXIT" if mission.loss_objectives.has(o) else "OBJECTIVE AREA"
+		if o.kind == MissionObjective.Kind.HOLD_AREA:
+			text = "HOLD STATION" if o.unlocked else "LATER HOLD AREA"
 		_centred_text(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), text, 11)
 
 

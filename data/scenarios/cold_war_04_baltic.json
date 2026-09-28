@@ -9,14 +9,15 @@
   "duration_minutes": 20,
   "role": "Surface action commander",
   "learning": "Neutral identification, emissions and missile engagement geometry",
-  "commander_intent": "Stop the Soviet destroyer crossing the western gate. Merchant traffic remains protected even under fire.",
+  "commander_intent": "Neutralize Otlichnyy while keeping both protected ships afloat.",
   "first_orders": [
     "Use Elrod's radar to establish the surface picture; inspect identity and solution before firing.",
     "Keep Spruance offset from Elrod so one incoming salvo does not exhaust a single defensive sector.",
-    "Attack the destroyer before it reaches the western gate; the neutral merchant is not a valid target."
+    "Attack the destroyer before it reaches the western gate; the neutral merchant is not a valid target.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "historical_note": "Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
-  "description": "20 September 1990, Bornholm Basin. A Soviet Sovremennyy-class destroyer is moving west toward the Danish straits. Two US escorts on a fictional Baltic deployment must close the passage while civilian traffic continues. The shallow basin gives no deep-water convergence-zone advantage. Eight Moskit missiles are a serious threat; identifying the right surface contact is part of the mission.",
+  "description": "20 September 1990, Bornholm Basin. A Soviet Sovremennyy-class destroyer is moving west toward the Danish straits. Two US escorts on a fictional Baltic deployment must close the passage while civilian traffic continues. The shallow basin gives no deep-water convergence-zone advantage. Eight Moskit missiles are a serious threat; identifying the right surface contact is part of the mission. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "1990-09-20T19:20:00",
   "player_faction": "BLUE",
   "neutral_factions": [
@@ -254,7 +255,8 @@
         4.2
       ],
       "heading_deg": 75,
-      "speed_kn": 15
+      "speed_kn": 15,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_spruance",
@@ -266,7 +268,8 @@
       ],
       "heading_deg": 70,
       "speed_kn": 15,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_sovremenny",
@@ -284,7 +287,8 @@
           -23.9097,
           0.0
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_merchant",
@@ -302,20 +306,40 @@
           3.0
         ]
       ],
-      "radar_on": true
+      "radar_on": true,
+      "aviation_reload_cycles": 2
     }
   ],
   "victory_mode": "all",
-  "force_note": "Period identities; fictional 1990 deployment. Tactical magazines and reduced air detachments represent weapons available in this mission, not full real-world readiness.",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
   "objectives": {
-    "text": "Neutralize Otlichnyy before it crosses the western gate. Losing a US escort, the neutral merchant, or the gate fails the mission.",
+    "text": "Hold Elrod on station while separating the neutral merchant from the combatant. Use the ships together; gun range and short warning times make an isolated frigate vulnerable. Neutralize Otlichnyy while keeping both protected ships afloat.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Elrod (FFG 55)"
+        ],
+        "center_nm": [
+          -12.9796,
+          4.2
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Elrod (FFG 55) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "neutralize",
         "type": "all_units_lost",
         "text": "Neutralize the named opposing combatants",
         "callsigns": [
           "Otlichnyy"
+        ],
+        "after": [
+          "establish_screen"
         ]
       }
     ],
@@ -7796,5 +7820,31 @@
     ],
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
-  }
+  },
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Sort the traffic",
+      "task": "Hold Elrod on station while separating the neutral merchant from the combatant."
+    },
+    {
+      "title": "02 / Engage the destroyer",
+      "task": "Use the ships together; gun range and short warning times make an isolated frigate vulnerable."
+    },
+    {
+      "title": "03 / Secure the water",
+      "task": "Neutralize Otlichnyy while keeping both protected ships afloat."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    }
+  ]
 }

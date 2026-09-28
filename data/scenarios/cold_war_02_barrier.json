@@ -9,14 +9,15 @@
   "duration_minutes": 25,
   "role": "ASW barrier commander",
   "learning": "Passive bearings, sonobuoys, layer depth and firing solutions",
-  "commander_intent": "Deny the Victor III its southern exit. Hold the barrier for three hours, or neutralize the boat.",
+  "commander_intent": "Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat.",
   "first_orders": [
     "Select Dallas to view its local sonar picture. Keep it slow and passive; build a solution before committing a Mk 48.",
     "Launch a Spruance SH-60B toward the suspected passage and drop sonobuoys. It has no dipping sonar.",
-    "Use Keflavik's P-3C to extend the search. Protect Spruance and prevent the submarine reaching the southern gate."
+    "Use Keflavik's P-3C to extend the search. Protect Spruance and prevent the submarine reaching the southern gate.",
+    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
   ],
   "historical_note": "Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
-  "description": "16 September 1990, Iceland-Faroe Ridge. An unidentified Soviet Victor III is attempting an Atlantic breakout. USS Dallas and USS Spruance hold a compact barrier, with a P-3C detachment at Keflavik. A seasonal acoustic layer complicates the search; below-layer listening and deliberate localization matter more than speed. This is a submarine search, not a radar duel.",
+  "description": "16 September 1990, Iceland-Faroe Ridge. An unidentified Soviet Victor III is attempting an Atlantic breakout. USS Dallas and USS Spruance hold a compact barrier, with a P-3C detachment at Keflavik. A seasonal acoustic layer complicates the search; below-layer listening and deliberate localization matter more than speed. This is a submarine search, not a radar duel. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
   "start_time_utc": "1990-09-16T01:10:00",
   "player_faction": "BLUE",
   "neutral_factions": [
@@ -261,7 +262,8 @@
       "heading_deg": 25,
       "speed_kn": 6,
       "depth_m": 170,
-      "radar_on": false
+      "radar_on": false,
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_spruance",
@@ -291,7 +293,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_airfield",
@@ -321,7 +324,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "aviation_reload_cycles": 2
     },
     {
       "platform": "cw90_victor3",
@@ -341,19 +345,39 @@
           -2.984,
           -8.4
         ]
-      ]
+      ],
+      "aviation_reload_cycles": 2
     }
   ],
   "victory_mode": "any",
-  "force_note": "Period identities; fictional 1990 deployment. Tactical magazines and reduced air detachments represent weapons available in this mission, not full real-world readiness.",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
   "objectives": {
-    "text": "Deny the southern gate for 3 hours or neutralize the Victor III. A breakout or the loss of either barrier ship fails the mission.",
+    "text": "Hold Dallas on the opening patrol station for five minutes while Spruance deploys its helicopters. Use passive bearings and spaced sonobuoys. A bearing alone is not a torpedo solution. Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat.",
     "victory": [
+      {
+        "id": "establish_screen",
+        "type": "hold_area",
+        "callsigns": [
+          "USS Dallas (SSN 700)"
+        ],
+        "center_nm": [
+          4.6117,
+          4.2
+        ],
+        "radius_nm": 15,
+        "count": 1,
+        "seconds": 300,
+        "phase_only": true,
+        "text": "Keep USS Dallas (SSN 700) within 15 nm of its opening station for five continuous minutes"
+      },
       {
         "id": "watch",
         "type": "time_elapsed",
         "text": "Complete the watch with protected units intact",
-        "seconds": 10800
+        "seconds": 10800,
+        "after": [
+          "establish_screen"
+        ]
       },
       {
         "id": "neutralize",
@@ -361,6 +385,9 @@
         "text": "Neutralize the named opposing combatants",
         "callsigns": [
           "Soviet submarine (Victor III)"
+        ],
+        "after": [
+          "establish_screen"
         ]
       }
     ],
@@ -23148,5 +23175,31 @@
     ],
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
-  }
+  },
+  "operation_revision": 25,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Establish the barrier",
+      "task": "Hold Dallas on the opening patrol station for five minutes while Spruance deploys its helicopters."
+    },
+    {
+      "title": "02 / Localize the submarine",
+      "task": "Use passive bearings and spaced sonobuoys. A bearing alone is not a torpedo solution."
+    },
+    {
+      "title": "03 / Deny the passage",
+      "task": "Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat."
+    }
+  ],
+  "events": [
+    {
+      "id": "screen_orders",
+      "after": [
+        "establish_screen"
+      ],
+      "at_s": 300,
+      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+    }
+  ]
 }

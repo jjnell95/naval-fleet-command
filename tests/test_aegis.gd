@@ -10,7 +10,7 @@ func test_aegis_scenario_resolves_every_loadout_and_aircraft_home() -> void:
 	var airframes := 0
 	for u in um.units:
 		assert_eq(u.sensors.size(), u.spec.sensor_ids.size(), u.callsign + " sensors resolve")
-		assert_eq(u.weapons.size(), u.spec.weapon_loadout.size(), u.callsign + " weapons resolve")
+		assert_eq(u.weapons.size(), u.magazines.size(), u.callsign + " authored weapons resolve")
 		if u.is_aircraft():
 			airframes += 1
 			if u.home != null:

@@ -8,7 +8,7 @@ class_name AirDefence
 
 const CPA_THREAT_NM := 3.0  # a round passing wider than this is not treated as inbound
 const MAX_INTERCEPTORS_PER_THREAT := 2  # in the air against one round at any moment
-const MAX_LIFETIME_INTERCEPTORS_PER_THREAT := 2  # shoot-shoot-look, then it is what it is
+const MAX_INTERCEPTORS_PER_LAYER := 2  # game doctrine budget; inner layers retain their own shots
 const MAX_CLOSE_IN_BURSTS_PER_THREAT := 2  # a round crosses the close-in envelope in seconds
 const DECOY_RANGE_NM := 2.5
 
@@ -111,13 +111,11 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 			var in_use: int = channels.get(u, 0)
 			var engaging_already: bool = _ship_engages(weapon_manager, u, w)
 			var guided_allowed := already < MAX_INTERCEPTORS_PER_THREAT \
-				and w.guided_interceptors_committed < MAX_LIFETIME_INTERCEPTORS_PER_THREAT \
 				and (engaging_already or in_use < u.spec.fire_control_channels)
 			var fired := _engage_threat(u, w, weapon_manager, guided_allowed, now)
 			if fired > 0:
-				committed[w.id] = already + fired
-				if not engaging_already:
-					channels[u] = in_use + 1
+				committed = _count_committed(weapon_manager)
+				channels = _channels_in_use(weapon_manager)
 				launched += fired
 	return launched
 
@@ -125,7 +123,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 static func _count_committed(weapon_manager: WeaponManager) -> Dictionary:
 	var out: Dictionary = {}
 	for w in weapon_manager.in_flight:
-		if w.intercept_target != null:
+		if w.phase != Weapon.Phase.DEAD and w.intercept_target != null and w.spec.type == "sam":
 			out[w.intercept_target.id] = int(out.get(w.intercept_target.id, 0)) + 1
 	return out
 
@@ -163,12 +161,13 @@ static func _engage_threat(u: Unit, threat: Weapon, weapon_manager: WeaponManage
 		if d > spec.max_range_nm or d < spec.min_range_nm:
 			continue
 		var is_close_in := spec.type == "ciws"
+		var spent := int(threat.defence_commitments.get(spec.defensive_layer(), 0))
 		if is_close_in:
-			if threat.close_in_bursts_committed >= MAX_CLOSE_IN_BURSTS_PER_THREAT:
+			if int(threat.close_in_commitments.get(u.id, 0)) >= MAX_CLOSE_IN_BURSTS_PER_THREAT:
 				continue
-		elif not guided_allowed:
+		elif not guided_allowed or spent >= MAX_INTERCEPTORS_PER_LAYER:
 			continue
-		var allowance := spec.salvo_default if is_close_in else MAX_LIFETIME_INTERCEPTORS_PER_THREAT - threat.guided_interceptors_committed
+		var allowance := spec.salvo_default if is_close_in else MAX_INTERCEPTORS_PER_LAYER - spent
 		var rounds := mini(mini(spec.salvo_default, u.magazine_count(spec.id)), allowance)
 		if rounds <= 0:
 			continue

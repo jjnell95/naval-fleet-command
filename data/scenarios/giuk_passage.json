@@ -1,7 +1,7 @@
 {
   "id": "giuk_passage",
   "name": "ICELAND-FAROE GAP",
-  "description": "A diesel-electric submarine is approaching the Iceland\u2013Faroe barrier. Two escorts, a Virginia-class submarine and patrol aircraft detached to Keflavik must deny its southern exit. The route and six-hour deadline define the game problem. Water deepens sharply south of the Iceland\u2013Faroe Ridge, where a deep winter mixed layer and convergence zones shape the acoustic picture. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "A diesel-electric submarine is approaching the Iceland–Faroe barrier. Two escorts, a Virginia-class submarine and patrol aircraft detached to Keflavik must deny its southern exit. The route and six-hour deadline define the game problem. Water deepens sharply south of the Iceland–Faroe Ridge, where a deep winter mixed layer and convergence zones shape the acoustic picture. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
   "start_time_utc": "2027-03-02T02:10:00",
   "player_faction": "BLUE",
   "map": {
@@ -55,7 +55,7 @@
         "kind": "water"
       },
       {
-        "text": "FAROE\u2013SHETLAND CHANNEL",
+        "text": "FAROE–SHETLAND CHANNEL",
         "position_nm": [
           287.4613,
           -144.0
@@ -63,7 +63,7 @@
         "kind": "water"
       },
       {
-        "text": "ICELAND\u2013FAROE RIDGE",
+        "text": "ICELAND–FAROE RIDGE",
         "position_nm": [
           80.5966,
           -18.0
@@ -159,7 +159,7 @@
         "kind": "land"
       },
       {
-        "text": "\u00d6LAND",
+        "text": "ÖLAND",
         "position_nm": [
           848.9512,
           -396.0
@@ -199,7 +199,7 @@
         "kind": "land"
       },
       {
-        "text": "BJ\u00d8RN\u00d8YA",
+        "text": "BJØRNØYA",
         "position_nm": [
           913.4285,
           678.0
@@ -214,7 +214,7 @@
       259.2,
       312.6
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -9628,6 +9628,8 @@
       }
     ]
   },
-  "forces": "NATO: 1 attack submarine, 1 destroyer, 1 frigate, Keflavik patrol det  \u00b7  Russia: 1 diesel submarine",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "NATO: 1 attack submarine, 1 destroyer, 1 frigate, Keflavik patrol det  ·  Russia: 1 diesel submarine",
+  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment.",
+  "operation_revision": 25,
+  "collection": "exercises"
 }

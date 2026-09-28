@@ -5,7 +5,7 @@ extends RefCounted
 ## means opposite things depending on which list it sits in: RED reaching the Atlantic is a loss
 ## for a NATO picket, while BLUE reaching a rendezvous is a victory for an escort.
 
-enum Kind { FORCE_DESTROYED, UNIT_LOST, ALL_UNITS_LOST, REACH_AREA, TIME_ELAPSED, UNKNOWN, AIRCRAFT_RECOVERED }
+enum Kind { FORCE_DESTROYED, UNIT_LOST, ALL_UNITS_LOST, REACH_AREA, TIME_ELAPSED, UNKNOWN, AIRCRAFT_RECOVERED, HOLD_AREA }
 
 const KIND_NAMES := {
 	"force_destroyed": Kind.FORCE_DESTROYED,
@@ -14,6 +14,7 @@ const KIND_NAMES := {
 	"reach_area": Kind.REACH_AREA,
 	"time_elapsed": Kind.TIME_ELAPSED,
 	"aircraft_recovered": Kind.AIRCRAFT_RECOVERED,
+	"hold_area": Kind.HOLD_AREA,
 }
 
 var id := ""
@@ -28,6 +29,11 @@ var max_alive := 0
 var seconds := 0.0
 var complete := false
 var facility := ""  # optional airfield or deck filter for aviation training
+var after := PackedStringArray()
+var unlocked := true
+var held_since := -1.0
+var held_seconds := 0.0
+var phase_only := false  # enables later tasks but cannot itself end an any-mode mission
 
 
 static func from_dict(d: Dictionary) -> MissionObjective:
@@ -47,6 +53,10 @@ static func from_dict(d: Dictionary) -> MissionObjective:
 	o.max_alive = int(d.get("max_alive", 0))
 	o.seconds = float(d.get("seconds", 0.0))
 	o.facility = str(d.get("facility", ""))
+	for prerequisite in d.get("after", []):
+		o.after.append(str(prerequisite))
+	o.unlocked = o.after.is_empty()
+	o.phase_only = bool(d.get("phase_only", false))
 	return o
 
 
@@ -54,6 +64,8 @@ static func from_dict(d: Dictionary) -> MissionObjective:
 func evaluate(um: UnitManager, now: float) -> bool:
 	if complete:
 		return true
+	if not unlocked:
+		return false
 	complete = _test(um, now)
 	return complete
 
@@ -85,6 +97,19 @@ func _test(um: UnitManager, now: float) -> bool:
 			return n >= count
 		Kind.TIME_ELAPSED:
 			return now >= seconds
+		Kind.HOLD_AREA:
+			var n := 0
+			for u in _scope(um):
+				if u.is_engageable() and u.position.distance_to(center) <= radius_nm:
+					n += 1
+			if n < count:
+				held_since = -1.0
+				held_seconds = 0.0
+				return false
+			if held_since < 0.0:
+				held_since = now
+			held_seconds = maxf(now - held_since, 0.0)
+			return held_seconds >= seconds
 		Kind.AIRCRAFT_RECOVERED:
 			return _recovered_count(um) >= maxi(count, 1)
 	return false
@@ -94,6 +119,8 @@ func _test(um: UnitManager, now: float) -> bool:
 func progress(um: UnitManager, now: float) -> String:
 	if complete:
 		return "done"
+	if not unlocked:
+		return "awaiting previous task"
 	match kind:
 		Kind.FORCE_DESTROYED:
 			return "%d remaining" % um.get_engageable_units(faction).size()
@@ -121,6 +148,8 @@ func progress(um: UnitManager, now: float) -> String:
 			return "%s left" % Geo.format_duration(maxf(seconds - now, 0.0)).trim_prefix("D+0 ")
 		Kind.AIRCRAFT_RECOVERED:
 			return "%d / %d aircraft recovered" % [_recovered_count(um), maxi(count, 1)]
+		Kind.HOLD_AREA:
+			return "%.0f / %.0f min continuously on station" % [held_seconds / 60.0, seconds / 60.0]
 	return ""
 
 

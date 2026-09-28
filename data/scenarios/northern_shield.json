@@ -1,6 +1,6 @@
 {
   "id": "northern_shield",
-  "name": "NORWEGIAN SEA \u2014 REPLENISHMENT GROUP",
+  "name": "NORWEGIAN SEA — REPLENISHMENT GROUP",
   "description": "Maud must reach a replenishment rendezvous in the Norwegian Sea. A nuclear attack submarine and maritime patrol aircraft threaten the transit. The destroyer supplies the embarked ASW helicopters; the Norwegian ships retain landing facilities without an assumed NH90 detachment. Escort the auxiliary through rather than pursuing every contact. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
   "start_time_utc": "2027-03-11T19:15:00",
   "player_faction": "BLUE",
@@ -55,7 +55,7 @@
         "kind": "water"
       },
       {
-        "text": "FAROE\u2013SHETLAND CHANNEL",
+        "text": "FAROE–SHETLAND CHANNEL",
         "position_nm": [
           -186.6146,
           -330.0
@@ -63,7 +63,7 @@
         "kind": "water"
       },
       {
-        "text": "ICELAND\u2013FAROE RIDGE",
+        "text": "ICELAND–FAROE RIDGE",
         "position_nm": [
           -370.8366,
           -204.0
@@ -159,7 +159,7 @@
         "kind": "land"
       },
       {
-        "text": "\u00d6LAND",
+        "text": "ÖLAND",
         "position_nm": [
           313.4168,
           -582.0
@@ -199,7 +199,7 @@
         "kind": "land"
       },
       {
-        "text": "BJ\u00d8RN\u00d8YA",
+        "text": "BJØRNØYA",
         "position_nm": [
           370.8366,
           492.0
@@ -214,7 +214,7 @@
       278.3,
       276.0
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -9824,6 +9824,8 @@
       }
     ]
   },
-  "forces": "NATO: 1 replenishment ship, 1 destroyer, 1 frigate (2 embarked helicopters)  \u00b7  Russia: 1 nuclear attack submarine, 1 patrol aircraft",
-  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment."
+  "forces": "NATO: 1 replenishment ship, 1 destroyer, 1 frigate (2 embarked helicopters)  ·  Russia: 1 nuclear attack submarine, 1 patrol aircraft",
+  "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment.",
+  "operation_revision": 25,
+  "collection": "exercises"
 }
