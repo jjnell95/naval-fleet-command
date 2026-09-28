@@ -1163,12 +1163,12 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 	_stats["leaked"] += 1
 	if not hit:
 		map.add_effect(target.position, "miss")
-		_world_view.add_effect(target.position, "miss")
+		_world_view.add_effect(target.position, "miss", false, -1.0, target)
 		print("[Combat] %s miss on %s" % [spec.display_name, target.callsign])
 		return
 	SimClock.drop_to_realtime()
 	map.add_effect(target.position, "hit", own_target)
-	_world_view.add_effect(target.position, "hit", own_target)
+	_world_view.add_effect(target.position, "hit", own_target, -1.0, target)
 	SoundFx.play("impact", 0.2)
 	if own_target:
 		var casualties := ""
@@ -1190,7 +1190,7 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 	SimClock.drop_to_realtime()
 	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
-	_world_view.add_effect(u.position, "destroyed", u.faction == simulation.player_faction)
+	_world_view.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, -1.0, u)
 	SoundFx.play("impact", 0.0)
 	if u.faction == simulation.player_faction:
 		_losses.append(u.callsign)
