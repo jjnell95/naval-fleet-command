@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_at1"
 display_name = "AT-1M helicopter ASW torpedo"
+short_name = "AT-1M"
 family = "AT-1M helicopter ASW torpedo"
 type = "torpedo"
 target_types = PackedStringArray("subsurface")

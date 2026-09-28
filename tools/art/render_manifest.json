@@ -2,6 +2,21 @@
  "agm_84_harpoon": {
   "kind": "weapon"
  },
+ "cw90_nimitz": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.6015
+ },
+ "fra_cvn_charles_de_gaulle": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.6966
+ },
+ "fra_lhd_mistral": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.8693
+ },
  "irn_asbm_khalij_fars": {
   "kind": "platform",
   "domain": "land"
@@ -22,7 +37,13 @@
   "kind": "platform",
   "domain": "land"
  },
+ "mdcn": {
+  "kind": "weapon"
+ },
  "millennium_35mm": {
+  "kind": "weapon"
+ },
+ "paket_nk": {
   "kind": "weapon"
  },
  "pla_asbm_df21d": {
@@ -53,8 +74,23 @@
   "domain": "subsurface",
   "waterline_y": 0.0
  },
+ "rn_cvf_queen_elizabeth": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.7118
+ },
  "sm39_exocet": {
   "kind": "weapon"
+ },
+ "usn_cvn_ford": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.5866
+ },
+ "usn_cvn_nimitz": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.6012
  },
  "usn_ddg_burke_iii": {
   "kind": "platform",
@@ -64,5 +100,10 @@
  "usn_fighter_fa18e": {
   "kind": "platform",
   "domain": "air"
+ },
+ "usn_lha_america": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.6792
  }
 }

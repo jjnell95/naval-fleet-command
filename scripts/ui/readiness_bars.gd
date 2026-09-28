@@ -30,6 +30,8 @@ func rows_for(u: Unit) -> Array:
 		rows.append({"label": "FUEL", "value": u.fuel_fraction(), "kind": "fuel"})
 	if u.spec.decoy_count > 0:
 		rows.append({"label": "DCOY", "value": float(u.decoys) / maxf(float(u.spec.decoy_count), 1.0), "kind": "stock", "text": "%d" % u.decoys})
+	if u.spec.torpedo_decoy_count > 0:
+		rows.append({"label": "TCM", "value": float(u.torpedo_decoys) / maxf(float(u.spec.torpedo_decoy_count), 1.0), "kind": "stock", "text": "%d" % u.torpedo_decoys})
 	return rows
 
 

@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "mu90"
 display_name = "MU90 lightweight torpedo"
+short_name = "MU90"
 family = "MU90"
 type = "torpedo"
 guidance = "acoustic_homing"

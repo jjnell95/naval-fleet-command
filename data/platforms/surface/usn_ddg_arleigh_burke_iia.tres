@@ -26,6 +26,10 @@ aircraft_capacity = 2
 fire_control_channels = 6
 decoy_count = 12
 decoy_effectiveness = 0.35
+torpedo_decoy = "AN/SLQ-25 Nixie"
+towed_torpedo_decoy = true
+torpedo_decoy_count = 0
+torpedo_decoy_effectiveness = 0.3
 
 vls_cells = 96
 

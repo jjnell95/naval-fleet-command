@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "rastrub_asw"
 display_name = "Rastrub-B ASW missile"
+short_name = "Rastrub-B"
 family = "Rastrub-B"
 type = "torpedo"
 guidance = "acoustic_homing"

@@ -49,6 +49,7 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 		u.radar_on = bool(ud.get("radar_on", true))
 		u.health = spec.health
 		u.decoys = int(ud.get("decoys", spec.decoy_count))
+		u.torpedo_decoys = int(ud.get("torpedo_decoys", spec.torpedo_decoy_count))
 		u.depth_m = clampf(float(ud.get("depth_m", 0.0)), 0.0, spec.max_depth_m)
 		u.ordered_depth_m = u.depth_m
 		u.ai_posture = ud.get("ai_posture", "standard")
@@ -205,6 +206,7 @@ static func _spawn_aircraft(spec: PlatformSpec, host: Unit, callsign: String, sq
 	a.ordered_heading_deg = host.heading_deg
 	a.health = spec.health
 	a.decoys = spec.decoy_count
+	a.torpedo_decoys = spec.torpedo_decoy_count
 	a.flight_state = Unit.FlightState.STOWED
 	a.fuel_s = spec.endurance_s
 	a.sonobuoys = spec.sonobuoy_count

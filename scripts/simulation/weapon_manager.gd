@@ -317,7 +317,7 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 		return null
 	w.acquired = best
 	w.phase = Weapon.Phase.TERMINAL
-	w.decoy_attempted = false  # the new target gets its own chance to decoy it
+	w.decoy_attempted = false  # the new target gets its own chance to decoy it; acoustic tries are per ship already
 	weapon_seduced.emit(w, from, best)
 	return best
 

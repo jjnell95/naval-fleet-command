@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "jmsdf_type07_vla"
 display_name = "Type 07 vertical-launch ASW rocket"
+short_name = "Type 07"
 family = "Type 07 vertical-launch ASW rocket"
 type = "torpedo"
 target_types = PackedStringArray("subsurface")

@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "kh35_uran"
 display_name = "Kh-35 Uran family"
+short_name = "Uran"
 family = "Kh-35"
 type = "asm"
 guidance = "active_radar_homing"

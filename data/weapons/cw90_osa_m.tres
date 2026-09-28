@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_osa_m"
 display_name = "Osa-M / SA-N-4 Gecko"
+short_name = "SA-N-4"
 family = "Osa-M / SA-N-4 Gecko"
 type = "sam"
 target_types = PackedStringArray("missile", "air")

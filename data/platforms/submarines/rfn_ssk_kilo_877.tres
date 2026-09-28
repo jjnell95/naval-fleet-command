@@ -26,8 +26,11 @@ max_depth_m = 240.0
 patrol_depth_m = 90.0
 depth_rate_m_s = 1.6
 fire_control_channels = 0
-decoy_count = 6
+decoy_count = 0
 decoy_effectiveness = 0.30
+torpedo_decoy = "Acoustic countermeasures"
+torpedo_decoy_count = 6
+torpedo_decoy_effectiveness = 0.3
 weapon_loadout = {
 "ugst_torpedo": 14
 }

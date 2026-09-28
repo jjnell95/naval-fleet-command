@@ -102,6 +102,7 @@ static func run(main: Main) -> void:
 	checks["data display shows the tasking with nothing hooked"] = _rows_text(main.data_display.build_rows()).contains("CONTACTS:")
 	main.map.select_units([ship])
 	checks["data display describes the hooked platform"] = _rows_text(main.data_display.build_rows()).contains("CLASS: %s" % ship.spec.display_name.to_upper())
+	checks["the biggest ship's weapons all fit the data display"] = await _largest_loadout_fits(main)
 	await main.get_tree().process_frame
 	await main.get_tree().process_frame
 	var wide := main.map.size.x
@@ -213,12 +214,42 @@ static func _key(code: Key) -> InputEventKey:
 	return k
 
 
+## Draws the board for the hull with the most weapon systems in the catalogue on the real pane, and
+## reports whether the weapons grid showed every one of them.
+static func _largest_loadout_fits(main: Main) -> bool:
+	var biggest: PlatformSpec = null
+	for spec: PlatformSpec in DataDB.all_platforms():
+		if spec.domain != "air" and (biggest == null or spec.weapon_loadout.size() > biggest.weapon_loadout.size()):
+			biggest = spec
+	var u := Unit.new()
+	u.spec = biggest
+	u.callsign = biggest.display_name
+	u.alive = true
+	u.health = biggest.health
+	for wid in biggest.weapon_loadout:
+		var w := DataDB.weapon(str(wid))
+		if w != null:
+			u.weapons.append(w)
+			u.magazines[w.id] = int(biggest.weapon_loadout[wid])
+	var display := main.data_display
+	display._accum = -60.0  # hold off the board's own refresh while this one is drawn
+	display._rows = DataDisplay.unit_rows(u, null, "0001")
+	display.grid_hidden = -1
+	display.queue_redraw()
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	var fits := display.grid_hidden == 0
+	display._accum = 0.0
+	display.refresh()
+	return fits
+
+
 static func _rows_text(rows: Array) -> String:
 	var lines := PackedStringArray()
 	for row: Array in rows:
 		var line := ""
 		for span: Array in row:
-			if str(span[0]) != "FLOW":
+			if str(span[0]) != "FLOW" and str(span[0]) != DataDisplay.CELL:
 				line += str(span[0])
 		lines.append(line)
 	return "\n".join(lines)

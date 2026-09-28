@@ -160,10 +160,14 @@ void fragment() {
 	float glint = pow(rs, 1400.0) * 2.6 * (1.0 - far);
 	float sparkle = step(0.92, vnoise(p * 2.3 + t * vec2(0.7, -0.5))) * pow(rs, 50.0) * 2.2 * (1.0 - smoothstep(0.05, 0.8, footprint));
 	col += sun_color * (sheen + glint + sparkle) * sun_strength;
-	// Whitecaps on the steep crests, from sea state 2 up.
+	// Whitecaps on the steep crests, from sea state 2 up, broken into foam that the wind draws out
+	// in streaks rather than round blotches, which is how they looked from a camera above a boat.
 	float steep = length(g);
 	float cap = smoothstep(0.95 - 0.06 * s, 1.2 - 0.06 * s, steep * 2.2 + vnoise(p * 0.3 + t * 0.3) * 0.25);
+	vec2 along = vec2(dot(p, wind), dot(p, side));
+	float streaks = vnoise(along * vec2(0.06, 0.5) - vec2(t * 0.4, 0.0)) * 0.6 + vnoise(along * vec2(0.2, 1.4) + 5.0) * 0.4;
 	cap *= smoothstep(1.5, 3.0, s) * (1.0 - far) * (0.5 + 0.5 * vnoise(p * 0.05 + wind * t * 0.1));
+	cap *= mix(1.0, smoothstep(0.35, 0.75, streaks), 1.0 - smoothstep(0.4, 3.0, footprint));
 	col = mix(col, foam_color * (0.3 + 0.7 * daylight), cap * 0.5);
 	// Surf where the sea meets the chart's coast.
 	if (coast_window.z > 0.0) {

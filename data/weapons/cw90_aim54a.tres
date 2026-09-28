@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_aim54a"
 display_name = "AIM-54A Phoenix"
+short_name = "Phoenix"
 family = "AIM-54A Phoenix"
 type = "aam"
 target_types = PackedStringArray("air")

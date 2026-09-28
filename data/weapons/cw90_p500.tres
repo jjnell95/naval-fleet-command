@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_p500"
 display_name = "P-500 Bazalt / SS-N-12 Sandbox"
+short_name = "Bazalt"
 family = "P-500 Bazalt / SS-N-12 Sandbox"
 type = "asm"
 target_types = PackedStringArray("surface")

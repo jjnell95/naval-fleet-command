@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "irn_test71me"
 display_name = "TEST-71ME torpedo"
+short_name = "TEST-71ME"
 family = "TEST-71ME torpedo"
 type = "torpedo"
 target_types = PackedStringArray("surface", "subsurface")

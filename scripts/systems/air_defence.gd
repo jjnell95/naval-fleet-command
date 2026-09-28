@@ -136,8 +136,8 @@ static func _channels_in_use(weapon_manager: WeaponManager) -> Dictionary:
 
 
 
-## Data decides what an interceptor can shoot at. Nothing currently lists "torpedo" as a target
-## type, so a torpedo cannot be shot down and has to be defeated by decoys or by manoeuvre.
+## Data decides what an interceptor can shoot at. The air-defence layers list "missile" and
+## "ballistic"; the one weapon that lists "torpedo" (Paket-NK) is fired by TorpedoDefence, not here.
 static func _can_intercept(spec: WeaponSpec, threat: Weapon) -> bool:
 	return spec.target_types.has(threat.threat_class()) and threat.spec.altitude_m >= spec.intercept_min_altitude_m and threat.spec.altitude_m <= spec.intercept_max_altitude_m
 
@@ -177,8 +177,10 @@ static func _engage_threat(u: Unit, threat: Weapon, weapon_manager: WeaponManage
 	return 0
 
 
+## Chaff and flares against a missile's seeker. A torpedo's is acoustic, and chaff does nothing to
+## it: TorpedoDefence answers torpedoes with noise.
 static func _try_decoy(u: Unit, threat: Weapon, weapon_manager: WeaponManager) -> void:
-	if threat.decoy_attempted or u.decoys <= 0 or threat.acquired != u:
+	if threat.decoy_attempted or u.decoys <= 0 or threat.acquired != u or threat.spec.is_torpedo():
 		return
 	if u.position.distance_to(threat.position) > DECOY_RANGE_NM:
 		return

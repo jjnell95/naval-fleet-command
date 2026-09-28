@@ -23,12 +23,15 @@ mast_height_m = 26.0
 aircraft_capacity = 1
 fire_control_channels = 4
 decoy_count = 14
-weapon_loadout = {"aster15_family": 16, "mm40_exocet": 8, "mu90": 12, "oto_76mm_gun": 250}
+torpedo_decoy = "CANTO"
+torpedo_decoy_count = 10
+torpedo_decoy_effectiveness = 0.35
+weapon_loadout = {"aster15_family": 16, "mdcn": 8, "mm40_exocet": 8, "mu90": 12, "oto_76mm_gun": 250}
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
 
 vls_cells = 32
 
-role = "Antisubmarine escort • variable-depth sonar"
+role = "Antisubmarine escort and deep strike • variable-depth sonar, MdCN"
 
-service_note = "ASW variant; unmodelled MdCN strike cells remain unallocated."
+service_note = "ASW variant. Sixteen Sylver A43 cells for Aster 15 and sixteen A70 cells for MdCN, half of them loaded: the national MdCN stock is small."
 default_air_wing = {"nato_helo_nh90_nfh": 1}

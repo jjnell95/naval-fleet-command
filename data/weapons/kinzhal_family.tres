@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "kinzhal_family"
 display_name = "Kh-47M2 Kinzhal (aero-ballistic)"
+short_name = "Kinzhal"
 family = "Kinzhal"
 type = "asm"
 guidance = "inertial_terminal"

@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "ak630_ciws"
 display_name = "AK-630 close-in gun"
+short_name = "AK-630"
 family = "AK-630"
 type = "ciws"
 guidance = "fire_control_directed"

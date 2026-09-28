@@ -4,9 +4,19 @@ render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
 // Foam for the strips WorldScene lays behind a hull: a churned lane of aerated water down the
 // middle, pale turquoise under white foam, and the two arms of the wake along the edges. UV.x
 // runs across the strip, UV.y is metres astern, and the vertex colour carries the fade and the
-// daylight.
+// daylight. The strip is laid flat and every vertex is lifted onto the swell here, so it rides the
+// same water as the ocean mesh; a strip lifted only at its samples used to dip under every crest
+// between them, and a carrier's wake, sampled about one swell apart, came out in patches.
+
+#include "res://scripts/ui/world_swell.gdshaderinc"
 
 uniform vec3 aerated : source_color = vec3(0.30, 0.55, 0.64);
+uniform float float_m = 0.35;  // how far above the water the foam lies, against z-fighting
+
+void vertex() {
+	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	VERTEX.y += world_sea_height(w, CAMERA_POSITION_WORLD) + float_m - w.y;
+}
 
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));

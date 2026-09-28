@@ -10627,14 +10627,6 @@
       ],
       "heading_deg": 250,
       "speed_kn": 12,
-      "loadout": {
-        "rgm_139_vla": 8,
-        "mk45_mod4_gun": 250,
-        "sm2_family": 24,
-        "essm_family": 32,
-        "phalanx_ciws": 60,
-        "tomahawk_block_v": 8
-      },
       "aviation_reload_cycles": 2
     },
     {

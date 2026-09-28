@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "jsm_missile"
 display_name = "Joint Strike Missile (JSM)"
+short_name = "JSM"
 family = "NSM/JSM"
 type = "asm"
 guidance = "imaging_infrared"

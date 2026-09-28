@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "s300f_fort"
 display_name = "S-300F Fort (SA-N-6) family"
+short_name = "Fort"
 family = "Fort"
 type = "sam"
 guidance = "track_via_missile"

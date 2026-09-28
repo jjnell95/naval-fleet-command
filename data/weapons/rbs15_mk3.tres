@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "rbs15_mk3"
 display_name = "RBS-15 family"
+short_name = "RBS15"
 family = "RBS-15"
 type = "asm"
 guidance = "active_radar_homing"

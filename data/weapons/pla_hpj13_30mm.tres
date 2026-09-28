@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "pla_hpj13_30mm"
 display_name = "H/PJ-13 30 mm gun mount"
+short_name = "H/PJ-13"
 family = "H/PJ-13 30 mm gun mount"
 type = "ciws"
 target_types = PackedStringArray("missile", "air")

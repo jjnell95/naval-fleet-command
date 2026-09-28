@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "meteor_aam"
 display_name = "Meteor BVRAAM"
+short_name = "Meteor"
 family = "Meteor"
 type = "aam"
 guidance = "inertial_active"

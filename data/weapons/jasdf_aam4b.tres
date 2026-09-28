@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "jasdf_aam4b"
 display_name = "AAM-4B active-radar air-to-air missile"
+short_name = "AAM-4B"
 family = "AAM-4B active-radar air-to-air missile"
 type = "aam"
 target_types = PackedStringArray("air")

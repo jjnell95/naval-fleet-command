@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "shtil1"
 display_name = "Shtil-1 naval SAM"
+short_name = "Shtil-1"
 family = "Shtil"
 type = "sam"
 guidance = "semi_active_abstract"

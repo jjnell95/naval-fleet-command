@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_ak630"
 display_name = "AK-630 CIWS"
+short_name = "AK-630"
 family = "AK-630 CIWS"
 type = "ciws"
 target_types = PackedStringArray("missile", "air")

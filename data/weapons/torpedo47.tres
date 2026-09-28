@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "torpedo47"
 display_name = "Torpedo 47 lightweight torpedo"
+short_name = "Tp 47"
 family = "Torpedo 47"
 type = "torpedo"
 guidance = "acoustic_homing"

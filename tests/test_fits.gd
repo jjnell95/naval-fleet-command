@@ -112,8 +112,35 @@ func test_suffren_mixes_heavyweight_torpedoes_with_anti_ship_missiles() -> void:
 	if p == null:
 		return
 	assert_true(p.weapon_loadout.has("f21_torpedo") and p.weapon_loadout.has("sm39_exocet"))
-	assert_true(_rounds(p, ["f21_torpedo", "sm39_exocet"]) <= 20, "inside the twenty stowage racks")
+	assert_true(_rounds(p, ["f21_torpedo", "sm39_exocet", "mdcn"]) <= 20, "inside the twenty stowage racks")
 	assert_true(not p.weapon_loadout.has("mm40_exocet"), "the surface-launched round is not what a boat fires")
+
+
+func test_the_french_strike_hulls_carry_mdcn_and_it_strikes_only_ashore() -> void:
+	var mdcn := DataDB.weapon("mdcn")
+	assert_true(mdcn != null, "MdCN loads")
+	if mdcn == null:
+		return
+	assert_eq(Array(mdcn.target_types), ["land"], "a land-attack missile with no anti-ship seeker")
+	assert_eq(int(_platform("fra_ssn_suffren").weapon_loadout.get("mdcn", 0)), 4, "Suffren fires it from her tubes in a capsule")
+	var fremm := _platform("fra_ffg_fremm")
+	assert_eq(int(fremm.weapon_loadout.get("mdcn", 0)), 8, "half the Aquitaine class's sixteen A70 cells: the stock is small")
+	assert_true(fremm.occupied_vls_cells() <= fremm.vls_cells, "Aster 15 and MdCN fit the FREMM's 32 cells")
+	# The Tartus battery reaches 130 nm with a track; MdCN is the answer from outside it, not a way in.
+	var bastion := _platform("rfn_battery_bastion")
+	assert_true(mdcn.max_range_nm > _reach(bastion, "asm") * 2.0, "MdCN outranges the Bastion battery it may be sent against")
+
+
+func test_mdcn_engages_a_site_ashore_but_not_a_ship() -> void:
+	Terrain.clear()
+	var u := _shooter("fra_ffg_fremm")
+	var mdcn := DataDB.weapon("mdcn")
+	var site := _surface_track(300.0)
+	site.domain = "land"
+	assert_true(Combat.check_engagement(u, mdcn, site)["ok"], "a battery the plot holds can be struck from 300 nm")
+	assert_true(not Combat.check_engagement(u, mdcn, _surface_track(60.0))["ok"], "a ship is not an MdCN target")
+	var boat := _shooter("fra_ssn_suffren", 10.0)
+	assert_true(Combat.check_engagement(boat, mdcn, site)["ok"], "Suffren at periscope depth can fire it too")
 
 
 func test_iver_huitfeldt_has_a_close_in_layer_and_her_torpedo_launchers() -> void:
@@ -215,7 +242,7 @@ func test_the_new_close_in_mount_engages_a_sea_skimmer_but_not_a_torpedo() -> vo
 
 
 func test_the_new_weapons_are_labelled_estimates_and_have_a_usable_envelope() -> void:
-	for wid in ["millennium_35mm", "sm39_exocet"]:
+	for wid in ["millennium_35mm", "sm39_exocet", "mdcn"]:
 		var w := DataDB.weapon(wid)
 		assert_true(w != null, "%s loads" % wid)
 		if w == null:

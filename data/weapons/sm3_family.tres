@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "sm3_family"
 display_name = "SM-3 family (BMD)"
+short_name = "SM-3"
 family = "SM-3 family"
 type = "sam"
 guidance = "inertial_infrared_hit_to_kill"

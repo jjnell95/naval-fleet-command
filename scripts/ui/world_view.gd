@@ -20,6 +20,9 @@ const LABEL_COLOR := UITheme.CDS_CAMERA
 const LABEL_SIZE := 14
 const LABEL_PAD := Vector2(7.0, 5.0)
 const MIN_CAMERA_HEIGHT_M := 2.5
+## Sun shadows cost a second pass over every model. The always-on pane under the chart is too small
+## for them to show; full screen, or swapped with the chart, they are worth it.
+const SHADOW_MIN_WIDTH_PX := 900.0
 const DEFAULT_START_TIME := "1990-03-21T11:00:00"
 
 var map: TacticalMap
@@ -219,6 +222,7 @@ func _sync_visibility() -> void:
 	set_process(live)
 	if _scene != null:
 		_scene.set_running(live)
+		_scene.set_shadows(live and size.x >= SHADOW_MIN_WIDTH_PX)
 	if not live:
 		_dragging = false
 	if _hud != null:

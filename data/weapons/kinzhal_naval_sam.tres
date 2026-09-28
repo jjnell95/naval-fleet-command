@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "kinzhal_naval_sam"
 display_name = "3K95 Kinzhal / SA-N-9"
+short_name = "SA-N-9"
 family = "3K95 Kinzhal naval SAM"
 type = "sam"
 guidance = "fire_control_directed"

@@ -26,8 +26,11 @@ max_depth_m = 300.0
 patrol_depth_m = 120.0
 depth_rate_m_s = 2.0
 fire_control_channels = 0
-decoy_count = 8
+decoy_count = 0
 decoy_effectiveness = 0.30
+torpedo_decoy = "Acoustic countermeasures"
+torpedo_decoy_count = 8
+torpedo_decoy_effectiveness = 0.3
 weapon_loadout = {
 "mk48_adcap": 20,
 "tomahawk_block_v": 12

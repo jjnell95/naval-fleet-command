@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "sea_ceptor"
 display_name = "Sea Ceptor / CAMM"
+short_name = "Sea Ceptor"
 family = "CAMM"
 type = "sam"
 guidance = "active_radar"

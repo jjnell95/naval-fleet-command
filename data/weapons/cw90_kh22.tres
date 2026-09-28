@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_kh22"
 display_name = "Kh-22 / AS-4 Kitchen"
+short_name = "Kh-22"
 family = "Kh-22 / AS-4 Kitchen"
 type = "asm"
 target_types = PackedStringArray("surface")

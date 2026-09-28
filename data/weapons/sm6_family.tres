@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "sm6_family"
 display_name = "SM-6 family"
+short_name = "SM-6"
 family = "SM-6 family"
 type = "sam"
 guidance = "inertial_active"

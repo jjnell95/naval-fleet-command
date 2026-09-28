@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "p1000_vulkan"
 display_name = "P-1000 Vulkan family"
+short_name = "Vulkan"
 family = "Vulkan"
 type = "asm"
 guidance = "inertial_active"

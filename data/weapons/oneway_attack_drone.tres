@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "oneway_attack_drone"
 display_name = "Long-range one-way attack drone"
+short_name = "OWA drone"
 family = "OWA drone"
 type = "asm"
 guidance = "inertial_terminal"

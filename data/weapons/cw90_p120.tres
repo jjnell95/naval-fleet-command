@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_p120"
 display_name = "P-120 Malakhit / SS-N-9 Siren"
+short_name = "SS-N-9"
 family = "P-120 Malakhit / SS-N-9 Siren"
 type = "asm"
 target_types = PackedStringArray("surface")

@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "rbs15f"
 display_name = "RBS15F air-launched missile"
+short_name = "RBS15F"
 family = "RBS15"
 type = "asm"
 guidance = "inertial_active"

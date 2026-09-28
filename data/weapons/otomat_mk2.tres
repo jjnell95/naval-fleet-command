@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "otomat_mk2"
 display_name = "Otomat / Teseo Mk2"
+short_name = "Otomat"
 family = "Otomat"
 type = "asm"
 guidance = "inertial_active"

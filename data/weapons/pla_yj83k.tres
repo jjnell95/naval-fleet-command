@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "pla_yj83k"
 display_name = "YJ-83K air-launched anti-ship missile"
+short_name = "YJ-83K"
 family = "YJ-83K air-launched anti-ship missile"
 type = "asm"
 target_types = PackedStringArray("surface")

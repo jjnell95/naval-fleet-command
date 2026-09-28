@@ -65,8 +65,24 @@ def esm(key, name, gain=1.8, height=24.0, rate=1.1):
              range_air_nm=0.0, antenna_height_m=float(height), esm_gain=gain, classify_rate=rate))
 
 
+# What the data display calls each weapon: eleven letters at most (WeaponSpec.short_name).
+SHORT_NAMES = {
+    "irn_53_65ke": "53-65KE", "irn_kamand_ciws": "Kamand", "irn_khalij_fars": "Khalij Fars", "irn_mehrab_sam": "Mehrab",
+    "irn_nasr1": "Nasr-1", "irn_noor": "Noor", "irn_oerlikon_35mm": "35 mm twin", "irn_qader": "Qader",
+    "irn_sayyad4_sam": "Sayyad-4", "irn_test71me": "TEST-71ME", "jasdf_aam4b": "AAM-4B", "jasdf_aam5": "AAM-5",
+    "jasdf_asm3": "ASM-3", "jgsdf_type12_ssm": "Type 12", "jmsdf_type07_vla": "Type 07", "jmsdf_type12_torpedo": "Type 12",
+    "jmsdf_type17_ssm": "Type 17", "jmsdf_type18_torpedo": "Type 18", "jmsdf_type90_ssm": "Type 90", "jmsdf_type97_torpedo": "Type 97",
+    "pla_cj10": "CJ-10", "pla_df21d": "DF-21D", "pla_hhq10": "HHQ-10", "pla_hhq16": "HHQ-16",
+    "pla_hhq9b": "HHQ-9B", "pla_hpj11_ciws": "H/PJ-11", "pla_hpj12_ciws": "H/PJ-12", "pla_hpj13_30mm": "H/PJ-13",
+    "pla_hpj26_76mm": "H/PJ-26", "pla_hpj45_130mm": "H/PJ-45A", "pla_pl10": "PL-10", "pla_pl15": "PL-15",
+    "pla_yj12": "YJ-12", "pla_yj12b": "YJ-12B", "pla_yj18": "YJ-18", "pla_yj21": "YJ-21",
+    "pla_yj82": "YJ-82", "pla_yj83": "YJ-83", "pla_yj83k": "YJ-83K", "pla_yu6": "Yu-6",
+    "pla_yu7": "Yu-7", "pla_yu8": "Yu-8", "rfn_48n6_sam": "48N6",
+}
+
+
 def weapon(key, name, kind, targets, reach, speed, damage, **kw):
-    d = dict(display_name=name, family=name.split(" /")[0], type=kind, target_types=targets,
+    d = dict(display_name=name, short_name=SHORT_NAMES[key], family=name.split(" /")[0], type=kind, target_types=targets,
              guidance="fire_control_directed" if kind in ["sam", "ciws"] else "active_radar_homing",
              profile="high" if kind in ["sam", "aam"] else "sea_skimming",
              max_range_nm=float(reach), min_range_nm=2.0, speed_kn=float(speed),
@@ -123,7 +139,8 @@ def submarine(key, name, short, nation, sensors, weapons, length, tonnes, speed,
                   turn_rate_deg_s=2.2, accel_kn_s=0.2, health=55.0, signature_factor=0.25,
                   mast_height_m=8.0, acoustic_signature=acoustic, max_depth_m=float(depth),
                   patrol_depth_m=min(150.0, depth * 0.5), depth_rate_m_s=2.0, has_datalink=True,
-                  fire_control_channels=0, decoy_count=6, decoy_effectiveness=0.3)
+                  fire_control_channels=0, decoy_count=0, decoy_effectiveness=0.3,
+                  torpedo_decoy="Acoustic countermeasures", torpedo_decoy_count=6, torpedo_decoy_effectiveness=0.3)
     values.update(kw)
     category = values.pop("category")
     platform(key, name, short, nation, category, sensors, weapons, **values)
@@ -276,7 +293,7 @@ def catalogue():
              service_note="STOBAR deck: a ski jump forward and arrester wires aft, so J-15s launch with reduced fuel and stores and recover one at a time. The represented detachment is a scenario allocation, not the full air group.")
     submarine("pla_ssn_type093b", "Type 093B attack submarine (Shang II)", "SSN Type 093B", "China",
               ["pla_type093_suite"], {"pla_yj18": 6, "pla_yu6": 14}, 110.0, 7000.0, 30.0, 0.18, 350.0,
-              category="nuclear attack submarine", health=65.0, decoy_count=8,
+              category="nuclear attack submarine", health=65.0, torpedo_decoy_count=8,
               role="Sea denial / anti-surface torpedo and missile attack",
               service_note="Publicly assessed as quieter than the first Type 093 boats but noisier than current Western designs; the acoustic value reflects that ordering only. YJ-18 is fired from the torpedo tubes.")
     submarine("pla_ssk_type039a", "Type 039A/B submarine (Yuan)", "SSK Type 039A", "China",
@@ -422,7 +439,7 @@ def catalogue():
              service_note="After the deck modification for F-35B. The fighters belong to the Air Self-Defense Force and embark as a detachment.")
     submarine("jmsdf_ssk_taigei", "Taigei-class submarine", "SSK Taigei", "Japan",
               ["jmsdf_zqq8"], {"jmsdf_type18_torpedo": 12, "rgm_84_harpoon": 6}, 84.0, 4300.0, 20.0, 0.05, 400.0,
-              category="diesel-electric attack submarine", health=50.0, decoy_count=8, patrol_depth_m=150.0,
+              category="diesel-electric attack submarine", health=50.0, torpedo_decoy_count=8, patrol_depth_m=150.0,
               role="Quiet barrier / anti-surface ambush",
               service_note="Lithium-ion batteries in place of air-independent propulsion: a long quiet loiter and a fast sprint, then a long charge. The sub-launched Harpoon uses the surface round's numbers.")
     aircraft("jmsdf_mpa_p1", "Kawasaki P-1 maritime patrol aircraft", "P-1", "Japan", "maritime patrol aircraft",
@@ -504,7 +521,7 @@ def catalogue():
     submarine("irn_ssm_ghadir", "Ghadir-class midget submarine", "SSM Ghadir", "Iran",
               ["irn_ghadir_sonar"], {"irn_test71me": 2}, 29.0, 120.0, 11.0, 0.12, 100.0,
               category="midget submarine", health=20.0, signature_factor=0.12, mast_height_m=4.0, patrol_depth_m=40.0,
-              cruise_speed_kn=5.0, has_datalink=False, decoy_count=0,
+              cruise_speed_kn=5.0, has_datalink=False, torpedo_decoy_count=0,
               role="Shallow-water ambush in the strait",
               service_note="Two heavyweight torpedoes, a small crew and very shallow water. Its sonar is short; its advantage is that the strait is narrow.")
     platform("irn_fac_peykaap3", "Peykaap III fast attack craft", "FAC Peykaap III", "Iran", "fast attack craft",

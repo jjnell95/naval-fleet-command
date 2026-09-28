@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "agm_158c_lrasm"
 display_name = "AGM-158C LRASM"
+short_name = "LRASM"
 family = "LRASM"
 type = "asm"
 guidance = "autonomous_terminal"

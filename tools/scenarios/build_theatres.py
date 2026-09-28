@@ -181,8 +181,7 @@ def spratly_watch():
     s.height_m = 40  # low reef islets and Palawan's coastal plain; the chart's plateau rule would overstate them
     s.afloat("civ_merchant_bulk", "MV Lapu-Lapu Trader", "BLUE", 10.35, 116.9, 250, 12, radar_on=True,
              patrol=[s.xy(9.85, 115.9)])
-    s.afloat("usn_ddg_arleigh_burke_iia", "USS Dewey (DDG 105)", "BLUE", 10.25, 116.6, 250, 12,
-             loadout={"rgm_139_vla": 8, "mk45_mod4_gun": 250, "sm2_family": 24, "essm_family": 32, "phalanx_ciws": 60, "tomahawk_block_v": 8})
+    s.afloat("usn_ddg_arleigh_burke_iia", "USS Dewey (DDG 105)", "BLUE", 10.25, 116.6, 250, 12)
     s.afloat("jmsdf_ffm_mogami", "JS Kumano (FFM 2)", "BLUE", 10.45, 116.75, 250, 12)
     s.site("shore_air_station", "Antonio Bautista Air Base, Puerto Princesa", "BLUE", 9.742, 118.759,
            air_wing=[{"platform": "usn_mpa_p8a", "count": 1, "squadron": "VP-8 det", "callsign": "Fighting Tiger", "first_modex": 21}])
@@ -269,7 +268,7 @@ def hormuz():
                               "Type 45 and a French frigate escort them past Qeshm and Larak against an IRGC swarm, a midget submarine "
                               "in the lane, a Kilo waiting outside, drones from the coast and a coastal battery above Bandar Abbas, with "
                               "a ballistic-missile battery behind it that fires on whatever the drones report. A P-8A detachment at "
-                              "Al Dhafra can help. The destroyer's Tomahawks can reach the battery; your rules of engagement decide "
+                              "Al Dhafra can help. The destroyer's Tomahawks and Languedoc's MdCN can reach the battery; your rules of engagement decide "
                               "whether they do before it fires."))
     s.meta("Persian Gulf", "Advanced", 30, "Escort group commander",
            "Convoy defence in confined water: fast-attack-craft swarms, one-way attack drones, a midget submarine, shore-based cruise and ballistic missiles, and neutral traffic everywhere",
@@ -283,8 +282,7 @@ def hormuz():
     route = [s.xy(26.5, 56.35), s.xy(26.25, 56.85), exit_box]
     for name, lat, lon in convoy:
         s.afloat("civ_tanker_vlcc", name, "BLUE", lat, lon, 100, 13, radar_on=True, patrol=route)
-    s.afloat("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius (DDG 117)", "BLUE", 26.47, 56.08, 100, 13,
-             loadout={"rgm_139_vla": 8, "mk45_mod4_gun": 250, "sm2_family": 24, "essm_family": 32, "phalanx_ciws": 60, "tomahawk_block_v": 8})
+    s.afloat("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius (DDG 117)", "BLUE", 26.47, 56.08, 100, 13)
     s.afloat("rn_ddg_type45", "HMS Duncan (D 37)", "BLUE", 26.52, 55.98, 100, 13)
     s.afloat("fra_ffg_fremm", "FS Languedoc (D 653)", "BLUE", 26.38, 55.62, 100, 13)
     s.site("shore_air_station", "Al Dhafra Air Base", "BLUE", 24.248, 54.548,
@@ -336,7 +334,8 @@ def tartus_line():
            "Deliver Mistral to the box south of Cyprus. Identify before engaging; the lane is full of ships that are nobody's enemy.",
            ["Launch an E-2C and a Rafale section; keep them west of the Syrian coast and its S-400.",
             "Suffren goes east first, to find Krasnodar before Krasnodar finds Mistral.",
-            "The Bastion battery reaches 130 miles when it has a track. Stay outside its radar, or make sure nothing else is giving it one."],
+            "The Bastion battery reaches 130 miles when it has a track. Stay outside its radar, or make sure nothing else is giving it one.",
+            "Provence and Suffren carry MdCN. Once the battery shows itself on the plot it can be struck from far outside its reach, through the S-400."],
            setting_note="A fictional October 2027 crisis. Real geography, real class and unit names; the deployment and the engagement are invented.")
     s.afloat("fra_lhd_mistral", "FS Mistral (L 9013)", "BLUE", 34.15, 31.4, 80, 16, patrol=[s.xy(33.85, 33.6)])
     s.afloat("fra_cvn_charles_de_gaulle", "FS Charles de Gaulle (R 91)", "BLUE", 34.35, 31.8, 80, 18,

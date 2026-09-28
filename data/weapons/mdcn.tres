@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "mdcn"
+display_name = "MdCN naval cruise missile (land attack)"
+short_name = "MdCN"
+family = "MdCN / SCALP Naval"
+type = "asm"
+guidance = "inertial_terrain_matching"
+profile = "sea_skimming"
+target_types = PackedStringArray("land")
+max_range_nm = 540.0
+min_range_nm = 15.0
+speed_kn = 480.0
+turn_rate_deg_s = 12.0
+seeker_range_nm = 6.0
+damage = 50.0
+base_pk = 0.82
+salvo_default = 2
+launch_interval_s = 5.0
+defensive_difficulty = 1.1
+signature_factor = 0.1
+altitude_m = 20.0
+soft_kill_resistance = 1.8
+source_status = "PUBLIC: designation, land-attack role, the Aquitaine-class FREMM's Sylver A70 cells and Suffren's torpedo tubes as launchers, and a range of about 1,000 km; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures and loadouts. Not an operational capability claim."
+vls_pack = 1

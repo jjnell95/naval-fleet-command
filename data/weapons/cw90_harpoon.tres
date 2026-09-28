@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_harpoon"
 display_name = "RGM-84 Harpoon Block 1C"
+short_name = "Harpoon"
 family = "RGM-84 Harpoon Block 1C"
 type = "asm"
 target_types = PackedStringArray("surface")

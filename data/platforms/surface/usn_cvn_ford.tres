@@ -23,6 +23,10 @@ mast_height_m = 50.0
 aircraft_capacity = 75
 fire_control_channels = 2
 decoy_count = 24
+torpedo_decoy = "AN/SLQ-25 Nixie"
+towed_torpedo_decoy = true
+torpedo_decoy_count = 0
+torpedo_decoy_effectiveness = 0.3
 weapon_loadout = {"essm_family": 24, "ram_block2": 42, "phalanx_ciws": 120}
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
 

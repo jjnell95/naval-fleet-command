@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "zircon_3m22"
 display_name = "3M22 Zircon (hypersonic)"
+short_name = "Zircon"
 family = "Zircon"
 type = "asm"
 guidance = "inertial_active"

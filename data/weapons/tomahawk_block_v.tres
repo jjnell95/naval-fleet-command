@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "tomahawk_block_v"
 display_name = "Tomahawk Block Va (maritime strike)"
+short_name = "Tomahawk"
 family = "Tomahawk"
 type = "asm"
 guidance = "inertial_active"

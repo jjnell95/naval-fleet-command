@@ -35,7 +35,7 @@ static func _text(rows: Array) -> String:
 	for row: Array in rows:
 		var line := ""
 		for span: Array in row:
-			if str(span[0]) != "FLOW":
+			if str(span[0]) != "FLOW" and str(span[0]) != DataDisplay.CELL:
 				line += str(span[0])
 		lines.append(line)
 	return "\n".join(lines)
@@ -62,7 +62,46 @@ func test_own_unit_rows_read_like_the_data_display() -> void:
 	assert_true(text.contains("ORDERS: "))
 	if not u.weapons.is_empty():
 		assert_true(text.contains("WEAPONS:"), "an armed ship lists its weapons")
-		assert_true(text.contains("%s - %d" % [u.weapons[0].display_name, u.magazine_count(u.weapons[0].id)]), "weapons read name - count")
+		assert_true(text.contains("%s %d" % [u.weapons[0].compact_name(), u.magazine_count(u.weapons[0].id)]), "weapons read short name and count")
+
+
+func test_every_weapon_has_a_short_name_that_fits_a_cell() -> void:
+	for w: WeaponSpec in DataDB.all_weapons():
+		assert_true(w.short_name != "", "%s has a short name for the data display" % w.id)
+		assert_true(w.short_name.length() <= 11, "%s's short name '%s' fits a cell" % [w.id, w.short_name])
+		assert_eq(w.compact_name(), w.short_name)
+
+
+func test_weapons_are_listed_by_job_farthest_first() -> void:
+	var names: Array = []
+	for w: WeaponSpec in DataDisplay.weapons_by_job(_unit("usn_ddg_burke_iii")):
+		names.append(w.short_name)
+	assert_eq(names, ["Tomahawk", "SM-6", "SM-2", "ESSM", "Phalanx", "Mk 45", "ASROC"], "strike, air defence by reach, close-in, gun, anti-submarine")
+	var rows := DataDisplay.unit_rows(_unit("pla_ddg_type055"))
+	var cells := 0
+	for row: Array in rows:
+		if str(row[row.size() - 1][0]) == DataDisplay.CELL:
+			cells += 1
+	assert_eq(cells, 9, "every one of the Type 055's nine systems gets a cell; the display decides what fits")
+
+
+func test_the_weapons_grid_never_drops_a_system_silently() -> void:
+	assert_eq(DataDisplay.grid_fit(9, 2, 5), {"shown": 9, "more": 0, "lines": 5}, "nine in two columns take five lines")
+	assert_eq(DataDisplay.grid_fit(9, 3, 5), {"shown": 9, "more": 0, "lines": 3})
+	assert_eq(DataDisplay.grid_fit(9, 2, 4), {"shown": 7, "more": 2, "lines": 4}, "short of room, the last cell says how many more")
+	assert_eq(DataDisplay.grid_fit(4, 2, 0), {"shown": 0, "more": 4, "lines": 0})
+	assert_eq(DataDisplay.grid_columns(300.0), 2, "a narrow pane takes two columns")
+	assert_eq(DataDisplay.grid_columns(584.0), 3, "the pane at 1600 x 900 takes three")
+	assert_eq(DataDisplay.grid_columns(120.0), 1)
+	assert_eq(DataDisplay.grid_columns(1000.0), DataDisplay.MAX_COLUMNS)
+
+
+func test_course_and_speed_share_a_line() -> void:
+	var u := _unit()
+	u.heading_deg = 90.0
+	u.speed_kn = 16.0
+	var lines := _text(DataDisplay.unit_rows(u)).split("\n")
+	assert_true(lines.has("COURSE: 090   SPEED: 16 KTS"), "one line, so the weapons have one more")
 
 
 func test_the_weapons_line_states_reach_one_figure_per_job() -> void:

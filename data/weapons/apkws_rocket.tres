@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "apkws_rocket"
 display_name = "APKWS guided rocket"
+short_name = "APKWS"
 family = "APKWS"
 type = "asm"
 guidance = "semi_active_laser"

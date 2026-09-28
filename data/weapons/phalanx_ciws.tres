@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "phalanx_ciws"
 display_name = "Phalanx close-in weapon system"
+short_name = "Phalanx"
 family = "Phalanx"
 type = "ciws"
 guidance = "fire_control_directed"

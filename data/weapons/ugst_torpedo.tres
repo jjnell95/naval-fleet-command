@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "ugst_torpedo"
 display_name = "UGST family"
+short_name = "UGST"
 family = "UGST"
 type = "torpedo"
 guidance = "acoustic_homing"

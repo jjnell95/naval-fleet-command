@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "martlet_lmm"
 display_name = "Martlet lightweight multirole missile"
+short_name = "Martlet"
 family = "Martlet"
 type = "asm"
 guidance = "semi_active_laser"

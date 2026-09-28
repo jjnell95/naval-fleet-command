@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "pla_hpj45_130mm"
 display_name = "H/PJ-45A 130 mm gun"
+short_name = "H/PJ-45A"
 family = "H/PJ-45A 130 mm gun"
 type = "gun"
 target_types = PackedStringArray("surface")

@@ -22,6 +22,20 @@ const GUN_BURST_S := 1.5  # a gun round this fresh still flashes at its mount
 ## An aircraft of ours this close to its deck when it first appears has just launched.
 const AIR_LAUNCH_NM := 1.5
 const RECOVERY_WATCH_NM := 2.5
+## Longest stretch of wake laid flat between two vertices near the eye; the vertex shader lifts each
+## vertex onto the swell, so a longer one would cut through the crests between them.
+const WAKE_SEGMENT_M := 12.0
+const WAKE_DETAIL_M := 3000.0  # beyond this from the eye the swell is faded out and a wake needs no detail
+## Navigation lights: the angle a lamp's glow spans, and below how much daylight they are lit.
+const LAMP_SIZE := 0.016
+const LAMPS_BELOW_DAYLIGHT := 0.6
+## A lamp's arc: its centre in the model (+X the bow, +Z starboard) and the cosine of half its width.
+const LAMP_MASTHEAD := Vector4(1.0, 0.0, 0.0, -0.3827)  # 225 degrees
+const LAMP_PORT := Vector4(0.5556, 0.0, -0.8315, 0.5556)  # 112.5 degrees, centred 56.25 to port
+const LAMP_STARBOARD := Vector4(0.5556, 0.0, 0.8315, 0.5556)
+const LAMP_STERN := Vector4(-1.0, 0.0, 0.0, 0.3827)  # 135 degrees
+## Sun shadows: the reach around the subject, as a multiple of its length.
+const SHADOW_REACH := 4.0
 ## Sky, sea and light for day, twilight and night: [sky top, horizon, zenith, haze, fog].
 const DAY := [Color("685cda"), Color("9d99cc"), Color("5a4ec8"), Color("aeaad6"), Color("938fbe")]
 const TWILIGHT := [Color("2e2a66"), Color("8c6f86"), Color("1d1a48"), Color("a08492"), Color("3a3450")]
@@ -40,6 +54,8 @@ var lead_s := 0.0
 var paused := false
 ## The simulation's time compression, for the pace of smoke and fire.
 var time_rate := 1.0
+## The pane turns shadows on only when it is big enough for them to show (full screen or swapped
+## with the chart); the small always-on pane keeps its frame budget.
 var shadows_allowed := false
 
 var _env: Environment
@@ -69,6 +85,15 @@ var _flagged: Dictionary = {}  # aircraft key -> the last deck event reported fo
 var _ground: Dictionary = {}  # installation key -> ground height, computed once
 var _warm := false
 var _sun_key := Vector2(INF, INF)
+var _sun_up := 0.0
+var _bow_mesh: PlaneMesh
+var _bow_material: ShaderMaterial
+var _rotor_mesh: PlaneMesh
+var _rotor_material: ShaderMaterial
+var _lamp_mesh: QuadMesh
+var _lamp_materials: Dictionary = {}
+var _lamps_lit := false
+var _focus_key := ""
 
 
 # --- Construction --------------------------------------------------------------------------
@@ -140,6 +165,28 @@ func build() -> void:
 	effects = WorldEffects.new()
 	add_child(effects)
 	_ring_mesh = WorldMeshes.ring()
+	_bow_mesh = PlaneMesh.new()
+	_bow_mesh.size = Vector2.ONE
+	_bow_mesh.subdivide_width = 23
+	_bow_mesh.subdivide_depth = 11
+	_bow_material = ShaderMaterial.new()
+	_bow_material.shader = load("res://scripts/ui/world_bow.gdshader")
+	_bow_material.render_priority = 1
+	_rotor_mesh = PlaneMesh.new()
+	_rotor_mesh.size = Vector2(2.0, 2.0)
+	_rotor_material = ShaderMaterial.new()
+	_rotor_material.shader = load("res://scripts/ui/world_rotor.gdshader")
+	_rotor_material.render_priority = 2
+	_lamp_mesh = QuadMesh.new()
+	_lamp_mesh.size = Vector2(LAMP_SIZE, LAMP_SIZE)
+	var lamp_shader: Shader = load("res://scripts/ui/world_light.gdshader")
+	for lamp in [["white", Color(1.0, 0.96, 0.86), 0.0], ["red", Color(1.0, 0.16, 0.1), 0.0], ["green", Color(0.2, 1.0, 0.45), 0.0], ["beacon", Color(1.0, 0.12, 0.08), 1.1]]:
+		var m := ShaderMaterial.new()
+		m.shader = lamp_shader
+		m.set_shader_parameter("color", lamp[1])
+		m.set_shader_parameter("flash_period", lamp[2])
+		m.render_priority = 3
+		_lamp_materials[lamp[0]] = m
 	_disc_mesh = PlaneMesh.new()
 	_disc_mesh.size = Vector2(2.0, 2.0)
 	_disc_material = StandardMaterial3D.new()
@@ -180,6 +227,8 @@ func set_weather(state: int, visibility_nm: float, env: Dictionary) -> void:
 	_ocean_material.set_shader_parameter("sea_state", float(state))
 	_ocean_material.set_shader_parameter("swell_a", _swell)
 	_ocean_material.set_shader_parameter("swell_dir", Vector4(_wind.x, _wind.y, _wind2.x, _wind2.y))
+	RenderingServer.global_shader_parameter_set("world_swell_a", _swell if state > 0 else Vector4(0.0, _swell.y, 0.0, _swell.w))
+	RenderingServer.global_shader_parameter_set("world_swell_dir", Vector4(_wind.x, _wind.y, _wind2.x, _wind2.y))
 	# Thin haze: the sea stays dark to the horizon as the old games drew it, and the weather still
 	# closes it in when the visibility drops. The sea lights itself and keeps the environment's fog
 	# off, so it takes its own share, which is nothing on a clear day; the sky is washed toward the
@@ -220,7 +269,8 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_sky_material.set_shader_parameter("stars", 0.8 * (1.0 - twilight))
 	_sun.light_color = sun_color
 	_sun.light_energy = 1.15 * sun_up
-	_sun.shadow_enabled = shadows_allowed and sun_up > 0.1
+	_sun_up = sun_up
+	_apply_shadows()
 	if sun_dir.length_squared() > 1e-6:
 		var up := Vector3.UP if absf(sun_dir.y) < 0.999 else Vector3.FORWARD
 		_sun.look_at_from_position(sun_dir * 1000.0, Vector3.ZERO, up)
@@ -234,6 +284,14 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_ocean_material.set_shader_parameter("fog_color", pal[4])
 	daylight = 0.08 + 0.42 * twilight + 0.5 * day
 	effects.daylight = daylight
+	# The hull finishes' hemisphere: the sky's light from above, the sea's dark bounce from below,
+	# and the horizon for what a glancing reflection sees. See world_hull.gdshader.
+	RenderingServer.global_shader_parameter_set("world_sky_color", horizon.lerp(top, 0.3).lerp(Color(0.64, 0.68, 0.74), 0.65 * day))
+	RenderingServer.global_shader_parameter_set("world_sea_color", Color(0.09, 0.1, 0.14).lerp(Color(0.2, 0.23, 0.3), day))
+	RenderingServer.global_shader_parameter_set("world_horizon_color", horizon)
+	RenderingServer.global_shader_parameter_set("world_ambient", 0.1 + 0.2 * twilight + 0.3 * day)
+	RenderingServer.global_shader_parameter_set("world_daylight", daylight)
+	_lamps_lit = daylight < LAMPS_BELOW_DAYLIGHT
 	land.set_daylight(daylight)
 	_ocean_material.set_shader_parameter("sky_top", top)
 	_ocean_material.set_shader_parameter("sky_horizon", horizon)
@@ -241,6 +299,16 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_ocean_material.set_shader_parameter("sun_dir", sun_dir)
 	_ocean_material.set_shader_parameter("sun_strength", smoothstep(-1.5, 5.0, elevation_deg))
 	_ocean_material.set_shader_parameter("daylight", daylight)
+
+
+## Sun shadows on or off: WorldView asks for them when the pane is big enough to show them.
+func set_shadows(on: bool) -> void:
+	shadows_allowed = on
+	_apply_shadows()
+
+
+func _apply_shadows() -> void:
+	_sun.shadow_enabled = shadows_allowed and _sun_up > 0.1
 
 
 ## The environment's fog per metre for a visibility: a thin haze that hulls, land and smoke fade
@@ -289,6 +357,7 @@ func ground_at(p: Vector3) -> float:
 ## and for a round means leaving its smoke behind.
 func update(delta: float, entries: Array, focus_key: String) -> void:
 	anim += delta
+	_focus_key = focus_key
 	effects.origin_nm = origin_nm
 	effects.rate = 0.0 if paused else clampf(time_rate, 1.0, WorldEffects.MAX_RATE)
 	land.update(origin_nm)
@@ -316,8 +385,25 @@ func camera_moved() -> void:
 	_ocean_material.set_shader_parameter("origin_offset", _origin_offset())
 	_ocean_material.set_shader_parameter("swell_time", anim)
 	_ocean_material.set_shader_parameter("coast_window", land.coast_window())
+	RenderingServer.global_shader_parameter_set("world_origin_offset", _origin_offset())
+	RenderingServer.global_shader_parameter_set("world_swell_time", anim)
+	if _sun.shadow_enabled:
+		_fit_shadows(eye)
 	effects.eye = eye
 	effects.draw_trails()
+
+
+## Shadows reach from the eye just past the subject and no further, so the shadow map is spent on
+## what the camera is looking at.
+func _fit_shadows(eye: Vector3) -> void:
+	var rec: Dictionary = _records.get(_focus_key, {})
+	var reach := 600.0
+	if not rec.is_empty() and rec.get("root") != null:
+		var length := float(rec["entry"]["length_m"])
+		reach = eye.distance_to((rec["root"] as Node3D).position) + length * SHADOW_REACH * 0.5
+	reach = clampf(reach, 150.0, 3000.0)
+	if absf(reach - _sun.directional_shadow_max_distance) > reach * 0.1:
+		_sun.directional_shadow_max_distance = reach
 
 
 ## Launches, aircraft leaving or reaching a deck: things the Action camera may cut to, since the
@@ -366,7 +452,7 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 	var rec: Dictionary = _records.get(key, {})
 	var fresh := rec.is_empty()
 	if fresh:
-		rec = {"key": key, "model_id": "", "ring": null, "disc": null, "wake": null, "fire": null, "plume": null, "glow": null, "dying_since": -1.0, "tint": ""}
+		rec = {"key": key, "model_id": "", "ring": null, "disc": null, "bow": null, "wake": null, "fire": null, "plume": null, "glow": null, "dying_since": -1.0, "tint": "", "speed_set": -1.0, "lamps_on": false}
 		_records[key] = rec
 	if rec["model_id"] != model_id:
 		if rec["model_id"] != "":
@@ -377,6 +463,9 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 		rec["bounds"] = acquired["bounds"]
 		rec["meshes"] = acquired["meshes"]
 		rec["tint"] = ""
+		rec["speed_set"] = -1.0
+		rec["lamps_on"] = false
+		_fit_out(rec, e)
 	rec["entry"] = e
 	rec["dying_since"] = -1.0
 	var root: Node3D = rec["root"]
@@ -426,12 +515,135 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 	root.rotation = Vector3(roll, yaw, pitch)
 	rec["anchor"] = root.position + Vector3(0.0, rec["height_m"] * 0.5 + 2.0, 0.0)
 	_apply_look(rec, e, focus_key)
+	_apply_way(rec, e, root, yaw, length, scale)
+	_apply_lamps(rec, e)
 	if fresh and e["kind"] == "weapon":
 		_on_new_round(rec, e)
 	_apply_trails(rec, e, base, heading, length)
 	_apply_emitters(rec, e, root.position, heading)
 	if e["kind"] == "own" and domain == "air":
 		_air_events(rec, e, fresh)
+
+
+## A model just taken from the pool for this record: whether its finishes meet the sea, and the
+## fittings that go with the model wherever it is used (a rotor disc, navigation lights). The
+## fittings are children of the model's node, so they stay with it in the pool.
+func _fit_out(rec: Dictionary, e: Dictionary) -> void:
+	var domain: String = e["domain"]
+	var at_sea := 1.0 if domain in ["surface", "subsurface"] else 0.0
+	for mi: MeshInstance3D in rec["meshes"]:
+		if mi.has_meta("finish"):
+			mi.set_instance_shader_parameter("at_sea", at_sea)
+			mi.set_instance_shader_parameter("hull_speed", 0.0)
+	var root: Node3D = rec["root"]
+	var bounds: AABB = rec["bounds"]
+	if rec["model_id"].begins_with("marker:"):
+		return
+	if domain == "air" and not root.has_meta("rotor"):
+		var spec := DataDB.platform(rec["model_id"])
+		if spec != null and spec.can_hover:
+			var disc := MeshInstance3D.new()
+			disc.name = "Rotor"
+			disc.mesh = _rotor_mesh
+			disc.material_override = _rotor_material
+			disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var plane := WorldModels.rotor_plane(rec["model_id"], rec["meshes"], bounds)
+			disc.position = Vector3(plane.x, plane.y + 0.02, plane.z)
+			disc.scale = Vector3.ONE * plane.w
+			root.add_child(disc)
+		root.set_meta("rotor", true)
+	if domain in ["surface", "air"] and not root.has_meta("lamps"):
+		root.set_meta("lamps", _lamps_for(root, bounds, domain))
+
+
+## Navigation lights on a model's node, placed from its bounds (bow along +X, starboard +Z).
+func _lamps_for(root: Node3D, b: AABB, domain: String) -> Array:
+	var c := b.get_center()
+	var spots: Array = []
+	if domain == "surface":
+		# Arcs as the rules of the road give them: masthead over 225 degrees ahead, each sidelight from
+		# dead ahead to 22.5 degrees abaft its beam, the stern light over the 135 degrees astern.
+		spots = [
+			["white", Vector3(c.x + b.size.x * 0.1, b.end.y - b.size.y * 0.03, c.z), LAMP_MASTHEAD],
+			["red", Vector3(c.x + b.size.x * 0.12, b.position.y + b.size.y * 0.6, b.position.z + b.size.z * 0.06), LAMP_PORT],
+			["green", Vector3(c.x + b.size.x * 0.12, b.position.y + b.size.y * 0.6, b.end.z - b.size.z * 0.06), LAMP_STARBOARD],
+			["white", Vector3(b.position.x + b.size.x * 0.005, b.position.y + b.size.y * 0.42, c.z), LAMP_STERN],
+		]
+	else:
+		spots = [
+			["red", Vector3(c.x - b.size.x * 0.06, c.y, b.position.z)],
+			["green", Vector3(c.x - b.size.x * 0.06, c.y, b.end.z)],
+			["white", Vector3(b.position.x, c.y, c.z)],
+			["beacon", Vector3(c.x, c.y + b.size.y * 0.3, c.z)],
+		]
+	var lamps: Array = []
+	for spot: Array in spots:
+		var lamp := MeshInstance3D.new()
+		lamp.mesh = _lamp_mesh
+		lamp.material_override = _lamp_materials[spot[0]]
+		lamp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		lamp.position = spot[1]
+		lamp.visible = false
+		lamp.set_instance_shader_parameter("phase", randf())
+		if spot.size() > 2:
+			lamp.set_instance_shader_parameter("arc", spot[2])
+		root.add_child(lamp)
+		lamps.append(lamp)
+	return lamps
+
+
+## The hull's way through the water: its speed to the finishes (for the bow's spray) and the bow
+## wave on the water around it.
+func _apply_way(rec: Dictionary, e: Dictionary, root: Node3D, yaw: float, length: float, scale: float) -> void:
+	var unit: Unit = e.get("unit")
+	var domain: String = e["domain"]
+	var speed := unit.speed_kn * 0.5144 if unit != null else 0.0
+	if domain in ["surface", "subsurface"] and absf(speed - float(rec["speed_set"])) > 0.4:
+		rec["speed_set"] = speed
+		for mi: MeshInstance3D in rec["meshes"]:
+			if mi.has_meta("finish"):
+				mi.set_instance_shader_parameter("hull_speed", speed)
+		if rec["bow"] != null:
+			(rec["bow"] as MeshInstance3D).set_instance_shader_parameter("hull_speed", speed)
+	var bow: MeshInstance3D = rec["bow"]
+	var under_way: bool = domain == "surface" and unit != null and speed > 0.3 and e["kind"] in ["own", "visual"] and not rec["model_id"].begins_with("marker:")
+	if not under_way:
+		if bow != null:
+			bow.visible = false
+		return
+	var bounds: AABB = rec["bounds"]
+	var beam := minf(bounds.size.z * scale, length * 0.14)
+	if bow == null:
+		bow = MeshInstance3D.new()
+		bow.mesh = _bow_mesh
+		bow.material_override = _bow_material
+		bow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		bow.extra_cull_margin = 8.0
+		_entities.add_child(bow)
+		bow.set_instance_shader_parameter("hull_speed", speed)
+		rec["bow"] = bow
+	bow.set_instance_shader_parameter("hull_beam", beam)
+	bow.visible = true
+	bow.position = Vector3(root.position.x, 0.0, root.position.z)
+	bow.rotation = Vector3(0.0, yaw, 0.0)
+	bow.scale = Vector3(length * 1.5, 1.0, length * 0.5 + beam * 3.0)
+
+
+## Navigation lights come on as the light goes, on ours and on anything sighted.
+func _apply_lamps(rec: Dictionary, e: Dictionary) -> void:
+	var root: Node3D = rec["root"]
+	var lamps: Array = root.get_meta("lamps", [])
+	if lamps.is_empty():
+		return
+	var want: bool = _lamps_lit and e["kind"] in ["own", "visual"] and rec["dying_since"] < 0.0
+	var unit: Unit = e.get("unit")
+	if want and unit != null and e["domain"] == "air" and not unit.in_flight():
+		want = false
+	if want == rec["lamps_on"]:
+		return
+	rec["lamps_on"] = want
+	for lamp: MeshInstance3D in lamps:
+		lamp.visible = want
 
 
 ## Ground height under an installation, worked out once: it does not move.
@@ -535,18 +747,35 @@ func _set_tint(rec: Dictionary, tint: String) -> void:
 		var color := Color.html(tint.get_slice(":", 1))
 		match kind:
 			"ghost":
-				material = _flat_material(tint, Color(color, 0.38), true)
+				material = _tint_material(tint, Color(color, 0.42), true)
 			"tint":
-				material = _flat_material(tint, Color(color, 0.62), false)
+				material = _tint_material(tint, Color(color, 0.72), false)
 			"marker":
-				material = _flat_material(tint, Color(color, 0.42), false)
+				material = _tint_material(tint, Color(color, 0.55), false)
 			"glow":
 				material = _flat_material(tint, Color(color, 0.95), false)
 	for mi: MeshInstance3D in meshes:
 		if mi.mesh == null:
 			continue
+		if material == null and mi.has_meta("finish"):
+			WorldMaterials.restore(mi)
+			continue
 		for i in mi.mesh.get_surface_count():
 			mi.set_surface_override_material(i, material)
+
+
+## The look of a model shown as something other than itself: a plotted contact in its identity
+## colour, or (`xray`) something under the water seen through it. See world_tint.gdshaderinc.
+func _tint_material(key: String, color: Color, xray: bool) -> ShaderMaterial:
+	if _materials.has(key):
+		return _materials[key]
+	var m := ShaderMaterial.new()
+	m.shader = load("res://scripts/ui/world_xray.gdshader" if xray else "res://scripts/ui/world_tint.gdshader")
+	m.set_shader_parameter("tint", color)
+	m.set_shader_parameter("sweep", 1.0 if xray else 0.0)
+	m.render_priority = 3 if xray else 0
+	_materials[key] = m
+	return m
 
 
 func _flat_material(key: String, color: Color, ghost: bool) -> StandardMaterial3D:
@@ -784,6 +1013,23 @@ func _build_wake(rec: Dictionary, stern: Vector3, astern: Vector3, beam: float, 
 	if points.size() < 2:
 		mi.visible = false
 		return
+	# Laid flat and lifted onto the swell by the wake shader, so near the eye no stretch between
+	# two vertices may be long enough to cut through a crest.
+	var eye := camera.global_position if camera != null else Vector3.ZERO
+	var dense: Array[Vector3] = [points[0]]
+	var dense_t: Array[float] = [times[0]]
+	for i in range(1, points.size()):
+		var a := points[i - 1]
+		var b := points[i]
+		var steps := 1
+		if minf(Vector2(a.x - eye.x, a.z - eye.z).length(), Vector2(b.x - eye.x, b.z - eye.z).length()) < WAKE_DETAIL_M:
+			steps = clampi(ceili(a.distance_to(b) / WAKE_SEGMENT_M), 1, 48)
+		for k in range(1, steps + 1):
+			var f := float(k) / float(steps)
+			dense.append(a.lerp(b, f))
+			dense_t.append(lerpf(times[i - 1], times[i], f))
+	points = dense
+	times = dense_t
 	var dists: Array[float] = [0.0]
 	for i in range(1, points.size()):
 		dists.append(dists[i - 1] + points[i].distance_to(points[i - 1]))
@@ -805,7 +1051,7 @@ func _build_wake(rec: Dictionary, stern: Vector3, astern: Vector3, beam: float, 
 		var d := dists[j]
 		var hw := beam * 0.6 + d * spread
 		var fade := pow(1.0 - d / total, 1.3) * clampf(1.0 - (sim_now - times[j]) / life, 0.0, 1.0)
-		var y := swell_at(p) + 0.35
+		var y := 0.0
 		var c := Color(0.92 * shade, 0.95 * shade, 0.97 * shade, fade * 0.8)
 		im.surface_set_color(c)
 		im.surface_set_uv(Vector2(0.0, d))
@@ -856,7 +1102,8 @@ func _apply_emitters(rec: Dictionary, e: Dictionary, at: Vector3, heading: float
 		if rec["glow"] == null:
 			rec["glow"] = effects.acquire_glow()
 		var tail := at - fwd * length * 0.5
-		effects.drive_glow(rec["glow"], tail, maxf(length * 0.09, 1.2), eye.distance_to(tail))
+		# A jet pipe is a faint warm glow by day and a bright one at night.
+		effects.drive_glow(rec["glow"], tail, maxf(length * 0.045, 0.6) * lerpf(1.6, 0.7, daylight), eye.distance_to(tail))
 	elif rec["glow"] != null:
 		effects.release_glow(rec["glow"])
 		rec["glow"] = null
@@ -930,6 +1177,10 @@ func _animate_dying(rec: Dictionary, e: Dictionary, unit: Unit) -> bool:
 		(rec["ring"] as MeshInstance3D).visible = false
 	if rec["wake"] != null:
 		(rec["wake"] as MeshInstance3D).visible = false
+	if rec["bow"] != null:
+		(rec["bow"] as MeshInstance3D).visible = false
+	if rec["lamps_on"]:
+		_apply_lamps(rec, e)
 	if rec["glow"] != null:
 		effects.release_glow(rec["glow"])
 		rec["glow"] = null
@@ -939,7 +1190,7 @@ func _animate_dying(rec: Dictionary, e: Dictionary, unit: Unit) -> bool:
 func _release(key: String) -> void:
 	var rec: Dictionary = _records[key]
 	_release_model(rec)
-	for field in ["ring", "disc"]:
+	for field in ["ring", "disc", "bow"]:
 		var node: Node3D = rec[field]
 		if node != null:
 			node.queue_free()
@@ -964,6 +1215,8 @@ func _release_model(rec: Dictionary) -> void:
 		return
 	if rec["tint"] != "":
 		_set_tint(rec, "")
+	for lamp: MeshInstance3D in node.get_meta("lamps", []):
+		lamp.visible = false
 	_models.release(rec["model_id"], node)
 	rec["root"] = null
 

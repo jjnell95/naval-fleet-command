@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "agm_114_hellfire"
 display_name = "AGM-114 Hellfire"
+short_name = "Hellfire"
 family = "Hellfire"
 type = "asm"
 guidance = "semi_active_laser"

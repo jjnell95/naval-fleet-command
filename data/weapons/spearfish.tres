@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "spearfish"
 display_name = "Spearfish heavyweight torpedo"
+short_name = "Spearfish"
 family = "Spearfish"
 type = "torpedo"
 guidance = "acoustic_homing"

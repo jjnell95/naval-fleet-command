@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "agm_158b_jassm_er"
 display_name = "AGM-158B JASSM-ER"
+short_name = "JASSM-ER"
 family = "JASSM"
 type = "asm"
 guidance = "inertial_terminal"

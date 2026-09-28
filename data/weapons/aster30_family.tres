@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "aster30_family"
 display_name = "Aster 30 family"
+short_name = "Aster 30"
 family = "Aster"
 type = "sam"
 guidance = "inertial_active"
