@@ -1,4 +1,12 @@
-# Current State: M25 Fleet Operations
+# Current State: M26 Final QC and Optimisation
+
+A pass over the whole game as it stands, on the M24 CDS screen and the M25 operations. Every screen was screenshotted and reviewed; the frame budget was measured with a new `--perf` dev flag and the chart's script cost roughly halved in the largest operations; the defects that survived (track numbers smearing in a formation, objective labels printing over each other, the track file board overflowing its panel, readouts peeking out from under the boards, the desk's area chart printing sea names over land names) are fixed with tests; the console, the test runner, the code and the docs were cleared of noise. Nothing in the model changed except the order of two checks in the sonar pass.
+
+Validation: 466 regression tests, 46 command-screen checks and 19 aviation checks pass, with a clean shutdown. The scenario sweep of all 22 operations at two seeds passed. The browser build was rebuilt and booted in headless Chromium with no console errors.
+
+See [the M26 notes](docs/2026-09-28-final-qc.md) and [validation record](docs/validation-m26.json).
+
+## Previous: M25 Fleet Operations
 
 Fourteen expanded operations and eight exercises now share the preserved M24 CDS interface. Operations have staged objectives, continuous station and destination holds, reserve aircraft, follow-on raids and finite aviation reload stocks. Modern U.S. carrier operations field fictional 59-aircraft wings with separate CAP and maritime-strike fits. Cold War carriers retain an explicitly partial, period-correct fleet-defence detachment.
 

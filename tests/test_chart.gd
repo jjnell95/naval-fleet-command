@@ -609,3 +609,104 @@ func test_cancelling_a_drag_releases_the_chart_and_the_regional_map() -> void:
 	regional.cancel_drag()
 	assert_true(not regional._dragging)
 	_free(f)
+
+
+# --- Track numbers and tags -------------------------------------------------------------------
+
+func _label(key: String, at: Vector2, priority := false, extent := MapSymbols.RADIUS, size := Vector2(30.0, 12.0)) -> Dictionary:
+	return {"key": key, "at": at, "extent": extent, "size": size, "ascent": 11.0, "priority": priority}
+
+
+func test_a_lone_label_prints_at_the_classic_place_below_right() -> void:
+	var slots := ChartLabels.place([_label("a", Vector2(100, 100))])
+	assert_eq(int(slots["a"]), 0, "lower right")
+	var rect := ChartLabels.box(Vector2(100, 100), MapSymbols.RADIUS, Vector2(30, 12), 11.0, ChartLabels.OFFSETS[0])
+	assert_eq(ChartLabels.baseline(rect, 11.0), Vector2(107, 117), "left edge and baseline 7 and 17 px from the centre, as the display always printed them")
+	var big := ChartLabels.box(Vector2(100, 100), 28.0, Vector2(30, 12), 11.0, ChartLabels.OFFSETS[0])
+	assert_true(big.position.x > rect.position.x and big.position.y > rect.position.y, "a large graphic symbol pushes its number out")
+
+
+func test_two_close_symbols_do_not_print_over_each_other() -> void:
+	var a := _label("a", Vector2(100, 100))
+	var b := _label("b", Vector2(112, 108))
+	var slots := ChartLabels.place([a, b])
+	assert_true(int(slots["a"]) != ChartLabels.HIDDEN and int(slots["b"]) != ChartLabels.HIDDEN, "both are printed")
+	var ra := ChartLabels.box(a["at"], a["extent"], a["size"], a["ascent"], ChartLabels.OFFSETS[int(slots["a"])])
+	var rb := ChartLabels.box(b["at"], b["extent"], b["size"], b["ascent"], ChartLabels.OFFSETS[int(slots["b"])])
+	assert_true(not ra.grow(ChartLabels.GAP_PX).intersects(rb), "the two labels are clear of each other")
+	var box_a := Rect2(a["at"] - Vector2.ONE * MapSymbols.RADIUS, Vector2.ONE * 2.0 * MapSymbols.RADIUS)
+	var box_b := Rect2(b["at"] - Vector2.ONE * MapSymbols.RADIUS, Vector2.ONE * 2.0 * MapSymbols.RADIUS)
+	assert_true(not ra.intersects(box_b), "a's number does not print over b's symbol, where the classic place would put it")
+	assert_true(not rb.intersects(box_a), "nor b's over a's")
+	assert_eq(int(slots["b"]), 0, "b, with nothing in its way, keeps the classic place")
+
+
+func test_a_crowd_drops_the_labels_it_cannot_place_and_never_the_hook() -> void:
+	var labels: Array = []
+	for i in 8:
+		labels.append(_label("t%d" % i, Vector2(200 + 2 * i, 200 + i)))
+	labels.append(_label("hooked", Vector2(206, 203), true))
+	var slots := ChartLabels.place(labels)
+	assert_eq(int(slots["hooked"]), 0, "the hooked platform's number is always at the classic place")
+	for i in 8:
+		assert_eq(int(slots["t%d" % i]), ChartLabels.HIDDEN, "eight symbols on one spot cannot be labelled without a smear")
+	# A line of four, 14 px apart: the ones at the ends have room, the ones inside do not.
+	var row: Array = []
+	for i in 4:
+		row.append(_label("r%d" % i, Vector2(200 + 14 * i, 300)))
+	slots = ChartLabels.place(row)
+	var printed := 0
+	var rects: Array[Rect2] = []
+	for i in 4:
+		var k := int(slots["r%d" % i])
+		if k == ChartLabels.HIDDEN:
+			continue
+		printed += 1
+		var r := ChartLabels.box(row[i]["at"], row[i]["extent"], row[i]["size"], row[i]["ascent"], ChartLabels.OFFSETS[k])
+		for other in rects:
+			assert_true(not other.grow(ChartLabels.GAP_PX).intersects(r), "printed labels are clear of one another")
+		for j in 4:
+			if j != i:
+				var symbol := Rect2(row[j]["at"] - Vector2.ONE * MapSymbols.RADIUS, Vector2.ONE * 2.0 * MapSymbols.RADIUS)
+				assert_true(not r.intersects(symbol), "and of every other symbol")
+		rects.append(r)
+	assert_true(printed >= 2, "the ends of the line are labelled; %d were" % printed)
+
+
+func test_the_assignment_is_remade_a_few_times_a_second_or_when_the_count_changes() -> void:
+	var labels := ChartLabels.new()
+	assert_true(labels.due(0.0, 1), "never assigned yet")
+	labels.assign([_label("a", Vector2(10, 10))], 0.0)
+	assert_eq(labels.slot("a"), 0)
+	assert_eq(labels.slot("new"), 0, "a label not assigned yet prints at the classic place")
+	assert_true(not labels.due(0.1, 1), "a tenth of a second on, the same plot keeps its assignment")
+	assert_true(labels.due(0.1, 2), "a new label on the plot asks for a fresh one")
+	assert_true(labels.due(0.3, 1), "and so does a quarter second passing")
+	labels.clear()
+	assert_true(labels.due(0.3, 1))
+
+
+# --- Objective areas --------------------------------------------------------------------------
+
+func test_objective_marks_name_a_shared_area_once_by_what_matters_now() -> void:
+	var reach := MissionObjective.from_dict({"id": "transit", "type": "reach_area", "center_nm": [10, -5], "radius_nm": 8, "after": ["screen"]})
+	var hold := MissionObjective.from_dict({"id": "hold", "type": "hold_area", "center_nm": [10, -5], "radius_nm": 8, "seconds": 300, "after": ["transit"]})
+	var deny := MissionObjective.from_dict({"type": "reach_area", "center_nm": [40, 0], "radius_nm": 5})
+	var marks := TacticalMap.objective_marks([reach, hold], [deny])
+	assert_eq(marks.size(), 2, "one mark per area, not one per task")
+	var texts := {}
+	for mark: Dictionary in marks:
+		texts[str(mark["text"])] = true
+	assert_true(texts.has("OBJECTIVE AREA"), "the box to reach names the shared area while the hold is still to come")
+	assert_true(not texts.has("LATER HOLD AREA"), "and the later task does not print over it")
+	assert_true(texts.has("DENY EXIT"))
+	reach.complete = true
+	hold.unlocked = true
+	texts = {}
+	for mark: Dictionary in TacticalMap.objective_marks([reach, hold], [deny]):
+		texts[str(mark["text"])] = true
+	assert_true(texts.has("HOLD STATION") and not texts.has("OBJECTIVE AREA"), "once the box is reached the hold names it")
+	var hold2 := MissionObjective.from_dict({"type": "hold_area", "center_nm": [40, 0], "radius_nm": 5, "seconds": 60})
+	marks = TacticalMap.objective_marks([hold2], [deny])
+	assert_eq(marks.size(), 1, "a station to hold inside a box to deny is one circle")
+	assert_eq(str(marks[0]["text"]), "DENY EXIT", "and the denial is what matters")

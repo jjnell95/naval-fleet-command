@@ -295,6 +295,9 @@ func test_a_stowed_aircraft_defers_the_picture_to_its_ship() -> void:
 	helo.altitude_m = 150.0
 	assert_eq(map.reference_unit(), helo, "once flying it is its own reference")
 	map.free()
+	# Built without a UnitManager, so the ship/aircraft cycle is broken by hand or it leaks at exit.
+	ship.embarked.clear()
+	helo.home = null
 
 
 ## Arming Plot Move mid-drag must release the drag; the move tool swallows the button release.

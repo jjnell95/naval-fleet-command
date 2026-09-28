@@ -91,13 +91,7 @@ func _sonar_pass(observer: Unit, now: float) -> void:
 		if target == observer or not target.is_engageable() or target.faction == observer.faction or target.is_aircraft():
 			continue
 		var d := observer.position.distance_to(target.position)
-		if Detection.acoustic_path_blocked(observer, target):
-			continue  # sound does not go through rock, pinging or listening
-		if active_ceiling > 0.0 and d <= active_ceiling:
-			var active_reach := Detection.active_sonar_reach_nm(observer, target)
-			if d <= active_reach:
-				_report_active(observer, target, d, active_reach, rate, now)
-				continue
+		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling else 0.0
 		var passive := Detection.best_passive_sonar(observer, target)
 		var reach: float = passive["range_nm"]
 		var sensor: SensorSpec = passive["sensor"]
@@ -107,7 +101,15 @@ func _sonar_pass(observer: Unit, now: float) -> void:
 			reach = emission
 			if sensor == null:
 				sensor = _first_sonar(observer)
-		if sensor != null and reach > 0.0 and d <= reach:
+		var in_passive_reach := sensor != null and reach > 0.0 and d <= reach
+		if d > active_reach and not in_passive_reach and d > cz_outer:
+			continue  # out of every reach: what lies between does not matter, and the land walk is the dear part
+		if Detection.acoustic_path_blocked(observer, target):
+			continue  # sound does not go through rock, pinging or listening
+		if d <= active_reach:
+			_report_active(observer, target, d, active_reach, rate, now)
+			continue
+		if in_passive_reach:
 			_report_passive(observer, target, d, reach, sensor, rate, now)
 		elif d <= cz_outer:
 			_try_convergence_zone(observer, target, d, rate, now)

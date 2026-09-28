@@ -58,6 +58,11 @@ extends RefCounted
 ##   --status                    open the briefing as the in-mission status board (a grey dialog)
 ##   --dump                      print a full state report and quit, without touching the renderer
 ##   --hold=S --screenshot=PATH  wait S seconds, save a PNG, dump state and quit (windowed only)
+##   --perf=S                    after a second to settle, sample S seconds of frames and print the
+##                               frame budget: frame times, script time by path (chart, regional map,
+##                               data display, 3D view, simulation ticks, shell), draw calls and
+##                               memory. Add --run to measure with the clock going. Quits after,
+##                               unless --screenshot follows (its hold then starts after the sample).
 
 var main: Main
 
@@ -91,6 +96,8 @@ func handle_flags() -> void:
 			shot = a.get_slice("=", 1)
 		elif a.begins_with("--fastforward="):
 			fast_forward = float(a.get_slice("=", 1))
+	# A scripted run wants the event log whatever the build; a player's console does not.
+	Debug.log_events = true
 	if args.has("--debug"):
 		Debug.enabled = true
 	if args.has("--rings"):
@@ -286,8 +293,64 @@ func handle_flags() -> void:
 	var engage_after := arg(args, "--engage-after=", -1.0)
 	if engage_after >= 0.0:
 		_engage_after(engage_after)
+	var perf := arg(args, "--perf=", 0.0)
+	if perf > 0.0:
+		await _perf(perf)
+		if shot == "":
+			main.get_tree().quit()
+			return
 	if shot != "":
 		_screenshot_after(shot, arg(args, "--hold=", 3.0))
+
+
+## The frame budget: after a second for the screen to settle, every frame for `seconds` is timed,
+## with the script time the profiled paths report (Debug.time_add) and the renderer's counts.
+## Frame times under a software renderer say little; the script times and draw calls carry over.
+func _perf(seconds: float) -> void:
+	await main.get_tree().create_timer(1.0).timeout
+	Debug.timings.clear()
+	Debug.profiling = true
+	var frames := 0
+	var worst_ms := 0.0
+	var process_ms := 0.0
+	var samples := PackedFloat32Array()
+	var path_ms: Dictionary = {}
+	var path_worst: Dictionary = {}
+	var t_start := Time.get_ticks_usec()
+	while Time.get_ticks_usec() - t_start < seconds * 1.0e6:
+		await main.get_tree().process_frame
+		var dt := main.get_process_delta_time() * 1000.0
+		frames += 1
+		worst_ms = maxf(worst_ms, dt)
+		samples.append(dt)
+		process_ms += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		for path in Debug.timings:
+			var ms := float(Debug.timings[path]) / 1000.0
+			path_ms[path] = float(path_ms.get(path, 0.0)) + ms
+			path_worst[path] = maxf(float(path_worst.get(path, 0.0)), ms)
+		Debug.timings.clear()
+	Debug.profiling = false
+	var elapsed := float(Time.get_ticks_usec() - t_start) / 1.0e6
+	samples.sort()
+	var p95 := samples[mini(int(floor(samples.size() * 0.95)), samples.size() - 1)] if frames > 0 else 0.0
+	var total := 0.0
+	for s in samples:
+		total += s
+	print("[Perf] %s at %s, %d units, clock %s" % [main.simulation.scenario_name, main.get_viewport_rect().size, main.simulation.unit_manager.units.size(), "paused" if SimClock.paused else "%dx" % int(SimClock.multiplier())])
+	print("[Perf] %d frames in %.1f s: %.1f fps, frame avg %.1f ms, p95 %.1f ms, worst %.1f ms; script process avg %.2f ms" % [frames, elapsed, frames / maxf(elapsed, 0.001), total / maxf(frames, 1), p95, worst_ms, process_ms / maxf(frames, 1)])
+	var paths := path_ms.keys()
+	paths.sort()
+	for path in paths:
+		print("[Perf]   %-9s avg %6.2f ms  worst %6.2f ms" % [path, float(path_ms[path]) / maxf(frames, 1), float(path_worst[path])])
+	print("[Perf] draw calls %d, objects %d, primitives %d; texture memory %.1f MB, buffers %.1f MB, static %.1f MB; nodes %d, orphans %d" % [
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)),
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)),
+		Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
+		Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED) / 1048576.0,
+		Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0,
+		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT))])
 
 
 

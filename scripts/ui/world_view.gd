@@ -10,11 +10,6 @@ extends Control
 ## visible in the tree and not suspended behind a modal screen. Mouse input inside it never
 ## reaches anything underneath; the keyboard stays with Main.
 
-## Legacy visibility modes, kept while Main still cycles them on T: HIDDEN hides the pane, INSET
-## and FULL both show it filling its parent.
-enum Mode { HIDDEN, INSET, FULL }
-
-signal mode_changed(mode: int)
 signal camera_mode_changed(mode: int)
 
 const CAM_TETHER := WorldCamera.TETHER
@@ -26,17 +21,9 @@ const LABEL_SIZE := 14
 const LABEL_PAD := Vector2(7.0, 5.0)
 const MIN_CAMERA_HEIGHT_M := 2.5
 const DEFAULT_START_TIME := "1990-03-21T11:00:00"
-## Old camera preset names still accepted by set_preset_by_name, as tether framings.
-const LEGACY_PRESETS := {
-	"BRIDGE": {"az": 180.0, "pitch": 4.0, "zoom": 0.55},
-	"ORBIT": {"az": WorldCamera.DEFAULT_AZ, "pitch": WorldCamera.DEFAULT_PITCH, "zoom": 1.0},
-	"OVERHEAD": {"az": 180.0, "pitch": 78.0, "zoom": 2.0},
-	"CHASE": {"az": 180.0, "pitch": 9.0, "zoom": 1.2},
-}
 
 var map: TacticalMap
 var simulation: Simulation
-var mode: Mode = Mode.HIDDEN
 ## The camera: modes, orbit and zoom, remembered for the session.
 var rig := WorldCamera.new()
 ## The font for the camera label; the screen shell may hand in its own data face.
@@ -58,6 +45,11 @@ var _hook_units: Array[Unit] = []
 var _hook_track: Track = null
 var _dragging := false
 var _entries: Array = []
+## The simulation only moves on its ticks, so the entries (what may be drawn, and where) are rebuilt
+## when it has ticked or the hook has changed, not every frame; in between the scene carries things
+## on along their courses itself.
+var _entries_time := -1.0
+var _entries_reference: Unit = null
 var _default_unix := 0
 var _frame_lookup: Callable
 var _chart_generation := -1
@@ -71,7 +63,6 @@ func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	visible = mode != Mode.HIDDEN
 	_default_unix = Time.get_unix_time_from_datetime_string(DEFAULT_START_TIME)
 	_container = SubViewportContainer.new()
 	_container.name = "ViewportContainer"
@@ -130,41 +121,6 @@ func camera_mode_name() -> String:
 func set_suspended(on: bool) -> void:
 	suspended = on
 	_sync_visibility()
-
-
-## Legacy: shows or hides the pane. INSET and FULL both fill the parent.
-func set_mode(next: Mode) -> void:
-	if next == mode:
-		return
-	mode = next
-	visible = mode != Mode.HIDDEN
-	_sync_visibility()
-	if visible:
-		rig.cut()
-	mode_changed.emit(mode)
-
-
-## Legacy: HIDDEN → INSET → FULL → HIDDEN.
-func cycle_mode() -> void:
-	set_mode(((mode + 1) % 3) as Mode)
-
-
-func mode_name() -> String:
-	return ["hidden", "inset", "full"][mode]
-
-
-## A camera mode by name (tether, fly-by, action, detached), or one of the old presets (bridge,
-## orbit, overhead, chase), which become tether framings.
-func set_preset_by_name(preset_name: String) -> void:
-	var wanted := preset_name.to_upper().replace("-", "").replace("_", "")
-	for i in WorldCamera.MODE_NAMES.size():
-		if WorldCamera.MODE_NAMES[i].to_upper().replace("-", "") == wanted:
-			set_camera_mode(i)
-			return
-	if LEGACY_PRESETS.has(wanted):
-		var p: Dictionary = LEGACY_PRESETS[wanted]
-		set_camera_mode(CAM_TETHER)
-		set_orbit(p["az"], p["pitch"], p["zoom"])
 
 
 ## Turns the tether round the subject: `az_deg` from the bow, clockwise; pitch above the water;
@@ -241,6 +197,9 @@ func reset_presentation() -> void:
 		_scene.reset()
 	_focus = {}
 	_focus_key = ""
+	_entries = []
+	_entries_time = -1.0
+	_entries_reference = null
 	_hook_units.clear()
 	_hook_track = null
 	_chart_generation = -1
@@ -271,6 +230,7 @@ func _sync_visibility() -> void:
 func _process(delta: float) -> void:
 	if map == null or simulation == null or not _live():
 		return
+	var t0 := Time.get_ticks_usec()
 	if _dragging and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		_dragging = false
 	var player := simulation.player_faction
@@ -299,17 +259,22 @@ func _process(delta: float) -> void:
 	var unix := float(SimClock.start_unix_time if SimClock.start_unix_time > 0 else _default_unix) + SimClock.sim_time + sun_offset_s
 	var sun := WorldPresentation.sun_angles(unix, latlon.x, latlon.y)
 	_scene.set_time_of_day(WorldPresentation.sun_direction(unix, latlon.x, latlon.y), sun.x)
-	var entries: Array = WorldPresentation.unit_entries(um, simulation.track_manager, player, env, simulation.track_manager.neutral_factions)
-	entries.append_array(WorldPresentation.weapon_entries(simulation.weapon_manager, simulation.threat_manager, player, map.reference_unit()))
-	entries.append_array(WorldPresentation.buoy_entries(simulation.aviation_manager, player, SimClock.sim_time))
-	# A subject going down keeps the camera until it has gone, or until something new is hooked.
-	if hooked_anew or not _scene.is_dying(_focus_key):
-		_focus_key = WorldPresentation.resolve_focus_key(entries, _focus)
-	_entries = WorldPresentation.cull(entries, _origin_nm, _focus_key)
+	var reference := map.reference_unit()
+	if SimClock.sim_time != _entries_time or reference != _entries_reference or hooked_anew or Debug.enabled:
+		_entries_time = SimClock.sim_time
+		_entries_reference = reference
+		var entries: Array = WorldPresentation.unit_entries(um, simulation.track_manager, player, env, simulation.track_manager.neutral_factions)
+		entries.append_array(WorldPresentation.weapon_entries(simulation.weapon_manager, simulation.threat_manager, player, reference))
+		entries.append_array(WorldPresentation.buoy_entries(simulation.aviation_manager, player, SimClock.sim_time))
+		# A subject going down keeps the camera until it has gone, or until something new is hooked.
+		if hooked_anew or not _scene.is_dying(_focus_key):
+			_focus_key = WorldPresentation.resolve_focus_key(entries, _focus)
+		_entries = WorldPresentation.cull(entries, _origin_nm, _focus_key)
 	_scene.update(delta, _entries, _focus_key)
 	for e: Dictionary in _scene.take_events():
 		rig.notify(e["kind"], e["at"], e.get("key", ""))
 	_update_camera(delta)
+	Debug.time_add("world", Time.get_ticks_usec() - t0)
 
 
 ## The subject for this frame: what is hooked (WorldPresentation.choose_focus), except that a

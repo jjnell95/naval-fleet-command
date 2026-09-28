@@ -895,7 +895,7 @@ func test_ocean_shader_compiles_takes_its_fog_and_hashes_its_noise_in_integers()
 	assert_true(code.contains("fog_density") and code.substr(code.find("void fragment()")).contains("fog_density"), "the sea applies its fog in the fragment")
 
 
-func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() -> void:
+func test_world_view_fills_its_slot_names_its_cameras_and_stops_behind_a_modal() -> void:
 	var view := WorldView.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
 	root.add_child(view)
@@ -906,31 +906,24 @@ func test_world_view_fills_its_slot_names_its_modes_and_keeps_the_old_shims() ->
 	assert_eq(view.camera_mode_name(), "Fly-by")
 	view.set_camera_mode(WorldView.CAM_DETACHED)
 	assert_eq(view.camera_mode_name(), "Detached")
-	view.set_preset_by_name("action")
-	assert_eq(view.camera_mode(), WorldView.CAM_ACTION, "modes by name")
-	view.set_preset_by_name("chase")
-	assert_eq(view.camera_mode(), WorldView.CAM_TETHER, "an old preset becomes a tether framing")
-	assert_near(view.rig.orbit_az, 180.0, 0.001, "chase sits dead astern")
-	assert_eq(seen, [WorldView.CAM_FLYBY, WorldView.CAM_DETACHED, WorldView.CAM_ACTION, WorldView.CAM_TETHER] as Array[int], "each change is announced once")
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	assert_eq(seen, [WorldView.CAM_FLYBY, WorldView.CAM_DETACHED, WorldView.CAM_ACTION] as Array[int], "each change is announced once")
 	assert_eq(view.anchor_right, 1.0, "the pane fills its parent")
 	assert_eq(view.anchor_bottom, 1.0)
-	assert_eq(view.size_flags_horizontal, Control.SIZE_EXPAND_FILL, "and expands in a container slot")
-	assert_true(not view.visible, "hidden until the shell or Main shows it")
 	# A slot of the bottom strip's size: pin the anchors to the corner so the size is the pane's own.
 	view.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	view.size = Vector2(702, 282)
-	view.set_mode(WorldView.Mode.INSET)
-	assert_true(view.visible and view.is_processing(), "shown, it renders")
+	assert_true(view.visible and view.is_processing(), "in the tree, it renders")
 	assert_eq(view._viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
 	view.set_suspended(true)
 	assert_true(not view.is_processing(), "behind a modal screen it stops")
 	assert_eq(view._viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED)
 	view.set_suspended(false)
 	assert_true(view.is_processing(), "and starts again after")
-	view.cycle_mode()
-	assert_eq(view.mode_name(), "full", "the legacy cycle still runs")
-	view.cycle_mode()
-	assert_true(not view.visible and not view.is_processing(), "hidden, nothing renders")
+	view.hide()
+	assert_true(not view.is_processing(), "hidden, nothing renders")
+	view.show()
 	view.add_effect(Vector2.ZERO, "hit", true)
 	view.reset_presentation()
 	root.remove_child(view)
@@ -955,7 +948,6 @@ func _live_view(units: Array) -> Dictionary:
 	view.size = Vector2(640, 360)
 	view.map = map
 	view.simulation = sim
-	view.set_mode(WorldView.Mode.INSET)
 	Detection.environment = {}
 	return {"view": view, "map": map, "sim": sim, "tm": sim.track_manager}
 

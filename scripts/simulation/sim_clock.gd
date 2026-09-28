@@ -20,6 +20,7 @@ var _accum := 0.0
 func _process(delta: float) -> void:
 	if paused:
 		return
+	var t0 := Time.get_ticks_usec()
 	_accum += delta * multiplier()
 	var n := 0
 	while not paused and _accum >= TICK_DT - 1e-9 and n < MAX_TICKS_PER_FRAME:
@@ -29,6 +30,7 @@ func _process(delta: float) -> void:
 		tick.emit(TICK_DT)
 	if n >= MAX_TICKS_PER_FRAME:
 		_accum = 0.0  # drop backlog instead of spiralling
+	Debug.time_add("sim", Time.get_ticks_usec() - t0)
 
 
 ## Synchronously advance the simulation (dev/test use). Emits ticks immediately.

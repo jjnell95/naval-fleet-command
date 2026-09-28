@@ -1,8 +1,8 @@
 # Architecture
 
-Status: Milestone 23 (World Theatres). Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something, in four chart regions.
+Status: Milestone 26 (final QC and optimisation) on the M24 CDS screen and the M25 operations. Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something, in four chart regions.
 
-Presentation work should start from `HANDOFF.md`, which says what may be changed and what may not.
+Start from `HANDOFF.md`: how to run and verify the game, the one rule, and where things are.
 
 ## M23 additions
 

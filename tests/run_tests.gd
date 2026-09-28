@@ -10,6 +10,11 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	# The simulation's running commentary would drown the PASS and FAIL lines. The autoload is
+	# reached through the tree: this script is compiled before the autoloads are registered.
+	var debug := root.get_node_or_null("Debug")
+	if debug != null:
+		debug.log_events = false
 	var total := 0
 	var failed := 0
 	for path in TESTS:

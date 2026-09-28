@@ -1234,7 +1234,7 @@ class Chart extends Control:
 			var glyph := MapSymbols.category_glyph(spec.category, spec.domain) if spec != null else ""
 			MapSymbols.draw_symbol(self, draw_at, col, frame, domain, float(u.get("heading_deg", 0.0)), not is_air, glyph, _font, 0.9)
 			if i == editor.selected_index:
-				MapSymbols.draw_selection(self, draw_at, Color.WHITE, 0.0)
+				MapSymbols.draw_brackets(self, draw_at, Color.WHITE)
 			elif i == _hover:
 				draw_arc(draw_at, 15.0, 0.0, TAU, 24, Color(col, 0.5), 1.0, true)
 			var label: String = u.get("callsign", "")

@@ -48,6 +48,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	var t0 := Time.get_ticks_usec()
 	var wanted := wanted_extent_nm()
 	_extent = wanted if _extent <= 0.0 or wanted > _extent else lerpf(_extent, wanted, clampf(delta * 3.0, 0.0, 1.0))
 	var discs: Array[Vector3] = []
@@ -63,6 +64,7 @@ func _process(delta: float) -> void:
 	if _floor != null:
 		_floor.simulation = map.simulation if map != null else null
 	queue_redraw()
+	Debug.time_add("regional", Time.get_ticks_usec() - t0)
 
 
 ## Drops a drag in progress, for when the pane is hidden or moved under the pointer (F10).
@@ -177,6 +179,7 @@ func _gui_input(event: InputEvent) -> void:
 func _draw() -> void:
 	if map == null:
 		return
+	var t0 := Time.get_ticks_usec()
 	var pane := Rect2(Vector2.ZERO, size)
 	for t: Track in map._visible_tracks():
 		var p := world_to_regional(t.position)
@@ -196,3 +199,4 @@ func _draw() -> void:
 	var view := view_rect()
 	if view.size.x > 0.0 and view.size.y > 0.0:
 		draw_rect(Rect2(view.position.round() + Vector2(0.5, 0.5), view.size.round()), COL_VIEW, false, 1.0)
+	Debug.time_add("regional", Time.get_ticks_usec() - t0)
