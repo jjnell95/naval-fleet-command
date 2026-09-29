@@ -4,8 +4,8 @@
   "base_commit": "f5b25eab0c54199b63c0c98947e634da6f21db15",
   "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
   "regression_tests": {
-    "total": 511,
-    "passed": 511,
+    "total": 514,
+    "passed": 514,
     "failed": 0,
     "before": 483,
     "command": "godot --headless --path . --script tests/run_tests.gd"
@@ -926,10 +926,281 @@
     "webgl_warnings": "254 INVALID_OPERATION warnings over the swap and its return; the f5b25ea build raises the same 254 at the same steps",
     "export_templates": "official 4.7.2 web templates installed from Godot_v4.7.2-stable_export_templates.tpz"
   },
+  "fixed_target_strikes": {
+    "change": "MAX_TIME_OF_FLIGHT_S no longer applies to a land track shown standing still; beyond it a dual-role round keeps ASM_SALVO for ships",
+    "sweep_without_reserve_against_m28": {
+      "totals": {
+        "ok": {
+          "before": 44,
+          "after": 44
+        },
+        "aground": {
+          "before": 0,
+          "after": 0
+        },
+        "result_0": {
+          "before": 34,
+          "after": 34
+        },
+        "result_1": {
+          "before": 6,
+          "after": 6
+        },
+        "result_2": {
+          "before": 4,
+          "after": 4
+        },
+        "launched": {
+          "before": 2492,
+          "after": 2577
+        },
+        "long_shots": {
+          "before": 0,
+          "after": 96
+        },
+        "destroyed": {
+          "before": 227,
+          "after": 237
+        },
+        "shore_hits": {
+          "before": 6,
+          "after": 49
+        },
+        "shore_destroyed": {
+          "before": 2,
+          "after": 6
+        },
+        "stat_hostile_rounds": {
+          "before": 1055,
+          "after": 1068
+        },
+        "stat_hits_taken": {
+          "before": 146,
+          "after": 153
+        },
+        "stat_own_rounds": {
+          "before": 1306,
+          "after": 1373
+        },
+        "stat_hits_scored": {
+          "before": 135,
+          "after": 178
+        },
+        "stat_launched": {
+          "before": 1144,
+          "after": 1149
+        },
+        "stat_intercepted": {
+          "before": 303,
+          "after": 299
+        }
+      },
+      "long_shots_by_weapon": {
+        "Tomahawk Block Va (maritime strike)": 80,
+        "MdCN naval cruise missile (land attack)": 16
+      },
+      "identical_cases": 36,
+      "cases": 44,
+      "changed": [
+        {
+          "scenario": "aegis_bastion",
+          "seed": 2,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            101,
+            111
+          ],
+          "destroyed": [
+            12,
+            16
+          ],
+          "shore_destroyed": [
+            0,
+            1
+          ],
+          "long_shots_after": 20,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 20
+          }
+        },
+        {
+          "scenario": "aegis_bastion",
+          "seed": 13,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            74,
+            86
+          ],
+          "destroyed": [
+            11,
+            11
+          ],
+          "shore_destroyed": [
+            0,
+            0
+          ],
+          "long_shots_after": 20,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 20
+          }
+        },
+        {
+          "scenario": "arctic_shield",
+          "seed": 2,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            168,
+            187
+          ],
+          "destroyed": [
+            18,
+            21
+          ],
+          "shore_destroyed": [
+            0,
+            1
+          ],
+          "long_shots_after": 12,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 12
+          }
+        },
+        {
+          "scenario": "arctic_shield",
+          "seed": 13,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            195,
+            207
+          ],
+          "destroyed": [
+            17,
+            18
+          ],
+          "shore_destroyed": [
+            0,
+            0
+          ],
+          "long_shots_after": 12,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 12
+          }
+        },
+        {
+          "scenario": "med_01_tartus",
+          "seed": 2,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            98,
+            106
+          ],
+          "destroyed": [
+            14,
+            15
+          ],
+          "shore_destroyed": [
+            0,
+            1
+          ],
+          "long_shots_after": 8,
+          "long_by_weapon": {
+            "MdCN naval cruise missile (land attack)": 8
+          }
+        },
+        {
+          "scenario": "med_01_tartus",
+          "seed": 13,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            56,
+            64
+          ],
+          "destroyed": [
+            9,
+            10
+          ],
+          "shore_destroyed": [
+            0,
+            1
+          ],
+          "long_shots_after": 8,
+          "long_by_weapon": {
+            "MdCN naval cruise missile (land attack)": 8
+          }
+        },
+        {
+          "scenario": "pacific_02_taiwan_strait",
+          "seed": 2,
+          "result": [
+            2,
+            2
+          ],
+          "launched": [
+            164,
+            172
+          ],
+          "destroyed": [
+            8,
+            8
+          ],
+          "shore_destroyed": [
+            0,
+            0
+          ],
+          "long_shots_after": 8,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 8
+          }
+        },
+        {
+          "scenario": "pacific_02_taiwan_strait",
+          "seed": 13,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            157,
+            165
+          ],
+          "destroyed": [
+            7,
+            7
+          ],
+          "shore_destroyed": [
+            0,
+            0
+          ],
+          "long_shots_after": 8,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 8
+          }
+        }
+      ]
+    }
+  },
   "build": {
     "index.pck": {
-      "bytes": 59851204,
-      "sha256": "f7a22110b33a45820eb8604711e7e2224698dd8d55eec002c94f8112ce7f93c9"
+      "bytes": 59852308,
+      "sha256": "b63e6917c388614e19f8ded518c74f6dc880e4acf63e152fccfc94a1f619419b"
     },
     "index.wasm": {
       "bytes": 39514754,
@@ -946,7 +1217,7 @@
     "tools/art/render_backdrop.gd hangs under Xvfb in this environment, on f5b25ea as well; the front end's backdrop is unchanged.",
     "Torpedo countermeasures are fitted only where a public source fits the class; the rest have none, and DATA_SOURCES.md lists them.",
     "Paket-NK never fired in the sweep: no torpedo came at a ship that carries it. Its mechanics are covered by the unit tests.",
-    "The AI never takes a shot longer than MAX_TIME_OF_FLIGHT_S (480 s), 64 nm for MdCN, so in Tartus, where the French ships start 166 and 203 nm from the battery, only a player fires it.",
+    "The fixed-target sweep below ran before the dual-role reserve was added; the sweep with the reserve was still running at merge.",
     "Hostile-round totals are not comparable one for one: the old count included enemy interceptors fired at our missiles."
   ]
 }
