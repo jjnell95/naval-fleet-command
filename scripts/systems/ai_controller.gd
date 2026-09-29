@@ -336,13 +336,19 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float) -> Di
 				continue
 			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM:
 				continue
-			if Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S and not _is_fixed_target(t):
+			var long_flight := Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S
+			if long_flight and not _is_fixed_target(t):
+				continue
+			# A distant installation will keep. A round that can also sink ships (Tomahawk) keeps its
+			# last salvo for ships rather than spend it on an airfield two hundred miles inland.
+			var spare := _offensive_rounds(u, spec) - (ASM_SALVO if long_flight and spec.target_types.has("surface") else 0)
+			if spare <= 0:
 				continue
 			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON:
 				continue
 			if check["range_nm"] < best_range:
 				best_range = check["range_nm"]
-				best = {"track": t, "weapon": spec, "salvo": _salvo_for(u, spec)}
+				best = {"track": t, "weapon": spec, "salvo": mini(_salvo_for(u, spec), spare)}
 			break
 	return best
 

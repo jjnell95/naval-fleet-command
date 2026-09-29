@@ -359,10 +359,11 @@ func test_every_ballistic_round_has_an_interceptor_whose_window_covers_it() -> v
 
 
 ## An AI ship with a long-range round, and one hostile track at `range_nm` of the given domain.
-func _long_shot(domain: String, range_nm: float, moving_kn := 0.0) -> Array:
+## Returns [whether it fired, the flight time, the salvo it ordered].
+func _long_shot(domain: String, range_nm: float, moving_kn := 0.0, rounds := 8, targets := PackedStringArray(["surface", "land"])) -> Array:
 	var w := World.new()
-	var strike := _asm(PackedStringArray(["surface", "land"]), 540.0)
-	var shooter := _unit(_hull(), "BLUE", Vector2.ZERO, strike, 8)
+	var strike := _asm(targets, 540.0)
+	var shooter := _unit(_hull(), "BLUE", Vector2.ZERO, strike, rounds)
 	shooter.roe = Unit.Roe.FREE
 	var target := _unit(_site() if domain == "land" else _hull(), "RED", Vector2(range_nm, 0.0))
 	w.um.add_unit(shooter)
@@ -378,15 +379,16 @@ func _long_shot(domain: String, range_nm: float, moving_kn := 0.0) -> Array:
 	ai.track_manager = w.tm
 	ai.threat_manager = w.thm
 	ai.weapon_manager = w.wm
-	var engaged: Array = [false]
+	var engaged: Array = [false, 0]
 	w.um.order_issued.connect(func(_u: Unit, o: Order) -> void:
 		if o.type == Order.Type.ENGAGE:
-			engaged[0] = true)
+			engaged[0] = true
+			engaged[1] = o.salvo)
 	ai.tick(10.0)
 	var result: bool = engaged[0]
 	ai.free()
 	w.free_all()
-	return [result, Combat.time_of_flight_s(strike, range_nm)]
+	return [result, Combat.time_of_flight_s(strike, range_nm), engaged[1]]
 
 
 func test_the_ai_strikes_a_fixed_installation_whatever_the_flight_time() -> void:
@@ -401,3 +403,14 @@ func test_the_flight_time_limit_still_holds_for_anything_that_moves() -> void:
 	assert_true(not _long_shot("surface", 200.0)[0], "a ship 200 nm off will have moved by then")
 	assert_true(not _long_shot("land", 200.0, 20.0)[0], "and so will a launcher the picture shows driving")
 	assert_true(_long_shot("land", 200.0, 0.5)[0], "a site the picture puts at a crawl is standing still")
+
+
+func test_a_long_strike_ashore_never_spends_the_last_salvo_that_could_sink_a_ship() -> void:
+	var salvo := AIController.ASM_SALVO
+	var first := _long_shot("land", 200.0, 0.0, salvo * 2)
+	assert_true(first[0] and first[2] == salvo, "with two salvos aboard it sends one at the airfield")
+	assert_true(not _long_shot("land", 200.0, 0.0, salvo)[0], "and keeps the last for ships")
+	assert_eq(_long_shot("land", 200.0, 0.0, salvo + 2)[2], 2, "it sends only what it can spare")
+	assert_true(_long_shot("land", 40.0, 0.0, salvo)[0], "a battery inside the old limit is a threat now, and gets it")
+	assert_true(_long_shot("land", 200.0, 0.0, salvo, PackedStringArray(["land"]))[0], "a land-attack-only round keeps nothing back")
+	assert_true(_long_shot("surface", 40.0, 0.0, salvo)[0], "the salvo it kept goes at a ship")
