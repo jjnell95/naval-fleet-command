@@ -29,6 +29,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from artkit import Model, split_hull_materials, SMOOTH  # noqa: E402
 import build_air_weapons as aw  # noqa: E402
+import build_flattops as flattops  # noqa: E402
 
 ROOT = HERE.parent.parent
 DATA = ROOT / "data"
@@ -1061,6 +1062,7 @@ BUILDERS = {
     "irn_drone_site_shahed": build_drone_site,
 }
 BUILDERS.update(aw.BUILDERS)
+BUILDERS.update(flattops.BUILDERS)
 
 
 # --------------------------------------------------------------------------------------------

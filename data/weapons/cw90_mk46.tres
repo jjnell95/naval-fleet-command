@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_mk46"
 display_name = "Mk 46 Mod 5 lightweight torpedo"
+short_name = "Mk 46"
 family = "Mk 46 Mod 5 lightweight torpedo"
 type = "torpedo"
 target_types = PackedStringArray("subsurface")

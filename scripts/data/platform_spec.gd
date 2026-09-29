@@ -68,6 +68,17 @@ extends Resource
 @export var decoy_count := 12  # chaff / decoy launches carried (GAMEPLAY_ESTIMATE)
 @export var decoy_effectiveness := 0.35  # base chance one salvo of decoys defeats a seeker
 
+## Torpedo countermeasures. Chaff does nothing to a torpedo; noise does. A decoy towed astern (the
+## U.S. AN/SLQ-25 Nixie, the Royal Navy's Sonar 2170) is streamed for the whole watch and never runs
+## out; expendable acoustic decoys (CANTO, Sonar 2170's launchers, a submarine's countermeasure
+## canisters) do. A torpedo homing on the ship gets one try from each, the towed decoy first; see
+## TorpedoDefence. Hard kill is a weapon, not a field: one whose targets include "torpedo".
+## GAMEPLAY_ESTIMATE: counts and effectiveness; which navies fit what is public.
+@export var torpedo_decoy := ""  # the system's name, for the unit panel; empty for none
+@export var towed_torpedo_decoy := false
+@export var torpedo_decoy_count := 0
+@export var torpedo_decoy_effectiveness := 0.0
+
 ## Recognition and configuration metadata. Performance remains estimated; capacity is physical.
 @export var role := ""
 @export var service_note := ""

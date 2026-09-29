@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "kh32_family"
 display_name = "Kh-32 family (air-launched)"
+short_name = "Kh-32"
 family = "Kh-22/Kh-32"
 type = "asm"
 guidance = "inertial_active"

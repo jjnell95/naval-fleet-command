@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "irn_oerlikon_35mm"
 display_name = "Twin 35 mm gun mount"
+short_name = "35 mm twin"
 family = "Twin 35 mm gun mount"
 type = "ciws"
 target_types = PackedStringArray("missile", "air")

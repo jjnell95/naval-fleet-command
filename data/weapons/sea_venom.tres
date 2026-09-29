@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "sea_venom"
 display_name = "Sea Venom / ANL"
+short_name = "Sea Venom"
 family = "Sea Venom"
 type = "asm"
 guidance = "imaging_infrared"

@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "kh38_family"
 display_name = "Kh-38-family guided missile"
+short_name = "Kh-38"
 family = "Kh-38"
 type = "asm"
 guidance = "inertial_terminal"

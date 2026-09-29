@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_sm1mr"
 display_name = "RIM-66E SM-1MR"
+short_name = "SM-1MR"
 family = "RIM-66E SM-1MR"
 type = "sam"
 target_types = PackedStringArray("missile", "air")

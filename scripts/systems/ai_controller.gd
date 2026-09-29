@@ -24,10 +24,15 @@ const ENGAGE_STANDOFF_FRACTION := 0.80  # sit inside the weapon envelope, not on
 const CONTACT_MEMORY_S := 1200.0
 const ASM_SALVO := 4
 const TORPEDO_SALVO := 2
+## Paket-NK rounds the AI keeps back from an attack for torpedoes coming at its own ship.
+const ANTI_TORPEDO_RESERVE := 2
 ## A weapon that takes too long to arrive is shooting at where the target used to be. This one
 ## rule keeps the AI from firing a 50 knot torpedo across twenty miles of ocean without needing a
-## special case for torpedoes.
+## special case for torpedoes. It is about targets that move: a shore installation is where it was
+## when the round left, so a land-attack round may take as long as it needs (`_is_fixed_target`).
 const MAX_TIME_OF_FLIGHT_S := 480.0
+## Above this a land track is taken to be moving, and the flight-time limit applies to it again.
+const FIXED_TARGET_MAX_KN := 1.0
 const MIN_SOLUTION_FOR_SLOW_WEAPON := 0.5  # a bearing with no range is not a firing solution
 const BREAKOUT_TORPEDO_NM := 8.0  # a boat breaking out shoots only at what is in its way
 const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not at arm's length
@@ -229,7 +234,7 @@ func _note_torpedo_datum(u: Unit, b: Dictionary, now: float) -> void:
 	if threat_manager == null:
 		return
 	for w: Weapon in threat_manager.get_threats(faction):
-		if w.spec.is_torpedo() and threat_manager.visible_to(u, w):
+		if w.spec.is_torpedo() and not w.is_interceptor() and threat_manager.visible_to(u, w):
 			b["last_contact"] = w.position
 			b["last_contact_time"] = now
 			return
@@ -324,29 +329,51 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float) -> Di
 			var quiet_transit := u.ai_posture == "breakout" and u.is_submarine()
 			if quiet_transit and not spec.is_torpedo():
 				continue
+			if _offensive_rounds(u, spec) <= 0:
+				continue
 			var check := Combat.check_engagement(u, spec, t)
 			if not check["ok"]:
 				continue
 			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM:
 				continue
-			if Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S:
+			var long_flight := Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S
+			if long_flight and not _is_fixed_target(t):
+				continue
+			# A distant installation will keep. A round that can also sink ships (Tomahawk) keeps its
+			# last salvo for ships rather than spend it on an airfield two hundred miles inland.
+			var spare := _offensive_rounds(u, spec) - (ASM_SALVO if long_flight and spec.target_types.has("surface") else 0)
+			if spare <= 0:
 				continue
 			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON:
 				continue
 			if check["range_nm"] < best_range:
 				best_range = check["range_nm"]
-				best = {"track": t, "weapon": spec, "salvo": _salvo_for(u, spec)}
+				best = {"track": t, "weapon": spec, "salvo": mini(_salvo_for(u, spec), spare)}
 			break
 	return best
 
 
 func _salvo_for(u: Unit, spec: WeaponSpec) -> int:
-	var rounds := u.magazine_count(spec.id)
+	var rounds := _offensive_rounds(u, spec)
 	if spec.is_gun():
 		return mini(spec.salvo_default, rounds)
 	if spec.is_torpedo():
 		return clampi(TORPEDO_SALVO, 1, rounds)
 	return clampi(ASM_SALVO, 1, rounds)
+
+
+## A target that will still be where the round is sent: a shore installation the picture shows
+## standing still. Every installation in the catalogue is dug in; the speed check is for a mobile
+## launcher, which is a moving target like any other.
+static func _is_fixed_target(t: Track) -> bool:
+	return t.domain == "land" and (not t.has_kinematics or t.speed_kn <= FIXED_TARGET_MAX_KN)
+
+
+## Rounds a weapon can spend on an attack: all of them, less what a launcher that also answers
+## torpedoes (Paket-NK) keeps back for one coming at the ship.
+static func _offensive_rounds(u: Unit, spec: WeaponSpec) -> int:
+	var rounds := u.magazine_count(spec.id)
+	return rounds - ANTI_TORPEDO_RESERVE if spec.target_types.has("torpedo") else rounds
 
 
 # --- Behaviour ---------------------------------------------------------------------------

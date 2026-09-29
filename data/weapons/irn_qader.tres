@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "irn_qader"
 display_name = "Qader anti-ship cruise missile"
+short_name = "Qader"
 family = "Qader anti-ship cruise missile"
 type = "asm"
 target_types = PackedStringArray("surface")

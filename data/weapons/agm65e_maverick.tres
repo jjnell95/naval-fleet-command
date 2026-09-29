@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "agm65e_maverick"
 display_name = "AGM-65E Maverick"
+short_name = "Maverick"
 family = "Maverick"
 type = "asm"
 guidance = "laser_abstract"

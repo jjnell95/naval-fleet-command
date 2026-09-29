@@ -232,7 +232,7 @@
   {
     "id": "cw90_nimitz",
     "kind": "platform",
-    "triangles": 9632
+    "triangles": 14678
   },
   {
     "id": "cw90_osa_m",
@@ -392,7 +392,7 @@
   {
     "id": "fra_cvn_charles_de_gaulle",
     "kind": "platform",
-    "triangles": 8388
+    "triangles": 10278
   },
   {
     "id": "fra_ffg_fremm",
@@ -412,7 +412,7 @@
   {
     "id": "fra_lhd_mistral",
     "kind": "platform",
-    "triangles": 10744
+    "triangles": 6864
   },
   {
     "id": "fra_mpa_atlantic2",
@@ -685,6 +685,11 @@
     "triangles": 1424
   },
   {
+    "id": "mdcn",
+    "kind": "weapon",
+    "triangles": 1184
+  },
+  {
     "id": "meteor_aam",
     "kind": "weapon",
     "triangles": 1680
@@ -773,6 +778,11 @@
     "id": "p800_oniks",
     "kind": "weapon",
     "triangles": 1548
+  },
+  {
+    "id": "paket_nk",
+    "kind": "weapon",
+    "triangles": 1092
   },
   {
     "id": "phalanx_ciws",
@@ -1162,7 +1172,7 @@
   {
     "id": "rn_cvf_queen_elizabeth",
     "kind": "platform",
-    "triangles": 10000
+    "triangles": 13632
   },
   {
     "id": "rn_ddg_type45",
@@ -1317,12 +1327,12 @@
   {
     "id": "usn_cvn_ford",
     "kind": "platform",
-    "triangles": 9416
+    "triangles": 14086
   },
   {
     "id": "usn_cvn_nimitz",
     "kind": "platform",
-    "triangles": 9392
+    "triangles": 14730
   },
   {
     "id": "usn_ddg_arleigh_burke_iia",
@@ -1372,7 +1382,7 @@
   {
     "id": "usn_lha_america",
     "kind": "platform",
-    "triangles": 10864
+    "triangles": 12498
   },
   {
     "id": "usn_mpa_p8a",

@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "kalibr_asm"
 display_name = "Kalibr family (anti-ship)"
+short_name = "Kalibr"
 family = "Kalibr"
 type = "asm"
 guidance = "active_radar_homing"

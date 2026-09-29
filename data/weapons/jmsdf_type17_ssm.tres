@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "jmsdf_type17_ssm"
 display_name = "Type 17 ship-to-ship missile"
+short_name = "Type 17"
 family = "Type 17 ship-to-ship missile"
 type = "asm"
 target_types = PackedStringArray("surface")

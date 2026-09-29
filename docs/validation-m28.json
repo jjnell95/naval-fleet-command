@@ -1,0 +1,1223 @@
+{
+  "milestone": "M28 The live view, deep strike and torpedo defence",
+  "date": "2026-09-28",
+  "base_commit": "f5b25eab0c54199b63c0c98947e634da6f21db15",
+  "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+  "regression_tests": {
+    "total": 514,
+    "passed": 514,
+    "failed": 0,
+    "before": 483,
+    "command": "godot --headless --path . --script tests/run_tests.gd"
+  },
+  "native_command_screen": {
+    "checks": 47,
+    "failed": 0,
+    "resolution": "1600x900",
+    "new": "the biggest ship's weapons all fit the data display"
+  },
+  "native_air_operations": {
+    "checks": 19,
+    "failed": 0,
+    "resolution": "1600x1000"
+  },
+  "frame_budget": {
+    "method": "godot --path . --resolution 1600x900 -- --scenario=... --seed=2 --fastforward=2400 --run --perf=8 [--world-view=full --pick=...]; script ms per frame and draw calls under llvmpipe; before is f5b25ea",
+    "command_screen": {
+      "gulf_01_hormuz": {
+        "before": {
+          "chart": {
+            "avg_ms": 1.8,
+            "worst_ms": 3.34
+          },
+          "chart/coast": {
+            "avg_ms": 0.67,
+            "worst_ms": 1.5
+          },
+          "chart/names": {
+            "avg_ms": 0.28,
+            "worst_ms": 0.46
+          },
+          "chart/plot": {
+            "avg_ms": 0.64,
+            "worst_ms": 1.41
+          },
+          "chart/readout": {
+            "avg_ms": 0.19,
+            "worst_ms": 0.38
+          },
+          "chart/threats": {
+            "avg_ms": 0.03,
+            "worst_ms": 0.08
+          },
+          "data": {
+            "avg_ms": 0.11,
+            "worst_ms": 0.44
+          },
+          "regional": {
+            "avg_ms": 0.26,
+            "worst_ms": 0.44
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.15
+          },
+          "sim": {
+            "avg_ms": 1.42,
+            "worst_ms": 12.6
+          },
+          "world": {
+            "avg_ms": 1.92,
+            "worst_ms": 6.36
+          },
+          "draw_calls": 178,
+          "primitives": 101376
+        },
+        "after": {
+          "chart": {
+            "avg_ms": 1.84,
+            "worst_ms": 4.75
+          },
+          "chart/coast": {
+            "avg_ms": 0.69,
+            "worst_ms": 1.63
+          },
+          "chart/names": {
+            "avg_ms": 0.29,
+            "worst_ms": 0.71
+          },
+          "chart/plot": {
+            "avg_ms": 0.66,
+            "worst_ms": 2.1
+          },
+          "chart/readout": {
+            "avg_ms": 0.19,
+            "worst_ms": 0.37
+          },
+          "chart/threats": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.09
+          },
+          "data": {
+            "avg_ms": 0.14,
+            "worst_ms": 0.5
+          },
+          "regional": {
+            "avg_ms": 0.28,
+            "worst_ms": 0.81
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.18
+          },
+          "sim": {
+            "avg_ms": 1.47,
+            "worst_ms": 14.27
+          },
+          "world": {
+            "avg_ms": 2.22,
+            "worst_ms": 3.88
+          },
+          "draw_calls": 179,
+          "primitives": 102368
+        }
+      },
+      "pacific_02_taiwan_strait": {
+        "before": {
+          "chart": {
+            "avg_ms": 3.37,
+            "worst_ms": 7.3
+          },
+          "chart/coast": {
+            "avg_ms": 1.47,
+            "worst_ms": 3.22
+          },
+          "chart/names": {
+            "avg_ms": 0.24,
+            "worst_ms": 0.52
+          },
+          "chart/plot": {
+            "avg_ms": 1.33,
+            "worst_ms": 3.92
+          },
+          "chart/readout": {
+            "avg_ms": 0.3,
+            "worst_ms": 0.92
+          },
+          "chart/threats": {
+            "avg_ms": 0.03,
+            "worst_ms": 0.07
+          },
+          "data": {
+            "avg_ms": 0.17,
+            "worst_ms": 0.79
+          },
+          "regional": {
+            "avg_ms": 0.59,
+            "worst_ms": 1.92
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.14
+          },
+          "sim": {
+            "avg_ms": 3.56,
+            "worst_ms": 40.03
+          },
+          "world": {
+            "avg_ms": 1.76,
+            "worst_ms": 4.28
+          },
+          "draw_calls": 286,
+          "primitives": 130534
+        },
+        "after": {
+          "chart": {
+            "avg_ms": 3.16,
+            "worst_ms": 6.57
+          },
+          "chart/coast": {
+            "avg_ms": 1.35,
+            "worst_ms": 2.63
+          },
+          "chart/names": {
+            "avg_ms": 0.23,
+            "worst_ms": 0.32
+          },
+          "chart/plot": {
+            "avg_ms": 1.26,
+            "worst_ms": 3.99
+          },
+          "chart/readout": {
+            "avg_ms": 0.29,
+            "worst_ms": 0.67
+          },
+          "chart/threats": {
+            "avg_ms": 0.03,
+            "worst_ms": 0.16
+          },
+          "data": {
+            "avg_ms": 0.15,
+            "worst_ms": 1.07
+          },
+          "regional": {
+            "avg_ms": 0.55,
+            "worst_ms": 1.75
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.13
+          },
+          "sim": {
+            "avg_ms": 3.15,
+            "worst_ms": 27.49
+          },
+          "world": {
+            "avg_ms": 1.89,
+            "worst_ms": 3.63
+          },
+          "draw_calls": 290,
+          "primitives": 133234
+        }
+      },
+      "northern_vigil": {
+        "before": {
+          "chart": {
+            "avg_ms": 4.03,
+            "worst_ms": 6.45
+          },
+          "chart/coast": {
+            "avg_ms": 2.43,
+            "worst_ms": 3.84
+          },
+          "chart/names": {
+            "avg_ms": 0.22,
+            "worst_ms": 0.31
+          },
+          "chart/plot": {
+            "avg_ms": 0.97,
+            "worst_ms": 2.1
+          },
+          "chart/readout": {
+            "avg_ms": 0.39,
+            "worst_ms": 0.58
+          },
+          "chart/threats": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.05
+          },
+          "data": {
+            "avg_ms": 0.17,
+            "worst_ms": 0.61
+          },
+          "regional": {
+            "avg_ms": 0.52,
+            "worst_ms": 0.84
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.11
+          },
+          "sim": {
+            "avg_ms": 3.81,
+            "worst_ms": 21.69
+          },
+          "world": {
+            "avg_ms": 1.7,
+            "worst_ms": 3.25
+          },
+          "draw_calls": 355,
+          "primitives": 169072
+        },
+        "after": {
+          "chart": {
+            "avg_ms": 4.25,
+            "worst_ms": 8.64
+          },
+          "chart/coast": {
+            "avg_ms": 2.59,
+            "worst_ms": 6.14
+          },
+          "chart/names": {
+            "avg_ms": 0.22,
+            "worst_ms": 0.53
+          },
+          "chart/plot": {
+            "avg_ms": 0.99,
+            "worst_ms": 2.23
+          },
+          "chart/readout": {
+            "avg_ms": 0.42,
+            "worst_ms": 1.37
+          },
+          "chart/threats": {
+            "avg_ms": 0.03,
+            "worst_ms": 0.09
+          },
+          "data": {
+            "avg_ms": 0.18,
+            "worst_ms": 0.63
+          },
+          "regional": {
+            "avg_ms": 0.55,
+            "worst_ms": 1.19
+          },
+          "shell": {
+            "avg_ms": 0.02,
+            "worst_ms": 0.13
+          },
+          "sim": {
+            "avg_ms": 3.86,
+            "worst_ms": 20.81
+          },
+          "world": {
+            "avg_ms": 2.07,
+            "worst_ms": 5.38
+          },
+          "draw_calls": 359,
+          "primitives": 170652
+        }
+      }
+    },
+    "full_screen_3d_ford_northern_vigil": {
+      "before": {
+        "regional": {
+          "avg_ms": 0.24,
+          "worst_ms": 0.51
+        },
+        "shell": {
+          "avg_ms": 0.02,
+          "worst_ms": 0.1
+        },
+        "sim": {
+          "avg_ms": 4.06,
+          "worst_ms": 19.59
+        },
+        "world": {
+          "avg_ms": 1.78,
+          "worst_ms": 3.37
+        },
+        "draw_calls": 30,
+        "primitives": 97336
+      },
+      "after": {
+        "regional": {
+          "avg_ms": 0.27,
+          "worst_ms": 1.26
+        },
+        "shell": {
+          "avg_ms": 0.02,
+          "worst_ms": 0.2
+        },
+        "sim": {
+          "avg_ms": 3.91,
+          "worst_ms": 17.82
+        },
+        "world": {
+          "avg_ms": 1.99,
+          "worst_ms": 3.43
+        },
+        "draw_calls": 47,
+        "primitives": 107070
+      }
+    }
+  },
+  "scenario_sweep": {
+    "seeds": [
+      2,
+      13
+    ],
+    "simulated_seconds": 6000,
+    "before": {
+      "passed": 44,
+      "failed": 0,
+      "aground": 0,
+      "results": {
+        "running": 34,
+        "won": 6,
+        "lost": 4
+      }
+    },
+    "after": {
+      "passed": 44,
+      "failed": 0,
+      "aground": 0,
+      "results": {
+        "running": 34,
+        "won": 6,
+        "lost": 4
+      }
+    },
+    "totals": {
+      "ok": {
+        "before": 44,
+        "after": 44
+      },
+      "aground": {
+        "before": 0,
+        "after": 0
+      },
+      "result_0": {
+        "before": 34,
+        "after": 34
+      },
+      "result_1": {
+        "before": 6,
+        "after": 6
+      },
+      "result_2": {
+        "before": 4,
+        "after": 4
+      },
+      "stat_hostile_rounds": {
+        "before": 1310,
+        "after": 1055
+      },
+      "stat_hits_taken": {
+        "before": 147,
+        "after": 146
+      },
+      "stat_own_rounds": {
+        "before": 1318,
+        "after": 1306
+      },
+      "stat_hits_scored": {
+        "before": 135,
+        "after": 135
+      },
+      "stat_launched": {
+        "before": 1224,
+        "after": 1144
+      },
+      "stat_intercepted": {
+        "before": 336,
+        "after": 303
+      },
+      "stat_decoyed": {
+        "before": 115,
+        "after": 112
+      },
+      "destroyed": {
+        "before": 231,
+        "after": 227
+      },
+      "torpedo_rounds": {
+        "before": 66,
+        "after": 62
+      },
+      "torpedo_hits": {
+        "before": 11,
+        "after": 11
+      },
+      "torpedo_decoyed": {
+        "before": 8,
+        "after": 9
+      },
+      "torpedo_intercepted": {
+        "before": 0,
+        "after": 0
+      },
+      "torpedo_reacquired": {
+        "before": 0,
+        "after": 0
+      },
+      "paket_shots": {
+        "before": 0,
+        "after": 0
+      },
+      "mdcn_rounds": {
+        "before": 0,
+        "after": 16
+      }
+    },
+    "changed_cases": [
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "result": [
+          0,
+          0
+        ],
+        "rounds_launched": [
+          74,
+          50
+        ],
+        "destroyed": [
+          7,
+          5
+        ],
+        "torpedoes_decoyed_after": 0,
+        "paket_shots_after": 0,
+        "mdcn_rounds_after": 8
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "result": [
+          0,
+          0
+        ],
+        "rounds_launched": [
+          82,
+          58
+        ],
+        "destroyed": [
+          7,
+          5
+        ],
+        "torpedoes_decoyed_after": 0,
+        "paket_shots_after": 0,
+        "mdcn_rounds_after": 8
+      }
+    ],
+    "runs_after": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 186.0
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 385.2
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 15.4
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 29.6
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.1
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.4
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 7.3
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 33.6
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 10.2
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 107.6
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.2
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 40.8
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 105.3
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.5
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.2
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.7
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 640.8
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 24.0
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 483.4
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 47.0
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 62.3
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 5.7
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 176.9
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 392.3
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 15.3
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 31.4
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.8
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.2
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 6.9
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 38.3
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 8.9
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 107.6
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.4
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 40.1
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 114.1
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.3
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.2
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.8
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 606.9
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 23.9
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 474.1
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 47.5
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 62.7
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 5.7
+      }
+    ]
+  },
+  "browser": {
+    "environment": "headless Chromium (Playwright 1.56) with SwiftShader WebGL 2, served from docs/ over HTTP, 1600x900",
+    "booted": true,
+    "exercised": [
+      "operations desk",
+      "accept and briefing",
+      "take command",
+      "pause",
+      "next contact",
+      "status boards (A)",
+      "swap chart and 3D view (G)",
+      "3D view full screen (F10), paused and running"
+    ],
+    "console_errors": 0,
+    "webgl_warnings": "254 INVALID_OPERATION warnings over the swap and its return; the f5b25ea build raises the same 254 at the same steps",
+    "export_templates": "official 4.7.2 web templates installed from Godot_v4.7.2-stable_export_templates.tpz"
+  },
+  "fixed_target_strikes": {
+    "change": "MAX_TIME_OF_FLIGHT_S no longer applies to a land track shown standing still; beyond it a dual-role round keeps ASM_SALVO for ships",
+    "sweep_without_reserve_against_m28": {
+      "totals": {
+        "ok": {
+          "before": 44,
+          "after": 44
+        },
+        "aground": {
+          "before": 0,
+          "after": 0
+        },
+        "result_0": {
+          "before": 34,
+          "after": 34
+        },
+        "result_1": {
+          "before": 6,
+          "after": 6
+        },
+        "result_2": {
+          "before": 4,
+          "after": 4
+        },
+        "launched": {
+          "before": 2492,
+          "after": 2577
+        },
+        "long_shots": {
+          "before": 0,
+          "after": 96
+        },
+        "destroyed": {
+          "before": 227,
+          "after": 237
+        },
+        "shore_hits": {
+          "before": 6,
+          "after": 49
+        },
+        "shore_destroyed": {
+          "before": 2,
+          "after": 6
+        },
+        "stat_hostile_rounds": {
+          "before": 1055,
+          "after": 1068
+        },
+        "stat_hits_taken": {
+          "before": 146,
+          "after": 153
+        },
+        "stat_own_rounds": {
+          "before": 1306,
+          "after": 1373
+        },
+        "stat_hits_scored": {
+          "before": 135,
+          "after": 178
+        },
+        "stat_launched": {
+          "before": 1144,
+          "after": 1149
+        },
+        "stat_intercepted": {
+          "before": 303,
+          "after": 299
+        }
+      },
+      "long_shots_by_weapon": {
+        "Tomahawk Block Va (maritime strike)": 80,
+        "MdCN naval cruise missile (land attack)": 16
+      },
+      "identical_cases": 36,
+      "cases": 44,
+      "changed": [
+        {
+          "scenario": "aegis_bastion",
+          "seed": 2,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            101,
+            111
+          ],
+          "destroyed": [
+            12,
+            16
+          ],
+          "shore_destroyed": [
+            0,
+            1
+          ],
+          "long_shots_after": 20,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 20
+          }
+        },
+        {
+          "scenario": "aegis_bastion",
+          "seed": 13,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            74,
+            86
+          ],
+          "destroyed": [
+            11,
+            11
+          ],
+          "shore_destroyed": [
+            0,
+            0
+          ],
+          "long_shots_after": 20,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 20
+          }
+        },
+        {
+          "scenario": "arctic_shield",
+          "seed": 2,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            168,
+            187
+          ],
+          "destroyed": [
+            18,
+            21
+          ],
+          "shore_destroyed": [
+            0,
+            1
+          ],
+          "long_shots_after": 12,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 12
+          }
+        },
+        {
+          "scenario": "arctic_shield",
+          "seed": 13,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            195,
+            207
+          ],
+          "destroyed": [
+            17,
+            18
+          ],
+          "shore_destroyed": [
+            0,
+            0
+          ],
+          "long_shots_after": 12,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 12
+          }
+        },
+        {
+          "scenario": "med_01_tartus",
+          "seed": 2,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            98,
+            106
+          ],
+          "destroyed": [
+            14,
+            15
+          ],
+          "shore_destroyed": [
+            0,
+            1
+          ],
+          "long_shots_after": 8,
+          "long_by_weapon": {
+            "MdCN naval cruise missile (land attack)": 8
+          }
+        },
+        {
+          "scenario": "med_01_tartus",
+          "seed": 13,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            56,
+            64
+          ],
+          "destroyed": [
+            9,
+            10
+          ],
+          "shore_destroyed": [
+            0,
+            1
+          ],
+          "long_shots_after": 8,
+          "long_by_weapon": {
+            "MdCN naval cruise missile (land attack)": 8
+          }
+        },
+        {
+          "scenario": "pacific_02_taiwan_strait",
+          "seed": 2,
+          "result": [
+            2,
+            2
+          ],
+          "launched": [
+            164,
+            172
+          ],
+          "destroyed": [
+            8,
+            8
+          ],
+          "shore_destroyed": [
+            0,
+            0
+          ],
+          "long_shots_after": 8,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 8
+          }
+        },
+        {
+          "scenario": "pacific_02_taiwan_strait",
+          "seed": 13,
+          "result": [
+            0,
+            0
+          ],
+          "launched": [
+            157,
+            165
+          ],
+          "destroyed": [
+            7,
+            7
+          ],
+          "shore_destroyed": [
+            0,
+            0
+          ],
+          "long_shots_after": 8,
+          "long_by_weapon": {
+            "Tomahawk Block Va (maritime strike)": 8
+          }
+        }
+      ]
+    }
+  },
+  "build": {
+    "index.pck": {
+      "bytes": 59852308,
+      "sha256": "b63e6917c388614e19f8ded518c74f6dc880e4acf63e152fccfc94a1f619419b"
+    },
+    "index.wasm": {
+      "bytes": 39514754,
+      "sha256": "fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0"
+    },
+    "index.js": {
+      "bytes": 279815,
+      "sha256": "33c94cb3175f3333b82e2a3be5e8e86f77986f0aa2042b1631f6367a4e5bb6ba"
+    }
+  },
+  "limits": [
+    "The frame budget was measured under llvmpipe software rendering; only the script time and draw calls carry over to a real GPU.",
+    "The sweep runs 6000 simulated seconds per case with the AI commanding both sides; torpedoes are rare in it, so the torpedo defence is covered mainly by its unit tests.",
+    "tools/art/render_backdrop.gd hangs under Xvfb in this environment, on f5b25ea as well; the front end's backdrop is unchanged.",
+    "Torpedo countermeasures are fitted only where a public source fits the class; the rest have none, and DATA_SOURCES.md lists them.",
+    "Paket-NK never fired in the sweep: no torpedo came at a ship that carries it. Its mechanics are covered by the unit tests.",
+    "The fixed-target sweep below ran before the dual-role reserve was added; the sweep with the reserve was still running at merge.",
+    "Hostile-round totals are not comparable one for one: the old count included enemy interceptors fired at our missiles."
+  ]
+}

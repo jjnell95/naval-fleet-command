@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_fort"
 display_name = "S-300F Fort / SA-N-6 Grumble"
+short_name = "SA-N-6"
 family = "S-300F Fort / SA-N-6 Grumble"
 type = "sam"
 target_types = PackedStringArray("missile", "air")

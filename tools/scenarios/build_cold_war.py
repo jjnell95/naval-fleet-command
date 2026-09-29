@@ -54,8 +54,20 @@ def sonar(key, name, passive, active, depth=0, hover=False, cz=False):
              requires_hover=hover, cz_capable=cz))
 
 
+# What the data display calls each weapon: eleven letters at most (WeaponSpec.short_name).
+SHORT_NAMES = {
+    "53_65": "53-65K", "aim54a": "Phoenix", "aim9m": "AIM-9M", "ak100": "AK-100",
+    "ak130": "AK-130", "ak176": "AK-176", "ak630": "AK-630", "at1": "AT-1M",
+    "fort": "SA-N-6", "harpoon": "Harpoon", "kh22": "Kh-22", "kinzhal": "SA-N-9",
+    "mk45": "Mk 45", "mk46": "Mk 46", "mk48": "Mk 48", "mk75": "Mk 75",
+    "moskit": "Moskit", "osa_m": "SA-N-4", "p120": "SS-N-9", "p500": "Bazalt",
+    "phalanx": "Phalanx", "rastrub": "SS-N-14", "sea_sparrow": "Sea Sparrow", "set65": "SET-65",
+    "shtil": "SA-N-7", "sm1mr": "SM-1MR", "sm2mr": "SM-2MR", "test71": "TEST-71M",
+}
+
+
 def weapon(key, name, kind, targets, reach, speed, damage, **kw):
-    d = dict(display_name=name, family=name, type=kind, target_types=targets,
+    d = dict(display_name=name, short_name=SHORT_NAMES[key], family=name, type=kind, target_types=targets,
              guidance="fire_control_directed" if kind in ["sam", "ciws"] else "active_radar_homing",
              profile="high" if kind in ["sam", "aam"] else "sea_skimming",
              max_range_nm=float(reach), min_range_nm=1.0, speed_kn=float(speed),
@@ -167,16 +179,16 @@ def catalogue():
              ["sps49", "sqs56", "slq32"], {"sm1mr":32, "harpoon":8, "mk46":12, "mk75":260, "phalanx":60},
              length_m=138.1, displacement_t=4100.0, health=90.0, max_speed_kn=29.0,
              fire_control_channels=1, aircraft_capacity=2, default_air_wing={"sh60b":1},
-             role="Convoy escort / local air defence / ASW", service_note="Long-hull LAMPS III fit: Mk 13 magazine holds 32 SM-1MR plus 8 Harpoon (40 total), Mk 32 torpedoes, one represented SH-60B. No VLS, ASROC or ESSM.")
+             torpedo_decoy="AN/SLQ-25 Nixie", towed_torpedo_decoy=True, torpedo_decoy_effectiveness=0.3, role="Convoy escort / local air defence / ASW", service_note="Long-hull LAMPS III fit: Mk 13 magazine holds 32 SM-1MR plus 8 Harpoon (40 total), Mk 32 torpedoes, one represented SH-60B. No VLS, ASROC or ESSM.")
     platform("spruance", "Spruance-class destroyer, DD-963 fit", "DD Spruance", "USA", "destroyer",
              ["sps49", "sqs53b", "sqr19", "slq32"], {"harpoon":8, "sea_sparrow":24, "mk46":12, "mk45":400, "phalanx":100},
              length_m=171.6, displacement_t=8000.0, health=110.0, aircraft_capacity=2, vls_cells=61,
-             default_air_wing={"sh60b":2}, role="ASW screen / surface strike",
+             default_air_wing={"sh60b":2}, torpedo_decoy="AN/SLQ-25 Nixie", towed_torpedo_decoy=True, torpedo_decoy_effectiveness=0.3, role="ASW screen / surface strike",
              service_note="USS Spruance after its 1986-87 VLS/SQS-53B/SQR-19/LAMPS III refit. Land-attack Tomahawk magazine is outside these missions and omitted. No box ASROC, VL-ASROC, SM-2 or ESSM is fitted in this playable loadout.")
     platform("ticonderoga", "Ticonderoga-class VLS cruiser, CG-52 fit", "CG Ticonderoga", "USA", "cruiser",
              ["spy1a", "sqs53b", "sqr19", "slq32"], {"sm2mr":80, "harpoon":8, "mk46":12, "mk45":400, "phalanx":100},
              length_m=172.8, displacement_t=9600.0, health=135.0, aircraft_capacity=2, vls_cells=122,
-             fire_control_channels=4, default_air_wing={"sh60b":2}, role="Aegis area air defence",
+             fire_control_channels=4, default_air_wing={"sh60b":2}, torpedo_decoy="AN/SLQ-25 Nixie", towed_torpedo_decoy=True, torpedo_decoy_effectiveness=0.3, role="Aegis area air defence",
              service_note="Bunker Hill CG-52 period VLS fit with SPY-1A and SM-2MR; land-attack stores omitted. No ballistic-missile defence, SM-3, SM-6, ESSM or VL-ASROC.")
     platform("nimitz", "Nimitz-class aircraft carrier", "CVN Nimitz", "USA", "carrier",
              ["sps48c", "slq32"], {"sea_sparrow":24, "phalanx":120},
@@ -184,13 +196,13 @@ def catalogue():
              max_speed_kn=30.0, turn_rate_deg_s=1.0, accel_kn_s=.1, mast_height_m=50.0,
              aircraft_capacity=70, aviation_facility="catobar", launch_spots=4, recovery_spots=1,
              default_air_wing={"f14a":4,"e2c":1,"s3a":2,"sh3h":2},
-             role="Fleet air defence / aviation command",
+             torpedo_decoy="AN/SLQ-25 Nixie", towed_torpedo_decoy=True, torpedo_decoy_effectiveness=0.3, role="Fleet air defence / aviation command",
              service_note="1990 recognition fit: F-14A+, E-2C, S-3A and SH-3H, Sea Sparrow and Phalanx. Nine represented aircraft are a reduced scenario detachment, not the complete historical air wing. Strike squadrons are omitted.")
     platform("los_angeles", "Los Angeles-class attack submarine", "SSN Los Angeles", "USA", "nuclear attack submarine",
              ["bqq5"], {"mk48":20}, domain="subsurface", length_m=110.3, displacement_t=6900.0,
              max_speed_kn=30.0, cruise_speed_kn=7.0, health=70.0, signature_factor=.25,
              acoustic_signature=.12, max_depth_m=300.0, patrol_depth_m=150.0, depth_rate_m_s=2.0,
-             has_datalink=False, fire_control_channels=0, role="Barrier patrol / passive ASW",
+             has_datalink=False, fire_control_channels=0, decoy_count=0, torpedo_decoy="Acoustic countermeasures", torpedo_decoy_count=12, torpedo_decoy_effectiveness=0.35, role="Barrier patrol / passive ASW",
              service_note="Early Los Angeles-class boat with BQQ-5 and Mk 48 Mod 4. No Virginia-class sensors, VLS or post-1990 torpedo upgrade is inferred.")
     platform("sovremenny", "Sovremennyy-class missile destroyer", "DDG Sovremennyy", "USSR", "destroyer",
              ["fregat","mgk335","soviet_esm"], {"moskit":8,"shtil":48,"ak130":400,"ak630":100,"set65":8},
@@ -212,7 +224,7 @@ def catalogue():
              ["mgk400"], {"test71":12,"53_65":8}, domain="subsurface", length_m=107.1, displacement_t=7000.0,
              max_speed_kn=30.0, cruise_speed_kn=7.0, health=70.0, signature_factor=.25,
              acoustic_signature=.20, max_depth_m=300.0, patrol_depth_m=130.0, depth_rate_m_s=2.0,
-             has_datalink=False, fire_control_channels=0, role="Atlantic breakout / submerged attack",
+             has_datalink=False, fire_control_channels=0, decoy_count=0, torpedo_decoy="Acoustic countermeasures", torpedo_decoy_count=12, torpedo_decoy_effectiveness=0.35, role="Atlantic breakout / submerged attack",
              service_note="Project 671RTM period recognition fit with 533 mm torpedoes. Other carried weapons and wire/wake guidance details are omitted or abstracted.")
     platform("nanuchka", "Nanuchka III missile corvette", "FSG Nanuchka III", "USSR", "corvette",
              ["mr320","soviet_esm"], {"p120":6,"osa_m":20,"ak176":200,"ak630":50},

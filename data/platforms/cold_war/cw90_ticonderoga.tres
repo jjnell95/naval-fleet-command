@@ -28,4 +28,7 @@ displacement_t = 9600.0
 aircraft_capacity = 2
 vls_cells = 122
 default_air_wing = {"cw90_sh60b": 2}
+torpedo_decoy = "AN/SLQ-25 Nixie"
+towed_torpedo_decoy = true
+torpedo_decoy_effectiveness = 0.3
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

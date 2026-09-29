@@ -1,6 +1,6 @@
 # Naval Fleet Command
 
-**M26 Final QC:** every screen reviewed, the frame budget measured and the chart's frame cost roughly halved in the largest operations, track numbers placed clear of one another, the surviving screen defects fixed, and the console, tests, code and docs cleared of noise. The Jane's-style CDS interface is unchanged. See the [QC notes](docs/2026-09-28-final-qc.md) and [validation](docs/validation-m26.json); M25's [fleet operations](docs/2026-09-27-fleet-operations.md) are the last content change.
+**M28 The live view, deep strike and torpedo defence:** ships, aircraft and submarines in the 3D view wear their navies' paint with plating, weathering, wet waterlines, bow waves, shadows and navigation lights; the seven flat-tops are rebuilt; France's MdCN cruise missile is fitted; torpedoes are fought with acoustic decoys and Paket-NK instead of chaff; and the data display lays a big ship's weapons out in columns. The browser build is current. See the [M28 notes](docs/2026-09-28-live-view.md) and [validation](docs/validation-m28.json).
 
 A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-command games. Build an uncertain contact picture, protect the convoy, operate a carrier air wing, and decide when the salvo is worth the missiles. Twenty-two operations across the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, in 2027 and in 1990. Original art and code; no Jane's assets or affiliation.
 
@@ -27,7 +27,7 @@ Every operation carries a commander's intent, three first orders, a difficulty a
 
 ## The forces
 
-**139 platforms, 141 weapons and 164 sensors** across four catalogues, each with recognition art and an inspectable model:
+**139 platforms, 145 weapons and 164 sensors** across four catalogues, each with recognition art and an inspectable model:
 
 - **Modern NATO and Russia**: Burke IIA and III, Ticonderoga, Constellation, Nimitz and Ford, Queen Elizabeth, Type 45 and Type 26, FREMM, Horizon, Charles de Gaulle, Mistral, Juan Carlos I, Nansen, Iver Huitfeldt, Sachsen, Braunschweig, Visby, Virginia, Astute, Suffren, Gotland; Gorshkov, Grigorovich, Slava, Udaloy, Steregushchiy, Buyan-M, Yasen-M, Kilo; carrier and land-based aviation on both sides.
 - **PLAN**: Type 055, Type 052D, Type 054A, Type 056A, Type 022, the carrier Shandong with J-15s, Type 093B and Type 039A submarines, H-6J, J-16, KJ-500, Y-8Q, four helicopter types, a replenishment ship, YJ-12B and DF-21D batteries and an HQ-9B site.
@@ -45,8 +45,8 @@ The command screen is laid out the way the late-1990s fleet-command games laid t
 - **Give orders:** **right-click your own platform** for its Orders menu (speed, course, altitude or depth, sensors, EMCON, weapons state, flight deck, formation, route). **R** radar, **P** active sonar, **E** emission control.
 - **Engage:** hook a shooter, then **right-click a contact** for **Engage with**: the weapons that suit it, each with its rounds and a salvo size. Unknown and neutral contacts are not free targets. Land-attack rounds can be fired at a battery or an airfield once it is classified.
 - **Build the picture:** contacts begin uncertain and classify through observation. A passive bearing is not a measured range. **N / Shift-N** cycles priority contacts. **Tab** switches NTDS and graphic symbols; **Shift-V / K / I** toggle velocity leaders, track numbers and tags.
-- **Read the data display:** the hooked platform's class, track number, course, speed, damage, orders, sensors and weapons (with the hull's reach for each job), or a contact as held, or the mission's tasking with nothing hooked. Its footer carries the watch time and the time scale (click them to pause or step the scale) and a lamp that flashes for new warnings.
-- **See it:** the 3D view follows the hook. **T** cycles the cameras: **F9** tether, **F11** fly-by, **F12** action, **F8** detached. **G** swaps the chart and the 3D view; **F10** gives the 3D view the whole window.
+- **Read the data display:** the hooked platform's class, track number, course, speed, damage, orders, sensors and weapons (the hull's reach for each job, then every system and its rounds in columns, strike first), or a contact as held, or the mission's tasking with nothing hooked. Its footer carries the watch time and the time scale (click them to pause or step the scale) and a lamp that flashes for new warnings.
+- **See it:** the 3D view follows the hook. **T** cycles the cameras: **F9** tether, **F11** fly-by, **F12** action, **F8** detached. **G** swaps the chart and the 3D view; **F10** gives the 3D view the whole window, with sun shadows. After dark, ships show their navigation lights on their proper arcs, so the lights alone say which way a ship is heading.
 - **Fly:** **F3** opens Air Operations. Select a host, aircraft type and quantity, then launch. Choose an airborne airframe and a compatible **Land At** destination, then **Return & Land**. Recovery, refuelling and rearming precede relaunch.
 - **Status boards:** **A** opens the orders board, the task group (roster, readiness, event log), the track file (with the air-defence board) and the comms history over the chart. The game keeps running.
 - **Manage the watch:** **Space** pauses; **1–6** selects 1×–60× time. Combat interrupts acceleration. Radio traffic reads along the bottom of the chart, and whoever is talking is ringed in white.
@@ -56,7 +56,7 @@ The interface targets a desktop/laptop with keyboard and mouse/trackpad and is l
 
 ## What realism means here
 
-The game models radar horizons, ESM, passive/active sonar, thermal layers, sonobuoys, uncertain and stale tracks, target-motion estimates, layered defence, channel limits, decoys, damage control, terrain masking, ship turning, aircraft fuel and deck cycles. The AI uses its held tracks and detected threats. Installations ashore stand on their ground: a battery on a headland sees the sea it faces, fires out over its own coast, and is hidden from the other side.
+The game models radar horizons, ESM, passive/active sonar, thermal layers, sonobuoys, uncertain and stale tracks, target-motion estimates, layered defence, channel limits, chaff against missiles and acoustic decoys and anti-torpedo rounds against torpedoes, damage control, terrain masking, ship turning, aircraft fuel and deck cycles. The AI uses its held tracks and detected threats. Installations ashore stand on their ground: a battery on a headland sees the sea it faces, fires out over its own coast, and is hidden from the other side.
 
 Four chart regions are built from Natural Earth 1:10m land and bathymetry: the North Atlantic with the Norwegian, Barents and Baltic seas; the Western Pacific from the Sea of Japan to the South China Sea; the Arabian Sea with the Gulf and the Red Sea; and the Mediterranean. Each has a continuous sea floor for the water column and the chart. The reclaimed Spratly outposts are added as approximate footprints because the dataset predates them. Natural Earth is generalized cartography, not navigation data.
 
@@ -67,7 +67,7 @@ Datalink latency and topology, continuous illumination, mechanical launcher conf
 ```sh
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script tests/run_tests.gd      # regression tests
-godot --path . -- --cold-war-smoke                          # 46 command-screen checks
+godot --path . -- --cold-war-smoke                          # 47 command-screen checks
 godot --path . -- --aviation-smoke                          # 19 air-operations checks
 godot --path . -- --scenario=res://data/scenarios/northern_vigil.json --fastforward=2400 --run --perf=8   # frame budget
 godot --path .

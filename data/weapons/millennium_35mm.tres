@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "millennium_35mm"
 display_name = "Millennium 35 mm CIWS"
+short_name = "Millennium"
 family = "Millennium 35 mm"
 type = "ciws"
 guidance = "radar_directed"

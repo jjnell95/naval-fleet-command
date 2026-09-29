@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "f21_torpedo"
 display_name = "F21 heavyweight torpedo"
+short_name = "F21"
 family = "F21"
 type = "torpedo"
 guidance = "acoustic_homing"

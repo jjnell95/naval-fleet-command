@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "ram_block2"
 display_name = "RAM family"
+short_name = "RAM"
 family = "RAM"
 type = "sam"
 guidance = "fire_control_directed"

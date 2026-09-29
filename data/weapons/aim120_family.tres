@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "aim120_family"
 display_name = "AIM-120 AMRAAM family"
+short_name = "AMRAAM"
 family = "AIM-120 AMRAAM family"
 type = "aam"
 guidance = "inertial_active"

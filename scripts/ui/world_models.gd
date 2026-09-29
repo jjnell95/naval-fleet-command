@@ -2,7 +2,8 @@ class_name WorldModels
 extends RefCounted
 ## The world view's model pool: GLB instances by id, generic contact markers and the sonobuoy
 ## float, with each model's bounds measured once. A node comes out of the pool shown and goes
-## back hidden with its transform reset, so a busy picture does not churn the scene tree.
+## back hidden with its transform reset, so a busy picture does not churn the scene tree. A GLB is
+## dressed in the world view's finishes (WorldMaterials) once, when it is first instanced.
 
 static var _scene_cache: Dictionary = {}
 static var _bounds_cache: Dictionary = {}
@@ -47,6 +48,7 @@ func _instantiate(model_id: String) -> Node3D:
 	var node := scene.instantiate() as Node3D
 	if node == null:
 		return _marker("surface")
+	WorldMaterials.dress(node, model_id)
 	return node
 
 
@@ -116,6 +118,46 @@ static func _marker(kind: String) -> Node3D:
 			mi.rotation.z = deg_to_rad(90.0)
 	root.add_child(mi)
 	return root
+
+
+## Where a helicopter's main rotor turns, in model units: Vector4(hub x, blade height, hub z,
+## radius). The blades are thin and span wider than anything else high on the airframe, so the
+## blade plane is the height band, in the upper half, whose vertices cover the widest area; the
+## hub is the middle of that band and the radius half its span. Measured once per model.
+static var _rotor_cache: Dictionary = {}
+
+static func rotor_plane(model_id: String, meshes: Array, bounds: AABB) -> Vector4:
+	if _rotor_cache.has(model_id):
+		return _rotor_cache[model_id]
+	const BINS := 48
+	var lo := bounds.position.y
+	var span := maxf(bounds.size.y, 1e-3)
+	var boxes: Array = []
+	boxes.resize(BINS)
+	for mi: MeshInstance3D in meshes:
+		if mi.mesh == null:
+			continue
+		for surface in mi.mesh.get_surface_count():
+			var verts: PackedVector3Array = mi.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+			for v in verts:
+				var bin := clampi(int((v.y - lo) / span * BINS), 0, BINS - 1)
+				var r: Rect2 = boxes[bin] if boxes[bin] != null else Rect2(v.x, v.z, 0.0, 0.0)
+				boxes[bin] = r.expand(Vector2(v.x, v.z))
+	var best := -1
+	var best_area := 0.0
+	for bin in range(BINS / 2, BINS):
+		if boxes[bin] == null:
+			continue
+		var area: float = (boxes[bin] as Rect2).get_area()
+		if area > best_area:
+			best_area = area
+			best = bin
+	var plane := Vector4(bounds.get_center().x, bounds.end.y, bounds.get_center().z, bounds.size.x * 0.41)
+	if best >= 0:
+		var r: Rect2 = boxes[best]
+		plane = Vector4(r.get_center().x, lo + (float(best) + 0.5) / BINS * span, r.get_center().y, maxf(r.size.x, r.size.y) * 0.5)
+	_rotor_cache[model_id] = plane
+	return plane
 
 
 ## Returns a node to the pool.

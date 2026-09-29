@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "pla_yu7"
 display_name = "Yu-7 lightweight torpedo"
+short_name = "Yu-7"
 family = "Yu-7 lightweight torpedo"
 type = "torpedo"
 target_types = PackedStringArray("subsurface")

@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "essm_family"
 display_name = "ESSM family"
+short_name = "ESSM"
 family = "ESSM"
 type = "sam"
 guidance = "fire_control_directed"

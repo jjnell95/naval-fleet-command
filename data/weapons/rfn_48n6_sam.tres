@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "rfn_48n6_sam"
 display_name = "48N6 / S-400 long-range surface-to-air missile"
+short_name = "48N6"
 family = "48N6"
 type = "sam"
 target_types = PackedStringArray("missile", "air", "ballistic")

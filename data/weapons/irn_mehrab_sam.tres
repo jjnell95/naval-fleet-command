@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "irn_mehrab_sam"
 display_name = "Mehrab surface-to-air missile"
+short_name = "Mehrab"
 family = "Mehrab surface-to-air missile"
 type = "sam"
 target_types = PackedStringArray("missile", "air")

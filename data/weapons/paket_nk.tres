@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "paket_nk"
+display_name = "Paket-NK torpedo / anti-torpedo"
+short_name = "Paket-NK"
+family = "Paket-NK"
+type = "torpedo"
+guidance = "acoustic_homing"
+profile = "subsurface"
+target_types = PackedStringArray("subsurface", "torpedo")
+max_range_nm = 10.0
+min_range_nm = 0.2
+speed_kn = 50.0
+turn_rate_deg_s = 20.0
+seeker_range_nm = 1.5
+damage = 60.0
+base_pk = 0.55
+salvo_default = 1
+launch_interval_s = 10.0
+defensive_difficulty = 1.0
+signature_factor = 0.0
+altitude_m = 0.0
+soft_kill_resistance = 0.7
+run_to_enable_nm = 0.3
+acoustic_signature = 0.6
+source_status = "PUBLIC: the 330 mm Paket-NK launchers on the Project 20380 and 22350 ships, loading small anti-submarine torpedoes and anti-torpedo rounds; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values; one magazine stands for both rounds. Not an operational capability claim."

@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "mistral_naval"
 display_name = "Mistral naval self-defence"
+short_name = "Mistral"
 family = "Mistral"
 type = "sam"
 guidance = "infrared"

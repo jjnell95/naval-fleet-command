@@ -320,6 +320,10 @@ func _refresh() -> void:
 				lines.append(_h("DEFENCE"))
 				for w in defensive:
 					lines.append(_mag_line(u, w))
+		var torpedo := torpedo_defence_text(u)
+		if torpedo != "":
+			lines.append(_h("TORPEDO DEFENCE"))
+			lines.append("  " + torpedo)
 		lines.append("\n[color=%s]%.0f m · %.0f t · %s[/color]" % [UITheme.HEX_MUTED, u.spec.length_m, u.spec.displacement_t, u.spec.category])
 		_body.text = "\n".join(lines)
 		return
@@ -333,6 +337,25 @@ func _refresh() -> void:
 		lines.append("[b]%s[/b]  [color=%s]%s[/color]" % [u.callsign, UITheme.HEX_DIM, u.spec.short_name])
 		lines.append("   %s   [color=%s]%s[/color]" % [u.status_line(), UITheme.HEX_GREEN if cond == "OPERATIONAL" else UITheme.HEX_AMBER, cond])
 	_body.text = "\n".join(lines)
+
+
+## What the ship has against a torpedo, in a line: "AN/SLQ-25 Nixie towed", "Sonar 2170 SSTD towed
+## + 14 decoys", "Paket-NK 8 anti-torpedo". Empty for a hull with nothing, which is most of them.
+static func torpedo_defence_text(u: Unit) -> String:
+	var parts := PackedStringArray()
+	if u.spec.torpedo_decoy != "":
+		var what := u.spec.torpedo_decoy
+		if u.spec.towed_torpedo_decoy:
+			what += " towed"
+			if u.spec.torpedo_decoy_count > 0:
+				what += " + %d decoys" % u.torpedo_decoys
+		else:
+			what += " %d decoys" % u.torpedo_decoys
+		parts.append(what)
+	var hard := TorpedoDefence.hard_kill_weapon(u)
+	if hard != null:
+		parts.append("%s %d anti-torpedo" % [hard.compact_name(), u.magazine_count(hard.id)])
+	return "  ·  ".join(parts)
 
 
 func _mag_line(u: Unit, w: WeaponSpec) -> String:

@@ -82,6 +82,8 @@ func _draw() -> void:
 			var kind := "BM" if w.threat_class() == "ballistic" else ("TORP" if w.spec.is_torpedo() else "MSL")
 			draw_rect(Rect2(12, y - 10, 3, 12), col)
 			var tail := "%ds · %d up" % [int(tti), assigned]
+			if w.spec.is_torpedo():
+				tail = "%ds · %s" % [int(tti), torpedo_answer(t["target"])]
 			var tw := _font.get_string_size(tail, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
 			draw_string(_font, Vector2(20, y), "%s %s" % [kind, w.spec.family.left(12)], HORIZONTAL_ALIGNMENT_LEFT, int(size.x * 0.42), 11, col)
 			draw_string(_font, Vector2(size.x * 0.44, y), "→ %s" % _short_name((t["target"] as Unit).callsign), HORIZONTAL_ALIGNMENT_LEFT, int(size.x - size.x * 0.44 - tw - 20), 10, UITheme.COL_TEXT)
@@ -113,3 +115,15 @@ func _draw() -> void:
 			if not u.can_fire():
 				c = Color(UITheme.COL_RED, 0.4)
 			draw_rect(Rect2(bx + i * seg, y - 8, maxf(seg - 2.0, 1.0), 8), c)
+
+
+## What the ship a torpedo is running at has against it, in a word for the threat row: no SAM is ever
+## "up" against a torpedo, so the row says whether anti-torpedo rounds, decoys or only her speed are.
+static func torpedo_answer(u: Unit) -> String:
+	if u == null:
+		return "EVADE"
+	if TorpedoDefence.hard_kill_weapon(u) != null:
+		return "ATT + DECOY" if u.spec.towed_torpedo_decoy or u.torpedo_decoys > 0 else "ATT"
+	if u.spec.towed_torpedo_decoy or u.torpedo_decoys > 0:
+		return "DECOY"
+	return "EVADE"

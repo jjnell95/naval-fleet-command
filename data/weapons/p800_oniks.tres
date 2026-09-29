@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "p800_oniks"
 display_name = "P-800 Oniks family"
+short_name = "Oniks"
 family = "Oniks"
 type = "asm"
 guidance = "active_radar_homing"

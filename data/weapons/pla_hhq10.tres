@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "pla_hhq10"
 display_name = "HHQ-10 point-defence missile"
+short_name = "HHQ-10"
 family = "HHQ-10 point-defence missile"
 type = "sam"
 target_types = PackedStringArray("missile", "air")

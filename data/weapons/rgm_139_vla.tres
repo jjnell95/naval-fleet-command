@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "rgm_139_vla"
 display_name = "Vertical-launch ASROC"
+short_name = "ASROC"
 family = "ASROC"
 type = "torpedo"
 guidance = "acoustic_homing"

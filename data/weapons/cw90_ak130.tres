@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "cw90_ak130"
 display_name = "AK-130 twin 130 mm gun"
+short_name = "AK-130"
 family = "AK-130 twin 130 mm gun"
 type = "gun"
 target_types = PackedStringArray("surface")

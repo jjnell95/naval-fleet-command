@@ -198,6 +198,7 @@ func _on_tick(dt: float) -> void:
 	while _defence_accum >= DEFENCE_DT - 1e-6:
 		_defence_accum -= DEFENCE_DT
 		AirDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
+		TorpedoDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
 	if ai_enabled:
 		_ai_accum += dt
 		while _ai_accum >= AI_DT - 1e-6:

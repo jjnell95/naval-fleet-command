@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "irn_noor"
 display_name = "Noor (C-802) anti-ship missile"
+short_name = "Noor"
 family = "Noor (C-802) anti-ship missile"
 type = "asm"
 target_types = PackedStringArray("surface")

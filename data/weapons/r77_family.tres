@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "r77_family"
 display_name = "R-77 family (air-to-air)"
+short_name = "R-77"
 family = "R-77"
 type = "aam"
 guidance = "inertial_active"

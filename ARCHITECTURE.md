@@ -1,8 +1,20 @@
 # Architecture
 
-Status: Milestone 26 (final QC and optimisation) on the M24 CDS screen and the M25 operations. Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something, in four chart regions.
+Status: Milestone 28 (the live view, deep strike and torpedo defence) on the M24 CDS screen and the M25 operations. Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something, in four chart regions.
 
 Start from `HANDOFF.md`: how to run and verify the game, the one rule, and where things are.
+
+## M28 additions
+
+**Finishes in the world view.** `WorldModels` hands every GLB it instances to `WorldMaterials.dress`, which swaps each surface's imported material, by its glTF name (`naval_paint`, `deck_non_skid`, `antifouling`, `rubber`, `airframe` ...), for a shared ShaderMaterial on `world_hull.gdshader`, keyed by navy (the platform's `nation`) and material. The dressed materials are kept on each MeshInstance3D as meta `finish`, so `WorldScene._set_tint` can lift a tint by restoring them. The hull shader turns the environment's ambient off and lights with a hemisphere (sky above, sea below) and a sky reflection by Fresnel, takes 78 % of the sun's diffuse, and adds plating seams, grime and rust by metres of model space (faded out before they alias); where a hull meets the sea it is wet, edged with foam and, at speed, spray at the bow. The GLBs are not modified, so the gallery and the renders still use the authored materials.
+
+**Shader globals.** `project.godot` declares `world_sky_color`, `world_sea_color`, `world_horizon_color`, `world_ambient`, `world_daylight` and the swell (`world_swell_a`, `world_swell_dir`, `world_origin_offset`, `world_swell_time`). `WorldScene` sets them with the time of day, the weather and every camera move; `world_swell.gdshaderinc` evaluates the same two swell trains as the ocean shader, faded with distance the same way, so the hull finishes, the wake strips and the bow waves all ride the ocean's water. Nothing in the world view uses instance uniforms: every instance that carries them takes 16 slots of a buffer the renderer caps at 4096 (the WebGL uniform-block limit), so about 255 in all, and a carrier alone would take 18. A hull's way through the water is a shared variant of each finish per speed band (`WorldMaterials.WAY_BANDS`, set with `set_way`), a lamp's colour, arc and beacon phase are one shared material per combination, and each bow-wave patch has its own material.
+
+**Water, lights and shadows.** Wake strips are laid flat and lifted in the vertex stage, subdivided to 12 m near the eye; a carrier's wake used to be sampled about one swell wavelength apart and dip under every crest between samples. A moving hull carries a bow-wave patch (`world_bow.gdshader`). Hover-capable aircraft carry a rotor disc at the blade plane `WorldModels.rotor_plane` measures from the mesh. Ships and aircraft carry navigation lights (`world_light.gdshader`, a fixed angular size, lit below `LAMPS_BELOW_DAYLIGHT`, ship lights screened to their arcs). `WorldView` asks for sun shadows only when the pane is at least `SHADOW_MIN_WIDTH_PX` wide (swapped or full screen); `WorldScene._fit_shadows` keeps the reach just past the subject. Plotted contacts and things under the water use `world_tint.gdshader` and `world_xray.gdshader` (one body in `world_tint.gdshaderinc`) instead of flat colour.
+
+**Torpedo defence.** `TorpedoDefence.run_cycle` runs after `AirDefence.run_cycle` on the defence tick. Against a torpedo homing on a ship that the ship can hear (`ThreatManager.visible_to`): a weapon whose `target_types` include `torpedo` (Paket-NK) is launched through `WeaponManager.launch_interceptor` inside `HARD_KILL_RANGE_NM`, at most `MAX_HARD_KILL_SHOTS` per torpedo; inside `DECOY_RANGE_NM` the towed decoy (if the ship has way on) and then one expendable get one roll each, recorded per ship on `Weapon.acoustic_decoy_tried`, at `torpedo_decoy_effectiveness / soft_kill_resistance`. A pulled-off torpedo goes through `WeaponManager.seduce` like a missile. `AirDefence._try_decoy` (chaff) no longer applies to torpedoes. `PlatformSpec` gains `torpedo_decoy`, `towed_torpedo_decoy`, `torpedo_decoy_count` and `torpedo_decoy_effectiveness`; `Unit.torpedo_decoys` is the runtime stock.
+
+**Data display grid.** `WeaponSpec.short_name` (eleven letters at most, `compact_name()` falls back to the display name) names each system in the weapons grid; `DataDisplay.weapons_by_job` orders them as the reach line names jobs; `grid_columns` and `grid_fit` are pure and tested. Rows ending in the `CELL` sentinel are drawn as a grid by `_draw_grid`, which keeps lines for the rows after it and gives its last cell to "+N MORE" rather than drop a system.
 
 ## M23 additions
 
@@ -113,6 +125,8 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | MissionManager | scripts/simulation/mission_manager.gd | mission_ended(result, summary) |
 | ThreatManager | scripts/simulation/threat_manager.gd | detected inbound rounds per faction; threat_detected |
 | AirDefence | scripts/systems/air_defence.gd | CPA geometry, threat assignment, layered engagement, decoys |
+| TorpedoDefence | scripts/systems/torpedo_defence.gd | acoustic decoys (towed, expendable) and anti-torpedo rounds against a torpedo homing on a ship |
+| WorldMaterials | scripts/ui/world_materials.gd | the world view's finishes: named GLB surfaces to shared hull-shader materials, by navy |
 | AIController | scripts/systems/ai_controller.gd | opposing-force commander: state machine, engagement scoring, orders |
 | MissionObjective | scripts/simulation/mission_objective.gd | one scenario predicate, built from JSON |
 | ScenarioIndex | scripts/simulation/scenario_index.gd | lists data/scenarios for the menu |
@@ -371,7 +385,9 @@ Engagement is refused when the track is stale, when identity is not yet confirme
 a salvo fired at that track is still being assessed, or when enough rounds are already in the air
 against it. Two further rules keep it honest underwater: a weapon whose time of flight exceeds
 `MAX_TIME_OF_FLIGHT_S` is not fired at all, which stops a 50 knot torpedo being launched across
-twenty miles without needing a torpedo special case, and a bearing-only track needs a real range
+twenty miles without needing a torpedo special case. The limit is about targets that move, so a
+fixed one is exempt (`_is_fixed_target`: a land track the picture shows standing still), and the
+AI strikes batteries and airfields at a land-attack round's full range. A bearing-only track needs a real range
 solution before anything is fired at it. The assessment window itself scales with time of flight,
 so a slow weapon is given time to arrive before the shot is judged a failure. Shadow standoff is bounded by radar range rather than weapon range, because a
 track that is not being observed cannot receive mid-course updates. Every decision leaves through

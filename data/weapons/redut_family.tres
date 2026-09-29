@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "redut_family"
 display_name = "Poliment-Redut family"
+short_name = "Redut"
 family = "Redut"
 type = "sam"
 guidance = "fire_control_directed"

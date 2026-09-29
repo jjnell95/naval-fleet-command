@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "asraam_aam"
 display_name = "ASRAAM"
+short_name = "ASRAAM"
 family = "ASRAAM"
 type = "aam"
 guidance = "imaging_infrared"

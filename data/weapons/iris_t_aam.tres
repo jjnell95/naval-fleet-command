@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "iris_t_aam"
 display_name = "IRIS-T"
+short_name = "IRIS-T"
 family = "IRIS-T"
 type = "aam"
 guidance = "imaging_infrared"

@@ -11,6 +11,8 @@ signal interceptor_launched(shooter: Unit, spec: WeaponSpec, threat: Weapon, rou
 signal weapon_defeated(threat: Weapon, reason: String, by_unit: Unit)
 ## A round pulled off its target by decoys that found another ship in its seeker basket.
 signal weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit)
+## Expendable decoys used, chaff or acoustic, whether or not they worked. A towed decoy is not one.
+signal decoys_spent(unit: Unit, count: int)
 
 const IMPACT_MIN_NM := 0.05
 ## Decoys do not delete a missile; they move it. A seduced seeker flies on through the cloud and
@@ -317,7 +319,7 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 		return null
 	w.acquired = best
 	w.phase = Weapon.Phase.TERMINAL
-	w.decoy_attempted = false  # the new target gets its own chance to decoy it
+	w.decoy_attempted = false  # the new target gets its own chance to decoy it; acoustic tries are per ship already
 	weapon_seduced.emit(w, from, best)
 	return best
 

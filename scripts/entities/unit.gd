@@ -62,6 +62,7 @@ var sortie_loadout: Dictionary = {}  # authored aircraft fit, retained on every 
 var aviation_stores: Dictionary = {}  # host reload rounds, separate from its own launchers
 var aviation_buoys := 0
 var decoys := 0
+var torpedo_decoys := 0  # expendable acoustic decoys left
 var patrol_route: Array[Vector2] = []  # standing orders from the scenario, used by the AI
 ## How the AI is meant to play this ship. "standard" fights and withdraws on its own judgement.
 ## "breakout" has somewhere to be: it presses on down its patrol route, shooting as it goes, and

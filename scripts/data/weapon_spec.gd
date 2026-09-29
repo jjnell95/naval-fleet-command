@@ -7,6 +7,9 @@ extends Resource
 
 @export var id := ""
 @export var display_name := ""
+## What an operator would call it on a crowded board: "SM-2", "Harpoon", "H/PJ-11". Eleven letters at
+## most, so the data display can lay a big ship's weapons out in columns.
+@export var short_name := ""
 @export var family := ""
 @export var type := "asm"  # asm | sam | ciws | gun | torpedo
 @export var guidance := "inertial_active"  # abstraction label only
@@ -39,6 +42,11 @@ extends Resource
 ## Public role, not a claim about actual engagement doctrine. Separate budgets let the
 ## point-defence layer engage a leaker after the outer layer has spent its allowance.
 @export var defence_layer := ""  # area | point; empty derives a conservative range band
+
+
+## The short name where there is one, else the full name.
+func compact_name() -> String:
+	return short_name if short_name != "" else display_name
 
 
 func defensive_layer() -> String:

@@ -33,7 +33,13 @@ const GREEN := "green"
 
 const MARGIN := Vector2(9.0, 6.0)
 const REFRESH_S := 0.25
-const MAX_WEAPONS := 12
+## The weapons block is a grid of cells, one per system: its short name and the rounds left, the
+## count set flush right in the cell. A cell is wide enough for an eleven-letter name and three
+## figures; the pane takes as many columns as it has room for, up to three.
+const CELL := "CELL"
+const CELL_MIN_PX := 136.0
+const CELL_GAP_PX := 14.0
+const MAX_COLUMNS := 3
 ## The jobs the WEAPONS line states a reach for, in reading order: the label, and the weapon type it covers.
 const REACH_JOBS := [["STRIKE", "asm"], ["AAM", "aam"], ["AAW", "sam"], ["CIWS", "ciws"], ["GUN", "gun"], ["TORP", "torpedo"]]
 
@@ -43,6 +49,8 @@ var simulation: Simulation
 var unread_alerts := 0
 ## Set by the shell: the inbound-threat line ("MISSILE INBOUND - 2 - 34 s"), empty when clear.
 var threat_text := ""
+## Weapons the last drawing had no room for (0 when every system was shown), for the screen checks.
+var grid_hidden := 0
 
 var _rows: Array = []
 var _accum := 0.0
@@ -133,8 +141,8 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 	if not u.alive:
 		rows.append(_kv("STATUS", "DESTROYED", ALERT))
 		return rows
-	rows.append(_kv("COURSE", "%03d" % (int(round(u.heading_deg)) % 360)))
-	rows.append(_kv("SPEED", "%d KTS" % int(round(u.speed_kn))))
+	# Course and speed share a line, which leaves the weapons grid one line more.
+	rows.append(_kv("COURSE", "%03d" % (int(round(u.heading_deg)) % 360)) + [["   SPEED: ", LABEL], ["%d KTS" % int(round(u.speed_kn)), VALUE]])
 	if u.is_aircraft() and u.in_flight():
 		rows.append(_kv("ALTITUDE", "%.1f KFT" % (u.altitude_m * 3.28084 / 1000.0)))
 	elif u.spec.max_depth_m > 0.0:
@@ -155,13 +163,9 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 		rows.append(_kv("SENSORS", sensors))
 	if not u.weapons.is_empty():
 		rows.append([["WEAPONS:", LABEL]] + reach_spans(u))
-		var shown := 0
-		for w in u.weapons:
-			if shown >= MAX_WEAPONS:
-				break
+		for w in weapons_by_job(u):
 			var n := u.magazine_count(w.id)
-			rows.append([[w.display_name, ALERT if n == 0 else VALUE], [" - %d" % n, WHITE], ["FLOW", ""]])
-			shown += 1
+			rows.append([[w.compact_name(), ALERT if n == 0 else VALUE], [" %d" % n, WHITE], [CELL, ""]])
 	if u.spec.aircraft_capacity > 0 and not u.embarked.is_empty():
 		rows.append(_kv("AIR WING", "%d of %d ready" % [u.stowed_aircraft().size(), u.embarked.size()]))
 	return rows
@@ -183,6 +187,43 @@ static func reach_spans(u: Unit) -> Array:
 	if not spans.is_empty():
 		spans.append([" NM", LABEL])
 	return spans
+
+
+## The hull's weapons in the order the reach line names their jobs (strike, air-to-air, air
+## defence, close-in, gun, anti-submarine), the farthest-reaching first within each job.
+static func weapons_by_job(u: Unit) -> Array:
+	var order := {}
+	for i in REACH_JOBS.size():
+		order[REACH_JOBS[i][1]] = i
+	var out: Array = u.weapons.duplicate()
+	out.sort_custom(func(a: WeaponSpec, b: WeaponSpec) -> bool:
+		var ja := int(order.get(a.type, REACH_JOBS.size()))
+		var jb := int(order.get(b.type, REACH_JOBS.size()))
+		if ja != jb:
+			return ja < jb
+		if not is_equal_approx(a.max_range_nm, b.max_range_nm):
+			return a.max_range_nm > b.max_range_nm
+		return a.id < b.id)
+	return out
+
+
+## How many columns of weapon cells fit across `width_px`.
+static func grid_columns(width_px: float) -> int:
+	return clampi(int((width_px + CELL_GAP_PX) / (CELL_MIN_PX + CELL_GAP_PX)), 1, MAX_COLUMNS)
+
+
+## How a block of `count` weapon cells lays out in `columns` columns with `lines` lines free:
+## {shown, more, lines}. When they cannot all fit, the last cell is given to "+N MORE", so the
+## display never drops a system without saying so.
+static func grid_fit(count: int, columns: int, lines: int) -> Dictionary:
+	var cols := maxi(columns, 1)
+	var need := ceili(float(count) / float(cols))
+	if need <= lines:
+		return {"shown": count, "more": 0, "lines": need}
+	var slots := maxi(lines, 0) * cols
+	if slots <= 0:
+		return {"shown": 0, "more": count, "lines": 0}
+	return {"shown": slots - 1, "more": count - slots + 1, "lines": lines}
 
 
 static func group_rows(units: Array) -> Array:
@@ -391,7 +432,22 @@ func _draw() -> void:
 	var x := MARGIN.x
 	var y := MARGIN.y
 	var flow_x := -1.0  # where the next flowing item may start on the current line, or -1
-	for row: Array in _rows:
+	var index := 0
+	grid_hidden = 0
+	while index < _rows.size():
+		var row: Array = _rows[index]
+		index += 1
+		if _is_cell(row):
+			var block: Array = [row]
+			while index < _rows.size() and _is_cell(_rows[index]):
+				block.append(_rows[index])
+				index += 1
+			# Rows after the grid (a carrier's air wing) keep their lines, unless that would leave the
+			# grid none: its "+N MORE" matters more than they do.
+			var free := int(floor((limit_y - y) / line_h))
+			y = _draw_grid(block, y, maxi(free - (_rows.size() - index), mini(free, 1)), font, fs, line_h, ascent)
+			flow_x = -1.0
+			continue
 		var flowing: bool = row.size() > 0 and str(row[row.size() - 1][0]) == "FLOW"
 		var spans: Array = row.slice(0, row.size() - 1) if flowing else row
 		var width := 0.0
@@ -403,6 +459,8 @@ func _draw() -> void:
 		else:
 			x = MARGIN.x
 		if y + line_h > limit_y:
+			for rest in range(index - 1, _rows.size()):
+				grid_hidden += 1 if _is_cell(_rows[rest]) else 0
 			break
 		for s: Array in spans:
 			var text := str(s[0])
@@ -449,6 +507,35 @@ func _draw() -> void:
 	_lamp_drawn = lit
 	_pulse_drawn = _pulse_step()
 	Debug.time_add("data", Time.get_ticks_usec() - t0)
+
+
+static func _is_cell(row: Array) -> bool:
+	return row.size() > 0 and str(row[row.size() - 1][0]) == CELL
+
+
+## Lays the weapon cells out in columns from `y`, in `lines` lines at most; returns the next line.
+func _draw_grid(block: Array, y: float, lines: int, font: Font, fs: int, line_h: float, ascent: float) -> float:
+	grid_hidden = block.size()
+	if lines <= 0:
+		return y
+	var width := size.x - 2.0 * MARGIN.x
+	var columns := grid_columns(width)
+	var col_w := (width + CELL_GAP_PX) / float(columns) - CELL_GAP_PX
+	var fit := grid_fit(block.size(), columns, lines)
+	grid_hidden = int(fit["more"])
+	var slots := int(fit["shown"]) + (1 if int(fit["more"]) > 0 else 0)
+	for k in slots:
+		var cx := MARGIN.x + float(k % columns) * (col_w + CELL_GAP_PX)
+		var cy := y + float(k / columns) * line_h + ascent
+		if k >= int(fit["shown"]):
+			draw_string(font, Vector2(cx, cy), "+%d MORE" % int(fit["more"]), HORIZONTAL_ALIGNMENT_LEFT, col_w, fs, COL_LABEL)
+			break
+		var spans: Array = block[k]
+		var count := str(spans[1][0]).strip_edges()
+		var count_w := font.get_string_size(count, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string(font, Vector2(cx, cy), str(spans[0][0]), HORIZONTAL_ALIGNMENT_LEFT, col_w - count_w - 6.0, fs, _color(str(spans[0][1])))
+		draw_string(font, Vector2(cx + col_w - count_w, cy), count, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _color(str(spans[1][1])))
+	return y + float(fit["lines"]) * line_h
 
 
 ## The watch time without the date, as the old data displays showed it: "05:38:00Z".

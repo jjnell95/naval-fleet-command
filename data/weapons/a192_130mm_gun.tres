@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "a192_130mm_gun"
 display_name = "A-192M 130 mm gun"
+short_name = "A-192 130"
 family = "A-192M"
 type = "gun"
 guidance = "unguided"

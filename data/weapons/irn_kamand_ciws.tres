@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "irn_kamand_ciws"
 display_name = "Kamand 30 mm CIWS"
+short_name = "Kamand"
 family = "Kamand 30 mm CIWS"
 type = "ciws"
 target_types = PackedStringArray("missile", "air")

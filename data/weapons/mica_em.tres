@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "mica_em"
 display_name = "MICA EM"
+short_name = "MICA"
 family = "MICA"
 type = "aam"
 guidance = "inertial_active"

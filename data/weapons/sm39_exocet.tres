@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "sm39_exocet"
 display_name = "SM39 Exocet"
+short_name = "SM39"
 family = "SM39 Exocet"
 type = "asm"
 guidance = "active_radar_homing"

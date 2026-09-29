@@ -23,6 +23,10 @@ mast_height_m = 26.0
 aircraft_capacity = 1
 fire_control_channels = 4
 decoy_count = 14
+torpedo_decoy = "Sonar 2170 SSTD"
+towed_torpedo_decoy = true
+torpedo_decoy_count = 16
+torpedo_decoy_effectiveness = 0.3
 weapon_loadout = {"sea_ceptor": 48, "mk45_mod4_gun": 250, "phalanx_ciws": 60}
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
 

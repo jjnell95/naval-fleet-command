@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "aim9x_family"
 display_name = "AIM-9X Sidewinder"
+short_name = "AIM-9X"
 family = "AIM-9X"
 type = "aam"
 guidance = "infrared"

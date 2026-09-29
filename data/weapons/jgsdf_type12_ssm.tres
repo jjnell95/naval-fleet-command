@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "jgsdf_type12_ssm"
 display_name = "Type 12 surface-to-ship missile (coastal)"
+short_name = "Type 12"
 family = "Type 12 surface-to-ship missile (coastal)"
 type = "asm"
 target_types = PackedStringArray("surface")

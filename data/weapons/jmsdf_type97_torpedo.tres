@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "jmsdf_type97_torpedo"
 display_name = "Type 97 air-launched torpedo"
+short_name = "Type 97"
 family = "Type 97 air-launched torpedo"
 type = "torpedo"
 target_types = PackedStringArray("subsurface")

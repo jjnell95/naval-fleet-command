@@ -6,6 +6,7 @@
 script = ExtResource("1_weapon")
 id = "mk48_adcap"
 display_name = "Mk 48 family"
+short_name = "Mk 48"
 family = "Mk 48"
 type = "torpedo"
 guidance = "acoustic_homing"

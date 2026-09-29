@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = "jasdf_asm3"
 display_name = "ASM-3 supersonic anti-ship missile"
+short_name = "ASM-3"
 family = "ASM-3 supersonic anti-ship missile"
 type = "asm"
 target_types = PackedStringArray("surface")

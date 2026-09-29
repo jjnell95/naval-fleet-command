@@ -23,6 +23,10 @@ mast_height_m = 38.0
 aircraft_capacity = 1
 fire_control_channels = 10
 decoy_count = 16
+torpedo_decoy = "Sonar 2170 SSTD"
+towed_torpedo_decoy = true
+torpedo_decoy_count = 16
+torpedo_decoy_effectiveness = 0.3
 weapon_loadout = {"aster30_family": 32, "aster15_family": 16, "rgm_84_harpoon": 8, "mk8_114mm_gun": 200, "phalanx_ciws": 60}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
 

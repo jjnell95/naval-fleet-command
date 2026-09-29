@@ -62,6 +62,8 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
 | `scripts/ui/radio_net.gd`, `radio_line.gd` | the message traffic: radio line, comms board, the data display's lamp |
 | `scripts/ui/regional_map.gd` | the regional display, bottom left |
 | `scripts/ui/world_view.gd`, `world_scene.gd`, `world_camera.gd`, `world_effects.gd`, `world_land.gd`, `world_presentation.gd` | the 3D view: what may be drawn (`WorldPresentation`), the cameras, the scene |
+| `scripts/ui/world_materials.gd`, `world_hull.gdshader`, `world_swell.gdshaderinc`, `world_bow/light/rotor/tint/xray.gdshader` | how models look in the 3D view: finishes by navy, the waterline, bow waves, lights, rotor discs, plotted and underwater looks |
+| `scripts/systems/torpedo_defence.gd` | acoustic decoys and anti-torpedo rounds; chaff is `air_defence.gd`'s and only works on missiles |
 | `scripts/ui/data_display.gd` | the data display, bottom right, built from rows of coloured spans |
 | `scripts/ui/status_boards.gd` | the boards on A, hosting `orders_panel.gd`, `unit_panel.gd`, `contact_panel.gd` (+ `defence_board.gd`) and the comms history |
 | `scripts/ui/cds_menus.gd`, `key_commands.gd`, `command_palette.gd` | right-click menus, the H board, Ctrl-K |
@@ -71,7 +73,7 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
 | `scripts/core/dev_harness.gd`, `cold_war_smoke.gd`, `aviation_smoke.gd` | scaffolding: flags, the two interface suites |
 | `tests/` | the regression suite; `run_tests.gd` lists the files |
 | `tools/scenarios/` | the scenario builders and the Natural Earth and GMTED2010 extractions |
-| `tools/art/` | models and recognition art without Blender; `tools/blender/` is the earlier pipeline |
+| `tools/art/` | models and recognition art without Blender (`build_flattops.py` for the carriers and amphibious ships); `tools/blender/` is the earlier pipeline |
 | `tools/web/build_web.sh` | the browser build; `docs/play/` is what GitHub Pages serves |
 
 ## Conventions that bite
@@ -93,6 +95,25 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
 - **The event log is quiet by default in release builds.** `Debug.event()` prints only in debug
   builds and scripted runs; `print()` in gameplay code would reach a player's browser console.
 - **Original assets only.** See `assets/README.md`. No Jane's assets, names or copied art.
+- **The 3D view dresses models by material name.** `WorldMaterials.TABLE` maps each glTF material name
+  to a finish; a model with a material name it does not know keeps its flat authored colour in the 3D
+  view. The gallery and the renders always use the authored materials.
+- **Shader globals are declared in `project.godot`** (`[shader_globals]`, the `world_*` values). A shader
+  that reads a `global uniform` nobody declared fails to compile, in the browser as well.
+- **No `instance uniform` in the world view's shaders.** Each instance that has them takes 16 of the 4096
+  slots the renderer allows (the WebGL uniform-block limit, on the desktop build too), so about 255 instances
+  in all, and pooled models keep theirs while hidden. Past that Godot prints "Too many instances using shader
+  instance variables" and the values go wrong. Use shared material variants instead, as
+  `WorldMaterials.set_way` and `WorldScene._lamp_material` do; a test fails if one comes back.
+- **Data that a generator writes is regenerated, not edited.** `tools/scenarios/build_cold_war.py`, then
+  `build_theatres.py`, then `operation_design.py` reproduce `data/` byte for byte; the 1990 and 2027
+  catalogues' platforms and weapons (short names and torpedo countermeasures included) live in those
+  scripts. Change the script and run the three, or the next rebuild undoes a hand edit.
+- **The browser build needs the web export templates**: the `web_*.zip` files and `version.txt` from the
+  official 4.7.2 `export_templates.tpz`, in `~/.local/share/godot/export_templates/4.7.2.stable/`. The
+  1.3 GB download resumes with `curl -C -` if the connection drops.
+- **`tools/art/render_backdrop.gd` hangs under Xvfb in the cloud container** (the committed backdrop is
+  M24's); the same happens on M27, so it is the environment, not the scene.
 
 ## Before you call it done
 

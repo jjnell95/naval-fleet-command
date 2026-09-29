@@ -19,6 +19,20 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M28 the live view, deep strike and torpedo defence
+
+The 3D view's ships, aircraft and submarines dressed in their navies' finishes, lit by a sky and sea
+hemisphere with shadows when the view is large, sitting wet in the water with bow waves and continuous
+wakes, and showing navigation lights on their arcs after dark; the seven flat-tops in the operations
+rebuilt; MdCN on the French FREMM and Suffren; torpedoes fought with acoustic decoys and Paket-NK
+instead of chaff; the data display's weapons in columns; and the browser build rebuilt. See the
+[M28 notes](docs/2026-09-28-live-view.md).
+
+The most useful next steps are torpedo countermeasures for the navies no public source fits yet (the
+PLAN and Japanese hulls are the ones that matter in the operations), class-specific geometry for the
+next most-seen hulls (the Burke's older Blender model is the weakest in the view now the carriers are
+rebuilt), and an underwater view for a submerged subject; the camera stays above the water.
+
 ## M27 ship fits and the reach line
 
 A weapon-fit audit of the whole fleet: seven hulls corrected to their public fits, two weapons added, the hulls that are thin in service left thin and pinned by test, and the reach of each hull's weapons stated on the data display. See the [M27 notes](docs/2026-09-28-ship-fits.md).

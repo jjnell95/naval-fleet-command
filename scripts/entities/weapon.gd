@@ -18,6 +18,11 @@ var target_track: Track
 var acquired: Unit
 var intercept_target: Weapon  # set when this round is a SAM or close-in round
 var decoy_attempted := false
+## Ships whose acoustic countermeasures have had their try at this torpedo: unit id -> true. A
+## torpedo decoyed onto another ship meets that ship's own.
+var acoustic_decoy_tried: Dictionary = {}
+## Anti-torpedo rounds ever fired at this torpedo, by any ship.
+var hard_kill_shots := 0
 var seductions := 0  # times decoys have pulled this round off a lock
 var guided_interceptors_committed := 0  # SAMs ever fired at this round
 var defence_commitments: Dictionary = {}  # defensive layer -> reserved shots
