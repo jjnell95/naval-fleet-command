@@ -8,7 +8,7 @@ Fleet Operations (J) exposes group readiness and orders. Selection groups use Ct
 
 Validation: 545 regression tests, 47 command-screen checks, 19 aviation checks, and 32 exported workshop checks at each of 1600 × 900 and 1280 × 720 pass. All 52 actual-scene battles complete 6,000 simulated seconds without script errors, with no hulls grounded at the end. The 274-actor native stress sample improves from 12.4 to 20.2 fps, with noticeable large-salvo stalls still present.
 
-See the [operating guide](docs/2026-09-29-fleet-workshop.md), [validation record](docs/validation-m29.json) and [source notes](DATA_SOURCES.md#fleet-workshop-and-defensive-responses-29-september-2026). This is a locally prepared release; the public game remains unchanged until publication is approved.
+See the [operating guide](docs/2026-09-29-fleet-workshop.md), [validation record](docs/validation-m29.json) and [source notes](DATA_SOURCES.md#fleet-workshop-and-defensive-responses-29-september-2026). The tested browser package is included in `docs/play` for deployment from `main`.
 
 ## Previous: M28 The Live View, Deep Strike and Torpedo Defence
 

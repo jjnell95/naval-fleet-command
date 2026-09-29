@@ -40,4 +40,4 @@ A native stress battle with 64 surface ships, six submarines and embarked air wi
 
 The machine-readable record is [validation-m29.json](validation-m29.json). It records the regression suite, three native interface suites, the actual-scene battle sweep, browser checks and the included package hash. The test library is isolated with `--scenario-storage=res://work/<name>` so validation does not modify a player's missions.
 
-The code and browser package are prepared locally. Publishing this branch and deploying GitHub Pages require the owner's approval.
+The release includes the editable Godot project and the tested browser package in `docs/play`. Open `Launch Preview.command` to run the included build locally; GitHub Pages serves the package deployed from `main`.

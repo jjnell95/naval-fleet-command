@@ -3,7 +3,7 @@
   "verified_at_utc": "2026-09-29T21:12:04.849611+00:00",
   "base_commit": "e91beae46dc8b664ef2bf0bc7e23526200dc57b3",
   "branch": "codex/fleet-command-expansion",
-  "publication": "Local build; GitHub and Pages await owner approval",
+  "publication": "Release validation captured before publication; deployment status is recorded in GitHub Actions.",
   "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
   "checks": {
     "regression": {
@@ -880,7 +880,6 @@
     "Countermeasure stores, timings, maneuver benefits and interception policies are gameplay estimates.",
     "RF and IR pulses share generic expendable inventory; no platform-specific Nulka or MASS model is asserted.",
     "1990 opposing carrier is a fictional Nimitz force, explicitly labelled.",
-    "22 legacy scenarios are optional templates rather than deleted source assets.",
-    "Public site and remote branch have not changed."
+    "22 legacy scenarios are optional templates rather than deleted source assets."
   ]
 }
