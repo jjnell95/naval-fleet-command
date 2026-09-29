@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "orion_guided_bomb"
+display_name = "50 kg guided bomb (Orion representative fit)"
+short_name = "50kg GBU"
+family = "Light guided bomb"
+type = "bomb"
+guidance = "gps_inertial"
+profile = "glide"
+target_types = PackedStringArray("land")
+max_range_nm = 4.0
+min_range_nm = 0.4
+speed_kn = 450.0
+turn_rate_deg_s = 8.0
+seeker_range_nm = 0.3
+damage = 16.0
+base_pk = 0.75
+salvo_default = 1
+launch_interval_s = 2.0
+signature_factor = 0.03
+altitude_m = 3000.0
+source_status = "PUBLIC: Kronshtadt Orion-E brochure shows three 50 kg guided bombs; checked 2026-09-29. This is a generic representative class, not a claimed named-weapon certification. GAMEPLAY_ESTIMATE: GPS/INS fixed-land-target behavior, glide range, speed, damage and effectiveness."

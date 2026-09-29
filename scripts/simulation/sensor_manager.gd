@@ -328,7 +328,7 @@ func _detect_weapons(now: float) -> void:
 				if sonar_up:
 					r = Detection.torpedo_detection_nm(observer, w.spec)
 			elif radar_up:
-				r = Detection.best_weapon_detection_nm(observer, w.spec) * Detection.weapon_clutter_factor(w.spec) * Detection.jam_penalty(observer, w.position)
+				r = Detection.best_weapon_detection_nm(observer, w.spec, w.flight_altitude_m()) * Detection.weapon_clutter_factor(w.spec, w.flight_altitude_m()) * Detection.jam_penalty(observer, w.position)
 			if r <= 0.0 or observer.position.distance_to(w.position) > r:
 				continue
 			if Detection.terrain_hides_weapon(observer, w):

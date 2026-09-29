@@ -1,4 +1,16 @@
-# Current State: M29 Fleet Workshop and Defensive Command
+# Current State: M30 Weapon Control and Track Solutions
+
+Ships and aircraft can commit multiple weapon types from one firing board, with separate per-unit quantities, launcher queues, ammunition reservations and cancellation. VLS launch service is shared with automatic defence; repeated paused orders no longer bypass launch spacing. Rounds are checked again before release, and weapons hold returns unfired reservations.
+
+Shift+E opens Weapon Control. Shift+R shows the reference platform's role-coloured envelopes. The board and chart expose last-fix age, uncertainty, lead-intercept reach and seeker baskets without reading enemy truth. Distinct ordnance symbols and role filters extend the existing NTDS chart, right-click orders and three-pane CDS layout.
+
+The 139-platform / 148-weapon catalogue includes corrected aircraft AAM typing, JASSM land targeting, UK/Japanese F-35B fits, Astute TLAM, airborne Russian ASW fits and a lightweight representative Orion load. ASW rockets deliver separate torpedo payloads; guided bombs depend on launch altitude. Exact performance and uncertain integrations remain labeled estimates or representative assumptions.
+
+Validation: 564 regression tests, 47 command-screen checks, 19 aviation checks, 32 workshop checks and 24 weapon-control checks at each tested desktop size, plus 52 actual-scene battles of 6,000 seconds. The final 274-actor native sample reached 21.7 fps; frame stalls remain.
+
+See the [operating guide and source review](docs/2026-09-29-weapon-control.md), [validation record](docs/validation-m30.json) and [catalogue audit](docs/catalogue-audit-m30.json). The release includes the editable source and browser package; GitHub Actions records test and Pages deployment status.
+
+# Previous: M29 Fleet Workshop and Defensive Command
 
 Custom missions are now the front door. A seeded fleet builder creates opposing 1990 or 2027 forces across four chart regions, with scalable formations and finite carrier wings. The editor adds platform search, bulk placement, undo/redo, fitted weapon and air-wing editing, reinforcement arrival times and multi-stage victory tasks. It validates files before import or play. The 22 legacy operations remain optional templates and test fixtures.
 

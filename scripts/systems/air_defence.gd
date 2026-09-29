@@ -162,7 +162,7 @@ static func _channels_in_use(weapon_manager: WeaponManager) -> Dictionary:
 ## Data decides what an interceptor can shoot at. The air-defence layers list "missile" and
 ## "ballistic"; the one weapon that lists "torpedo" (Paket-NK) is fired by TorpedoDefence, not here.
 static func _can_intercept(spec: WeaponSpec, threat: Weapon) -> bool:
-	return spec.target_types.has(threat.threat_class()) and threat.spec.altitude_m >= spec.intercept_min_altitude_m and threat.spec.altitude_m <= spec.intercept_max_altitude_m
+	return spec.target_types.has(threat.threat_class()) and threat.flight_altitude_m() >= spec.intercept_min_altitude_m and threat.flight_altitude_m() <= spec.intercept_max_altitude_m
 
 
 static func _ship_engages(weapon_manager: WeaponManager, u: Unit, threat: Weapon) -> bool:

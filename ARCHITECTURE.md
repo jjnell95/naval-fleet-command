@@ -567,3 +567,12 @@ Flooding enters `Unit.effective_max_speed()`. Component repair waits while eithe
 Decoys call `WeaponManager.seduce(threat, from)` instead of `defeat_weapon`: the seeker may lock the
 nearest other ship within its basket and a 35° cone (`weapon_seduced` signal), else it is spent as
 `DECOYED`.
+
+
+## M30 weapon control
+
+`WeaponControl` emits per-unit `Order.engage` or `Order.cancel_fire` commands through Main. Its plan is UI state; the `WeaponManager` owns magazine reservations and launcher availability. VLS-capable fits share an abstract service; other families are independent. `round_fired` counts actual releases, while `weapon_launched` retains the salvo-commit signal contract. Pending rounds revalidate eligibility, return unused ammunition on cancellation and preserve launch intervals after delayed ticks.
+
+`Combat.intercept_point` solves the constant-velocity intercept, returning an invalid vector when none exists. `check_engagement` rejects an unreachable intercept and bearing-only missile shots. These calculations use Track estimates. `WeaponPresentation` centralizes role filtering and target-quality language for the firing board, library and map. Enemy truth stays outside presentation.
+
+`WeaponSpec.delivery_payload_id` identifies the torpedo released by an `asw_rocket`. `Weapon.delivery_spec` retains the original launcher identity for commitment counts after the transition. Water entry resets the payload's range budget and removes midcourse track updates. The same runtime weapon altitude feeds sensors and 3D presentation; bomb descent and AAM launch height remain simplified.

@@ -116,7 +116,7 @@ func test_the_weapons_line_states_reach_one_figure_per_job() -> void:
 	assert_true(head.contains("AAW 100"), head)
 	assert_true(head.contains("CIWS 1.2"), head)
 	assert_true(head.contains("GUN 13"), head)
-	assert_true(head.contains("TORP 12"), head)
+	assert_true(head.contains("ASW 12"), head)
 	assert_true(head.ends_with(" NM"), "the unit is stated once, at the end")
 
 

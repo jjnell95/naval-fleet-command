@@ -82,6 +82,9 @@ static func arg(args: PackedStringArray, prefix: String, fallback: float) -> flo
 
 func handle_flags() -> void:
 	var args := OS.get_cmdline_user_args()
+	if args.has("--weapon-control-smoke"):
+		load("res://scripts/core/weapon_control_smoke.gd").run(main)
+		return
 	if args.has("--fleet-workshop-smoke"):
 		load("res://scripts/core/fleet_workshop_smoke.gd").run(main)
 		return

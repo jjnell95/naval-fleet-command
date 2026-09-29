@@ -60,8 +60,8 @@ static func clutter_factor(target_signature: float) -> float:
 
 
 ## Clutter loss against a round in flight: a sea-skimmer rides in the wave returns.
-static func weapon_clutter_factor(wspec: WeaponSpec) -> float:
-	if wspec.altitude_m > SKIMMER_ALTITUDE_M:
+static func weapon_clutter_factor(wspec: WeaponSpec, weapon_altitude := -1.0) -> float:
+	if (wspec.altitude_m if weapon_altitude < 0.0 else weapon_altitude) > SKIMMER_ALTITUDE_M:
 		return 1.0
 	return clampf(1.0 - SKIMMER_CLUTTER_LOSS_PER_SEA_STATE * sea_state, 0.5, 1.0)
 
@@ -140,21 +140,21 @@ static func nominal_radar_ring_nm(observer: Unit) -> float:
 
 ## Radar range against an in-flight weapon. A sea-skimming round hides below the horizon until
 ## it is close; a high-flying round is seen much further out but is still a small radar target.
-static func weapon_detection_range_nm(sensor: SensorSpec, wspec: WeaponSpec, observer_height := -1.0) -> float:
+static func weapon_detection_range_nm(sensor: SensorSpec, wspec: WeaponSpec, observer_height := -1.0, weapon_altitude := -1.0) -> float:
 	var height := sensor.antenna_height_m if observer_height < 0.0 else observer_height
 	var by_power := sensor.range_air_nm * wspec.signature_factor
-	var by_horizon := radar_horizon_nm(height, wspec.altitude_m)
+	var by_horizon := radar_horizon_nm(height, wspec.altitude_m if weapon_altitude < 0.0 else weapon_altitude)
 	return minf(by_power, by_horizon)
 
 
 ## Best range at which an emitting observer can see a given weapon type. 0 if silent.
-static func best_weapon_detection_nm(observer: Unit, wspec: WeaponSpec) -> float:
+static func best_weapon_detection_nm(observer: Unit, wspec: WeaponSpec, weapon_altitude := -1.0) -> float:
 	if not observer.radar_on:
 		return 0.0
 	var best := 0.0
 	for s in observer.sensors:
 		if s.kind == "radar":
-			best = maxf(best, weapon_detection_range_nm(s, wspec, observer_height_m(observer, s)))
+			best = maxf(best, weapon_detection_range_nm(s, wspec, observer_height_m(observer, s), weapon_altitude))
 	return best
 
 
@@ -452,4 +452,4 @@ static func terrain_hides_weapon(observer: Unit, w: Weapon) -> bool:
 		return false
 	if w.spec.is_torpedo():
 		return Terrain.blocks_path(observer.position, w.position)
-	return Terrain.masks_line_of_sight(observer.position, mast_or_altitude_m(observer), w.position, w.spec.altitude_m)
+	return Terrain.masks_line_of_sight(observer.position, mast_or_altitude_m(observer), w.position, w.flight_altitude_m())

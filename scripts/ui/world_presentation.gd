@@ -271,7 +271,7 @@ static func weapon_height_m(w: Weapon) -> float:
 		return maxf(w.spec.altitude_m, lerpf(w.spec.altitude_m, goal, climb))
 	if w.spec.profile == "ballistic":
 		return ballistic_height_m(w.distance_flown_nm, w.spec.max_range_nm)
-	return w.spec.altitude_m
+	return w.flight_altitude_m()
 
 
 static func ballistic_height_m(distance_flown_nm: float, max_range_nm: float) -> float:

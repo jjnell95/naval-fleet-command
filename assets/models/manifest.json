@@ -42,7 +42,7 @@
   {
     "id": "aim9x_air",
     "kind": "weapon",
-    "triangles": 1376
+    "triangles": 1056
   },
   {
     "id": "aim9x_family",
@@ -760,6 +760,11 @@
     "triangles": 1424
   },
   {
+    "id": "orion_guided_bomb",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
     "id": "oto_76mm_gun",
     "kind": "weapon",
     "triangles": 228
@@ -783,6 +788,11 @@
     "id": "paket_nk",
     "kind": "weapon",
     "triangles": 1092
+  },
+  {
+    "id": "paveway_iv",
+    "kind": "weapon",
+    "triangles": 1056
   },
   {
     "id": "phalanx_ciws",
@@ -1157,7 +1167,7 @@
   {
     "id": "rgm_139_vla",
     "kind": "weapon",
-    "triangles": 1500
+    "triangles": 1232
   },
   {
     "id": "rgm_84_harpoon",
@@ -1288,6 +1298,11 @@
     "id": "tomahawk_block_v",
     "kind": "weapon",
     "triangles": 1448
+  },
+  {
+    "id": "tomahawk_tlam_v",
+    "kind": "weapon",
+    "triangles": 1184
   },
   {
     "id": "torpedo47",

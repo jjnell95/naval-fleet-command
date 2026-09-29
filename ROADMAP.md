@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M30 weapon control and catalogue accuracy
+
+Mixed salvos across selected units, visible launch queues, role-specific envelopes and observer-held firing solutions retain the classic CDS workflow. ASW rockets now deliver a separate underwater payload; aircraft altitude and several national weapon fits are corrected. See [the M30 guide](docs/2026-09-29-weapon-control.md) and [validation record](docs/validation-m30.json).
+
+The next fidelity gap is the loading model: aircraft station restrictions and individual launcher modules remain abstracted. The current catalogue describes representative scenario fits, not every certified configuration.
+
 ## M28 the live view, deep strike and torpedo defence
 
 The 3D view's ships, aircraft and submarines dressed in their navies' finishes, lit by a sky and sea

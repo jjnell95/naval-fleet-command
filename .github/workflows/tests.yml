@@ -52,3 +52,9 @@ jobs:
 
       - name: Fleet workshop checks (1280 x 720)
         run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --path . --resolution 1280x720 -- --fleet-workshop-smoke --scenario-storage=res://work/ci-workshop-1280
+
+      - name: Weapon control checks (1600 x 900)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1600x900x24" ~/godot/godot --path . --resolution 1600x900 -- --weapon-control-smoke --scenario-storage=res://work/ci-weapons-1600
+
+      - name: Weapon control checks (1280 x 720)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --path . --resolution 1280x720 -- --weapon-control-smoke --scenario-storage=res://work/ci-weapons-1280

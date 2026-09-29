@@ -136,6 +136,8 @@ var threat_manager: ThreatManager
 var aviation_manager: AviationManager
 var simulation: Simulation  # debug overlay only
 var weapon_ring: WeaponSpec
+var show_weapon_ranges := false
+var weapon_range_role := "all"
 var player_faction := "BLUE"
 var center_nm := Vector2.ZERO
 var ppn := 4.0  # pixels per nautical mile
@@ -251,6 +253,7 @@ func zoom_at_center(factor: float) -> void:
 const LAYERS := {
 	"key": "show_key",
 	"sensors": "show_rings",
+	"weapon_ranges": "show_weapon_ranges",
 	"trails": "show_trails",
 	"terrain": "show_terrain",
 	"relief": "show_terrain",
@@ -1645,32 +1648,60 @@ static func _arc_segments(r: float) -> int:
 	return clampi(int(r * 0.35), 32, 360)
 
 
-## The selected weapon's reach from each hooked shooter that carries it: a thin red circle, its
+## The selected weapon's reach from each hooked shooter that carries it: a role-coloured circle, its
 ## minimum range dashed, and the firing solution when the hooked contact can be engaged.
 func _draw_weapon_ring() -> void:
+	if show_weapon_ranges:
+		var ref := reference_unit()
+		if ref != null and ref.faction == player_faction:
+			var row := 0
+			var specs: Array = ref.weapons.filter(func(spec: WeaponSpec) -> bool: return ref.magazine_count(spec.id) > 0 and WeaponPresentation.matches(spec, weapon_range_role))
+			var legend := Vector2(14.0, 24.0)
+			_shadow_text(legend, "WEAPON ENVELOPES  " + ref.callsign, 11)
+			for spec: WeaponSpec in specs:
+				var col := WeaponPresentation.color(spec)
+				var radius := Combat.effective_range_nm(ref, spec) * ppn
+				var center := world_to_screen(ref.position)
+				if spec.type in ["torpedo", "asw_rocket", "bomb"]:
+					_draw_dashed_circle(center, radius, Color(col, 0.65), _arc_segments(radius))
+				else:
+					draw_arc(center, radius, 0.0, TAU, _arc_segments(radius), Color(col, 0.65), 1.0, true)
+				if spec.min_range_nm > 0.0:
+					_draw_dashed_circle(center, spec.min_range_nm * ppn, Color(col, 0.3), 32)
+				if row < 10:
+					row += 1
+					_shadow_text(legend + Vector2(0, row * 17), "%s  %s  %.1f-%s nm" % [WeaponPresentation.role_name(spec), spec.compact_name(), spec.min_range_nm, Geo.format_nm(Combat.effective_range_nm(ref, spec))], 11, col)
 	if weapon_ring == null:
 		return
+	var col := WeaponPresentation.color(weapon_ring)
 	for u in _own_units():
 		if not selected.has(u) or u.magazine_count(weapon_ring.id) <= 0:
 			continue
 		var sp := world_to_screen(u.position)
-		var outer := weapon_ring.max_range_nm * ppn
-		draw_arc(sp, outer, 0.0, TAU, _arc_segments(outer), COL_WEAPON_RING, 1.0, true)
-		if weapon_ring.min_range_nm > 0.5:
-			_draw_dashed_circle(sp, weapon_ring.min_range_nm * ppn, Color(COL_WEAPON_RING, 0.5), 48)
-		# Keep the ring's name on the chart when its top edge runs off the top.
-		_centred_text(sp + Vector2(0.0, maxf(-outer - 5.0, 16.0 - sp.y)), "%s  %s nm" % [weapon_ring.display_name, Geo.format_nm(weapon_ring.max_range_nm)], 11)
-		if selected_track == null or not Combat.suits_track(weapon_ring, selected_track) or not Combat.check_engagement(u, weapon_ring, selected_track)["ok"]:
+		var reach := Combat.effective_range_nm(u, weapon_ring)
+		var outer := reach * ppn
+		draw_arc(sp, outer, 0.0, TAU, _arc_segments(outer), col, 1.5, true)
+		if weapon_ring.min_range_nm > 0.0:
+			_draw_dashed_circle(sp, weapon_ring.min_range_nm * ppn, Color(col, 0.5), 48)
+		if u == reference_unit():
+			_centred_text(sp + Vector2(0.0, maxf(-outer - 5.0, 16.0 - sp.y)), "%s  %s nm" % [weapon_ring.compact_name(), Geo.format_nm(reach)], 11)
+		if selected_track == null:
 			continue
-		# The firing solution: where the round would meet the contact if it held course.
-		var aim := Combat.intercept_point(u.position, weapon_ring.speed_kn, selected_track.position, selected_track.course_deg, selected_track.speed_kn, selected_track.has_kinematics)
+		var check := Combat.check_engagement(u, weapon_ring, selected_track)
+		if not check.ok:
+			continue
+		var aim: Vector2 = check.aim_point
 		var ap := world_to_screen(aim)
-		draw_dashed_line(sp, ap, Color(COL_WEAPON_RING, 0.6), 1.0, 6.0)
-		draw_arc(ap, 6.0, 0.0, TAU, 16, COL_WEAPON_RING, 1.0, true)
-		draw_line(ap + Vector2(-9, 0), ap + Vector2(9, 0), COL_WEAPON_RING, 1.0)
-		draw_line(ap + Vector2(0, -9), ap + Vector2(0, 9), COL_WEAPON_RING, 1.0)
-		var tof := Combat.time_of_flight_s(weapon_ring, u.position.distance_to(aim))
-		_shadow_text(ap + Vector2(10, -8), "Solution  %ds" % int(tof), 11)
+		draw_dashed_line(sp, ap, Color(col, 0.6), 1.0, 6.0)
+		draw_arc(ap, 6.0, 0.0, TAU, 16, col, 1.0, true)
+		draw_line(ap + Vector2(-9, 0), ap + Vector2(9, 0), col, 1.0)
+		draw_line(ap + Vector2(0, -9), ap + Vector2(0, 9), col, 1.0)
+		# The seeker basket makes contact uncertainty a visible targeting decision.
+		_draw_dashed_circle(ap, weapon_ring.acquisition_radius_nm() * ppn, Color(col, 0.35), 48)
+		var warning := " / UNCERTAIN" if selected_track.position_error_nm > weapon_ring.acquisition_radius_nm() or selected_track.status == Track.Status.STALE else ""
+		var solution_label := "SEARCH" if selected_track.is_bearing_only() else "INTERCEPT"
+		if u == reference_unit():
+			_shadow_text(ap + Vector2(10, -8), "%s %ds%s" % [solution_label, int(check.flight_time_s), warning], 11, col)
 
 
 ## Own sonobuoys: 3 px dots.
@@ -1990,9 +2021,11 @@ func _draw_weapons() -> void:
 	if weapon_manager == null:
 		return
 	var ref := reference_unit()
+	var labelled: Dictionary = {}
+	var label_slots: Dictionary = {}
 	for w: Weapon in weapon_manager.in_flight:
 		var own := w.faction == player_faction
-		var detected := ref != null and threat_manager != null and threat_manager.visible_to(ref, w)
+		var detected := not own and ref != null and threat_manager != null and threat_manager.visible_to(ref, w)
 		if not own and not detected and not Debug.enabled:
 			continue  # an undetected round is invisible, which is the whole problem
 		var sp := world_to_screen(w.position)
@@ -2016,7 +2049,15 @@ func _draw_weapons() -> void:
 				colors.append(Color(col, 0.05 + 0.35 * float(i + 1) / float(arr.size())))
 			if points.size() >= 2:
 				draw_polyline_colors(points, colors, 1.0, true)
-		MapSymbols.draw_weapon(self, sp, w.heading_deg, col, w.spec.is_torpedo())
+		MapSymbols.draw_ordnance(self, sp, w.heading_deg, col, w.spec)
+		if own and hooked and labelled.size() < 10:
+			var label_key := "%d:%s" % [w.shooter.id if w.shooter != null else -1, w.spec.id]
+			if not labelled.has(label_key):
+				labelled[label_key] = true
+				var cell := Vector2i(sp / 24.0)
+				var slot := int(label_slots.get(cell, 0))
+				label_slots[cell] = slot + 1
+				_shadow_text(sp + Vector2(20, 25 + 13 * slot), w.spec.compact_name(), 10, WeaponPresentation.color(w.spec))
 		if Debug.enabled:
 			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.4), 1.0, 5.0)
 
