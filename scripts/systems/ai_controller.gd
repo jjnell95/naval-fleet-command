@@ -28,8 +28,11 @@ const TORPEDO_SALVO := 2
 const ANTI_TORPEDO_RESERVE := 2
 ## A weapon that takes too long to arrive is shooting at where the target used to be. This one
 ## rule keeps the AI from firing a 50 knot torpedo across twenty miles of ocean without needing a
-## special case for torpedoes.
+## special case for torpedoes. It is about targets that move: a shore installation is where it was
+## when the round left, so a land-attack round may take as long as it needs (`_is_fixed_target`).
 const MAX_TIME_OF_FLIGHT_S := 480.0
+## Above this a land track is taken to be moving, and the flight-time limit applies to it again.
+const FIXED_TARGET_MAX_KN := 1.0
 const MIN_SOLUTION_FOR_SLOW_WEAPON := 0.5  # a bearing with no range is not a firing solution
 const BREAKOUT_TORPEDO_NM := 8.0  # a boat breaking out shoots only at what is in its way
 const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not at arm's length
@@ -333,7 +336,7 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float) -> Di
 				continue
 			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM:
 				continue
-			if Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S:
+			if Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S and not _is_fixed_target(t):
 				continue
 			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON:
 				continue
@@ -351,6 +354,13 @@ func _salvo_for(u: Unit, spec: WeaponSpec) -> int:
 	if spec.is_torpedo():
 		return clampi(TORPEDO_SALVO, 1, rounds)
 	return clampi(ASM_SALVO, 1, rounds)
+
+
+## A target that will still be where the round is sent: a shore installation the picture shows
+## standing still. Every installation in the catalogue is dug in; the speed check is for a mobile
+## launcher, which is a moving target like any other.
+static func _is_fixed_target(t: Track) -> bool:
+	return t.domain == "land" and (not t.has_kinematics or t.speed_kn <= FIXED_TARGET_MAX_KN)
 
 
 ## Rounds a weapon can spend on an attack: all of them, less what a launcher that also answers
