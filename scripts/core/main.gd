@@ -4,11 +4,11 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M29 / Fleet workshop"
+const BUILD_MILESTONE := "M30 / Weapon control"
 const DEFAULT_SCENARIO := "res://data/scenarios/cold_war_01_convoy.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
-const SCRIPTED_FLAGS := ["--fleet-workshop-smoke", "--cold-war-smoke", "--aviation-smoke", "--open-air-ops", "--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
+const SCRIPTED_FLAGS := ["--weapon-control-smoke", "--fleet-workshop-smoke", "--cold-war-smoke", "--aviation-smoke", "--open-air-ops", "--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
 
 @onready var simulation: Simulation = %Simulation
 @onready var map: TacticalMap = %TacticalMap
@@ -35,6 +35,7 @@ var _briefing: BriefingPanel
 var _command_palette: CommandPalette
 var _air_operations: AirOperations
 var _fleet_operations: FleetOperations
+var _weapon_control: WeaponControl
 var _modal_pause_captured := false
 var _modal_was_paused := true
 var _background_focus_modes: Dictionary = {}
@@ -135,6 +136,7 @@ func _ready() -> void:
 	map.track_selected.connect(_on_track_selected)
 	orders_panel.weapon_selection_changed.connect(func(spec: WeaponSpec) -> void: map.weapon_ring = spec)
 	simulation.weapon_manager.weapon_launched.connect(_on_weapon_launched)
+	simulation.weapon_manager.round_fired.connect(_on_round_fired)
 	simulation.weapon_manager.weapon_impact.connect(_on_weapon_impact)
 	simulation.weapon_manager.unit_destroyed.connect(_on_unit_destroyed)
 	simulation.weapon_manager.engagement_rejected.connect(_on_engagement_rejected)
@@ -246,6 +248,8 @@ func _objective_summary() -> String:
 
 func start_scenario(path: String) -> void:
 	_control_groups.clear()
+	if _weapon_control != null:
+		_weapon_control.hide()
 	if _fleet_operations != null:
 		_fleet_operations.hide()
 	if _air_operations != null:
@@ -450,6 +454,16 @@ func _build_screens() -> void:
 	_fleet_operations.formation_requested.connect(_apply_formation)
 	add_child(_fleet_operations)
 	_fleet_operations.hide()
+	_weapon_control = WeaponControl.new()
+	_weapon_control.simulation = simulation
+	_weapon_control.closed.connect(_close_weapon_control)
+	_weapon_control.unit_orders_requested.connect(_apply_unit_orders)
+	_weapon_control.target_selected.connect(func(t: Track) -> void: map.select_track(t))
+	_weapon_control.weapon_selected.connect(func(spec: WeaponSpec) -> void: orders_panel.select_weapon(spec))
+	_weapon_control.range_role_selected.connect(func(role: String) -> void: map.weapon_range_role = role; map.show_weapon_ranges = true)
+	add_child(_weapon_control)
+	_weapon_control.hide()
+	orders_panel.weapon_control_requested.connect(_toggle_weapon_control)
 	_key_help.name = "KeyCommands"
 	_key_help.closed.connect(_restore_modal_pause_if_clear)
 	add_child(_key_help)
@@ -552,6 +566,7 @@ func _has_visible_modal() -> bool:
 		or (_library != null and _library.visible) \
 		or (_command_palette != null and _command_palette.visible) \
 		or (_air_operations != null and _air_operations.visible) \
+		or (_weapon_control != null and _weapon_control.visible) \
 		or (_fleet_operations != null and _fleet_operations.visible) \
 		or (_key_help != null and _key_help.visible) \
 		or (_report != null and _report.visible)
@@ -574,6 +589,22 @@ func _toggle_air_operations() -> void:
 		return
 	_begin_modal_pause()
 	_air_operations.open_for(map.selected)
+
+
+func _toggle_weapon_control() -> void:
+	if _weapon_control.visible:
+		_close_weapon_control()
+		return
+	if _has_visible_modal():
+		return
+	_begin_modal_pause()
+	_weapon_control.open_for(map.selected, map.selected_track)
+
+
+func _close_weapon_control() -> void:
+	_weapon_control.hide()
+	_restore_modal_pause_if_clear()
+	call_deferred("_focus_map_if_clear")
 
 
 func _toggle_fleet_operations() -> void:
@@ -702,6 +733,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "camera_detached", "label": "Detached camera", "description": "Stop the camera where it is and watch the platform move away.", "shortcut": "F8", "enabled": true},
 		{"id": "status_boards", "label": "Status boards", "description": "Orders, task group, track file and comms boards over the chart.", "shortcut": "A", "enabled": true, "state": "open" if status_boards.visible else "closed"},
 		{"id": "plot_move", "label": "Plot route", "description": "Arm a left-click route; Shift chains waypoints. Right-click water moves the hooked platform at once.", "shortcut": "W", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Hook a deployed mobile platform first."},
+		{"id": "weapon_control", "label": "Weapon control", "description": "Commit mixed weapons, inspect target quality and cancel queued rounds.", "shortcut": "Shift+E", "enabled": controllable},
 		{"id": "open_engagement", "label": "Engagement board", "description": "Weapon, salvo, range and time of flight for the hooked contact.", "shortcut": "", "enabled": controllable and has_target, "state": map.selected_track.id if has_target else "no target", "reason": "Hook a shooter and a contact first."},
 		{"id": "next_contact", "label": "Next priority contact", "description": "Cycle hostile, unknown, fresh, and nearby contacts first.", "shortcut": "N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
 		{"id": "previous_contact", "label": "Previous priority contact", "description": "Cycle backward through the priority contact stack.", "shortcut": "Shift+N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
@@ -790,6 +822,8 @@ func _run_palette_action(id: String) -> void:
 		"plot_move":
 			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
 			map.grab_focus()
+		"weapon_control":
+			_toggle_weapon_control()
 		"open_engagement":
 			status_boards.open_board(StatusBoards.BOARD_ORDERS)
 			orders_panel.open_engagement(true)
@@ -913,6 +947,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_key_help.close()
 		get_viewport().set_input_as_handled()
 		return
+	if _weapon_control.visible:
+		if k.keycode == KEY_ESCAPE or (k.keycode == KEY_E and k.shift_pressed):
+			_close_weapon_control()
+			get_viewport().set_input_as_handled()
+		return
 	if _fleet_operations.visible:
 		if k.keycode in [KEY_J, KEY_ESCAPE]:
 			_close_fleet_operations()
@@ -985,6 +1024,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if k.shift_pressed:
 		match k.keycode:
+			KEY_E:
+				_toggle_weapon_control()
+			KEY_R:
+				map.toggle_layer("weapon_ranges")
 			KEY_V:
 				map.toggle_layer("leaders")
 			KEY_K:
@@ -1135,17 +1178,20 @@ func _focus_urgent_threat() -> void:
 	radio.flash("FOCUS · %s inbound to %s · impact in ~%d s" % [weapon.spec.display_name, target.callsign, maxi(int(entry["time_s"]), 0)], "alert")
 
 
+func _on_round_fired(shooter: Unit, _spec: WeaponSpec, _track: Track) -> void:
+	if shooter.faction != simulation.player_faction:
+		return
+	_stats["own_rounds"] += 1
+	map.add_effect(shooter.position, "launch", true)
+	_world_view.add_effect(shooter.position, "launch", true)
+	SoundFx.play("launch")
+
+
 func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
 	SimClock.drop_to_realtime()
-	var own := shooter.faction == simulation.player_faction
-	if own:
-		_stats["own_rounds"] += rounds
-		map.add_effect(shooter.position, "launch", true)
-		_world_view.add_effect(shooter.position, "launch", true)
-		SoundFx.play("launch")
-		radio.flash("%d x %s away at track %s" % [rounds, spec.display_name, DataDisplay.track_number_for_track(t)], "good", shooter)
-
-	Debug.event("[Combat] %s launches %d x %s at %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, t.id, shooter.position.distance_to(t.position)])
+	if shooter.faction == simulation.player_faction:
+		radio.flash("%d x %s committed to track %s; %d queued" % [rounds, spec.display_name, DataDisplay.track_number_for_track(t), simulation.weapon_manager.committed_rounds(shooter, spec, t, true)], "good", shooter)
+	Debug.event("[Combat] %s commits %d x %s at %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, t.id, shooter.position.distance_to(t.position)])
 
 
 func _on_threat_detected(faction: String, w: Weapon) -> void:
@@ -1490,7 +1536,8 @@ func _apply_unit_orders(pairs: Array) -> void:
 		if u.faction != simulation.player_faction or not map.selected.has(u):
 			continue
 		sample = pair[1]
-		if simulation.unit_manager.issue_order(u, pair[1]):
+		pair[1].execution_accepted = simulation.unit_manager.issue_order(u, pair[1])
+		if pair[1].execution_accepted:
 			accepted += 1
 		else:
 			refused += 1

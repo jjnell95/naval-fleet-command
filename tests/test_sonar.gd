@@ -394,7 +394,7 @@ func test_shipped_submarine_and_sonar_data_loads() -> void:
 		var w := DataDB.weapon(wid)
 		assert_true(w != null, "%s loads" % wid)
 		if w != null:
-			assert_true(w.is_torpedo() and w.target_types.has("subsurface"), "%s can engage a boat" % wid)
+			assert_true((w.is_torpedo() or w.delivery_payload_id != "") and w.target_types.has("subsurface"), "%s can engage a boat" % wid)
 			assert_true(w.run_to_enable_nm > 0.0, "%s has an enable run" % wid)
 
 

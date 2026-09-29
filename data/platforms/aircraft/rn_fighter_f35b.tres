@@ -26,12 +26,12 @@ launch_time_s = 50.0
 recovery_time_s = 70.0
 fire_control_channels = 0
 decoy_count = 8
-weapon_loadout = {"aim120_family": 4, "jsm_missile": 2}
+weapon_loadout = {"aim120_family": 2, "asraam_aam": 2, "paveway_iv": 2}
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
 
 launch_requirement = "stovl"
 
-role = "STOVL fighter • counter-air"
+role = "STOVL fighter • counter-air / precision strike"
 
-service_note = "British carrier fighter; supports STOVL decks and airfields."
+service_note = "British carrier fighter; AMRAAM, ASRAAM and Paveway IV mixed strike fit. Two ASRAAM carried externally; stores are a scenario load, not a maximum or stealth-only configuration."
 can_refuel = true

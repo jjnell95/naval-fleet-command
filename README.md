@@ -1,6 +1,6 @@
 # Naval Fleet Command
 
-**M29 Fleet workshop:** build your own opposing fleets, fit their weapons and air wings, and plan objectives and reinforcement waves. During combat, deploy countermeasures, order temporary evasion, set interceptor policy, and command large task groups from Fleet Operations. See the [operating guide and release notes](docs/2026-09-29-fleet-workshop.md) and [validation](docs/validation-m29.json).
+**M30 Weapon control:** assign mixed-weapon salvos per ship or aircraft, inspect launcher queues and track quality, and draw range overlays by weapon role. Corrected aircraft and submarine fits, air-to-water ASW delivery and altitude-dependent guided bombs retain the original CDS chart and lower panes. See the [operating guide and audit](docs/2026-09-29-weapon-control.md).
 
 A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-command games. Build an uncertain contact picture, protect the force, operate a carrier air wing, and decide when the salvo is worth the missiles. Create missions across the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, in 2027 and in 1990. Original art and code; no Jane's assets or affiliation.
 
@@ -29,7 +29,7 @@ Every operation carries a commander's intent, three first orders, a difficulty a
 
 ## The forces
 
-**139 platforms, 145 weapons and 164 sensors** across four catalogues, each with recognition art and an inspectable model:
+**139 platforms, 148 weapons and 164 sensors** across four catalogues, each with recognition art and an inspectable model:
 
 - **Modern NATO and Russia**: Burke IIA and III, Ticonderoga, Constellation, Nimitz and Ford, Queen Elizabeth, Type 45 and Type 26, FREMM, Horizon, Charles de Gaulle, Mistral, Juan Carlos I, Nansen, Iver Huitfeldt, Sachsen, Braunschweig, Visby, Virginia, Astute, Suffren, Gotland; Gorshkov, Grigorovich, Slava, Udaloy, Steregushchiy, Buyan-M, Yasen-M, Kilo; carrier and land-based aviation on both sides.
 - **PLAN**: Type 055, Type 052D, Type 054A, Type 056A, Type 022, the carrier Shandong with J-15s, Type 093B and Type 039A submarines, H-6J, J-16, KJ-500, Y-8Q, four helicopter types, a replenishment ship, YJ-12B and DF-21D batteries and an HQ-9B site.

@@ -12,13 +12,24 @@ const BMD_INTERCEPTOR_ADVANTAGE := 0.45  # GAMEPLAY_ESTIMATE
 static func intercept_point(launch_pos: Vector2, weapon_speed_kn: float, track_pos: Vector2, course_deg: float, target_speed_kn: float, has_kinematics: bool) -> Vector2:
 	if not has_kinematics or target_speed_kn <= 0.1 or weapon_speed_kn <= 0.0:
 		return track_pos
-	var vel := Geo.heading_to_vector(course_deg) * Geo.knots_to_nm_per_s(target_speed_kn)
-	var w := Geo.knots_to_nm_per_s(weapon_speed_kn)
-	var aim := track_pos
-	for i in LEAD_MAX_ITER:
-		var t := launch_pos.distance_to(aim) / w
-		aim = track_pos + vel * t
-	return aim
+	var velocity := Geo.heading_to_vector(course_deg) * Geo.knots_to_nm_per_s(target_speed_kn)
+	var offset := track_pos - launch_pos
+	var speed := Geo.knots_to_nm_per_s(weapon_speed_kn)
+	var a := velocity.length_squared() - speed * speed
+	var b := 2.0 * offset.dot(velocity)
+	var c := offset.length_squared()
+	var time := INF
+	if absf(a) < 0.00000001:
+		if b < -0.00000001:
+			time = -c / b
+	else:
+		var disc := b * b - 4.0 * a * c
+		if disc >= 0.0:
+			for candidate: float in [(-b - sqrt(disc)) / (2.0 * a), (-b + sqrt(disc)) / (2.0 * a)]:
+				if candidate >= 0.0:
+					time = minf(time, candidate)
+	return track_pos + velocity * time if is_finite(time) else Vector2.INF
+
 
 
 ## Flight profiles that have to get there over the water. A sea-skimmer, a gun round on a flat
@@ -48,7 +59,7 @@ static func crosses_land(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
 
 
 ## Whether `shooter` may fire `spec` at `track` right now. Returns {ok, reason, range_nm}.
-static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> Dictionary:
+static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, reserved_round := false) -> Dictionary:
 	var out := {"ok": false, "reason": "", "range_nm": 0.0}
 	if shooter == null or spec == null or track == null:
 		out["reason"] = "NO TARGET"
@@ -57,7 +68,7 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> D
 	if not shooter.alive:
 		out["reason"] = "UNIT LOST"
 		return out
-	if shooter.magazine_count(spec.id) <= 0:
+	if not reserved_round and shooter.magazine_count(spec.id) <= 0:
 		out["reason"] = "MAGAZINE EMPTY"
 		return out
 	if not shooter.can_fire():
@@ -83,11 +94,25 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> D
 		return out
 	var d := shooter.position.distance_to(track.position)
 	out["range_nm"] = d
-	if d > spec.max_range_nm:
+	var max_range := effective_range_nm(shooter, spec)
+	if d > max_range:
 		out["reason"] = "OUT OF RANGE"
 		return out
 	if d < spec.min_range_nm:
 		out["reason"] = "TOO CLOSE"
+		return out
+	if track.is_bearing_only() and not spec.is_torpedo():
+		out["reason"] = "BEARING ONLY / NO RANGE SOLUTION"
+		return out
+	var aim := intercept_point(shooter.position, spec.speed_kn, track.position, track.course_deg, track.speed_kn, track.has_kinematics)
+	if not aim.is_finite():
+		out["reason"] = "NO INTERCEPT SOLUTION"
+		return out
+	out["aim_point"] = aim
+	out["flight_range_nm"] = shooter.position.distance_to(aim)
+	out["flight_time_s"] = time_of_flight_s(spec, out["flight_range_nm"])
+	if float(out["flight_range_nm"]) > max_range:
+		out["reason"] = "INTERCEPT BEYOND WEAPON RANGE"
 		return out
 	if crosses_land(shooter, spec, track):
 		out["reason"] = "NO LINE OF FIRE"
@@ -95,6 +120,13 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track) -> D
 	out["ok"] = true
 	out["reason"] = "IN ENVELOPE"
 	return out
+
+
+## Unpowered bombs depend on the launch aircraft height. All numbers are gameplay tuning.
+static func effective_range_nm(shooter: Unit, spec: WeaponSpec) -> float:
+	if spec.type == "bomb":
+		return minf(spec.max_range_nm, maxf(shooter.altitude_m, 0.0) / 1000.0)
+	return spec.max_range_nm
 
 
 ## Probability that one interceptor destroys one incoming round. Fast, low-flying or stealthy

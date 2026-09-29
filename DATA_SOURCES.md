@@ -402,3 +402,7 @@ The dated platform identities, historical references, period loadout exclusions 
 - LRASM: [Lockheed Martin's captive-carriage test release](https://news.lockheedmartin.com/2012-07-16-Lockheed-Martin-Successfully-Completes-First-LRASM-Captive-Carriage-Test) identifies the RF sensor, data link and electro-optical terminal identification. The game represents that terminal discrimination with the imaging-IR compatibility band. This is a game abstraction, not a claim about undisclosed seeker logic. Checked 2026-09-29.
 - Countermeasure inventory is the existing generic platform stock. Pulse duration, reload, susceptibility, 60/25-second evasion windows, bounded maneuver benefit and Conserve/Balanced/Saturation shot budgets are explicit gameplay estimates. No classified performance is asserted. Unspecified inertial-terminal weapons are not assumed to be flare-susceptible.
 - The 1990 opposing-carrier recipe uses a period Nimitz as a fictional opposing force because this catalogue lacks a Soviet carrier. The recipe does not present that force as a historical order of battle.
+
+## Weapon control and catalogue audit, 29 September 2026
+
+M30's [audit and source ledger](docs/2026-09-29-weapon-control.md#sources-and-uncertainty) records the JASSM, Mk 54/VL-ASROC, F-35B, Astute, APR-3 and Orion fit corrections. It separates verified roles from representative payload choices and gameplay estimates. The new bomb and ASW delivery models are abstractions, not certified launch envelopes or combat performance predictions.

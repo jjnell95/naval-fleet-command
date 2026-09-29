@@ -369,3 +369,27 @@ static func draw_buoy(ci: CanvasItem, pos: Vector2, color: Color) -> void:
 static func draw_key_entry(ci: CanvasItem, pos: Vector2, color: Color, frame: Frame, domain: String, rotary: bool, caption: String, font: Font, text_color: Color) -> void:
 	draw_ntds(ci, pos, color, frame, domain, rotary)
 	ci.draw_string(font, pos + Vector2(14.0, 4.0), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, text_color)
+
+
+## The identity colour stays authoritative; shape distinguishes the ordnance type.
+static func draw_ordnance(ci: CanvasItem, pos: Vector2, heading_deg: float, color: Color, spec: WeaponSpec) -> void:
+	var f := Vector2(sin(deg_to_rad(heading_deg)), -cos(deg_to_rad(heading_deg)))
+	var side := f.orthogonal()
+	if spec.type == "torpedo":
+		ci.draw_circle(pos, 3.0, color, false, 1.0, true)
+		ci.draw_line(pos - f * 6.0, pos + f * 3.0, color, 1.0, true)
+	elif spec.type in ["gun", "ciws"]:
+		ci.draw_line(pos - f * 4.0, pos + f * 4.0, color, 2.0, true)
+	elif spec.type == "bomb":
+		ci.draw_polyline(PackedVector2Array([pos + f * 5.0, pos + side * 3.0, pos - f * 5.0, pos - side * 3.0, pos + f * 5.0]), color, 1.2, true)
+	elif spec.type in ["sam", "aam"]:
+		# One batched line command keeps the air-missile crossbar affordable in massed raids.
+		var tip := pos + f * 6.0
+		var left := pos - f * 4.0 + side * 3.5
+		var right := pos - f * 4.0 - side * 3.5
+		var notch := pos - f * 2.0
+		ci.draw_multiline(PackedVector2Array([tip, left, left, notch, notch, right, right, tip, pos - side * 4.0, pos + side * 4.0]), color, 1.0, true)
+	else:
+		draw_weapon(ci, pos, heading_deg, color, false)
+		if spec.type == "asw_rocket":
+			ci.draw_circle(pos, 5.0, color, false, 1.0, true)

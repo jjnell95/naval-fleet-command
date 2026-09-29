@@ -15,6 +15,9 @@ var spec: WeaponSpec
 var faction := ""
 var shooter: Unit
 var target_track: Track
+var launch_altitude_m := -1.0
+var launch_range_nm := 0.0
+var delivery_spec: WeaponSpec  # launcher identity retained after a torpedo enters the water
 var acquired: Unit
 var intercept_target: Weapon  # set when this round is a SAM or close-in round
 var decoy_attempted := false
@@ -39,6 +42,16 @@ var dead_reason := ""
 ## Fired from a battery ashore: the round climbs out over its own coast before the ordinary rule
 ## that a low-flying weapon ends at the first ground it meets applies to it.
 var launched_ashore := false
+
+
+func flight_altitude_m() -> float:
+	if spec.is_torpedo():
+		return 0.0
+	if spec.type == "bomb" and launch_range_nm > 0.0:
+		return maxf(launch_altitude_m, 0.0) * clampf(1.0 - distance_flown_nm / launch_range_nm, 0.0, 1.0)
+	if spec.type in ["aam", "bomb"] and launch_altitude_m >= 0.0:
+		return launch_altitude_m
+	return spec.altitude_m
 
 
 func speed_nm_per_s() -> float:

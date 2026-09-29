@@ -5,7 +5,7 @@ Six abstract silhouettes for the loadout thumbnails, chosen from the game's own 
 recognition icons in the style of the existing weapon renders, not models of any real item.
 Nose at +X, metres.
 """
-from ordnance_bodies import slender_body
+from ordnance_bodies import slender_body, ogive, fin_set
 from ordnance_extra import cone_body, blunt_body
 from ordnance_mounts import mount
 
@@ -19,7 +19,15 @@ def weapon_model(m, spec):
     if kind in ("ciws", "gun"):
         mount(m, kind, words)
         return
-    if kind == "torpedo":
+    if kind == "bomb":
+        L, R = (1.5, .12) if "light guided" in words else (3.1, .19)
+        ogive(m, L, R, blunt=True)
+        fin_set(m, -L * .25, L * .16, -L * .39, L * .17)
+        fin_set(m, L * .26, L * .08, L * .19, L * .10, name="guidance_canard")
+    elif kind == "asw_rocket":
+        L, R = 4.6, .21
+        blunt_body(m, L, R, boosted=True)
+    elif kind == "torpedo":
         rocket = "rocket" in words or "vertical" in words
         light = rocket or "light" in words or "air-launched" in words or rng <= 8.0
         L, R = (4.6, .21) if rocket else (2.8, .16) if light else (6.4, .27)

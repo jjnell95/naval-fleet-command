@@ -11,7 +11,7 @@ extends Resource
 ## most, so the data display can lay a big ship's weapons out in columns.
 @export var short_name := ""
 @export var family := ""
-@export var type := "asm"  # asm | sam | ciws | gun | torpedo
+@export var type := "asm"  # asm | sam | aam | ciws | gun | torpedo | asw_rocket | bomb
 @export var guidance := "inertial_active"  # abstraction label only
 @export var profile := "sea_skimming"  # sea_skimming | high | direct | subsurface | ballistic | exoatmospheric
 @export var target_types: PackedStringArray = ["surface"]
@@ -30,10 +30,11 @@ extends Resource
 @export var soft_kill_resistance := 1.0  # resistance to decoys and chaff (higher = harder)
 
 ## Torpedoes. A torpedo runs out to `run_to_enable_nm` before its seeker comes on, so a shot at
-## very short range can pass a target without ever looking at it. Delivery by rocket is abstracted
-## into `speed_kn` rather than modelled as a separate flight phase.
+## very short range can pass a target without ever looking at it. Delivery
+## by an ASW rocket uses delivery_payload_id and a separate air-to-water transition.
 @export var run_to_enable_nm := 0.0
 @export var acoustic_signature := 0.6  # how loud the weapon itself is while running
+@export var delivery_payload_id := ""  # rocket-delivered ASW payload after water entry
 @export var source_status := ""
 @export var vls_pack := 0  # rounds per VLS cell; 0 = not modelled as a VLS round
 @export var intercept_min_altitude_m := 0.0

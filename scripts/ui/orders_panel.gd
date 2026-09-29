@@ -3,6 +3,7 @@ extends PanelContainer
 ## Bottom panel: movement, sensor and weapon orders for the current selection.
 ## Emits Order objects only; Main routes them to UnitManager for controllable units.
 
+signal weapon_control_requested()
 signal inspect_requested(weapon_id: String)
 signal order_requested(order: Order)
 signal weapon_selection_changed(spec: WeaponSpec)
@@ -179,6 +180,7 @@ func _ready() -> void:
 	_engage_btn.focus_mode = Control.FOCUS_ALL
 	_engage_btn.pressed.connect(_on_engage)
 	wrow.add_child(_engage_btn)
+	_add_button(wrow, "ALL SYSTEMS", func() -> void: weapon_control_requested.emit()).tooltip_text = "Mixed-weapon salvo and target solution board [Shift+E]"
 
 	_envelope = Label.new()
 	# Let this shrink instead of forcing the whole window wider than it is.
@@ -645,6 +647,18 @@ func set_target_track(t: Track) -> void:
 		_refresh_envelope()
 
 
+func select_weapon(spec: WeaponSpec) -> void:
+	if spec == null:
+		return
+	var index := _weapon_ids.find(spec.id)
+	if index < 0:
+		_weapon_ids.append(spec.id)
+		_weapon_option.add_item(spec.display_name)
+		index = _weapon_ids.size() - 1
+	_weapon_option.select(index)
+	_refresh_envelope()
+
+
 func current_weapon_spec() -> WeaponSpec:
 	var i := _weapon_option.selected
 	if i < 0 or i >= _weapon_ids.size():
@@ -714,7 +728,7 @@ func _refresh_envelope() -> void:
 		if u.get_weapon(spec.id) == null:
 			continue
 		carriers += 1
-		var check := Combat.check_engagement(u, spec, _target)
+		var check := weapon_manager.engagement_check(u, spec, _target, weapon_manager.now_s) if weapon_manager != null else Combat.check_engagement(u, spec, _target)
 		if check["ok"] and weapon_manager != null and spec.type == "sam" and _target.domain == "air" and not weapon_manager.channel_available(u, _target):
 			check["ok"] = false
 			check["reason"] = "FIRE CONTROL SATURATED"

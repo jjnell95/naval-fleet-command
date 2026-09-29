@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "paveway_iv"
+display_name = "Paveway IV guided bomb"
+short_name = "Paveway IV"
+family = "Paveway"
+type = "bomb"
+guidance = "gps_inertial"
+profile = "glide"
+target_types = PackedStringArray("land")
+max_range_nm = 8.0
+min_range_nm = 0.4
+speed_kn = 450.0
+turn_rate_deg_s = 8.0
+seeker_range_nm = 0.3
+damage = 42.0
+base_pk = 0.75
+salvo_default = 1
+launch_interval_s = 2.0
+signature_factor = 0.03
+altitude_m = 3000.0
+source_status = "PUBLIC: UK MoD certified F-35B stores include AMRAAM, ASRAAM and Paveway IV; written answer 31754 (2022-07-12), Edwards AFB UK weapons tests (2017-03-20). GAMEPLAY_ESTIMATE: GPS/INS fixed-land-target mode, unpowered glide envelope scaled with release altitude, flight speed, damage and hit chance. Laser designation is not simulated."

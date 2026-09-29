@@ -223,7 +223,7 @@ func _build_domains() -> void:
 	_domain_picker.clear()
 	var entries := [["All domains", "all"], ["Surface ships", "surface"], ["Aircraft", "air"], ["Submarines", "subsurface"], ["Shore stations", "land"]]
 	if _weapons:
-		entries = [["All weapon types", "all"], ["Air defence", "sam"], ["Anti-ship", "asm"], ["Undersea", "torpedo"], ["Naval guns", "gun"], ["Close-in defence", "ciws"]]
+		entries = [["All weapon types", "all"], ["Air defence / AAM", "air"], ["Anti-ship", "surface"], ["ASW", "subsurface"], ["Land strike", "land"], ["Guns / CIWS", "gun"]]
 	for entry in entries:
 		_domain_picker.add_item(entry[0])
 		_domain_picker.set_item_metadata(_domain_picker.item_count - 1, entry[1])
@@ -255,7 +255,7 @@ func _filter(query: String) -> void:
 	for p in records:
 		var search_text: String = p.display_name + " " + (p.family if _weapons else p.nation + " " + p.role)
 		var category: String = p.type if _weapons else p.domain
-		if (not query.is_empty() and query.to_lower() not in search_text.to_lower()) or (_domain != "all" and category != _domain):
+		if (not query.is_empty() and query.to_lower() not in search_text.to_lower()) or (_domain != "all" and (not WeaponPresentation.matches(p, _domain) if _weapons else category != _domain)):
 			continue
 		_specs.append(p)
 		_list.add_item(p.family if _weapons else p.short_name, PlatformArt.thumbnail(p.id, _weapons))

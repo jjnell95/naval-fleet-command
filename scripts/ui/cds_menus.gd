@@ -72,6 +72,7 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		any_route = any_route or not u.waypoints.is_empty()
 	var why := "" if controllable else "These platforms are not under your command."
 	if target != null and controllable:
+		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
 		items.append(submenu("Engage with", engage_weapon_items(units, target), false, "Weapons that suit track %s." % DataDisplay.track_number_for_track(target)))
 	if movable:
 		var speeds: Array = [item("Stop", order_action(Order.stop()))]
@@ -204,6 +205,7 @@ static func engage_items(units: Array, target: Track, controllable: bool) -> Arr
 	var number := DataDisplay.track_number_for_track(target)
 	items.append({"text": "Track %s  %s" % [number, target.description().capitalize()], "disabled": true})
 	if controllable and not units.is_empty():
+		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
 		items.append(submenu("Engage with", engage_weapon_items(units, target), false, "Weapons that suit this contact."))
 		if target.identity != "HOSTILE" and not target.is_bearing_only():
 			items.append(item("Close to identify", {"kind": "close_in", "track": target}, false, "Steer the hooked units toward the contact to classify it."))
@@ -241,6 +243,7 @@ static func cds_items(state: Dictionary) -> Array:
 		item("Relief shading  [F6]", {"kind": "layer", "name": "relief"}, false, "", _on(state, "relief")),
 		item("Lat/long readout  [Ctrl+L]", {"kind": "layer", "name": "latlon"}, false, "", _on(state, "latlon")),
 		item("Scale  [Ctrl+S]", {"kind": "layer", "name": "scale"}, false, "", _on(state, "scale")),
+		item("Weapon ranges by role  [Shift+R]", {"kind": "layer", "name": "weapon_ranges"}, false, "", _on(state, "weapon_ranges")),
 		item("Sensor rings  [F4]", {"kind": "layer", "name": "sensors"}, false, "", _on(state, "sensors")),
 		item("Graticule", {"kind": "layer", "name": "graticule"}, false, "", _on(state, "graticule")),
 		item("Radar coverage  [Ctrl+W]", {"kind": "palette", "id": "radar_coverage"}, false, "", _on(state, "radar_coverage")),

@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -30,6 +30,13 @@ var automatic := true
 ## to the caller, so a UI receipt can distinguish a command that was merely routed from one that
 ## actually secured a firing channel, deck spot, return state, or buoy deployment.
 var execution_accepted := true
+
+
+static func cancel_fire(target: Track = null) -> Order:
+	var o := Order.new()
+	o.type = Type.CANCEL_FIRE
+	o.track = target
+	return o
 
 
 static func deploy_countermeasures(kind := "radar") -> Order:
@@ -231,6 +238,8 @@ func describe() -> String:
 			return "RADAR ACTIVE"
 		Type.SILENCE_RADAR:
 			return "RADAR SILENT"
+		Type.CANCEL_FIRE:
+			return "CANCEL QUEUED FIRE"
 		Type.ENGAGE:
 			return "ENGAGE %s with %d x %s" % [track.id if track != null else "?", salvo, weapon_id]
 		Type.SET_DEPTH:

@@ -58,6 +58,8 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return u.is_engageable() and u.has_radar()
 		Order.Type.ACTIVE_SONAR, Order.Type.PASSIVE_SONAR:
 			return u.is_engageable() and u.has_sonar()
+		Order.Type.CANCEL_FIRE:
+			return u.alive
 		Order.Type.ENGAGE:
 			var spec := u.get_weapon(order.weapon_id)
 			return u.is_engageable() and spec != null and order.track != null and bool(Combat.check_engagement(u, spec, order.track).get("ok", false))

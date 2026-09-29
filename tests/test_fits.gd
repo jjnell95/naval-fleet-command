@@ -92,8 +92,8 @@ func test_american_and_british_attack_submarines_carry_cruise_missiles_and_torpe
 		assert_true(virginia.occupied_vls_cells() <= virginia.vls_cells)
 	var astute := _platform("rn_ssn_astute")
 	if astute != null:
-		assert_true(astute.weapon_loadout.has("spearfish") and astute.weapon_loadout.has("tomahawk_block_v"))
-		assert_true(_rounds(astute, ["spearfish", "tomahawk_block_v"]) <= 38, "inside the six-tube boat's 38-weapon stowage")
+		assert_true(astute.weapon_loadout.has("spearfish") and astute.weapon_loadout.has("tomahawk_tlam_v"))
+		assert_true(_rounds(astute, ["spearfish", "tomahawk_tlam_v"]) <= 38, "inside the six-tube boat's 38-weapon stowage")
 
 
 func test_only_the_improved_kilo_carries_kalibr() -> void:
@@ -214,7 +214,7 @@ func _surface_track(distance_nm: float) -> Track:
 
 func test_submarines_can_fire_their_missiles_at_a_surface_track_from_periscope_depth() -> void:
 	Terrain.clear()
-	for case: Array in [["fra_ssn_suffren", "sm39_exocet", 25.0], ["rfn_ssk_kilo", "kalibr_asm", 60.0], ["usn_ssn_virginia", "tomahawk_block_v", 150.0], ["rn_ssn_astute", "tomahawk_block_v", 150.0]]:
+	for case: Array in [["fra_ssn_suffren", "sm39_exocet", 25.0], ["rfn_ssk_kilo", "kalibr_asm", 60.0], ["usn_ssn_virginia", "tomahawk_block_v", 150.0]]:
 		var u := _shooter(case[0], 10.0)
 		var w := DataDB.weapon(case[1])
 		var check := Combat.check_engagement(u, w, _surface_track(case[2]))

@@ -23,8 +23,8 @@ except OSError as error:
         try:
             with urllib.request.urlopen(address, timeout=2) as response:
                 page = response.read(32768)
-            if b"Naval Fleet Command" in page and b"Fleet Workshop" in page:
-                print(f"The Fleet Workshop preview is already running.\n{address}")
+            if b"Naval Fleet Command" in page and b"play/" in page:
+                print(f"The Naval Fleet Command preview is already running.\n{address}")
                 if os.environ.get("NFC_PREVIEW_NO_BROWSER") != "1":
                     webbrowser.open(address)
                 sys.exit(0)

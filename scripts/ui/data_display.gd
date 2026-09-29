@@ -41,7 +41,7 @@ const CELL_MIN_PX := 136.0
 const CELL_GAP_PX := 14.0
 const MAX_COLUMNS := 3
 ## The jobs the WEAPONS line states a reach for, in reading order: the label, and the weapon type it covers.
-const REACH_JOBS := [["STRIKE", "asm"], ["AAM", "aam"], ["AAW", "sam"], ["CIWS", "ciws"], ["GUN", "gun"], ["TORP", "torpedo"]]
+const REACH_JOBS := [["STRIKE", "asm"], ["AAM", "aam"], ["AAW", "sam"], ["CIWS", "ciws"], ["GUN", "gun"], ["ASW", "asw_rocket"], ["TORP", "torpedo"], ["BOMB", "bomb"]]
 
 var map: TacticalMap
 var simulation: Simulation

@@ -166,6 +166,11 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			o.execution_accepted = DefensiveResponse.deploy(u, o.countermeasure_kind, weapon_manager)
 		Order.Type.EVADE:
 			o.execution_accepted = DefensiveResponse.start_evasion(u, unit_manager, threat_manager, o.evasion_mode)
+		Order.Type.SET_ROE:
+			if u.roe == Unit.Roe.HOLD:
+				weapon_manager.cancel_salvo(u)
+		Order.Type.CANCEL_FIRE:
+			o.execution_accepted = weapon_manager.cancel_salvo(u, o.track) > 0
 		Order.Type.ENGAGE:
 			var spec := u.get_weapon(o.weapon_id)
 			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time)
