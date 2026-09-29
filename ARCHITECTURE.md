@@ -385,7 +385,9 @@ Engagement is refused when the track is stale, when identity is not yet confirme
 a salvo fired at that track is still being assessed, or when enough rounds are already in the air
 against it. Two further rules keep it honest underwater: a weapon whose time of flight exceeds
 `MAX_TIME_OF_FLIGHT_S` is not fired at all, which stops a 50 knot torpedo being launched across
-twenty miles without needing a torpedo special case, and a bearing-only track needs a real range
+twenty miles without needing a torpedo special case. The limit is about targets that move, so a
+fixed one is exempt (`_is_fixed_target`: a land track the picture shows standing still), and the
+AI strikes batteries and airfields at a land-attack round's full range. A bearing-only track needs a real range
 solution before anything is fired at it. The assessment window itself scales with time of flight,
 so a slow weapon is given time to arrive before the shot is judged a failure. Shadow standoff is bounded by radar range rather than weapon range, because a
 track that is not being observed cannot receive mid-course updates. Every decision leaves through
