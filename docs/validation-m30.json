@@ -3,7 +3,7 @@
   "verified_at_utc": "2026-09-29T23:12:25.904039+00:00",
   "base_commit": "cd233edc1329706ec3231b1692cfc9cc9cfdb910",
   "branch": "codex/weapons-and-track-control",
-  "publication": "Validated local release candidate. GitHub publication has not been requested for this update.",
+  "publication": "Owner approved publication. Test and deployment status is recorded in GitHub Actions.",
   "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
   "catalogue": {
     "platforms": 139,

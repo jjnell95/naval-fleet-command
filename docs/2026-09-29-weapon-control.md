@@ -71,7 +71,7 @@ Checked 29 September 2026. The changes use public role and integration informati
 - [Rosoboronexport Aerospace Systems catalogue, 2005, p.129, mirrored manufacturer PDF](https://server.3rd-wing.net/public/tiengo/Doc/r%C3%A9aliste%20avionics%20russes.pdf) describes APR-3E as air-delivered ASW and explicitly lists Il-38. It does not certify the exact modern Tu-142 fit used here. The modeled family and quantities are labeled accordingly.
 - [Kronshtadt Orion-E brochure](https://kronshtadt.ru/assets/files/productfiles/%D0%9E%D1%80%D0%B8%D0%BE%D0%BD_new/%D0%9E%D1%80%D0%B8%D0%BE%D0%BD-%D0%AD%20%28eng%29.pdf) lists a 250 kg payload and three 50 kg guided bombs as an example. An older [manufacturer ISR brochure](https://kronshtadt.ru/assets/files/productfiles/Orion_eng.pdf) lists 200 kg and a different cruising speed. The newer strike-capable configuration is the basis for this representative fit; the two brochures are not treated as identical aircraft specifications.
 
-## Validation and local release
+## Validation and release
 
 The regression suite includes launcher spacing, shared VLS service, cancellation/refund rules, observer ownership, intercept geometry, ASW delivery, aircraft altitude and corrected fits. The real-scene interface check exercises mixed salvos on two ships, cancellation, role filtering, target clearing, modal pause restoration and launch statistics.
 
@@ -79,4 +79,4 @@ Validation completed with 564 regression checks, 47 existing command-screen chec
 
 The final 274-actor rendering sample reached 21.7 fps at a 1600 × 900 logical viewport, with a 74.0 ms p95 and a 147.5 ms worst frame over eight seconds. Earlier M30 symbols measured 16.1 fps; batching the SAM/AAM symbol geometry removed excess draw work. The samples are short and the initial comparisons overlapped background stress tests, so no controlled percentage speedup is claimed. Large battles still have visible frame stalls.
 
-The final run counts, battle outcomes, exported-package checks and hashes are recorded in [validation-m30.json](validation-m30.json). The full catalogue snapshot is [catalogue-audit-m30.json](catalogue-audit-m30.json). The editable Godot source and browser package are included. Open `Launch Preview.command` for the local build; publishing this update to GitHub and Pages is a separate step.
+The final run counts, battle outcomes, exported-package checks and hashes are recorded in [validation-m30.json](validation-m30.json). The full catalogue snapshot is [catalogue-audit-m30.json](catalogue-audit-m30.json). The editable Godot source and browser package are included. Open `Launch Preview.command` for the local build, or play the [browser release](https://jjnell95.github.io/naval-fleet-command/play/).

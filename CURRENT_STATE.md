@@ -8,7 +8,7 @@ The 139-platform / 148-weapon catalogue includes corrected aircraft AAM typing, 
 
 Validation: 564 regression tests, 47 command-screen checks, 19 aviation checks, 32 workshop checks and 24 weapon-control checks at each tested desktop size, plus 52 actual-scene battles of 6,000 seconds. The final 274-actor native sample reached 21.7 fps; frame stalls remain.
 
-See the [operating guide and source review](docs/2026-09-29-weapon-control.md), [validation record](docs/validation-m30.json) and [catalogue audit](docs/catalogue-audit-m30.json). This is a local release candidate; GitHub and Pages publication requires owner approval.
+See the [operating guide and source review](docs/2026-09-29-weapon-control.md), [validation record](docs/validation-m30.json) and [catalogue audit](docs/catalogue-audit-m30.json). The release includes the editable source and browser package; GitHub Actions records test and Pages deployment status.
 
 # Previous: M29 Fleet Workshop and Defensive Command
 
