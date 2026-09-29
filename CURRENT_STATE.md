@@ -6,7 +6,7 @@ France's MdCN land-attack cruise missile is on the Aquitaine-class FREMM (8) and
 
 The browser build is rebuilt (57.1 MB) and runs in headless Chromium with no console errors.
 
-Validation: 511 regression tests (483 before), 47 command-screen checks and 19 aviation checks pass. SWEEP_SUMMARY_PLACEHOLDER The frame budget under the chart is unchanged within a few tenths of a millisecond; full screen with shadows costs 17 more draw calls.
+Validation: 511 regression tests (483 before), 47 command-screen checks and 19 aviation checks pass. A before-and-after sweep of the 22 scenarios at two seeds runs clean with every outcome unchanged; 42 of 44 cases fire the same rounds and lose the same units, and the two that change are Hormuz, where Languedoc's MdCN opening leaves the IRGC swarm uncued and the battle quieter. The AI fires MdCN only inside 64 nm, so in Tartus only a player uses it. The frame budget under the chart is unchanged within a few tenths of a millisecond; full screen with shadows costs 17 more draw calls.
 
 See [the M28 notes](docs/2026-09-28-live-view.md), [validation](docs/validation-m28.json) and [the source ledger](DATA_SOURCES.md#deep-strike-and-torpedo-defence-28-september-2026-later-the-same-day).
 
