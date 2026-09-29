@@ -46,3 +46,9 @@ jobs:
 
       - name: Air operations checks
         run: timeout 600 xvfb-run -a -s "-screen 0 1600x1000x24" ~/godot/godot --path . --resolution 1600x1000 -- --aviation-smoke
+
+      - name: Fleet workshop checks (1600 x 900)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1600x900x24" ~/godot/godot --path . --resolution 1600x900 -- --fleet-workshop-smoke --scenario-storage=res://work/ci-workshop-1600
+
+      - name: Fleet workshop checks (1280 x 720)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --path . --resolution 1280x720 -- --fleet-workshop-smoke --scenario-storage=res://work/ci-workshop-1280

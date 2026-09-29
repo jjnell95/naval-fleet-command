@@ -193,6 +193,9 @@ var _trail_last_s := -1.0e9
 var _effects: Array = []  # {pos, t0, kind, color}
 var _anim := 0.0
 var _threats: Array = []
+var _threat_candidates: Array = []
+var _threat_cache_time := -1.0
+var _threat_cache_revision := -1
 var _weapon_trails: Dictionary = {}  # weapon id -> PackedVector2Array of recent positions
 var _hit_flash := 0.0
 var show_range_grid := false
@@ -513,6 +516,10 @@ func _witness(pos: Vector2, target: Unit) -> Vector2:
 
 
 func reset_presentation() -> void:
+	_threats.clear()
+	_threat_candidates.clear()
+	_threat_cache_time = -1.0
+	_threat_cache_revision = -1
 	_radio.clear()
 	_labels.clear()
 	_label_queue.clear()
@@ -1109,9 +1116,27 @@ func reference_unit() -> Unit:
 
 # --- Drawing ----------------------------------------------------------------------------
 
+## Geometry changes on simulation ticks or new detections. Visibility still follows the
+## selected observer every frame, so a disconnected ship cannot inherit another sensor picture.
+func _refresh_threats() -> void:
+	_threats.clear()
+	if unit_manager == null or threat_manager == null:
+		return
+	if _threat_cache_time != SimClock.sim_time or _threat_cache_revision != threat_manager.revision:
+		_threat_candidates = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction)
+		_threat_cache_time = SimClock.sim_time
+		_threat_cache_revision = threat_manager.revision
+	var observer := reference_unit()
+	for entry: Dictionary in _threat_candidates:
+		var w: Weapon = entry["weapon"]
+		var victim: Unit = entry["target"]
+		if w.phase != Weapon.Phase.DEAD and victim.alive and (observer == null or threat_manager.visible_to(observer, w)):
+			_threats.append(entry)
+
+
 func _draw() -> void:
 	var t0 := Time.get_ticks_usec()
-	_threats = AirDefence.inbound_threats(unit_manager, threat_manager, player_faction, reference_unit()) if unit_manager != null and threat_manager != null else []
+	_refresh_threats()
 	var t1 := Time.get_ticks_usec()
 	_draw_ocean()
 	_draw_land()
@@ -1132,10 +1157,19 @@ func _draw() -> void:
 			_draw_truth()
 		_draw_sonobuoys()
 		_draw_relative_motion()
+		var plot_start := Time.get_ticks_usec()
 		_draw_tracks()
+		var tracks_end := Time.get_ticks_usec()
 		_draw_units()
+		var units_end := Time.get_ticks_usec()
 		_draw_labels()
+		var labels_end := Time.get_ticks_usec()
 		_draw_weapons()
+		var weapons_end := Time.get_ticks_usec()
+		Debug.time_add("plot/tracks", tracks_end - plot_start)
+		Debug.time_add("plot/units", units_end - tracks_end)
+		Debug.time_add("plot/labels", labels_end - units_end)
+		Debug.time_add("plot/weapons", weapons_end - labels_end)
 		_draw_effects()
 		_draw_speaker_rings()
 	_draw_range_circle()
@@ -1963,15 +1997,25 @@ func _draw_weapons() -> void:
 			continue  # an undetected round is invisible, which is the whole problem
 		var sp := world_to_screen(w.position)
 		var col := COL_FRIENDLY if own else COL_HOSTILE
-		if w.is_interceptor() and w.intercept_target != null:
+		# Detailed guidance lines belong to the hooked engagement. Drawing one long dashed
+		# solution for every round in a massed salvo obscures the fleet and dominates redraws.
+		var hooked := selected.has(w.shooter)
+		if w.is_interceptor() and w.intercept_target != null and (hooked or selected.has(w.intercept_target.acquired)):
 			draw_line(sp, world_to_screen(w.intercept_target.position), Color(col, 0.3), 1.0, true)
-		elif own and w.target_track != null and w.phase == Weapon.Phase.CRUISE:
+		elif own and hooked and w.target_track != null and w.phase == Weapon.Phase.CRUISE:
 			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.3), 1.0, 5.0)
 		if _weapon_trails.has(w.id):
 			var arr: PackedVector2Array = _weapon_trails[w.id]
-			for i in range(1, arr.size()):
-				var f := float(i) / float(arr.size())
-				draw_line(world_to_screen(arr[i - 1]), world_to_screen(arr[i]), Color(col, 0.05 + 0.35 * f), 1.0, true)
+			var points := PackedVector2Array()
+			var colors := PackedColorArray()
+			for i in arr.size():
+				var point := world_to_screen(arr[i])
+				if not points.is_empty() and point.distance_squared_to(points[-1]) < 4.0 and i < arr.size() - 1:
+					continue
+				points.append(point)
+				colors.append(Color(col, 0.05 + 0.35 * float(i + 1) / float(arr.size())))
+			if points.size() >= 2:
+				draw_polyline_colors(points, colors, 1.0, true)
 		MapSymbols.draw_weapon(self, sp, w.heading_deg, col, w.spec.is_torpedo())
 		if Debug.enabled:
 			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.4), 1.0, 5.0)

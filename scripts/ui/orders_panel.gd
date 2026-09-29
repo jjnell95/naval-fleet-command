@@ -17,6 +17,9 @@ signal unit_orders_requested(pairs: Array)
 const SPEED_PRESETS: Array[float] = [5.0, 10.0, 15.0, 20.0, 25.0]
 
 var weapon_manager: WeaponManager
+var threat_manager: ThreatManager
+var _defence_summary: Label
+var _defence_buttons: Dictionary = {}
 var _weapon_art: TextureRect
 var _inspect_weapon: Button
 var _status: Label
@@ -98,6 +101,7 @@ func _ready() -> void:
 	_engagement_tab_btn.theme_type_variation = "PrimaryButton"
 	UIIcons.apply(_engagement_tab_btn, "target", 16)
 	quick.add_child(_engagement_tab_btn)
+	quick.add_child(_quick_button("DEFENCE", "Countermeasures, evasive maneuvers and interceptor policy. D deploys radar decoys; V evades.", func() -> void: _tabs.current_tab = 4))
 	_tabs = TabContainer.new()
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tabs.tab_changed.connect(func(_t: int) -> void: _sync_engage_emphasis())
@@ -233,9 +237,36 @@ func _ready() -> void:
 	_add_button(_cmdrow, "FREE", func() -> void: _emit_raw(Order.set_roe(Unit.Roe.FREE)))
 	_cmdrow.add_child(_spacer(14))
 	_cmdrow.add_child(_label("FORM"))
-	for pattern in ["screen", "column", "abreast"]:
+	for pattern in ["screen", "column", "abreast", "dispersed"]:
 		_add_button(_cmdrow, pattern.to_upper(), func() -> void: formation_requested.emit(pattern))
 	_add_button(_cmdrow, "BREAK", func() -> void: _emit_raw(Order.break_formation()))
+
+	var defence := VBoxContainer.new()
+	defence.name = "DEFENCE"
+	_tabs.add_child(defence)
+	var response := HBoxContainer.new()
+	defence.add_child(response)
+	for entry in [["radar", "CHAFF / RF"], ["infrared", "FLARES / IR"], ["acoustic", "ACOUSTIC"]]:
+		var kind: String = entry[0]
+		var b := _add_button(response, entry[1], func() -> void: _emit_raw(Order.deploy_countermeasures(kind)))
+		b.tooltip_text = "One expendable pack. 20 s active, 25 s between deployments. Only compatible seekers can be seduced."
+		_defence_buttons[kind] = b
+	_defence_buttons["evade"] = _add_button(response, "EVADE", func() -> void: _emit_raw(Order.evade()))
+	_defence_buttons["evade"].tooltip_text = "Turn across a detected incoming missile, or away from a torpedo. Routes and stations resume after the maneuver. [V]"
+	_add_button(response, "RUN AWAY", func() -> void: _emit_raw(Order.evade("away")))
+	_add_button(response, "RESUME PLAN", func() -> void: _emit_raw(Order.resume_plan()))
+	var policy := HBoxContainer.new()
+	defence.add_child(policy)
+	policy.add_child(_label("INTERCEPTORS"))
+	for kind: String in ["conserve", "balanced", "saturation"]:
+		var b := _add_button(policy, kind.to_upper(), func() -> void: _emit_raw(Order.set_defence_policy(kind)))
+		b.tooltip_text = "Conserve: one guided shot until urgent. Balanced: two. Saturation: three. Close-in weapons keep a separate allowance."
+	policy.add_child(_spacer(10))
+	_add_button(policy, "CM AUTO", func() -> void: _emit_raw(Order.set_auto_countermeasures(true)))
+	_add_button(policy, "CM MANUAL", func() -> void: _emit_raw(Order.set_auto_countermeasures(false)))
+	_defence_summary = _label("")
+	_defence_summary.clip_text = true
+	defence.add_child(_defence_summary)
 
 	_tabs.current_tab = 0
 	set_units([], false)
@@ -340,6 +371,31 @@ func _sync_quick_actions() -> void:
 	_engagement_tab_btn.text = ("ENGAGE " + _target.id) if _target != null else "ENGAGE"
 	_sync_engage_emphasis()
 	_refresh_status()
+	_sync_defence()
+
+
+func _sync_defence() -> void:
+	if _defence_summary == null:
+		return
+	var packs := 0
+	var acoustic := 0
+	var active := 0
+	var evading := 0
+	for u: Unit in _units:
+		packs += u.decoys
+		acoustic += u.torpedo_decoys
+		active += int(u.countermeasure_remaining_s > 0)
+		evading += int(u.evasion_remaining_s > 0)
+	for kind: String in ["radar", "infrared", "acoustic"]:
+		var ready := false
+		for u: Unit in _units:
+			ready = ready or DefensiveResponse.can_deploy(u, kind)
+		_defence_buttons[kind].disabled = not _controllable or not ready
+	_defence_buttons["evade"].disabled = not _controllable or not _movable
+	var policy: String = _units[0].defence_policy if not _units.is_empty() else "balanced"
+	var automatic: bool = _units[0].auto_countermeasures if not _units.is_empty() else true
+	var detail := DefensiveResponse.status(_units[0]) if _units.size() == 1 else "%d active / %d evading" % [active, evading]
+	_defence_summary.text = "%d RF/IR packs / %d acoustic / %s / CM %s / %s" % [packs, acoustic, str(policy).to_upper(), "AUTO" if automatic else "MANUAL", detail]
 
 
 ## A MIXED selection state reads amber without tinting the whole button.

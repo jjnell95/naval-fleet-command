@@ -12,15 +12,18 @@ signal threat_detected(faction: String, weapon: Weapon)
 var _observers: Dictionary = {}
 var _detected: Dictionary = {}  # faction -> Dictionary[int weapon_id, Weapon]
 var _first_seen: Dictionary = {}  # faction -> Dictionary[int weapon_id, float]
+var revision := 0  # invalidates presentation geometry, including detections while paused
 
 
 func begin_cycle() -> void:
+	revision += 1
 	_observers.clear()
 	for faction in _detected.keys():
 		_detected[faction] = {}
 
 
 func mark_detected(faction: String, w: Weapon, now: float, observer: Unit = null) -> void:
+	revision += 1
 	if not _observers.has(w.id):
 		_observers[w.id] = []
 	_observers[w.id].append(observer)
@@ -58,6 +61,7 @@ func visible_to(u: Unit, w: Weapon) -> bool:
 
 
 func forget(w: Weapon) -> void:
+	revision += 1
 	_observers.erase(w.id)
 	for faction in _detected.keys():
 		_detected[faction].erase(w.id)
@@ -66,6 +70,7 @@ func forget(w: Weapon) -> void:
 
 
 func clear() -> void:
+	revision += 1
 	_observers.clear()
 	_detected.clear()
 	_first_seen.clear()

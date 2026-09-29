@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -22,10 +22,48 @@ var emcon_silent := false
 var roe := 2
 var leader: Unit
 var offset_nm := Vector2.ZERO
+var countermeasure_kind := "radar"
+var evasion_mode := "auto"
+var defence_policy := "balanced"
+var automatic := true
 ## Specialist managers set this during the synchronous order_issued route. UnitManager returns it
 ## to the caller, so a UI receipt can distinguish a command that was merely routed from one that
 ## actually secured a firing channel, deck spot, return state, or buoy deployment.
 var execution_accepted := true
+
+
+static func deploy_countermeasures(kind := "radar") -> Order:
+	var o := Order.new()
+	o.type = Type.DEPLOY_COUNTERMEASURES
+	o.countermeasure_kind = kind
+	return o
+
+
+static func evade(mode := "auto") -> Order:
+	var o := Order.new()
+	o.type = Type.EVADE
+	o.evasion_mode = mode
+	return o
+
+
+static func resume_plan() -> Order:
+	var o := Order.new()
+	o.type = Type.RESUME_PLAN
+	return o
+
+
+static func set_defence_policy(policy: String) -> Order:
+	var o := Order.new()
+	o.type = Type.SET_DEFENCE_POLICY
+	o.defence_policy = policy
+	return o
+
+
+static func set_auto_countermeasures(enabled: bool) -> Order:
+	var o := Order.new()
+	o.type = Type.SET_AUTO_COUNTERMEASURES
+	o.automatic = enabled
+	return o
 
 
 static func move(pos: Vector2, append_waypoint := false) -> Order:
@@ -169,6 +207,16 @@ static func break_formation() -> Order:
 
 func describe() -> String:
 	match type:
+		Type.DEPLOY_COUNTERMEASURES:
+			return "DEPLOY %s COUNTERMEASURES" % countermeasure_kind.to_upper()
+		Type.EVADE:
+			return "EVASIVE MANEUVER %s" % evasion_mode.to_upper()
+		Type.RESUME_PLAN:
+			return "RESUME ROUTE / STATION"
+		Type.SET_DEFENCE_POLICY:
+			return "DEFENCE %s" % defence_policy.to_upper()
+		Type.SET_AUTO_COUNTERMEASURES:
+			return "COUNTERMEASURES %s" % ("AUTO" if automatic else "MANUAL")
 		Type.MOVE:
 			return "MOVE to %s/%s%s" % [Geo.format_axis(target_pos.x, "E", "W"), Geo.format_axis(target_pos.y, "N", "S"), " (append)" if append else ""]
 		Type.SET_COURSE:

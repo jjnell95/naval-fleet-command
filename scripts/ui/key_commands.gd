@@ -35,6 +35,9 @@ const COMMANDS := [
 		["F9 / F11 / F12 / F8", "Tether / fly-by / action / detached"],
 	]],
 	["COMMAND", [
+		["J", "Fleet Operations: task groups and fleet orders"],
+		["D / V", "Radar countermeasures / evasive maneuver"],
+		["Ctrl+1..9 / Alt+1..9", "Save / recall a fleet selection group"],
 		["R / P / E", "Radar / active sonar / emission control"],
 		["A", "Status boards: orders, task group, track file, comms"],
 		["F3", "Air operations"],

@@ -16,10 +16,11 @@ static func step(u: Unit, dt: float) -> void:
 		u.speed_kn = 0.0
 		u.altitude_m = 0.0
 		return
-	var desired := u.ordered_heading_deg
+	var evading := u.evasion_remaining_s > 0.0
+	var desired := u.evasion_course_deg if evading else u.ordered_heading_deg
 	if u.needs_sea_room():
 		_drop_stranded_waypoints(u)
-	if not u.waypoints.is_empty():
+	if not evading and not u.waypoints.is_empty():
 		var wp: Vector2 = u.waypoints[0]
 		var arrive := maxf(ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
 		if u.position.distance_to(wp) <= arrive:
@@ -43,6 +44,10 @@ static func step(u: Unit, dt: float) -> void:
 	u.heading_deg = fposmod(u.heading_deg + delta, 360.0)
 
 	var target_speed := clampf(u.ordered_speed_kn, 0.0, u.effective_max_speed())
+	if evading:
+		target_speed = u.effective_max_speed()
+	else:
+		target_speed = minf(target_speed, u.formation_speed_cap_kn)
 	var max_dv := u.spec.accel_kn_s * dt
 	u.speed_kn += clampf(target_speed - u.speed_kn, -max_dv, max_dv)
 

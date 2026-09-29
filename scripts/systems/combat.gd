@@ -122,9 +122,9 @@ static func hit_probability(spec: WeaponSpec, target: Unit) -> float:
 	if target.in_flight():
 		# An aircraft is a far easier thing to hit than a sea-skimming missile, and these weapons
 		# are rated against the harder job.
-		return clampf(spec.base_pk * AIR_TARGET_BONUS, 0.0, 0.90)
+		return clampf(spec.base_pk * AIR_TARGET_BONUS * DefensiveResponse.evasion_factor(target, spec), 0.0, 0.90)
 	var size_mod := clampf(0.75 + target.spec.signature_factor * 0.25, 0.6, 1.1)
-	return clampf(spec.base_pk * size_mod, 0.0, 0.99)
+	return clampf(spec.base_pk * size_mod * DefensiveResponse.evasion_factor(target, spec), 0.0, 0.99)
 
 
 ## How long this weapon would take to cover a given range.

@@ -1,4 +1,16 @@
-# Current State: M28 The Live View, Deep Strike and Torpedo Defence
+# Current State: M29 Fleet Workshop and Defensive Command
+
+Custom missions are now the front door. A seeded fleet builder creates opposing 1990 or 2027 forces across four chart regions, with scalable formations and finite carrier wings. The editor adds platform search, bulk placement, undo/redo, fitted weapon and air-wing editing, reinforcement arrival times and multi-stage victory tasks. It validates files before import or play. The 22 legacy operations remain optional templates and test fixtures.
+
+The player can deploy radar, infrared or acoustic countermeasures, order temporary evasive steering and resume the previous plan. Stores and deployment windows are finite; compatibility follows seeker type. The three interception policies coordinate guided commitments across escorts. RAM's passive RF/IR guidance no longer takes an illumination channel, and the terminal-seeker labels for JASSM-ER and LRASM are explicit.
+
+Fleet Operations (J) exposes group readiness and orders. Selection groups use Ctrl+1–9 to store and Alt+1–9 to recall. Formations stop reusing the same five stations, respect a slower or damaged consort, and pass command to a surviving ship when their leader is lost. Shared threat geometry reduces repeated AI and chart work without sharing detections with disconnected units.
+
+Validation: 545 regression tests, 47 command-screen checks, 19 aviation checks, and 32 exported workshop checks at each of 1600 × 900 and 1280 × 720 pass. All 52 actual-scene battles complete 6,000 simulated seconds without script errors, with no hulls grounded at the end. The 274-actor native stress sample improves from 12.4 to 20.2 fps, with noticeable large-salvo stalls still present.
+
+See the [operating guide](docs/2026-09-29-fleet-workshop.md), [validation record](docs/validation-m29.json) and [source notes](DATA_SOURCES.md#fleet-workshop-and-defensive-responses-29-september-2026). This is a locally prepared release; the public game remains unchanged until publication is approved.
+
+## Previous: M28 The Live View, Deep Strike and Torpedo Defence
 
 The 3D view's ships, aircraft and submarines look different now, most of them without any change to their models. Each surface is dressed at runtime in a finish that knows what it is: the navy's own paint (U.S. haze grey, the Royal Navy's lighter grey, Russian blue-grey, the PLA Navy's pale grey), plating seams, grime and rust, mottled decks, airframe panel lines, a submarine's rubber tiles. It is lit by a sky-and-sea hemisphere instead of the flat lavender ambient that washed every face to the same pale grey, with sun shadows when the view is swapped or full screen. Hulls are wet and foam-edged where the swell meets them, throw a bow wave under way, and a carrier's wake is continuous: it used to break into patches because its samples fell one swell wavelength apart. Ships show navigation lights on their proper arcs after dark, helicopters a turning rotor disc, and a submerged boat is drawn through the water with its form kept. The seven flat-tops in the operations (Nimitz, Ford, the 1990 Nimitz, Queen Elizabeth, Charles de Gaulle, America, Mistral) are rebuilt with their islands, angled decks, lifts, sponsons, markings and deck parks.
 

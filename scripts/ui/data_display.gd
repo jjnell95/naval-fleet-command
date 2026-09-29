@@ -158,6 +158,9 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 		var fuel := int(round(u.fuel_fraction() * 100.0))
 		rows.append(_kv("%FUEL", str(fuel), ALERT if fuel <= 20 else VALUE))
 	rows.append(_kv("ORDERS", orders_text(u, weapon_manager)))
+	var response := DefensiveResponse.status(u)
+	if response != "":
+		rows.append(_kv("DEFENCE", response, ALERT))
 	var sensors := sensors_text(u)
 	if sensors != "":
 		rows.append(_kv("SENSORS", sensors))
@@ -244,6 +247,8 @@ static func damage_percent(u: Unit) -> int:
 
 ## Plain words for what the unit is doing, the way an operator would report it.
 static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String:
+	if u.evasion_remaining_s > 0:
+		return "Evade %03d (%ds), then resume plan" % [int(u.evasion_course_deg), int(ceil(u.evasion_remaining_s))]
 	if weapon_manager != null:
 		for w in weapon_manager.in_flight:
 			if w.shooter == u and w.target_track != null and not w.is_interceptor():

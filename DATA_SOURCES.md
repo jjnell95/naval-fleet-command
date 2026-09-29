@@ -393,3 +393,12 @@ pins the fits above.
 # Cold War 1990 additions
 
 The dated platform identities, historical references, period loadout exclusions and simulation limits for the 1990 operations are recorded in [the Cold War source ledger](docs/COLD_WAR_1990.md). The missions are alternate history. Combat performance and aircraft detachments remain explicitly identified game estimates.
+
+
+## Fleet workshop and defensive responses (29 September 2026)
+
+- RAM Block 2: [Raytheon's RAM description](https://www.rtx.com/raytheon/what-we-do/sea/ram-missile) identifies passive RF/IR guidance and independent operation after launch. `ram_block2` now uses that guidance label and does not consume an illumination channel. Checked 2026-09-29.
+- JASSM-ER: [Lockheed Martin's JASSM history](https://www.lockheedmartin.com/en-us/news/features/history/jassm.html) describes infrared terminal guidance and anti-jam GPS. The catalogue now explicitly represents imaging infrared terminal guidance. Checked 2026-09-29.
+- LRASM: [Lockheed Martin's captive-carriage test release](https://news.lockheedmartin.com/2012-07-16-Lockheed-Martin-Successfully-Completes-First-LRASM-Captive-Carriage-Test) identifies the RF sensor, data link and electro-optical terminal identification. The game represents that terminal discrimination with the imaging-IR compatibility band. This is a game abstraction, not a claim about undisclosed seeker logic. Checked 2026-09-29.
+- Countermeasure inventory is the existing generic platform stock. Pulse duration, reload, susceptibility, 60/25-second evasion windows, bounded maneuver benefit and Conserve/Balanced/Saturation shot budgets are explicit gameplay estimates. No classified performance is asserted. Unspecified inertial-terminal weapons are not assumed to be flare-susceptible.
+- The 1990 opposing-carrier recipe uses a period Nimitz as a fictional opposing force because this catalogue lacks a Soviet carrier. The recipe does not present that force as a historical order of battle.

@@ -162,6 +162,10 @@ func ai_state_for(u: Unit) -> String:
 ## the player and (from Milestone 5) the AI use one command path.
 func _on_order_issued(u: Unit, o: Order) -> void:
 	match o.type:
+		Order.Type.DEPLOY_COUNTERMEASURES:
+			o.execution_accepted = DefensiveResponse.deploy(u, o.countermeasure_kind, weapon_manager)
+		Order.Type.EVADE:
+			o.execution_accepted = DefensiveResponse.start_evasion(u, unit_manager, threat_manager, o.evasion_mode)
 		Order.Type.ENGAGE:
 			var spec := u.get_weapon(o.weapon_id)
 			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time)
@@ -182,6 +186,7 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 
 
 func _on_tick(dt: float) -> void:
+	var profile_at := Time.get_ticks_usec()
 	_tick_operation_events(SimClock.sim_time)
 	unit_manager.tick(dt)
 	for e: Dictionary in Damage.tick(unit_manager.units, dt):
@@ -191,20 +196,32 @@ func _on_tick(dt: float) -> void:
 			# Lost to fire or flooding after the fact: the same destruction every other system
 			# already listens for, credited to whoever started it.
 			weapon_manager.unit_destroyed.emit(u, u.last_attacker)
+	Debug.time_add("sim/units", Time.get_ticks_usec() - profile_at)
+	profile_at = Time.get_ticks_usec()
 	sensor_manager.tick(dt)
+	Debug.time_add("sim/sensors", Time.get_ticks_usec() - profile_at)
+	profile_at = Time.get_ticks_usec()
 	weapon_manager.tick(dt, SimClock.sim_time)
+	Debug.time_add("sim/weapons", Time.get_ticks_usec() - profile_at)
+	profile_at = Time.get_ticks_usec()
 	aviation_manager.tick(dt, SimClock.sim_time)
+	Debug.time_add("sim/aviation", Time.get_ticks_usec() - profile_at)
+	profile_at = Time.get_ticks_usec()
 	_defence_accum += dt
 	while _defence_accum >= DEFENCE_DT - 1e-6:
 		_defence_accum -= DEFENCE_DT
+		DefensiveResponse.run_cycle(unit_manager, threat_manager, weapon_manager)
 		AirDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
 		TorpedoDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
+	Debug.time_add("sim/defence", Time.get_ticks_usec() - profile_at)
+	profile_at = Time.get_ticks_usec()
 	if ai_enabled:
 		_ai_accum += dt
 		while _ai_accum >= AI_DT - 1e-6:
 			_ai_accum -= AI_DT
 			for c in ai_controllers.values():
 				c.tick(SimClock.sim_time)
+	Debug.time_add("sim/ai", Time.get_ticks_usec() - profile_at)
 	mission_manager.tick(SimClock.sim_time)
 
 

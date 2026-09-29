@@ -18,6 +18,7 @@ var target_track: Track
 var acquired: Unit
 var intercept_target: Weapon  # set when this round is a SAM or close-in round
 var decoy_attempted := false
+var countermeasure_attempts: Dictionary = {}  # one roll per unit and deployed pulse
 ## Ships whose acoustic countermeasures have had their try at this torpedo: unit id -> true. A
 ## torpedo decoyed onto another ship meets that ship's own.
 var acoustic_decoy_tried: Dictionary = {}
