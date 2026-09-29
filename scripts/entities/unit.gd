@@ -62,6 +62,17 @@ var sortie_loadout: Dictionary = {}  # authored aircraft fit, retained on every 
 var aviation_stores: Dictionary = {}  # host reload rounds, separate from its own launchers
 var aviation_buoys := 0
 var decoys := 0
+var auto_countermeasures := true
+var defence_policy := "balanced"  # balanced | conserve | saturation
+var defence_priority := 0
+var countermeasure_kind := ""
+var countermeasure_generation := 0
+var countermeasure_remaining_s := 0.0
+var countermeasure_reload_s := 0.0
+var evasion_remaining_s := 0.0
+var evasion_course_deg := 0.0
+var evasion_start_heading_deg := 0.0
+var formation_speed_cap_kn := INF
 var torpedo_decoys := 0  # expendable acoustic decoys left
 var patrol_route: Array[Vector2] = []  # standing orders from the scenario, used by the AI
 ## How the AI is meant to play this ship. "standard" fights and withdraws on its own judgement.
@@ -335,6 +346,8 @@ func at_periscope_depth() -> bool:
 
 
 func apply_order(order: Order) -> void:
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP]:
+		evasion_remaining_s = 0.0
 	match order.type:
 		Order.Type.MOVE:
 			if not order.append:
@@ -367,6 +380,14 @@ func apply_order(order: Order) -> void:
 			active_sonar_on = false
 		Order.Type.SET_ROE:
 			roe = order.roe as Roe
+		Order.Type.SET_DEFENCE_POLICY:
+			defence_policy = order.defence_policy
+		Order.Type.SET_AUTO_COUNTERMEASURES:
+			auto_countermeasures = order.automatic
+		Order.Type.RESUME_PLAN:
+			evasion_remaining_s = 0.0
+		Order.Type.DEPLOY_COUNTERMEASURES, Order.Type.EVADE:
+			pass  # Simulation owns inventory and detected-threat checks.
 		Order.Type.FORM_UP:
 			formation_leader = order.leader
 			formation_offset = order.offset_nm

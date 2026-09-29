@@ -29,7 +29,7 @@ static func station_for(u: Unit) -> Vector2:
 
 ## Steers one unit toward its station. Runs before Movement each tick.
 static func step(u: Unit) -> void:
-	if not u.in_formation():
+	if not u.in_formation() or u.evasion_remaining_s > 0:
 		return
 	var leader := u.formation_leader
 	var station := station_for(u)
@@ -46,13 +46,86 @@ static func step(u: Unit) -> void:
 
 ## Assigns a named pattern to a selection. The first unit leads; the rest take stations in order.
 ## Returns the orders to issue, so the caller still goes through the normal command path.
-static func assign(units: Array, pattern: String) -> Array:
-	var offsets: Array = PATTERNS.get(pattern, PATTERNS["column"])
+static func assign(units: Array, pattern: String, spacing := 1.0) -> Array:
 	var out: Array = []
 	if units.size() < 2:
 		return out
 	var leader: Unit = units[0]
+	var station_index := 0
 	for i in range(1, units.size()):
-		var offset: Vector2 = offsets[(i - 1) % offsets.size()]
+		var u: Unit = units[i]
+		if not can_join(u, leader):
+			continue
+		var offset := offset_for(station_index, pattern) * clampf(spacing, 0.5, 3.0)
 		out.append({"unit": units[i], "order": Order.form_up(leader, offset)})
+		station_index += 1
 	return out
+
+
+## Stations grow with the force. Modulo-five reuse put the sixth escort on the first escort.
+static func offset_for(i: int, pattern: String) -> Vector2:
+	match pattern:
+		"column":
+			return Vector2(0, -1.5 * (i + 1))
+		"abreast":
+			return Vector2((1 if i % 2 == 0 else -1) * 2.5 * (floori(i / 2.0) + 1), 0)
+		"wedge":
+			var rank := floori(i / 2.0) + 1
+			return Vector2((1 if i % 2 == 0 else -1) * 3.0 * rank, -3.0 * rank)
+		"dispersed":
+			return Geo.heading_to_vector(i % 8 * 45.0 + floori(i / 8.0) * 22.5) * (10.0 + floori(i / 8.0) * 8.0)
+		_:
+			if i < PATTERNS["screen"].size():
+				return PATTERNS["screen"][i]
+			var n := i - PATTERNS["screen"].size()
+			return Geo.heading_to_vector(n % 8 * 45.0 + floori(n / 8.0) * 22.5) * (13.0 + floori(n / 8.0) * 7.0)
+
+
+static func can_join(u: Unit, leader: Unit) -> bool:
+	if u == null or leader == null or u == leader or not u.is_engageable() or not leader.is_engageable():
+		return false
+	if u.faction != leader.faction or u.spec.domain != leader.spec.domain or u.spec.max_speed_kn <= 0:
+		return false
+	if u.is_aircraft() and (not u.airborne() or not leader.airborne()):
+		return false
+	var seen: Dictionary = {}
+	var ancestor := leader
+	while ancestor != null:
+		if ancestor == u or seen.has(ancestor):
+			return false
+		seen[ancestor] = true
+		ancestor = ancestor.formation_leader
+	return true
+
+
+## The flagship paces the slowest consort, including battle damage, while consorts retain speed
+## in reserve to regain station. Dead flagships pass command to a surviving group member.
+static func update_speed_caps(units: Array) -> void:
+	var orphan_groups: Dictionary = {}
+	for u: Unit in units:
+		u.formation_speed_cap_kn = INF
+		if u.alive and u.formation_leader != null and not u.formation_leader.alive:
+			var old := u.formation_leader
+			if not orphan_groups.has(old):
+				orphan_groups[old] = []
+			orphan_groups[old].append(u)
+	for old: Unit in orphan_groups:
+		var survivors: Array = orphan_groups[old]
+		survivors.sort_custom(func(a: Unit, b: Unit) -> bool: return a.id < b.id)
+		var successor: Unit = survivors[0]
+		successor.formation_leader = null
+		var ahead := Geo.heading_to_vector(successor.heading_deg)
+		var right := Geo.heading_to_vector(successor.heading_deg + 90.0)
+		for i in range(1, survivors.size()):
+			var member: Unit = survivors[i]
+			var relative := member.position - successor.position
+			member.formation_leader = successor
+			member.formation_offset = Vector2(relative.dot(right), relative.dot(ahead))
+	for u: Unit in units:
+		if u.alive and u.in_formation() and u.evasion_remaining_s <= 0:
+			var leader := u.formation_leader
+			var seen: Dictionary = {}
+			while leader != null and leader.alive and not seen.has(leader):
+				seen[leader] = true
+				leader.formation_speed_cap_kn = minf(leader.formation_speed_cap_kn, u.effective_max_speed())
+				leader = leader.formation_leader

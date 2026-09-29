@@ -4,11 +4,11 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M28 / Live view"
+const BUILD_MILESTONE := "M29 / Fleet workshop"
 const DEFAULT_SCENARIO := "res://data/scenarios/cold_war_01_convoy.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
-const SCRIPTED_FLAGS := ["--cold-war-smoke", "--aviation-smoke", "--open-air-ops", "--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
+const SCRIPTED_FLAGS := ["--fleet-workshop-smoke", "--cold-war-smoke", "--aviation-smoke", "--open-air-ops", "--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
 
 @onready var simulation: Simulation = %Simulation
 @onready var map: TacticalMap = %TacticalMap
@@ -24,6 +24,7 @@ const SCRIPTED_FLAGS := ["--cold-war-smoke", "--aviation-smoke", "--open-air-ops
 
 ## The message traffic: the radio line on the chart, the data display's lamp and the comms board.
 var radio := RadioNet.new()
+var _control_groups: Dictionary = {}
 var regional: RegionalMap
 
 var _library: PlatformLibrary
@@ -33,6 +34,7 @@ var _menu: ScenarioMenu
 var _briefing: BriefingPanel
 var _command_palette: CommandPalette
 var _air_operations: AirOperations
+var _fleet_operations: FleetOperations
 var _modal_pause_captured := false
 var _modal_was_paused := true
 var _background_focus_modes: Dictionary = {}
@@ -100,6 +102,7 @@ func _ready() -> void:
 	_cds_menus.menu_closed.connect(func() -> void: map.menu_open = false)
 	add_child(_cds_menus)
 	orders_panel.weapon_manager = simulation.weapon_manager
+	orders_panel.threat_manager = simulation.threat_manager
 	map.unit_manager = simulation.unit_manager
 	map.track_manager = simulation.track_manager
 	map.weapon_manager = simulation.weapon_manager
@@ -242,6 +245,9 @@ func _objective_summary() -> String:
 # --- Scenario lifecycle -------------------------------------------------------------------
 
 func start_scenario(path: String) -> void:
+	_control_groups.clear()
+	if _fleet_operations != null:
+		_fleet_operations.hide()
 	if _air_operations != null:
 		_air_operations.hide()
 		_air_operations.clear_selection()
@@ -434,6 +440,16 @@ func _build_screens() -> void:
 	add_child(_air_operations)
 	_air_operations.hide()
 	_key_help = KeyCommands.new()
+	_fleet_operations = FleetOperations.new()
+	_fleet_operations.simulation = simulation
+	_fleet_operations.closed.connect(_close_fleet_operations)
+	_fleet_operations.selection_requested.connect(func(units: Array) -> void: map.select_units(units))
+	_fleet_operations.order_requested.connect(func(order: Order) -> void:
+		_apply_order_to_selection(order)
+		_fleet_operations.refresh())
+	_fleet_operations.formation_requested.connect(_apply_formation)
+	add_child(_fleet_operations)
+	_fleet_operations.hide()
 	_key_help.name = "KeyCommands"
 	_key_help.closed.connect(_restore_modal_pause_if_clear)
 	add_child(_key_help)
@@ -536,6 +552,7 @@ func _has_visible_modal() -> bool:
 		or (_library != null and _library.visible) \
 		or (_command_palette != null and _command_palette.visible) \
 		or (_air_operations != null and _air_operations.visible) \
+		or (_fleet_operations != null and _fleet_operations.visible) \
 		or (_key_help != null and _key_help.visible) \
 		or (_report != null and _report.visible)
 
@@ -557,6 +574,21 @@ func _toggle_air_operations() -> void:
 		return
 	_begin_modal_pause()
 	_air_operations.open_for(map.selected)
+
+
+func _toggle_fleet_operations() -> void:
+	if _fleet_operations.visible:
+		_close_fleet_operations()
+		return
+	if _has_visible_modal():
+		return
+	_begin_modal_pause()
+	_fleet_operations.open_for(map.selected)
+
+
+func _close_fleet_operations() -> void:
+	_fleet_operations.hide()
+	_restore_modal_pause_if_clear()
 
 
 func _close_air_operations(execute := false) -> void:
@@ -657,6 +689,10 @@ func _palette_actions() -> Array[Dictionary]:
 	var emcon_state := orders_panel._selection_state("emcon")
 	var layers := _cds_state()
 	var actions: Array[Dictionary] = [
+		{"id": "fleet_operations", "label": "Fleet Operations", "description": "Task-group readiness, stations and fleet orders.", "shortcut": "J", "enabled": true},
+		{"id": "deploy_radar_decoys", "label": "Deploy chaff / radar countermeasures", "description": "Use one RF pack on each capable selected platform. Timing, stores and seeker type matter.", "shortcut": "D", "enabled": controllable},
+		{"id": "evade", "label": "Evade detected inbound weapons", "description": "Temporary emergency maneuver, then resume the route or formation station.", "shortcut": "V", "enabled": movable},
+		{"id": "resume_plan", "label": "Resume route / station", "description": "End the emergency maneuver without erasing the standing plan.", "shortcut": "", "enabled": movable},
 		{"id": "swap_views", "label": "Swap chart and 3D view", "description": "Put the 3D view in the top area and the chart in the bottom-centre pane, or back.", "shortcut": "G", "enabled": true, "state": "3D on top" if _views_swapped else "chart on top"},
 		{"id": "world_full", "label": "3D view full screen", "description": "Give the 3D view the whole window; press again or Escape to return.", "shortcut": "F10", "enabled": true, "state": "on" if _world_full else "off"},
 		{"id": "camera_cycle", "label": "Cycle 3D camera", "description": "Tether, fly-by, action and detached cameras in turn.", "shortcut": "T", "enabled": true, "state": _world_view.camera_mode_name()},
@@ -727,6 +763,14 @@ func _state_name(state: int, off_name: String, on_name: String) -> String:
 
 func _run_palette_action(id: String) -> void:
 	match id:
+		"fleet_operations":
+			_toggle_fleet_operations()
+		"deploy_radar_decoys":
+			_apply_order_to_selection(Order.deploy_countermeasures("radar"))
+		"evade":
+			_apply_order_to_selection(Order.evade())
+		"resume_plan":
+			_apply_order_to_selection(Order.resume_plan())
 		"swap_views":
 			_swap_views()
 		"world_full":
@@ -869,6 +913,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_key_help.close()
 		get_viewport().set_input_as_handled()
 		return
+	if _fleet_operations.visible:
+		if k.keycode in [KEY_J, KEY_ESCAPE]:
+			_close_fleet_operations()
+			get_viewport().set_input_as_handled()
+		return
 	if _air_operations.visible:
 		if k.keycode in [KEY_F3, KEY_ESCAPE]:
 			_close_air_operations(false)
@@ -909,6 +958,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if k.ctrl_pressed or k.meta_pressed:
+		if k.keycode >= KEY_1 and k.keycode <= KEY_9:
+			_store_control_group(k.keycode - KEY_0)
+			get_viewport().set_input_as_handled()
+			return
 		match k.keycode:
 			KEY_L:
 				_run_palette_action("toggle_latlon")
@@ -926,6 +979,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				return
 		get_viewport().set_input_as_handled()
 		return
+	if k.alt_pressed and k.keycode >= KEY_1 and k.keycode <= KEY_9:
+		_recall_control_group(k.keycode - KEY_0)
+		get_viewport().set_input_as_handled()
+		return
 	if k.shift_pressed:
 		match k.keycode:
 			KEY_V:
@@ -941,6 +998,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	match k.keycode:
+		KEY_J:
+			_toggle_fleet_operations()
+		KEY_D:
+			_run_palette_action("deploy_radar_decoys")
+		KEY_V:
+			_run_palette_action("evade")
 		KEY_G:
 			_swap_views()
 		KEY_W:
@@ -1148,6 +1211,8 @@ static func _effect_height(threat: Weapon) -> float:
 func _on_decoys_spent(u: Unit, count: int) -> void:
 	if u.faction == simulation.player_faction:
 		_stats["decoys_used"] += count
+		map.add_effect(u.position, "decoy", true)
+		_world_view.add_effect(u.position, "decoy", true, u.altitude_m if u.is_aircraft() else 10.0)
 
 
 ## Decoys pulled a round off one ship and it found another. Worth saying out loud: the escort's
@@ -1478,9 +1543,35 @@ func _apply_formation(pattern: String) -> void:
 	if own.size() < 2:
 		radio.flash("Select a leader and at least one consort to form up", "warn")
 		return
+	simulation.unit_manager.issue_order(own[0], Order.break_formation())
+	var accepted := 0
 	for entry: Dictionary in Formation.assign(own, pattern):
-		simulation.unit_manager.issue_order(entry["unit"], entry["order"])
-	radio.flash("%s formed on %s" % [pattern.to_upper(), own[0].callsign], "good")
+		accepted += int(simulation.unit_manager.issue_order(entry["unit"], entry["order"]))
+	radio.flash("%s: %d consorts on %s" % [pattern.to_upper(), accepted, own[0].callsign], "good")
+
+
+func _store_control_group(number: int) -> void:
+	var ids: Array = []
+	for u: Unit in map.selected:
+		if u.alive and u.faction == simulation.player_faction:
+			ids.append(u.id)
+	if ids.is_empty():
+		radio.flash("Select friendly platforms before saving a group", "warn")
+		return
+	_control_groups[number] = ids
+	radio.flash("Group %d saved: %d platforms. Alt+%d recalls it." % [number, ids.size(), number], "good")
+
+
+func _recall_control_group(number: int) -> void:
+	var own: Array = []
+	for u in simulation.unit_manager.units:
+		if u.is_engageable() and u.faction == simulation.player_faction and _control_groups.get(number, []).has(u.id):
+			own.append(u)
+	if own.is_empty():
+		radio.flash("Group %d has no available platforms" % number, "warn")
+		return
+	map.select_units(own)
+	map.center_on_selection()
 
 
 func _toggle_emcon_on_selection() -> void:

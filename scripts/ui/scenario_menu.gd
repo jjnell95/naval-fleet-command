@@ -22,7 +22,7 @@ var _close: Button
 var _close_pair: Control
 var _entries: Array = []
 var _all_entries: Array = []
-var _era := "cold_war"
+var _era := "custom"
 var _filters: Dictionary = {}
 var _mission_title: Label
 var _mission_meta: Label
@@ -68,7 +68,7 @@ func _ready() -> void:
 	brand.add_child(_title)
 	_subtitle = _label("Build the picture. Protect the force. Control the sea.", 14, UITheme.MENU_INK)
 	brand.add_child(_subtitle)
-	_mast_note = _label("Choose an operation, read the orders,\nthen take command. The clock waits for you.", 13, UITheme.MENU_INK)
+	_mast_note = _label("Build your forces and write the plan.\nThe clock waits for you.", 13, UITheme.MENU_INK)
 	_mast_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_mast_note.size_flags_vertical = Control.SIZE_SHRINK_END
 	masthead.add_child(_mast_note)
@@ -77,7 +77,7 @@ func _ready() -> void:
 	var filter_row := HBoxContainer.new()
 	filter_row.add_theme_constant_override("separation", 10)
 	v.add_child(filter_row)
-	for entry in [["cold_war", "COLD WAR 1990"], ["atlantic", "ATLANTIC 2027"], ["pacific", "PACIFIC 2027"], ["gulf_med", "GULF / MED"], ["exercises", "EXERCISES"], ["all", "ALL MISSIONS"]]:
+	for entry in [["custom", "MY MISSIONS"], ["templates", "OPTIONAL TEMPLATES"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
 		button.theme_type_variation = "MenuBigButton"
@@ -168,7 +168,7 @@ func _ready() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 12)
 	v.add_child(buttons)
-	var edit := _button("MISSION EDITOR")
+	var edit := _button("BUILD A FLEET / EDIT MISSION")
 	edit.theme_type_variation = "MenuBigButton"
 	edit.add_theme_font_size_override("font_size", 18)
 	edit.tooltip_text = "Build or modify a mission  [Ctrl+E]"
@@ -227,18 +227,14 @@ func _apply_layout() -> void:
 
 func refresh(current_path := "") -> void:
 	_all_entries = ScenarioIndex.list_all()
-	# First visit opens the Cold War shelf. Reopening a mission keeps its shelf and selection.
+	# The player-created library is the front door. Legacy missions remain optional templates
+	# and regression fixtures; a fresh installation starts with an invitation to build.
 	if current_path != "":
 		for entry: Dictionary in _all_entries:
 			if entry["path"] == current_path:
 				if not _initial_refresh:
-					_era = "all" if entry["custom"] else _shelf_of(entry)
+					_era = "custom" if entry["custom"] else _era
 				break
-	var has_cold_war := false
-	for entry: Dictionary in _all_entries:
-		has_cold_war = has_cold_war or _is_cold_war(entry)
-	if _initial_refresh and not has_cold_war:
-		_era = "all"
 	_initial_refresh = false
 	_populate(current_path)
 
@@ -255,7 +251,13 @@ func _populate(current_path := "") -> void:
 		var button: Button = _filters[key]
 		button.set_pressed_no_signal(key == _era)
 	for entry: Dictionary in _all_entries:
-		if _era == "modern":
+		if _era == "custom":
+			if not entry["custom"]:
+				continue
+		elif _era == "templates":
+			if entry["custom"]:
+				continue
+		elif _era == "modern":
 			if _is_cold_war(entry) or entry["custom"]:
 				continue
 		elif _era != "all" and (entry["custom"] or _shelf_of(entry) != _era):
@@ -276,10 +278,10 @@ func _populate(current_path := "") -> void:
 		_list.select(selected)
 		_on_selected(selected)
 	else:
-		_mission_title.text = "NO OPERATIONS AVAILABLE"
-		_mission_meta.text = "Select another era or build a custom mission."
+		_mission_title.text = "CREATE YOUR FIRST MISSION"
+		_mission_meta.text = "Choose BUILD A FLEET / EDIT MISSION to begin."
 		_intent.text = ""
-		_detail.text = "Custom missions appear under All operations."
+		_detail.text = "Generate both fleets from a seed, then edit platforms, weapons, air wings, routes, objectives and reinforcement waves. Saved missions appear here. Optional templates are available on the other shelf."
 		_preview.set_scenario({})
 		_portrait.spec_override = null
 		_rail.visible = false
@@ -295,7 +297,7 @@ static func _is_cold_war(entry: Dictionary) -> bool:
 	return int(entry.get("year", 0)) == 1990
 
 
-const SHELF_NAMES := {"cold_war": "1990", "atlantic": "NORTH ATLANTIC 2027", "pacific": "WESTERN PACIFIC 2027", "gulf_med": "GULF & MEDITERRANEAN 2027", "modern": "CONTEMPORARY", "exercises": "TRAINING & SHORT ENGAGEMENTS"}
+const SHELF_NAMES := {"custom": "YOUR MISSIONS", "templates": "OPTIONAL TEMPLATES", "cold_war": "1990", "atlantic": "NORTH ATLANTIC 2027", "pacific": "WESTERN PACIFIC 2027", "gulf_med": "GULF & MEDITERRANEAN 2027", "modern": "CONTEMPORARY", "exercises": "TRAINING & SHORT ENGAGEMENTS"}
 
 
 ## Which shelf a built-in operation sits on: the 1990 pack, or a modern theatre by chart region.

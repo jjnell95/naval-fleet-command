@@ -1,20 +1,22 @@
 # Naval Fleet Command
 
-**M28 The live view, deep strike and torpedo defence:** ships, aircraft and submarines in the 3D view wear their navies' paint with plating, weathering, wet waterlines, bow waves, shadows and navigation lights; the seven flat-tops are rebuilt; France's MdCN cruise missile is fitted; torpedoes are fought with acoustic decoys and Paket-NK instead of chaff; and the data display lays a big ship's weapons out in columns. The browser build is current. See the [M28 notes](docs/2026-09-28-live-view.md) and [validation](docs/validation-m28.json).
+**M29 Fleet workshop:** build your own opposing fleets, fit their weapons and air wings, and plan objectives and reinforcement waves. During combat, deploy countermeasures, order temporary evasion, set interceptor policy, and command large task groups from Fleet Operations. See the [operating guide and release notes](docs/2026-09-29-fleet-workshop.md) and [validation](docs/validation-m29.json).
 
-A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-command games. Build an uncertain contact picture, protect the convoy, operate a carrier air wing, and decide when the salvo is worth the missiles. Twenty-two operations across the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, in 2027 and in 1990. Original art and code; no Jane's assets or affiliation.
+A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-command games. Build an uncertain contact picture, protect the force, operate a carrier air wing, and decide when the salvo is worth the missiles. Create missions across the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, in 2027 and in 1990. Original art and code; no Jane's assets or affiliation.
 
 ## Play
 
 **[Play in your browser → jjnell95.github.io/naval-fleet-command](https://jjnell95.github.io/naval-fleet-command/)**. Nothing to install: it runs in Chrome, Edge, Firefox or Safari on a desktop or laptop with a keyboard. The first visit downloads the game once and the browser caches it.
 
-Locally, open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. Choose an operation from one of the shelves on the operations desk, read the briefing, then take command.
+Locally, open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. The desk opens on **My Missions**. Choose **Build a Fleet / Edit Mission**, open **Fleet Builder**, set the two forces, then **Save and Play**. Read the briefing before taking command.
 
 The operations desk puts the task, first orders, theatre, difficulty and estimated play time beside the chart. The briefing separates **Orders & Objectives**, **Situation**, and **Command Reference**. All of the conflicts are fiction on real charts.
 
 ![The command screen in the Strait of Hormuz: the escorts in NTDS symbols on the relief chart with the Qeshm battery hooked, and below it the regional map, the 3D view tethered on Paul Ignatius and the data display](docs/2026-09-27-cds-hormuz.jpg)
 
-## The operations
+## Optional templates
+
+The predetermined operations have been removed from the default mission shelf. These 22 legacy operations remain under **Optional Templates** for editing, reference and regression coverage. Custom missions are the main flow.
 
 | Shelf | Operations |
 |---|---|
@@ -43,6 +45,8 @@ The command screen is laid out the way the late-1990s fleet-command games laid t
 
 - **Hook and move:** left-click a symbol to hook it (Shift adds). **Right-click water** to send the hooked platform there at once; Shift+right-click adds a waypoint. **W** arms a multi-leg route. Right-drag, middle-drag or the arrow keys pan; the wheel zooms. **Home** fits the force, **C** centres the hook and its target, **F** follows it, **.** hooks the next own platform.
 - **Give orders:** **right-click your own platform** for its Orders menu (speed, course, altitude or depth, sensors, EMCON, weapons state, flight deck, formation, route). **R** radar, **P** active sonar, **E** emission control.
+- **Respond to an attack:** **D** deploys a radar countermeasure pack; **V** orders evasion against a detected inbound weapon. The **Defence** tab on the orders board adds infrared and acoustic packs, run-away steering, resume-plan, automatic/manual countermeasures and Conserve/Balanced/Saturation interceptor policies. Stores, active windows and reload times are finite. Evasion keeps the existing route and formation assignment.
+- **Command large groups:** **J** opens Fleet Operations with group readiness, station error, defensive ammunition and group orders. **Ctrl+1 to 9** stores a selection and **Alt+1 to 9** recalls it. Screen, column, abreast, wedge and dispersed formations grow to fit the selection, pace slower consorts and pass command after a flagship is lost.
 - **Engage:** hook a shooter, then **right-click a contact** for **Engage with**: the weapons that suit it, each with its rounds and a salvo size. Unknown and neutral contacts are not free targets. Land-attack rounds can be fired at a battery or an airfield once it is classified.
 - **Build the picture:** contacts begin uncertain and classify through observation. A passive bearing is not a measured range. **N / Shift-N** cycles priority contacts. **Tab** switches NTDS and graphic symbols; **Shift-V / K / I** toggle velocity leaders, track numbers and tags.
 - **Read the data display:** the hooked platform's class, track number, course, speed, damage, orders, sensors and weapons (the hull's reach for each job, then every system and its rounds in columns, strike first), or a contact as held, or the mission's tasking with nothing hooked. Its footer carries the watch time and the time scale (click them to pause or step the scale) and a lamp that flashes for new warnings.
@@ -69,11 +73,12 @@ godot --headless --path . --editor --import --quit
 godot --headless --path . --script tests/run_tests.gd      # regression tests
 godot --path . -- --cold-war-smoke                          # 47 command-screen checks
 godot --path . -- --aviation-smoke                          # 19 air-operations checks
+godot --path . -- --fleet-workshop-smoke                    # 32 authoring and defensive-control checks
 godot --path . -- --scenario=res://data/scenarios/northern_vigil.json --fastforward=2400 --run --perf=8   # frame budget
 godot --path .
 ```
 
-GitHub Actions runs the same tests and both interface suites on every pull request (`.github/workflows/tests.yml`).
+GitHub Actions runs the same tests and all three interface suites on every pull request, with the fleet workshop checked at 1600 × 900 and 1280 × 720 (`.github/workflows/tests.yml`).
 
 Regenerate the scenarios with `python3 tools/scenarios/build_scenarios.py`, `build_cold_war.py` and `build_theatres.py`; each validates every start position, patrol leg and objective against the shipped coastline before writing. The regional coastline extractions and sea-floor rasters come from `tools/scenarios/import_coastlines.py` and `import_bathymetry.py` over the Natural Earth downloads named in `tools/scenarios/regions.py`. Generated files are committed, so playing needs neither Python packages nor network access. `tools/art/` builds the models and renders the recognition art without Blender; `tools/blender/` holds the earlier pipeline.
 

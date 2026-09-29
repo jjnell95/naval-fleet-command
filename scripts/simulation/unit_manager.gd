@@ -17,9 +17,11 @@ func add_unit(u: Unit) -> void:
 
 
 func tick(dt: float) -> void:
+	Formation.update_speed_caps(units)
 	for u in units:
 		if not u.alive:
 			continue
+		DefensiveResponse.tick(u, dt)
 		Formation.step(u)
 		Movement.step(u, dt)
 
@@ -42,6 +44,14 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 	if u == null or order == null or not u.alive:
 		return false
 	match order.type:
+		Order.Type.DEPLOY_COUNTERMEASURES:
+			return DefensiveResponse.can_deploy(u, order.countermeasure_kind)
+		Order.Type.EVADE:
+			return u.is_engageable() and u.spec.max_speed_kn > 0 and (not u.is_aircraft() or u.airborne())
+		Order.Type.RESUME_PLAN, Order.Type.SET_AUTO_COUNTERMEASURES:
+			return u.is_engageable()
+		Order.Type.SET_DEFENCE_POLICY:
+			return u.is_engageable() and order.defence_policy in ["balanced", "conserve", "saturation"]
 		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS:
 			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0
 		Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR:
@@ -64,7 +74,7 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.SET_EMCON:
 			return u.is_engageable() and (u.has_radar() or u.has_sonar() or u.has_jammer())
 		Order.Type.FORM_UP:
-			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0 and order.leader != null and order.leader.alive
+			return Formation.can_join(u, order.leader)
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
 	return false

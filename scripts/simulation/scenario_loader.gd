@@ -53,6 +53,11 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 		u.depth_m = clampf(float(ud.get("depth_m", 0.0)), 0.0, spec.max_depth_m)
 		u.ordered_depth_m = u.depth_m
 		u.ai_posture = ud.get("ai_posture", "standard")
+		u.auto_countermeasures = bool(ud.get("auto_countermeasures", true))
+		u.defence_policy = str(ud.get("defence_policy", "balanced"))
+		if u.defence_policy not in ["balanced", "conserve", "saturation"]:
+			u.defence_policy = "balanced"
+		u.defence_priority = int(ud.get("defence_priority", 2 if spec.category.contains("carrier") else 0))
 		u.home_callsign = ud.get("home", "")
 		if spec.domain == "air":
 			u.flight_state = Unit.FlightState.STOWED
@@ -76,6 +81,7 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 		um.add_unit(u)
 		hosts.append({"unit": u, "data": ud})
 	_link_aircraft(um)
+	_link_formations(um, hosts)
 	for host: Dictionary in hosts:
 		_embark_air_wing(um, host["unit"], host["data"])
 	for host: Dictionary in hosts:
@@ -85,6 +91,21 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 	var sensor_count := 0
 	for u in um.units: sensor_count += u.sensors.size()
 	Debug.event("[Scenario] %d actors / %d sensor installations" % [um.units.size(), sensor_count])
+
+
+static func _link_formations(um: UnitManager, hosts: Array[Dictionary]) -> void:
+	for entry in hosts:
+		var name := str(entry["data"].get("formation_leader", ""))
+		if name == "":
+			continue
+		var u: Unit = entry["unit"]
+		for leader in um.units:
+			if leader.callsign != name or not Formation.can_join(u, leader):
+				continue
+			var offset: Array = entry["data"].get("formation_offset_nm", [3, -3])
+			if offset.size() >= 2:
+				u.apply_order(Order.form_up(leader, Vector2(offset[0], offset[1])))
+			break
 
 
 ## A hull placed ashore, or sent to a patrol leg ashore, is the first thing a scenario author gets

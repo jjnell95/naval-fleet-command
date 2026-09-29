@@ -1,8 +1,20 @@
 # Architecture
 
-Status: Milestone 28 (the live view, deep strike and torpedo defence) on the M24 CDS screen and the M25 operations. Emissions, the network, posture, damage, the sea and the electromagnetic spectrum all cost something, in four chart regions.
+Status: Milestone 29 (fleet workshop, defensive responses and task-group command), retaining the CDS screen and observer-limited picture.
 
 Start from `HANDOFF.md`: how to run and verify the game, the one rule, and where things are.
+
+## M29 additions
+
+`DefensiveResponse` owns finite radar/infrared/acoustic countermeasure pulses, compatibility checks and temporary evasion. Orders pass through `Simulation` and `UnitManager`; the UI cannot change combat outcomes directly. A pulse gives each compatible acquired threat one attempt per deployment generation. Manual softkill works under weapons hold; automatic deployment requires a detected weapon visible to the defending unit. Evasion chooses a coast-aware course from the detected picture and prefers clearance from nearby friendly platforms, lets `Movement` execute the real turn, and applies only a bounded geometry benefit. It retains navigation state for resumption.
+
+`AirDefence` allocates urgent threats across each faction's visible defenders with shared commitment budgets. Arrival bands precede high-value-unit priority. The selected policy controls guided-round commitments while the existing point-layer and close-in budgets remain. `WeaponSpec.requires_fire_control_channel()` excludes independent RAM guidance. `Formation` supplies non-repeating stations, rejects parent cycles, paces slower descendants and promotes a surviving consort after leader loss.
+
+`ScenarioWorkshop` is a pure generator, export transform and validator. Seeded recipes choose era, chart region, force size, carriers, submarines, finite air wings and formations. No template units, story or objectives are inherited. The editor keeps delayed units on its chart; export moves them into reinforcement events and adds prerequisite gates so destroy-force objectives cannot win before the final hostile wave. Import reverses this transform. Validation covers schema, fitted weapons, VLS cells, deck capacity, names, coastline placement, arrival dependencies and objective/formation cycles.
+
+`FleetOperations` reads only own-force state and emits selections and orders. `Main` owns selection groups and modal pause restoration. `ScenarioIndex` retains legacy fixtures but the default menu shows custom missions only. Developer runs may use `--scenario-storage=res://work/<name>` to isolate test saves from the player's library. The new real-scene suite is `--fleet-workshop-smoke`.
+
+`AIController` computes threat geometry once per faction decision cycle and applies visibility for each ship. `TacticalMap` caches geometry per simulation time and `ThreatManager.revision`, then filters it for the current observer on each draw. Detection, forgetting and reset invalidate the cache even while paused. Weapon trails are batched polylines; detailed guidance lines follow the selected engagement. `--perf` now separates AI, sensing, defence and plot costs. Regression tests cover disconnected observers and paused detection changes.
 
 ## M28 additions
 

@@ -40,7 +40,7 @@ func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: floa
 	if not check["ok"]:
 		engagement_rejected.emit(shooter, spec, check["reason"])
 		return false
-	if spec.type == "sam" and track.domain == "air" and not channel_available(shooter, track):
+	if spec.requires_fire_control_channel() and track.domain == "air" and not channel_available(shooter, track):
 		engagement_rejected.emit(shooter, spec, "FIRE CONTROL SATURATED")
 		return false
 	var rounds := clampi(salvo, 1, shooter.magazine_count(spec.id))
@@ -69,7 +69,7 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 	var distance := shooter.position.distance_to(threat.position)
 	if distance < spec.min_range_nm or distance > spec.max_range_nm:
 		return 0
-	if spec.type == "sam" and not channel_available(shooter, threat):
+	if spec.requires_fire_control_channel() and not channel_available(shooter, threat):
 		return 0
 	# SAMs leave one at a time at the authored launch interval. A CIWS round count is a
 	# short burst abstraction, so the whole burst is expended in one firing cycle.
@@ -366,14 +366,14 @@ func _resolve_impact(w: Weapon) -> void:
 func channel_targets(shooter: Unit) -> Dictionary:
 	var targets := {}
 	for w in in_flight:
-		if w.shooter != shooter or w.phase == Weapon.Phase.DEAD or w.spec.type != "sam":
+		if w.shooter != shooter or w.phase == Weapon.Phase.DEAD or not w.spec.requires_fire_control_channel():
 			continue
 		if w.intercept_target != null and w.intercept_target.phase != Weapon.Phase.DEAD:
 			targets[w.intercept_target] = true
 		elif w.target_track != null and w.target_track.domain == "air":
 			targets[w.target_track] = true
 	for p: Dictionary in _pending:
-		if p["shooter"] == shooter and p["spec"].type == "sam" and p["track"].domain == "air":
+		if p["shooter"] == shooter and p["spec"].requires_fire_control_channel() and p["track"].domain == "air":
 			targets[p["track"]] = true
 	return targets
 

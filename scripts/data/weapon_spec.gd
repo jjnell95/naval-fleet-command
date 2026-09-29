@@ -61,6 +61,20 @@ func requires_radar_support() -> bool:
 	return type == "sam" and guidance in ["fire_control_directed", "semi_active_radar", "semi_active_radar_homing"]
 
 
+func requires_fire_control_channel() -> bool:
+	return type == "sam" and guidance not in ["passive_rf_infrared", "infrared", "infrared_homing", "imaging_infrared"]
+
+
+func seeker_band() -> String:
+	if is_torpedo():
+		return "acoustic" if guidance.contains("acoustic") else "none"
+	if guidance.contains("infrared"):
+		return "infrared"
+	if guidance.contains("radar") or guidance == "inertial_active":
+		return "radar"
+	return "none"
+
+
 func is_gun() -> bool:
 	return type == "gun"
 

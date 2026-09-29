@@ -6,12 +6,21 @@ const ROOT := "res://data/scenarios"
 const USER_ROOT := "user://scenarios"
 
 
+## Test/dev sessions can isolate storage from a player's missions. Release sessions retain the
+## browser's persistent user:// filesystem; JSON imports cannot change this command-line value.
+static func user_root() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--scenario-storage="):
+			return arg.trim_prefix("--scenario-storage=")
+	return USER_ROOT
+
+
 ## Returns [{path, id, name, description, forces, order, custom}], built-ins first by their
 ## `order` field, then custom scenarios by name.
 static func list_all() -> Array:
 	var out: Array = []
 	_scan(ROOT, false, out)
-	_scan(USER_ROOT, true, out)
+	_scan(user_root(), true, out)
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if a["custom"] != b["custom"]:
 			return not a["custom"]
@@ -57,8 +66,8 @@ static func _scan(root: String, custom: bool, out: Array) -> void:
 
 ## Where a custom scenario with this id lives.
 static func custom_path(id: String) -> String:
-	return USER_ROOT.path_join("%s.json" % id)
+	return user_root().path_join("%s.json" % id.validate_filename())
 
 
 static func ensure_user_dir() -> void:
-	DirAccess.make_dir_recursive_absolute(USER_ROOT)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(user_root()))

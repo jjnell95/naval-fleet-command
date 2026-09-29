@@ -1,0 +1,885 @@
+{
+  "milestone": "M29 Fleet Workshop and Defensive Command",
+  "verified_at_utc": "2026-09-29T21:12:04.849611+00:00",
+  "base_commit": "e91beae46dc8b664ef2bf0bc7e23526200dc57b3",
+  "branch": "codex/fleet-command-expansion",
+  "publication": "Release validation captured before publication; deployment status is recorded in GitHub Actions.",
+  "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+  "checks": {
+    "regression": {
+      "passed": 545,
+      "failed": 0
+    },
+    "command_screen": {
+      "passed": 47,
+      "failed": 0
+    },
+    "air_operations": {
+      "passed": 19,
+      "failed": 0
+    },
+    "exported_workshop_1600x900": {
+      "passed": 32,
+      "failed": 0
+    },
+    "exported_workshop_1280x720": {
+      "passed": 32,
+      "failed": 0
+    }
+  },
+  "regression_baseline": 514,
+  "battle_sweep": {
+    "seeds": [
+      2,
+      13
+    ],
+    "simulated_seconds_per_case": 6000,
+    "passed": 52,
+    "failed": 0,
+    "grounded_at_end": 0,
+    "legacy_cases": 44,
+    "custom_cases": 8,
+    "result_codes": {
+      "0": "still running at the end of the window",
+      "1": "won",
+      "2": "lost"
+    },
+    "legacy_result_counts": {
+      "0": 36,
+      "1": 6,
+      "2": 2
+    },
+    "legacy_outcome_changes_against_recorded_M28_fixed_target_build": [
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "before": 2,
+        "after": 0
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "before": 2,
+        "after": 0
+      }
+    ],
+    "comparison_note": "Baseline outcomes are from the repository M28 validation record, not a fresh M28 replay. Tactical paths and expenditures are not claimed identical.",
+    "earlier_failure_resolved": "Before threat-geometry caching, both 274-actor custom cases exceeded the first 600-second wall-clock ceiling. Final cases use the existing project smoke-run ceiling of 900 seconds.",
+    "custom_recipes": [
+      {
+        "id": "custom_stress_1",
+        "name": "Modern massed fleets",
+        "recipe": {
+          "aircraft_per_carrier": 24,
+          "blue_carriers": 2,
+          "blue_ships": 32,
+          "blue_subs": 3,
+          "name": "Modern massed fleets",
+          "red_carriers": 2,
+          "red_ships": 32,
+          "red_subs": 3,
+          "region": 1,
+          "seed": 2901
+        },
+        "authored_units": 70,
+        "wave_times_s": []
+      },
+      {
+        "id": "custom_stress_2",
+        "name": "1990 task force battle",
+        "recipe": {
+          "aircraft_per_carrier": 24,
+          "blue_carriers": 1,
+          "blue_ships": 20,
+          "name": "1990 task force battle",
+          "red_carriers": 1,
+          "red_ships": 20,
+          "seed": 2902,
+          "year": 1990
+        },
+        "authored_units": 42,
+        "wave_times_s": []
+      },
+      {
+        "id": "custom_stress_3",
+        "name": "Coastal formation battle",
+        "recipe": {
+          "blue_carriers": 0,
+          "blue_ships": 20,
+          "coastlines": true,
+          "name": "Coastal formation battle",
+          "red_carriers": 0,
+          "red_ships": 20,
+          "region": 2,
+          "seed": 2903
+        },
+        "authored_units": 42,
+        "wave_times_s": []
+      },
+      {
+        "id": "custom_stress_4",
+        "name": "Staggered hostile waves",
+        "recipe": {
+          "aircraft_per_carrier": 16,
+          "blue_carriers": 1,
+          "blue_ships": 12,
+          "name": "Staggered hostile waves",
+          "red_carriers": 0,
+          "red_ships": 12,
+          "region": 3,
+          "seed": 2904
+        },
+        "authored_units": 13,
+        "wave_times_s": [
+          600,
+          1200
+        ]
+      }
+    ],
+    "runs": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          87
+        ],
+        "wall_s": 93.71
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          87
+        ],
+        "wall_s": 97.13
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          101
+        ],
+        "wall_s": 176.8
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          101
+        ],
+        "wall_s": 182.07
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          16
+        ],
+        "wall_s": 8.17
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          16
+        ],
+        "wall_s": 7.84
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          10
+        ],
+        "wall_s": 15.09
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          10
+        ],
+        "wall_s": 15.63
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          23
+        ],
+        "wall_s": 4.93
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          23
+        ],
+        "wall_s": 4.8
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          6
+        ],
+        "wall_s": 4.24
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          6
+        ],
+        "wall_s": 3.84
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "actors_at_load": [
+          7
+        ],
+        "wall_s": 3.51
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "actors_at_load": [
+          7
+        ],
+        "wall_s": 3.44
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          34,
+          35
+        ],
+        "wall_s": 15.9
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          34,
+          35
+        ],
+        "wall_s": 16.96
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "actors_at_load": [
+          8
+        ],
+        "wall_s": 5.12
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "actors_at_load": [
+          8
+        ],
+        "wall_s": 4.5
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          48
+        ],
+        "wall_s": 46.69
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          48
+        ],
+        "wall_s": 50.54
+      },
+      {
+        "scenario": "custom_stress_1",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          274
+        ],
+        "wall_s": 584.85
+      },
+      {
+        "scenario": "custom_stress_1",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          274
+        ],
+        "wall_s": 695.73
+      },
+      {
+        "scenario": "custom_stress_2",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          146
+        ],
+        "wall_s": 143.89
+      },
+      {
+        "scenario": "custom_stress_2",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          146
+        ],
+        "wall_s": 146.82
+      },
+      {
+        "scenario": "custom_stress_3",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "actors_at_load": [
+          109
+        ],
+        "wall_s": 255.34
+      },
+      {
+        "scenario": "custom_stress_3",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "actors_at_load": [
+          109
+        ],
+        "wall_s": 301.16
+      },
+      {
+        "scenario": "custom_stress_4",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          51,
+          67,
+          81
+        ],
+        "wall_s": 65.93
+      },
+      {
+        "scenario": "custom_stress_4",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          51,
+          67,
+          81
+        ],
+        "wall_s": 43.73
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          10
+        ],
+        "wall_s": 4.52
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          10
+        ],
+        "wall_s": 4.56
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          33
+        ],
+        "wall_s": 19.2
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          33
+        ],
+        "wall_s": 19.12
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          46
+        ],
+        "wall_s": 48.82
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          46
+        ],
+        "wall_s": 49.6
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          8
+        ],
+        "wall_s": 3.84
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          8
+        ],
+        "wall_s": 3.83
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          12
+        ],
+        "wall_s": 7.0
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          12
+        ],
+        "wall_s": 7.04
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          7
+        ],
+        "wall_s": 4.41
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          7
+        ],
+        "wall_s": 4.45
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          115
+        ],
+        "wall_s": 250.45
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          115
+        ],
+        "wall_s": 254.9
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "actors_at_load": [
+          13
+        ],
+        "wall_s": 11.11
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "actors_at_load": [
+          13
+        ],
+        "wall_s": 11.06
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          104,
+          106
+        ],
+        "wall_s": 183.36
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          104,
+          106
+        ],
+        "wall_s": 189.97
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          24
+        ],
+        "wall_s": 20.52
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          24
+        ],
+        "wall_s": 20.88
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "actors_at_load": [
+          41
+        ],
+        "wall_s": 27.72
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "actors_at_load": [
+          41
+        ],
+        "wall_s": 27.63
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          5
+        ],
+        "wall_s": 2.67
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "actors_at_load": [
+          5
+        ],
+        "wall_s": 2.76
+      }
+    ]
+  },
+  "performance": {
+    "scenario": "Modern massed fleets, recipe seed 2901",
+    "actors_loaded": 274,
+    "surface_ships": 64,
+    "submarines": 6,
+    "resolution": [
+      1600,
+      900
+    ],
+    "hardware": "Apple M5 Pro, native Compatibility renderer",
+    "sample_seconds": 8,
+    "simulation_advanced_before_sample_s": 180,
+    "time_scale": 1,
+    "before_caching_fps": 12.4,
+    "final_fps": 20.2,
+    "final_p95_frame_ms": 59.2,
+    "final_worst_frame_ms": 147.6,
+    "final_chart_avg_ms_per_rendered_frame": 12.75,
+    "final_ai_avg_ms_per_rendered_frame": 1.49,
+    "measurement_note": "Short local samples with background validation running; not a browser or hardware guarantee. Large salvos still cause visible stalls."
+  },
+  "browser": {
+    "url": "http://127.0.0.1:8879/play/",
+    "engine": "Codex in-app browser",
+    "verified": [
+      "custom library is default",
+      "fleet builder fits viewport",
+      "generate, save and play a custom mission",
+      "saved mission persists after reload",
+      "briefing and take-command flow",
+      "Fleet Operations opens",
+      "Ctrl+1 saves and Alt+1 recalls a selection through actual browser input",
+      "countermeasure stock decreases from 24 to 23 and active timer appears",
+      "final package loads",
+      "landing-page workshop content and navigation"
+    ],
+    "console_errors": 0,
+    "console_warnings": 0,
+    "local_launcher": "Stable port 8879 preserves the browser storage origin between launches; existing preview reuse verified."
+  },
+  "packages": {
+    "index.pck": {
+      "bytes": 60071928,
+      "sha256": "1652288b61f7441ba4600b21dad8b3ed47399d6a49c7ebdd5f15918f6c413cf4",
+      "loader_size_matches": true
+    },
+    "index.wasm": {
+      "bytes": 39514754,
+      "sha256": "fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0",
+      "loader_size_matches": true
+    }
+  },
+  "limits": [
+    "Extreme 274-actor battle remains around 20 fps in the native sample.",
+    "Countermeasure stores, timings, maneuver benefits and interception policies are gameplay estimates.",
+    "RF and IR pulses share generic expendable inventory; no platform-specific Nulka or MASS model is asserted.",
+    "1990 opposing carrier is a fictional Nimitz force, explicitly labelled.",
+    "22 legacy scenarios are optional templates rather than deleted source assets."
+  ]
+}

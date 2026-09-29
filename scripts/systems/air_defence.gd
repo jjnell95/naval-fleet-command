@@ -80,7 +80,17 @@ static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatMan
 		var victim := threatened_unit(unit_manager, faction, w)
 		if victim != null:
 			out.append({"weapon": w, "target": victim, "time_s": w.time_to_reach_s(victim.position)})
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["time_s"] < b["time_s"])
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		# Imminent arrivals win first. Within one short arrival band, protect high-value units.
+		var a_band := floori(float(a["time_s"]) / 15.0)
+		var b_band := floori(float(b["time_s"]) / 15.0)
+		if a_band != b_band:
+			return a_band < b_band
+		var a_target: Unit = a["target"]
+		var b_target: Unit = b["target"]
+		if a_target.defence_priority != b_target.defence_priority:
+			return a_target.defence_priority > b_target.defence_priority
+		return a["time_s"] < b["time_s"])
 	return out
 
 
@@ -92,32 +102,45 @@ static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatMan
 static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> int:
 	var launched := 0
 	var committed := _count_committed(weapon_manager)
-	var channels := _channels_in_use(weapon_manager)
 	var by_faction: Dictionary = {}
 	for u in unit_manager.units:
-		if not u.is_engageable() or u.roe == Unit.Roe.HOLD or not u.can_fire():
+		if not u.is_engageable():
 			continue
 		if not by_faction.has(u.faction):
-			by_faction[u.faction] = inbound_threats(unit_manager, threat_manager, u.faction)
-		var inbound: Array = by_faction[u.faction]
-		for entry: Dictionary in inbound:
+			by_faction[u.faction] = []
+		by_faction[u.faction].append(u)
+	for faction: String in by_faction:
+		var inbound := inbound_threats(unit_manager, threat_manager, faction)
+		for entry in inbound:
 			var w: Weapon = entry["weapon"]
-			if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
-				continue
-			_try_decoy(u, w, weapon_manager)
-			if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
-				continue
-			var already: int = committed.get(w.id, 0)
-			var in_use: int = channels.get(u, 0)
-			var engaging_already: bool = _ship_engages(weapon_manager, u, w)
-			var guided_allowed := already < MAX_INTERCEPTORS_PER_THREAT \
-				and (engaging_already or in_use < u.spec.fire_control_channels)
-			var fired := _engage_threat(u, w, weapon_manager, guided_allowed, now)
-			if fired > 0:
-				committed = _count_committed(weapon_manager)
-				channels = _channels_in_use(weapon_manager)
-				launched += fired
+			var defenders: Array = by_faction[faction].duplicate()
+			defenders.sort_custom(func(a: Unit, b: Unit) -> bool:
+				return a.position.distance_squared_to(w.position) < b.position.distance_squared_to(w.position))
+			for u: Unit in defenders:
+				if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
+					continue
+				_try_decoy(u, w, weapon_manager)
+				if w.phase == Weapon.Phase.DEAD or u.roe == Unit.Roe.HOLD or not u.can_fire():
+					continue
+				var already: int = committed.get(w.id, 0)
+				var limit := guided_budget(u, float(entry["time_s"]))
+				var guided_allowed := already < limit
+				var before := w.guided_interceptors_committed
+				var fired := _engage_threat(u, w, weapon_manager, guided_allowed, now)
+				if fired > 0:
+					# Increment the shared assignment, rather than rescanning every weapon twice
+					# after every shot. Each launcher still validates its own guidance support.
+					committed[w.id] = int(committed.get(w.id, 0)) + w.guided_interceptors_committed - before
+					launched += fired
 	return launched
+
+
+static func guided_budget(u: Unit, tti_s: float) -> int:
+	if u.defence_policy == "saturation":
+		return 3
+	if u.defence_policy == "conserve" and tti_s > 45.0:
+		return 1
+	return MAX_INTERCEPTORS_PER_THREAT
 
 
 static func _count_committed(weapon_manager: WeaponManager) -> Dictionary:
@@ -165,9 +188,9 @@ static func _engage_threat(u: Unit, threat: Weapon, weapon_manager: WeaponManage
 		if is_close_in:
 			if int(threat.close_in_commitments.get(u.id, 0)) >= MAX_CLOSE_IN_BURSTS_PER_THREAT:
 				continue
-		elif not guided_allowed or spent >= MAX_INTERCEPTORS_PER_LAYER:
+		elif not guided_allowed or spent >= guided_budget(u, threat.time_to_reach_s(u.position)):
 			continue
-		var allowance := spec.salvo_default if is_close_in else MAX_INTERCEPTORS_PER_LAYER - spent
+		var allowance := spec.salvo_default if is_close_in else guided_budget(u, threat.time_to_reach_s(u.position)) - spent
 		var rounds := mini(mini(spec.salvo_default, u.magazine_count(spec.id)), allowance)
 		if rounds <= 0:
 			continue
@@ -180,13 +203,10 @@ static func _engage_threat(u: Unit, threat: Weapon, weapon_manager: WeaponManage
 ## Chaff and flares against a missile's seeker. A torpedo's is acoustic, and chaff does nothing to
 ## it: TorpedoDefence answers torpedoes with noise.
 static func _try_decoy(u: Unit, threat: Weapon, weapon_manager: WeaponManager) -> void:
-	if threat.decoy_attempted or u.decoys <= 0 or threat.acquired != u or threat.spec.is_torpedo():
+	if threat.acquired != u or threat.spec.is_torpedo():
 		return
 	if u.position.distance_to(threat.position) > DECOY_RANGE_NM:
 		return
-	threat.decoy_attempted = true
-	u.decoys -= 1
-	weapon_manager.decoys_spent.emit(u, 1)
-	var chance := clampf(u.spec.decoy_effectiveness / maxf(threat.spec.soft_kill_resistance, 0.1), 0.0, 0.95)
-	if weapon_manager.rng.randf() < chance:
-		weapon_manager.seduce(threat, u)
+	if u.auto_countermeasures and not threat.decoy_attempted:
+		DefensiveResponse.deploy(u, threat.spec.seeker_band(), weapon_manager)
+	DefensiveResponse.try_active(u, threat, weapon_manager)

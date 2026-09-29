@@ -66,6 +66,8 @@ static func _hard_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager, now: f
 
 
 static func _soft_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager) -> int:
+	if not u.auto_countermeasures or (u.countermeasure_kind == "acoustic" and u.countermeasure_remaining_s > 0):
+		return 0
 	if w.acoustic_decoy_tried.has(u.id) or u.position.distance_to(w.position) > DECOY_RANGE_NM:
 		return 0
 	var towed := u.spec.towed_torpedo_decoy and u.speed_kn >= TOWED_MIN_SPEED_KN

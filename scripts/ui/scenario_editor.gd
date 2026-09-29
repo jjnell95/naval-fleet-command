@@ -10,7 +10,7 @@ signal closed()
 enum Mode { PLACE, MOVE, PATROL, AREA, COAST }
 
 const FACTIONS := ["BLUE", "RED", "NEUTRAL"]
-const OBJECTIVE_KINDS := ["Hold position for a time", "Destroy every hostile unit", "Reach an area"]
+const OBJECTIVE_KINDS := ["Survive for a time", "Destroy the opposing force", "Reach an area", "Hold an area continuously", "Recover aircraft"]
 ## Coastline vertices are snapped much finer than units: half a mile either way is nothing to a
 ## ship's start position and everything to the shape of a headland.
 const COAST_SNAP_NM := 0.1
@@ -58,6 +58,25 @@ var _syncing := false
 var _coast_name: LineEdit
 var _coast_elevation: SpinBox
 var _coast_title: Label
+var _palette_search: LineEdit
+var _palette_era: OptionButton
+var _place_count: SpinBox
+var _tasks: ItemList
+var _task_index := 0
+var _sequence: CheckBox
+var _scope: OptionButton
+var _objective_radius: SpinBox
+var _objective_count: SpinBox
+var _victory_mode: OptionButton
+var _arrival: SpinBox
+var _unit_policy: OptionButton
+var _loadout_box: VBoxContainer
+var _wing_box: VBoxContainer
+var _recipe_popup: PopupPanel
+var _recipe := {"seed": 29, "year": 2027, "region": 0, "blue_ships": 6, "red_ships": 6, "blue_carriers": 1, "red_carriers": 0, "blue_subs": 1, "red_subs": 1, "aircraft_per_carrier": 24, "formation": "screen", "sea_state": 2, "coastlines": false}
+var _history: Array[Dictionary] = []
+var _redo: Array[Dictionary] = []
+var _opened_path := ""
 
 
 func _ready() -> void:
@@ -101,13 +120,19 @@ func _ready() -> void:
 	_load_menu.custom_minimum_size.x = 230
 	_load_menu.item_selected.connect(_on_load_selected)
 	head.add_child(_load_menu)
-	_button(head, "NEW", func() -> void: new_scenario())
-	_button(head, "SAVE", save)
-	_button(head, "EXPORT JSON", _export_json)
-	_button(head, "IMPORT JSON", _import_json)
-	var play := _button(head, "SAVE AND PLAY", _play)
+	var tools := HBoxContainer.new()
+	tools.add_theme_constant_override("separation", 6)
+	v.add_child(tools)
+	_button(tools, "FLEET BUILDER", _open_recipe)
+	_button(tools, "NEW", func() -> void: new_scenario())
+	_button(tools, "UNDO", undo)
+	_button(tools, "REDO", redo)
+	_button(tools, "SAVE", save)
+	_button(tools, "EXPORT JSON", _export_json)
+	_button(tools, "IMPORT JSON", _import_json)
+	var play := _button(tools, "SAVE AND PLAY", _play)
 	play.theme_type_variation = "PrimaryButton"
-	_button(head, "CLOSE", func() -> void: closed.emit())
+	_button(tools, "CLOSE", func() -> void: closed.emit())
 
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 12)
@@ -123,6 +148,16 @@ func _ready() -> void:
 	ph.text = "PLATFORMS  ·  click the chart to place"
 	ph.theme_type_variation = "HeaderLabel"
 	left.add_child(ph)
+	_palette_search = LineEdit.new()
+	_palette_search.placeholder_text = "Search class, nation or platform"
+	_palette_search.text_changed.connect(func(_text: String) -> void: _fill_palette())
+	left.add_child(_palette_search)
+	_palette_era = OptionButton.new()
+	for text: String in ["All equipment", "Modern equipment", "1990 equipment"]:
+		_palette_era.add_item(text)
+	_palette_era.item_selected.connect(func(_i: int) -> void: _fill_palette())
+	left.add_child(_palette_era)
+	_place_count = _spin(left, "Place together", 1, 24, 1, func(_v: float) -> void: pass)
 	_palette = ItemList.new()
 	_palette.theme_type_variation = "MenuList"
 	_palette.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -176,6 +211,8 @@ func _ready() -> void:
 	right.add_child(props)
 	_section(props, "SCENARIO")
 	_name = _line(props, "Name", func(t: String) -> void:
+		if _syncing:
+			return
 		scenario["name"] = t
 		scenario["id"] = _slug(t))
 	_description = TextEdit.new()
@@ -196,6 +233,23 @@ func _ready() -> void:
 			scenario["environment"]["layer_strength"] = 0.7)
 	_cz = _spin(props, "Convergence zone range (nm, 0 none)", 0, 40, 1, func(v: float) -> void: scenario["environment"]["cz_range_nm"] = int(v))
 	_section(props, "OBJECTIVE")
+	_tasks = ItemList.new()
+	_tasks.custom_minimum_size.y = 90
+	_tasks.item_selected.connect(func(i: int) -> void:
+		_task_index = i
+		_sync_task())
+	props.add_child(_tasks)
+	var tasks_row := HBoxContainer.new()
+	props.add_child(tasks_row)
+	_button(tasks_row, "ADD TASK", _add_task)
+	_button(tasks_row, "REMOVE TASK", _remove_task)
+	_victory_mode = OptionButton.new()
+	_victory_mode.add_item("Complete every victory task")
+	_victory_mode.add_item("Complete any victory task")
+	_victory_mode.item_selected.connect(func(i: int) -> void:
+		if not _syncing:
+			scenario["victory_mode"] = "all" if i == 0 else "any")
+	props.add_child(_victory_mode)
 	_objective_kind = OptionButton.new()
 	_objective_kind.focus_mode = Control.FOCUS_ALL
 	for k in OBJECTIVE_KINDS:
@@ -203,6 +257,15 @@ func _ready() -> void:
 	_objective_kind.item_selected.connect(func(_i: int) -> void: _apply_objective())
 	props.add_child(_objective_kind)
 	_minutes = _spin(props, "Minutes to hold", 5, 240, 5, func(_v: float) -> void: _apply_objective())
+	_scope = OptionButton.new()
+	_scope.item_selected.connect(func(_i: int) -> void: _apply_objective())
+	props.add_child(_scope)
+	_objective_radius = _spin(props, "Area radius (nm)", 1, 100, 1, func(_v: float) -> void: _apply_objective())
+	_objective_count = _spin(props, "Platforms / sorties required", 1, 96, 1, func(_v: float) -> void: _apply_objective())
+	_sequence = CheckBox.new()
+	_sequence.text = "After the preceding task"
+	_sequence.toggled.connect(func(_on: bool) -> void: _apply_objective())
+	props.add_child(_sequence)
 	_objective_text = _line(props, "Mission statement", func(t: String) -> void: scenario["objectives"]["text"] = t)
 	var area_hint := Label.new()
 	area_hint.text = "For a reach-area objective choose AREA and click the chart. Tick PROTECT on a unit to make its loss end the mission."
@@ -251,13 +314,25 @@ func _ready() -> void:
 	_home.focus_mode = Control.FOCUS_ALL
 	_home.item_selected.connect(func(i: int) -> void: _unit_set("home", _home.get_item_text(i)))
 	_unit_box.add_child(_home)
+	_arrival = _spin(_unit_box, "Arrival (min, 0 = opening force)", 0, 480, 1, func(v: float) -> void: _unit_set("editor_arrival_s", v * 60))
+	_unit_policy = OptionButton.new()
+	for policy: String in ["balanced", "conserve", "saturation"]:
+		_unit_policy.add_item("Defence: " + policy)
+	_unit_policy.item_selected.connect(func(i: int) -> void: _unit_set("defence_policy", ["balanced", "conserve", "saturation"][i]))
+	_unit_box.add_child(_unit_policy)
+	_loadout_box = VBoxContainer.new()
+	_unit_box.add_child(_loadout_box)
+	_wing_box = VBoxContainer.new()
+	_unit_box.add_child(_wing_box)
 	var patrol_row := HBoxContainer.new()
 	_unit_box.add_child(patrol_row)
 	_button(patrol_row, "CLEAR PATROL", func() -> void:
 		if selected_index >= 0:
+			_checkpoint()
 			scenario["units"][selected_index].erase("patrol_nm")
 			_chart.queue_redraw())
 	_button(patrol_row, "DELETE UNIT", delete_selected)
+	_button(patrol_row, "CLONE", duplicate_selected)
 
 	_section(props, "COASTLINE")
 	_coast_title = Label.new()
@@ -294,6 +369,10 @@ func _ready() -> void:
 		if typeof(parsed) != TYPE_DICTIONARY:
 			_say("That is not a scenario JSON object", true)
 			return
+		var problem := ScenarioWorkshop.structural_problem(parsed)
+		if problem != "":
+			_say(problem, true)
+			return
 		load_dict(parsed)
 		_json_popup.hide()
 		_say("Scenario imported: %s" % scenario.get("name", "?"), false))
@@ -302,6 +381,7 @@ func _ready() -> void:
 		_say("Copied", false))
 	_button(pb, "CLOSE", func() -> void: _json_popup.hide())
 	add_child(_json_popup)
+	_build_recipe_popup()
 
 	_fill_palette()
 	new_scenario()
@@ -363,7 +443,17 @@ func _spin(parent: Node, label: String, lo: float, hi: float, step: float, on_ch
 
 func _fill_palette() -> void:
 	_palette.clear()
-	_palette_specs = DataDB.all_platforms()
+	_palette_specs = []
+	var query := _palette_search.text.to_lower() if _palette_search != null else ""
+	var era := _palette_era.selected if _palette_era != null else 0
+	for spec: PlatformSpec in DataDB.all_platforms():
+		if era == 1 and spec.id.begins_with("cw90_"):
+			continue
+		if era == 2 and not spec.id.begins_with("cw90_"):
+			continue
+		if query != "" and not (spec.id + " " + spec.display_name + " " + spec.nation + " " + spec.category).to_lower().contains(query):
+			continue
+		_palette_specs.append(spec)
 	for spec: PlatformSpec in _palette_specs:
 		var glyph := MapSymbols.category_glyph(spec.category, spec.domain)
 		_palette.add_item("%-3s %s · %s" % [glyph, spec.nation if spec.nation != "" else "—", spec.display_name])
@@ -411,8 +501,12 @@ func _say(text: String, warn: bool) -> void:
 # --- Model -------------------------------------------------------------------------------
 
 func new_scenario() -> void:
+	_history.clear()
+	_redo.clear()
+	_opened_path = ""
+	_task_index = 0
 	scenario = {
-		"id": "custom_mission",
+		"id": "custom_mission_%d" % Time.get_unix_time_from_system(),
 		"order": 100,
 		"name": "Custom mission",
 		"forces": "",
@@ -435,7 +529,13 @@ func new_scenario() -> void:
 
 
 func load_dict(d: Dictionary) -> void:
+	var problem := ScenarioWorkshop.structural_problem(d)
+	if problem != "":
+		_say(problem, true)
+		return
 	scenario = d.duplicate(true)
+	_opened_path = ""
+	_task_index = 0
 	if not scenario.has("map"):
 		scenario["map"] = {"center_nm": [0, 0], "extent_nm": 160}
 	if not scenario.has("environment"):
@@ -448,6 +548,29 @@ func load_dict(d: Dictionary) -> void:
 		scenario["objectives"]["victory"] = []
 	if not scenario.has("units"):
 		scenario["units"] = []
+	var kept_events: Array = []
+	for event: Dictionary in scenario.get("events", []):
+		if bool(event.get("editor_wave", false)):
+			for u: Dictionary in event.get("reinforcements", []):
+				u["editor_arrival_s"] = float(event.get("at_s", 0))
+				scenario["units"].append(u)
+		else:
+			kept_events.append(event)
+	scenario["events"] = kept_events
+	var tasks: Array = []
+	for objective: Dictionary in scenario["objectives"]["victory"]:
+		if str(objective.get("id", "")).begins_with("waves_arrived_"):
+			continue
+		var after: Array = []
+		for id in objective.get("after", []):
+			if not str(id).begins_with("waves_arrived_"):
+				after.append(id)
+		if not after.is_empty():
+			objective["after"] = after
+		else:
+			objective.erase("after")
+		tasks.append(objective)
+	scenario["objectives"]["victory"] = tasks
 	if typeof(scenario.get("terrain")) != TYPE_DICTIONARY:
 		scenario["terrain"] = {"land": []}
 	if typeof(scenario["terrain"].get("land")) != TYPE_ARRAY:
@@ -469,64 +592,86 @@ func _sync_from_model() -> void:
 	_layer.value = int(scenario["environment"].get("layer_depth_m", 0))
 	_cz.value = int(scenario["environment"].get("cz_range_nm", 0))
 	_objective_text.text = str(scenario["objectives"].get("text", ""))
-	var kind := 0
-	var minutes := 30
-	for o in scenario["objectives"]["victory"]:
-		match o.get("type", ""):
-			"time_elapsed":
-				kind = 0
-				minutes = int(int(o.get("seconds", 1800)) / 60)
-			"force_destroyed":
-				kind = 1
-			"reach_area":
-				kind = 2
-	_objective_kind.select(kind)
-	_minutes.value = minutes
+	_victory_mode.select(1 if scenario.get("victory_mode", "all") == "any" else 0)
 	_syncing = false
+	_sync_tasks()
+	_sync_task()
 	_sync_unit()
 	_chart.queue_redraw()
 
 
 func _apply_objective() -> void:
+	if _syncing or scenario.is_empty():
+		return
 	var kind := _objective_kind.selected
-	var victory: Array = []
+	var victory: Array = scenario["objectives"]["victory"]
+	if victory.is_empty():
+		victory.append({"id": "task_1", "type": "time_elapsed", "seconds": 1800})
+	_task_index = clampi(_task_index, 0, victory.size() - 1)
+	var original: Dictionary = victory[_task_index]
 	var existing_area: Dictionary = {}
-	for o in scenario["objectives"]["victory"]:
-		if o.get("type", "") == "reach_area":
-			existing_area = o
+	if original.get("type", "") in ["reach_area", "hold_area"]:
+		existing_area = original.duplicate(true)
+	var objective: Dictionary = {}
 	match kind:
 		0:
-			victory.append({"id": "hold", "type": "time_elapsed", "seconds": int(_minutes.value) * 60, "text": "Hold for %d minutes" % int(_minutes.value)})
+			objective = {"type": "time_elapsed", "seconds": int(_minutes.value) * 60, "text": "Survive for %d minutes" % int(_minutes.value)}
 		1:
-			victory.append({"id": "destroy", "type": "force_destroyed", "faction": "RED", "text": "Destroy every hostile unit"})
-		2:
+			objective = {"type": "force_destroyed", "faction": "RED", "text": "Defeat the opposing force"}
+		2, 3:
 			if existing_area.is_empty():
 				var c: Array = scenario["map"]["center_nm"]
-				existing_area = {"id": "reach", "type": "reach_area", "faction": str(scenario.get("player_faction", "BLUE")), "center_nm": [float(c[0]), float(c[1]) + 20.0], "radius_nm": 8.0, "callsigns": [], "text": "Bring the force into the objective area"}
-			victory.append(existing_area)
-	scenario["objectives"]["victory"] = victory
+				existing_area = {"faction": str(scenario.get("player_faction", "BLUE")), "center_nm": [float(c[0]), float(c[1]) + 20.0]}
+			objective = existing_area
+			objective["type"] = "reach_area" if kind == 2 else "hold_area"
+			objective["radius_nm"] = _objective_radius.value
+			objective["count"] = int(_objective_count.value)
+			objective["seconds"] = _minutes.value * 60
+			objective["text"] = "Reach the objective area" if kind == 2 else "Hold the objective area continuously"
+		4:
+			objective = {"type": "aircraft_recovered", "faction": str(scenario.get("player_faction", "BLUE")), "count": int(_objective_count.value), "text": "Complete %d aircraft recoveries" % int(_objective_count.value)}
+	objective["id"] = original.get("id", "task_%d" % (_task_index + 1))
+	if original.get("phase_only", false):
+		objective["phase_only"] = true
+	if _scope != null and _scope.selected > 0 and kind in [2, 3, 4]:
+		objective["callsigns"] = [_scope.get_item_text(_scope.selected)]
+	else:
+		objective["callsigns"] = []
+	if _sequence.button_pressed and _task_index > 0:
+		objective["after"] = [victory[_task_index - 1]["id"]]
+	victory[_task_index] = objective
+	_sync_tasks()
+	_sync_task()
 	_chart.queue_redraw()
 
 
 func set_area(world: Vector2) -> void:
-	_objective_kind.select(2)
+	if _objective_kind.selected not in [2, 3]:
+		_objective_kind.select(2)
 	_apply_objective()
 	if on_land(world):
 		_say("An objective area on land cannot be reached by a ship", true)
 		return
-	for o in scenario["objectives"]["victory"]:
-		if o.get("type", "") == "reach_area":
-			o["center_nm"] = [snappedf(world.x, 0.5), snappedf(world.y, 0.5)]
+	var o: Dictionary = scenario["objectives"]["victory"][_task_index]
+	o["center_nm"] = [snappedf(world.x, 0.5), snappedf(world.y, 0.5)]
 	_say("Objective area set at %s %s" % [Geo.format_axis(world.x, "E", "W"), Geo.format_axis(world.y, "N", "S")], false)
 	_chart.queue_redraw()
 
 
 func place(world: Vector2) -> void:
+	_checkpoint()
+	var count := int(_place_count.value) if _place_count != null else 1
+	for i in count:
+		_place_one(world + Vector2((i % 4) * 2.0, floori(i / 4.0) * 2.0))
+	_sync_tasks()
+
+
+func _place_one(world: Vector2) -> void:
 	var spec := DataDB.platform(palette_platform)
 	if spec == null:
 		return
 	var faction := "BLUE"
-	if spec.nation == "Russia":
+	if spec.nation in ["Russia", "China", "Iran"]:
 		faction = "RED"
 	elif spec.category.contains("merchant"):
 		faction = "NEUTRAL"
@@ -606,6 +751,7 @@ func select_unit(i: int) -> void:
 
 
 func move_selected(world: Vector2) -> void:
+	_checkpoint()
 	if selected_index < 0:
 		return
 	var u: Dictionary = scenario["units"][selected_index]
@@ -619,6 +765,7 @@ func move_selected(world: Vector2) -> void:
 
 
 func add_patrol_leg(world: Vector2) -> void:
+	_checkpoint()
 	if selected_index < 0:
 		_say("Select a unit first", true)
 		return
@@ -751,6 +898,7 @@ func _sync_coast() -> void:
 
 
 func delete_selected() -> void:
+	_checkpoint()
 	if selected_index < 0:
 		return
 	var gone: String = scenario["units"][selected_index].get("callsign", "")
@@ -758,6 +906,9 @@ func delete_selected() -> void:
 	for u in scenario["units"]:
 		if u.get("home", "") == gone:
 			u.erase("home")
+		if u.get("formation_leader", "") == gone:
+			u.erase("formation_leader")
+			u.erase("formation_offset_nm")
 	_strip_protected(gone)
 	selected_index = -1
 	_sync_unit()
@@ -767,6 +918,7 @@ func delete_selected() -> void:
 func _unit_set(key: String, value) -> void:
 	if selected_index < 0 or _syncing:
 		return
+	_checkpoint()
 	var u: Dictionary = scenario["units"][selected_index]
 	if key == "callsign":
 		var old: String = u.get("callsign", "")
@@ -774,6 +926,14 @@ func _unit_set(key: String, value) -> void:
 			if a.get("home", "") == old:
 				a["home"] = value
 		_rename_protected(old, value)
+		for member in scenario["units"]:
+			if member.get("formation_leader", "") == old:
+				member["formation_leader"] = value
+		for objective in scenario["objectives"]["victory"]:
+			var scope: Array = objective.get("callsigns", [])
+			for i in scope.size():
+				if scope[i] == old:
+					scope[i] = value
 	u[key] = value
 	_chart.queue_redraw()
 
@@ -838,6 +998,8 @@ func _sync_unit() -> void:
 		_radar.button_pressed = bool(u.get("radar_on", true))
 		_protect.button_pressed = _protected_names().has(u.get("callsign", ""))
 		_posture.select(1 if u.get("ai_posture", "standard") == "breakout" else 0)
+		_arrival.value = float(u.get("editor_arrival_s", 0)) / 60
+		_unit_policy.select(maxi(["balanced", "conserve", "saturation"].find(u.get("defence_policy", "balanced")), 0))
 		var is_air := spec != null and spec.domain == "air"
 		_heading.get_parent().visible = not is_air
 		_speed.get_parent().visible = not is_air
@@ -848,6 +1010,273 @@ func _sync_unit() -> void:
 		if is_air:
 			_refresh_home_options()
 	_syncing = false
+	_rebuild_fit_controls()
+
+
+func _checkpoint() -> void:
+	if _syncing or scenario.is_empty():
+		return
+	_history.append(scenario.duplicate(true))
+	if _history.size() > 60:
+		_history.pop_front()
+	_redo.clear()
+
+
+func undo() -> void:
+	if _history.is_empty():
+		return
+	_redo.append(scenario.duplicate(true))
+	var path := _opened_path
+	load_dict(_history.pop_back())
+	_opened_path = path
+	_say("Undid the last edit", false)
+
+
+func redo() -> void:
+	if _redo.is_empty():
+		return
+	_history.append(scenario.duplicate(true))
+	var path := _opened_path
+	load_dict(_redo.pop_back())
+	_opened_path = path
+	_say("Redid the last edit", false)
+
+
+func duplicate_selected() -> void:
+	if selected_index < 0:
+		return
+	_checkpoint()
+	var copy: Dictionary = scenario["units"][selected_index].duplicate(true)
+	var spec := DataDB.platform(str(copy["platform"]))
+	copy["callsign"] = _unique_callsign(spec)
+	# A cloned carrier needs its own flight identities, not a second set bearing the old
+	# carrier's callsigns. Keep its aircraft types, counts, loadouts and readiness settings.
+	for entry: Dictionary in copy.get("air_wing", []):
+		var aircraft := DataDB.platform(str(entry.get("platform", "")))
+		if aircraft != null:
+			entry["callsign"] = "%s %s" % [copy["callsign"], aircraft.short_name]
+	if copy.has("position_nm"):
+		var p: Array = copy["position_nm"]
+		copy["position_nm"] = [float(p[0]) + 2.0, float(p[1]) + 2.0]
+	scenario["units"].append(copy)
+	selected_index = scenario["units"].size() - 1
+	_sync_unit()
+	_sync_tasks()
+	_chart.queue_redraw()
+
+
+func _sync_tasks() -> void:
+	if _tasks == null:
+		return
+	_tasks.clear()
+	var victory: Array = scenario.get("objectives", {}).get("victory", [])
+	for i in victory.size():
+		var o: Dictionary = victory[i]
+		_tasks.add_item("%d. %s" % [i + 1, o.get("text", o.get("type", "Task"))])
+	if not victory.is_empty():
+		_task_index = clampi(_task_index, 0, victory.size() - 1)
+		_tasks.select(_task_index)
+
+
+func _sync_task() -> void:
+	var victory: Array = scenario.get("objectives", {}).get("victory", [])
+	if victory.is_empty():
+		return
+	_syncing = true
+	_task_index = clampi(_task_index, 0, victory.size() - 1)
+	var o: Dictionary = victory[_task_index]
+	var kinds := ["time_elapsed", "force_destroyed", "reach_area", "hold_area", "aircraft_recovered"]
+	var kind := maxi(kinds.find(o.get("type", "time_elapsed")), 0)
+	_objective_kind.select(kind)
+	_minutes.value = float(o.get("seconds", 1800)) / 60
+	_minutes.get_parent().visible = kind in [0, 3]
+	_objective_radius.value = float(o.get("radius_nm", 8))
+	_objective_radius.get_parent().visible = kind in [2, 3]
+	_objective_count.value = int(o.get("count", 1))
+	_objective_count.get_parent().visible = kind in [2, 3, 4]
+	_scope.clear()
+	_scope.add_item("Any player platform")
+	var names: Array = o.get("callsigns", [])
+	for u: Dictionary in scenario.get("units", []):
+		if u.get("faction", "BLUE") == scenario.get("player_faction", "BLUE"):
+			_scope.add_item(str(u["callsign"]))
+			if names.has(u["callsign"]):
+				_scope.select(_scope.item_count - 1)
+	_scope.visible = kind in [2, 3, 4]
+	_sequence.disabled = _task_index == 0
+	_sequence.set_pressed_no_signal(not o.get("after", []).is_empty())
+	_syncing = false
+
+
+func _add_task() -> void:
+	_checkpoint()
+	var tasks: Array = scenario["objectives"]["victory"]
+	var id := "task_%d" % (tasks.size() + 1)
+	var ids: Array = []
+	for task in tasks:
+		ids.append(task.get("id", ""))
+	while ids.has(id):
+		id += "_new"
+	var task := {"id": id, "type": "time_elapsed", "seconds": 1800, "text": "Survive for 30 minutes"}
+	if not tasks.is_empty():
+		task["after"] = [tasks.back()["id"]]
+	tasks.append(task)
+	_task_index = tasks.size() - 1
+	_sync_tasks()
+	_sync_task()
+
+
+func _remove_task() -> void:
+	var tasks: Array = scenario["objectives"]["victory"]
+	if tasks.is_empty():
+		return
+	_checkpoint()
+	var id: String = tasks[_task_index].get("id", "")
+	tasks.remove_at(_task_index)
+	for task in tasks:
+		var after: Array = task.get("after", [])
+		after.erase(id)
+	_task_index = maxi(_task_index - 1, 0)
+	_sync_tasks()
+	_sync_task()
+	_chart.queue_redraw()
+
+
+func _rebuild_fit_controls() -> void:
+	if _loadout_box == null:
+		return
+	for box in [_loadout_box, _wing_box]:
+		for child in box.get_children():
+			box.remove_child(child)
+			child.queue_free()
+	if selected_index < 0 or selected_index >= scenario["units"].size():
+		return
+	var u: Dictionary = scenario["units"][selected_index]
+	var spec := DataDB.platform(str(u["platform"]))
+	if spec == null:
+		return
+	if not spec.weapon_loadout.is_empty():
+		_section(_loadout_box, "WEAPON FIT / ROUNDS")
+		for wid: String in spec.weapon_loadout:
+			var weapon := DataDB.weapon(wid)
+			if weapon == null:
+				continue
+			var maximum := spec.vls_cells * weapon.vls_pack if weapon.vls_pack > 0 and spec.vls_cells > 0 else int(spec.weapon_loadout[wid])
+			var spin := _spin(_loadout_box, weapon.display_name, 0, maximum, 1, func(value: float) -> void:
+				if _syncing or selected_index < 0:
+					return
+				_checkpoint()
+				var unit: Dictionary = scenario["units"][selected_index]
+				if not unit.has("loadout"):
+					unit["loadout"] = spec.weapon_loadout.duplicate()
+				unit["loadout"][wid] = int(value))
+			spin.set_value_no_signal(int(u.get("loadout", spec.weapon_loadout).get(wid, 0)))
+	if spec.aircraft_capacity > 0:
+		_section(_wing_box, "AIR WING / CAPACITY %d" % spec.aircraft_capacity)
+		for aircraft: PlatformSpec in DataDB.all_platforms():
+			if not spec.can_operate(aircraft) or aircraft.id.begins_with("cw90_") != spec.id.begins_with("cw90_"):
+				continue
+			# Show the host's own national equipment and its default detachment. The full
+			# palette can still place compatible allied airframes individually.
+			if aircraft.nation != spec.nation and not spec.default_air_wing.has(aircraft.id):
+				continue
+			var pid := aircraft.id
+			var spin := _spin(_wing_box, aircraft.short_name, 0, spec.aircraft_capacity, 1, func(value: float) -> void: _set_wing_count(pid, int(value)))
+			var count := 0
+			for entry in u.get("air_wing", ScenarioLoader._default_wing(spec)):
+				if entry.get("platform", "") == pid:
+					count += int(entry.get("count", 0))
+			spin.set_value_no_signal(count)
+
+
+func _set_wing_count(pid: String, count: int) -> void:
+	if _syncing or selected_index < 0:
+		return
+	_checkpoint()
+	var u: Dictionary = scenario["units"][selected_index]
+	var spec := DataDB.platform(str(u["platform"]))
+	var entries: Array = u.get("air_wing", ScenarioLoader._default_wing(spec)).duplicate(true)
+	var found := false
+	for entry: Dictionary in entries:
+		if entry.get("platform", "") == pid:
+			entry["count"] = count
+			found = true
+	if not found and count > 0:
+		entries.append({"platform": pid, "count": count, "callsign": "%s %s" % [u["callsign"], DataDB.platform(pid).short_name]})
+	var kept: Array = []
+	for entry: Dictionary in entries:
+		if int(entry.get("count", 0)) > 0:
+			kept.append(entry)
+	u["air_wing"] = kept
+
+
+func _build_recipe_popup() -> void:
+	_recipe_popup = PopupPanel.new()
+	var margin := MarginContainer.new()
+	for side: String in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 16)
+	_recipe_popup.add_child(margin)
+	var box := VBoxContainer.new()
+	box.custom_minimum_size.x = 700
+	box.add_theme_constant_override("separation", 10)
+	margin.add_child(box)
+	_section(box, "FLEET BUILDER")
+	var hint := Label.new()
+	hint.text = "Build a reproducible starting force, then edit every hull, air wing, task and arrival time. A seed changes the fleet mix."
+	hint.custom_minimum_size.x = 700
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(hint)
+	var options := HBoxContainer.new()
+	box.add_child(options)
+	var era := OptionButton.new()
+	era.add_item("Modern 2027")
+	era.add_item("Cold War 1990")
+	era.item_selected.connect(func(i: int) -> void: _recipe["year"] = 2027 if i == 0 else 1990)
+	options.add_child(era)
+	var region := OptionButton.new()
+	for text in ["North Atlantic", "Western Pacific", "Arabian Sea", "Mediterranean"]:
+		region.add_item(text)
+	region.item_selected.connect(func(i: int) -> void: _recipe["region"] = i)
+	options.add_child(region)
+	var formation := OptionButton.new()
+	for pattern: String in ["screen", "column", "abreast", "wedge", "dispersed"]:
+		formation.add_item(pattern.capitalize())
+	formation.item_selected.connect(func(i: int) -> void: _recipe["formation"] = ["screen", "column", "abreast", "wedge", "dispersed"][i])
+	options.add_child(formation)
+	var sides := HBoxContainer.new()
+	box.add_child(sides)
+	for side: String in ["blue", "red"]:
+		var column := VBoxContainer.new()
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sides.add_child(column)
+		_section(column, side.to_upper() + " FORCE")
+		for entry in [["ships", "Surface ships", 1, 48], ["carriers", "Carriers (included above)", 0, 2], ["subs", "Submarines", 0, 12]]:
+			var key := side + "_" + str(entry[0])
+			var spin := _spin(column, entry[1], entry[2], entry[3], 1, func(value: float) -> void: _recipe[key] = int(value))
+			spin.set_value_no_signal(_recipe[key])
+	var seed_spin := _spin(box, "Seed", 0, 999999, 1, func(value: float) -> void: _recipe["seed"] = int(value))
+	seed_spin.set_value_no_signal(29)
+	var aircraft_spin := _spin(box, "Aircraft per carrier", 0, 72, 2, func(value: float) -> void: _recipe["aircraft_per_carrier"] = int(value))
+	aircraft_spin.set_value_no_signal(24)
+	var coast := CheckBox.new()
+	coast.text = "Use charted coastlines (unchecked = open-water exercise)"
+	coast.toggled.connect(func(on: bool) -> void: _recipe["coastlines"] = on)
+	box.add_child(coast)
+	var actions := HBoxContainer.new()
+	box.add_child(actions)
+	_button(actions, "GENERATE FLEETS", func() -> void:
+		_checkpoint()
+		load_dict(ScenarioWorkshop.generate(_recipe))
+		_recipe_popup.hide()
+		_palette_era.select(2 if int(_recipe["year"]) == 1990 else 1)
+		_fill_palette()
+		_say("Generated %d authored units. Select a ship to edit weapons, air wing or arrival time." % scenario["units"].size(), false))
+	_button(actions, "CANCEL", func() -> void: _recipe_popup.hide())
+	add_child(_recipe_popup)
+
+
+func _open_recipe() -> void:
+	_recipe_popup.popup_centered(Vector2i(760, 420))
 
 
 func _refresh_home_options() -> void:
@@ -874,40 +1303,8 @@ func _refresh_home_options() -> void:
 # --- Persistence -------------------------------------------------------------------------
 
 func validate() -> String:
-	if str(scenario.get("name", "")).strip_edges() == "":
-		return "Give the scenario a name"
-	var player: String = scenario.get("player_faction", "BLUE")
-	var own := 0
-	var names: Dictionary = {}
-	for u in scenario["units"]:
-		var cs: String = u.get("callsign", "")
-		if names.has(cs):
-			return "Two units are called %s" % cs
-		names[cs] = true
-		if u.get("faction", "") == player:
-			own += 1
-		var spec := DataDB.platform(u.get("platform", ""))
-		if spec != null and spec.domain == "air":
-			var home_ok := false
-			for h in scenario["units"]:
-				if h.get("callsign", "") == u.get("home", "") and h.get("faction", "") == u.get("faction", ""):
-					var deck := DataDB.platform(h.get("platform", ""))
-					home_ok = deck != null and deck.can_operate(spec)
-					if not home_ok:
-						return "%s needs a compatible %s deck or airfield" % [cs, spec.flight_requirement()]
-					var count := 0
-					for a in scenario["units"]:
-						if a.get("home", "") == h.get("callsign", ""):
-							count += 1
-					if count > deck.aircraft_capacity:
-						return "%s exceeds its aircraft capacity" % h.get("callsign", "")
-			if not home_ok:
-				return "%s has no ship or base to fly from" % cs
-	if own == 0:
-		return "Place at least one %s unit for the player to command" % player
-	if scenario["objectives"]["victory"].is_empty():
-		return "Choose an objective"
-	return _validate_terrain()
+	var problem := ScenarioWorkshop.validate(ScenarioWorkshop.export_scenario(scenario))
+	return problem if problem != "" else _validate_terrain()
 
 
 ## Terrain is checked against the editor's own coastlines, never against the static Terrain, which
@@ -940,7 +1337,7 @@ func _pair(a: Array) -> Vector2:
 
 func to_json() -> String:
 	scenario["forces"] = _forces_summary()
-	return JSON.stringify(scenario, "  ")
+	return JSON.stringify(ScenarioWorkshop.export_scenario(scenario), "  ")
 
 
 func _forces_summary() -> String:
@@ -970,12 +1367,21 @@ func save() -> bool:
 		return false
 	ScenarioIndex.ensure_user_dir()
 	var path := ScenarioIndex.custom_path(str(scenario.get("id", "custom_mission")))
+	# A new recipe or import must not replace an unrelated mission with the same seed or slug.
+	if path != _opened_path and FileAccess.file_exists(path):
+		var base_id := str(scenario["id"])
+		var suffix := 2
+		while FileAccess.file_exists(ScenarioIndex.custom_path("%s_%d" % [base_id, suffix])):
+			suffix += 1
+		scenario["id"] = "%s_%d" % [base_id, suffix]
+		path = ScenarioIndex.custom_path(scenario["id"])
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		_say("Could not write %s" % path, true)
 		return false
 	f.store_string(to_json())
 	f.close()
+	_opened_path = path
 	_say("Saved %s" % path, false)
 	_refresh_load_menu()
 	return true
@@ -1014,7 +1420,9 @@ func _on_load_selected(i: int) -> void:
 		_say("Could not read %s" % path, true)
 	else:
 		load_dict(d)
-		if not path.begins_with("user://"):
+		if path.begins_with(ScenarioIndex.user_root()):
+			_opened_path = path
+		else:
 			scenario["id"] = "custom_" + str(scenario.get("id", "mission"))
 			scenario["name"] = str(scenario.get("name", "")) + " (copy)"
 			_sync_from_model()
@@ -1038,7 +1446,21 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	var k := event as InputEventKey
-	if k == null or not k.pressed or k.keycode != KEY_DELETE or _callsign.has_focus() or _coast_name.has_focus():
+	if k == null or not k.pressed:
+		return
+	if k.ctrl_pressed or k.meta_pressed:
+		if k.keycode == KEY_Z:
+			if k.shift_pressed:
+				redo()
+			else:
+				undo()
+			get_viewport().set_input_as_handled()
+			return
+		if k.keycode == KEY_Y:
+			redo()
+			get_viewport().set_input_as_handled()
+			return
+	if k.keycode != KEY_DELETE or _callsign.has_focus() or _coast_name.has_focus():
 		return
 	if mode == Mode.COAST and coast_index >= 0:
 		undo_coast_point()
@@ -1199,6 +1621,8 @@ class Chart extends Control:
 				draw_string(_font, op + Vector2(8, -8), "OBJECTIVE AREA", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TacticalMap.COL_WAYPOINT)
 		var protected := editor._protected_names()
 		var units: Array = editor.scenario["units"]
+		var label_jobs: Array[Dictionary] = []
+		var label_blockers: Array[Rect2] = []
 		for i in units.size():
 			var u: Dictionary = units[i]
 			var spec := DataDB.platform(u.get("platform", ""))
@@ -1241,7 +1665,20 @@ class Chart extends Control:
 			if protected.has(label):
 				label += "  (P)"
 			if i == editor.selected_index or not is_air:
-				draw_string(_font, draw_at + Vector2(14, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(col, 0.9))
+				label_jobs.append({"label": label, "at": draw_at, "color": col, "priority": 2 if i == editor.selected_index else (1 if i == _hover else 0)})
+			label_blockers.append(Rect2(draw_at - Vector2(8, 8), Vector2(16, 16)))
+		label_jobs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["priority"] > b["priority"])
+		for job in label_jobs:
+			var label_size := Vector2(_font.get_string_size(job["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 4, 14)
+			for offset: Vector2 in [Vector2(14, -10), Vector2(14, -26), Vector2(14, 8), Vector2(-label_size.x - 14, -10), Vector2(-label_size.x - 14, 8)]:
+				var rect := Rect2(job["at"] + offset, label_size)
+				if not Rect2(Vector2(3, 22), size - Vector2(6, 46)).encloses(rect):
+					continue
+				if label_blockers.any(func(other: Rect2) -> bool: return rect.intersects(other)):
+					continue
+				draw_string(_font, rect.position + Vector2(2, 11), job["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(job["color"], 0.9))
+				label_blockers.append(rect.grow(2))
+				break
 		draw_string(_font, Vector2(10, 16), "%s  ·  %d units  ·  sea state %d" % [str(editor.scenario.get("name", "")).to_upper(), units.size(), int(editor.scenario["environment"].get("sea_state", 0))], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UITheme.COL_ACCENT)
 		draw_string(_font, Vector2(10, size.y - 20), "(P) protected · dashed: patrol route · box: mission chart extent · filled: land", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.COL_DIM)
 		UITheme.draw_bevel_frame(self, Rect2(Vector2.ZERO, size))

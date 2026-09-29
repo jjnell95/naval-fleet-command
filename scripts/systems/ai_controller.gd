@@ -80,11 +80,21 @@ func describe(u: Unit) -> String:
 	return "%s%s" % [STATE_NAMES[b["state"]], "  -> %s" % target.id if target != null else ""]
 
 
+var _cycle_inbound: Array = []
+var _in_decision_cycle := false
+
+
 func tick(now: float) -> void:
 	if not enabled or unit_manager == null:
 		return
+	# Victim geometry is the same for every ship in this decision cycle. Observer visibility
+	# remains a per-unit check, including any emissions changes made by preceding orders.
+	_cycle_inbound = AirDefence.inbound_threats(unit_manager, threat_manager, faction) if threat_manager != null else []
+	_in_decision_cycle = true
 	for u in unit_manager.get_faction_units(faction):
 		_update_unit(u, now)
+	_in_decision_cycle = false
+	_cycle_inbound.clear()
 
 
 func clear() -> void:
@@ -244,8 +254,9 @@ func _inbound_on(u: Unit) -> Array:
 	if threat_manager == null:
 		return []
 	var out: Array = []
-	for entry: Dictionary in AirDefence.inbound_threats(unit_manager, threat_manager, faction, u):
-		if entry["target"] == u:
+	var picture := _cycle_inbound if _in_decision_cycle else AirDefence.inbound_threats(unit_manager, threat_manager, faction, u)
+	for entry: Dictionary in picture:
+		if entry["target"] == u and threat_manager.visible_to(u, entry["weapon"]):
 			out.append(entry)
 	return out
 

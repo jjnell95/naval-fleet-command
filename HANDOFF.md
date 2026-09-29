@@ -12,12 +12,15 @@ godot --path .                                             # play
 godot --headless --path . --script tests/run_tests.gd      # regression tests
 godot --path . -- --cold-war-smoke                         # command-screen checks
 godot --path . -- --aviation-smoke                         # air-operations checks
+godot --path . -- --fleet-workshop-smoke --scenario-storage=res://work/test-library
 python3 tools/smoke_scenarios.py "$GODOT" /tmp/sweep       # every operation, two seeds, AI both sides
 tools/web/build_web.sh                                     # rebuild docs/play/index.pck
 ```
 
 The interface suites need a window (`xvfb-run -a -s "-screen 0 1600x900x24"` on a server).
-`.github/workflows/tests.yml` runs the tests and both suites on every pull request.
+`.github/workflows/tests.yml` runs the tests and all three suites on every pull request. The
+workshop suite also runs at 1280 × 720. Use `--scenario-storage=res://work/<name>` after `--`
+when a validation run should have its own mission library.
 
 To reach a tactical picture without playing to it, use the dev harness. Every flag goes after a
 bare `--`, and they are all documented at the top of `scripts/core/dev_harness.gd`:
@@ -64,13 +67,16 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
 | `scripts/ui/world_view.gd`, `world_scene.gd`, `world_camera.gd`, `world_effects.gd`, `world_land.gd`, `world_presentation.gd` | the 3D view: what may be drawn (`WorldPresentation`), the cameras, the scene |
 | `scripts/ui/world_materials.gd`, `world_hull.gdshader`, `world_swell.gdshaderinc`, `world_bow/light/rotor/tint/xray.gdshader` | how models look in the 3D view: finishes by navy, the waterline, bow waves, lights, rotor discs, plotted and underwater looks |
 | `scripts/systems/torpedo_defence.gd` | acoustic decoys and anti-torpedo rounds; chaff is `air_defence.gd`'s and only works on missiles |
+| `scripts/systems/defensive_response.gd` | finite manual/automatic countermeasure pulses, temporary evasion and resumption |
+| `scripts/simulation/scenario_workshop.gd` | seeded custom fleets, strict authoring validation and reinforcement export |
+| `scripts/ui/fleet_operations.gd` | task-group readiness, selections, formation and defence orders |
 | `scripts/ui/data_display.gd` | the data display, bottom right, built from rows of coloured spans |
 | `scripts/ui/status_boards.gd` | the boards on A, hosting `orders_panel.gd`, `unit_panel.gd`, `contact_panel.gd` (+ `defence_board.gd`) and the comms history |
 | `scripts/ui/cds_menus.gd`, `key_commands.gd`, `command_palette.gd` | right-click menus, the H board, Ctrl-K |
 | `scripts/ui/air_operations.gd`, `briefing_panel.gd`, `after_action.gd` | in-mission dialogs |
 | `scripts/ui/scenario_menu.gd`, `scenario_editor.gd`, `platform_library.gd` | the front end: operations desk, editor, reference |
 | `scripts/ui/ui_theme.gd`, `jfc_style.gd`, `ui_icons.gd`, `sound_fx.gd` | the theme (built in code, no `.tres`), bevels and lamps, icons, procedural sound |
-| `scripts/core/dev_harness.gd`, `cold_war_smoke.gd`, `aviation_smoke.gd` | scaffolding: flags, the two interface suites |
+| `scripts/core/dev_harness.gd`, `cold_war_smoke.gd`, `aviation_smoke.gd`, `fleet_workshop_smoke.gd` | scaffolding: flags and three interface suites |
 | `tests/` | the regression suite; `run_tests.gd` lists the files |
 | `tools/scenarios/` | the scenario builders and the Natural Earth and GMTED2010 extractions |
 | `tools/art/` | models and recognition art without Blender (`build_flattops.py` for the carriers and amphibious ships); `tools/blender/` is the earlier pipeline |

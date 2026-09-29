@@ -19,6 +19,8 @@ extends RefCounted
 ##   --open-palette              open the searchable Actions palette
 ##   --open-air-ops              open aircraft type selection and landing controls
 ##   --aviation-smoke            verify launch, landing, turnaround and Air Operations UI
+##   --fleet-workshop-smoke      verify custom authoring, waves, formations and defensive controls
+##   --scenario-storage=PATH     use an isolated custom-mission directory for development
 ##   --pick=CALLSIGN             select one own unit and hook the first track, for screenshots
 ##   --run[=N]                   unpause at time-compression step N (0 is 1x) before the hold, so
 ##                               a screenshot shows things moving
@@ -48,7 +50,7 @@ extends RefCounted
 ##   --radio=TEXT                post a line on the chart's radio line (spoken by the selection)
 ##   --world-focus=track         drop the selection and hook the first plotted contact, for screenshots
 ##   --world-azimuth=DEG         turn the tether this far round its subject from the default
-##   --tab=N                     open the orders board on tab N (0 navigation … 3 doctrine), for screenshots
+##   --tab=N                     open the orders board on tab N (0 navigation … 4 defence), for screenshots
 ##   --world-hours=H             move the world view's sun H hours on, to look at dusk or night
 ##   --world-look=DEG            turn the tether so the camera looks along this true bearing
 ##   --world-pitch=DEG / --world-zoom=F   the tether's height angle and range multiple
@@ -80,6 +82,9 @@ static func arg(args: PackedStringArray, prefix: String, fallback: float) -> flo
 
 func handle_flags() -> void:
 	var args := OS.get_cmdline_user_args()
+	if args.has("--fleet-workshop-smoke"):
+		load("res://scripts/core/fleet_workshop_smoke.gd").run(main)
+		return
 	if args.has("--cold-war-probe"):
 		load("res://scripts/core/cold_war_probe.gd").run(main)
 		return
