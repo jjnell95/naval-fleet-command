@@ -27,10 +27,13 @@ const TOWED_MIN_SPEED_KN := 4.0
 ## One cycle for every ship. Returns the number of countermeasures used (decoys and rounds).
 static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> int:
 	var used := 0
+	var pictures := {}
 	for u in unit_manager.units:
 		if not u.is_engageable() or u.in_flight():
 			continue
-		for w in threat_manager.get_threats(u.faction):
+		if not pictures.has(u.faction):
+			pictures[u.faction] = threat_manager.get_threats(u.faction).filter(func(w: Weapon) -> bool: return w.spec.is_torpedo() and not w.is_interceptor())
+		for w: Weapon in pictures[u.faction]:
 			if w.phase == Weapon.Phase.DEAD or w.is_interceptor() or not w.spec.is_torpedo() or w.acquired != u:
 				continue
 			if not threat_manager.visible_to(u, w):

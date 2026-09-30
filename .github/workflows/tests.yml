@@ -38,6 +38,9 @@ jobs:
       - name: Import the project
         run: ~/godot/godot --headless --path . --import --quit
 
+      - name: Verify runtime errors fail the test runner
+        run: python3 tools/test_runner_self_check.py ~/godot/godot
+
       - name: Regression tests
         run: timeout 900 ~/godot/godot --headless --path . --script tests/run_tests.gd
 

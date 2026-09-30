@@ -42,6 +42,7 @@ func tick(dt: float) -> void:
 func run_cycle(now: float) -> void:
 	_update_manoeuvre()
 	Detection.refresh_jammers(unit_manager.units)
+	Detection.begin_jamming_batch()
 	for observer in unit_manager.units:
 		if not observer.is_engageable():
 			continue
@@ -51,6 +52,7 @@ func run_cycle(now: float) -> void:
 	_buoy_pass(now)
 	track_manager.tick(now, SENSOR_DT)
 	_detect_weapons(now)
+	Detection.end_jamming_batch()
 
 
 ## How hard each unit is turning, which is what lets a passive listener resolve range.
@@ -313,6 +315,27 @@ func _detect_weapons(now: float) -> void:
 	threat_manager.begin_cycle()
 	if weapon_manager.in_flight.is_empty():
 		return
+	# Flatten the exact type/altitude range groups once. Do not rebuild each round's flight
+	# profile and nested dictionary lookup for every radar installation in a large raid.
+	var weapons: Array[Weapon] = []
+	var group_indices := PackedInt32Array()
+	var group_specs: Array[WeaponSpec] = []
+	var group_altitudes := PackedFloat64Array()
+	var group_torpedoes: Array[bool] = []
+	var groups := {}
+	for w: Weapon in weapon_manager.in_flight:
+		if w.phase == Weapon.Phase.DEAD:
+			continue
+		var altitude := w.flight_altitude_m()
+		var heights: Dictionary = groups.get(w.spec, {})
+		if not heights.has(altitude):
+			heights[altitude] = group_specs.size()
+			groups[w.spec] = heights
+			group_specs.append(w.spec)
+			group_altitudes.append(altitude)
+			group_torpedoes.append(w.spec.is_torpedo())
+		weapons.append(w)
+		group_indices.append(heights[altitude])
 	for observer in unit_manager.units:
 		if not observer.is_engageable():
 			continue
@@ -320,16 +343,25 @@ func _detect_weapons(now: float) -> void:
 		var sonar_up := observer.has_sonar()
 		if not radar_up and not sonar_up:
 			continue
-		for w in weapon_manager.in_flight:
+		var reaches := PackedFloat64Array()
+		for group in group_specs.size():
+			var spec := group_specs[group]
+			var altitude := group_altitudes[group]
+			var reach := Detection.torpedo_detection_nm(observer, spec) if group_torpedoes[group] and sonar_up else 0.0
+			if not group_torpedoes[group] and radar_up:
+				reach = Detection.best_weapon_detection_nm(observer, spec, altitude) * Detection.weapon_clutter_factor(spec, altitude)
+			reaches.append(reach)
+		for i in weapons.size():
+			var w := weapons[i]
 			if w.faction == observer.faction or w.phase == Weapon.Phase.DEAD:
 				continue
-			var r := 0.0
-			if w.spec.is_torpedo():
-				if sonar_up:
-					r = Detection.torpedo_detection_nm(observer, w.spec)
-			elif radar_up:
-				r = Detection.best_weapon_detection_nm(observer, w.spec, w.flight_altitude_m()) * Detection.weapon_clutter_factor(w.spec, w.flight_altitude_m()) * Detection.jam_penalty(observer, w.position)
-			if r <= 0.0 or observer.position.distance_to(w.position) > r:
+			var group := group_indices[i]
+			var reach := reaches[group]
+			if reach <= 0.0 or observer.position.distance_squared_to(w.position) > reach * reach:
+				continue
+			if not group_torpedoes[group]:
+				reach *= Detection.jam_penalty(observer, w.position)
+			if reach <= 0.0 or observer.position.distance_squared_to(w.position) > reach * reach:
 				continue
 			if Detection.terrain_hides_weapon(observer, w):
 				continue

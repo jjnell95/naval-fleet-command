@@ -66,11 +66,16 @@ static func clear() -> void:
 ## Reads the scenario's map anchor and environment. Absent or out of range means an unknown floor.
 static func load_for(scenario: Dictionary) -> void:
 	clear()
+	var m = scenario.get("map", {})
+	var recipe = scenario.get("recipe", {})
+	# Explicit exercise mode also repairs missions saved by the original fleet builder.
+	if (typeof(m) == TYPE_DICTIONARY and m.get("open_water", false) == true) or (typeof(recipe) == TYPE_DICTIONARY and recipe.has("coastlines") and recipe["coastlines"] == false):
+		uniform_m = 2000.0
+		return
 	var env = scenario.get("environment", {})
 	if typeof(env) == TYPE_DICTIONARY and env.has("bottom_m"):
 		uniform_m = maxf(float(env["bottom_m"]), 0.0)
 		return
-	var m = scenario.get("map", {})
 	if typeof(m) != TYPE_DICTIONARY or not m.has("anchor_lat") or not m.has("anchor_lon"):
 		return
 	set_anchor(float(m["anchor_lat"]), float(m["anchor_lon"]), str(m.get("chart_region", "")))

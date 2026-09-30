@@ -372,24 +372,34 @@ static func draw_key_entry(ci: CanvasItem, pos: Vector2, color: Color, frame: Fr
 
 
 ## The identity colour stays authoritative; shape distinguishes the ordnance type.
-static func draw_ordnance(ci: CanvasItem, pos: Vector2, heading_deg: float, color: Color, spec: WeaponSpec) -> void:
+static func ordnance_segments(pos: Vector2, heading_deg: float, spec: WeaponSpec) -> PackedVector2Array:
 	var f := Vector2(sin(deg_to_rad(heading_deg)), -cos(deg_to_rad(heading_deg)))
 	var side := f.orthogonal()
-	if spec.type == "torpedo":
-		ci.draw_circle(pos, 3.0, color, false, 1.0, true)
-		ci.draw_line(pos - f * 6.0, pos + f * 3.0, color, 1.0, true)
-	elif spec.type in ["gun", "ciws"]:
-		ci.draw_line(pos - f * 4.0, pos + f * 4.0, color, 2.0, true)
-	elif spec.type == "bomb":
-		ci.draw_polyline(PackedVector2Array([pos + f * 5.0, pos + side * 3.0, pos - f * 5.0, pos - side * 3.0, pos + f * 5.0]), color, 1.2, true)
-	elif spec.type in ["sam", "aam"]:
-		# One batched line command keeps the air-missile crossbar affordable in massed raids.
-		var tip := pos + f * 6.0
-		var left := pos - f * 4.0 + side * 3.5
-		var right := pos - f * 4.0 - side * 3.5
-		var notch := pos - f * 2.0
-		ci.draw_multiline(PackedVector2Array([tip, left, left, notch, notch, right, right, tip, pos - side * 4.0, pos + side * 4.0]), color, 1.0, true)
+	if spec.type in ["gun", "ciws"]:
+		return PackedVector2Array([pos - f * 4.0, pos + f * 4.0])
+	var points := PackedVector2Array()
+	if spec.type in ["torpedo", "asw_rocket"]:
+		var radius := 3.0 if spec.type == "torpedo" else 5.0
+		for i in 12:
+			points.append(pos + Vector2.from_angle(TAU * i / 12.0) * radius)
+			points.append(pos + Vector2.from_angle(TAU * (i + 1) / 12.0) * radius)
+		if spec.type == "torpedo":
+			points.append(pos - f * 6.0)
+			points.append(pos + f * 3.0)
+			return points
+	var outline := PackedVector2Array()
+	if spec.type == "bomb":
+		outline = PackedVector2Array([pos + f * 5.0, pos + side * 3.0, pos - f * 5.0, pos - side * 3.0])
 	else:
-		draw_weapon(ci, pos, heading_deg, color, false)
-		if spec.type == "asw_rocket":
-			ci.draw_circle(pos, 5.0, color, false, 1.0, true)
+		outline = PackedVector2Array([pos + f * 6.0, pos - f * 4.0 + side * 3.5, pos - f * 2.0, pos - f * 4.0 - side * 3.5])
+	for i in outline.size():
+		points.append(outline[i])
+		points.append(outline[(i + 1) % outline.size()])
+	if spec.type in ["sam", "aam"]:
+		points.append(pos - side * 4.0)
+		points.append(pos + side * 4.0)
+	return points
+
+
+static func draw_ordnance(ci: CanvasItem, pos: Vector2, heading_deg: float, color: Color, spec: WeaponSpec) -> void:
+	ci.draw_multiline(ordnance_segments(pos, heading_deg, spec), color, 1.0, true)

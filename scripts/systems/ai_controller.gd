@@ -81,6 +81,8 @@ func describe(u: Unit) -> String:
 
 
 var _cycle_inbound: Array = []
+var _cycle_committed: Dictionary = {}
+var _cycle_torpedoes: Array[Weapon] = []
 var _in_decision_cycle := false
 
 
@@ -90,11 +92,31 @@ func tick(now: float) -> void:
 	# Victim geometry is the same for every ship in this decision cycle. Observer visibility
 	# remains a per-unit check, including any emissions changes made by preceding orders.
 	_cycle_inbound = AirDefence.inbound_threats(unit_manager, threat_manager, faction) if threat_manager != null else []
+	_cycle_committed.clear()
+	_cycle_torpedoes.clear()
+	if weapon_manager != null:
+		for w: Weapon in weapon_manager.in_flight:
+			if w.faction == faction and w.target_track != null:
+				_cycle_committed[w.target_track] = int(_cycle_committed.get(w.target_track, 0)) + 1
+		weapon_manager.round_fired.connect(_on_cycle_round_fired)
+	if threat_manager != null:
+		for w: Weapon in threat_manager.get_threats(faction):
+			if w.spec.is_torpedo() and not w.is_interceptor():
+				_cycle_torpedoes.append(w)
 	_in_decision_cycle = true
 	for u in unit_manager.get_faction_units(faction):
 		_update_unit(u, now)
 	_in_decision_cycle = false
+	if weapon_manager != null:
+		weapon_manager.round_fired.disconnect(_on_cycle_round_fired)
 	_cycle_inbound.clear()
+	_cycle_committed.clear()
+	_cycle_torpedoes.clear()
+
+
+func _on_cycle_round_fired(shooter: Unit, _spec: WeaponSpec, track: Track) -> void:
+	if shooter.faction == faction:
+		_cycle_committed[track] = int(_cycle_committed.get(track, 0)) + 1
 
 
 func clear() -> void:
@@ -243,8 +265,8 @@ func _has_airborne(host: Unit, predicate: Callable) -> bool:
 func _note_torpedo_datum(u: Unit, b: Dictionary, now: float) -> void:
 	if threat_manager == null:
 		return
-	for w: Weapon in threat_manager.get_threats(faction):
-		if w.spec.is_torpedo() and not w.is_interceptor() and threat_manager.visible_to(u, w):
+	for w: Weapon in (_cycle_torpedoes if _in_decision_cycle else threat_manager.get_threats(faction)):
+		if w.phase != Weapon.Phase.DEAD and w.spec.is_torpedo() and not w.is_interceptor() and threat_manager.visible_to(u, w):
 			b["last_contact"] = w.position
 			b["last_contact_time"] = now
 			return
@@ -308,6 +330,8 @@ func _strike_rounds_left(u: Unit, hostiles: Array) -> int:
 
 
 func _rounds_already_committed(t: Track) -> int:
+	if _in_decision_cycle:
+		return int(_cycle_committed.get(t, 0))
 	var n := 0
 	for w: Weapon in weapon_manager.in_flight:
 		if w.faction == faction and w.target_track == t:

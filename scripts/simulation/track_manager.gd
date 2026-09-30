@@ -23,6 +23,7 @@ const HISTORY_LENGTH := 48
 ## which is what makes identification a decision rather than a formality.
 var neutral_factions: PackedStringArray = []
 var _tracks: Dictionary = {}  # faction -> Array[Track]
+var _by_target: Dictionary = {}  # picture key -> reported target association -> Track
 var _local_keys: Dictionary = {}
 var _track_ids: Dictionary = {}
 var _next_number: Dictionary = {}  # faction -> int
@@ -49,8 +50,14 @@ func find_for(u: Unit, target: Unit) -> Track:
 
 
 func find_track(faction: String, target: Unit) -> Track:
-	for t in get_tracks(faction):
+	var index: Dictionary = _by_target.get(faction, {})
+	if index.has(target):
+		return index[target]
+	# Legacy fixture/debug pictures may be supplied directly; normal observations maintain index.
+	for t: Track in get_tracks(faction):
 		if t.truth == target:
+			index[target] = t
+			_by_target[faction] = index
 			return t
 	return null
 
@@ -86,6 +93,9 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		if not _tracks.has(key):
 			_tracks[key] = []
 		_tracks[key].append(t)
+		var index: Dictionary = _by_target.get(key, {})
+		index[target] = t
+		_by_target[key] = index
 	var already_this_cycle := (not is_new) and is_equal_approx(t.last_seen_time, now)
 	if not already_this_cycle:
 		var reacquired := not is_new and t.age_s(now) > Track.STALE_AFTER_S
@@ -106,6 +116,8 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	if c.observer != null:
 		t.contributors[c.observer] = now
 	t.networked = shared
+	if c.altitude_m >= 0.0:
+		t.altitude_m = c.altitude_m
 	t.status = Track.Status.ACTIVE
 	t.last_seen_time = now
 	_update_classification(faction, t)
@@ -174,6 +186,8 @@ func tick(now: float, dt: float) -> void:
 			if age > Track.LOST_AFTER_S:
 				t.status = Track.Status.LOST
 				list.remove_at(i)
+				if _by_target.has(faction):
+					_by_target[faction].erase(t.truth)
 				track_lost.emit(faction, t)
 				continue
 			if age > Track.STALE_AFTER_S:
@@ -279,6 +293,7 @@ func _next_id(faction: String) -> int:
 
 
 func clear() -> void:
+	_by_target.clear()
 	_tracks.clear()
 	_local_keys.clear()
 	_track_ids.clear()

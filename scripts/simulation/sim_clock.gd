@@ -15,9 +15,25 @@ var start_unix_time := 0
 var speed_index := 0
 var paused := true
 var _accum := 0.0
+var _last_wall_usec := 0
 
 
 func _process(delta: float) -> void:
+	if is_inside_tree():
+		_process_wall_frame(delta, Time.get_ticks_usec())
+	else:
+		# Standalone clock tests provide explicit elapsed time.
+		_advance_frame(delta)
+
+
+func _process_wall_frame(engine_delta: float, now_usec: int) -> void:
+	var elapsed := engine_delta if _last_wall_usec == 0 else maxf(float(now_usec - _last_wall_usec) / 1000000.0, 0.0)
+	_last_wall_usec = now_usec
+	# OS suspension must not enqueue minutes of catch-up. Ordinary frame stalls remain real time.
+	_advance_frame(minf(elapsed, 1.0))
+
+
+func _advance_frame(delta: float) -> void:
 	if paused:
 		return
 	var t0 := Time.get_ticks_usec()
@@ -60,6 +76,7 @@ func set_paused(p: bool) -> void:
 	if p == paused:
 		return
 	_accum = 0.0
+	_last_wall_usec = 0
 	paused = p
 	paused_changed.emit(paused)
 
@@ -76,6 +93,7 @@ func drop_to_realtime() -> void:
 func reset(start_unix := 0) -> void:
 	sim_time = 0.0
 	_accum = 0.0
+	_last_wall_usec = 0
 	start_unix_time = start_unix
 
 

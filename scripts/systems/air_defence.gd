@@ -20,6 +20,10 @@ static func closest_approach(u: Unit, w: Weapon) -> Dictionary:
 	var wv := Geo.heading_to_vector(w.heading_deg) * w.speed_nm_per_s()
 	var uv := Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn)
 	var rel_vel := wv - uv
+	return _relative_approach(rel_pos, rel_vel)
+
+
+static func _relative_approach(rel_pos: Vector2, rel_vel: Vector2) -> Dictionary:
 	var speed2 := rel_vel.length_squared()
 	if speed2 < 1e-12:
 		return {"cpa_nm": rel_pos.length(), "time_s": 0.0}
@@ -52,19 +56,20 @@ static func is_inbound(u: Unit, w: Weapon) -> bool:
 
 
 ## Which friendly ship a detected round is actually going for, or null if it threatens nobody.
-static func threatened_unit(unit_manager: UnitManager, faction: String, w: Weapon) -> Unit:
+static func threatened_unit(unit_manager: UnitManager, faction: String, w: Weapon, candidates: Array = [], velocities: Dictionary = {}) -> Unit:
 	if w.faction == faction or w.phase == Weapon.Phase.DEAD or w.is_interceptor():
 		return null
 	if w.acquired != null and w.acquired.alive and w.acquired.faction == faction:
 		return w.acquired
 	var best: Unit = null
 	var best_cpa := CPA_THREAT_NM
-	for u in unit_manager.units:
+	var weapon_velocity := Geo.heading_to_vector(w.heading_deg) * w.speed_nm_per_s()
+	for u: Unit in (unit_manager.units if candidates.is_empty() else candidates):
 		if not u.alive or u.faction != faction or not u.is_engageable():
 			continue
 		if not within_reach(u, w):
 			continue
-		var cpa := closest_approach(u, w)
+		var cpa := closest_approach(u, w) if not velocities.has(u) else _relative_approach(w.position - u.position, weapon_velocity - velocities[u])
 		if cpa["time_s"] > 0.0 and cpa["cpa_nm"] <= best_cpa:
 			best = u
 			best_cpa = cpa["cpa_nm"]
@@ -74,10 +79,16 @@ static func threatened_unit(unit_manager: UnitManager, faction: String, w: Weapo
 ## Detected rounds threatening this faction, most urgent first.
 static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatManager, faction: String, observer: Unit = null) -> Array:
 	var out: Array = []
+	var candidates: Array[Unit] = []
+	var velocities := {}
+	for u: Unit in unit_manager.units:
+		if u.faction == faction and u.is_engageable():
+			candidates.append(u)
+			velocities[u] = Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn)
 	for w in threat_manager.get_threats(faction):
 		if observer != null and not threat_manager.visible_to(observer, w):
 			continue
-		var victim := threatened_unit(unit_manager, faction, w)
+		var victim := threatened_unit(unit_manager, faction, w, candidates, velocities)
 		if victim != null:
 			out.append({"weapon": w, "target": victim, "time_s": w.time_to_reach_s(victim.position)})
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -100,6 +111,9 @@ static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatMan
 ## valid target for a ship that can reach it. That is what makes an area-defence escort worth
 ## stationing near a thinner-skinned ship.
 static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> int:
+	weapon_manager.begin_channel_batch()
+	var fits := {}
+	var reaches := {}
 	var launched := 0
 	var committed := _count_committed(weapon_manager)
 	var by_faction: Dictionary = {}
@@ -109,11 +123,19 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 		if not by_faction.has(u.faction):
 			by_faction[u.faction] = []
 		by_faction[u.faction].append(u)
+		fits[u] = u.defensive_weapons()
+		var reach := DECOY_RANGE_NM
+		for spec: WeaponSpec in fits[u]:
+			reach = maxf(reach, spec.max_range_nm)
+		reaches[u] = reach * reach
 	for faction: String in by_faction:
 		var inbound := inbound_threats(unit_manager, threat_manager, faction)
 		for entry in inbound:
 			var w: Weapon = entry["weapon"]
-			var defenders: Array = by_faction[faction].duplicate()
+			var defenders: Array = []
+			for u: Unit in by_faction[faction]:
+				if u.position.distance_squared_to(w.position) <= float(reaches[u]):
+					defenders.append(u)
 			defenders.sort_custom(func(a: Unit, b: Unit) -> bool:
 				return a.position.distance_squared_to(w.position) < b.position.distance_squared_to(w.position))
 			for u: Unit in defenders:
@@ -126,12 +148,13 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 				var limit := guided_budget(u, float(entry["time_s"]))
 				var guided_allowed := already < limit
 				var before := w.guided_interceptors_committed
-				var fired := _engage_threat(u, w, weapon_manager, guided_allowed, now)
+				var fired := _engage_threat(u, w, weapon_manager, guided_allowed, now, fits[u])
 				if fired > 0:
 					# Increment the shared assignment, rather than rescanning every weapon twice
 					# after every shot. Each launcher still validates its own guidance support.
 					committed[w.id] = int(committed.get(w.id, 0)) + w.guided_interceptors_committed - before
 					launched += fired
+	weapon_manager.end_channel_batch()
 	return launched
 
 
@@ -176,9 +199,9 @@ static func _ship_engages(weapon_manager: WeaponManager, u: Unit, threat: Weapon
 ## channel nor count against the missile allowance, and whatever leaks past always gets a final
 ## engagement. They get their own small burst allowance, because a round crosses that envelope in
 ## seconds rather than minutes.
-static func _engage_threat(u: Unit, threat: Weapon, weapon_manager: WeaponManager, guided_allowed: bool, now: float) -> int:
+static func _engage_threat(u: Unit, threat: Weapon, weapon_manager: WeaponManager, guided_allowed: bool, now: float, fit: Array = []) -> int:
 	var d := u.position.distance_to(threat.position)
-	for spec in u.defensive_weapons():
+	for spec: WeaponSpec in (u.defensive_weapons() if fit.is_empty() else fit):
 		if not _can_intercept(spec, threat):
 			continue
 		if d > spec.max_range_nm or d < spec.min_range_nm:
