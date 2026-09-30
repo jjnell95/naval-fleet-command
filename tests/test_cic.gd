@@ -14,6 +14,7 @@ func _air_track(x: float) -> Track:
 	var t := Track.new()
 	t.owner_faction = "BLUE"
 	t.domain = "air"
+	t.altitude_m = 1000
 	t.identity = "HOSTILE"
 	t.position = Vector2(x, 10)
 	return t

@@ -85,6 +85,8 @@ extends Resource
 @export var aviation_facility := "auto"  # auto | none | helicopter | stovl | stobar | catobar | airfield
 @export var launch_requirement := "auto"  # auto | helicopter | stovl | stobar | catobar | runway
 @export var vls_cells := 0
+@export var launcher_groups: Dictionary = {}  # weapon id -> physical launch service
+@export var launcher_service_s: Dictionary = {}  # service group -> minimum interval (game estimate)
 
 
 func flight_facility() -> String:

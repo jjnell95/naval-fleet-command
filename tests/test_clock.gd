@@ -52,3 +52,26 @@ func test_fixed_ticks_are_independent_of_render_frame_size() -> void:
 	assert_near(a.sim_time, 20.0, 0.001)
 	a.free()
 	b.free()
+
+
+func test_wall_clock_preserves_time_during_engine_delta_clamping() -> void:
+	var clock := ClockScript.new()
+	clock.set_paused(false)
+	clock._process_wall_frame(0, 1000000)
+	clock._process_wall_frame(0.15, 1500000)
+	assert_near(clock.sim_time, 0.5, 0.001, "500 ms stall is not shortened to the engine's 150 ms delta")
+	clock.free()
+
+
+func test_wall_clock_pause_and_os_suspension_do_not_replay_old_time() -> void:
+	var clock := ClockScript.new()
+	clock.set_paused(false)
+	clock._process_wall_frame(0, 1000000)
+	clock.set_paused(true)
+	clock._process_wall_frame(0.15, 10000000)
+	clock.set_paused(false)
+	clock._process_wall_frame(0, 20000000)
+	assert_near(clock.sim_time, 0)
+	clock._process_wall_frame(0.15, 80000000)
+	assert_near(clock.sim_time, 1, 0.001, "OS suspension catch-up is capped to one second")
+	clock.free()

@@ -1,5 +1,7 @@
 # Current State: M30 Weapon Control and Track Solutions
 
+QC follow-up: nested imports, open-water presentation, runtime-error test failures, wall-clock timing, held-track SAM guidance and shared Mk 13 service are repaired. Sensor/defence/AI scans and chart drawing are batched and indexed. See [QC_PERFORMANCE.md](docs/QC_PERFORMANCE.md) for behavior, limits and reproducible checks.
+
 Ships and aircraft can commit multiple weapon types from one firing board, with separate per-unit quantities, launcher queues, ammunition reservations and cancellation. VLS launch service is shared with automatic defence; repeated paused orders no longer bypass launch spacing. Rounds are checked again before release, and weapons hold returns unfired reservations.
 
 Shift+E opens Weapon Control. Shift+R shows the reference platform's role-coloured envelopes. The board and chart expose last-fix age, uncertainty, lead-intercept reach and seeker baskets without reading enemy truth. Distinct ordnance symbols and role filters extend the existing NTDS chart, right-click orders and three-pane CDS layout.

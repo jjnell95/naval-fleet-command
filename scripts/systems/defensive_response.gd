@@ -66,10 +66,15 @@ static func try_active(u: Unit, w: Weapon, wm: WeaponManager) -> bool:
 
 
 static func run_cycle(um: UnitManager, tm: ThreatManager, wm: WeaponManager) -> void:
+	var pictures := {}
 	for u in um.units:
 		if not u.is_engageable():
 			continue
-		for w in tm.get_threats(u.faction):
+		if not pictures.has(u.faction):
+			pictures[u.faction] = tm.get_threats(u.faction).filter(func(w: Weapon) -> bool: return not w.is_interceptor())
+		for w: Weapon in pictures[u.faction]:
+			if w.phase == Weapon.Phase.DEAD:
+				continue
 			if w.acquired != u or not tm.visible_to(u, w) or w.is_interceptor():
 				continue
 			var band := w.spec.seeker_band()

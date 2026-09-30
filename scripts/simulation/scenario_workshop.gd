@@ -22,6 +22,7 @@ static func generate(recipe: Dictionary) -> Dictionary:
 	var terrain: Dictionary = geography.get("terrain", {"land": []}).duplicate(true) if bool(recipe.get("coastlines", false)) else {"land": []}
 	if not bool(recipe.get("coastlines", false)):
 		map_data["labels"] = []
+		map_data["open_water"] = true
 	var name := str(recipe.get("name", "Fleet exercise %d" % seed_value))
 	var sc := {
 		"id": "custom_fleet_%d" % seed_value, "name": name, "seed": seed_value,
@@ -143,6 +144,31 @@ static func structural_problem(sc: Dictionary) -> String:
 		return "Choose all or any for victory mode"
 	if not _valid_number(sc.get("map", {}).get("extent_nm", 220)) or float(sc.get("map", {}).get("extent_nm", 220)) <= 0:
 		return "map.extent_nm needs a positive finite number"
+	var map_data: Dictionary = sc.get("map", {})
+	for key: String in ["anchor_lat", "anchor_lon", "focus_extent_nm"]:
+		if map_data.has(key) and not _valid_number(map_data[key]):
+			return "map.%s needs a finite number" % key
+	for key: String in ["center_nm", "focus_center_nm"]:
+		if map_data.has(key) and not _valid_pair(map_data[key]):
+			return "map.%s needs two finite numbers" % key
+	if map_data.has("chart_region") and typeof(map_data.chart_region) != TYPE_STRING:
+		return "map.chart_region must be text"
+	if map_data.has("open_water") and typeof(map_data.open_water) != TYPE_BOOL:
+		return "map.open_water must be true or false"
+	if map_data.has("charted_nm"):
+		if typeof(map_data.charted_nm) != TYPE_ARRAY or map_data.charted_nm.size() != 4:
+			return "map.charted_nm needs four finite numbers"
+		for number in map_data.charted_nm:
+			if not _valid_number(number):
+				return "map.charted_nm needs four finite numbers"
+	if typeof(map_data.get("labels", [])) != TYPE_ARRAY:
+		return "map.labels must be an array"
+	for label in map_data.get("labels", []):
+		if typeof(label) != TYPE_DICTIONARY or typeof(label.get("text", "")) != TYPE_STRING or not _valid_pair(label.get("position_nm", null)):
+			return "A map label needs text and a position with two finite numbers"
+	for key: String in ["text"]:
+		if sc.get("objectives", {}).has(key) and typeof(sc.objectives[key]) != TYPE_STRING:
+			return "objectives.%s must be text" % key
 	if typeof(sc.get("units", [])) != TYPE_ARRAY:
 		return "units must be an array"
 	for key: String in ["victory", "loss"]:
@@ -151,6 +177,11 @@ static func structural_problem(sc: Dictionary) -> String:
 		for objective in sc.get("objectives", {}).get(key, []):
 			if typeof(objective) != TYPE_DICTIONARY:
 				return "Every objective must be an object"
+			for text_key: String in ["id", "type", "text", "faction", "facility"]:
+				if objective.has(text_key) and typeof(objective[text_key]) != TYPE_STRING:
+					return "Objective %s must be text" % text_key
+			if objective.has("phase_only") and typeof(objective.phase_only) != TYPE_BOOL:
+				return "Objective phase_only must be true or false"
 			for array_key: String in ["callsigns", "after"]:
 				if typeof(objective.get(array_key, [])) != TYPE_ARRAY:
 					return "Objective %s must be an array" % array_key

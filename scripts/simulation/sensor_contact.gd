@@ -17,6 +17,7 @@ var quality := 0.0  # 0..1, drives classification speed
 var classify_rate := 1.0
 var range_nm := 0.0
 var tma_gain := 0.0  # how much this observation improves the range solution
+var altitude_m := -1.0
 var source := "radar"  # radar | sonar_passive | sonar_active
 
 
@@ -31,4 +32,6 @@ static func make(target_unit: Unit, pos: Vector2, error_nm: float, quality_value
 	c.range_nm = range_value
 	c.source = source_name
 	c.observer = observer_unit
+	if source_name == "radar" and target_unit.in_flight():
+		c.altitude_m = target_unit.altitude_m
 	return c

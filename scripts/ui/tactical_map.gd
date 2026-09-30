@@ -2023,12 +2023,20 @@ func _draw_weapons() -> void:
 	var ref := reference_unit()
 	var labelled: Dictionary = {}
 	var label_slots: Dictionary = {}
+	var friendly_glyphs := PackedVector2Array()
+	var hostile_glyphs := PackedVector2Array()
+	var trail_points := PackedVector2Array()
+	var trail_colors := PackedColorArray()
+	var visible_chart := Rect2(Vector2(-20, -20), size + Vector2(40, 40))
+	var dense := weapon_manager.in_flight.size() > 200
 	for w: Weapon in weapon_manager.in_flight:
 		var own := w.faction == player_faction
 		var detected := not own and ref != null and threat_manager != null and threat_manager.visible_to(ref, w)
 		if not own and not detected and not Debug.enabled:
 			continue  # an undetected round is invisible, which is the whole problem
 		var sp := world_to_screen(w.position)
+		if not visible_chart.has_point(sp):
+			continue
 		var col := COL_FRIENDLY if own else COL_HOSTILE
 		# Detailed guidance lines belong to the hooked engagement. Drawing one long dashed
 		# solution for every round in a massed salvo obscures the fleet and dominates redraws.
@@ -2043,13 +2051,19 @@ func _draw_weapons() -> void:
 			var colors := PackedColorArray()
 			for i in arr.size():
 				var point := world_to_screen(arr[i])
-				if not points.is_empty() and point.distance_squared_to(points[-1]) < 4.0 and i < arr.size() - 1:
+				if not points.is_empty() and point.distance_squared_to(points[-1]) < (64.0 if dense and not hooked else 4.0) and i < arr.size() - 1:
 					continue
 				points.append(point)
 				colors.append(Color(col, 0.05 + 0.35 * float(i + 1) / float(arr.size())))
 			if points.size() >= 2:
-				draw_polyline_colors(points, colors, 1.0, true)
-		MapSymbols.draw_ordnance(self, sp, w.heading_deg, col, w.spec)
+				for i in range(1, points.size()):
+					trail_points.append(points[i - 1])
+					trail_points.append(points[i])
+					trail_colors.append(colors[i])
+		if own:
+			friendly_glyphs.append_array(MapSymbols.ordnance_segments(sp, w.heading_deg, w.spec))
+		else:
+			hostile_glyphs.append_array(MapSymbols.ordnance_segments(sp, w.heading_deg, w.spec))
 		if own and hooked and labelled.size() < 10:
 			var label_key := "%d:%s" % [w.shooter.id if w.shooter != null else -1, w.spec.id]
 			if not labelled.has(label_key):
@@ -2060,6 +2074,13 @@ func _draw_weapons() -> void:
 				_shadow_text(sp + Vector2(20, 25 + 13 * slot), w.spec.compact_name(), 10, WeaponPresentation.color(w.spec))
 		if Debug.enabled:
 			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.4), 1.0, 5.0)
+
+	if not trail_points.is_empty():
+		draw_multiline_colors(trail_points, trail_colors, 1.0, true)
+	if not friendly_glyphs.is_empty():
+		draw_multiline(friendly_glyphs, COL_FRIENDLY, 1.0, true)
+	if not hostile_glyphs.is_empty():
+		draw_multiline(hostile_glyphs, COL_HOSTILE, 1.0, true)
 
 
 ## B: the quick range circle, white, with its radius in nmi over its top.

@@ -37,6 +37,8 @@ static var environment: Dictionary = {}
 ## targets lying roughly in the jammer's direction: the noise comes down one bearing.
 const JAM_CONE_DEG := 35.0
 static var jammers: Array = []
+static var _jam_batch := false
+static var _jam_lobes: Dictionary = {}
 
 
 static func set_environment(env: Dictionary) -> void:
@@ -75,21 +77,44 @@ static func refresh_jammers(units: Array) -> void:
 
 
 ## Multiplier on an observer's radar reach toward `target_pos`, 1.0 when unjammed.
-static func jam_penalty(observer: Unit, target_pos: Vector2) -> float:
-	if jammers.is_empty():
-		return 1.0
-	var factor := 1.0
-	var brg_target := Geo.bearing_deg(observer.position, target_pos)
+static func begin_jamming_batch() -> void:
+	_jam_lobes.clear()
+	_jam_batch = true
+
+
+static func end_jamming_batch() -> void:
+	_jam_batch = false
+	_jam_lobes.clear()
+
+
+static func jamming_lobes(observer: Unit) -> Array[Vector2]:
+	var lobes: Array[Vector2] = []
 	for j: Unit in jammers:
 		if j.faction == observer.faction:
 			continue
-		var d := observer.position.distance_to(j.position)
-		for s in j.sensors:
-			if s.kind != "jammer" or s.jam_range_nm < d:
-				continue
-			if absf(Geo.heading_delta(brg_target, Geo.bearing_deg(observer.position, j.position))) > JAM_CONE_DEG:
-				continue
-			factor = minf(factor, 1.0 / (1.0 + s.jam_strength))
+		var distance := observer.position.distance_to(j.position)
+		var bearing := Geo.bearing_deg(observer.position, j.position)
+		for sensor: SensorSpec in j.sensors:
+			if sensor.kind == "jammer" and sensor.jam_range_nm >= distance:
+				lobes.append(Vector2(bearing, 1.0 / (1.0 + sensor.jam_strength)))
+	return lobes
+
+
+static func jam_penalty(observer: Unit, target_pos: Vector2) -> float:
+	if jammers.is_empty():
+		return 1.0
+	var lobes: Array[Vector2]
+	if _jam_batch:
+		if not _jam_lobes.has(observer):
+			_jam_lobes[observer] = jamming_lobes(observer)
+		lobes = _jam_lobes[observer]
+	else:
+		lobes = jamming_lobes(observer)
+	var factor := 1.0
+	var bearing := Geo.bearing_deg(observer.position, target_pos)
+	for lobe: Vector2 in lobes:
+		if absf(Geo.heading_delta(bearing, lobe.x)) <= JAM_CONE_DEG:
+			factor = minf(factor, lobe.y)
 	return factor
 
 

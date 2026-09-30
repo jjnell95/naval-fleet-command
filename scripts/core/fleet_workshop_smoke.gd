@@ -14,6 +14,15 @@ static func run(main: Main) -> void:
 	editor.load_dict(ScenarioWorkshop.generate(recipe))
 	await main.get_tree().process_frame
 	checks["generated scenario is valid in the editor"] = editor.validate() == ""
+	var original_json := JSON.stringify(editor.scenario)
+	var bad_label := editor.scenario.duplicate(true)
+	bad_label.map.labels = [{"text": "Broken", "position_nm": "bad"}]
+	editor.load_dict(bad_label)
+	checks["malformed labels are rejected without replacing editor contents"] = JSON.stringify(editor.scenario) == original_json
+	var bad_text := editor.scenario.duplicate(true)
+	bad_text.objectives.victory[0].text = {"bad": true}
+	editor.load_dict(bad_text)
+	checks["malformed objectives are rejected without replacing editor contents"] = JSON.stringify(editor.scenario) == original_json
 	checks["editor toolbar stays inside the viewport"] = editor.get_minimum_size().x <= main.get_viewport_rect().size.x
 	checks["chart retains working room"] = editor._chart.size.x >= 250 and editor._chart.size.y >= 250
 	editor._open_recipe()

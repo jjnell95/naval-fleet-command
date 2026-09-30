@@ -158,6 +158,7 @@ func test_force_destroyed_respects_max_alive() -> void:
 
 
 func test_unknown_objective_type_does_not_complete() -> void:
+	expect_engine_error("MissionObjective: unknown type")
 	var o := MissionObjective.from_dict({"type": "not_a_real_type"})
 	var um := UnitManager.new()
 	assert_eq(o.kind, MissionObjective.Kind.UNKNOWN)

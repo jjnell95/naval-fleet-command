@@ -24,6 +24,7 @@ var error_axis_deg := 0.0
 var bearing_only := false
 var tma_quality := 0.0  # 0 = bearing only, 1 = a range solution worth shooting at
 var domain := ""  # "surface" or "subsurface", known once the contact is classified
+var altitude_m := -1.0  # held radar altitude; -1 means not measured
 var source := "radar"  # sensor that last held it
 ## Which of our own units have contributed to this track, and whether any of them is on the
 ## network. A contact held only by something off the link is ours alone until it reconnects.

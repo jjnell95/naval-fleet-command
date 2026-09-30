@@ -74,8 +74,9 @@ func load_scenario(path: String) -> bool:
 	scenario = ScenarioLoader.load_file(path)
 	if scenario.is_empty():
 		return false
-	_defence_accum = 0.0
-	_ai_accum = 0.0
+	# Keep full-rate sensors, defence and AI on different fixed ticks instead of one burst.
+	_defence_accum = 0.5
+	_ai_accum = 0.25
 	sensor_manager._accum = 0.0
 	sensor_manager._last_heading.clear()
 	sensor_manager._manoeuvre.clear()
@@ -224,8 +225,10 @@ func _on_tick(dt: float) -> void:
 		_ai_accum += dt
 		while _ai_accum >= AI_DT - 1e-6:
 			_ai_accum -= AI_DT
+			weapon_manager.begin_channel_batch()
 			for c in ai_controllers.values():
 				c.tick(SimClock.sim_time)
+			weapon_manager.end_channel_batch()
 	Debug.time_add("sim/ai", Time.get_ticks_usec() - profile_at)
 	mission_manager.tick(SimClock.sim_time)
 

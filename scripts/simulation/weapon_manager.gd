@@ -28,6 +28,9 @@ var track_manager: TrackManager
 var rng := RandomNumberGenerator.new()
 var in_flight: Array[Weapon] = []
 
+var _channel_batch := false
+var _channel_cache: Dictionary = {}
+
 var _next_id := 1
 var _launcher_ready_at: Dictionary = {}  # shooter -> launcher group -> next launch time
 var now_s := 0.0
@@ -49,15 +52,23 @@ func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: floa
 			_mark_launched(shooter, spec, now)
 		else:
 			_pending.append({"shooter": shooter, "spec": spec, "track": track, "time": launch_at})
-		launch_at += maxf(spec.launch_interval_s, 0.25)
+		launch_at += launch_spacing(shooter, spec)
+	if _channel_batch and spec.requires_fire_control_channel() and track.domain == "air":
+		var held: Dictionary = _channel_cache.get(shooter, {})
+		held[track] = true
+		_channel_cache[shooter] = held
 	weapon_launched.emit(shooter, spec, track, rounds)
 	return true
 
 
-## VLS fits share an abstract launch service. Other mounts/racks are independent by weapon
-## family. Timing is gameplay tuning, not a real launcher throughput specification.
+## Authored mechanical groups share one service; VLS fits share an abstract launch service.
+## Other mounts/racks are independent by weapon family. Timing is gameplay tuning, not a real launcher throughput specification.
 static func launcher_key(shooter: Unit, spec: WeaponSpec) -> String:
-	return "VLS" if spec.vls_pack > 0 and shooter.spec.vls_cells > 0 else spec.id
+	return str(shooter.spec.launcher_groups.get(spec.id, "VLS" if spec.vls_pack > 0 and shooter.spec.vls_cells > 0 else spec.id))
+
+
+static func launch_spacing(shooter: Unit, spec: WeaponSpec) -> float:
+	return maxf(maxf(spec.launch_interval_s, 0.25), float(shooter.spec.launcher_service_s.get(launcher_key(shooter, spec), 0.0)))
 
 
 func _ready_time(shooter: Unit, spec: WeaponSpec) -> float:
@@ -66,7 +77,7 @@ func _ready_time(shooter: Unit, spec: WeaponSpec) -> float:
 
 func _mark_launched(shooter: Unit, spec: WeaponSpec, now: float) -> void:
 	var ready: Dictionary = _launcher_ready_at.get(shooter, {})
-	ready[launcher_key(shooter, spec)] = now + maxf(spec.launch_interval_s, 0.25)
+	ready[launcher_key(shooter, spec)] = now + launch_spacing(shooter, spec)
 	_launcher_ready_at[shooter] = ready
 
 
@@ -75,7 +86,7 @@ func ready_in_s(shooter: Unit, spec: WeaponSpec, now: float) -> float:
 	var queue: Array = _pending.filter(func(p: Dictionary) -> bool: return p.shooter == shooter and launcher_key(shooter, p.spec) == launcher_key(shooter, spec))
 	queue.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.time) < float(b.time))
 	for p: Dictionary in queue:
-		at = maxf(at, float(p.time)) + maxf(p.spec.launch_interval_s, 0.25)
+		at = maxf(at, float(p.time)) + launch_spacing(shooter, p.spec)
 	return maxf(at - now, 0.0)
 
 
@@ -96,7 +107,7 @@ func engagement_check(shooter: Unit, spec: WeaponSpec, track: Track, now: float,
 	var check := Combat.check_engagement(shooter, spec, track, reserved_round)
 	if not check.ok:
 		return check
-	if not radar_support_available(shooter, spec):
+	if not track_support_available(shooter, spec, track):
 		check.ok = false
 		check.reason = "RADAR GUIDANCE UNAVAILABLE"
 	elif not reserved_round and spec.requires_fire_control_channel() and track.domain == "air" and not channel_available(shooter, track):
@@ -167,6 +178,10 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		threat.guided_interceptors_committed += available
 		var layer := spec.defensive_layer()
 		threat.defence_commitments[layer] = int(threat.defence_commitments.get(layer, 0)) + available
+	if _channel_batch and spec.requires_fire_control_channel():
+		var held: Dictionary = _channel_cache.get(shooter, {})
+		held[threat] = true
+		_channel_cache[shooter] = held
 	interceptor_launched.emit(shooter, spec, threat, available)
 	return available
 
@@ -201,6 +216,7 @@ func tick(dt: float, now: float) -> void:
 
 
 func clear() -> void:
+	end_channel_batch()
 	in_flight.clear()
 	_pending.clear()
 	_launcher_ready_at.clear()
@@ -241,6 +257,10 @@ func _step(w: Weapon, dt: float) -> void:
 		return
 	w.time_alive_s += dt
 	if not radar_support_available(w.shooter, w.spec):
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "GUIDANCE LOST"
+		return
+	if w.intercept_target == null and w.target_track != null and not track_support_available(w.shooter, w.spec, w.target_track):
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "GUIDANCE LOST"
 		return
@@ -475,6 +495,12 @@ func _resolve_impact(w: Weapon) -> void:
 ## One abstract guidance channel per distinct air target, across manual and automatic shots.
 ## Self-contained CIWS and air-to-air missiles do not reserve ship SAM channels.
 func channel_targets(shooter: Unit) -> Dictionary:
+	if _channel_batch:
+		var held: Dictionary = _channel_cache.get(shooter, {})
+		for target in held.keys():
+			if target is Weapon and target.phase == Weapon.Phase.DEAD:
+				held.erase(target)
+		return held
 	var targets := {}
 	for w in in_flight:
 		if w.shooter != shooter or w.phase == Weapon.Phase.DEAD or not w.spec.requires_fire_control_channel():
@@ -494,14 +520,40 @@ func channel_available(shooter: Unit, target: RefCounted) -> bool:
 	return targets.has(target) or targets.size() < shooter.spec.fire_control_channels
 
 
+func begin_channel_batch() -> void:
+	_channel_cache = _all_channel_targets()
+	_channel_batch = true
+
+
+func end_channel_batch() -> void:
+	_channel_batch = false
+	_channel_cache.clear()
+
+
+func _all_channel_targets() -> Dictionary:
+	var all := {}
+	for w in in_flight:
+		if w.shooter == null or w.phase == Weapon.Phase.DEAD or not w.spec.requires_fire_control_channel():
+			continue
+		var target: RefCounted = w.intercept_target if w.intercept_target != null else w.target_track
+		if target == null or (target is Weapon and target.phase == Weapon.Phase.DEAD) or (target is Track and target.domain != "air"):
+			continue
+		var held: Dictionary = all.get(w.shooter, {})
+		held[target] = true
+		all[w.shooter] = held
+	for p: Dictionary in _pending:
+		if p.spec.requires_fire_control_channel() and p.track.domain == "air":
+			var held: Dictionary = all.get(p.shooter, {})
+			held[p.track] = true
+			all[p.shooter] = held
+	return all
+
+
 func channel_loads() -> Dictionary:
 	var loads := {}
-	for w in in_flight:
-		if w.shooter != null and not loads.has(w.shooter):
-			loads[w.shooter] = channel_targets(w.shooter).size()
-	for p: Dictionary in _pending:
-		if not loads.has(p["shooter"]):
-			loads[p["shooter"]] = channel_targets(p["shooter"]).size()
+	var all := _channel_cache if _channel_batch else _all_channel_targets()
+	for shooter in all:
+		loads[shooter] = all[shooter].size()
 	return loads
 
 
@@ -521,3 +573,15 @@ static func interceptor_support_available(shooter: Unit, spec: WeaponSpec, threa
 	# A consort's detection is a cue, not illumination through the earth or an island.
 	var horizon := Detection.radar_horizon_nm(Detection.mast_or_altitude_m(shooter), threat.flight_altitude_m())
 	return shooter.position.distance_to(threat.position) <= horizon and not Detection.terrain_hides_weapon(shooter, threat)
+
+
+## Unknown altitude cannot certify a low-target illuminator path: use a conservative sea-level
+## estimate until a radar observation supplies height. The decision never follows Track.truth.
+static func track_support_available(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
+	if not radar_support_available(shooter, spec):
+		return false
+	if not spec.requires_radar_support() or track == null or track.domain != "air":
+		return true
+	var altitude := maxf(track.altitude_m, 0.0)
+	var horizon := Detection.radar_horizon_nm(Detection.mast_or_altitude_m(shooter), altitude)
+	return shooter.position.distance_to(track.position) <= horizon and not Terrain.masks_line_of_sight(shooter.position, Detection.mast_or_altitude_m(shooter), track.position, altitude)

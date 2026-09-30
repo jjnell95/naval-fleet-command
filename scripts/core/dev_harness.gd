@@ -325,9 +325,13 @@ func _perf(seconds: float) -> void:
 	var path_ms: Dictionary = {}
 	var path_worst: Dictionary = {}
 	var t_start := Time.get_ticks_usec()
+	var previous_frame := t_start
+	var sim_start := SimClock.sim_time
 	while Time.get_ticks_usec() - t_start < seconds * 1.0e6:
 		await main.get_tree().process_frame
-		var dt := main.get_process_delta_time() * 1000.0
+		var frame_time := Time.get_ticks_usec()
+		var dt := float(frame_time - previous_frame) / 1000.0
+		previous_frame = frame_time
 		frames += 1
 		worst_ms = maxf(worst_ms, dt)
 		samples.append(dt)
@@ -346,6 +350,7 @@ func _perf(seconds: float) -> void:
 		total += s
 	print("[Perf] %s at %s, %d units, clock %s" % [main.simulation.scenario_name, main.get_viewport_rect().size, main.simulation.unit_manager.units.size(), "paused" if SimClock.paused else "%dx" % int(SimClock.multiplier())])
 	print("[Perf] %d frames in %.1f s: %.1f fps, frame avg %.1f ms, p95 %.1f ms, worst %.1f ms; script process avg %.2f ms" % [frames, elapsed, frames / maxf(elapsed, 0.001), total / maxf(frames, 1), p95, worst_ms, process_ms / maxf(frames, 1)])
+	print("[Perf] simulated %.3f s per wall second" % [(SimClock.sim_time - sim_start) / maxf(elapsed, 0.001)])
 	var paths := path_ms.keys()
 	paths.sort()
 	for path in paths:

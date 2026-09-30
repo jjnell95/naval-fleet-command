@@ -3,6 +3,11 @@ extends RefCounted
 ## Minimal assertion base for headless tests. Methods named test_* are run by run_tests.gd.
 
 var failures: Array[String] = []
+var expected_engine_errors: Array[String] = []
+
+
+func expect_engine_error(message: String) -> void:
+	expected_engine_errors.append(message)
 
 
 func assert_true(cond: bool, msg := "") -> void:
