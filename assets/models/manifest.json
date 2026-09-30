@@ -1082,7 +1082,7 @@
   {
     "id": "rfn_ffg_admiral_gorshkov",
     "kind": "platform",
-    "triangles": 7612
+    "triangles": 7040
   },
   {
     "id": "rfn_ffg_admiral_grigorovich",
@@ -1102,7 +1102,7 @@
   {
     "id": "rfn_fsg_steregushchiy",
     "kind": "platform",
-    "triangles": 6248
+    "triangles": 6164
   },
   {
     "id": "rfn_helo_ka27",
@@ -1222,7 +1222,7 @@
   {
     "id": "rnon_ffg_fridtjof_nansen",
     "kind": "platform",
-    "triangles": 7408
+    "triangles": 6372
   },
   {
     "id": "s300f_fort",

@@ -28,8 +28,8 @@ uniform int coverage_count = 0;
 
 const float LAND_SCALE_M = 6000.0;
 const float GRAIN_PX = 1.6;            // grain cell size on screen
-const float GRAIN = 0.03;              // +/- brightness of the grain
-const float DETAIL = 0.06;             // +/- brightness of the close-zoom land texture
+const float GRAIN = 0.018;              // +/- brightness of the grain
+const float DETAIL = 0.035;             // +/- brightness of the close-zoom land texture
 
 // World nautical miles to raster UV (north row first).
 vec2 raster_uv(vec2 w) {
@@ -108,16 +108,16 @@ vec3 band(vec3 c, float d, float fw, float from_m, vec3 rgb) {
 
 // Stepped sea bands by depth in metres, lightest at the coast, no green.
 vec3 sea_colour(float d, float fw) {
-	vec3 c = vec3(30.0, 32.0, 150.0) / 255.0;
-	c = band(c, d, fw, 20.0, vec3(24.0, 26.0, 140.0));
-	c = band(c, d, fw, 50.0, vec3(18.0, 20.0, 132.0));
-	c = band(c, d, fw, 100.0, vec3(10.0, 12.0, 128.0));
-	c = band(c, d, fw, 200.0, vec3(4.0, 5.0, 124.0));
-	c = band(c, d, fw, 500.0, vec3(0.0, 0.0, 118.0));
-	c = band(c, d, fw, 1000.0, vec3(0.0, 0.0, 108.0));
-	c = band(c, d, fw, 2000.0, vec3(0.0, 0.0, 98.0));
-	c = band(c, d, fw, 3000.0, vec3(0.0, 0.0, 88.0));
-	return band(c, d, fw, 4000.0, vec3(0.0, 0.0, 78.0));
+	vec3 c = vec3(28.0, 48.0, 132.0) / 255.0;
+	c = band(c, d, fw, 20.0, vec3(24.0, 41.0, 124.0));
+	c = band(c, d, fw, 50.0, vec3(20.0, 35.0, 114.0));
+	c = band(c, d, fw, 100.0, vec3(17.0, 30.0, 106.0));
+	c = band(c, d, fw, 200.0, vec3(14.0, 26.0, 98.0));
+	c = band(c, d, fw, 500.0, vec3(12.0, 23.0, 92.0));
+	c = band(c, d, fw, 1000.0, vec3(10.0, 20.0, 84.0));
+	c = band(c, d, fw, 2000.0, vec3(8.0, 17.0, 76.0));
+	c = band(c, d, fw, 3000.0, vec3(7.0, 14.0, 68.0));
+	return band(c, d, fw, 4000.0, vec3(6.0, 12.0, 60.0));
 }
 
 vec3 ramp(vec3 c, float h, float from_m, float to_m, vec3 rgb) {
@@ -126,13 +126,13 @@ vec3 ramp(vec3 c, float h, float from_m, float to_m, vec3 rgb) {
 
 // Hypsometric land tint, interpolated smoothly between stops (metres).
 vec3 land_tint(float h) {
-	vec3 c = vec3(0.0, 98.0, 0.0) / 255.0;
-	c = ramp(c, h, 0.0, 60.0, vec3(10.0, 106.0, 4.0));
-	c = ramp(c, h, 60.0, 200.0, vec3(40.0, 110.0, 14.0));
-	c = ramp(c, h, 200.0, 500.0, vec3(80.0, 120.0, 18.0));
-	c = ramp(c, h, 500.0, 900.0, vec3(110.0, 126.0, 26.0));
-	c = ramp(c, h, 900.0, 1500.0, vec3(140.0, 132.0, 50.0));
-	c = ramp(c, h, 1500.0, 2200.0, vec3(160.0, 140.0, 80.0));
+	vec3 c = vec3(32.0, 76.0, 35.0) / 255.0;
+	c = ramp(c, h, 0.0, 60.0, vec3(40.0, 86.0, 40.0));
+	c = ramp(c, h, 60.0, 200.0, vec3(51.0, 94.0, 46.0));
+	c = ramp(c, h, 200.0, 500.0, vec3(68.0, 102.0, 50.0));
+	c = ramp(c, h, 500.0, 900.0, vec3(88.0, 110.0, 58.0));
+	c = ramp(c, h, 900.0, 1500.0, vec3(112.0, 116.0, 73.0));
+	c = ramp(c, h, 1500.0, 2200.0, vec3(134.0, 125.0, 93.0));
 	c = ramp(c, h, 2200.0, 3200.0, vec3(176.0, 160.0, 120.0));
 	return ramp(c, h, 3200.0, 4500.0, vec3(210.0, 205.0, 190.0));
 }
@@ -214,7 +214,7 @@ vec3 land_colour(vec2 uv, vec2 w) {
 		shade = clamp((sharp_sample(land_relief_tex, uv, land_texel) * 255.0 - 128.0) / 128.0, -1.0, 1.0);
 	}
 	vec3 c = land_tint(h);
-	c *= 1.0 + shade * (shade > 0.0 ? 0.9 : 0.7) * relief;
+	c *= 1.0 + shade * (shade > 0.0 ? 0.55 : 0.5) * relief;
 	float rugged = smoothstep(80.0, 900.0, h) * relief;
 	return c * (1.0 + land_detail(w, rugged) * DETAIL);
 }

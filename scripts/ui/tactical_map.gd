@@ -23,6 +23,7 @@ extends Control
 signal selection_changed(units: Array)
 signal track_selected(track: Track)
 signal move_order_requested(world_pos: Vector2, append: bool)
+signal patrol_order_requested(order: Order)
 signal engage_requested(track: Track)
 ## Emitted by the shell's "Delete leg" menu item via request_waypoint_delete(); the chart no longer
 ## deletes a leg on a bare right-click.
@@ -33,7 +34,7 @@ signal context_menu_requested(screen_pos: Vector2, context: Dictionary)
 signal interaction_mode_changed(active: bool)
 
 enum DragMode { NONE, PAN, BOX }
-enum InteractionMode { SELECT, MOVE }
+enum InteractionMode { SELECT, MOVE, PATROL }
 ## NTDS frames, or the platforms' plan views at three sizes (JFC's graphic symbols).
 enum SymbolMode { NTDS, SMALL, MEDIUM, LARGE }
 ## The quick range circle: off, following the cursor, fixed.
@@ -55,7 +56,7 @@ const GRAPHIC_SYMBOL_PX: Array[float] = [0.0, 28.0, 40.0, 56.0]
 const SYMBOL_MODE_NAMES: Array[String] = ["NTDS", "Small", "Medium", "Large"]
 ## Track number: white bold, placed by ChartLabels (its left edge and baseline 7 and 17 px from
 ## the symbol centre where nothing is in the way).
-const TRACK_NUMBER_FONT_SIZE := 12
+const TRACK_NUMBER_FONT_SIZE := 14
 const TAG_FONT_SIZE := 11
 const STALE_ALPHA := 0.55
 const UNCERTAINTY_ALPHA := 0.35
@@ -75,10 +76,10 @@ const EFFECT_LIFE_S := 2.2
 const NICE_STEPS_NM: Array[float] = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
 
 ## Deep water where no floor layer is drawing (a map outside the tree): the chart's 2000 m band.
-const COL_OCEAN := Color8(0, 0, 98)
+const COL_OCEAN := Color8(8, 17, 76)
 # Flat land for the views without the chart's land shader (the scenario editor and the mission
 # preview): the chart's lowland green, and a darker green coastline.
-const COL_LAND := Color8(0, 98, 0)
+const COL_LAND := Color8(32, 76, 35)
 const COL_COAST := Color8(90, 170, 80)
 ## The chart's own coastline stroke over the shaded land: thin and dark, a hard land/sea edge.
 const COL_COASTLINE := Color8(0, 58, 6, 235)
@@ -175,6 +176,8 @@ var _last_click_ms: int = -1000000
 var _last_click_pos := Vector2.ZERO
 var follow_selection := false
 var interaction_mode := InteractionMode.SELECT
+var _patrol_corner := Vector2.ZERO
+var _patrol_started := false
 var keyboard_navigation_enabled := true
 ## A right-click menu is up. Its window takes the keys, but the chart polls the keyboard itself, so
 ## without this the arrows that walk the menu would scroll the chart underneath it.
@@ -352,12 +355,22 @@ func set_move_mode(enabled: bool) -> void:
 	if interaction_mode == next:
 		return
 	interaction_mode = next
+	_patrol_started = false
 	# A pan or box drag in progress would otherwise never see its release, which the move tool
 	# swallows, and stay latched to the pointer.
 	if _drag_mode != DragMode.NONE:
 		_end_drag()
-	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode == InteractionMode.MOVE else Control.CURSOR_ARROW
+	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode != InteractionMode.SELECT else Control.CURSOR_ARROW
 	interaction_mode_changed.emit(interaction_mode == InteractionMode.MOVE)
+
+
+func set_patrol_mode(enabled: bool) -> void:
+	set_move_mode(false)
+	if enabled and _has_controllable_selection():
+		interaction_mode = InteractionMode.PATROL
+		_patrol_started = false
+		mouse_default_cursor_shape = Control.CURSOR_CROSS
+		interaction_mode_changed.emit(false)
 
 
 func cancel_interaction_mode() -> bool:
@@ -377,8 +390,9 @@ func _has_controllable_selection() -> bool:
 
 
 func _normalize_interaction_state() -> void:
-	if interaction_mode == InteractionMode.MOVE and not _has_controllable_selection():
+	if interaction_mode != InteractionMode.SELECT and not _has_controllable_selection():
 		interaction_mode = InteractionMode.SELECT
+		_patrol_started = false
 		mouse_default_cursor_shape = Control.CURSOR_ARROW
 		interaction_mode_changed.emit(false)
 	if follow_selection and selected_track == null and selected.size() != 1:
@@ -730,6 +744,23 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 			if not e.pressed and _drag_button == MOUSE_BUTTON_LEFT and _drag_mode == DragMode.PAN:
 				_end_drag()
 				return
+			if interaction_mode == InteractionMode.PATROL:
+				if e.pressed:
+					grab_focus()
+					if not _patrol_started:
+						_patrol_corner = screen_to_world(e.position)
+						_patrol_started = true
+					else:
+						var patrol := Order.patrol_box(_patrol_corner, screen_to_world(e.position))
+						var valid := false
+						for u: Unit in selected:
+							valid = valid or UnitManager.patrol_rejection(u, patrol.route) == ""
+						if valid:
+							patrol_order_requested.emit(patrol)
+							set_move_mode(false)
+						else:
+							add_effect(screen_to_world(e.position), "refused")
+				return
 			if interaction_mode == InteractionMode.MOVE:
 				if e.pressed:
 					grab_focus()
@@ -761,7 +792,7 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 			elif _drag_button == MOUSE_BUTTON_MIDDLE:
 				_end_drag()
 		MOUSE_BUTTON_RIGHT:
-			if interaction_mode == InteractionMode.MOVE:
+			if interaction_mode != InteractionMode.SELECT:
 				if e.pressed:
 					set_move_mode(false)
 				return
@@ -865,7 +896,7 @@ func _end_drag() -> void:
 	_drag_mode = DragMode.NONE
 	_drag_button = MOUSE_BUTTON_NONE
 	_drag_moved = false
-	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode == InteractionMode.MOVE else Control.CURSOR_ARROW
+	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode != InteractionMode.SELECT else Control.CURSOR_ARROW
 
 
 # --- Selection --------------------------------------------------------------------------
@@ -1208,6 +1239,9 @@ func _draw() -> void:
 ## Plot Move: dashed white legs from each hooked unit to the cursor (red past a coast in the way),
 ## a crosshair at the cursor, and what a click there would do.
 func _draw_move_preview() -> void:
+	if interaction_mode == InteractionMode.PATROL:
+		_draw_patrol_preview()
+		return
 	if interaction_mode != InteractionMode.MOVE or not _mouse_inside or not _chart_accepts_point(_mouse):
 		return
 	if _unit_at(_mouse) != null or _track_at(_mouse) != null:
@@ -1236,6 +1270,32 @@ func _draw_move_preview() -> void:
 		draw_line(m + d * 10.0, m + d * 15.0, col, 1.0)
 	var label := "Land - pick water" if accepted == 0 else ("%d of %d can move here" % [accepted, total] if accepted < total else ("Add waypoint" if append else "Set course"))
 	_shadow_text(_mouse + Vector2(17, -10), label, 11, COL_RADIO_ALERT if accepted == 0 else COL_READOUT)
+
+
+func _draw_patrol_preview() -> void:
+	if not _mouse_inside or not _chart_accepts_point(_mouse):
+		return
+	var label := "PATROL: click first corner"
+	var col := COL_ROUTE
+	if _patrol_started:
+		var patrol := Order.patrol_box(_patrol_corner, screen_to_world(_mouse))
+		var reason := ""
+		var accepted := 0
+		for u: Unit in selected:
+			reason = UnitManager.patrol_rejection(u, patrol.route)
+			if reason == "":
+				accepted += 1
+		col = COL_ROUTE if accepted > 0 else COL_HOSTILE
+		var rect := Rect2(world_to_screen(_patrol_corner), _mouse - world_to_screen(_patrol_corner)).abs()
+		draw_rect(rect, Color(col, 0.06))
+		for i in patrol.route.size():
+			var a := world_to_screen(patrol.route[i])
+			var b := world_to_screen(patrol.route[(i + 1) % patrol.route.size()])
+			draw_dashed_line(a, b, col, 1.0, 6.0)
+			_draw_plus(a, 4.0, col)
+		var span := (screen_to_world(_mouse) - _patrol_corner).abs()
+		label = "PATROL %.1f × %.1f NM — click to assign (%d/%d)" % [span.x, span.y, accepted, selected.size()] if accepted > 0 else reason
+	_shadow_text(_mouse + Vector2(17, -10), label, 12, col)
 
 
 func _move_acceptance(target: Vector2) -> Dictionary:
@@ -1953,6 +2013,9 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 		_draw_plus(wsp, 5.0 if hovered else 3.5, COL_ROUTE, 2.0 if hovered else 1.0)
 		prev = wsp
 		prev_world = wp
+	if u.patrol_active and u.waypoints.size() >= 3:
+		draw_dashed_line(prev, first, COL_ROUTE, 1.0, 5.0)
+		_shadow_text(first + Vector2(8, -8), "PATROL", 11, COL_ROUTE)
 
 
 ## A 2 px dot for trails and plot history: a filled square, which costs a fraction of an

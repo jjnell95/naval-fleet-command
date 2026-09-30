@@ -21,6 +21,9 @@ var id := ""
 var kind: Kind = Kind.UNKNOWN
 var text := ""
 var faction := ""
+## Optional responsibility filter on UNIT_LOST. Empty retains the original any-cause behavior.
+## Damage preserves the firing faction through a later fire/flooding loss.
+var caused_by := ""
 var callsigns := PackedStringArray()
 var center := Vector2.ZERO
 var radius_nm := 15.0
@@ -44,6 +47,7 @@ static func from_dict(d: Dictionary) -> MissionObjective:
 		push_error("MissionObjective: unknown type '%s'" % d.get("type", ""))
 	o.text = d.get("text", "")
 	o.faction = d.get("faction", "")
+	o.caused_by = str(d.get("caused_by", ""))
 	for c in d.get("callsigns", []):
 		o.callsigns.append(str(c))
 	var c: Array = d.get("center_nm", [0, 0])
@@ -77,7 +81,7 @@ func _test(um: UnitManager, now: float) -> bool:
 		Kind.UNIT_LOST:
 			for name in callsigns:
 				var u := _find(um, name)
-				if u != null and _lost(u):
+				if u != null and _lost(u) and (caused_by == "" or u.last_attacker == caused_by):
 					return true
 			return false
 		Kind.ALL_UNITS_LOST:
@@ -132,6 +136,8 @@ func progress(um: UnitManager, now: float) -> String:
 					afloat += 1
 			return "%d of %d still up" % [afloat, callsigns.size()]
 		Kind.UNIT_LOST:
+			if caused_by != "":
+				return "no attributed losses"
 			var lines := PackedStringArray()
 			for name in callsigns:
 				var u := _find(um, name)

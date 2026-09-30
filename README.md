@@ -1,6 +1,8 @@
 # Naval Fleet Command
 
-**M30 Weapon control:** assign mixed-weapon salvos per ship or aircraft, inspect launcher queues and track quality, and draw range overlays by weapon role. Corrected aircraft and submarine fits, air-to-water ASW delivery and altitude-dependent guided bombs retain the original CDS chart and lower panes. See the [operating guide and audit](docs/2026-09-29-weapon-control.md).
+**M32 Command Watch:** a quieter relief chart, larger track numbers, persistent command keys, repeating patrol areas and rebuilt Nansen, Gorshkov and Steregushchiy models bring the command screen closer to its late-1990s inspiration. See the [controls, screenshots and validation](docs/2026-09-30-command-watch.md).
+
+**Northern Passage:** start an original escort directly from the operations desk. Protect a freighter over an eight-mile route, investigate with a Seahawk, conserve defensive ammunition and avoid sinking neutral traffic. The debrief includes civilian accountability and the observed event timeline. See the [play guide and validation](docs/2026-09-30-northern-passage.md).
 
 A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-command games. Build an uncertain contact picture, protect the force, operate a carrier air wing, and decide when the salvo is worth the missiles. Create missions across the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, in 2027 and in 1990. Original art and code; no Jane's assets or affiliation.
 
@@ -8,11 +10,11 @@ A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-co
 
 **[Play in your browser → jjnell95.github.io/naval-fleet-command](https://jjnell95.github.io/naval-fleet-command/)**. Nothing to install: it runs in Chrome, Edge, Firefox or Safari on a desktop or laptop with a keyboard. The first visit downloads the game once and the browser caches it.
 
-Locally, open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. The desk opens on **My Missions**. Choose **Build a Fleet / Edit Mission**, open **Fleet Builder**, set the two forces, then **Save and Play**. Read the briefing before taking command.
+Locally, open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. For the introductory operation, choose **Start Northern Passage**, read the paused briefing, then **Take Command**. To author a mission, use **My Missions**. Choose **Build a Fleet / Edit Mission**, open **Fleet Builder**, set the two forces, then **Save and Play**. Read the briefing before taking command.
 
 The operations desk puts the task, first orders, theatre, difficulty and estimated play time beside the chart. The briefing separates **Orders & Objectives**, **Situation**, and **Command Reference**. All of the conflicts are fiction on real charts.
 
-![The command screen in the Strait of Hormuz: the escorts in NTDS symbols on the relief chart with the Qeshm battery hooked, and below it the regional map, the 3D view tethered on Paul Ignatius and the data display](docs/2026-09-27-cds-hormuz.jpg)
+![Command Watch: the relief chart, persistent command keys, regional map, live Nansen frigate and platform data](docs/2026-09-30-command-watch-1280.png)
 
 ## Optional templates
 
@@ -43,6 +45,7 @@ Public identities and broad fits are documented in the [2027 theatres ledger](do
 
 The command screen is laid out the way the late-1990s fleet-command games laid theirs out: the relief-shaded tactical chart across the top two-thirds of the window, and along the bottom the regional map, the 3D view of the hooked platform and the data display.
 
+- **Patrol:** hook a deployed platform, choose **Patrol** on the command strip (or **Shift+W**), then click two opposite corners. The circuit repeats until retasked; aircraft still use fuel and return at bingo. The preview checks land and turning room. Right-click or Escape cancels drawing.
 - **Hook and move:** left-click a symbol to hook it (Shift adds). **Right-click water** to send the hooked platform there at once; Shift+right-click adds a waypoint. **W** arms a multi-leg route. Right-drag, middle-drag or the arrow keys pan; the wheel zooms. **Home** fits the force, **C** centres the hook and its target, **F** follows it, **.** hooks the next own platform.
 - **Give orders:** **right-click your own platform** for its Orders menu (speed, course, altitude or depth, sensors, EMCON, weapons state, flight deck, formation, route). **R** radar, **P** active sonar, **E** emission control.
 - **Respond to an attack:** **D** deploys a radar countermeasure pack; **V** orders evasion against a detected inbound weapon. The **Defence** tab on the orders board adds infrared and acoustic packs, run-away steering, resume-plan, automatic/manual countermeasures and Conserve/Balanced/Saturation interceptor policies. Stores, active windows and reload times are finite. Evasion keeps the existing route and formation assignment.
@@ -73,14 +76,16 @@ godot --headless --path . --editor --import --quit
 godot --headless --path . --script tests/run_tests.gd      # regression tests
 godot --path . -- --cold-war-smoke                          # 47 command-screen checks
 godot --path . -- --aviation-smoke                          # 19 air-operations checks
-godot --path . -- --fleet-workshop-smoke                    # 32 authoring and defensive-control checks
+godot --path . -- --fleet-workshop-smoke                    # 34 authoring and defensive-control checks
+godot --path . -- --weapon-control-smoke                   # 24 weapon-control checks
+python3 tools/verify_northern_passage.py "$(command -v godot)" # real-scene outcomes and replay
 godot --path . -- --scenario=res://data/scenarios/northern_vigil.json --fastforward=2400 --run --perf=8   # frame budget
 godot --path .
 ```
 
-GitHub Actions runs the same tests and all three interface suites on every pull request, with the fleet workshop checked at 1600 × 900 and 1280 × 720 (`.github/workflows/tests.yml`).
+GitHub Actions runs the regression, command, aviation, workshop and weapon-control suites on every pull request, plus Command Watch mouse/patrol checks, Northern Passage outcomes/replay and graphical checks at 1280 × 720 and 1920 × 1080 (`.github/workflows/tests.yml`).
 
-Regenerate the scenarios with `python3 tools/scenarios/build_scenarios.py`, `build_cold_war.py` and `build_theatres.py`; each validates every start position, patrol leg and objective against the shipped coastline before writing. The regional coastline extractions and sea-floor rasters come from `tools/scenarios/import_coastlines.py` and `import_bathymetry.py` over the Natural Earth downloads named in `tools/scenarios/regions.py`. Generated files are committed, so playing needs neither Python packages nor network access. `tools/art/` builds the models and renders the recognition art without Blender; `tools/blender/` holds the earlier pipeline.
+Regenerate the scenarios with `python3 tools/scenarios/build_scenarios.py`, `build_cold_war.py`, `build_theatres.py` and `build_northern_passage.py`; each validates every start position, patrol leg and objective against the shipped coastline before writing. The regional coastline extractions and sea-floor rasters come from `tools/scenarios/import_coastlines.py` and `import_bathymetry.py` over the Natural Earth downloads named in `tools/scenarios/regions.py`. Generated files are committed, so playing needs neither Python packages nor network access. `tools/art/` builds the models and renders the recognition art without Blender; `tools/blender/` holds the earlier pipeline.
 
 The repository includes the matching Godot 4.7.2 browser runtime. After changing the game, run `tools/web/build_web.sh` to rebuild `docs/play/index.pck` and record its size in the loader page (set `GODOT=/path/to/Godot` if `godot` is not on your PATH). GitHub Pages serves `main:/docs`, so merging to `main` publishes the browser build.
 

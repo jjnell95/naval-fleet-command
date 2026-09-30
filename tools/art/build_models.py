@@ -1026,10 +1026,134 @@ def build_drone_site(m, spec):
 
 
 # --------------------------------------------------------------------------------------------
+# Command Watch escorts. Original recognition geometry, with class-specific silhouettes.
+# --------------------------------------------------------------------------------------------
+
+
+def escort_fittings(m, s, spec, hangar_end):
+    """Deck-level details shared by the three escorts; their hulls and deckhouses differ."""
+    x, d, B = s.x, s.d, s.B
+    # Level the working flight deck above the hull loft's exaggerated centreline camber.
+    flight_z = d(hangar_end) * 1.12 + .08
+    m.box(x(.012), x(hangar_end), -B * .35, B * .35, flight_z - .18, flight_z, "flight_deck", "flight_deck")
+    helipad(m, x(hangar_end * .48), 0, flight_z + .03,
+            min(B * .32, s.L * hangar_end * .38))
+    # Centreline approach stripe, deck-edge safety lines and a broken landing limit.
+    for sign in (-1, 1):
+        m.stripe((x(.025), sign * B * .33, flight_z + .05),
+                 (x(hangar_end - .012), sign * B * .33, flight_z + .05), .13)
+        for t in (.03, .07, .11, .15):
+            if t < hangar_end:
+                m.stripe((x(t), sign * B * .30, flight_z + .06),
+                         (x(t + .012), sign * B * .34, flight_z + .06), .10, "marking_yellow")
+        # Actual small boat silhouette: rounded inflated tube, hollow-looking dark well, console.
+        bx, by, bz = x(.405), sign * B * .43, d(.4) + .55
+        m.ellipsoid(bx, by, bz, 3.6, .95, .5, 12, 6, "rhib_tube", "rubber")
+        m.cbox(bx, by, bz + .34, 4.8, 1.05, .18, "rhib_well", "deck_non_skid")
+        m.cbox(bx + .8, by, bz + .65, .65, .65, .55, "rhib_console")
+        m.rod((bx - 2.8, by, bz + .6), (bx - 2.8, by, bz + 3.4), .10, "davit", "naval_paint", segs=6)
+        m.rod((bx - 2.8, by, bz + 3.4), (bx + 1.8, by, bz + 3.4), .10, "davit", "naval_paint", segs=6)
+        # Foredeck bollards and mooring capstans break up the long, bare forecastle.
+        for t in (.87, .92):
+            m.cylinder(x(t), sign * B * .16, d(t), d(t) + .6, .24, 8, "bollard", m="titanium")
+    m.cylinder(x(.91), 0, d(.91), d(.91) + .55, .7, 12, "capstan", m="titanium")
+    liferafts(m, s, (.28, .32, .49), B * .41, d(.3) + 5.0)
+    bulbous_bow(m, s)
+    finish_surface(m, s, spec)
+
+
+def build_nansen(m, spec):
+    # A low forecastle, one broad SPY-1F tower, a separated funnel and a full stern flight deck.
+    # The previous generic European frigate had two unrelated radar towers and a stub helipad.
+    L, B = spec["length_m"], 16.8
+    s = Ship(m, L, B, 4.6, 4.6, 7.1, stations=48, transom=.78, fullness=.54, flare=1.03)
+    x, d = s.x, s.d
+    z = d(.52)
+    m.prism(x(.46), x(.69), -6.9, 6.9, z, z + 4.6, .65, "forward_house")
+    m.prism(x(.51), x(.68), -6.4, 6.4, z + 4.6, z + 7.6, .38, "bridge")
+    m.cbox(x(.615), 0, z + 7.7, L * .13, 13.9, .22, "bridge_roof", "deck_non_skid")
+    enclosed_mast(m, x(.55), 0, z + 7.8, 25.0, 7.5, 7.3, 5.8, 5.6)
+    for sign in (-1, 1):
+        m.radar_face(x(.55), sign * 3.08, 19.5, 3.7, 3.7, sign)
+        m.front_array(x(.55) + sign * 3.16, 0, 19.5, 3.7, 3.7, sign)
+        m.rod((x(.55), 0, 25.0), (x(.55), sign * 6.2, 25.0), .10, "yard", "naval_paint", segs=6)
+        m.mast(x(.55), sign * 6.2, 25.0, 26.8, .07)
+        m.dome(x(.46), sign * 4.3, z + 5.0, .85)
+    rotating_radar(m, x(.55), 0, 25.1, 4.2, .7)
+    m.mast(x(.55), 0, 26.4, 29.6, .13)
+    m.hangar(x(.215), x(.385), B * .92, d(.27), 5.8)
+    m.prism(x(.33), x(.385), -4.8, 4.8, d(.27) + 5.8, d(.27) + 8.3, .6, "stack_base")
+    m.funnel(x(.365), 0, d(.27) + 8.3, 2.8, 4.4, 5.8, -.55)
+    for sign in (-1, 1):
+        box_launcher(m, x(.435), sign * 3.1, d(.435) + 1.0, 1, 4, .75, 4.5,
+                     heading=sign * math.pi / 2, incline=.16)
+    m.gun(x(.845), 0, d(.845), big=False, stealth=True)
+    m.vls(x(.73), x(.77), 0, d(.75) * 1.12 + .1, 3.0)
+    m.dome(x(.28), 0, d(.27) + 5.8, .85)
+    m.mast(x(.28), 0, d(.27) + 7.5, d(.27) + 12.0, .11, yard=2.4)
+    escort_fittings(m, s, spec, .21)
+
+
+def build_gorshkov_refined(m, spec):
+    L, B = spec["length_m"], 16.4
+    s = Ship(m, L, B, 4.7, 4.9, 7.6, stations=48, transom=.75, fullness=.52, flare=1.02)
+    x, d = s.x, s.d
+    z = d(.53)
+    # Forward integrated mast and flush foredeck launch cells; separate low hangar aft.
+    m.prism(x(.455), x(.68), -7.0, 7.0, z, z + 4.5, 1.0, "forward_house")
+    m.prism(x(.50), x(.675), -6.1, 6.1, z + 4.5, z + 7.5, .7, "bridge")
+    enclosed_mast(m, x(.545), 0, z + 7.5, 28.5, 7.8, 7.6, 3.2, 3.0, "poliment_mast")
+    for sign in (-1, 1):
+        m.radar_face(x(.545), sign * 2.4, 21.0, 3.5, 3.6, sign)
+        m.front_array(x(.545) + sign * 2.55, 0, 21.0, 3.5, 3.6, sign)
+        m.dome(x(.475), sign * 4.4, z + 4.9, .82)
+    rotating_radar(m, x(.545), 0, 28.6, 3.0, .6)
+    m.mast(x(.545), 0, 29.6, 32.5, .12, yard=2.8)
+    m.hangar(x(.205), x(.385), B * .94, d(.3), 5.7)
+    m.prism(x(.34), x(.43), -5.5, 5.5, d(.3) + 5.7, d(.3) + 8.2, .5, "aft_house")
+    m.funnel(x(.39), 0, d(.3) + 8.2, 3.2, 4.8, 6.5, -.4)
+    m.mast(x(.295), 0, d(.3) + 5.8, 18.5, .18, yard=3.5)
+    m.dome(x(.275), 0, d(.3) + 6.1, 1.0)
+    for sign in (-1, 1):
+        m.ciws(x(.265), sign * 5.4, d(.3) + 5.8)
+    m.gun(x(.85), 0, d(.85), big=True, stealth=True)
+    m.vls(x(.755), x(.79), 0, d(.77) * 1.12 + .08, 6.8)
+    m.vls(x(.69), x(.745), 0, d(.72) * 1.12 + .08, 6.3)
+    escort_fittings(m, s, spec, .20)
+
+
+def build_steregushchiy_refined(m, spec):
+    L, B = spec["length_m"], 13.0
+    s = Ship(m, L, B, 3.7, 3.5, 5.7, stations=44, transom=.77, fullness=.53, flare=1.02)
+    x, d = s.x, s.d
+    z = d(.53)
+    # Compact corvette: continuous faceted hangar/deckhouse, spherical mast cap, amidships tubes.
+    m.hangar(x(.205), x(.39), B * .94, d(.28), 4.9)
+    m.prism(x(.425), x(.695), -5.7, 5.7, z, z + 4.0, .8, "deckhouse")
+    m.prism(x(.50), x(.67), -4.8, 4.8, z + 4.0, z + 6.6, .4, "bridge")
+    enclosed_mast(m, x(.545), 0, z + 6.6, 20.0, 5.5, 5.4, 2.2, 2.1)
+    m.dome(x(.545), 0, 20.0, 1.65, segs=14)
+    m.mast(x(.545), 0, 23.3, 26.0, .10, yard=3.0)
+    for sign in (-1, 1):
+        m.radar_face(x(.545), sign * 1.65, 16.5, 2.1, 1.8, sign)
+        canister_pack(m, x(.42), sign * 2.0, d(.42) + .7, 4, 4.2, .4,
+                      heading=sign * math.pi / 2, incline=.2)
+        m.ciws(x(.265), sign * 4.0, d(.28) + 4.9)
+    m.funnel(x(.345), 0, d(.28) + 4.9, 3.0, 3.6, 4.8, -.3)
+    m.mast(x(.275), 0, d(.28) + 5.0, 16.0, .13, yard=2.0)
+    m.gun(x(.84), 0, d(.84), big=False, stealth=True)
+    m.vls(x(.73), x(.78), 0, d(.75) * 1.12 + .1, 3.8)
+    escort_fittings(m, s, spec, .20)
+
+
+# --------------------------------------------------------------------------------------------
 # Registry
 # --------------------------------------------------------------------------------------------
 
 BUILDERS = {
+    "rnon_ffg_fridtjof_nansen": build_nansen,
+    "rfn_ffg_admiral_gorshkov": build_gorshkov_refined,
+    "rfn_fsg_steregushchiy": build_steregushchiy_refined,
     "pla_ddg_type055": build_type055,
     "pla_ddg_type052d": build_type052d,
     "jmsdf_ddg_maya": build_maya,

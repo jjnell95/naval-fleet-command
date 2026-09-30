@@ -19,7 +19,7 @@ const MODE_NAMES: Array[String] = ["Tether", "Fly-by", "Action", "Detached"]
 ## Tether framing. Azimuth is measured from the subject's bow, clockwise, to the camera, so 180
 ## is dead astern and the default sits off the port quarter, looking forward past the bridge.
 const DEFAULT_AZ := 215.0
-const DEFAULT_PITCH := 6.0
+const DEFAULT_PITCH := 9.0
 const MIN_PITCH := 1.5
 const MAX_PITCH := 85.0
 const MIN_ZOOM := 0.3

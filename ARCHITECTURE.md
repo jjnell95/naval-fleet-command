@@ -1,8 +1,26 @@
 # Architecture
 
-Status: Milestone 29 (fleet workshop, defensive responses and task-group command), retaining the CDS screen and observer-limited picture.
+Status: Milestone 32 (Command Watch: patrol tasking, command strip and escort presentation), retaining the CDS screen and observer-limited picture.
 
 Start from `HANDOFF.md`: how to run and verify the game, the one rule, and where things are.
+
+## M32 additions
+
+`Order.PATROL` holds a copied circuit of 3–16 world points. `UnitManager.patrol_rejection` validates deployment, aircraft availability, finite coordinates, turning room, every sea leg and the approach before mutating any state. The minimum leg is at least one nautical mile, or the platform's turning diameter plus arrival tolerance if larger. `Unit.patrol_active` is distinct from the scenario AI's `patrol_route`. `Movement` rotates reached waypoints to the back of the queue; ordinary routes still finish and stop. Navigation and formation orders cancel repetition; sensor and ROE orders retain it. Speed changes retain the circuit when its legs still allow the required turning room; otherwise the order is rejected with an explanation. Evasion temporarily suspends it. `AviationManager` clears patrol on launch, return or automatic tanker diversion; real fuel and deck cycles continue.
+
+`TacticalMap.PATROL` accepts two opposite corners, draws a validated preview and emits an Order. It cancels on right-click, Escape or loss of a controllable selection. The closed circuit and platform data show the active patrol. `CommandBar` exposes Main's existing actions between the chart and bottom panes, including the new Shift+W patrol action. It is hidden with the strip in full-screen 3D and isolated by the existing modal input rules.
+
+Northern Passage opens at a 32 NM command extent while the regional pane retains the full theatre. The shared chart palette reduces relief glare and deepens the depth bands; track numbers use 14 px logical text. `WorldScene.DAY` supplies a maritime blue/grey daylight palette, and the tether starts at nine degrees. `build_models.py` supplies original Nansen, Gorshkov and Steregushchiy geometry; generated GLBs, manifests and all four recognition views are regenerated together. No platform combat data or enemy visibility rule changes.
+
+`tools/command_watch_playtest.gd` drives actual viewport mouse input through the real scene at both physical window sizes, exercises paused patrol assignment, helicopter circuits and recovery, opens command panels and captures all four theatres. `tests/test_patrol.gd` covers repeat navigation, turn-radius rejection, independent queues, cancellation, terrain validation and bingo fuel.
+
+## M31 additions
+
+`build_northern_passage.py` generates the original introductory operation through the existing geography/scenario pipeline. The menu's dedicated start button opens its paused briefing; the custom mission shelf remains available. `ScenarioLoader` opts a unit into initial MOVE orders with `follow_route: true`, using `patrol_nm` as a one-shot route. Omitting the flag retains legacy AI patrol behavior.
+
+`MissionObjective.caused_by` optionally filters named `unit_lost` targets by `Unit.last_attacker`, the existing firing-faction attribution retained through later fire/flooding. The workshop validates its type, unit names and responsible faction. It is last-attacker attribution, not proportional credit for multiple attackers. Loss predicates still run before victory.
+
+`RadioNet.journal` retains the latest 512 observed messages chronologically, independently of the 60-message comms board. Truncation is disclosed in the debrief. Main separates player-caused civilian sinkings from enemy kills and stores the held contact label rather than a hidden callsign. The report receives this journal; it does not reconstruct events from simulation truth. Both collections reset on scenario start. `tools/passage_playtest.gd` defers loading its real-scene driver until autoloads exist; `verify_northern_passage.py` checks ordinary-order outcomes and exact seeded replay.
 
 ## M29 additions
 

@@ -13,7 +13,7 @@ static func run(main: Main) -> void:
 	checks["period portrait uses the historical catalogue"] = menu._portrait.spec_override != null and menu._portrait.spec_override.id.begins_with("cw90_")
 	checks["mission desk exposes first orders and date"] = menu._detail.text.contains("YOUR FIRST ORDERS") and menu._mission_meta.text.contains("1990")
 	menu._set_era("exercises")
-	checks["eight exercises remain available on their own shelf"] = menu._entries.size() == 8
+	checks["eight existing exercises plus Northern Passage remain available"] = menu._entries.size() == 9 and menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
 	menu._set_era("atlantic")
 	checks["Atlantic shelf consolidates into three expanded operations"] = menu._entries.size() == 3
 	checks["operation desk displays the authored sequence"] = menu._detail.text.contains("OPERATION SEQUENCE")
@@ -24,7 +24,7 @@ static func run(main: Main) -> void:
 	menu._set_era("cold_war")
 	menu._play.pressed.emit()
 	await main.get_tree().process_frame
-	checks["mission button loads convoy into paused briefing"] = main.simulation.scenario_path == Main.DEFAULT_SCENARIO and main._briefing.visible and not menu.visible and SimClock.paused
+	checks["mission button loads convoy into paused briefing"] = main.simulation.scenario_path == "res://data/scenarios/cold_war_01_convoy.json" and main._briefing.visible and not menu.visible and SimClock.paused
 	checks["briefing opens on actionable orders"] = main._briefing._active_section == "orders" and main._briefing._body.text.contains("OPENING ORDERS") and main._briefing._body.text.contains("SUCCESS CONDITIONS")
 	checks["briefing shows phased orders and pending objectives"] = main._briefing._body.text.contains("OPERATION SEQUENCE") and main._briefing._body.text.contains("PENDING")
 	main._briefing._tabs["controls"].pressed.emit()
@@ -56,7 +56,7 @@ static func run(main: Main) -> void:
 	await main.get_tree().process_frame
 	checks["new operation starts briefing at the top"] = prior_scroll > 0.0 and main._briefing._active_section == "orders" and main._briefing._body.get_v_scroll_bar().value == 0.0
 	main._briefing.set_process(true)
-	main.start_scenario(Main.DEFAULT_SCENARIO)
+	main.start_scenario("res://data/scenarios/cold_war_01_convoy.json")
 	main._show_briefing()
 	main._unhandled_key_input(_key(KEY_G))
 	checks["briefing blocks chart shortcuts"] = not main._views_swapped and SimClock.paused
@@ -179,13 +179,13 @@ static func run(main: Main) -> void:
 	checks["the chart has the top two-thirds of the screen"] = absf(main.map.size.y / bounds.size.y - 0.68) < 0.03 and main.map.size.x >= bounds.size.x - 3.0
 	checks["the regional map is square"] = absf(main.regional.size.x - main.regional.size.y) < 4.0
 	# A new operation opens on the normal layout at its own framing, even from a swapped screen.
-	main.start_scenario(Main.DEFAULT_SCENARIO)
+	main.start_scenario("res://data/scenarios/cold_war_01_convoy.json")
 	await main.get_tree().process_frame
 	await main.get_tree().process_frame
 	var opening_ppn := main.map.ppn
 	main._swap_views()
 	await main.get_tree().process_frame
-	main.start_scenario(Main.DEFAULT_SCENARIO)
+	main.start_scenario("res://data/scenarios/cold_war_01_convoy.json")
 	await main.get_tree().process_frame
 	await main.get_tree().process_frame
 	checks["a scenario started from a swapped screen opens on the chart at its own framing"] = not main._views_swapped and main.map.get_parent() == main._upper and absf(main.map.ppn - opening_ppn) < 0.001

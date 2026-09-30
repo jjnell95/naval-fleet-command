@@ -140,7 +140,7 @@ func _set_tile(key: String, value: int, note: String, good_when_high: bool) -> v
 	(tile["note"] as Label).text = note
 
 
-func show_report(result: String, summary: String, stats: Dictionary, objectives: Array, losses: Array, kills: Array, elapsed_s: float) -> void:
+func show_report(result: String, summary: String, stats: Dictionary, objectives: Array, losses: Array, kills: Array, elapsed_s: float, timeline: Array[String] = [], civilian_incidents: PackedStringArray = [], loss_objectives: Array = [], omitted_events := 0) -> void:
 	var victory := result == "VICTORY"
 	_title.text = result
 	_title.add_theme_color_override("font_color", UITheme.INK_GREEN if victory else UITheme.INK_RED)
@@ -157,17 +157,32 @@ func show_report(result: String, summary: String, stats: Dictionary, objectives:
 	lines.append(UITheme.section_bb("Objectives", true))
 	for o in objectives:
 		var mo: MissionObjective = o
-		lines.append("%s   %s" % ["[color=%s][font_size=12]DONE[/font_size][/color]" % UITheme.HEX_INK_GREEN if mo.complete else "[color=%s][font_size=12]OPEN[/font_size][/color]" % UITheme.HEX_INK_AMBER, mo.text])
+		lines.append("%s   %s" % ["[color=%s][font_size=12]DONE[/font_size][/color]" % UITheme.HEX_INK_GREEN if mo.complete else "[color=%s][font_size=12]OPEN[/font_size][/color]" % UITheme.HEX_INK_AMBER, _safe(mo.text)])
+	for mo: MissionObjective in loss_objectives:
+		lines.append("[color=%s]%s[/color]   %s" % [UITheme.HEX_INK_RED if mo.complete else UITheme.HEX_INK_DIM, "FAILED" if mo.complete else "AVOIDED", _safe(mo.text)])
+	lines.append("\n" + UITheme.section_bb("Civilian incidents", true))
+	lines.append("No neutral vessels sunk by your force" if civilian_incidents.is_empty() else "[color=%s]%d neutral vessel(s) sunk by your force: %s[/color]" % [UITheme.HEX_INK_RED, civilian_incidents.size(), _safe(", ".join(civilian_incidents))])
 	lines.append("\n" + UITheme.section_bb("The shield", true))
 	lines.append("%d hostile rounds detected inbound · %d intercepted · %d decoyed · %d hits taken" % [inbound, stats.get("intercepted", 0), stats.get("decoyed", 0), stats.get("hits_taken", 0)])
 	lines.append("[color=%s]%d interceptors expended · %d decoys[/color]" % [UITheme.HEX_INK_DIM, stats.get("launched", 0), stats.get("decoys_used", 0)])
 	lines.append("\n" + UITheme.section_bb("The sword", true))
 	lines.append("%d rounds fired by your force · %d hits scored" % [stats.get("own_rounds", 0), stats.get("hits_scored", 0)])
-	lines.append("[color=%s]%s[/color]" % [UITheme.HEX_INK_DIM, "No enemy units destroyed" if kills.is_empty() else "Destroyed: " + ", ".join(kills)])
+	lines.append("[color=%s]%s[/color]" % [UITheme.HEX_INK_DIM, "No enemy units destroyed" if kills.is_empty() else "Destroyed: " + _safe(", ".join(kills))])
 	lines.append("\n" + UITheme.section_bb("Losses", true))
-	lines.append("None" if losses.is_empty() else ", ".join(losses))
+	lines.append("None" if losses.is_empty() else _safe(", ".join(losses)))
 	lines.append("\n[color=%s]Contacts held %d  ·  classified hostile %d  ·  aircraft sorties %d[/color]" % [UITheme.HEX_INK_FAINT, stats.get("contacts", 0), stats.get("classified", 0), stats.get("sorties", 0)])
+	lines.append("\n" + UITheme.section_bb("Observed event timeline", true))
+	if omitted_events > 0:
+		lines.append("%d earlier messages omitted; showing the latest %d." % [omitted_events, timeline.size()])
+	if timeline.is_empty():
+		lines.append("No observed events recorded")
+	for event: String in timeline:
+		lines.append(_safe(event))
 	_body.text = "\n".join(lines)
 	show()
 	if _review != null:
 		_review.call_deferred("grab_focus")
+
+
+static func _safe(value: String) -> String:
+	return value.replace("[", "[lb]")

@@ -107,6 +107,7 @@ func launch(parent: Unit, which := "") -> Unit:
 	chosen.heading_deg = parent.heading_deg
 	chosen.ordered_heading_deg = parent.heading_deg
 	chosen.returning = false
+	chosen.patrol_active = false
 	_set_recovery_base(chosen, null)
 	chosen.tanking_on = null
 	chosen.formation_leader = null
@@ -181,6 +182,7 @@ func request_return(a: Unit, destination: Unit = null) -> bool:
 		return false
 	var base := destination if destination != null else _preferred_base(a)
 	a.returning = true
+	a.patrol_active = false
 	a.tanking_on = null
 	a.formation_leader = null
 	a.waypoints.clear()
@@ -311,6 +313,7 @@ func _step_airborne(a: Unit, dt: float) -> void:
 		var tanker := _find_tanker(a)
 		if tanker != null:
 			a.tanking_on = tanker
+			a.patrol_active = false
 			a.formation_leader = null
 			aircraft_tanking.emit(a, tanker)
 		else:

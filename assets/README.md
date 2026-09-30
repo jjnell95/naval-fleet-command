@@ -80,6 +80,23 @@ its wings swept back, Hawkeye, Rafale, a naval helicopter) beside the pipeline's
 outlines are ear-clipped (`slab`), since `Model.plate` fans from the first corner and only suits convex
 ones. Every model stays under 15,000 triangles and 13 surfaces.
 
+## Command Watch escorts (M32)
+
+The Nansen, Gorshkov and Steregushchiy use class-specific builders in `tools/art/build_models.py`.
+Nansen has one broad array tower, a separated funnel and a long flight deck; Gorshkov has a tapered
+integrated mast, two foredeck launcher banks and paired aft close-in mounts; the compact corvette
+has a spherical mast cap, inclined amidships launchers and a lower continuous deckhouse. Each has
+bridge glazing, hangar doors, flight-deck markings, railings, boats/davits, capstans and life rafts.
+The raised level flight decks sit above the loft's centreline camber so their markings remain visible.
+These are original game interpretations of recognition features, not dimensional reference models.
+The three models have 6,164–7,040 triangles and 12 merged material surfaces each.
+
+```sh
+python3 tools/art/build_models.py rnon_ffg_fridtjof_nansen rfn_ffg_admiral_gorshkov rfn_fsg_steregushchiy
+godot --headless --path . --import --quit
+xvfb-run -a godot --audio-driver Dummy --path . --script tools/art/render_assets.gd -- rnon_ffg_fridtjof_nansen rfn_ffg_admiral_gorshkov rfn_fsg_steregushchiy
+```
+
 ## How the world view dresses a model
 
 The GLBs keep their flat, named PBR colours, which the gallery and the renders use as authored. The

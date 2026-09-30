@@ -46,7 +46,7 @@ const BEACON_PHASES := 4
 ## Sun shadows: the reach around the subject, as a multiple of its length.
 const SHADOW_REACH := 4.0
 ## Sky, sea and light for day, twilight and night: [sky top, horizon, zenith, haze, fog].
-const DAY := [Color("685cda"), Color("9d99cc"), Color("5a4ec8"), Color("aeaad6"), Color("938fbe")]
+const DAY := [Color("527caa"), Color("b0c2d2"), Color("45698d"), Color("c4ccd3"), Color("96abbc")]
 const TWILIGHT := [Color("2e2a66"), Color("8c6f86"), Color("1d1a48"), Color("a08492"), Color("3a3450")]
 const NIGHT := [Color("05060f"), Color("141626"), Color("020308"), Color("1a1c2c"), Color("0b0c14")]
 
@@ -278,7 +278,7 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_moon.light_energy = 0.18 * (1.0 - twilight)
 	var moon_dir := Vector3(-sun_dir.x, 0.65, -sun_dir.z).normalized()
 	_moon.look_at_from_position(moon_dir * 1000.0, Vector3.ZERO, Vector3.UP)
-	_env.ambient_light_color = Color(0.10, 0.11, 0.20).lerp(Color(0.44, 0.40, 0.60), twilight).lerp(Color(0.56, 0.56, 0.74), day)
+	_env.ambient_light_color = Color(0.10, 0.11, 0.20).lerp(Color(0.44, 0.40, 0.60), twilight).lerp(Color(0.57, 0.64, 0.72), day)
 	_env.ambient_light_energy = 0.28 + 0.14 * twilight + 0.1 * day
 	_env.fog_light_color = pal[4]
 	_env.fog_light_energy = 1.0

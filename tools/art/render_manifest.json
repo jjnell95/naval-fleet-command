@@ -77,6 +77,16 @@
   "kind": "platform",
   "domain": "land"
  },
+ "rfn_ffg_admiral_gorshkov": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -1.0243
+ },
+ "rfn_fsg_steregushchiy": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -1.0612
+ },
  "rfn_sam_s400_site": {
   "kind": "platform",
   "domain": "land"
@@ -93,6 +103,11 @@
   "kind": "platform",
   "domain": "surface",
   "waterline_y": -0.7118
+ },
+ "rnon_ffg_fridtjof_nansen": {
+  "kind": "platform",
+  "domain": "surface",
+  "waterline_y": -0.9279
  },
  "sm39_exocet": {
   "kind": "weapon"

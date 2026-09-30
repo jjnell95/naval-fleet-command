@@ -12,12 +12,17 @@ extends RefCounted
 signal logged(text: String, severity: String)
 
 const MAX_HISTORY := 60
+const MAX_JOURNAL := 512
 
 var map: TacticalMap
 var display: DataDisplay
 var boards: StatusBoards
 ## Newest first, each "<time>  <text>".
 var history: Array[String] = []
+## Chronological, player-observed traffic for the after-action report, separate from the short
+## comms-board history. Never populate this from debug output or hidden simulation events.
+var journal: Array[String] = []
+var journal_omitted := 0
 var scenario_name := ""
 var objective_text := ""
 
@@ -26,7 +31,12 @@ var objective_text := ""
 ## "<callsign>: <text>" and the speaker's symbol is ringed while the line shows.
 func flash(msg: String, severity := "info", speaker: RefCounted = null) -> void:
 	var line := format_line(msg, speaker)
-	history.push_front("%s  %s" % [SimClock.datetime_string(), line])
+	var stamped := "%s  %s" % [SimClock.datetime_string(), line]
+	history.push_front(stamped)
+	journal.append(stamped)
+	if journal.size() > MAX_JOURNAL:
+		journal.pop_front()
+		journal_omitted += 1
 	if history.size() > MAX_HISTORY:
 		history.resize(MAX_HISTORY)
 	if map != null:
@@ -59,6 +69,8 @@ func set_scenario_name(name: String) -> void:
 
 func clear() -> void:
 	history.clear()
+	journal.clear()
+	journal_omitted = 0
 	objective_text = ""
 	if display != null:
 		display.unread_alerts = 0

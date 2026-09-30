@@ -3,11 +3,12 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
 var append := false
+var route: Array[Vector2] = []
 var heading_deg := 0.0
 var speed_kn := 0.0
 var track: Track
@@ -79,6 +80,18 @@ static func move(pos: Vector2, append_waypoint := false) -> Order:
 	o.target_pos = pos
 	o.append = append_waypoint
 	return o
+
+
+static func patrol(points: Array[Vector2]) -> Order:
+	var o := Order.new()
+	o.type = Type.PATROL
+	o.route.assign(points)
+	return o
+
+
+## Rectangular circuit, specified by opposite corners in world nautical miles.
+static func patrol_box(a: Vector2, b: Vector2) -> Order:
+	return patrol([a, Vector2(b.x, a.y), b, Vector2(a.x, b.y)])
 
 
 static func set_course(deg: float) -> Order:
@@ -226,6 +239,8 @@ func describe() -> String:
 			return "COUNTERMEASURES %s" % ("AUTO" if automatic else "MANUAL")
 		Type.MOVE:
 			return "MOVE to %s/%s%s" % [Geo.format_axis(target_pos.x, "E", "W"), Geo.format_axis(target_pos.y, "N", "S"), " (append)" if append else ""]
+		Type.PATROL:
+			return "PATROL %d-POINT CIRCUIT" % route.size()
 		Type.SET_COURSE:
 			return "COURSE %s" % Geo.format_bearing(heading_deg)
 		Type.SET_SPEED:

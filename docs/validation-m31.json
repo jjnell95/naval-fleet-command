@@ -1,0 +1,4213 @@
+{
+  "milestone": "M31 Northern Passage",
+  "date": "2026-09-30",
+  "starting_commit": "7c89570",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "environment": "Linux cloud container; native Xvfb / Mesa llvmpipe software OpenGL; Chromium SwiftShader WebGL2",
+  "delivery": "Local uncommitted changes and rebuilt browser pack. No push, publication or deployment.",
+  "baseline": {
+    "regression_tests": 577,
+    "failed": 0,
+    "runner_runtime_error_self_check": "passed",
+    "log": "work/m31/baseline-tests.log"
+  },
+  "regression": {
+    "command": "godot --headless --path . --script tests/run_tests.gd",
+    "passed": 587,
+    "failed": 0,
+    "log": "work/m31/tests-final.log",
+    "self_check_command": "python tools/test_runner_self_check.py \"$GODOT\"",
+    "self_check": "passed"
+  },
+  "scenario_generation": {
+    "command": "python tools/scenarios/build_northern_passage.py",
+    "byte_identical_regeneration": true,
+    "landmasses": 81,
+    "route_length_nm": 8,
+    "ordered_speed_kn": 15,
+    "nominal_seconds": 1920,
+    "measured_arrival_seconds": 1850,
+    "deadline_seconds": 2700,
+    "exit_radius_nm": 0.35,
+    "note": "The route is a 3+5 nm dogleg. Turning, waypoint acceptance and the exit radius affect measured arrival; the generic merchant keeps its existing 15 kn cap."
+  },
+  "mission_trials": {
+    "command": "python tools/verify_northern_passage.py \"$GODOT\" work/m31/policies",
+    "method": "Real Main scene, normal issue_order commands, actual fixed ticks, sensors, AI, weapons and damage. No injected contacts, damage, ammunition or outcomes. This is an automated command policy, not a human playtest.",
+    "replay_identical": true,
+    "runs": {
+      "escort-31": {
+        "checks": {
+          "briefing explains deadline and civilian condition": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "detection and classification both occurred": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "intro accessible on the operations desk": true,
+          "intro opens paused briefing": true,
+          "investigation precedes incoming fire": true,
+          "mission reached a terminal outcome": true,
+          "no player-caused civilian sinking": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "real player and opposing weapons fired": true,
+          "reconnaissance airframe returned alive": true,
+          "reconnaissance updated the shared picture": true,
+          "surviving hulls remain afloat": true,
+          "take command runs at real time": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "LAUNCH 1 x READY AIRCRAFT",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to E 7/N 2",
+            "time_s": 120.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "RETURN TO BASE",
+            "time_s": 240.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 308.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 548.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 8,
+          "classified_seen": true,
+          "defensive_rounds": 56,
+          "first_blue_shot_s": 308.0,
+          "first_red_shot_s": 221.75,
+          "helicopter_observations": true,
+          "red_rounds": 25,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          1600.0
+        ],
+        "observed_names": [
+          "MV Skerry Trader",
+          "MV Coastal Star",
+          "Admiral Gorshkov"
+        ],
+        "policy": "escort",
+        "result": 1,
+        "seed": 31,
+        "sim_time_s": 1850.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.576746193209,
+            "health": 110.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 27,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 60,
+              "rgm_139_vla": 8,
+              "sm2_family": 0,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 358.021289925311,
+            "health": 85.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 5,
+              "nsm_strike_missile": 0,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              4.0135383605957,
+              4.59675121307373
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.934112312103,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              3.01260089874268,
+              4.65067863464355
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 299,
+              "ak630_ciws": 80,
+              "p800_oniks": 0,
+              "paket_nk": 8,
+              "redut_family": 12
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              15.2077617645264,
+              4.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 311.221033245328,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 0,
+              "paket_nk": 8,
+              "redut_family": 8
+            },
+            "name": "Stoikiy",
+            "position": [
+              29.4470348358154,
+              -1.28990077972412
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 82.5691623483125,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              4.19468879699707
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              10.2403602600098,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 4,
+            "fuel_s": 10547.7990909092,
+            "heading": 357.576746193209,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          }
+        ],
+        "window_size": [
+          64,
+          64
+        ]
+      },
+      "escort-31-repeat": {
+        "checks": {
+          "briefing explains deadline and civilian condition": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "detection and classification both occurred": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "intro accessible on the operations desk": true,
+          "intro opens paused briefing": true,
+          "investigation precedes incoming fire": true,
+          "mission reached a terminal outcome": true,
+          "no player-caused civilian sinking": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "real player and opposing weapons fired": true,
+          "reconnaissance airframe returned alive": true,
+          "reconnaissance updated the shared picture": true,
+          "surviving hulls remain afloat": true,
+          "take command runs at real time": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "LAUNCH 1 x READY AIRCRAFT",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to E 7/N 2",
+            "time_s": 120.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "RETURN TO BASE",
+            "time_s": 240.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 308.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 548.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 8,
+          "classified_seen": true,
+          "defensive_rounds": 56,
+          "first_blue_shot_s": 308.0,
+          "first_red_shot_s": 221.75,
+          "helicopter_observations": true,
+          "red_rounds": 25,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          1600.0
+        ],
+        "observed_names": [
+          "MV Skerry Trader",
+          "MV Coastal Star",
+          "Admiral Gorshkov"
+        ],
+        "policy": "escort",
+        "result": 1,
+        "seed": 31,
+        "sim_time_s": 1850.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.576746193209,
+            "health": 110.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 27,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 60,
+              "rgm_139_vla": 8,
+              "sm2_family": 0,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 358.021289925311,
+            "health": 85.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 5,
+              "nsm_strike_missile": 0,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              4.0135383605957,
+              4.59675121307373
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.934112312103,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              3.01260089874268,
+              4.65067863464355
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 299,
+              "ak630_ciws": 80,
+              "p800_oniks": 0,
+              "paket_nk": 8,
+              "redut_family": 12
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              15.2077617645264,
+              4.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 311.221033245328,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 0,
+              "paket_nk": 8,
+              "redut_family": 8
+            },
+            "name": "Stoikiy",
+            "position": [
+              29.4470348358154,
+              -1.28990077972412
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 82.5691623483125,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              4.19468879699707
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              10.2403602600098,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 4,
+            "fuel_s": 10547.7990909092,
+            "heading": 357.576746193209,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          }
+        ],
+        "window_size": [
+          64,
+          64
+        ]
+      },
+      "escort-13": {
+        "checks": {
+          "briefing explains deadline and civilian condition": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "detection and classification both occurred": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "intro accessible on the operations desk": true,
+          "intro opens paused briefing": true,
+          "investigation precedes incoming fire": true,
+          "mission reached a terminal outcome": true,
+          "no player-caused civilian sinking": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "real player and opposing weapons fired": true,
+          "reconnaissance airframe returned alive": true,
+          "reconnaissance updated the shared picture": true,
+          "surviving hulls remain afloat": true,
+          "take command runs at real time": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "LAUNCH 1 x READY AIRCRAFT",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to E 7/N 2",
+            "time_s": 120.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "RETURN TO BASE",
+            "time_s": 240.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 308.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 548.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 8,
+          "classified_seen": true,
+          "defensive_rounds": 63,
+          "first_blue_shot_s": 308.0,
+          "first_red_shot_s": 221.75,
+          "helicopter_observations": true,
+          "red_rounds": 27,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          1600.0
+        ],
+        "observed_names": [
+          "MV Skerry Trader",
+          "MV Coastal Star",
+          "Admiral Gorshkov"
+        ],
+        "policy": "escort",
+        "result": 1,
+        "seed": 13,
+        "sim_time_s": 1850.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.576746193209,
+            "health": 110.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 25,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 60,
+              "rgm_139_vla": 8,
+              "sm2_family": 0,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 358.021289925311,
+            "health": 74.0,
+            "last_attacker": "RED",
+            "magazines": {
+              "essm_family": 0,
+              "nsm_strike_missile": 0,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              4.0135383605957,
+              4.59675121307373
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.934112312103,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              3.01260089874268,
+              4.65067863464355
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 297,
+              "ak630_ciws": 80,
+              "p800_oniks": 0,
+              "paket_nk": 8,
+              "redut_family": 13
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              15.2077617645264,
+              4.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 315.169640463078,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 0,
+              "paket_nk": 8,
+              "redut_family": 8
+            },
+            "name": "Stoikiy",
+            "position": [
+              29.5284748077393,
+              -1.18873357772827
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 6.93356974284481,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              3.99556636810303
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              10.2402439117432,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 4,
+            "fuel_s": 10547.7990909092,
+            "heading": 357.576746193209,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          }
+        ],
+        "window_size": [
+          64,
+          64
+        ]
+      },
+      "abandon-31": {
+        "checks": {
+          "abandonment ends through freighter loss": true,
+          "briefing explains deadline and civilian condition": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "intro accessible on the operations desk": true,
+          "intro opens paused briefing": true,
+          "mission reached a terminal outcome": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "surviving hulls remain afloat": true,
+          "take command runs at real time": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "BREAK FORMATION",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "WEAPONS HOLD",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "EMCON SILENT",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "SPEED 30 kn",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to W 35/S 10",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "BREAK FORMATION",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "WEAPONS HOLD",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "EMCON SILENT",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "SPEED 26 kn",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to W 35/S 10",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 0,
+          "classified_seen": true,
+          "defensive_rounds": 0,
+          "first_blue_shot_s": -1.0,
+          "first_red_shot_s": 801.75,
+          "helicopter_observations": false,
+          "red_rounds": 12,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          1600.0
+        ],
+        "observed_names": [
+          "MV Skerry Trader",
+          "MV Coastal Star",
+          "Admiral Gorshkov"
+        ],
+        "policy": "abandon",
+        "result": 2,
+        "seed": 31,
+        "sim_time_s": 1066.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 253.63353946938,
+            "health": 110.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 32,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 60,
+              "rgm_139_vla": 8,
+              "sm2_family": 24,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              -6.77178812026978,
+              -1.70993757247925
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 256.514980942444,
+            "health": 85.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 32,
+              "nsm_strike_missile": 8,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              -5.85962629318237,
+              -3.01207327842712
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.934095939993,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              3.13046765327454,
+              1.38318181037903
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 300,
+              "ak630_ciws": 80,
+              "p800_oniks": 0,
+              "paket_nk": 8,
+              "redut_family": 32
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              21.5241680145264,
+              4.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 277.668157943988,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 4,
+              "paket_nk": 8,
+              "redut_family": 12
+            },
+            "name": "Stoikiy",
+            "position": [
+              31.8428192138672,
+              -3.5775990486145
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              0.956793189048767
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              10.1510581970215,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 10800.0,
+            "heading": 253.63353946938,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              -6.77178812026978,
+              -1.70993757247925
+            ]
+          }
+        ],
+        "window_size": [
+          64,
+          64
+        ]
+      },
+      "abandon-13": {
+        "checks": {
+          "abandonment ends through freighter loss": true,
+          "briefing explains deadline and civilian condition": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "intro accessible on the operations desk": true,
+          "intro opens paused briefing": true,
+          "mission reached a terminal outcome": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "surviving hulls remain afloat": true,
+          "take command runs at real time": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "BREAK FORMATION",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "WEAPONS HOLD",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "EMCON SILENT",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "SPEED 30 kn",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to W 35/S 10",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "BREAK FORMATION",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "WEAPONS HOLD",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "EMCON SILENT",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "SPEED 26 kn",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to W 35/S 10",
+            "time_s": 0.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 0,
+          "classified_seen": true,
+          "defensive_rounds": 0,
+          "first_blue_shot_s": -1.0,
+          "first_red_shot_s": 801.75,
+          "helicopter_observations": false,
+          "red_rounds": 12,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          1600.0
+        ],
+        "observed_names": [
+          "MV Skerry Trader",
+          "MV Coastal Star",
+          "Admiral Gorshkov"
+        ],
+        "policy": "abandon",
+        "result": 2,
+        "seed": 13,
+        "sim_time_s": 1066.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 253.63353946938,
+            "health": 110.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 32,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 60,
+              "rgm_139_vla": 8,
+              "sm2_family": 24,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              -6.77178812026978,
+              -1.70993757247925
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 256.514980942444,
+            "health": 85.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 32,
+              "nsm_strike_missile": 8,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              -5.85962629318237,
+              -3.01207327842712
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.934099710905,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              3.13046741485596,
+              1.38318181037903
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 300,
+              "ak630_ciws": 80,
+              "p800_oniks": 0,
+              "paket_nk": 8,
+              "redut_family": 32
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              21.5241680145264,
+              4.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 277.63801898859,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 4,
+              "paket_nk": 8,
+              "redut_family": 12
+            },
+            "name": "Stoikiy",
+            "position": [
+              31.8428039550781,
+              -3.57184553146362
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              0.956793189048767
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              10.1468906402588,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 10800.0,
+            "heading": 253.63353946938,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              -6.77178812026978,
+              -1.70993757247925
+            ]
+          }
+        ],
+        "window_size": [
+          64,
+          64
+        ]
+      },
+      "deadline-31": {
+        "checks": {
+          "briefing explains deadline and civilian condition": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "intro accessible on the operations desk": true,
+          "intro opens paused briefing": true,
+          "mission reached a terminal outcome": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "stationary convoy ends through deadline expiry": true,
+          "surviving hulls remain afloat": true,
+          "take command runs at real time": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "ALL STOP",
+            "time_s": 0.0,
+            "unit": "MV Northern Light"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 0,
+          "classified_seen": true,
+          "defensive_rounds": 98,
+          "first_blue_shot_s": -1.0,
+          "first_red_shot_s": 1061.75,
+          "helicopter_observations": false,
+          "red_rounds": 50,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          1600.0
+        ],
+        "observed_names": [
+          "MV Skerry Trader",
+          "MV Coastal Star",
+          "Admiral Gorshkov",
+          "Stoikiy"
+        ],
+        "policy": "deadline",
+        "result": 2,
+        "seed": 31,
+        "sim_time_s": 2700.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 90.0,
+            "health": 99.0,
+            "last_attacker": "RED",
+            "magazines": {
+              "essm_family": 0,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 50,
+              "rgm_139_vla": 8,
+              "sm2_family": 0,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              1.31302082538605,
+              1.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 90.0,
+            "health": 74.0,
+            "last_attacker": "RED",
+            "magazines": {
+              "essm_family": 0,
+              "nsm_strike_missile": 8,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              1.31302082538605,
+              -1.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 90.0,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              0.311979204416275,
+              1.91032151231263e-17
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 342.205577632457,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 266,
+              "ak630_ciws": 80,
+              "p800_oniks": 0,
+              "paket_nk": 8,
+              "redut_family": 32
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              11.3393535614014,
+              -0.172992587089539
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 93.8571155565296,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 0,
+              "paket_nk": 8,
+              "redut_family": 12
+            },
+            "name": "Stoikiy",
+            "position": [
+              42.8053092956543,
+              -3.76965570449829
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              7.50041007995605
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              3.99807810783386,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 10800.0,
+            "heading": 90.0,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              1.31302082538605,
+              1.0
+            ]
+          }
+        ],
+        "window_size": [
+          64,
+          64
+        ]
+      },
+      "civilian-31": {
+        "checks": {
+          "briefing explains deadline and civilian condition": true,
+          "civilian condition caused the defeat": true,
+          "civilian sinking is not an enemy kill": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "free-fire order warns about civilians": true,
+          "intro accessible on the operations desk": true,
+          "intro opens paused briefing": true,
+          "mission reached a terminal outcome": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "surviving hulls remain afloat": true,
+          "take command runs at real time": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "ENGAGE T1001 with 4 x nsm_strike_missile",
+            "time_s": 10.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1002 with 4 x nsm_strike_missile",
+            "time_s": 13.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 8,
+          "classified_seen": false,
+          "defensive_rounds": 0,
+          "first_blue_shot_s": 10.0,
+          "first_red_shot_s": -1.0,
+          "helicopter_observations": false,
+          "red_rounds": 0,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          1600.0
+        ],
+        "observed_names": [],
+        "policy": "civilian",
+        "result": 2,
+        "seed": 31,
+        "sim_time_s": 44.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 90.0,
+            "health": 110.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 32,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 60,
+              "rgm_139_vla": 8,
+              "sm2_family": 24,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              1.18333053588867,
+              1.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 90.0,
+            "health": 85.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 32,
+              "nsm_strike_missile": 0,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              1.18333053588867,
+              -1.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 90.0,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              0.183333203196526,
+              1.12259542974491e-17
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 300,
+              "ak630_ciws": 80,
+              "p800_oniks": 8,
+              "paket_nk": 8,
+              "redut_family": 32
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              29.7494926452637,
+              4.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 293.570566632348,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 8,
+              "paket_nk": 8,
+              "redut_family": 12
+            },
+            "name": "Stoikiy",
+            "position": [
+              35.8169288635254,
+              -3.93611478805542
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 0.0,
+            "last_attacker": "BLUE",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              -2.82987880706787
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              12.8533020019531,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 10800.0,
+            "heading": 90.0,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              1.18333053588867,
+              1.0
+            ]
+          }
+        ],
+        "window_size": [
+          64,
+          64
+        ]
+      }
+    }
+  },
+  "existing_native_ui": [
+    {
+      "suite": "command",
+      "size": "1600x900",
+      "exit_code": 0,
+      "wall_s": 19.0,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1600x900x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--path",
+        ".",
+        "--audio-driver",
+        "Dummy",
+        "--resolution",
+        "1600x900",
+        "--",
+        "--cold-war-smoke"
+      ],
+      "log": "work/m31/gui-command-1600x900.log",
+      "passed_checks": 47,
+      "failed_checks": 0
+    },
+    {
+      "suite": "aviation",
+      "size": "1600x1000",
+      "exit_code": 0,
+      "wall_s": 17.3,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1600x1000x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--path",
+        ".",
+        "--audio-driver",
+        "Dummy",
+        "--resolution",
+        "1600x1000",
+        "--",
+        "--aviation-smoke"
+      ],
+      "log": "work/m31/gui-aviation-1600x1000.log",
+      "passed_checks": 19,
+      "failed_checks": 0
+    },
+    {
+      "suite": "workshop",
+      "size": "1600x900",
+      "exit_code": 0,
+      "wall_s": 17.0,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1600x900x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--path",
+        ".",
+        "--audio-driver",
+        "Dummy",
+        "--resolution",
+        "1600x900",
+        "--",
+        "--fleet-workshop-smoke",
+        "--scenario-storage=res://work/m31/workshop1600"
+      ],
+      "log": "work/m31/gui-workshop-1600x900.log",
+      "passed_checks": 34,
+      "failed_checks": 0
+    },
+    {
+      "suite": "workshop",
+      "size": "1280x720",
+      "exit_code": 0,
+      "wall_s": 13.9,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1280x720x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--path",
+        ".",
+        "--audio-driver",
+        "Dummy",
+        "--resolution",
+        "1280x720",
+        "--",
+        "--fleet-workshop-smoke",
+        "--scenario-storage=res://work/m31/workshop1280"
+      ],
+      "log": "work/m31/gui-workshop-1280x720.log",
+      "passed_checks": 34,
+      "failed_checks": 0
+    },
+    {
+      "suite": "weapons",
+      "size": "1600x900",
+      "exit_code": 0,
+      "wall_s": 15.8,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1600x900x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--path",
+        ".",
+        "--audio-driver",
+        "Dummy",
+        "--resolution",
+        "1600x900",
+        "--",
+        "--weapon-control-smoke",
+        "--scenario-storage=res://work/m31/weapons1600"
+      ],
+      "log": "work/m31/gui-weapons-1600x900.log",
+      "passed_checks": 24,
+      "failed_checks": 0
+    },
+    {
+      "suite": "weapons",
+      "size": "1280x720",
+      "exit_code": 0,
+      "wall_s": 12.5,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1280x720x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--path",
+        ".",
+        "--audio-driver",
+        "Dummy",
+        "--resolution",
+        "1280x720",
+        "--",
+        "--weapon-control-smoke",
+        "--scenario-storage=res://work/m31/weapons1280"
+      ],
+      "log": "work/m31/gui-weapons-1280x720.log",
+      "passed_checks": 24,
+      "failed_checks": 0
+    }
+  ],
+  "passage_native_ui": {
+    "runs": [
+      {
+        "checks": {
+          "briefing explains deadline and civilian condition": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "detection and classification both occurred": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "intro accessible on the operations desk": true,
+          "intro button fits viewport": true,
+          "intro opens paused briefing": true,
+          "investigation precedes incoming fire": true,
+          "mission reached a terminal outcome": true,
+          "no player-caused civilian sinking": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "real engagement captured": true,
+          "real player and opposing weapons fired": true,
+          "reconnaissance airframe returned alive": true,
+          "reconnaissance updated the shared picture": true,
+          "report review button fits viewport": true,
+          "screenshot briefing": true,
+          "screenshot command": true,
+          "screenshot debrief": true,
+          "screenshot desk": true,
+          "screenshot engagement": true,
+          "surviving hulls remain afloat": true,
+          "tactical panes fit viewport": true,
+          "take command runs at real time": true,
+          "take-command button fits viewport": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "LAUNCH 1 x READY AIRCRAFT",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to E 7/N 2",
+            "time_s": 120.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "RETURN TO BASE",
+            "time_s": 240.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 308.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 548.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 8,
+          "classified_seen": true,
+          "defensive_rounds": 56,
+          "first_blue_shot_s": 308.0,
+          "first_red_shot_s": 221.75,
+          "helicopter_observations": true,
+          "red_rounds": 25,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          900.0
+        ],
+        "observed_names": [
+          "MV Skerry Trader",
+          "MV Coastal Star",
+          "Admiral Gorshkov"
+        ],
+        "policy": "escort",
+        "result": 1,
+        "seed": 31,
+        "sim_time_s": 1850.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.576746193209,
+            "health": 110.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 27,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 60,
+              "rgm_139_vla": 8,
+              "sm2_family": 0,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 358.021289925311,
+            "health": 85.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 5,
+              "nsm_strike_missile": 0,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              4.0135383605957,
+              4.59675121307373
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.934112312103,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              3.01260089874268,
+              4.65067863464355
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 299,
+              "ak630_ciws": 80,
+              "p800_oniks": 0,
+              "paket_nk": 8,
+              "redut_family": 12
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              15.2077617645264,
+              4.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 311.221033245328,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 0,
+              "paket_nk": 8,
+              "redut_family": 8
+            },
+            "name": "Stoikiy",
+            "position": [
+              29.4470348358154,
+              -1.28990077972412
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 82.5691623483125,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              4.19468879699707
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              10.2403602600098,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 4,
+            "fuel_s": 10547.7990909092,
+            "heading": 357.576746193209,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          }
+        ],
+        "window_size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "checks": {
+          "briefing explains deadline and civilian condition": true,
+          "debrief includes civilians and observed timeline": true,
+          "debrief is visible and pauses the clock": true,
+          "debrief names only observed contacts": true,
+          "detection and classification both occurred": true,
+          "expected controllable force present": true,
+          "expected policy outcome": true,
+          "intro accessible on the operations desk": true,
+          "intro button fits viewport": true,
+          "intro opens paused briefing": true,
+          "investigation precedes incoming fire": true,
+          "mission reached a terminal outcome": true,
+          "no player-caused civilian sinking": true,
+          "no unexpected engine errors": true,
+          "opening commands preserve paused simulation time": true,
+          "real engagement captured": true,
+          "real player and opposing weapons fired": true,
+          "reconnaissance airframe returned alive": true,
+          "reconnaissance updated the shared picture": true,
+          "report review button fits viewport": true,
+          "screenshot briefing": true,
+          "screenshot command": true,
+          "screenshot debrief": true,
+          "screenshot desk": true,
+          "screenshot engagement": true,
+          "surviving hulls remain afloat": true,
+          "tactical panes fit viewport": true,
+          "take command runs at real time": true,
+          "take-command button fits viewport": true
+        },
+        "commands": [
+          {
+            "accepted": true,
+            "order": "LAUNCH 1 x READY AIRCRAFT",
+            "time_s": 0.0,
+            "unit": "USS Truxtun (DDG 103)"
+          },
+          {
+            "accepted": true,
+            "order": "MOVE to E 7/N 2",
+            "time_s": 120.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "RETURN TO BASE",
+            "time_s": 240.0,
+            "unit": "Seahawk 11"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 308.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          },
+          {
+            "accepted": true,
+            "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+            "time_s": 548.0,
+            "unit": "HNoMS Roald Amundsen (F 311)"
+          }
+        ],
+        "errors": [],
+        "facts": {
+          "blue_rounds": 8,
+          "classified_seen": true,
+          "defensive_rounds": 56,
+          "first_blue_shot_s": 308.0,
+          "first_red_shot_s": 221.75,
+          "helicopter_observations": true,
+          "red_rounds": 25,
+          "unknown_seen": true
+        },
+        "logical_viewport": [
+          1600.0,
+          900.0
+        ],
+        "observed_names": [
+          "MV Skerry Trader",
+          "MV Coastal Star",
+          "Admiral Gorshkov"
+        ],
+        "policy": "escort",
+        "result": 1,
+        "seed": 31,
+        "sim_time_s": 1850.0,
+        "units": [
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.576746193209,
+            "health": 110.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 27,
+              "mk45_mod4_gun": 250,
+              "phalanx_ciws": 60,
+              "rgm_139_vla": 8,
+              "sm2_family": 0,
+              "tomahawk_block_v": 8
+            },
+            "name": "USS Truxtun (DDG 103)",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 358.021289925311,
+            "health": 85.0,
+            "last_attacker": "",
+            "magazines": {
+              "essm_family": 5,
+              "nsm_strike_missile": 0,
+              "oto_76mm_gun": 250,
+              "sting_ray": 6
+            },
+            "name": "HNoMS Roald Amundsen (F 311)",
+            "position": [
+              4.0135383605957,
+              4.59675121307373
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 357.934112312103,
+            "health": 120.0,
+            "last_attacker": "",
+            "magazines": {},
+            "name": "MV Northern Light",
+            "position": [
+              3.01260089874268,
+              4.65067863464355
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 90.0,
+            "last_attacker": "",
+            "magazines": {
+              "a192_130mm_gun": 299,
+              "ak630_ciws": 80,
+              "p800_oniks": 0,
+              "paket_nk": 8,
+              "redut_family": 12
+            },
+            "name": "Admiral Gorshkov",
+            "position": [
+              15.2077617645264,
+              4.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 311.221033245328,
+            "health": 60.0,
+            "last_attacker": "",
+            "magazines": {
+              "a190_100mm_gun": 350,
+              "ak630_ciws": 80,
+              "kh35_uran": 0,
+              "paket_nk": 8,
+              "redut_family": 8
+            },
+            "name": "Stoikiy",
+            "position": [
+              29.4470348358154,
+              -1.28990077972412
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 0.0,
+            "health": 82.5691623483125,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Skerry Trader",
+            "position": [
+              5.0,
+              4.19468879699707
+            ]
+          },
+          {
+            "alive": false,
+            "flight_state": 0,
+            "fuel_s": 0.0,
+            "heading": 270.0,
+            "health": 0.0,
+            "last_attacker": "RED",
+            "magazines": {},
+            "name": "MV Coastal Star",
+            "position": [
+              10.2403602600098,
+              6.0
+            ]
+          },
+          {
+            "alive": true,
+            "flight_state": 4,
+            "fuel_s": 10547.7990909092,
+            "heading": 357.576746193209,
+            "health": 20.0,
+            "last_attacker": "",
+            "magazines": {
+              "mk54_lwt": 2
+            },
+            "name": "Seahawk 11",
+            "position": [
+              1.99912059307098,
+              5.09587907791138
+            ]
+          }
+        ],
+        "window_size": [
+          1920,
+          1080
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "size": "1280x720",
+        "exit_code": 0,
+        "command": [
+          "xvfb-run",
+          "-a",
+          "-s",
+          "-screen 0 1280x720x24",
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--path",
+          ".",
+          "--audio-driver",
+          "Dummy",
+          "--resolution",
+          "1280x720",
+          "--script",
+          "tools/passage_playtest.gd",
+          "--",
+          "--policy=escort",
+          "--seed=31",
+          "--capture",
+          "--out=res://work/m31/graphical-1280.json"
+        ],
+        "log": "work/m31/gui-passage-final-1280.log"
+      },
+      {
+        "size": "1920x1080",
+        "exit_code": 0,
+        "command": [
+          "xvfb-run",
+          "-a",
+          "-s",
+          "-screen 0 1920x1080x24",
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--path",
+          ".",
+          "--audio-driver",
+          "Dummy",
+          "--resolution",
+          "1920x1080",
+          "--script",
+          "tools/passage_playtest.gd",
+          "--",
+          "--policy=escort",
+          "--seed=31",
+          "--capture",
+          "--out=res://work/m31/graphical-1920.json"
+        ],
+        "log": "work/m31/gui-passage-final-1920.log"
+      }
+    ],
+    "visual_inspection": "Inspected real desk, briefing, command, engagement and debrief captures. Chart and three lower panes fit; report is scrollable. Pixel sizes are 1280x720 and 1920x1080; Godot canvas scaling keeps a 1600x900 logical layout."
+  },
+  "other_theatre_visuals": {
+    "runs": [
+      {
+        "theatre": "gulf",
+        "exit_code": 0,
+        "command": [
+          "xvfb-run",
+          "-a",
+          "-s",
+          "-screen 0 1280x720x24",
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--path",
+          ".",
+          "--audio-driver",
+          "Dummy",
+          "--resolution",
+          "1280x720",
+          "--",
+          "--scenario=res://data/scenarios/gulf_01_hormuz.json",
+          "--seed=2",
+          "--fastforward=300",
+          "--pick=USS Paul Ignatius (DDG 117)",
+          "--hold=2",
+          "--screenshot=res://work/m31/theatre-gulf.png"
+        ],
+        "log": "work/m31/theatre-gulf.log"
+      },
+      {
+        "theatre": "mediterranean",
+        "exit_code": 0,
+        "command": [
+          "xvfb-run",
+          "-a",
+          "-s",
+          "-screen 0 1280x720x24",
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--path",
+          ".",
+          "--audio-driver",
+          "Dummy",
+          "--resolution",
+          "1280x720",
+          "--",
+          "--scenario=res://data/scenarios/med_01_tartus.json",
+          "--seed=2",
+          "--fastforward=300",
+          "--pick=FS Aquitaine (D650)",
+          "--hold=2",
+          "--screenshot=res://work/m31/theatre-mediterranean.png"
+        ],
+        "log": "work/m31/theatre-mediterranean.log"
+      },
+      {
+        "theatre": "pacific",
+        "exit_code": 0,
+        "command": [
+          "xvfb-run",
+          "-a",
+          "-s",
+          "-screen 0 1280x720x24",
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--path",
+          ".",
+          "--audio-driver",
+          "Dummy",
+          "--resolution",
+          "1280x720",
+          "--",
+          "--scenario=res://data/scenarios/pacific_03_spratly.json",
+          "--seed=2",
+          "--fastforward=300",
+          "--pick=USS Mustin (DDG 89)",
+          "--hold=2",
+          "--screenshot=res://work/m31/theatre-pacific.png"
+        ],
+        "log": "work/m31/theatre-pacific.log"
+      }
+    ],
+    "observed": "Gulf/Hormuz, Mediterranean/Tartus and Pacific/Spratly render geography, tracks, regional view, ship and data panes at 1280x720. Actual selected vessels are Paul Ignatius, Mistral and Lapu-Lapu Trader respectively."
+  },
+  "browser": {
+    "build_command": "tools/web/build_web.sh",
+    "build_exit_code": 0,
+    "url": "http://127.0.0.1:8765/play/",
+    "viewport": [
+      1280,
+      720
+    ],
+    "browser_version": "Chromium 151.0.7922.173",
+    "renderer": "WebGL 2 / SwiftShader",
+    "verified": [
+      "M31 boots with eight actors",
+      "Start Northern Passage opens its paused briefing",
+      "Take Command opens the tactical view",
+      "Space pauses",
+      "F3 opens the one-airframe flight deck",
+      "Shift+E opens Weapon Control with no-target refusal and finite magazines",
+      "G swaps the live 3D view and chart"
+    ],
+    "console": [
+      {
+        "type": "log",
+        "text": "Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org"
+      },
+      {
+        "type": "log",
+        "text": "OpenGL API OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium)) - Compatibility - Using Device: WebKit - WebKit WebGL"
+      },
+      {
+        "type": "log",
+        "text": "Build configuration: Emscripten 4.0.20, single-threaded, no GDExtension support."
+      },
+      {
+        "type": "log",
+        "text": "[Main] NAVAL FLEET COMMAND booted (M31 / Northern Passage) \u2014 8 units, Godot 4.7.2-stable (official)"
+      },
+      {
+        "type": "log",
+        "text": "[Scenario] 8 actors / 15 sensor installations"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: INVALID_OPERATION: bufferSubData: no buffer"
+      },
+      {
+        "type": "warning",
+        "text": "WebGL: too many errors, no more errors will be reported to the console for this context."
+      }
+    ],
+    "limitations": "Browser check covers boot and controls, not a complete browser battle, browser save persistence or a performance claim.",
+    "diagnostics": {
+      "boot_errors": 0,
+      "boot_warnings": 0,
+      "javascript_page_errors": 0,
+      "expanded_3d_warning_comparison": {
+        "trigger": "G swaps the 3D view into the large pane; warnings start in the swap stage. Normal command view, F3 and Shift+E produce none in the staged comparison.",
+        "m31": {
+          "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target": 128,
+          "WebGL: INVALID_OPERATION: bufferSubData: no buffer": 128,
+          "WebGL: too many errors, no more errors will be reported to the console for this context.": 1
+        },
+        "unchanged_starting_pack_7c89570": {
+          "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target": 128,
+          "WebGL: INVALID_OPERATION: bufferSubData: no buffer": 128,
+          "WebGL: too many errors, no more errors will be reported to the console for this context.": 1
+        },
+        "baseline_method": "git show HEAD:docs/play/index.pck and original HTML, served locally with the same 4.7.2 runtime and Chromium/SwiftShader settings; opened Northern Convoy and exercised G.",
+        "logs": [
+          "work/m31/browser-compare.json",
+          "work/m31/browser-baseline-controls.json"
+        ],
+        "status": "Existing renderer limitation reproduced in both packages; not repaired in this bounded mission milestone."
+      }
+    }
+  },
+  "packages": {
+    "index.pck": {
+      "bytes": 60718484,
+      "sha256": "2e09b4604cb83f4f39ebd983cd86cd30e98f1876b8a34ac1d4270cbda1759864",
+      "loader_size_matches": true
+    },
+    "index.wasm": {
+      "bytes": 39514754,
+      "sha256": "fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0",
+      "loader_size_matches": true
+    }
+  },
+  "screenshots": [
+    "2026-09-30-passage-command-1280.png",
+    "2026-09-30-passage-engagement-1280.png",
+    "2026-09-30-passage-engagement-1920.png",
+    "2026-09-30-passage-debrief.png",
+    "2026-09-30-passage-browser-air.png"
+  ],
+  "diagnostics": [
+    "Xvfb/Mesa reports unsupported V-sync changes.",
+    "Some automated exits report 2-10 ObjectDB instances retained at shutdown; no SCRIPT ERROR or unexpected runtime errors were reported by the mission driver. No broad lifecycle repair is claimed.",
+    "Initial patrol balance allowed unprotected delivery. The final opposing frigate uses the existing breakout posture and its own sensors; the final abandonment policies both fail through freighter loss."
+  ],
+  "limits": [
+    "Mid-engagement save/load is not implemented. Scenario JSON saves definitions only.",
+    "Existing 1x/2x/5x/10x/30x/60x compression remains, rather than the destination brief\u2019s proposed 4x and 8x choices.",
+    "Attributed neutral losses use the existing last-attacker faction, retained through later flooding/fire; mixed-attack proportional responsibility is not modeled.",
+    "Journal retains the latest 512 player-observed messages and discloses omitted messages.",
+    "Automatic defence is enabled initially. The player policy uses NSM, but victory does not require destroying either opposing combatant.",
+    "RED collateral damage sank Coastal Star in both escort seeds; this is reported as an observed loss and is not charged as a player-caused sinking.",
+    "Combat figures, timings, readiness, single-helicopter detachment and magazines remain gameplay assumptions. No new real-world performance claims.",
+    "No new frame-rate benchmark or full supplied-brief completion claim.",
+    "Expanded 3D view under Chromium 151 / SwiftShader emits WebGL INVALID_OPERATION buffer warnings. The same trigger reproduces in the unchanged starting export. Normal browser view and controls did not emit warnings in the staged comparison."
+  ],
+  "scenario_sweep": {
+    "status": "passed",
+    "runs": 46,
+    "scenarios": 23,
+    "seeds": [
+      2,
+      13
+    ],
+    "simulated_seconds_per_run": 6000,
+    "failures": 0,
+    "grounded_surviving_hulls": 0,
+    "reproduce_serially": "python tools/smoke_scenarios.py \"$GODOT\" work/m31/sweep",
+    "command_template": "godot --headless --path . -- --autopilot --seed=SEED --fastforward=6000 --scenario=res://data/scenarios/SCENARIO.json --dump",
+    "execution": "Started with the existing serial sweep; seed 13 and the last three seed-2 cases ran as independent subprocesses in parallel. Stopped the remaining duplicate serial queue after all 46 distinct cases passed.",
+    "scope": "All shipped scenarios; no custom stress fixtures. This is fixed-duration AI execution validation, not a claim every operation reaches victory.",
+    "results": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 151.8
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 146.1,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/aegis_bastion.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 270.5
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 295.5,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/arctic_shield.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 13.6
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.6,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/atlantic_gate.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 32.3
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 30.7,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/baltic_sentinel.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 11.6
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.2,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/carrier_qualification.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.1
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.5,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/cold_war_01_convoy.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 6.3
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 6.6,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/cold_war_02_barrier.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 31.0
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 35.9,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/cold_war_03_carrier.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 9.6
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 10.0,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/cold_war_04_baltic.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 110.6
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 78.5,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/cold_war_05_sea_of_japan.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.7
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.1,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/giuk_passage.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 40.6
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 45.7,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/gulf_01_hormuz.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 85.1
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 89.8,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/med_01_tartus.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.5
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.0,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/north_atlantic_shadow_line.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 14.8
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 16.7,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/northern_passage.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 15.0
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 13.7,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/northern_sentry.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.6
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.7,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/northern_shield.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 488.2
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 493.8,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/northern_vigil.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 23.8
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 22.4,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/pacific_01_bashi_channel.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 333.9
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 408.2,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/pacific_02_taiwan_strait.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 37.2
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 36.3,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/pacific_03_spratly.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 51.1
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 66.1,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/pacific_04_sea_of_japan.json",
+          "--dump"
+        ]
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 4.8
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 8.6,
+        "command": [
+          "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+          "--headless",
+          "--path",
+          "/workspace/naval-fleet-command",
+          "--",
+          "--autopilot",
+          "--seed=13",
+          "--fastforward=6000",
+          "--scenario=res://data/scenarios/sandbox_m1.json",
+          "--dump"
+        ]
+      }
+    ]
+  }
+}

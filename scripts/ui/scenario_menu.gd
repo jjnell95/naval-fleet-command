@@ -13,6 +13,7 @@ signal library_requested()
 const RowList = preload("res://scripts/ui/tactical_row_list.gd")
 ## Difficulty as green stars, the way mission lists showed it.
 const STARS := {"Introductory": "★", "Intermediate": "★★", "Advanced": "★★★"}
+const INTRO_PATH := "res://data/scenarios/northern_passage.json"
 
 var _list: RowList
 var _detail: RichTextLabel
@@ -40,6 +41,7 @@ var _subtitle: Label
 var _mast_note: Label
 var _panel: PanelContainer
 var _top: HBoxContainer
+var _intro: Button
 
 
 func _ready() -> void:
@@ -77,6 +79,14 @@ func _ready() -> void:
 	var filter_row := HBoxContainer.new()
 	filter_row.add_theme_constant_override("separation", 10)
 	v.add_child(filter_row)
+	_intro = _button("START NORTHERN PASSAGE")
+	_intro.theme_type_variation = "MenuBigButton"
+	_intro.custom_minimum_size = Vector2(0, 44)
+	_intro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_intro.add_theme_font_size_override("font_size", 19)
+	_intro.tooltip_text = "Start here: protect a freighter, launch reconnaissance and identify contacts. Opens the briefing with time paused."
+	_intro.pressed.connect(func() -> void: scenario_chosen.emit(INTRO_PATH))
+	filter_row.add_child(_intro)
 	for entry in [["custom", "MY MISSIONS"], ["templates", "OPTIONAL TEMPLATES"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])

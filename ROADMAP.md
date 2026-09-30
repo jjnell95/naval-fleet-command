@@ -19,6 +19,16 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M32 Command Watch
+
+Repeating player patrol areas, a persistent command strip, a more legible relief chart, maritime daylight and three original escort models improve the fleet-command experience. Patrols integrate with movement, emissions, fuel, recovery, formation and evasion. See the [M32 guide](docs/2026-09-30-command-watch.md).
+
+## M31 Northern Passage and the next playability milestone
+
+An original escort is accessible directly from the operations desk. Standing convoy orders, player-attributed neutral-loss objectives and an observed-event debrief complete a tested first-operation loop on the existing simulation. See the [M31 guide](docs/2026-09-30-northern-passage.md).
+
+Next: versioned mid-engagement save/load, including simulation time, PRNG state, units, orders, formation and aviation references, sensor/track history, weapons and launch queues, cooldowns, objectives and the observed journal. Validate save/reload continuation against an uninterrupted seeded run before expanding campaign scope. Current custom-mission JSON saves only scenario definitions.
+
 ## M30 weapon control and catalogue accuracy
 
 Mixed salvos across selected units, visible launch queues, role-specific envelopes and observer-held firing solutions retain the classic CDS workflow. ASW rockets now deliver a separate underwater payload; aircraft altitude and several national weapon fits are corrected. See [the M30 guide](docs/2026-09-29-weapon-control.md) and [validation record](docs/validation-m30.json).

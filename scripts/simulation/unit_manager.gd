@@ -44,6 +44,8 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 	if u == null or order == null or not u.alive:
 		return false
 	match order.type:
+		Order.Type.PATROL:
+			return patrol_rejection(u, order.route) == ""
 		Order.Type.DEPLOY_COUNTERMEASURES:
 			return DefensiveResponse.can_deploy(u, order.countermeasure_kind)
 		Order.Type.EVADE:
@@ -52,7 +54,11 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return u.is_engageable()
 		Order.Type.SET_DEFENCE_POLICY:
 			return u.is_engageable() and order.defence_policy in ["balanced", "conserve", "saturation"]
-		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS:
+		Order.Type.SET_SPEED:
+			if u.patrol_active and patrol_rejection(u, u.waypoints, order.speed_kn) != "":
+				return false
+			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0
+		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS:
 			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0
 		Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR:
 			return u.is_engageable() and u.has_radar()
@@ -80,6 +86,40 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
 	return false
+
+
+## Validate the entire circuit before changing any standing order. No partial patrol over land.
+static func patrol_rejection(u: Unit, points: Array[Vector2], speed_kn := -1.0) -> String:
+	if u == null or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		return "Select a deployed mobile platform"
+	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
+		return "Aircraft must be airborne and available for tasking"
+	if points.size() < 3 or points.size() > 16:
+		return "A patrol needs 3 to 16 corners"
+	for p: Vector2 in points:
+		if not p.is_finite():
+			return "Invalid patrol position"
+	var minimum_leg := patrol_min_leg_nm(u, speed_kn)
+	for i in points.size():
+		var p := points[i]
+		var next := points[(i + 1) % points.size()]
+		if p.distance_to(next) + 0.001 < minimum_leg:
+			return "Patrol legs need %.1f NM for this platform's turning room" % minimum_leg
+		if u.needs_sea_room() and (Terrain.is_land(p) or Terrain.first_land_contact(p, next) >= 0.0):
+			return "Patrol crosses land — choose open water"
+	if u.needs_sea_room() and Terrain.first_land_contact(u.position, points[0]) >= 0.0:
+		return "Land blocks the approach to this patrol"
+	return ""
+
+
+static func patrol_min_leg_nm(u: Unit, speed_kn := -1.0) -> float:
+	var speed := maxf(u.spec.cruise_speed_kn, minf(u.ordered_speed_kn if speed_kn < 0.0 else speed_kn, u.effective_max_speed()))
+	var radius := Geo.knots_to_nm_per_s(speed) / deg_to_rad(maxf(u.spec.turn_rate_deg_s, 0.1))
+	if u.needs_sea_room():
+		radius = maxf(radius, u.spec.length_m * (1.5 if u.is_submarine() else 2.5) / 1852.0)
+	# An aircraft must be able to reverse between successive sides without circling a corner
+	# forever. Include the arrival tolerance on both ends and round the displayed limit up.
+	return maxf(1.0, ceilf((2.0 * radius + 2.0 * Movement.ARRIVAL_MIN_NM) * 10.0) / 10.0)
 
 
 func get_faction_units(faction: String) -> Array[Unit]:

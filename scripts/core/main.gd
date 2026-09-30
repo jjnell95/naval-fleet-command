@@ -4,8 +4,8 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M30 / Weapon control"
-const DEFAULT_SCENARIO := "res://data/scenarios/cold_war_01_convoy.json"
+const BUILD_MILESTONE := "M32 / Command Watch"
+const DEFAULT_SCENARIO := "res://data/scenarios/northern_passage.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
 const SCRIPTED_FLAGS := ["--weapon-control-smoke", "--fleet-workshop-smoke", "--cold-war-smoke", "--aviation-smoke", "--open-air-ops", "--combat", "--defence", "--defence-once", "--engage-once", "--smoke", "--dump", "--autoplay", "--reload-check", "--ping", "--autopilot", "--select", "--move-mode", "--open-palette"]
@@ -52,10 +52,12 @@ var _command_taken := false  # the player has taken command of the loaded operat
 var _restart_armed_ms := -100000
 const RESTART_CONFIRM_MS := 4000
 var _world_view: WorldView
+var command_bar: CommandBar
 var _dev: DevHarness
 var _stats := {}
 var _losses: PackedStringArray = []
 var _kills: PackedStringArray = []
+var _civilian_incidents: PackedStringArray = []
 var _foundered: Dictionary = {}  # Unit -> true, lost to fire or flooding rather than outright
 
 
@@ -123,10 +125,17 @@ func _ready() -> void:
 
 	map.selection_changed.connect(_on_selection_changed)
 	map.move_order_requested.connect(_on_move_order_requested)
+	map.patrol_order_requested.connect(_apply_order_to_selection)
 	map.engage_requested.connect(_on_engage_requested)
 	map.waypoint_delete_requested.connect(_on_waypoint_delete_requested)
 	map.interaction_mode_changed.connect(orders_panel.set_move_mode)
 	orders_panel.order_requested.connect(_apply_order_to_selection)
+	command_bar = CommandBar.new()
+	command_bar.name = "CommandBar"
+	command_bar.map = map
+	command_bar.action_requested.connect(_run_palette_action)
+	$Layout.add_child(command_bar)
+	$Layout.move_child(command_bar, 1)
 	orders_panel.unit_orders_requested.connect(_apply_unit_orders)
 	orders_panel.formation_requested.connect(_apply_formation)
 	orders_panel.move_mode_requested.connect(map.set_move_mode)
@@ -295,6 +304,7 @@ func start_scenario(path: String) -> void:
 	_stats = {"launched": 0, "intercepted": 0, "decoyed": 0, "hits": 0, "leaked": 0, "hostile_rounds": 0, "hits_taken": 0, "own_rounds": 0, "hits_scored": 0, "decoys_used": 0, "contacts": 0, "classified": 0, "sorties": 0}
 	_losses = PackedStringArray()
 	_kills = PackedStringArray()
+	_civilian_incidents = PackedStringArray()
 	_foundered.clear()
 	_report.hide()
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
@@ -345,6 +355,7 @@ func _arrange_views() -> void:
 	_upper.move_child(status_boards, _upper.get_child_count() - 1)
 	_bottom_strip.visible = not _world_full
 	$Layout/MapEdge.visible = not _world_full
+	command_bar.visible = not _world_full
 	map.visible = not _world_full
 	_world_view.rig.cut()
 	_sync_overlay()
@@ -733,6 +744,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "camera_detached", "label": "Detached camera", "description": "Stop the camera where it is and watch the platform move away.", "shortcut": "F8", "enabled": true},
 		{"id": "status_boards", "label": "Status boards", "description": "Orders, task group, track file and comms boards over the chart.", "shortcut": "A", "enabled": true, "state": "open" if status_boards.visible else "closed"},
 		{"id": "plot_move", "label": "Plot route", "description": "Arm a left-click route; Shift chains waypoints. Right-click water moves the hooked platform at once.", "shortcut": "W", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Hook a deployed mobile platform first."},
+		{"id": "plot_patrol", "label": "Assign patrol area", "description": "Click two opposite corners of a repeating patrol circuit. Fuel and recovery still apply.", "shortcut": "Shift+W", "enabled": movable, "reason": "Hook a deployed mobile platform first."},
 		{"id": "weapon_control", "label": "Weapon control", "description": "Commit mixed weapons, inspect target quality and cancel queued rounds.", "shortcut": "Shift+E", "enabled": controllable},
 		{"id": "open_engagement", "label": "Engagement board", "description": "Weapon, salvo, range and time of flight for the hooked contact.", "shortcut": "", "enabled": controllable and has_target, "state": map.selected_track.id if has_target else "no target", "reason": "Hook a shooter and a contact first."},
 		{"id": "next_contact", "label": "Next priority contact", "description": "Cycle hostile, unknown, fresh, and nearby contacts first.", "shortcut": "N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
@@ -821,6 +833,9 @@ func _run_palette_action(id: String) -> void:
 			_toggle_boards()
 		"plot_move":
 			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
+			map.grab_focus()
+		"plot_patrol":
+			map.set_patrol_mode(map.interaction_mode != TacticalMap.InteractionMode.PATROL)
 			map.grab_focus()
 		"weapon_control":
 			_toggle_weapon_control()
@@ -1024,6 +1039,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if k.shift_pressed:
 		match k.keycode:
+			KEY_W:
+				_run_palette_action("plot_patrol")
 			KEY_E:
 				_toggle_weapon_control()
 			KEY_R:
@@ -1331,14 +1348,20 @@ func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 		_losses.append(u.callsign)
 		radio.flash("%s %s" % [u.callsign, "LOST TO FIRE AND FLOODING" if _foundered.has(u) else "DESTROYED"], "alert")
 	else:
+		var neutral := simulation.track_manager.neutral_factions.has(u.faction)
 		if killer_faction == simulation.player_faction:
-			_kills.append(u.callsign)  # for the after-action report, once the mission is over
+			if neutral:
+				_civilian_incidents.append(_radio_name(u))
+				radio.flash("CIVILIAN LOSS — your force sank a neutral vessel", "alert")
+			else:
+				# The debrief retains the observed label, including an unidentified contact.
+				_kills.append(_radio_name(u))
 		# A loss the plot can see goes out under its track label; how an enemy's damage-control
 		# fight ended is not ours to know, and a kill we never held has no name to give.
 		var t := _held_track(u)
 		if t != null:
-			radio.flash("Destroyed", "good", t)
-		elif killer_faction == simulation.player_faction:
+			radio.flash("Neutral vessel lost" if neutral else "Destroyed", "alert" if neutral else "good", t)
+		elif killer_faction == simulation.player_faction and not neutral:
 			radio.flash("Target destroyed", "good")
 	Debug.event("[Combat] %s destroyed by %s" % [u.callsign, killer_faction])
 
@@ -1370,8 +1393,8 @@ func _on_mission_ended(result: String, summary: String) -> void:
 	var mm := simulation.mission_manager
 	var objectives: Array = []
 	objectives.append_array(mm.victory_objectives)
-	_report.show_report(result, summary, _stats, objectives, _losses, _kills, SimClock.sim_time)
 	radio.flash(result, "good" if result == "VICTORY" else "alert")
+	_report.show_report(result, summary, _stats, objectives, _losses, _kills, SimClock.sim_time, radio.journal, _civilian_incidents, mm.loss_objectives, radio.journal_omitted)
 	SoundFx.play("victory" if result == "VICTORY" else "defeat")
 	Debug.event("[Mission] %s — %s" % [result, summary])
 	_briefing.set_mode(false)
@@ -1404,6 +1427,9 @@ func _on_waypoint_delete_requested(u: Unit, index: int) -> void:
 	remaining.remove_at(index)
 	if remaining.is_empty():
 		simulation.unit_manager.issue_order(u, Order.clear_waypoints())
+	elif u.patrol_active and remaining.size() >= 3:
+		if not simulation.unit_manager.issue_order(u, Order.patrol(remaining)):
+			radio.flash(UnitManager.patrol_rejection(u, remaining), "warn", u)
 	else:
 		simulation.unit_manager.issue_order(u, Order.move(remaining[0], false))
 		for i in range(1, remaining.size()):
@@ -1553,12 +1579,20 @@ func _report_orders(order: Order, accepted: int, refused: int) -> void:
 		if refused > 0:
 			receipt += " / %d refused" % refused
 		radio.flash(receipt, "warn" if refused > 0 else "good")
+		if order.type == Order.Type.SET_ROE and order.roe == Unit.Roe.FREE:
+			radio.flash("Weapons free permits firing on unidentified contacts. Neutral sinkings can fail the mission.", "warn")
 		if order.type == Order.Type.MOVE and not Terrain.is_empty():
 			for u in map.selected:
 				if u.faction == simulation.player_faction and u.needs_sea_room() and Terrain.first_land_contact(u.position, order.target_pos) >= 0.0:
 					radio.flash("Land on that course — following the coast", "warn", u)
 					break
 	elif attempted > 0:
+		if order.type == Order.Type.SET_SPEED and map.selected.any(func(u: Unit) -> bool: return u.patrol_active):
+			radio.flash("Speed refused: allow more turning room in the patrol area, or assign a transit route", "warn")
+			return
+		if order.type == Order.Type.PATROL and not map.selected.is_empty():
+			radio.flash(UnitManager.patrol_rejection(map.selected[0], order.route), "warn")
+			return
 		radio.flash("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else ""], "warn")
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")

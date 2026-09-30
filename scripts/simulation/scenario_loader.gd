@@ -67,6 +67,10 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 			u.ordered_altitude_m = spec.cruise_altitude_m
 		for leg in ud.get("patrol_nm", []):
 			u.patrol_route.append(Vector2(leg[0], leg[1]))
+		# Opening convoy orders use the editor's route data without handing the player to AI.
+		if bool(ud.get("follow_route", false)):
+			for i in u.patrol_route.size():
+				u.apply_order(Order.move(u.patrol_route[i], i > 0))
 		u.squadron = str(ud.get("squadron", ""))
 		var loadout: Dictionary = ud.get("loadout", spec.weapon_loadout)
 		for wid in loadout:

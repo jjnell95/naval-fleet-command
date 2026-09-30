@@ -25,6 +25,9 @@ static func step(u: Unit, dt: float) -> void:
 		var arrive := maxf(ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
 		if u.position.distance_to(wp) <= arrive:
 			u.waypoints.pop_front()
+			if u.patrol_active:
+				u.waypoints.append(wp)
+				u.patrol_legs_completed += 1
 			if u.waypoints.is_empty():
 				u.ordered_heading_deg = u.heading_deg
 				u.ordered_speed_kn = 0.0
@@ -74,6 +77,7 @@ static func _drop_stranded_waypoints(u: Unit) -> void:
 		u.waypoints.pop_front()
 		dropped = true
 	if dropped and u.waypoints.is_empty():
+		u.patrol_active = false
 		u.ordered_heading_deg = u.heading_deg
 		u.ordered_speed_kn = 0.0
 

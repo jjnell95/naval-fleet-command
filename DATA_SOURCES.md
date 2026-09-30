@@ -8,6 +8,13 @@ Concise source log for real platforms/weapons/sensors in `data/`. Research only 
 milestone needs. Uncertain performance values are tagged `GAMEPLAY_ESTIMATE` in data files and are
 tuning parameters, not claimed real-world measurements.
 
+## Command Watch presentation and patrols — 30 September 2026
+
+M32's command-screen direction follows the user's supplied Fleet Command reference notes. All three revised escort models are original procedural geometry in `tools/art/build_models.py`; their proportions and fittings are visual recognition approximations. They do not revise the platform, weapon or sensor performance catalogue. The chart continues to use the existing sourced coastline, elevation and depth data under a new shared palette.
+
+The repeating patrol is a gameplay task, not an operational planning tool. Its minimum one-nautical-mile leg is a **GAMEPLAY_ESTIMATE** usability constraint. Faster platforms require a larger leg derived from the simulation's own speed, turn rate and arrival tolerance. Fuel burn, radar/sonar detection, deck cycles, sea-room constraints and uncertain tracks use the established simulation; patrol assignment gives no detection or combat bonus.
+
+
 ## Source priority
 1. Official navy / MoD material  2. Manufacturer docs  3. Government reports
 4. Reputable defense references  5. Quality secondary sources
@@ -406,3 +413,9 @@ The dated platform identities, historical references, period loadout exclusions 
 ## Weapon control and catalogue audit, 29 September 2026
 
 M30's [audit and source ledger](docs/2026-09-29-weapon-control.md#sources-and-uncertainty) records the JASSM, Mk 54/VL-ASROC, F-35B, Astute, APR-3 and Orion fit corrections. It separates verified roles from representative payload choices and gameplay estimates. The new bomb and ASW delivery models are abstractions, not certified launch envelopes or combat performance predictions.
+
+## Northern Passage, 30 September 2026
+
+This original fictional 2027 operation reuses the existing Burke Flight IIA, Nansen, Project 22350, Project 20380 and MH-60R catalogue resources and their source ledgers above. It adds no performance claims or real deployment claims. One embarked US helicopter, readiness, magazines, routes, engagement timing, damage and accuracy are scenario/gameplay assumptions. Merchant identities are fictional; the generic bulk carrier retains its existing 15-knot cap.
+
+The route is two water-clear legs of 3 and 5 nautical miles in the shipped Natural Earth Norwegian Sea geography, with a 0.35-mile arrival radius and a 45-minute limit. At 15 knots the nominal eight-mile transit is 32 minutes. The measured game arrival differs because of turn execution, waypoint acceptance and the exit radius; see the M31 validation record. Neither the chart nor this timing is navigational guidance. No proprietary Fleet Command assets, UI images or mission text were added.

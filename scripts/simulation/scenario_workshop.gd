@@ -177,7 +177,7 @@ static func structural_problem(sc: Dictionary) -> String:
 		for objective in sc.get("objectives", {}).get(key, []):
 			if typeof(objective) != TYPE_DICTIONARY:
 				return "Every objective must be an object"
-			for text_key: String in ["id", "type", "text", "faction", "facility"]:
+			for text_key: String in ["id", "type", "text", "faction", "facility", "caused_by"]:
 				if objective.has(text_key) and typeof(objective[text_key]) != TYPE_STRING:
 					return "Objective %s must be text" % text_key
 			if objective.has("phase_only") and typeof(objective.phase_only) != TYPE_BOOL:
@@ -196,6 +196,8 @@ static func structural_problem(sc: Dictionary) -> String:
 	for unit in sc.get("units", []):
 		if typeof(unit) != TYPE_DICTIONARY:
 			return "Every unit must be an object"
+		if unit.has("follow_route") and typeof(unit["follow_route"]) != TYPE_BOOL:
+			return "Unit follow_route must be true or false"
 		for key: String in ["callsign", "platform", "faction", "home", "formation_leader", "defence_policy"]:
 			if unit.has(key) and typeof(unit[key]) != TYPE_STRING:
 				return "Unit %s must be text" % key
@@ -384,6 +386,13 @@ static func validate(sc: Dictionary) -> String:
 		for o: Dictionary in objectives.get(key, []):
 			if not MissionObjective.KIND_NAMES.has(str(o.get("type", ""))):
 				return "Unknown objective type: %s" % o.get("type", "")
+			if str(o.get("caused_by", "")) != "":
+				if o.get("type", "") != "unit_lost":
+					return "A caused_by filter is only supported on a unit-lost task"
+				if o.get("callsigns", []).is_empty():
+					return "An attributed-loss task needs named units"
+				if not units.any(func(u: Dictionary) -> bool: return u.get("faction", "BLUE") == o["caused_by"]):
+					return "An attributed-loss task needs an existing responsible faction"
 			if o.get("type", "") == "force_destroyed" and not units.any(func(u: Dictionary) -> bool: return u.get("faction", "BLUE") == o.get("faction", "RED")):
 				return "A destroy-force task needs an opposing force"
 			for callsign in o.get("callsigns", []):

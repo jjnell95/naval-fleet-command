@@ -134,6 +134,7 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 	items.append(sep())
 	if movable:
 		items.append(item("Plot route  [W]", {"kind": "palette", "id": "plot_move"}))
+		items.append(item("Assign patrol area  [Shift+W]", {"kind": "palette", "id": "plot_patrol"}, false, "Click two corners; repeat the circuit until retasked or returning for fuel."))
 	if any_route:
 		items.append(item("Clear route", order_action(Order.clear_waypoints()), not controllable, why))
 	items.append(item("Follow  [F]", {"kind": "palette", "id": "follow_selection"}))

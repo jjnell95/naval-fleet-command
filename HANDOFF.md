@@ -8,17 +8,20 @@ left things, and `docs/` holds the dated notes and validation records for each m
 
 ```sh
 godot --headless --path . --import --quit                  # once, and after adding a class_name
-godot --path .                                             # play
+godot --path .                                             # Start Northern Passage, then Take Command
 godot --headless --path . --script tests/run_tests.gd      # regression tests
 godot --path . -- --cold-war-smoke                         # command-screen checks
 godot --path . -- --aviation-smoke                         # air-operations checks
+godot --path . -- --weapon-control-smoke                   # finite mixed salvos and firing board
 godot --path . -- --fleet-workshop-smoke --scenario-storage=res://work/test-library
 python3 tools/smoke_scenarios.py "$GODOT" /tmp/sweep       # every operation, two seeds, AI both sides
+python3 tools/verify_northern_passage.py "$GODOT"             # ordinary-order outcomes and replay
+godot --path . --script tools/command_watch_playtest.gd -- --seed=31 --capture # mouse/patrol/3D checks
 tools/web/build_web.sh                                     # rebuild docs/play/index.pck
 ```
 
 The interface suites need a window (`xvfb-run -a -s "-screen 0 1600x900x24"` on a server).
-`.github/workflows/tests.yml` runs the tests and all three suites on every pull request. The
+`.github/workflows/tests.yml` runs the tests and command, aviation, workshop, weapon-control, passage and Command Watch suites on every pull request. The
 workshop suite also runs at 1280 × 720. Use `--scenario-storage=res://work/<name>` after `--`
 when a validation run should have its own mission library.
 
@@ -111,7 +114,7 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
   in all, and pooled models keep theirs while hidden. Past that Godot prints "Too many instances using shader
   instance variables" and the values go wrong. Use shared material variants instead, as
   `WorldMaterials.set_way` and `WorldScene._lamp_material` do; a test fails if one comes back.
-- **Data that a generator writes is regenerated, not edited.** `tools/scenarios/build_cold_war.py`, then
+- **Data that a generator writes is regenerated, not edited.** `tools/scenarios/build_northern_passage.py` owns the introductory escort. `build_cold_war.py`, then
   `build_theatres.py`, then `operation_design.py` reproduce `data/` byte for byte; the 1990 and 2027
   catalogues' platforms and weapons (short names and torpedo countermeasures included) live in those
   scripts. Change the script and run the three, or the next rebuild undoes a hand edit.
@@ -123,7 +126,7 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
 
 ## Before you call it done
 
-Run the tests, both interface suites and the scenario sweep; take screenshots of the command screen
+Run the tests, the interface suites, passage policies and the scenario sweep; take screenshots of the command screen
 in at least one operation per theatre and look at them. The tests cover the model and the text of
 the screen; only a screenshot shows the chart. Then rebuild the browser build, boot it in a
 browser, and record the numbers in a dated note and a `validation-*.json` under `docs/`.

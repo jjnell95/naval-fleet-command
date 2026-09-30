@@ -28,6 +28,9 @@ var speed_kn := 0.0
 var ordered_heading_deg := 0.0
 var ordered_speed_kn := 0.0
 var waypoints: Array[Vector2] = []
+## Player's repeating circuit, independent of the AI's scenario patrol_route.
+var patrol_active := false
+var patrol_legs_completed := 0
 var alive := true
 ## Left the chart for a base off the map. Not alive for the simulation, but not lost either.
 var departed := false
@@ -346,9 +349,18 @@ func at_periscope_depth() -> bool:
 
 
 func apply_order(order: Order) -> void:
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP]:
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL]:
 		evasion_remaining_s = 0.0
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION]:
+		patrol_active = false
 	match order.type:
+		Order.Type.PATROL:
+			formation_leader = null
+			patrol_active = true
+			patrol_legs_completed = 0
+			waypoints.assign(order.route)
+			if ordered_speed_kn <= 0.0:
+				ordered_speed_kn = spec.cruise_speed_kn
 		Order.Type.MOVE:
 			if not order.append:
 				waypoints.clear()

@@ -1,0 +1,2443 @@
+{
+  "milestone": "M32 Command Watch",
+  "date": "2026-09-30",
+  "status": "local, uncommitted, unpublished",
+  "base_commit": "7c895701341827efd0ad9eaff6518e6a130620b4",
+  "prior_work": "Preserves the uncommitted M31 Northern Passage implementation and its evidence.",
+  "environment": {
+    "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+    "native_renderer": "OpenGL Compatibility, Mesa llvmpipe under Xvfb",
+    "browser": "Chromium 151.0.7922.173, SwiftShader",
+    "cpu_quota": 4,
+    "seed": 31
+  },
+  "regression": {
+    "tests": 599,
+    "failed": 0,
+    "new_patrol_tests": 12,
+    "command": "godot --headless --path . --script tests/run_tests.gd",
+    "runner_self_check": "PASS: runtime exception before assertions makes the real runner fail"
+  },
+  "native_suites": [
+    {
+      "name": "cold-war",
+      "resolution": "1280x720",
+      "exit_code": 0,
+      "wall_s": 16.8,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1280x720x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        ".",
+        "--resolution",
+        "1280x720",
+        "--",
+        "--cold-war-smoke"
+      ],
+      "error": false
+    },
+    {
+      "name": "aviation",
+      "resolution": "1600x1000",
+      "exit_code": 0,
+      "wall_s": 17.2,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1600x1000x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        ".",
+        "--resolution",
+        "1600x1000",
+        "--",
+        "--aviation-smoke"
+      ],
+      "error": false
+    },
+    {
+      "name": "workshop",
+      "resolution": "1280x720",
+      "exit_code": 0,
+      "wall_s": 14.6,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1280x720x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        ".",
+        "--resolution",
+        "1280x720",
+        "--",
+        "--fleet-workshop-smoke",
+        "--scenario-storage=res://work/m32/workshop"
+      ],
+      "error": false
+    },
+    {
+      "name": "weapons",
+      "resolution": "1280x720",
+      "exit_code": 0,
+      "wall_s": 12.8,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1280x720x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        ".",
+        "--resolution",
+        "1280x720",
+        "--",
+        "--weapon-control-smoke",
+        "--scenario-storage=res://work/m32/weapons"
+      ],
+      "error": false
+    },
+    {
+      "name": "watch-1280",
+      "resolution": "1280x720",
+      "exit_code": 0,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1280x720x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        ".",
+        "--resolution",
+        "1280x720",
+        "--script",
+        "tools/command_watch_playtest.gd",
+        "--",
+        "--seed=31",
+        "--capture"
+      ],
+      "error": false,
+      "checks": 42,
+      "final_log": "work/m32/native-watch-1280.log"
+    },
+    {
+      "name": "watch-1920",
+      "resolution": "1920x1080",
+      "exit_code": 0,
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1920x1080x24",
+        "/workspace/.cloud-onboarding/naval-fleet-command/bin/godot",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        ".",
+        "--resolution",
+        "1920x1080",
+        "--script",
+        "tools/command_watch_playtest.gd",
+        "--",
+        "--seed=31",
+        "--capture"
+      ],
+      "error": false,
+      "checks": 42,
+      "final_log": "work/m32/native-watch-1920.log"
+    }
+  ],
+  "command_watch": [
+    {
+      "checks": {
+        "3D key swaps the real live view": true,
+        "Escape cancels patrol through viewport keyboard input": true,
+        "Shift W arms patrol through viewport keyboard input": true,
+        "actual deck cycle launches the helicopter": true,
+        "air key opens flight deck": true,
+        "aircraft accepts area through same mouse tool": true,
+        "aircraft repeats a full patrol in actual battle": true,
+        "command key fits: air_operations": true,
+        "command key fits: missions": true,
+        "command key fits: next_contact": true,
+        "command key fits: plot_move": true,
+        "command key fits: plot_patrol": true,
+        "command key fits: status_boards": true,
+        "command key fits: swap_views": true,
+        "command key fits: toggle_pause": true,
+        "command key fits: weapon_control": true,
+        "command strip fits viewport": true,
+        "first corner issues no order": true,
+        "four panes fit viewport": true,
+        "no unexpected engine errors": true,
+        "opening chart uses command scale": true,
+        "orders key opens boards": true,
+        "patrol aircraft recovers alive": true,
+        "patrol command arms from strip": true,
+        "patrol consumes endurance": true,
+        "patrol has held reconnaissance contacts": true,
+        "patrol visible in platform data": true,
+        "pause key stops time": true,
+        "real mission opened through mouse clicks": true,
+        "resume key runs time": true,
+        "return order cancels patrol": true,
+        "screenshot: air-patrol": true,
+        "screenshot: command": true,
+        "screenshot: frigate-3d": true,
+        "screenshot: gulf_01_hormuz": true,
+        "screenshot: med_01_tartus": true,
+        "screenshot: pacific_03_spratly": true,
+        "screenshot: patrol-orders": true,
+        "screenshot: patrol-preview": true,
+        "second corner assigns circuit while paused": true,
+        "tool returns to selection": true,
+        "weapons key opens weapon control": true
+      },
+      "errors": [],
+      "helicopter": {
+        "alive": true,
+        "flight_state": 4,
+        "fuel_s": 10435.7990909092,
+        "legs_completed": 5,
+        "position": [
+          3.23538255691528,
+          1.0
+        ],
+        "sorties_completed": 1
+      },
+      "screenshots": [
+        "res://work/m32/command-1280.png",
+        "res://work/m32/patrol-preview-1280.png",
+        "res://work/m32/patrol-orders-1280.png",
+        "res://work/m32/air-patrol-1280.png",
+        "res://work/m32/frigate-3d-1280.png",
+        "res://work/m32/gulf_01_hormuz-1280.png",
+        "res://work/m32/med_01_tartus-1280.png",
+        "res://work/m32/pacific_03_spratly-1280.png"
+      ],
+      "window": [
+        1280,
+        720
+      ]
+    },
+    {
+      "checks": {
+        "3D key swaps the real live view": true,
+        "Escape cancels patrol through viewport keyboard input": true,
+        "Shift W arms patrol through viewport keyboard input": true,
+        "actual deck cycle launches the helicopter": true,
+        "air key opens flight deck": true,
+        "aircraft accepts area through same mouse tool": true,
+        "aircraft repeats a full patrol in actual battle": true,
+        "command key fits: air_operations": true,
+        "command key fits: missions": true,
+        "command key fits: next_contact": true,
+        "command key fits: plot_move": true,
+        "command key fits: plot_patrol": true,
+        "command key fits: status_boards": true,
+        "command key fits: swap_views": true,
+        "command key fits: toggle_pause": true,
+        "command key fits: weapon_control": true,
+        "command strip fits viewport": true,
+        "first corner issues no order": true,
+        "four panes fit viewport": true,
+        "no unexpected engine errors": true,
+        "opening chart uses command scale": true,
+        "orders key opens boards": true,
+        "patrol aircraft recovers alive": true,
+        "patrol command arms from strip": true,
+        "patrol consumes endurance": true,
+        "patrol has held reconnaissance contacts": true,
+        "patrol visible in platform data": true,
+        "pause key stops time": true,
+        "real mission opened through mouse clicks": true,
+        "resume key runs time": true,
+        "return order cancels patrol": true,
+        "screenshot: air-patrol": true,
+        "screenshot: command": true,
+        "screenshot: frigate-3d": true,
+        "screenshot: gulf_01_hormuz": true,
+        "screenshot: med_01_tartus": true,
+        "screenshot: pacific_03_spratly": true,
+        "screenshot: patrol-orders": true,
+        "screenshot: patrol-preview": true,
+        "second corner assigns circuit while paused": true,
+        "tool returns to selection": true,
+        "weapons key opens weapon control": true
+      },
+      "errors": [],
+      "helicopter": {
+        "alive": true,
+        "flight_state": 4,
+        "fuel_s": 10435.7990909092,
+        "legs_completed": 5,
+        "position": [
+          3.23642420768738,
+          1.0
+        ],
+        "sorties_completed": 1
+      },
+      "screenshots": [
+        "res://work/m32/command-1920.png",
+        "res://work/m32/patrol-preview-1920.png",
+        "res://work/m32/patrol-orders-1920.png",
+        "res://work/m32/air-patrol-1920.png",
+        "res://work/m32/frigate-3d-1920.png",
+        "res://work/m32/gulf_01_hormuz-1920.png",
+        "res://work/m32/med_01_tartus-1920.png",
+        "res://work/m32/pacific_03_spratly-1920.png"
+      ],
+      "window": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "ordinary_order_trials": {
+    "abandon-13": {
+      "checks": {
+        "abandonment ends through freighter loss": true,
+        "briefing explains deadline and civilian condition": true,
+        "debrief includes civilians and observed timeline": true,
+        "debrief is visible and pauses the clock": true,
+        "debrief names only observed contacts": true,
+        "expected controllable force present": true,
+        "expected policy outcome": true,
+        "intro accessible on the operations desk": true,
+        "intro opens paused briefing": true,
+        "mission reached a terminal outcome": true,
+        "no unexpected engine errors": true,
+        "opening commands preserve paused simulation time": true,
+        "surviving hulls remain afloat": true,
+        "take command runs at real time": true
+      },
+      "commands": [
+        {
+          "accepted": true,
+          "order": "BREAK FORMATION",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "WEAPONS HOLD",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "EMCON SILENT",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "SPEED 30 kn",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "MOVE to W 35/S 10",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "BREAK FORMATION",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "WEAPONS HOLD",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "EMCON SILENT",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "SPEED 26 kn",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "MOVE to W 35/S 10",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        }
+      ],
+      "errors": [],
+      "facts": {
+        "blue_rounds": 0,
+        "classified_seen": true,
+        "defensive_rounds": 0,
+        "first_blue_shot_s": -1.0,
+        "first_red_shot_s": 801.75,
+        "helicopter_observations": false,
+        "red_rounds": 12,
+        "unknown_seen": true
+      },
+      "logical_viewport": [
+        1600.0,
+        1600.0
+      ],
+      "observed_names": [
+        "MV Skerry Trader",
+        "MV Coastal Star",
+        "Admiral Gorshkov"
+      ],
+      "policy": "abandon",
+      "result": 2,
+      "seed": 13,
+      "sim_time_s": 1066.0,
+      "units": [
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 253.63353946938,
+          "health": 110.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 32,
+            "mk45_mod4_gun": 250,
+            "phalanx_ciws": 60,
+            "rgm_139_vla": 8,
+            "sm2_family": 24,
+            "tomahawk_block_v": 8
+          },
+          "name": "USS Truxtun (DDG 103)",
+          "position": [
+            -6.77178812026978,
+            -1.70993757247925
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 256.514980942444,
+          "health": 85.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 32,
+            "nsm_strike_missile": 8,
+            "oto_76mm_gun": 250,
+            "sting_ray": 6
+          },
+          "name": "HNoMS Roald Amundsen (F 311)",
+          "position": [
+            -5.85962629318237,
+            -3.01207327842712
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 357.934099710905,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Northern Light",
+          "position": [
+            3.13046741485596,
+            1.38318181037903
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 90.0,
+          "last_attacker": "",
+          "magazines": {
+            "a192_130mm_gun": 300,
+            "ak630_ciws": 80,
+            "p800_oniks": 0,
+            "paket_nk": 8,
+            "redut_family": 32
+          },
+          "name": "Admiral Gorshkov",
+          "position": [
+            21.5241680145264,
+            4.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 277.63801898859,
+          "health": 60.0,
+          "last_attacker": "",
+          "magazines": {
+            "a190_100mm_gun": 350,
+            "ak630_ciws": 80,
+            "kh35_uran": 4,
+            "paket_nk": 8,
+            "redut_family": 12
+          },
+          "name": "Stoikiy",
+          "position": [
+            31.8428039550781,
+            -3.57184553146362
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 0.0,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Skerry Trader",
+          "position": [
+            5.0,
+            0.956793189048767
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Coastal Star",
+          "position": [
+            10.1468906402588,
+            6.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 10800.0,
+          "heading": 253.63353946938,
+          "health": 20.0,
+          "last_attacker": "",
+          "magazines": {
+            "mk54_lwt": 2
+          },
+          "name": "Seahawk 11",
+          "position": [
+            -6.77178812026978,
+            -1.70993757247925
+          ]
+        }
+      ],
+      "window_size": [
+        64,
+        64
+      ]
+    },
+    "abandon-31": {
+      "checks": {
+        "abandonment ends through freighter loss": true,
+        "briefing explains deadline and civilian condition": true,
+        "debrief includes civilians and observed timeline": true,
+        "debrief is visible and pauses the clock": true,
+        "debrief names only observed contacts": true,
+        "expected controllable force present": true,
+        "expected policy outcome": true,
+        "intro accessible on the operations desk": true,
+        "intro opens paused briefing": true,
+        "mission reached a terminal outcome": true,
+        "no unexpected engine errors": true,
+        "opening commands preserve paused simulation time": true,
+        "surviving hulls remain afloat": true,
+        "take command runs at real time": true
+      },
+      "commands": [
+        {
+          "accepted": true,
+          "order": "BREAK FORMATION",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "WEAPONS HOLD",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "EMCON SILENT",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "SPEED 30 kn",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "MOVE to W 35/S 10",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "BREAK FORMATION",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "WEAPONS HOLD",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "EMCON SILENT",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "SPEED 26 kn",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "MOVE to W 35/S 10",
+          "time_s": 0.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        }
+      ],
+      "errors": [],
+      "facts": {
+        "blue_rounds": 0,
+        "classified_seen": true,
+        "defensive_rounds": 0,
+        "first_blue_shot_s": -1.0,
+        "first_red_shot_s": 801.75,
+        "helicopter_observations": false,
+        "red_rounds": 12,
+        "unknown_seen": true
+      },
+      "logical_viewport": [
+        1600.0,
+        1600.0
+      ],
+      "observed_names": [
+        "MV Skerry Trader",
+        "MV Coastal Star",
+        "Admiral Gorshkov"
+      ],
+      "policy": "abandon",
+      "result": 2,
+      "seed": 31,
+      "sim_time_s": 1066.0,
+      "units": [
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 253.63353946938,
+          "health": 110.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 32,
+            "mk45_mod4_gun": 250,
+            "phalanx_ciws": 60,
+            "rgm_139_vla": 8,
+            "sm2_family": 24,
+            "tomahawk_block_v": 8
+          },
+          "name": "USS Truxtun (DDG 103)",
+          "position": [
+            -6.77178812026978,
+            -1.70993757247925
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 256.514980942444,
+          "health": 85.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 32,
+            "nsm_strike_missile": 8,
+            "oto_76mm_gun": 250,
+            "sting_ray": 6
+          },
+          "name": "HNoMS Roald Amundsen (F 311)",
+          "position": [
+            -5.85962629318237,
+            -3.01207327842712
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 357.934095939993,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Northern Light",
+          "position": [
+            3.13046765327454,
+            1.38318181037903
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 90.0,
+          "last_attacker": "",
+          "magazines": {
+            "a192_130mm_gun": 300,
+            "ak630_ciws": 80,
+            "p800_oniks": 0,
+            "paket_nk": 8,
+            "redut_family": 32
+          },
+          "name": "Admiral Gorshkov",
+          "position": [
+            21.5241680145264,
+            4.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 277.668157943988,
+          "health": 60.0,
+          "last_attacker": "",
+          "magazines": {
+            "a190_100mm_gun": 350,
+            "ak630_ciws": 80,
+            "kh35_uran": 4,
+            "paket_nk": 8,
+            "redut_family": 12
+          },
+          "name": "Stoikiy",
+          "position": [
+            31.8428192138672,
+            -3.5775990486145
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 0.0,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Skerry Trader",
+          "position": [
+            5.0,
+            0.956793189048767
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Coastal Star",
+          "position": [
+            10.1510581970215,
+            6.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 10800.0,
+          "heading": 253.63353946938,
+          "health": 20.0,
+          "last_attacker": "",
+          "magazines": {
+            "mk54_lwt": 2
+          },
+          "name": "Seahawk 11",
+          "position": [
+            -6.77178812026978,
+            -1.70993757247925
+          ]
+        }
+      ],
+      "window_size": [
+        64,
+        64
+      ]
+    },
+    "civilian-31": {
+      "checks": {
+        "briefing explains deadline and civilian condition": true,
+        "civilian condition caused the defeat": true,
+        "civilian sinking is not an enemy kill": true,
+        "debrief includes civilians and observed timeline": true,
+        "debrief is visible and pauses the clock": true,
+        "debrief names only observed contacts": true,
+        "expected controllable force present": true,
+        "expected policy outcome": true,
+        "free-fire order warns about civilians": true,
+        "intro accessible on the operations desk": true,
+        "intro opens paused briefing": true,
+        "mission reached a terminal outcome": true,
+        "no unexpected engine errors": true,
+        "opening commands preserve paused simulation time": true,
+        "surviving hulls remain afloat": true,
+        "take command runs at real time": true
+      },
+      "commands": [
+        {
+          "accepted": true,
+          "order": "ENGAGE T1001 with 4 x nsm_strike_missile",
+          "time_s": 10.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "ENGAGE T1002 with 4 x nsm_strike_missile",
+          "time_s": 13.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        }
+      ],
+      "errors": [],
+      "facts": {
+        "blue_rounds": 8,
+        "classified_seen": false,
+        "defensive_rounds": 0,
+        "first_blue_shot_s": 10.0,
+        "first_red_shot_s": -1.0,
+        "helicopter_observations": false,
+        "red_rounds": 0,
+        "unknown_seen": true
+      },
+      "logical_viewport": [
+        1600.0,
+        1600.0
+      ],
+      "observed_names": [],
+      "policy": "civilian",
+      "result": 2,
+      "seed": 31,
+      "sim_time_s": 44.0,
+      "units": [
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 90.0,
+          "health": 110.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 32,
+            "mk45_mod4_gun": 250,
+            "phalanx_ciws": 60,
+            "rgm_139_vla": 8,
+            "sm2_family": 24,
+            "tomahawk_block_v": 8
+          },
+          "name": "USS Truxtun (DDG 103)",
+          "position": [
+            1.18333053588867,
+            1.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 90.0,
+          "health": 85.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 32,
+            "nsm_strike_missile": 0,
+            "oto_76mm_gun": 250,
+            "sting_ray": 6
+          },
+          "name": "HNoMS Roald Amundsen (F 311)",
+          "position": [
+            1.18333053588867,
+            -1.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 90.0,
+          "health": 120.0,
+          "last_attacker": "",
+          "magazines": {},
+          "name": "MV Northern Light",
+          "position": [
+            0.183333203196526,
+            1.12259542974491e-17
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 90.0,
+          "last_attacker": "",
+          "magazines": {
+            "a192_130mm_gun": 300,
+            "ak630_ciws": 80,
+            "p800_oniks": 8,
+            "paket_nk": 8,
+            "redut_family": 32
+          },
+          "name": "Admiral Gorshkov",
+          "position": [
+            29.7494926452637,
+            4.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 293.570566632348,
+          "health": 60.0,
+          "last_attacker": "",
+          "magazines": {
+            "a190_100mm_gun": 350,
+            "ak630_ciws": 80,
+            "kh35_uran": 8,
+            "paket_nk": 8,
+            "redut_family": 12
+          },
+          "name": "Stoikiy",
+          "position": [
+            35.8169288635254,
+            -3.93611478805542
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 0.0,
+          "health": 0.0,
+          "last_attacker": "BLUE",
+          "magazines": {},
+          "name": "MV Skerry Trader",
+          "position": [
+            5.0,
+            -2.82987880706787
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 120.0,
+          "last_attacker": "",
+          "magazines": {},
+          "name": "MV Coastal Star",
+          "position": [
+            12.8533020019531,
+            6.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 10800.0,
+          "heading": 90.0,
+          "health": 20.0,
+          "last_attacker": "",
+          "magazines": {
+            "mk54_lwt": 2
+          },
+          "name": "Seahawk 11",
+          "position": [
+            1.18333053588867,
+            1.0
+          ]
+        }
+      ],
+      "window_size": [
+        64,
+        64
+      ]
+    },
+    "deadline-31": {
+      "checks": {
+        "briefing explains deadline and civilian condition": true,
+        "debrief includes civilians and observed timeline": true,
+        "debrief is visible and pauses the clock": true,
+        "debrief names only observed contacts": true,
+        "expected controllable force present": true,
+        "expected policy outcome": true,
+        "intro accessible on the operations desk": true,
+        "intro opens paused briefing": true,
+        "mission reached a terminal outcome": true,
+        "no unexpected engine errors": true,
+        "opening commands preserve paused simulation time": true,
+        "stationary convoy ends through deadline expiry": true,
+        "surviving hulls remain afloat": true,
+        "take command runs at real time": true
+      },
+      "commands": [
+        {
+          "accepted": true,
+          "order": "ALL STOP",
+          "time_s": 0.0,
+          "unit": "MV Northern Light"
+        }
+      ],
+      "errors": [],
+      "facts": {
+        "blue_rounds": 0,
+        "classified_seen": true,
+        "defensive_rounds": 98,
+        "first_blue_shot_s": -1.0,
+        "first_red_shot_s": 1061.75,
+        "helicopter_observations": false,
+        "red_rounds": 50,
+        "unknown_seen": true
+      },
+      "logical_viewport": [
+        1600.0,
+        1600.0
+      ],
+      "observed_names": [
+        "MV Skerry Trader",
+        "MV Coastal Star",
+        "Admiral Gorshkov",
+        "Stoikiy"
+      ],
+      "policy": "deadline",
+      "result": 2,
+      "seed": 31,
+      "sim_time_s": 2700.0,
+      "units": [
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 90.0,
+          "health": 99.0,
+          "last_attacker": "RED",
+          "magazines": {
+            "essm_family": 0,
+            "mk45_mod4_gun": 250,
+            "phalanx_ciws": 50,
+            "rgm_139_vla": 8,
+            "sm2_family": 0,
+            "tomahawk_block_v": 8
+          },
+          "name": "USS Truxtun (DDG 103)",
+          "position": [
+            1.31302082538605,
+            1.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 90.0,
+          "health": 74.0,
+          "last_attacker": "RED",
+          "magazines": {
+            "essm_family": 0,
+            "nsm_strike_missile": 8,
+            "oto_76mm_gun": 250,
+            "sting_ray": 6
+          },
+          "name": "HNoMS Roald Amundsen (F 311)",
+          "position": [
+            1.31302082538605,
+            -1.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 90.0,
+          "health": 120.0,
+          "last_attacker": "",
+          "magazines": {},
+          "name": "MV Northern Light",
+          "position": [
+            0.311979204416275,
+            1.91032151231263e-17
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 342.205577632457,
+          "health": 90.0,
+          "last_attacker": "",
+          "magazines": {
+            "a192_130mm_gun": 266,
+            "ak630_ciws": 80,
+            "p800_oniks": 0,
+            "paket_nk": 8,
+            "redut_family": 32
+          },
+          "name": "Admiral Gorshkov",
+          "position": [
+            11.3393535614014,
+            -0.172992587089539
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 93.8571155565296,
+          "health": 60.0,
+          "last_attacker": "",
+          "magazines": {
+            "a190_100mm_gun": 350,
+            "ak630_ciws": 80,
+            "kh35_uran": 0,
+            "paket_nk": 8,
+            "redut_family": 12
+          },
+          "name": "Stoikiy",
+          "position": [
+            42.8053092956543,
+            -3.76965570449829
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 0.0,
+          "health": 120.0,
+          "last_attacker": "",
+          "magazines": {},
+          "name": "MV Skerry Trader",
+          "position": [
+            5.0,
+            7.50041007995605
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 120.0,
+          "last_attacker": "",
+          "magazines": {},
+          "name": "MV Coastal Star",
+          "position": [
+            3.99807810783386,
+            6.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 10800.0,
+          "heading": 90.0,
+          "health": 20.0,
+          "last_attacker": "",
+          "magazines": {
+            "mk54_lwt": 2
+          },
+          "name": "Seahawk 11",
+          "position": [
+            1.31302082538605,
+            1.0
+          ]
+        }
+      ],
+      "window_size": [
+        64,
+        64
+      ]
+    },
+    "escort-13": {
+      "checks": {
+        "briefing explains deadline and civilian condition": true,
+        "debrief includes civilians and observed timeline": true,
+        "debrief is visible and pauses the clock": true,
+        "debrief names only observed contacts": true,
+        "detection and classification both occurred": true,
+        "expected controllable force present": true,
+        "expected policy outcome": true,
+        "intro accessible on the operations desk": true,
+        "intro opens paused briefing": true,
+        "investigation precedes incoming fire": true,
+        "mission reached a terminal outcome": true,
+        "no player-caused civilian sinking": true,
+        "no unexpected engine errors": true,
+        "opening commands preserve paused simulation time": true,
+        "real player and opposing weapons fired": true,
+        "reconnaissance airframe returned alive": true,
+        "reconnaissance updated the shared picture": true,
+        "surviving hulls remain afloat": true,
+        "take command runs at real time": true
+      },
+      "commands": [
+        {
+          "accepted": true,
+          "order": "LAUNCH 1 x READY AIRCRAFT",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "MOVE to E 7/N 2",
+          "time_s": 120.0,
+          "unit": "Seahawk 11"
+        },
+        {
+          "accepted": true,
+          "order": "RETURN TO BASE",
+          "time_s": 240.0,
+          "unit": "Seahawk 11"
+        },
+        {
+          "accepted": true,
+          "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+          "time_s": 308.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+          "time_s": 548.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        }
+      ],
+      "errors": [],
+      "facts": {
+        "blue_rounds": 8,
+        "classified_seen": true,
+        "defensive_rounds": 63,
+        "first_blue_shot_s": 308.0,
+        "first_red_shot_s": 221.75,
+        "helicopter_observations": true,
+        "red_rounds": 27,
+        "unknown_seen": true
+      },
+      "logical_viewport": [
+        1600.0,
+        1600.0
+      ],
+      "observed_names": [
+        "MV Skerry Trader",
+        "MV Coastal Star",
+        "Admiral Gorshkov"
+      ],
+      "policy": "escort",
+      "result": 1,
+      "seed": 13,
+      "sim_time_s": 1850.0,
+      "units": [
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 357.576746193209,
+          "health": 110.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 25,
+            "mk45_mod4_gun": 250,
+            "phalanx_ciws": 60,
+            "rgm_139_vla": 8,
+            "sm2_family": 0,
+            "tomahawk_block_v": 8
+          },
+          "name": "USS Truxtun (DDG 103)",
+          "position": [
+            1.99912059307098,
+            5.09587907791138
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 358.021289925311,
+          "health": 74.0,
+          "last_attacker": "RED",
+          "magazines": {
+            "essm_family": 0,
+            "nsm_strike_missile": 0,
+            "oto_76mm_gun": 250,
+            "sting_ray": 6
+          },
+          "name": "HNoMS Roald Amundsen (F 311)",
+          "position": [
+            4.0135383605957,
+            4.59675121307373
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 357.934112312103,
+          "health": 120.0,
+          "last_attacker": "",
+          "magazines": {},
+          "name": "MV Northern Light",
+          "position": [
+            3.01260089874268,
+            4.65067863464355
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 90.0,
+          "last_attacker": "",
+          "magazines": {
+            "a192_130mm_gun": 297,
+            "ak630_ciws": 80,
+            "p800_oniks": 0,
+            "paket_nk": 8,
+            "redut_family": 13
+          },
+          "name": "Admiral Gorshkov",
+          "position": [
+            15.2077617645264,
+            4.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 315.169640463078,
+          "health": 60.0,
+          "last_attacker": "",
+          "magazines": {
+            "a190_100mm_gun": 350,
+            "ak630_ciws": 80,
+            "kh35_uran": 0,
+            "paket_nk": 8,
+            "redut_family": 8
+          },
+          "name": "Stoikiy",
+          "position": [
+            29.5284748077393,
+            -1.18873357772827
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 0.0,
+          "health": 6.93356974284481,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Skerry Trader",
+          "position": [
+            5.0,
+            3.99556636810303
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Coastal Star",
+          "position": [
+            10.2402439117432,
+            6.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 4,
+          "fuel_s": 10547.7990909092,
+          "heading": 357.576746193209,
+          "health": 20.0,
+          "last_attacker": "",
+          "magazines": {
+            "mk54_lwt": 2
+          },
+          "name": "Seahawk 11",
+          "position": [
+            1.99912059307098,
+            5.09587907791138
+          ]
+        }
+      ],
+      "window_size": [
+        64,
+        64
+      ]
+    },
+    "escort-31-repeat": {
+      "checks": {
+        "briefing explains deadline and civilian condition": true,
+        "debrief includes civilians and observed timeline": true,
+        "debrief is visible and pauses the clock": true,
+        "debrief names only observed contacts": true,
+        "detection and classification both occurred": true,
+        "expected controllable force present": true,
+        "expected policy outcome": true,
+        "intro accessible on the operations desk": true,
+        "intro opens paused briefing": true,
+        "investigation precedes incoming fire": true,
+        "mission reached a terminal outcome": true,
+        "no player-caused civilian sinking": true,
+        "no unexpected engine errors": true,
+        "opening commands preserve paused simulation time": true,
+        "real player and opposing weapons fired": true,
+        "reconnaissance airframe returned alive": true,
+        "reconnaissance updated the shared picture": true,
+        "surviving hulls remain afloat": true,
+        "take command runs at real time": true
+      },
+      "commands": [
+        {
+          "accepted": true,
+          "order": "LAUNCH 1 x READY AIRCRAFT",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "MOVE to E 7/N 2",
+          "time_s": 120.0,
+          "unit": "Seahawk 11"
+        },
+        {
+          "accepted": true,
+          "order": "RETURN TO BASE",
+          "time_s": 240.0,
+          "unit": "Seahawk 11"
+        },
+        {
+          "accepted": true,
+          "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+          "time_s": 308.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+          "time_s": 548.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        }
+      ],
+      "errors": [],
+      "facts": {
+        "blue_rounds": 8,
+        "classified_seen": true,
+        "defensive_rounds": 56,
+        "first_blue_shot_s": 308.0,
+        "first_red_shot_s": 221.75,
+        "helicopter_observations": true,
+        "red_rounds": 25,
+        "unknown_seen": true
+      },
+      "logical_viewport": [
+        1600.0,
+        1600.0
+      ],
+      "observed_names": [
+        "MV Skerry Trader",
+        "MV Coastal Star",
+        "Admiral Gorshkov"
+      ],
+      "policy": "escort",
+      "result": 1,
+      "seed": 31,
+      "sim_time_s": 1850.0,
+      "units": [
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 357.576746193209,
+          "health": 110.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 27,
+            "mk45_mod4_gun": 250,
+            "phalanx_ciws": 60,
+            "rgm_139_vla": 8,
+            "sm2_family": 0,
+            "tomahawk_block_v": 8
+          },
+          "name": "USS Truxtun (DDG 103)",
+          "position": [
+            1.99912059307098,
+            5.09587907791138
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 358.021289925311,
+          "health": 85.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 5,
+            "nsm_strike_missile": 0,
+            "oto_76mm_gun": 250,
+            "sting_ray": 6
+          },
+          "name": "HNoMS Roald Amundsen (F 311)",
+          "position": [
+            4.0135383605957,
+            4.59675121307373
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 357.934112312103,
+          "health": 120.0,
+          "last_attacker": "",
+          "magazines": {},
+          "name": "MV Northern Light",
+          "position": [
+            3.01260089874268,
+            4.65067863464355
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 90.0,
+          "last_attacker": "",
+          "magazines": {
+            "a192_130mm_gun": 299,
+            "ak630_ciws": 80,
+            "p800_oniks": 0,
+            "paket_nk": 8,
+            "redut_family": 12
+          },
+          "name": "Admiral Gorshkov",
+          "position": [
+            15.2077617645264,
+            4.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 311.221033245328,
+          "health": 60.0,
+          "last_attacker": "",
+          "magazines": {
+            "a190_100mm_gun": 350,
+            "ak630_ciws": 80,
+            "kh35_uran": 0,
+            "paket_nk": 8,
+            "redut_family": 8
+          },
+          "name": "Stoikiy",
+          "position": [
+            29.4470348358154,
+            -1.28990077972412
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 0.0,
+          "health": 82.5691623483125,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Skerry Trader",
+          "position": [
+            5.0,
+            4.19468879699707
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Coastal Star",
+          "position": [
+            10.2403602600098,
+            6.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 4,
+          "fuel_s": 10547.7990909092,
+          "heading": 357.576746193209,
+          "health": 20.0,
+          "last_attacker": "",
+          "magazines": {
+            "mk54_lwt": 2
+          },
+          "name": "Seahawk 11",
+          "position": [
+            1.99912059307098,
+            5.09587907791138
+          ]
+        }
+      ],
+      "window_size": [
+        64,
+        64
+      ]
+    },
+    "escort-31": {
+      "checks": {
+        "briefing explains deadline and civilian condition": true,
+        "debrief includes civilians and observed timeline": true,
+        "debrief is visible and pauses the clock": true,
+        "debrief names only observed contacts": true,
+        "detection and classification both occurred": true,
+        "expected controllable force present": true,
+        "expected policy outcome": true,
+        "intro accessible on the operations desk": true,
+        "intro opens paused briefing": true,
+        "investigation precedes incoming fire": true,
+        "mission reached a terminal outcome": true,
+        "no player-caused civilian sinking": true,
+        "no unexpected engine errors": true,
+        "opening commands preserve paused simulation time": true,
+        "real player and opposing weapons fired": true,
+        "reconnaissance airframe returned alive": true,
+        "reconnaissance updated the shared picture": true,
+        "surviving hulls remain afloat": true,
+        "take command runs at real time": true
+      },
+      "commands": [
+        {
+          "accepted": true,
+          "order": "LAUNCH 1 x READY AIRCRAFT",
+          "time_s": 0.0,
+          "unit": "USS Truxtun (DDG 103)"
+        },
+        {
+          "accepted": true,
+          "order": "MOVE to E 7/N 2",
+          "time_s": 120.0,
+          "unit": "Seahawk 11"
+        },
+        {
+          "accepted": true,
+          "order": "RETURN TO BASE",
+          "time_s": 240.0,
+          "unit": "Seahawk 11"
+        },
+        {
+          "accepted": true,
+          "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+          "time_s": 308.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        },
+        {
+          "accepted": true,
+          "order": "ENGAGE T1003 with 4 x nsm_strike_missile",
+          "time_s": 548.0,
+          "unit": "HNoMS Roald Amundsen (F 311)"
+        }
+      ],
+      "errors": [],
+      "facts": {
+        "blue_rounds": 8,
+        "classified_seen": true,
+        "defensive_rounds": 56,
+        "first_blue_shot_s": 308.0,
+        "first_red_shot_s": 221.75,
+        "helicopter_observations": true,
+        "red_rounds": 25,
+        "unknown_seen": true
+      },
+      "logical_viewport": [
+        1600.0,
+        1600.0
+      ],
+      "observed_names": [
+        "MV Skerry Trader",
+        "MV Coastal Star",
+        "Admiral Gorshkov"
+      ],
+      "policy": "escort",
+      "result": 1,
+      "seed": 31,
+      "sim_time_s": 1850.0,
+      "units": [
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 357.576746193209,
+          "health": 110.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 27,
+            "mk45_mod4_gun": 250,
+            "phalanx_ciws": 60,
+            "rgm_139_vla": 8,
+            "sm2_family": 0,
+            "tomahawk_block_v": 8
+          },
+          "name": "USS Truxtun (DDG 103)",
+          "position": [
+            1.99912059307098,
+            5.09587907791138
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 358.021289925311,
+          "health": 85.0,
+          "last_attacker": "",
+          "magazines": {
+            "essm_family": 5,
+            "nsm_strike_missile": 0,
+            "oto_76mm_gun": 250,
+            "sting_ray": 6
+          },
+          "name": "HNoMS Roald Amundsen (F 311)",
+          "position": [
+            4.0135383605957,
+            4.59675121307373
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 357.934112312103,
+          "health": 120.0,
+          "last_attacker": "",
+          "magazines": {},
+          "name": "MV Northern Light",
+          "position": [
+            3.01260089874268,
+            4.65067863464355
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 90.0,
+          "last_attacker": "",
+          "magazines": {
+            "a192_130mm_gun": 299,
+            "ak630_ciws": 80,
+            "p800_oniks": 0,
+            "paket_nk": 8,
+            "redut_family": 12
+          },
+          "name": "Admiral Gorshkov",
+          "position": [
+            15.2077617645264,
+            4.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 311.221033245328,
+          "health": 60.0,
+          "last_attacker": "",
+          "magazines": {
+            "a190_100mm_gun": 350,
+            "ak630_ciws": 80,
+            "kh35_uran": 0,
+            "paket_nk": 8,
+            "redut_family": 8
+          },
+          "name": "Stoikiy",
+          "position": [
+            29.4470348358154,
+            -1.28990077972412
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 0.0,
+          "health": 82.5691623483125,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Skerry Trader",
+          "position": [
+            5.0,
+            4.19468879699707
+          ]
+        },
+        {
+          "alive": false,
+          "flight_state": 0,
+          "fuel_s": 0.0,
+          "heading": 270.0,
+          "health": 0.0,
+          "last_attacker": "RED",
+          "magazines": {},
+          "name": "MV Coastal Star",
+          "position": [
+            10.2403602600098,
+            6.0
+          ]
+        },
+        {
+          "alive": true,
+          "flight_state": 4,
+          "fuel_s": 10547.7990909092,
+          "heading": 357.576746193209,
+          "health": 20.0,
+          "last_attacker": "",
+          "magazines": {
+            "mk54_lwt": 2
+          },
+          "name": "Seahawk 11",
+          "position": [
+            1.99912059307098,
+            5.09587907791138
+          ]
+        }
+      ],
+      "window_size": [
+        64,
+        64
+      ]
+    }
+  },
+  "deterministic_seed_31_replay": true,
+  "policy_assertions": 115,
+  "scenario_sweep": {
+    "scenarios": 23,
+    "seeds": [
+      2,
+      13
+    ],
+    "duration_s": 6000,
+    "workers": 3,
+    "passed": 46,
+    "failed": 0,
+    "results": [
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 488.3
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 496.2
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 388.6
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 424.9
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 341.2
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 346.2
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 173.7
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 173.8
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 96.9
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 127.9
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 118.6
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 94.9
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 55.0
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 60.7
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 43.7
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 47.4
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 40.5
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 37.9
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 33.4
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 36.7
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 33.6
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 32.1
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 25.6
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 24.6
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 15.3
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 16.4
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.4
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.7
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.1
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.0
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 10.1
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 8.1
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.7
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.2
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.3
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.8
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.4
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.4
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 5.4
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 5.0
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.2
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.9
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.1
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.6
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 6.7
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 6.4
+      }
+    ],
+    "canonical_command": "python3 tools/smoke_scenarios.py \"$GODOT\" work/m32/sweep",
+    "note": "The sweep started after patrol movement and cancellation were implemented. Later edits only refined patrol turn-room validation (not used by the AI scenario sweep), presentation, intro chart focus/briefing and the new UI driver; final patrol-specific logic is covered by the 599-test run and native drivers."
+  },
+  "art": [
+    {
+      "id": "rfn_ffg_admiral_gorshkov",
+      "kind": "platform",
+      "triangles": 7040,
+      "surfaces": 12,
+      "sha256": "64599eef5b55e04c106bf613bdb142091a7122c0bcf0c80ccfcc3aa17f4094d9"
+    },
+    {
+      "id": "rfn_fsg_steregushchiy",
+      "kind": "platform",
+      "triangles": 6164,
+      "surfaces": 12,
+      "sha256": "8d034ce70f8079c853aa557990aab84abada7f55e8eebfc271bbb8384441b8ea"
+    },
+    {
+      "id": "rnon_ffg_fridtjof_nansen",
+      "kind": "platform",
+      "triangles": 6372,
+      "surfaces": 12,
+      "sha256": "2cf8a3c3fc37535db218a6c50af9e3c2cdd5df39118df78debc18be5b58a3dd8"
+    }
+  ],
+  "screenshots": [
+    "docs/2026-09-30-command-watch-1280.png",
+    "docs/2026-09-30-command-watch-patrol.png",
+    "docs/2026-09-30-command-watch-air-1920.png",
+    "docs/2026-09-30-command-watch-frigate-1920.png",
+    "docs/2026-09-30-command-watch-hormuz.png",
+    "docs/2026-09-30-command-watch-tartus.png",
+    "docs/2026-09-30-command-watch-spratly.png",
+    "docs/2026-09-30-command-watch-browser-patrol.png"
+  ],
+  "browser": {
+    "page_http_status": 200,
+    "console_counts": [
+      {
+        "stage": "boot",
+        "type": "log",
+        "count": 4
+      },
+      {
+        "stage": "briefing",
+        "type": "log",
+        "count": 1
+      },
+      {
+        "stage": "patrol",
+        "type": "log",
+        "count": 1
+      },
+      {
+        "stage": "swap",
+        "type": "warning",
+        "count": 162
+      }
+    ],
+    "page_errors": [],
+    "engine_version": [
+      "Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org"
+    ],
+    "warnings": [
+      {
+        "message": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target",
+        "count": 81
+      },
+      {
+        "message": "WebGL: INVALID_OPERATION: bufferSubData: no buffer",
+        "count": 81
+      }
+    ],
+    "visually_inspected": [
+      "operations desk",
+      "intro briefing",
+      "command chart",
+      "Shift+W patrol mode",
+      "two-corner preview",
+      "accepted circuit with selected-unit task",
+      "flight deck",
+      "weapon control",
+      "expanded 3D"
+    ],
+    "limitation": "Inherited WebGL buffer binding/subdata warnings when G resizes the 3D viewport. M31 independently reproduced these in unchanged M30; native checks pass."
+  },
+  "web_package": {
+    "path": "docs/play/index.pck",
+    "bytes": 60757024,
+    "sha256": "9eef937ebf779b50232113c58a32244dee3e539d72cc4318c466dc09c76ad9de",
+    "wasm_bytes": 39514754
+  },
+  "limitations": [
+    "Full mid-engagement save/load remains deferred.",
+    "Very large engagements still have software-rendering frame stalls; this milestone makes no new performance claim.",
+    "No remote CI run, commit, push or publication was performed."
+  ]
+}

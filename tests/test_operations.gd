@@ -198,7 +198,7 @@ func test_all_operations_have_valid_dependencies_wings_and_finite_stores() -> vo
 					assert_true(str(ud.platform).begins_with("cw90_"))
 		um.free()
 	assert_eq(operations, 14)
-	assert_eq(exercises, 8)
+	assert_eq(exercises, 9, "eight existing exercises plus Northern Passage")
 
 
 func test_scheduled_raid_fires_once_preserves_fog_and_resets_on_reload() -> void:

@@ -1,4 +1,24 @@
-# Current State: M30 Weapon Control and Track Solutions
+# Current State: M32 Command Watch
+
+Graphics, UI and tasking now follow the supplied Fleet Command reference more closely. The chart has calmer relief, larger track numbers and a closer opening view of the convoy. A slim persistent command strip exposes routine orders. The live camera uses maritime daylight and improved framing; Nansen, Gorshkov and Steregushchiy have new original models and recognition art.
+
+**Patrol / Shift+W** assigns a repeating circuit by clicking two corners. Validation checks platform availability, terrain, approach and turning room. Patrols use actual movement, sensors and endurance, retain evasion/resumption, and yield to navigation changes or aircraft recovery. Their task and legs remain visible while paused.
+
+599 regression tests pass. Native interaction checks cover both 1280 × 720 and 1920 × 1080, with the existing interface suites, seeded Northern Passage outcomes, full scenario sweeps and local browser checks recorded in the [M32 guide](docs/2026-09-30-command-watch.md) and [validation record](docs/validation-m32.json). The inherited WebGL warnings on expanding the browser's 3D view remain; native checks pass. Validation was completed locally before merge; the linked records preserve that evidence.
+
+# Previous: M31 Northern Passage
+
+**Start Northern Passage** opens an original, paused introductory briefing directly from the existing operations desk. A Burke IIA, Nansen and one MH-60R protect Northern Light over an eight-nautical-mile dogleg. The freighter follows standing orders at its existing 15-knot cap; both escorts begin in formation. The opposing frigate closes under its own sensors and AI, among two neutral merchants. Deliver the freighter before 45 minutes; losing it or sinking a neutral with player weapons ends the operation in defeat.
+
+Loss objectives can now filter responsibility by the firing faction, including later fire/flooding deaths. Civilian sinkings are separate from enemy kills. The after-action report retains objective results, finite ammunition expenditure, losses and a chronological journal of player-observed messages; it does not reveal hidden enemy callsigns. Weapons-free orders warn about unidentified contacts and civilian consequences.
+
+Validation passes 587 regression tests, 115 assertions across seven ordinary-order trials, 29 graphical assertions at each requested resolution, the existing interface suites and 46 full-duration AI scenario runs. The actual-scene command driver verifies delivery, abandonment, deadline expiry and civilian-loss defeat without injecting damage or observations. The same seed is replayed and compared, and graphical checks cover 1280 × 720 and 1920 × 1080. Exact results, commands, screenshots and browser checks are in the [M31 validation note](docs/2026-09-30-northern-passage.md) and [machine-readable record](docs/validation-m31.json).
+
+Chromium/SwiftShader emits WebGL buffer warnings when G expands the 3D view; this also reproduces in the unchanged M30 package. Native checks pass, and the normal browser command view works.
+
+Full mid-engagement save/load remains the next playability milestone; custom scenario files are not saved games. Existing 1×/2×/5×/10×/30×/60× speeds, catalogue, geography and CDS display remain in use. This is a bounded milestone toward the supplied build brief. The milestone includes editable source and the rebuilt browser package.
+
+# Previous: M30 Weapon Control and Track Solutions
 
 QC follow-up: nested imports, open-water presentation, runtime-error test failures, wall-clock timing, held-track SAM guidance and shared Mk 13 service are repaired. Sensor/defence/AI scans and chart drawing are batched and indexed. See [QC_PERFORMANCE.md](docs/QC_PERFORMANCE.md) for behavior, limits and reproducible checks.
 

@@ -269,9 +269,13 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 			return "Return to base" if u.recovery_base == null else "Return to %s" % u.recovery_base.callsign
 		if u.tanking_on != null:
 			return "Tanking on %s" % u.tanking_on.callsign
-		return "Transit" if not u.waypoints.is_empty() else "Patrol"
+		if u.patrol_active:
+			return "Patrol circuit (%d legs flown)" % u.patrol_legs_completed
+		return "Transit" if not u.waypoints.is_empty() else "On station"
 	if u.in_formation():
 		return "Station on %s" % u.formation_leader.callsign
+	if u.patrol_active:
+		return "Patrol circuit (%d legs sailed)" % u.patrol_legs_completed
 	if not u.waypoints.is_empty():
 		return "Transit (%d wpt%s)" % [u.waypoints.size(), "" if u.waypoints.size() == 1 else "s"]
 	if u.ordered_speed_kn <= 0.1 and u.spec.max_speed_kn > 0.0:
