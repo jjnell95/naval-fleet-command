@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "note": "Spoken crew traffic for CrewVoice. Original wording in ordinary radio and naval phraseology. {track} is spoken digit by digit, {name} is a platform's spoken name. Each event keeps at least one variant with no placeholder, for when the field is not known.",
+  "events": {
+    "order_ack": [
+      "Aye aye.",
+      "Roger, wilco.",
+      "Understood, executing now.",
+      "Copy, carrying out."
+    ],
+    "attack_ack": [
+      "Engaging track {track}.",
+      "Copy, prosecuting track {track}.",
+      "Target assigned, engaging.",
+      "Attacking now, aye."
+    ],
+    "investigate_ack": [
+      "Closing track {track} to identify.",
+      "Copy, moving to investigate track {track}.",
+      "Aye, closing to get eyes on."
+    ],
+    "order_refused": [
+      "Unable to comply.",
+      "Negative, we can't execute that.",
+      "Unable. Request fresh orders."
+    ],
+    "missile_away": [
+      "Missile away.",
+      "Bird away, tracking.",
+      "Launch confirmed, round is flying."
+    ],
+    "torpedo_away": [
+      "Torpedo away.",
+      "Fish in the water, running normal.",
+      "Weapon launched, running hot and straight."
+    ],
+    "inbound_missile": [
+      "Vampire, vampire! Missile inbound.",
+      "Inbound missile, all stations stand by to defend.",
+      "Missile inbound, engaging with everything we have."
+    ],
+    "torpedo_inbound": [
+      "Torpedo, torpedo, torpedo!",
+      "Torpedo in the water, coming our way!",
+      "Hydrophone effect, torpedo inbound!"
+    ],
+    "interceptor_kill": [
+      "Splash one.",
+      "Good kill, threat destroyed.",
+      "Intercept confirmed, threat is down."
+    ],
+    "target_destroyed": [
+      "Track {track} destroyed.",
+      "Kill confirmed on track {track}.",
+      "Target destroyed.",
+      "Good hits, the target is going down."
+    ],
+    "own_ship_hit": [
+      "We're hit! Damage control parties away.",
+      "Hit, hit! Damage control to stations.",
+      "Taking damage, assessing now."
+    ],
+    "unit_lost": [
+      "We've lost {name}.",
+      "{name} is gone.",
+      "We've lost a unit.",
+      "Contact lost with one of ours. She's gone."
+    ],
+    "new_contact": [
+      "New contact, track {track}.",
+      "Contact, designate track {track}.",
+      "New contact on the plot."
+    ],
+    "contact_hostile": [
+      "Track {track} evaluated hostile.",
+      "Track {track} is hostile.",
+      "Contact classified hostile."
+    ],
+    "aircraft_rtb": [
+      "Bingo fuel, returning to base.",
+      "Bingo, heading home.",
+      "Fuel state critical, coming back to mother."
+    ],
+    "fire_out": [
+      "Fire is out, reflash watch set.",
+      "Fire extinguished.",
+      "Fire out, damage control standing by."
+    ],
+    "mission_won": [
+      "Mission accomplished. Well done, all stations.",
+      "Objectives achieved. Stand down from action stations."
+    ],
+    "mission_lost": [
+      "Mission failed. All units, break off.",
+      "We have failed the mission. Disengage and withdraw."
+    ]
+  }
+}

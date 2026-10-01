@@ -84,7 +84,8 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
 | `scripts/ui/cds_menus.gd`, `key_commands.gd`, `command_palette.gd` | right-click menus, the H board, Ctrl-K |
 | `scripts/ui/air_operations.gd`, `briefing_panel.gd`, `after_action.gd` | in-mission dialogs |
 | `scripts/ui/scenario_menu.gd`, `scenario_editor.gd`, `platform_library.gd` | the front end: operations desk, editor, reference |
-| `scripts/ui/ui_theme.gd`, `jfc_style.gd`, `ui_icons.gd`, `sound_fx.gd` | the theme (built in code, no `.tres`), bevels and lamps, icons, procedural sound |
+| `scripts/ui/ui_theme.gd`, `jfc_style.gd`, `ui_icons.gd`, `sound_fx.gd` | the theme (built in code, no `.tres`), bevels and lamps, icons, procedural sound and the ambient bed |
+| `scripts/ui/crew_voice.gd`, `data/voice/phrases.json`, `user_settings.gd` | spoken crew phrases through an injectable text-to-speech sink; preferences in `user://settings.cfg` |
 | `scripts/core/dev_harness.gd`, `cold_war_smoke.gd`, `aviation_smoke.gd`, `fleet_workshop_smoke.gd` | scaffolding: flags and three interface suites |
 | `tests/` | the regression suite; `run_tests.gd` lists the files |
 | `tools/scenarios/` | the scenario builders and the Natural Earth and GMTED2010 extractions |
@@ -109,6 +110,9 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
   matched nothing.
 - **The event log is quiet by default in release builds.** `Debug.event()` prints only in debug
   builds and scripted runs; `print()` in gameplay code would reach a player's browser console.
+- **Never call `DisplayServer.tts_*` outside `CrewVoice.use_os_speech()`.** On Linux without
+  speech-dispatcher each call is an engine error, which fails the tests and the interface suites.
+  Tests inject a sink Callable. Interface-only lines go through `RadioNet.advise`, not `flash`.
 - **Original assets only.** See `assets/README.md`. No Jane's assets, names or copied art.
 - **The 3D view dresses models by material name.** `WorldMaterials.TABLE` maps each glTF material name
   to a finish; a model with a material name it does not know keeps its flat authored colour in the 3D

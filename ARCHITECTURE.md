@@ -4,6 +4,16 @@ Status: Milestone 32 (Command Watch: patrol tasking, command strip and escort pr
 
 Start from `HANDOFF.md`: how to run and verify the game, the one rule, and where things are.
 
+## Crew voice and ambient sound
+
+`CrewVoice` (a Node owned by Main) speaks short naval phrases for command-screen events: order acknowledged (generic, attack, investigate), order refused, weapon away (missile, torpedo), inbound missile, torpedo inbound, interceptor kill, target destroyed, own ship hit, unit lost, new contact, contact hostile, aircraft returning, fire out, mission won and lost. Main calls `voice.say(event, speaker, fields)` beside the existing `radio.flash` calls; the radio text is never read aloud, only an event key, the acting own Unit and fields (`track` spoken digit by digit, `name`). The wording is original, in `data/voice/phrases.json` (at least two variants per event, one without placeholders). Each speaker gets a stable pitch and rate from its unit id, and a voice from the system's English voices. Alerts (`ALERT_EVENTS`) interrupt; routine lines keep at most one pending, at most one per two seconds, are dropped after four seconds and are muted above 1x; mission won and lost are spoken at any compression. Ctrl+M mutes the crew as well.
+
+The speech sink, busy test, clock and compression are Callables. `use_os_speech()` is the only code that touches `DisplayServer.tts_*`, and Main calls it (through `configure_from_settings` or the toggle) only on web, macOS and Windows by default, or on Linux after the player turned voice on and speech-dispatcher's library is present: without it every tts call is an engine error. Headless, `--script` and scripted smoke runs never install it and never save preferences (`UserSettings.writable`). `project.godot` enables `audio/general/text_to_speech`; on Linux without speech-dispatcher Godot then prints one "libspeechd.so.2: cannot open shared object file" line at start-up, which is not an engine error.
+
+`RadioNet.advise(msg)` is for interface validation lines with no speaker ("Select a shooter before you engage", "Order refused by ..."): the chart's radio line shows it dimmer (`TacticalMap.COL_RADIO_ADVICE`), and it reaches neither the comms board, the lamp, the debrief journal nor the voice. A refused order now speaks "unable to comply" from the platform while the console's reason goes out as advice.
+
+`SoundFx` builds four looping 11 kHz beds at start-up from a private seeded generator (sea wash, ship machinery, rotor, jet; a submarine uses the machinery loop pitched down). Main reports the scene every half second (`set_ambient(active, sea_state, hum_for(hooked))`); the sea level follows `Detection.sea_state`, both beds duck while a cue plays, and they are silent while paused, off the command screen, under Ctrl+M or with the ambient toggle off. Voice and ambient toggles are in the Actions palette and the nothing-hooked CDS menu's Sound submenu, and persist in `user://settings.cfg`.
+
 ## M32 additions
 
 `Order.PATROL` holds a copied circuit of 3–16 world points. `UnitManager.patrol_rejection` validates deployment, aircraft availability, finite coordinates, turning room, every sea leg and the approach before mutating any state. The minimum leg is at least one nautical mile, or the platform's turning diameter plus arrival tolerance if larger. `Unit.patrol_active` is distinct from the scenario AI's `patrol_route`. `Movement` rotates reached waypoints to the back of the queue; ordinary routes still finish and stop. Navigation and formation orders cancel repetition; sensor and ROE orders retain it. Speed changes retain the circuit when its legs still allow the required turning room; otherwise the order is rejected with an explanation. Evasion temporarily suspends it. `AviationManager` clears patrol on launch, return or automatic tanker diversion; real fuel and deck cycles continue.
@@ -187,7 +197,9 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 | DefenceBoard | scripts/ui/defence_board.gd | threat evaluation and weapons assignment view |
 | ScenarioPreview | scripts/ui/scenario_preview.gd | own-force disposition chart for the mission menu |
 | PlatformPortrait | scripts/ui/platform_portrait.gd | category-specific vector recognition silhouettes |
-| SoundFx | scripts/ui/sound_fx.gd | autoload; synthesised cues, no audio files |
+| SoundFx | scripts/ui/sound_fx.gd | autoload; synthesised cues and the looping ambient bed, no audio files |
+| CrewVoice | scripts/ui/crew_voice.gd | Main's child; spoken crew phrases from data/voice/phrases.json through an injectable speech sink |
+| UserSettings | scripts/ui/user_settings.gd | interface preferences (voice, ambient) in user://settings.cfg |
 | ScenarioEditor | scripts/ui/scenario_editor.gd | in-game mission builder; writes the scenario JSON schema to user://scenarios |
 | Bathymetry | scripts/systems/bathymetry.gd | static regional sea-floor raster; `depth_at(world)` through the scenario's map anchor |
 | Acoustics | scripts/systems/acoustics.gd | static water-column rules: floor limit, layer, array depths, shelf losses, convergence zones |

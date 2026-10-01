@@ -13,6 +13,8 @@ signal logged(text: String, severity: String)
 
 const MAX_HISTORY := 60
 const MAX_JOURNAL := 512
+## The radio line's severity for interface advice (drawn dimmer, never journaled or spoken).
+const ADVICE := "advice"
 
 var map: TacticalMap
 var display: DataDisplay
@@ -25,6 +27,8 @@ var journal: Array[String] = []
 var journal_omitted := 0
 var scenario_name := ""
 var objective_text := ""
+## The newest interface advice, for tools and tests; advice keeps no history.
+var last_advice := ""
 
 
 ## Puts a message on the net. `speaker` is the unit or track talking, if any: the line reads
@@ -46,6 +50,15 @@ func flash(msg: String, severity := "info", speaker: RefCounted = null) -> void:
 	if display != null and severity in ["alert", "warn"] and (boards == null or not boards.showing_comms()):
 		display.unread_alerts += 1
 	logged.emit(line, severity)
+
+
+## Interface advice: a line that only explains the interface ("Select a shooter before you
+## engage"). It shows on the chart's radio line, dimmer than crew traffic, and goes nowhere else:
+## not the comms board, not the lamp, not the debrief journal, and it is never spoken.
+func advise(msg: String) -> void:
+	last_advice = msg
+	if map != null:
+		map.post_message(msg, ADVICE)
 
 
 ## "<callsign>: <text>", formatted exactly as the chart's radio line formats it.
@@ -72,6 +85,7 @@ func clear() -> void:
 	journal.clear()
 	journal_omitted = 0
 	objective_text = ""
+	last_advice = ""
 	if display != null:
 		display.unread_alerts = 0
 		display.threat_text = ""

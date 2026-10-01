@@ -127,6 +127,9 @@ const COL_ACCENT := UITheme.COL_ACCENT
 const COL_READOUT := Color.WHITE
 const COL_READOUT_SHADOW := Color(0.0, 0.0, 0.0, 0.9)
 const COL_RADIO_ALERT := Color("ff5050")
+## Interface advice on the radio line (RadioNet.advise): the same face, dimmed, so it reads as the
+## console talking rather than the crew.
+const COL_RADIO_ADVICE := Color(0.78, 0.8, 0.84, 0.72)
 const COL_FIRE := Color(1.0, 0.55, 0.22)
 const DEFAULT_WIND_FROM_DEG := 250.0  # prevailing winter westerlies, when a scenario names none
 
@@ -2359,8 +2362,8 @@ func _draw_radio_line() -> void:
 	for i in range(lines.size() - 1, -1, -1):
 		var e: Dictionary = lines[i]
 		var alpha := RadioLine.alpha_at(_anim - float(e["t0"]))
-		var col := COL_RADIO_ALERT if e["severity"] == "alert" else COL_READOUT
-		_shadow_text(Vector2(0.0, baseline), e["text"], READOUT_FONT_SIZE, Color(col, alpha), HORIZONTAL_ALIGNMENT_CENTER, size.x)
+		var col := COL_RADIO_ALERT if e["severity"] == "alert" else (COL_RADIO_ADVICE if e["severity"] == RadioNet.ADVICE else COL_READOUT)
+		_shadow_text(Vector2(0.0, baseline), e["text"], READOUT_FONT_SIZE, Color(col, alpha * col.a), HORIZONTAL_ALIGNMENT_CENTER, size.x)
 		baseline -= READOUT_LINE_H
 
 
