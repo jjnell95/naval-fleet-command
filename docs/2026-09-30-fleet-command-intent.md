@@ -46,9 +46,13 @@ These are captures of the running native game, not mockups.
 
 ## Validation
 
-Local validation passed **620 regression tests**, **150 native interaction and targeted checks** across 1280 × 720 and 1920 × 1080, and **283 existing interface and Northern Passage assertions**. All 23 scenarios completed two 6,000-second AI runs (46 total) without script errors or grounded hulls. The rebuilt browser package loaded in Chromium without page or script errors, and its mouse controls and expanded view were visually checked. Its existing 257 WebGL resize warnings also reproduce in the baseline.
+The combined build preserves the current combat cleanup's Attack/Defence controls, queued-fire cancellation, missile tracking and authoritative firing checks. It passes **660 regression tests** and **231 native checks**, covering both 1280 × 720 and 1920 × 1080, actual ammunition receipts, weapon control and Command Watch. A new regression also covers paused cloud changes invalidating the solar-lighting cache. The current package hash, fresh scenario results and verification of the combined source are recorded in [validation-m33-merge.json](validation-m33-merge.json). The screenshots above show this combined build.
 
-The machine-readable results, package hash and screenshot paths are recorded in [validation-m33.json](validation-m33.json). These are local results; no remote CI run or site publication is claimed. Run the new real-scene interaction checks with:
+The integrated source also passed a fresh **46-run scenario sweep**: every operation at seeds 2 and 13 reached 6,000 simulated seconds without unexpected errors or grounded hulls. Content hashes verify that the simulation scripts and data stayed unchanged across the sweep. GitHub's regression and interface workflow passed for the game commit; its run is linked in the combined validation record.
+
+Before integration, local validation passed **620 regression tests**, **150 native interaction and targeted checks**, and **283 existing interface and Northern Passage assertions**. All 23 scenarios completed two 6,000-second AI runs (46 total) without script errors or grounded hulls. The rebuilt browser package loaded in Chromium without page or script errors, and its mouse controls and expanded view were visually checked. Its existing 257 WebGL resize warnings also reproduce in the baseline.
+
+The earlier local snapshot remains in [validation-m33.json](validation-m33.json); its package hash describes that earlier build. Run the new real-scene interaction checks with:
 
 ```sh
 godot --headless --path . --editor --import --quit
@@ -58,5 +62,7 @@ godot --path . --resolution 1920x1080 --script tools/fleet_command_playtest.gd -
 godot --path . --resolution 1280x720 --script tools/fleet_command_playtest.gd -- --seed=31 --capture --aircraft-capture-only --receipt-check
 tools/web/build_web.sh
 ```
+
+Pass `--output-dir=res://work/validation-name` after `--` to preserve evidence from a previous run.
 
 This remains a bounded improvement to the existing game. A developed campaign, mid-engagement save/load, recorded crew voices, detailed aircraft texture work and automatic intercept-to-engage are not delivered by this pass. Performance values remain game estimates. The pre-existing Chromium/SwiftShader buffer warnings on resizing the 3D viewport are tracked separately from native correctness.

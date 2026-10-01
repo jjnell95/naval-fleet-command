@@ -4,7 +4,7 @@ Contact inspection now drives data and 3D without discarding selected shooters. 
 
 The command strip exposes Chart and time menus. The live view exposes mouse camera/layout controls, captions the subject/action, frames the horizon by aspect ratio, and renders scenario-authored clouds/rain with a paused weather clock. Northern Passage's maintained generator includes its fictional weather and updated first orders. Original manual research, remaining gaps and verification are in the [M33 guide](docs/2026-09-30-fleet-command-intent.md) and [validation record](docs/validation-m33.json).
 
-Local validation: 620 regression tests, 150 native interaction/targeted checks at 1280 × 720 and 1920 × 1080, 283 existing interface/policy assertions and 46 full-duration scenario runs passed. The rebuilt browser package loads without page/script errors; inherited WebGL resize warnings remain. Known contacts use labeled sensor-estimate models, and aircraft cameras clear their own launch ship. Source and browser package are updated locally; this record does not claim publication or remote CI.
+The integrated build preserves the current combat cleanup's Attack/Defence controls and missile tracking. It passes 660 regression tests and 231 native checks at 1280 × 720 and 1920 × 1080; fresh scenario results, CI evidence and the current browser-package hash are in the [combined validation record](docs/validation-m33-merge.json). The rebuilt browser package loads without page/script errors; inherited WebGL resize warnings remain. Known contacts use labeled sensor-estimate models, and aircraft cameras clear their own launch ship. The earlier M33 validation record is retained as a historical snapshot.
 
 # Previous: M32 Command Watch
 
