@@ -55,6 +55,7 @@ func _ready() -> void:
 	weapon_manager.unit_manager = unit_manager
 	weapon_manager.track_manager = track_manager
 	add_child(weapon_manager)
+	unit_manager.weapon_manager = weapon_manager
 	sensor_manager.weapon_manager = weapon_manager
 	weapon_manager.weapon_defeated.connect(func(w: Weapon, _r: String, _u: Unit) -> void: threat_manager.forget(w))
 	weapon_manager.weapon_resolved.connect(threat_manager.forget)
@@ -172,7 +173,7 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			if u.roe == Unit.Roe.HOLD:
 				weapon_manager.cancel_salvo(u)
 		Order.Type.CANCEL_FIRE:
-			o.execution_accepted = weapon_manager.cancel_salvo(u, o.track) > 0
+			o.execution_accepted = weapon_manager.cancel_salvo(u, o.track) > 0 or o.stopped_attack
 		Order.Type.ENGAGE:
 			var spec := u.get_weapon(o.weapon_id)
 			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time)
@@ -195,7 +196,7 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 func _on_tick(dt: float) -> void:
 	var profile_at := Time.get_ticks_usec()
 	_tick_operation_events(SimClock.sim_time)
-	unit_manager.tick(dt)
+	unit_manager.tick(dt, SimClock.sim_time)
 	for e: Dictionary in Damage.tick(unit_manager.units, dt):
 		var u: Unit = e["unit"]
 		casualty_event.emit(u, e["event"])

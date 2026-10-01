@@ -1,6 +1,8 @@
 # Handoff
 
-Latest: M33 restores the inspected-contact focus without dropping command selection, adds persistent `Order.investigate(track)`, direct finite shots, Chart/time menus and mouse camera controls. Read [the source comparison and behavioral limits](docs/2026-09-30-fleet-command-intent.md). The contact inspection API is `TacticalMap.inspection_track()`; use it for presentation, keep `selected` for orders. Investigation uses held tracks only and reports completion through `UnitManager.investigation_ended`. Optional scenario `cloud_cover`, `rain_intensity` and `cloud_base_m` affect the live view only.
+Latest: M34 adds the standing attack, `Order.attack(track, weapon := "")`, stepped by `UnitManager._step_attack` and ended through `UnitManager.attack_ended`; `UnitManager` now holds `weapon_manager` and is ticked with `tick(dt, now)`. A bare right-click decides from `TacticalMap.default_contact_verb(track)` (attack a HOSTILE, investigate an unclassified UNKNOWN, otherwise the menu); Shift+right-click is the contact menu. `MissionManager.assessment()` grades a finished mission and `CommanderLog` keeps best results beside the custom-mission directory; Main logs only missions the player took command of and the AI did not play. The desk opens on the `operations` shelf. Read [the research note and the remaining gaps](docs/2026-10-01-fleet-command-command-loop.md) before choosing the next milestone. `tests/run_tests.gd -- --only=test_attack.gd,...` runs a few test files.
+
+Previously: M33 restores the inspected-contact focus without dropping command selection, adds persistent `Order.investigate(track)`, direct finite shots, Chart/time menus and mouse camera controls. Read [the source comparison and behavioral limits](docs/2026-09-30-fleet-command-intent.md). The contact inspection API is `TacticalMap.inspection_track()`; use it for presentation, keep `selected` for orders. Investigation uses held tracks only and reports completion through `UnitManager.investigation_ended`. Optional scenario `cloud_cover`, `rain_intensity` and `cloud_base_m` affect the live view only.
 
 The combined build also preserves the combat cleanup from `7e1d7a2`: Attack/Defence controls, authoritative firing, queued-fire cancellation and live missile tracking. Receipts measure `WeaponManager.committed_rounds()` deltas; the solar cache honors weather invalidation even while paused. Use [validation-m33-merge.json](docs/validation-m33-merge.json) for the current package hash and integration evidence.
 
@@ -82,6 +84,7 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
 | `scripts/ui/data_display.gd` | the data display, bottom right, built from rows of coloured spans |
 | `scripts/ui/status_boards.gd` | the boards on A, hosting `orders_panel.gd`, `unit_panel.gd`, `contact_panel.gd` (+ `defence_board.gd`) and the comms history |
 | `scripts/ui/cds_menus.gd`, `key_commands.gd`, `command_palette.gd` | right-click menus, the H board, Ctrl-K |
+| `scripts/core/commander_log.gd` | the commander's record of best mission results, read by the operations desk |
 | `scripts/ui/air_operations.gd`, `briefing_panel.gd`, `after_action.gd` | in-mission dialogs |
 | `scripts/ui/scenario_menu.gd`, `scenario_editor.gd`, `platform_library.gd` | the front end: operations desk, editor, reference |
 | `scripts/ui/ui_theme.gd`, `jfc_style.gd`, `ui_icons.gd`, `sound_fx.gd` | the theme (built in code, no `.tres`), bevels and lamps, icons, procedural sound |

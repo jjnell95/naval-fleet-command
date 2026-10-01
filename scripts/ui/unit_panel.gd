@@ -189,7 +189,7 @@ func _refresh() -> void:
 		_body.text = "\n".join([
 			_h("CONTROLS"),
 			_kv("Click", "select   ·   Shift+click add"),
-			_kv("Right-click", "water: transit   ·   platform: orders   ·   contact: engage"),
+			_kv("Right-click", "water: transit   ·   platform: orders   ·   hostile: attack   ·   unknown: investigate"),
 			_kv("W / Route", "arm route   ·   left-click water   ·   Shift chains"),
 			_kv("Pan", "middle/right/Option-drag"),
 			_kv("Wheel", "zoom   ·   arrow keys pan"),

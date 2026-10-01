@@ -39,7 +39,7 @@ static func _scan(root: String, custom: bool, out: Array) -> void:
 	dir.list_dir_begin()
 	var name := dir.get_next()
 	while name != "":
-		if not dir.current_is_dir() and name.ends_with(".json"):
+		if not dir.current_is_dir() and name.ends_with(".json") and not name.ends_with(CommanderLog.FILE_NAME):
 			var path := root.path_join(name)
 			var d := ScenarioLoader.load_file(path)
 			if not d.is_empty():

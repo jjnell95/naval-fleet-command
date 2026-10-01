@@ -15,7 +15,8 @@ const COMMANDS := [
 	]],
 	["CHART", [
 		["Left-click", "Hook a platform or contact; Shift adds"],
-		["Right-click", "Water: transit there. Platform: orders. Contact: engage"],
+		["Right-click", "Water: transit there. Own platform: orders. Hostile: attack. Unknown: investigate"],
+		["Shift+right-click", "Contact menu: weapons, salvos, investigate, cancel fire"],
 		["Right-drag, arrows", "Pan"],
 		["Wheel, + / -", "Zoom"],
 		["Home / C / F", "Fit force / centre / follow"],
@@ -143,4 +144,13 @@ static func all_keys() -> PackedStringArray:
 	for section: Array in COMMANDS:
 		for row: Array in section[1]:
 			out.append(str(row[0]))
+	return out
+
+
+## Every row as "keys: what it does", for tests of the board's wording.
+static func all_rows() -> PackedStringArray:
+	var out := PackedStringArray()
+	for section: Array in COMMANDS:
+		for row: Array in section[1]:
+			out.append("%s: %s" % [row[0], row[1]])
 	return out

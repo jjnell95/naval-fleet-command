@@ -1,8 +1,16 @@
 # Architecture
 
-Status: Milestone 32 (Command Watch: patrol tasking, command strip and escort presentation), retaining the CDS screen and observer-limited picture.
+Status: Milestone 34 (The Command Loop: the standing attack, right-click defaults, the operations desk and mission effectiveness), retaining the CDS screen and observer-limited picture.
 
 Start from `HANDOFF.md`: how to run and verify the game, the one rule, and where things are.
+
+## M34 additions
+
+`Order.attack(track, weapon := "")` is a standing task, stepped by `UnitManager._step_attack` beside the investigation task. `Unit.attack_*` fields hold it: the track, an optional named weapon, the phase the ORDERS line reports, the result once it ends, the ordered speed, the standoff and the rounds fired. `Unit.apply_order` plots the intercept leg at once (so a paused order shows where the platform will go) and the same navigation orders that clear an investigation clear an attack; `SET_SPEED` supports it. Each tick the task re-validates with `UnitManager.attack_rejection` (held, visible to the unit, not NEUTRAL/FRIENDLY, ROE, a suitable weapon with rounds, a range solution unless a torpedo), lets rounds in flight arrive, waits `ATTACK_ASSESS_S` after a salvo, then chooses the weapon (`Unit.weapons_for_track` order, or the named one) and fires through `WeaponManager.launch` when `engagement_check` allows. Otherwise it steers to `Combat.standoff_point` at `ATTACK_STANDOFF_FRACTION` of that weapon's reach, now shared with the AI. A stale plot is closed on, never fired at. Ends emit `UnitManager.attack_ended(unit, track, reason)`; replacement by another order is silent. `UnitManager` holds `weapon_manager` (set by Simulation) and `now_s` (from `tick(dt, now)`); its `unit_destroyed` handler ends every attack on a sunk unit, the one place the task consults a track's association.
+
+`TacticalMap.default_contact_verb(track)` decides a bare right-click from the plot alone: "attack" for HOSTILE, "investigate" for an UNKNOWN below CLASS_KNOWN, "" (the menu) otherwise or with nothing controllable hooked. The chart emits `attack_requested` / `investigate_requested`; Shift+right-click emits `context_menu_requested` as before; Ctrl/Cmd+right-click still emits `engage_requested`. `hover_cursor_shape()` sets CURSOR_CROSS or CURSOR_HELP on mouse motion. `CdsMenus.attack_item` / `attack_with_items` lead the contact menu; the unused `close_in` action kind is gone.
+
+`MissionManager.assessment()` grades a mission (task 60, credited in full for an any-mode win and not at all on a defeat; force 20; attrition 20; minus 25 per neutral the player's weapons sank and a pro-rata share for one left afloat; airframes still aboard a sunk host count as lost; all GAMEPLAY) from a unit's scenario `points`, else `CATEGORY_POINTS` by category, else `DOMAIN_POINTS`; as the referee it reads units at truth, and Main passes the result to `AfterAction.show_report` only after `mission_ended`. `CommanderLog` (scripts/core/commander_log.gd) keeps `{best_percent, result, date, attempts, last_percent, last_result}` per scenario id beside the custom-mission directory: `user://commander_log.json` in play, `<storage dir>.commander_log.json` (for example `res://work/x.commander_log.json`) with `--scenario-storage=res://work/x`. Entries are normalised to typed fields on load; tests and the playtest drivers redirect it with `path_override`, and Main logs nothing in scripted sessions or when the AI played the player's side. `ScenarioMenu` opens on the `operations` shelf (collection "operations"), with `training` (collection "exercises") and `custom`; `refresh(path, played)` moves the desk to the current mission's shelf: a shipped mission only after command was taken, a custom mission always; the first refresh at start-up never moves it. `show_saved(path)` lands on My Missions after the editor saves.
 
 ## M32 additions
 
@@ -448,8 +456,10 @@ relief, graticule, latlon, scale, range_grid, key, and the identity filters host
 neutrals and unknowns (a filtered contact is neither drawn nor hit, but stays in the track file).
 
 A right-click without a drag is the classic display's: with a controllable own unit hooked, open
-water (or land, for an aircraft) is a MOVE there at once (`move_order_requested`, Shift appends);
-anything else hooks the track or own unit under the cursor and emits `context_menu_requested`
+water (or land, for an aircraft) is a MOVE there at once (`move_order_requested`, Shift appends),
+a hostile contact is an attack (`attack_requested`) and an unclassified one an investigation
+(`investigate_requested`); anything else, or Shift on a contact, hooks the track or own unit under
+the cursor and emits `context_menu_requested`
 with `context_at()`'s classification (own_unit, track, waypoint, water, empty) for the shell's
 menus. Ctrl/Cmd+right-click on a track still emits `engage_requested`; the shell deletes a leg
 through `request_waypoint_delete()`. Right-press still begins a pan, and in Plot Move it cancels.

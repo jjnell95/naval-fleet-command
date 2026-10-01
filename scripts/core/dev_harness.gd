@@ -29,7 +29,7 @@ extends RefCounted
 ##   --engage-after=S            S seconds into the hold, the selection fires on the hooked or
 ##                               nearest hostile track, so a screenshot catches the launch
 ##   --open-editor               open the scenario editor on the loaded scenario, for screenshots
-##   --open-menu[=SHELF]         open the operations desk, on one shelf (cold_war, atlantic, pacific, gulf_med, all)
+##   --open-menu[=SHELF]         open the operations desk, on one shelf (operations, training, custom, cold_war, atlantic, pacific, gulf_med, all)
 ##   --brief                     open the briefing board
 ##   --no-ai                     disable every AI controller
 ##   --reload-check              fight a while, restart, and report that state was cleared

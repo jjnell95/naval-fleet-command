@@ -69,11 +69,11 @@ func _ready() -> void:
 	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_subtitle)
 
-	# Four numbers that say how the fight went, before any of the detail.
+	# The grade first, then four numbers that say how the fight went, before any of the detail.
 	var tiles := HBoxContainer.new()
 	tiles.add_theme_constant_override("separation", 10)
 	v.add_child(tiles)
-	for entry in [["defended", "Rounds stopped"], ["hits_taken", "Hits taken"], ["hits_scored", "Hits scored"], ["losses", "Units lost"]]:
+	for entry in [["effectiveness", "Mission effectiveness"], ["defended", "Rounds stopped"], ["hits_taken", "Hits taken"], ["hits_scored", "Hits scored"], ["losses", "Units lost"]]:
 		var tile := PanelContainer.new()
 		tile.theme_type_variation = "CardPanel"
 		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -140,12 +140,24 @@ func _set_tile(key: String, value: int, note: String, good_when_high: bool) -> v
 	(tile["note"] as Label).text = note
 
 
-func show_report(result: String, summary: String, stats: Dictionary, objectives: Array, losses: Array, kills: Array, elapsed_s: float, timeline: Array[String] = [], civilian_incidents: PackedStringArray = [], loss_objectives: Array = [], omitted_events := 0) -> void:
+## `assessment` is MissionManager.assessment() at the end; `log_entry` what CommanderLog.record
+## returned for it. Both optional, so the harness's direct calls keep working.
+func show_report(result: String, summary: String, stats: Dictionary, objectives: Array, losses: Array, kills: Array, elapsed_s: float, timeline: Array[String] = [], civilian_incidents: PackedStringArray = [], loss_objectives: Array = [], omitted_events := 0, assessment: Dictionary = {}, log_entry: Dictionary = {}) -> void:
 	var victory := result == "VICTORY"
 	_title.text = result
 	_title.add_theme_color_override("font_color", UITheme.INK_GREEN if victory else UITheme.INK_RED)
 	_subtitle.text = summary
 	_time.text = "MISSION TIME  %s" % Geo.format_duration(elapsed_s)
+	var percent := int(assessment.get("percent", -1))
+	var grade: Dictionary = _tiles["effectiveness"]
+	if percent >= 0:
+		(grade["value"] as Label).text = "%d%%" % percent
+		(grade["value"] as Label).add_theme_color_override("font_color", UITheme.INK_GREEN if percent >= 50 else (UITheme.INK_AMBER if percent >= 25 else UITheme.INK_RED))
+		var note := "best %d%%" % int(log_entry.get("best_percent", percent)) if not log_entry.is_empty() and not bool(log_entry.get("improved", true)) else ("a new best" if not log_entry.is_empty() and int(log_entry.get("attempts", 1)) > 1 else "graded result")
+		(grade["note"] as Label).text = note
+	else:
+		(grade["value"] as Label).text = "—"
+		(grade["note"] as Label).text = "not graded"
 	var inbound := int(stats.get("hostile_rounds", 0))
 	var stopped := int(stats.get("intercepted", 0)) + int(stats.get("decoyed", 0))
 	_set_tile("defended", stopped, "of %d inbound detected" % inbound if inbound > 0 else "none inbound", true)
@@ -154,6 +166,15 @@ func show_report(result: String, summary: String, stats: Dictionary, objectives:
 	_set_tile("losses", losses.size(), "%d enemy destroyed" % kills.size(), false)
 
 	var lines := PackedStringArray()
+	if percent >= 0:
+		lines.append(UITheme.section_bb("Mission effectiveness", true))
+		lines.append(_safe(MissionManager.assessment_text(assessment)))
+		var attempts := int(log_entry.get("attempts", 0))
+		if attempts > 1:
+			lines.append("[color=%s]Attempt %d · best %d%% (%s), set %s[/color]" % [UITheme.HEX_INK_DIM, attempts, int(log_entry.get("best_percent", percent)), str(log_entry.get("result", result)).to_lower(), _safe(str(log_entry.get("date", "")))])
+		elif attempts == 1:
+			lines.append("[color=%s]First attempt, entered in the commander's log[/color]" % UITheme.HEX_INK_DIM)
+		lines.append("")
 	lines.append(UITheme.section_bb("Objectives", true))
 	for o in objectives:
 		var mo: MissionObjective = o

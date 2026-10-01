@@ -256,6 +256,17 @@ static func damage_percent(u: Unit) -> int:
 static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String:
 	if u.evasion_remaining_s > 0:
 		return "Evade %03d (%ds), then resume plan" % [int(u.evasion_course_deg), int(ceil(u.evasion_remaining_s))]
+	if u.attack_track != null:
+		# The standing attack narrates itself: INTERCEPT TRACK while closing, ENGAGE while rounds
+		# are away, and what is holding it up otherwise.
+		var number := track_number_for_track(u.attack_track)
+		if u.attack_phase.begins_with("Intercept track"):
+			return "Intercept track %s%s" % [number, u.attack_phase.trim_prefix("Intercept track")]
+		if u.attack_phase.begins_with("Engaging track"):
+			return "Engage track %s%s" % [number, u.attack_phase.trim_prefix("Engaging track")]
+		if u.attack_phase.begins_with("Attack track"):
+			return "Attack track %s%s" % [number, u.attack_phase.trim_prefix("Attack track")]
+		return "Attack track %s · %s" % [number, u.attack_phase.to_lower()]
 	if weapon_manager != null:
 		for w in weapon_manager.in_flight:
 			if w.phase != Weapon.Phase.DEAD and w.shooter == u and w.target_track != null and not w.is_interceptor():
@@ -268,6 +279,8 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 		return "Investigate track %s" % track_number_for_track(u.investigation_track)
 	if u.investigation_result != "":
 		return "Track %s: %s" % [MapSymbols.track_number(u.investigation_track_id), u.investigation_result]
+	if u.attack_result != "":
+		return "Track %s: %s" % [MapSymbols.track_number(u.attack_track_id), u.attack_result]
 	if u.is_aircraft():
 		match u.flight_state:
 			Unit.FlightState.STOWED:

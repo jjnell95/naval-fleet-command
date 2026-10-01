@@ -11,6 +11,7 @@ func run(scene_tree: SceneTree) -> void:
 	tree = scene_tree
 	capture = OS.get_cmdline_user_args().has("--capture")
 	DirAccess.make_dir_recursive_absolute("res://work/m32")
+	CommanderLog.path_override = "res://work/m32/commander_log.json"  # never the developer's own record
 	errors = load("res://tests/test_error_log.gd").new()
 	OS.add_logger(errors)
 	main = load("res://scenes/main/Main.tscn").instantiate()

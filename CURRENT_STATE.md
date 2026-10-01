@@ -1,4 +1,14 @@
-# Current State: M33 Command Intent
+# Current State: M34 The Command Loop
+
+Research into the 1999 original's manual and reviews found that the project had rebuilt Fleet Command's screen but not its command loop; the [research note](docs/2026-10-01-fleet-command-command-loop.md) gives the sources, the diagnosis and the ranked remaining gaps.
+
+A right-click on a hostile contact now orders a standing **Attack**: the hooked platforms close to their best weapon's range (INTERCEPT TRACK on the orders line), fire, let the salvo land and read the plot, and keep firing until the contact is destroyed or lost, the magazines are empty or weapons are put on hold, moving on to the next weapon when one runs out. A right-click on an unidentified contact investigates it, the cursor says which, and Shift+right-click opens the contact menu, which now leads with **Attack track N** and **Attack with**. The task reads only the held plot and never fires at a stale one.
+
+The operations desk opens on the 14 authored operations again, with **Training** and **My Missions** beside them. Every mission ends with a graded mission effectiveness (task 60 on a win only, force 20, attrition 20, less 25 per neutral the player sinks and a pro-rata share for one damaged; before that penalty a victory grades 60–100% and a defeat 0–40%), and a commander's log keeps each operation's best result and date, shown on the desk.
+
+Validation is recorded in [validation-m34.json](docs/validation-m34.json).
+
+# Previous: M33 Command Intent
 
 Contact inspection now drives data and 3D without discarding selected shooters. A direct contact-menu shot states its finite salvo and checks current ROE, range, guidance and ammunition. Persistent Investigate orders follow only held track positions and end on classification or unavailable/blocked contact, with attributed radio reports. Normal navigation and accepted aircraft recovery supersede them; fixed-wing aircraft retain forward flight.
 

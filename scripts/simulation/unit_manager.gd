@@ -5,8 +5,32 @@ extends Node
 signal unit_added(unit: Unit)
 signal order_issued(unit: Unit, order: Order)
 signal investigation_ended(unit: Unit, track: Track, reason: String)
+## An attack task finished on its own: "Target destroyed", "Contact lost", "Magazines empty",
+## "Weapons hold", "Launchers damaged" or an availability reason. Replacing it with another order
+## is silent, as it is for an investigation.
+signal attack_ended(unit: Unit, track: Track, reason: String)
+
+## How far inside a weapon's reach an attacking platform settles: on the edge of the envelope a
+## target that opens a few knots is out of range again before the salvo is away. GAMEPLAY.
+const ATTACK_STANDOFF_FRACTION := 0.8
+## A pause between salvos at the same contact, to let the plot show what the last one did.
+const ATTACK_ASSESS_S := 20.0
+## An attack held this long without being able to fire or close ends with the reason, rather
+## than parking the platform indefinitely. GAMEPLAY.
+const ATTACK_STALL_S := 180.0
 
 var units: Array[Unit] = []
+## The attack task fires through here. Simulation sets it; a unit manager without one can still
+## steer an attack but never shoots.
+var weapon_manager: WeaponManager:
+	set(value):
+		if weapon_manager != null and weapon_manager.unit_destroyed.is_connected(_on_unit_destroyed):
+			weapon_manager.unit_destroyed.disconnect(_on_unit_destroyed)
+		weapon_manager = value
+		if weapon_manager != null:
+			weapon_manager.unit_destroyed.connect(_on_unit_destroyed)
+## Simulation time as of the last tick, for the attack task's firing checks and salvo pacing.
+var now_s := 0.0
 var _next_id := 1
 
 
@@ -17,13 +41,16 @@ func add_unit(u: Unit) -> void:
 	unit_added.emit(u)
 
 
-func tick(dt: float) -> void:
+## `now` is the simulation clock; a caller without one (the tests) lets the manager keep its own.
+func tick(dt: float, now := -1.0) -> void:
+	now_s = now if now >= 0.0 else now_s + dt
 	Formation.update_speed_caps(units)
 	for u in units:
 		if not u.alive:
 			continue
 		DefensiveResponse.tick(u, dt)
 		_step_investigation(u, dt)
+		_step_attack(u, dt)
 		Formation.step(u)
 		Movement.step(u, dt)
 
@@ -48,6 +75,8 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 	match order.type:
 		Order.Type.INVESTIGATE:
 			return investigation_rejection(u, order.track) == ""
+		Order.Type.ATTACK:
+			return attack_rejection(u, order.track, order.weapon_id) == ""
 		Order.Type.PATROL:
 			return patrol_rejection(u, order.route) == ""
 		Order.Type.DEPLOY_COUNTERMEASURES:
@@ -151,6 +180,247 @@ static func _hold_investigation_position(u: Unit) -> void:
 	u.ordered_speed_kn = maxf(u.investigation_speed_kn, u.spec.cruise_speed_kn) if u.is_aircraft() and not u.spec.can_hover else 0.0
 
 
+# --- The attack task ---------------------------------------------------------------------
+
+## Why this platform cannot take an attack order on this contact, or "" when it can. Uses only
+## what the unit's faction holds: the plot's position, identity and classification. A named
+## weapon must be aboard, loaded and suited to the contact; otherwise the best one is chosen later.
+static func attack_rejection(u: Unit, track: Track, weapon_id := "") -> String:
+	if u == null or not u.alive or not u.is_engageable():
+		return "Select a deployed platform"
+	if u.weapons.is_empty():
+		return "No weapons aboard"
+	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
+		return "Aircraft must be airborne and available for tasking"
+	if track == null or (track.owner_faction != "" and track.owner_faction != u.faction):
+		return "Contact is not available to this unit"
+	if track.status == Track.Status.LOST:
+		return "Contact lost"
+	if not track.visible_to(u):
+		return "Contact is not available to this unit"
+	if track.identity in ["NEUTRAL", "FRIENDLY"]:
+		return "Protected identity"
+	if u.roe == Unit.Roe.HOLD:
+		return "Weapons hold"
+	if u.roe == Unit.Roe.TIGHT and track.identity != "HOSTILE":
+		return "Identify contact first (weapons tight)"
+	if not track.position.is_finite():
+		return "Contact position unavailable"
+	if track.domain == "":
+		return "Identify contact first"
+	if weapon_id != "":
+		var spec := u.get_weapon(weapon_id)
+		if spec == null:
+			return "Weapon not aboard"
+		if not Combat.suits_track(spec, track):
+			return "Wrong weapon for contact"
+		if u.magazine_count(weapon_id) <= 0:
+			return "Magazine empty"
+		if track.is_bearing_only() and not spec.is_torpedo():
+			return "Contact range unresolved"
+		return ""
+	var suitable := u.weapons_for_track(track)
+	if suitable.is_empty():
+		var any_fit := false
+		for spec: WeaponSpec in u.weapons:
+			if Combat.suits_track(spec, track):
+				any_fit = true
+				break
+		return "Magazines empty" if any_fit else "No suitable weapon aboard"
+	if track.is_bearing_only():
+		for spec: WeaponSpec in suitable:
+			if spec.is_torpedo():
+				return ""
+		return "Contact range unresolved"
+	return ""
+
+
+## One step of the standing attack. Rounds in flight are left to arrive; then the shot is checked
+## again, the best weapon chosen, fired when the envelope allows, and the platform steered to a
+## standoff inside that envelope when it does not. The contact's position is the held plot.
+func _step_attack(u: Unit, dt: float) -> void:
+	var track := u.attack_track
+	if track == null:
+		return
+	# Aviation may take over automatically for fuel. Do not overwrite its return/tanker route.
+	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
+		u.clear_attack()
+		return
+	var reason := attack_rejection(u, track, u.attack_weapon_id)
+	if reason != "":
+		_end_attack(u, track, reason)
+		return
+	if u.evasion_remaining_s > 0.0:
+		return  # evasion outranks the task and hands back to it afterwards
+	var away := _rounds_away(u, track)
+	if away > 0:
+		u.attack_phase = "Engaging track · %d round%s away" % [away, "" if away == 1 else "s"]
+		u.attack_assess_until_s = -1.0
+		_steer_attack(u, track, u.attack_standoff_nm, dt)
+		return
+	if u.attack_rounds_fired > 0:
+		# The salvo has arrived. Read the plot for a moment before spending more.
+		if u.attack_assess_until_s < 0.0:
+			u.attack_assess_until_s = now_s + ATTACK_ASSESS_S
+		if now_s < u.attack_assess_until_s:
+			u.attack_phase = "Engaging track · assessing"
+			_steer_attack(u, track, u.attack_standoff_nm, dt)
+			return
+	var solution := _attack_solution(u, track)
+	var spec: WeaponSpec = solution["spec"]
+	if spec == null:
+		_end_attack(u, track, "Magazines empty")
+		return
+	var check: Dictionary = solution["check"]
+	if bool(check["ok"]):
+		if track.status != Track.Status.ACTIVE:
+			# Never shoot at a stale plot: the aim point would be old. Close on it instead.
+			u.attack_phase = "Intercept track · contact stale"
+			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * Combat.effective_range_nm(u, spec), dt)
+			return
+		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
+		if weapon_manager != null and weapon_manager.launch(u, spec, track, salvo, now_s):
+			u.attack_rounds_fired += salvo
+			u.attack_assess_until_s = -1.0
+			u.attack_stall_s = 0.0
+			u.attack_standoff_nm = ATTACK_STANDOFF_FRACTION * Combat.effective_range_nm(u, spec)
+			u.attack_phase = "Engaging track"
+			_steer_attack(u, track, u.attack_standoff_nm, dt)
+		else:
+			u.attack_phase = "Engaging track · awaiting launcher"
+		return
+	var why := str(check["reason"])
+	var reach := Combat.effective_range_nm(u, spec)
+	var range_nm := u.position.distance_to(track.position)
+	match why:
+		"OUT OF RANGE", "BEARING ONLY / NO RANGE SOLUTION", "NO INTERCEPT SOLUTION":
+			u.attack_phase = "Intercept track"
+			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * reach, dt)
+		"INTERCEPT BEYOND WEAPON RANGE":
+			# In reach of the plot but not of where the contact will be: it is opening. Keep
+			# closing on it rather than holding at a standoff the lead point never enters.
+			u.attack_phase = "Intercept track"
+			_steer_attack(u, track, maxf(range_nm * 0.5, spec.min_range_nm * 1.5 + 0.5), dt)
+		"NO LINE OF FIRE":
+			# Land between the shooter and the round's path: move to water with an open line.
+			var clear := Combat.clear_standoff_point(u.position, track.position, ATTACK_STANDOFF_FRACTION * reach)
+			if not clear.is_finite() or u.spec.max_speed_kn <= 0.0:
+				_end_attack(u, track, "No line of fire")
+				return
+			u.attack_phase = "Intercept track · clearing the line of fire"
+			u.waypoints.assign([clear])
+			u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn) if u.is_aircraft() and not u.spec.can_hover else u.attack_speed_kn
+		"TOO CLOSE":
+			u.attack_phase = "Opening to range"
+			_steer_attack(u, track, maxf(spec.min_range_nm * 1.5, 1.0), dt, true)
+		"MAGAZINE EMPTY":
+			_end_attack(u, track, "Magazines empty")
+			return
+		"LAUNCHERS DAMAGED":
+			_end_attack(u, track, "Launchers damaged")
+			return
+		"WEAPONS HOLD":
+			_end_attack(u, track, "Weapons hold")
+			return
+		"TRACK LOST":
+			_end_attack(u, track, "Contact lost")
+			return
+		_:
+			# Fire control saturated, guidance unavailable: hold the geometry and try again.
+			u.attack_phase = "Attack track · " + why.to_lower()
+			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * reach, dt)
+	# Unable to fire and going nowhere: after a while, say why and stop, rather than park.
+	if u.waypoints.is_empty():
+		u.attack_stall_s += dt
+		if u.attack_stall_s >= ATTACK_STALL_S:
+			_end_attack(u, track, "Cannot engage: " + why.to_lower())
+	else:
+		u.attack_stall_s = 0.0
+
+
+## The weapon the attack would fire now: the named one, else the first that can be fired in the
+## order weapons_for_track ranks them (longest reach first, guns last). When none can, the most
+## preferred one's refusal decides what the platform does about it.
+func _attack_solution(u: Unit, track: Track) -> Dictionary:
+	var candidates: Array[WeaponSpec] = []
+	if u.attack_weapon_id != "":
+		var named := u.get_weapon(u.attack_weapon_id)
+		if named != null and u.magazine_count(named.id) > 0:
+			candidates.append(named)
+	else:
+		candidates = u.weapons_for_track(track)
+		if track.is_bearing_only():
+			# Only a torpedo can run down a bearing; preferring a longer-reach rocket would park the
+			# platform outside torpedo range waiting for a range it does not have.
+			candidates = candidates.filter(func(spec: WeaponSpec) -> bool: return spec.is_torpedo())
+	var first: WeaponSpec = null
+	var first_check := {}
+	for spec: WeaponSpec in candidates:
+		var check := weapon_manager.engagement_check(u, spec, track, now_s) if weapon_manager != null else Combat.check_engagement(u, spec, track)
+		if bool(check["ok"]):
+			return {"spec": spec, "check": check}
+		if first == null:
+			first = spec
+			first_check = check
+	return {"spec": first, "check": first_check}
+
+
+## Own rounds queued or flying at this contact.
+func _rounds_away(u: Unit, track: Track) -> int:
+	if weapon_manager == null:
+		return 0
+	var count := 0
+	for spec: WeaponSpec in u.weapons:
+		count += weapon_manager.committed_rounds(u, spec, track)
+	return count
+
+
+## Steer to the standoff distance along the bearing to the plot, or hold there. A fixed-wing
+## aircraft cannot hold a point, so it keeps flying and comes round again on later ticks.
+## `opening` steers out to the standoff from inside it, for a weapon's minimum range.
+func _steer_attack(u: Unit, track: Track, standoff_nm: float, dt: float, opening := false) -> void:
+	if u.spec.max_speed_kn <= 0.0:
+		return  # an installation ashore attacks from where it stands
+	var range_nm := u.position.distance_to(track.position)
+	var fixed_wing := u.is_aircraft() and not u.spec.can_hover
+	var arrive := maxf(Movement.ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
+	if opening and range_nm < standoff_nm:
+		u.waypoints.assign([Combat.standoff_point(u.position, track.position, standoff_nm + arrive)])
+		u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn)
+		return
+	if standoff_nm <= 0.0 or range_nm <= standoff_nm + arrive:
+		# Inside the envelope: hold here, as an investigating ship holds at the plot. A
+		# fixed-wing aircraft cannot, so it flies on and comes round again.
+		u.waypoints.clear()
+		u.ordered_heading_deg = u.heading_deg
+		u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn) if fixed_wing else 0.0
+		return
+	var goal := Combat.standoff_point(u.position, track.position, standoff_nm)
+	u.waypoints.assign([goal])
+	u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn) if fixed_wing else u.attack_speed_kn
+
+
+func _end_attack(u: Unit, track: Track, reason: String) -> void:
+	u.attack_track = null
+	u.attack_phase = ""
+	u.attack_result = reason
+	u.attack_assess_until_s = -1.0
+	u.waypoints.clear()
+	u.ordered_heading_deg = u.heading_deg
+	if u.is_aircraft() and not u.spec.can_hover:
+		u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn)
+	attack_ended.emit(u, track, reason)
+
+
+## The plot does not expire a track just because the ship under it sank, so the attack is ended
+## here, by the manager that owns the ground truth, for every platform attacking that unit. The
+## task's own steps never read the association; this is the one place it is consulted.
+func _on_unit_destroyed(target: Unit, _killer_faction: String) -> void:
+	for u in units:
+		if u.alive and u.attack_track != null and u.attack_track.truth == target:
+			_end_attack(u, u.attack_track, "Target destroyed")
+
+
 ## Validate the entire circuit before changing any standing order. No partial patrol over land.
 static func patrol_rejection(u: Unit, points: Array[Vector2], speed_kn := -1.0) -> String:
 	if u == null or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
@@ -207,6 +477,7 @@ func clear() -> void:
 	# reference to its carrier; dropping the array alone leaks both on every restart.
 	for u in units:
 		u.clear_investigation()
+		u.clear_attack()
 		u.home = null
 		u.recovery_base = null
 		u.embarked.clear()

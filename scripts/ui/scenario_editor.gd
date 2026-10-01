@@ -1360,6 +1360,11 @@ func _forces_summary() -> String:
 	return " / ".join(parts)
 
 
+## The custom mission file this editor last opened or saved, or "".
+func opened_path() -> String:
+	return _opened_path
+
+
 func save() -> bool:
 	var problem := validate()
 	if problem != "":

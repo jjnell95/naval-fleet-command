@@ -49,6 +49,7 @@ var _world_full := false
 var _cds_menus: CdsMenus
 var _key_help: KeyCommands
 var _command_taken := false  # the player has taken command of the loaded operation
+var _scripted_session := false  # a dev-harness run: graded on the debrief, never logged
 var _restart_armed_ms := -100000
 const RESTART_CONFIRM_MS := 4000
 var _world_view: WorldView
@@ -129,6 +130,8 @@ func _ready() -> void:
 	map.move_order_requested.connect(_on_move_order_requested)
 	map.patrol_order_requested.connect(_apply_order_to_selection)
 	map.engage_requested.connect(_on_engage_requested)
+	map.attack_requested.connect(func(t: Track) -> void: _apply_order_to_selection(Order.attack(t)))
+	map.investigate_requested.connect(func(t: Track) -> void: _apply_order_to_selection(Order.investigate(t)))
 	map.waypoint_delete_requested.connect(_on_waypoint_delete_requested)
 	map.interaction_mode_changed.connect(orders_panel.set_move_mode)
 	orders_panel.order_requested.connect(_apply_order_to_selection)
@@ -201,6 +204,14 @@ func _ready() -> void:
 		if reason == "Contact classified":
 			report += " — " + t.description()
 		radio.flash(report, "good" if reason == "Contact classified" else "warn", u))
+	simulation.unit_manager.attack_ended.connect(func(u: Unit, t: Track, reason: String) -> void:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player:
+			return
+		var number := DataDisplay.track_number_for_track(t)
+		if reason == "Target destroyed":
+			radio.flash("Attack on track %s complete — target destroyed, %d rounds fired" % [number, u.attack_rounds_fired], "good", u)
+		else:
+			radio.flash("Attack on track %s ended: %s" % [number, reason.to_lower()], "warn", u))
 
 	move_child(_library, get_child_count() - 1)
 	var args := OS.get_cmdline_user_args()
@@ -214,6 +225,7 @@ func _ready() -> void:
 			start_path = a.get_slice("=", 1)
 		elif a.begins_with("--fastforward=") or a.begins_with("--perf="):
 			scripted = true
+	_scripted_session = scripted
 	if args.has("--autopilot"):
 		simulation.ai_plays_player = true
 	# Must be set before the scenario loads, since that is when the generators are seeded.
@@ -427,7 +439,11 @@ func _build_screens() -> void:
 	_editor.play_requested.connect(func(path: String) -> void:
 		start_scenario(path)
 		_show_briefing())
-	_editor.closed.connect(_show_menu)
+	_editor.closed.connect(func() -> void:
+		_show_menu()
+		var saved := _editor.opened_path()
+		if saved != "" and saved.begins_with(ScenarioIndex.user_root()):
+			_menu.show_saved(saved))
 	add_child(_editor)
 	_editor.hide()
 
@@ -508,7 +524,7 @@ func _show_menu() -> void:
 	# Returning to the chart only makes sense once the player has taken command; before that it
 	# would skip the briefing.
 	_menu.allow_back(_command_taken)
-	_menu.refresh(simulation.scenario_path)
+	_menu.refresh(simulation.scenario_path, _command_taken)
 	_menu.show()
 	_menu.call_deferred("focus_default")
 
@@ -1415,7 +1431,13 @@ func _on_mission_ended(result: String, summary: String) -> void:
 	var objectives: Array = []
 	objectives.append_array(mm.victory_objectives)
 	radio.flash(result, "good" if result == "VICTORY" else "alert")
-	_report.show_report(result, summary, _stats, objectives, _losses, _kills, SimClock.sim_time, radio.journal, _civilian_incidents, mm.loss_objectives, radio.journal_omitted)
+	var assessment := mm.assessment()
+	# The log is the commander's record: a mission the AI fought for the player, or one ended
+	# before anyone took command (a harness), is graded on the debrief but not entered.
+	# The log records when the commander set the score, as the 1999 log did, not the operation's date.
+	var logged := CommanderLog.record(str(simulation.scenario.get("id", "")), result, int(assessment["percent"]), Time.get_datetime_string_from_system(false, true)) if _command_taken and not simulation.ai_plays_player and not _scripted_session else {}
+	radio.flash("Mission effectiveness %d%%%s" % [int(assessment["percent"]), " — a new best" if bool(logged.get("improved", false)) and int(logged.get("attempts", 1)) > 1 else ""], "good" if int(assessment["percent"]) >= 50 else "warn")
+	_report.show_report(result, summary, _stats, objectives, _losses, _kills, SimClock.sim_time, radio.journal, _civilian_incidents, mm.loss_objectives, radio.journal_omitted, assessment, logged)
 	SoundFx.play("victory" if result == "VICTORY" else "defeat")
 	Debug.event("[Mission] %s — %s" % [result, summary])
 	_briefing.set_mode(false)
@@ -1506,9 +1528,11 @@ func _run_cds_action(action: Dictionary) -> void:
 			if map.selected_track != t:
 				map.select_track(t)
 			_apply_order_to_selection(Order.engage(t, str(action["weapon"]), int(action["rounds"])))
-		"close_in":
+		"attack":
 			var t: Track = action["track"]
-			_apply_order_to_selection(Order.investigate(t))
+			if map.selected_track != t:
+				map.select_track(t)
+			_apply_order_to_selection(Order.attack(t, str(action.get("weapon", ""))))
 		"investigate":
 			_apply_order_to_selection(Order.investigate(action["track"]))
 		"waypoint_delete":
@@ -1642,6 +1666,9 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 		if order.type == Order.Type.INVESTIGATE and not map.selected.is_empty():
 			radio.flash(UnitManager.investigation_rejection(map.selected[0], order.track), "warn")
 			return
+		if order.type == Order.Type.ATTACK and not map.selected.is_empty():
+			radio.flash("Cannot attack track %s: %s" % [DataDisplay.track_number_for_track(order.track), UnitManager.attack_rejection(map.selected[0], order.track, order.weapon_id).to_lower()], "warn", map.selected[0] if map.selected.size() == 1 else null)
+			return
 		if order.type == Order.Type.SET_SPEED and map.selected.any(func(u: Unit) -> bool: return u.patrol_active):
 			radio.flash("Speed refused: allow more turning room in the patrol area, or assign a transit route", "warn")
 			return
@@ -1665,6 +1692,9 @@ static func _order_acknowledgement(order: Order) -> String:
 			return "Establishing patrol, aye"
 		Order.Type.INVESTIGATE:
 			return "Investigating track %s" % DataDisplay.track_number_for_track(order.track)
+		Order.Type.ATTACK:
+			var chosen := DataDB.weapon(order.weapon_id) if order.weapon_id != "" else null
+			return "Attacking track %s%s" % [DataDisplay.track_number_for_track(order.track), " with %s" % chosen.compact_name() if chosen != null else ""]
 		Order.Type.ENGAGE:
 			var weapon := DataDB.weapon(order.weapon_id)
 			return "Engaging track %s, %d × %s" % [DataDisplay.track_number_for_track(order.track), order.salvo, weapon.compact_name() if weapon != null else order.weapon_id]

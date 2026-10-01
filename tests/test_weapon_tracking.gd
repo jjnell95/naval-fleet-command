@@ -33,6 +33,9 @@ func _round(target: Unit, terminal := true) -> Weapon:
 func _manager(target: Unit, w: Weapon) -> WeaponManager:
 	Terrain.clear()
 	var wm := WeaponManager.new()
+	# Interception is capped at 95% (Combat.intercept_probability), so an unseeded manager made
+	# the crossing-shot test fail about one run in twenty. A fixed seed keeps the geometry under test.
+	wm.rng.seed = 7
 	wm.unit_manager = UnitManager.new()
 	wm.unit_manager.add_unit(target)
 	wm.in_flight.append(w)

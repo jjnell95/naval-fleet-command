@@ -54,7 +54,6 @@ const PATROL_ARRIVAL_NM := 4.0
 ## A ship at 30 kn turning at 3 deg/s eats a quarter of a mile getting ninety degrees round, so an
 ## avoidance bearing has to look further ahead than that or it orders a turn that cannot be made.
 const COAST_LOOKAHEAD_S := 120.0  # GAMEPLAY_ESTIMATE
-const STANDOFF_ARC_DEG: Array[float] = [0.0, 25.0, 50.0, 75.0, 100.0, 130.0, 160.0]
 
 var faction := ""
 var unit_manager: UnitManager
@@ -773,15 +772,7 @@ func _sea_room(u: Unit, goal: Vector2) -> Vector2:
 ## ashore, the range is what matters, so the point slides around the ring rather than in towards
 ## the beach.
 func _standoff_point(u: Unit, target_pos: Vector2, standoff_nm: float) -> Vector2:
-	var offset := (u.position - target_pos).normalized() * standoff_nm
-	if Terrain.is_empty():
-		return target_pos + offset
-	for step: float in STANDOFF_ARC_DEG:
-		for side: float in [1.0, -1.0]:
-			var candidate := target_pos + offset.rotated(deg_to_rad(step * side))
-			if not Terrain.is_land(candidate):
-				return candidate
-	return target_pos + offset
+	return Combat.standoff_point(u.position, target_pos, standoff_nm)
 
 
 func _open_bearing(u: Unit, wanted_deg: float) -> float:

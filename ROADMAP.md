@@ -19,6 +19,10 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M34 The command loop
+
+The standing Attack order, right-click defaults with cursor feedback, the authored operations back on the front door, mission effectiveness and the commander's log. See [the research note](docs/2026-10-01-fleet-command-command-loop.md), which ranks what is still missing against the 1999 original. In order: a crew you can hear (spoken acknowledgements and an ambient bed, with interface advice moved off the radio line); global game options with a Classic preset (player-managed missile defence, a 4× time ceiling); tasking and intelligence that arrive mid-mission, with hidden objectives and seeded random starts; aircraft launched to a mission (CAP stations, identification sweeps, strikes, rally points, Return to Station); a campaign with effectiveness gates, after mid-mission save; an Action camera that reaches the whole battle; a fuller contact readout (sensor and platform source, estimated damage, hover-to-read, F7 to the contact's entry); stations and group attack; tutorials taught by doing; and a debrief replay of the truth.
+
 ## M32 Command Watch
 
 Repeating player patrol areas, a persistent command strip, a more legible relief chart, maritime daylight and three original escort models improve the fleet-command experience. Patrols integrate with movement, emissions, fuel, recovery, formation and evasion. See the [M32 guide](docs/2026-09-30-command-watch.md).

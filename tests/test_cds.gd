@@ -340,8 +340,16 @@ func test_quick_engagement_exposes_finite_shooter_orders_without_nested_menu() -
 	target.classification = Track.Classification.SURFACE
 	var before := shooter.magazines.duplicate()
 	var items := CdsMenus.engage_items([shooter], target, true)
-	var direct: Dictionary = items[1]
-	assert_true(str(direct["text"]).begins_with("Fire "), "the first command is a direct, visibly quantified engagement")
+	var attack: Dictionary = items[1]
+	assert_true(str(attack["text"]).begins_with("Attack track 1095"), "the first command is the standing attack")
+	assert_eq(attack["action"]["kind"], "attack")
+	assert_eq(attack["action"]["track"], target)
+	var with_weapons := _find(items, "Attack with")
+	assert_eq((with_weapons["children"] as Array).size(), shooter.weapons_for_track(target).size(), "a chosen-weapon attack per suitable weapon")
+	assert_eq(with_weapons["children"][0]["action"]["kind"], "attack")
+	assert_true(str(with_weapons["children"][0]["action"]["weapon"]) != "")
+	var direct: Dictionary = items[3]
+	assert_true(str(direct["text"]).begins_with("Fire "), "then the direct, visibly quantified finite salvo")
 	assert_eq(direct["action"]["kind"], "unit_orders")
 	var pair: Array = direct["action"]["pairs"][0]
 	var order: Order = pair[1]
@@ -369,6 +377,49 @@ func test_quick_engagement_omits_blocked_shooters_and_caps_each_magazine() -> vo
 	assert_eq((pairs[0][1] as Order).salvo, 1, "a partial magazine gets only its available round")
 	assert_true(str(direct["text"]).contains("Fire 1 ×"))
 	assert_true(str(direct["text"]).ends_with("from 1 platform"))
+
+
+func test_attack_item_is_greyed_with_the_reason_and_counts_able_shooters() -> void:
+	var shooter := _unit()
+	var neutral := _track("T1090", "NEUTRAL", Vector2(20, 0))
+	neutral.domain = "surface"
+	var blocked := CdsMenus.attack_item([shooter], neutral)
+	assert_true(bool(blocked["disabled"]))
+	assert_eq(blocked["tooltip"], "Protected identity")
+	assert_eq(blocked["action"], {})
+	var hostile := _track("T1091", "HOSTILE", Vector2(20, 0))
+	hostile.domain = "surface"
+	var held := _unit()
+	held.roe = Unit.Roe.HOLD
+	var pair := CdsMenus.attack_item([shooter, held], hostile)
+	assert_eq(pair["text"], "Attack track 1091 with 1 of 2 platforms", "a group order says how many can carry it out")
+	assert_true(not bool(pair["disabled"]))
+	var unknown := _track("T1092", "UNKNOWN", Vector2(20, 0))
+	var identify := CdsMenus.attack_item([shooter], unknown)
+	assert_true(bool(identify["disabled"]))
+	assert_eq(identify["tooltip"], "Identify contact first")
+
+
+func test_orders_text_narrates_the_standing_attack() -> void:
+	var u := _unit()
+	var t := _track("T1077", "HOSTILE", Vector2(40, 0))
+	u.attack_track = t
+	u.attack_track_id = t.id
+	u.attack_phase = "Intercept track"
+	assert_eq(DataDisplay.orders_text(u), "Intercept track 1077")
+	u.attack_phase = "Engaging track · 2 rounds away"
+	assert_eq(DataDisplay.orders_text(u), "Engage track 1077 · 2 rounds away")
+	u.attack_phase = "Attack track · fire control saturated"
+	assert_eq(DataDisplay.orders_text(u), "Attack track 1077 · fire control saturated")
+	u.attack_phase = "Opening to range"
+	assert_eq(DataDisplay.orders_text(u), "Attack track 1077 · opening to range")
+	u.attack_track = null
+	u.attack_phase = ""
+	u.attack_result = "Target destroyed"
+	u.ordered_speed_kn = 0.0
+	assert_eq(DataDisplay.orders_text(u), "Track 1077: Target destroyed", "the result stays readable until the next order")
+	u.clear_attack()
+	assert_eq(DataDisplay.orders_text(u), "Hold position")
 
 
 func test_quick_engagement_gives_visible_reasons_and_preserves_protected_identities() -> void:
@@ -425,8 +476,10 @@ func test_cds_menu_reflects_layer_state() -> void:
 
 func test_key_commands_board_lists_the_cds_bindings() -> void:
 	var keys := " | ".join(KeyCommands.all_keys())
-	for binding in ["Space", "G", "F10", "T", "F9 / F11 / F12 / F8", "A", "Tab", "H", "W", "Ctrl+K", "Ctrl+F10 twice", "Right-click"]:
+	for binding in ["Space", "G", "F10", "T", "F9 / F11 / F12 / F8", "A", "Tab", "H", "W", "Ctrl+K", "Ctrl+F10 twice", "Right-click", "Shift+right-click"]:
 		assert_true(keys.contains(binding), "the key board lists %s" % binding)
+	var rows := " | ".join(KeyCommands.all_rows())
+	assert_true(rows.contains("Hostile: attack") and rows.contains("Unknown: investigate"), "the board states the right-click defaults the chart delivers")
 
 
 func test_under_the_layer_is_greyed_with_the_reason_where_there_is_no_layer() -> void:

@@ -6,8 +6,12 @@ static func run(main: Main) -> void:
 	var checks: Dictionary = {}
 	main._show_menu()
 	await main.get_tree().process_frame
-	checks["custom library is the default front door"] = main._menu._era == "custom"
-	checks["normal mission shelf contains only custom files"] = main._menu._entries.all(func(e: Dictionary) -> bool: return e["custom"])
+	checks["authored operations are the default front door"] = main._menu._era == "operations"
+	checks["operations shelf holds only authored operations, newest era first"] = main._menu._entries.size() == 14 and main._menu._entries.all(func(e: Dictionary) -> bool: return not e["custom"]) and int(main._menu._entries[0]["year"]) == 2027 and int(main._menu._entries[-1]["year"]) == 1990
+	main._menu._set_era("training")
+	checks["training shelf holds the exercises and Northern Passage"] = main._menu._entries.size() == 9 and main._menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
+	main._menu._set_era("custom")
+	checks["custom shelf contains only custom files"] = main._menu._entries.all(func(e: Dictionary) -> bool: return e["custom"])
 	main._show_editor()
 	var editor := main._editor
 	var recipe := {"seed": 92729, "blue_ships": 14, "red_ships": 12, "blue_carriers": 1, "red_carriers": 1, "blue_subs": 2, "red_subs": 2, "aircraft_per_carrier": 12}
@@ -84,6 +88,10 @@ static func run(main: Main) -> void:
 	checks["second save updates the opened mission"] = editor.save() and editor._opened_path == first_path
 	editor.select_unit(0)
 	await _shot(main, "workshop-editor")
+	editor.closed.emit()
+	await main.get_tree().process_frame
+	checks["closing the editor after a save lands on the saved mission"] = main._menu.visible and main._menu._era == "custom" and main._menu._entries.any(func(e: Dictionary) -> bool: return e["path"] == first_path) and main._menu._mission_title.text != "CREATE YOUR FIRST MISSION"
+	checks["the commander's log sits beside the isolated library, not in it"] = CommanderLog.path() == ScenarioIndex.user_root().trim_suffix("/") + ".commander_log.json"
 	main.start_scenario(first_path)
 	main._show_briefing()
 	checks["custom mission enters its paused briefing"] = main._briefing.visible and SimClock.paused

@@ -168,6 +168,187 @@ func test_unknown_objective_type_does_not_complete() -> void:
 
 # --- Shipped scenarios -------------------------------------------------------------------
 
+# --- Mission effectiveness and the commander's log ----------------------------------------
+
+func _category(u: Unit, category: String) -> Unit:
+	u.spec.category = category
+	return u
+
+
+func test_effectiveness_grades_task_force_and_attrition() -> void:
+	var escort := _category(_unit("BLUE", "Escort", Vector2.ZERO), "frigate")
+	var raider := _category(_unit("RED", "Raider", Vector2(0.0, 10.0), 100.0), "destroyer")
+	var h := _mission([escort, raider], {"victory": [{"type": "force_destroyed", "faction": "RED", "text": "Destroy the raider"}]})
+	var mm: MissionManager = h[1]
+	mm.tick(0.0)
+	var a := mm.assessment()
+	assert_eq(a["task_done"], 0)
+	assert_eq(a["hostile_points"], 400)
+	assert_eq(a["friendly_points"], 250)
+	assert_eq(a["percent"], 20, "nothing done yet: only the intact force counts")
+	Damage.apply(raider, 50.0, "asm", "BLUE")
+	a = mm.assessment()
+	assert_near(float(a["attrition"]), 10.0, 0.01, "half the raider's points for half its health")
+	assert_eq(a["percent"], 30)
+	Damage.apply(raider, 500.0, "asm", "BLUE")
+	mm.tick(10.0)
+	assert_eq(mm.result, MissionManager.Result.VICTORY)
+	a = mm.assessment()
+	assert_eq(a["percent"], 100, "task done, force intact, enemy sunk")
+	assert_eq(MissionManager.assessment_text(a), "Task 60/60 · Force 20/20 · Attrition 20/20 = 100%")
+	_cleanup(h)
+
+
+func test_effectiveness_charges_own_losses_and_neutral_sinkings() -> void:
+	var escort := _category(_unit("BLUE", "Escort", Vector2.ZERO), "frigate")
+	var convoy := _category(_unit("BLUE", "Maud", Vector2(1.0, 0.0)), "merchant")
+	var raider := _category(_unit("RED", "Raider", Vector2(0.0, 10.0)), "corvette")
+	var trawler := _category(_unit("NEUTRAL", "Trawler", Vector2(5.0, 5.0)), "fishing vessel")
+	var um := UnitManager.new()
+	for u: Unit in [escort, convoy, raider, trawler]:
+		um.add_unit(u)
+	var mm := MissionManager.new()
+	mm.unit_manager = um
+	mm.player_faction = "BLUE"
+	mm.configure({"id": "test", "neutral_factions": ["NEUTRAL"], "objectives": {"victory": [{"type": "time_elapsed", "seconds": 3600.0, "text": "Survive"}], "loss": [{"type": "unit_lost", "callsigns": ["Maud"], "text": "Maud lost"}]}})
+	var a := mm.assessment()
+	assert_eq(a["friendly_points"], 550, "frigate 250 and merchant 300")
+	assert_eq(a["percent"], 20)
+	Damage.apply(convoy, 1000.0, "asm", "RED")
+	mm.tick(10.0)
+	assert_eq(mm.result, MissionManager.Result.DEFEAT)
+	a = mm.assessment()
+	assert_near(float(a["force"]), 20.0 * 250.0 / 550.0, 0.01, "the merchant's share of the force is gone")
+	assert_eq(a["percent"], 9)
+	Damage.apply(trawler, 1000.0, "asm", "BLUE")
+	a = mm.assessment()
+	assert_eq(a["neutral_hit"], 1)
+	assert_near(float(a["civilian"]), 25.0, 0.01, "a neutral sunk by the player's weapons costs a quarter of the scale")
+	assert_eq(a["percent"], 0, "and the grade cannot go below zero")
+	assert_true(MissionManager.assessment_text(a).contains("Civilian −25"))
+	Damage.apply(raider, 1000.0, "asm", "RED")
+	assert_eq(mm.assessment()["attrition"], 20.0, "an enemy lost to anyone counts: the sea is cleared")
+	mm.free()
+	um.free()
+
+
+func test_any_mode_victory_is_the_whole_task_and_a_defeat_earns_no_task_share() -> void:
+	var escort := _category(_unit("BLUE", "Escort", Vector2.ZERO), "frigate")
+	var kilo := _category(_unit("RED", "Kilo", Vector2(0.0, 10.0)), "diesel-electric submarine")
+	var h := _mission([escort, kilo], {"victory": [
+		{"id": "watch", "type": "time_elapsed", "seconds": 600.0, "text": "Hold the watch"},
+		{"id": "sink", "type": "all_units_lost", "callsigns": ["Kilo"], "text": "Sink the Kilo"}]})
+	var mm: MissionManager = h[1]
+	mm.victory_mode = "any"
+	mm.tick(700.0)
+	assert_eq(mm.result, MissionManager.Result.VICTORY, "holding the watch wins an any-mode mission")
+	var a := mm.assessment()
+	assert_eq(a["task"], MissionManager.TASK_WEIGHT, "one way of winning taken is the whole task")
+	assert_eq(a["percent"], 80, "a flawless watch: task and force, no attrition")
+	_cleanup(h)
+	var ship := _category(_unit("BLUE", "Escort", Vector2.ZERO), "frigate")
+	var raider := _category(_unit("RED", "Raider", Vector2(0.0, 10.0)), "corvette")
+	var convoy := _category(_unit("BLUE", "Maud", Vector2(1.0, 0.0)), "merchant")
+	var g := _mission([ship, raider, convoy], {
+		"victory": [{"id": "a", "type": "force_destroyed", "faction": "RED", "text": "Sink the raider"}, {"id": "b", "type": "time_elapsed", "seconds": 3600.0, "text": "Hold"}],
+		"loss": [{"type": "unit_lost", "callsigns": ["Maud"], "text": "Maud lost"}]})
+	var gm: MissionManager = g[1]
+	Damage.apply(raider, 1000.0, "asm", "BLUE")
+	gm.tick(10.0)
+	assert_eq(gm.assessment()["task_done"], 1, "half the task is done while running")
+	Damage.apply(convoy, 1000.0, "asm", "RED")
+	gm.tick(20.0)
+	assert_eq(gm.result, MissionManager.Result.DEFEAT)
+	var d := gm.assessment()
+	assert_eq(d["task"], 0.0, "a lost mission earns no task share")
+	assert_true(int(d["percent"]) <= int(MissionManager.FORCE_WEIGHT + MissionManager.ATTRITION_WEIGHT), "so a defeat never grades like a victory")
+	_cleanup(g)
+
+
+func test_aircraft_aboard_a_sunk_ship_count_as_lost_with_her() -> void:
+	var carrier := _category(_unit("BLUE", "Carrier", Vector2.ZERO), "carrier")
+	var fighter := _category(_unit("BLUE", "Fighter 1", Vector2.ZERO), "fighter")
+	fighter.spec.domain = "air"
+	fighter.flight_state = Unit.FlightState.STOWED
+	fighter.home = carrier
+	var h := _mission([carrier, fighter], {"victory": [{"type": "time_elapsed", "seconds": 99999.0, "text": "Hold"}]})
+	var mm: MissionManager = h[1]
+	assert_eq(mm.assessment()["friendly_lost"], 0.0)
+	Damage.apply(carrier, 1000.0, "asm", "RED")
+	assert_true(fighter.alive, "aviation has not swept the deck yet")
+	assert_near(float(mm.assessment()["friendly_lost"]), 1060.0, 0.01, "the carrier's 1000 and the fighter's 60 are both gone")
+	fighter.home = null
+	_cleanup(h)
+
+
+func test_platform_points_follow_category_then_domain_then_authored_value() -> void:
+	var spec := PlatformSpec.new()
+	spec.category = "carrier"
+	assert_eq(MissionManager.platform_points(spec), 1000)
+	spec.category = "an unusual hull"
+	spec.domain = "subsurface"
+	assert_eq(MissionManager.platform_points(spec), 300, "an unlisted category falls back to its domain")
+	assert_eq(MissionManager.platform_points(spec, 42), 42, "a scenario's own value wins")
+	assert_eq(MissionManager.platform_points(null), 0)
+	var sc := ScenarioLoader.load_file("res://data/scenarios/northern_passage.json")
+	var um := UnitManager.new()
+	ScenarioLoader.populate(um, sc)
+	var total := 0
+	for u: Unit in um.units:
+		total += MissionManager.platform_points(u.spec, u.points)
+	assert_true(total > 0, "every shipped unit is worth something")
+	um.free()
+
+
+func test_commander_log_keeps_the_best_result_and_counts_attempts() -> void:
+	CommanderLog.path_override = "user://test_commander_log.json"
+	CommanderLog.clear()
+	assert_eq(CommanderLog.best("op"), {})
+	var first := CommanderLog.record("op", "DEFEAT", 70, "2026-10-01T08:00:00Z")
+	assert_true(bool(first["improved"]))
+	assert_eq(int(first["attempts"]), 1)
+	var second := CommanderLog.record("op", "VICTORY", 60, "2026-10-01T09:00:00Z")
+	assert_true(bool(second["improved"]), "a victory outranks a defeat with a higher percentage")
+	var third := CommanderLog.record("op", "VICTORY", 55, "2026-10-01T10:00:00Z")
+	assert_true(not bool(third["improved"]))
+	var best := CommanderLog.best("op")
+	assert_eq(int(best["best_percent"]), 60)
+	assert_eq(best["result"], "VICTORY")
+	assert_eq(best["date"], "2026-10-01T09:00:00Z")
+	assert_eq(int(best["attempts"]), 3)
+	assert_eq(int(best["last_percent"]), 55)
+	assert_eq(CommanderLog.record("", "VICTORY", 90, ""), {}, "an unnamed scenario is not logged")
+	CommanderLog.clear()
+	assert_eq(CommanderLog.best("op"), {})
+	CommanderLog.path_override = ""
+
+
+func test_a_damaged_commander_log_reads_as_typed_entries_and_can_be_written_again() -> void:
+	CommanderLog.path_override = "user://test_commander_log_damaged.json"
+	var f := FileAccess.open(CommanderLog.path_override, FileAccess.WRITE)
+	f.store_string('{"op": {"best_percent": null, "result": 7, "attempts": "many"}, "junk": [1, 2], "big": {"best_percent": 400}}')
+	f.close()
+	var all := CommanderLog.load_all()
+	assert_true(not all.has("junk"), "a value that is not an entry is dropped")
+	assert_eq(all["op"]["best_percent"], 0, "a value that is not a number reads as none")
+	assert_eq(typeof(all["op"]["result"]), TYPE_STRING, "a result is always text")
+	assert_eq(all["op"]["attempts"], 1)
+	assert_eq(all["big"]["best_percent"], 100, "and a percentage stays a percentage")
+	var entry := CommanderLog.record("op", "VICTORY", 72, "2026-10-01 09:00:00")
+	assert_true(bool(entry["improved"]), "the damaged entry is replaced, not stuck")
+	assert_eq(int(CommanderLog.best("op")["best_percent"]), 72)
+	f = FileAccess.open(CommanderLog.path_override, FileAccess.WRITE)
+	f.store_string("not json at all")
+	f.close()
+	assert_eq(CommanderLog.load_all(), {}, "an unreadable file is an empty log")
+	CommanderLog.clear()
+	CommanderLog.path_override = ""
+
+
+func test_the_commander_log_lives_beside_the_mission_library_not_in_it() -> void:
+	assert_eq(CommanderLog.path(), "user://commander_log.json", "in play, beside user://scenarios")
+	assert_true(not CommanderLog.path().begins_with(ScenarioIndex.USER_ROOT + "/"), "never inside the library the desk scans")
+
 func test_every_shipped_scenario_is_playable() -> void:
 	var all := ScenarioIndex.list_all()
 	assert_true(all.size() >= 4, "at least four scenarios ship")

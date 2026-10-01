@@ -1,5 +1,7 @@
 # Naval Fleet Command
 
+**M34 The Command Loop:** hook a ship and right-click a hostile, and it closes to range, chooses the weapon and keeps firing until the contact is destroyed or lost, reporting INTERCEPT TRACK and ENGAGE on its orders line. Right-click an unknown to investigate it; Shift+right-click for the contact menu. The operations desk opens on the authored operations again, every mission ends with a graded **mission effectiveness** percentage, and a commander's log keeps your best result for each. See [why the game still missed Fleet Command, and what changed](docs/2026-10-01-fleet-command-command-loop.md).
+
 **M33 Command Intent:** inspect a contact while retaining your shooter, order a persistent investigation, and fire a stated finite salvo directly from its menu. Mouse-accessible chart, time and camera controls, readable 3D framing, subject captions and scenario-driven clouds and rain connect orders to the battle. See the [Fleet Command research, controls and validation](docs/2026-09-30-fleet-command-intent.md).
 
 **Combat cleanup:** direct Attack and Defence keys, clearer salvo receipts, live missile inspection and corrected interceptor guidance. See the [fixes and validation](docs/2026-09-30-combat-cleanup.md).
@@ -14,24 +16,25 @@ A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-co
 
 **[Play in your browser → jjnell95.github.io/naval-fleet-command](https://jjnell95.github.io/naval-fleet-command/)**. Nothing to install: it runs in Chrome, Edge, Firefox or Safari on a desktop or laptop with a keyboard. The first visit downloads the game once and the browser caches it.
 
-Locally, open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. For the introductory operation, choose **Start Northern Passage**, read the paused briefing, then **Take Command**. To author a mission, use **My Missions**. Choose **Build a Fleet / Edit Mission**, open **Fleet Builder**, set the two forces, then **Save and Play**. Read the briefing before taking command.
+Locally, open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. For the introductory operation, choose **Start Northern Passage**, read the paused briefing, then **Take Command**. The desk opens on **Operations**, the authored missions with their difficulty stars and your best result; **Training** holds the short exercises. To author a mission, use **My Missions**. Choose **Build a Fleet / Edit Mission**, open **Fleet Builder**, set the two forces, then **Save and Play**. Read the briefing before taking command.
 
 The operations desk puts the task, first orders, theatre, difficulty and estimated play time beside the chart. The briefing separates **Orders & Objectives**, **Situation**, and **Command Reference**. All of the conflicts are fiction on real charts.
 
 ![Fleet Command: the relief chart, mouse command controls, regional map, live Nansen frigate and platform data](docs/2026-09-30-fleet-command-command.png)
 
-## Optional templates
+## Operations
 
-The predetermined operations have been removed from the default mission shelf. These 22 legacy operations remain under **Optional Templates** for editing, reference and regression coverage. Custom missions are the main flow.
+The operations desk opens on the authored operations, as the late-1990s mission lists did: each with its theatre, difficulty stars and, once played, your best effectiveness. **Training** holds the exercises and short engagements; **My Missions** holds what you build.
 
-| Shelf | Operations |
+| Shelf | Missions |
 |---|---|
-| **Cold War 1990** | Northern Convoy · The Iceland–Faroe Barrier · Norwegian Sea: Carrier Watch · Baltic: The Narrow Water · Sea of Japan: The Vladivostok Sortie |
-| **North Atlantic 2027** | Norwegian Sea: Shadow Line · Gotland Basin · Iceland–Faroe Gap · Faroe–Shetland Channel · Vestfjorden Approaches · Norwegian Sea: Replenishment Group · North Cape: Ballistic Missile Defence · Barents Sea: Arctic Shield · Norwegian Sea: Joint Task Force · Vestfjorden Exercise Area · Carrier Qualification |
-| **Western Pacific 2027** | Bashi Channel: Silent Passage · Taiwan Strait: The Picket Line · Spratly Watch: Fiery Cross · Sea of Japan: Northern Guard |
-| **Gulf & Mediterranean 2027** | Strait of Hormuz: Tanker Transit · Eastern Mediterranean: The Tartus Line |
+| **Operations · 2027** | North Cape: Ballistic Missile Defence · Barents Sea: Arctic Shield · Norwegian Sea: Joint Task Force · Bashi Channel: Silent Passage · Taiwan Strait: The Picket Line · Spratly Watch: Fiery Cross · Sea of Japan: Northern Guard · Strait of Hormuz: Tanker Transit · Eastern Mediterranean: The Tartus Line |
+| **Operations · 1990** | Northern Convoy · The Iceland–Faroe Barrier · Norwegian Sea: Carrier Watch · Baltic: The Narrow Water · Sea of Japan: The Vladivostok Sortie |
+| **Training** | Northern Passage · Norwegian Sea: Shadow Line · Gotland Basin · Iceland–Faroe Gap · Faroe–Shetland Channel · Vestfjorden Approaches · Norwegian Sea: Replenishment Group · Vestfjorden Exercise Area · Carrier Qualification |
 
-Every operation carries a commander's intent, three first orders, a difficulty and a play estimate. The Pacific and Gulf operations add coastal missile batteries, long-range SAM sites, ballistic anti-ship missiles, drone salvos, fast-attack-craft swarms, a ski-jump carrier and a Japanese task group under your command. Several give you Tomahawks and a battery ashore to think about: striking it first is a decision with rules of engagement attached, not a reflex.
+Every mission ends with a graded **mission effectiveness** from 0 to 100%: the task is worth 60 and is credited only on a win, the force kept 20 and the enemy's points taken 20, with partial credit for damage; each neutral vessel your weapons sink costs 25. Before any civilian penalty, a victory grades between 60 and 100% and a defeat between 0 and 40%; a neutral your weapons damage but do not sink costs a pro-rata share of the 25. Platforms are worth points by type (a carrier 1,000, a destroyer 400, a frigate 250, a fighter 60), and a scenario can set its own. The commander's log in your browser or application storage keeps each mission's best result and date.
+
+Every operation carries a commander's intent, numbered first orders, a difficulty and a play estimate. The Pacific and Gulf operations add coastal missile batteries, long-range SAM sites, ballistic anti-ship missiles, drone salvos, fast-attack-craft swarms, a ski-jump carrier and a Japanese task group under your command. Several give you Tomahawks and a battery ashore to think about: striking it first is a decision with rules of engagement attached, not a reflex.
 
 ## The forces
 
@@ -54,8 +57,9 @@ The command screen is laid out the way the late-1990s fleet-command games laid t
 - **Give orders:** **right-click your own platform** for its Orders menu (speed, course, altitude or depth, sensors, EMCON, weapons state, flight deck, formation, route). **R** radar, **P** active sonar, **E** emission control.
 - **Respond to an attack:** **Defence** on the command strip opens defensive controls; your platform's right-click menu also includes them. **D** deploys a radar countermeasure pack; **V** orders evasion against a detected inbound weapon. The **Defence** tab on the orders board adds infrared and acoustic packs, run-away steering, resume-plan, automatic/manual countermeasures and Conserve/Balanced/Saturation interceptor policies. Stores, active windows and reload times are finite. Evasion keeps the existing route and formation assignment.
 - **Command large groups:** **J** opens Fleet Operations with group readiness, station error, defensive ammunition and group orders. **Ctrl+1 to 9** stores a selection and **Alt+1 to 9** recalls it. Screen, column, abreast, wedge and dispersed formations grow to fit the selection, pace slower consorts and pass command after a flagship is lost.
-- **Engage:** hook a shooter, then **right-click a contact** for **Engage with**, or choose **Attack** on the command strip for the firing board. Each system shows available, queued and airborne rounds; group salvo quantities apply per eligible platform. Hover a plotted weapon for its course and speed; own rounds also show shooter, target, estimated time and remaining range. Unknown and neutral contacts are not free targets. Land-attack rounds can be fired at a battery or an airfield once it is classified.
-- **Inspect and investigate:** clicking a contact updates its data and 3D view while retaining your selected shooter. Right-click an unresolved contact for **Investigate contact**, which follows the held plot until classification or loss. Use a reconnaissance aircraft to keep escorts on station. A ready **Fire N × weapon** choice gives a direct finite salvo; blocked shots state why. Click your own platform to restore its view.
+- **Attack:** hook a platform (or several) and **right-click a hostile contact**. The cursor shows a cross when a right-click will attack. Each platform closes to its best weapon's range (the orders line reads **Intercept track**), fires a salvo, waits for it to land and reads the plot, and fires again until the contact is destroyed or lost, its magazines are empty or weapons are put on hold; when one weapon runs out it moves on to the next. A move, course, stop, route, patrol, formation or investigate order replaces the attack; a speed order sets its closing speed, and evasion only pauses it. It never fires on a stale plot. An unclassified contact is investigated instead, and a neutral, a friendly or a classified contact of unknown allegiance gets the menu.
+- **Engage:** **Shift+right-click a contact** for its menu: **Attack track N**, **Attack with** a chosen weapon, a ready **Fire N × weapon**, **Engage with** weapon and salvo, or choose **Attack** on the command strip for the firing board. Each system shows available, queued and airborne rounds; group salvo quantities apply per eligible platform. Hover a plotted weapon for its course and speed; own rounds also show shooter, target, estimated time and remaining range. Unknown and neutral contacts are not free targets. Land-attack rounds can be fired at a battery or an airfield once it is classified.
+- **Inspect and investigate:** clicking a contact updates its data and 3D view while retaining your selected shooter. **Right-click an unresolved contact** to investigate it (the cursor shows a query mark): the platform follows the held plot until classification or loss. Use a reconnaissance aircraft to keep escorts on station. A ready **Fire N × weapon** choice gives a direct finite salvo; blocked shots state why. Click your own platform to restore its view.
 - **Mouse controls:** **Chart** opens silhouettes, labels, symbol explanations, ranges, zoom and framing. The time menu beside Pause selects acceleration while preserving pause. The live view exposes camera selection, Swap and Full/Back controls.
 - **Build the picture:** contacts begin uncertain and classify through observation. A passive bearing is not a measured range. **N / Shift-N** cycles priority contacts. **Tab** switches NTDS and graphic symbols; **Shift-V / K / I** toggle velocity leaders, track numbers and tags.
 - **Read the data display:** the hooked platform's class, track number, course, speed, damage, orders, sensors and weapons (the hull's reach for each job, then every system and its rounds in columns, strike first), or a contact as held, or the mission's tasking with nothing hooked. Its footer carries the watch time and the time scale (click them to pause or step the scale) and a lamp that flashes for new warnings.
@@ -80,6 +84,7 @@ Datalink latency and topology, continuous illumination, mechanical launcher conf
 ```sh
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script tests/run_tests.gd      # regression tests
+godot --headless --path . --script tests/run_tests.gd -- --only=test_attack.gd,test_cds.gd   # a few files
 godot --path . -- --cold-war-smoke                          # 47 command-screen checks
 godot --path . -- --aviation-smoke                          # 19 air-operations checks
 godot --path . -- --fleet-workshop-smoke                    # 34 authoring and defensive-control checks

@@ -36,9 +36,24 @@ var investigation_track: Track
 var investigation_track_id := ""
 var investigation_result := ""
 var investigation_speed_kn := 0.0
+## The standing attack: close to weapon range on the held plot, fire, keep firing. UnitManager
+## steps it; the fields are the task as the crew would report it. No truth lookup here either.
+var attack_track: Track
+var attack_track_id := ""
+var attack_weapon_id := ""  # a named weapon, or "" for the best one aboard with rounds left
+var attack_phase := ""  # "Intercept track", "Engaging track" ... for the ORDERS line
+var attack_result := ""  # how the last attack ended, readable until other navigation
+var attack_speed_kn := 0.0
+var attack_standoff_nm := 0.0  # where the shooter holds once inside the envelope
+var attack_rounds_fired := 0
+var attack_assess_until_s := -1.0  # a pause between salvos to read the plot again
+var attack_stall_s := 0.0  # time held unable to fire; past UnitManager.ATTACK_STALL_S the task ends
 var alive := true
 ## Left the chart for a base off the map. Not alive for the simulation, but not lost either.
 var departed := false
+## A scenario's own value for this unit on the effectiveness balance sheet; 0 means the
+## catalogue default for its category (MissionManager.platform_points).
+var points := 0
 var sensors: Array[SensorSpec] = []  # resolved from spec.sensor_ids at spawn
 var radar_on := true
 var active_sonar_on := false
@@ -354,12 +369,18 @@ func at_periscope_depth() -> bool:
 
 
 func apply_order(order: Order) -> void:
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL, Order.Type.INVESTIGATE]:
+	# A second attack order on the contact already under attack keeps the task, its round count
+	# and its assessment pause; only the chosen weapon can change.
+	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
+		attack_weapon_id = order.weapon_id
+		return
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK]:
 		evasion_remaining_s = 0.0
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.INVESTIGATE]:
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.INVESTIGATE, Order.Type.ATTACK]:
 		patrol_active = false
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE]:
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK]:
 		clear_investigation()
+		clear_attack()
 	match order.type:
 		Order.Type.INVESTIGATE:
 			formation_leader = null
@@ -369,6 +390,21 @@ func apply_order(order: Order) -> void:
 			if ordered_speed_kn <= 0.0:
 				ordered_speed_kn = spec.cruise_speed_kn
 			investigation_speed_kn = ordered_speed_kn
+		Order.Type.ATTACK:
+			formation_leader = null
+			attack_track = order.track
+			attack_track_id = order.track.id
+			attack_weapon_id = order.weapon_id
+			attack_phase = "Intercept track"
+			if ordered_speed_kn <= 0.0:
+				ordered_speed_kn = spec.cruise_speed_kn
+			attack_speed_kn = ordered_speed_kn
+			# Out of range, the intercept leg is plotted at once, so a paused order already shows
+			# where the platform will go; UnitManager refines it every tick as the plot moves.
+			waypoints.clear()
+			var reach := attack_reach_nm(order.track, order.weapon_id)
+			if reach > 0.0 and position.distance_to(order.track.position) > reach / UnitManager.ATTACK_STANDOFF_FRACTION:
+				waypoints.append(Combat.standoff_point(position, order.track.position, reach))
 		Order.Type.PATROL:
 			formation_leader = null
 			patrol_active = true
@@ -389,6 +425,8 @@ func apply_order(order: Order) -> void:
 			ordered_speed_kn = clampf(order.speed_kn, 0.0, effective_max_speed())
 			if investigation_track != null:
 				investigation_speed_kn = ordered_speed_kn
+			if attack_track != null:
+				attack_speed_kn = ordered_speed_kn
 		Order.Type.STOP:
 			waypoints.clear()
 			ordered_speed_kn = 0.0
@@ -415,6 +453,15 @@ func apply_order(order: Order) -> void:
 			auto_countermeasures = order.automatic
 		Order.Type.RESUME_PLAN:
 			evasion_remaining_s = 0.0
+		Order.Type.CANCEL_FIRE:
+			# Cancelling fire on the contact under attack ends the attack too; otherwise the task
+			# would simply fire again after its assessment. Rounds already away continue.
+			if attack_track != null and (order.track == null or order.track == attack_track):
+				var number := attack_track_id
+				clear_attack()
+				attack_track_id = number
+				attack_result = "Fire cancelled"
+				order.stopped_attack = true
 		Order.Type.DEPLOY_COUNTERMEASURES, Order.Type.EVADE:
 			pass  # Simulation owns inventory and detected-threat checks.
 		Order.Type.FORM_UP:
@@ -445,6 +492,34 @@ func clear_investigation() -> void:
 	investigation_track_id = ""
 	investigation_result = ""
 	investigation_speed_kn = 0.0
+
+
+## The standoff distance the attack closes to: a fraction of the reach of the named weapon, or
+## of the best suitable weapon with rounds left. Zero when nothing aboard suits the contact.
+func attack_reach_nm(track: Track, weapon_id := "") -> float:
+	var spec: WeaponSpec = get_weapon(weapon_id) if weapon_id != "" else null
+	if spec == null:
+		var suitable := weapons_for_track(track)
+		if suitable.is_empty():
+			return 0.0
+		spec = suitable[0]
+	return UnitManager.ATTACK_STANDOFF_FRACTION * Combat.effective_range_nm(self, spec)
+
+
+## Other navigation replaces the attack as well; a finished attack keeps its result readable.
+func clear_attack() -> void:
+	if attack_track != null:
+		waypoints.clear()
+	attack_track = null
+	attack_track_id = ""
+	attack_weapon_id = ""
+	attack_phase = ""
+	attack_result = ""
+	attack_speed_kn = 0.0
+	attack_standoff_nm = 0.0
+	attack_rounds_fired = 0
+	attack_assess_until_s = -1.0
+	attack_stall_s = 0.0
 
 
 func in_formation() -> bool:

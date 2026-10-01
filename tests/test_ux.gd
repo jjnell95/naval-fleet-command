@@ -233,7 +233,10 @@ func _right_click_fixture() -> Dictionary:
 	manager.add_unit(ship)
 	var tracks := TrackManager.new()
 	var hostile := _track("T1007", "HOSTILE", Vector2(20, 0))
-	tracks._tracks["BLUE"] = [hostile]
+	hostile.domain = "surface"
+	hostile.classification = Track.Classification.CLASS_KNOWN
+	var unknown := _track("T1008", "UNKNOWN", Vector2(20, 20))
+	tracks._tracks["BLUE"] = [hostile, unknown]
 	var map := TacticalMap.new()
 	map.unit_manager = manager
 	map.track_manager = tracks
@@ -242,12 +245,14 @@ func _right_click_fixture() -> Dictionary:
 	map.size = Vector2(1000, 700)
 	map.center_nm = Vector2.ZERO
 	map.ppn = 4.0
-	var events := {"move": [], "context": [], "engage": [], "delete": []}
+	var events := {"move": [], "context": [], "engage": [], "delete": [], "attack": [], "investigate": []}
 	map.move_order_requested.connect(func(w: Vector2, append: bool) -> void: events["move"].append([w, append]))
 	map.context_menu_requested.connect(func(at: Vector2, ctx: Dictionary) -> void: events["context"].append([at, ctx]))
 	map.engage_requested.connect(func(t: Track) -> void: events["engage"].append(t))
+	map.attack_requested.connect(func(t: Track) -> void: events["attack"].append(t))
+	map.investigate_requested.connect(func(t: Track) -> void: events["investigate"].append(t))
 	map.waypoint_delete_requested.connect(func(u: Unit, i: int) -> void: events["delete"].append([u, i]))
-	return {"map": map, "manager": manager, "tracks": tracks, "ship": ship, "hostile": hostile, "events": events}
+	return {"map": map, "manager": manager, "tracks": tracks, "ship": ship, "hostile": hostile, "unknown": unknown, "events": events}
 
 
 func _free_fixture(f: Dictionary) -> void:
@@ -296,23 +301,70 @@ func test_right_click_on_open_water_transits_the_hooked_unit_there() -> void:
 	_free_fixture(f)
 
 
-func test_right_click_on_a_track_hooks_it_and_asks_for_the_engage_menu() -> void:
+func test_right_click_on_a_hostile_attacks_and_shift_asks_for_the_menu() -> void:
 	var f := _right_click_fixture()
 	var map: TacticalMap = f["map"]
 	var events: Dictionary = f["events"]
 	map.select_units([f["ship"]])
 	_right_click(map, Vector2(580, 352))
-	assert_eq(map.selected_track, f["hostile"], "the contact is hooked before the menu opens")
-	assert_eq(events["context"].size(), 1)
+	assert_eq(map.selected_track, f["hostile"], "the contact is hooked as the order goes")
+	assert_eq(events["attack"], [f["hostile"]], "a bare right-click on a hostile is the standing attack, the classic display's default")
+	assert_true(events["context"].is_empty(), "with no menu to go through")
+	assert_true(events["move"].is_empty(), "a contact is never a move destination")
+	_right_click(map, Vector2(580, 352), true)
+	assert_eq(events["attack"].size(), 1, "Shift does not attack")
+	assert_eq(events["context"].size(), 1, "Shift+right-click asks for the contact menu")
 	var ctx: Dictionary = events["context"][0][1]
 	assert_eq(ctx["kind"], "track")
 	assert_eq(ctx["track"], f["hostile"])
 	assert_eq(events["context"][0][0], Vector2(580, 352), "the menu opens where the click was")
 	assert_true(ctx.has("viewport_pos"), "with a position to place a popup in the viewport")
-	assert_true(events["move"].is_empty(), "a contact is never a move destination")
 	_right_click(map, Vector2(580, 352), false, true)
-	assert_eq(events["engage"], [f["hostile"]], "Ctrl/Cmd+right-click still engages at once")
+	assert_eq(events["engage"], [f["hostile"]], "Ctrl/Cmd+right-click still fires the lined-up weapon at once")
 	assert_eq(events["context"].size(), 1, "without a menu")
+	assert_eq(events["attack"].size(), 1, "and without a standing attack")
+	_free_fixture(f)
+
+
+func test_right_click_on_an_unknown_investigates_and_needs_a_hooked_platform() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var events: Dictionary = f["events"]
+	_right_click(map, Vector2(580, 352))
+	assert_true(events["attack"].is_empty(), "nothing hooked: nothing to attack with")
+	assert_eq(events["context"].size(), 1, "so the right-click asks for the menu")
+	assert_eq(map.selected_track, f["hostile"], "and hooks the contact for it")
+	map.select_units([f["ship"]])
+	_right_click(map, Vector2(580, 270))
+	assert_eq(events["investigate"], [f["unknown"]], "a bare right-click on an unidentified contact investigates it")
+	assert_eq(events["context"].size(), 1, "with no menu")
+	(f["unknown"] as Track).identity = "NEUTRAL"
+	(f["unknown"] as Track).classification = Track.Classification.CLASS_KNOWN
+	_right_click(map, Vector2(580, 270))
+	assert_eq(events["investigate"].size(), 1, "a neutral is neither attacked nor investigated")
+	assert_eq(events["context"].size(), 2, "it gets the menu")
+	assert_eq(TacticalMap.default_contact_verb(null), "")
+	var lost := _track("T1009", "HOSTILE", Vector2.ZERO, Track.Status.LOST)
+	assert_eq(TacticalMap.default_contact_verb(lost), "", "a lost hostile is not attacked blind")
+	_free_fixture(f)
+
+
+func test_cursor_says_what_a_right_click_would_do() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	assert_eq(map.hover_cursor_shape(Vector2(580, 352)), Control.CURSOR_ARROW, "nothing hooked: the arrow")
+	map.select_units([f["ship"]])
+	assert_eq(map.hover_cursor_shape(Vector2(580, 352)), Control.CURSOR_CROSS, "a cross over a hostile the hooked ship would attack")
+	assert_eq(map.hover_cursor_shape(Vector2(580, 270)), Control.CURSOR_HELP, "a query over an unknown it would investigate")
+	assert_eq(map.hover_cursor_shape(Vector2(700, 600)), Control.CURSOR_ARROW, "the arrow over water")
+	assert_eq(map.hover_cursor_shape(Vector2(421, 349)), Control.CURSOR_ARROW, "and over your own platform")
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(580, 352)
+	map._gui_input(motion)
+	assert_eq(map.mouse_default_cursor_shape, Control.CURSOR_CROSS, "moving the mouse sets the chart's cursor")
+	assert_true(TacticalMap.contact_hint("attack").contains("Right-click to attack"), "the hover card says the same thing")
+	assert_true(TacticalMap.contact_hint("investigate").contains("Right-click to investigate"))
+	assert_true(TacticalMap.contact_hint("").contains("contact menu"))
 	_free_fixture(f)
 
 
