@@ -4,7 +4,7 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M32 / Command Watch"
+const BUILD_MILESTONE := "M33 / Command Intent"
 const DEFAULT_SCENARIO := "res://data/scenarios/northern_passage.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
@@ -117,6 +117,8 @@ func _ready() -> void:
 	_world_view.name = "WorldView"
 	_world_view.map = map
 	_world_view.simulation = simulation
+	_world_view.swap_requested.connect(_swap_views)
+	_world_view.fullscreen_requested.connect(_toggle_world_full)
 	_view_frame.add_child(_world_view)
 	map.context_menu_requested.connect(_on_map_context)
 	contact_panel.track_manager = simulation.track_manager
@@ -192,6 +194,13 @@ func _ready() -> void:
 	simulation.unit_manager.order_issued.connect(func(u: Unit, o: Order) -> void:
 		if u.faction == simulation.player_faction and not simulation.ai_plays_player:
 			Debug.event("[Order] %s: %s" % [u.callsign, o.describe()]))
+	simulation.unit_manager.investigation_ended.connect(func(u: Unit, t: Track, reason: String) -> void:
+		if u.faction != simulation.player_faction:
+			return
+		var report := "Track %s: %s" % [DataDisplay.track_number_for_track(t), reason.to_lower()]
+		if reason == "Contact classified":
+			report += " — " + t.description()
+		radio.flash(report, "good" if reason == "Contact classified" else "warn", u))
 
 	move_child(_library, get_child_count() - 1)
 	var args := OS.get_cmdline_user_args()
@@ -357,6 +366,7 @@ func _arrange_views() -> void:
 	$Layout/MapEdge.visible = not _world_full
 	command_bar.visible = not _world_full
 	map.visible = not _world_full
+	_world_view.set_layout_state(_views_swapped, _world_full)
 	_world_view.rig.cut()
 	_sync_overlay()
 	call_deferred("_focus_map_if_clear")
@@ -807,6 +817,13 @@ func _state_name(state: int, off_name: String, on_name: String) -> String:
 
 func _run_palette_action(id: String) -> void:
 	match id:
+		"chart_menu", "time_menu":
+			var button: Button = command_bar.buttons[id]
+			var items := CommandBar.chart_items(map) if id == "chart_menu" else CommandBar.time_items()
+			_cds_menus.open(items, button.get_global_rect().position + Vector2(0, button.size.y))
+			map.menu_open = true
+		"chart_zoom_in", "chart_zoom_out":
+			map._zoom_at(map.size * 0.5, TacticalMap.ZOOM_STEP if id == "chart_zoom_in" else 1.0 / TacticalMap.ZOOM_STEP)
 		"fleet_operations":
 			_toggle_fleet_operations()
 		"deploy_radar_decoys":
@@ -1452,7 +1469,7 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			if t == null:
 				return
 			var shooters: Array = map.selected if _all_controllable(map.selected) else []
-			items = CdsMenus.engage_items(shooters, t, not shooters.is_empty())
+			items = CdsMenus.engage_items(shooters, t, not shooters.is_empty(), simulation.weapon_manager)
 		"waypoint":
 			var owner: Unit = context.get("waypoint_unit")
 			if owner == null or owner.faction != simulation.player_faction:
@@ -1469,11 +1486,7 @@ func _run_cds_action(action: Dictionary) -> void:
 		"order":
 			_apply_order_to_selection(action["order"])
 		"unit_orders":
-			for pair: Array in action["pairs"]:
-				var u: Unit = pair[0]
-				if u.faction == simulation.player_faction:
-					simulation.unit_manager.issue_order(u, pair[1])
-			SoundFx.play("click", 0.05)
+			_apply_unit_orders(action["pairs"])
 		"altitude":
 			_apply_unit_orders(_altitude_orders(float(action["metres"])))
 		"depth":
@@ -1491,7 +1504,9 @@ func _run_cds_action(action: Dictionary) -> void:
 			_apply_order_to_selection(Order.engage(t, str(action["weapon"]), int(action["rounds"])))
 		"close_in":
 			var t: Track = action["track"]
-			_apply_order_to_selection(Order.move(t.position))
+			_apply_order_to_selection(Order.investigate(t))
+		"investigate":
+			_apply_order_to_selection(Order.investigate(action["track"]))
 		"waypoint_delete":
 			_on_waypoint_delete_requested(action["unit"], int(action["index"]))
 		"layer":
@@ -1543,13 +1558,18 @@ func _depth_orders(metres: float) -> Array:
 func _apply_order_to_selection(order: Order) -> void:
 	var accepted := 0
 	var refused := 0
+	var rounds_committed := 0
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
+			var before := u.magazine_count(order.weapon_id) if order.type == Order.Type.ENGAGE else 0
 			if simulation.unit_manager.issue_order(u, order):
 				accepted += 1
+				if order.type == Order.Type.ENGAGE:
+					rounds_committed += maxi(before - u.magazine_count(order.weapon_id), 0)
 			else:
 				refused += 1
-	_report_orders(order, accepted, refused)
+	var receipt := _order_acknowledgement(Order.engage(order.track, order.weapon_id, rounds_committed)) if order.type == Order.Type.ENGAGE and accepted > 0 else ""
+	_report_orders(order, accepted, refused, receipt)
 
 
 ## Orders that carry a different value for each platform, such as each airframe's cruise altitude.
@@ -1557,28 +1577,41 @@ func _apply_unit_orders(pairs: Array) -> void:
 	var accepted := 0
 	var refused := 0
 	var sample: Order = null
+	var volleys := {}
 	for pair: Array in pairs:
 		var u: Unit = pair[0]
 		if u.faction != simulation.player_faction or not map.selected.has(u):
 			continue
 		sample = pair[1]
+		var before := u.magazine_count(sample.weapon_id) if sample.type == Order.Type.ENGAGE else 0
 		pair[1].execution_accepted = simulation.unit_manager.issue_order(u, pair[1])
 		if pair[1].execution_accepted:
 			accepted += 1
+			if sample.type == Order.Type.ENGAGE:
+				var key := "%s|%s" % [sample.track.id, sample.weapon_id]
+				if not volleys.has(key):
+					volleys[key] = {"track": sample.track, "weapon": sample.weapon_id, "rounds": 0}
+				volleys[key]["rounds"] += maxi(before - u.magazine_count(sample.weapon_id), 0)
 		else:
 			refused += 1
 	if sample != null:
-		_report_orders(sample, accepted, refused)
+		var receipts := PackedStringArray()
+		for volley: Dictionary in volleys.values():
+			receipts.append(_order_acknowledgement(Order.engage(volley["track"], volley["weapon"], volley["rounds"])))
+		_report_orders(sample, accepted, refused, "; ".join(receipts))
 
 
-func _report_orders(order: Order, accepted: int, refused: int) -> void:
+func _report_orders(order: Order, accepted: int, refused: int, receipt_override := "") -> void:
 	var attempted := accepted + refused
 	if accepted > 0:
 		SoundFx.play("click", 0.05)
-		var receipt := "✓ %s · %d accepted" % [order.describe(), accepted]
+		var receipt := receipt_override if receipt_override != "" else _order_acknowledgement(order)
+		var speaker: Unit = map.selected[0] if map.selected.size() == 1 else null
+		if speaker == null:
+			receipt += " · %d orders acknowledged" % accepted
 		if refused > 0:
 			receipt += " / %d refused" % refused
-		radio.flash(receipt, "warn" if refused > 0 else "good")
+		radio.flash(receipt, "warn" if refused > 0 else "good", speaker)
 		if order.type == Order.Type.SET_ROE and order.roe == Unit.Roe.FREE:
 			radio.flash("Weapons free permits firing on unidentified contacts. Neutral sinkings can fail the mission.", "warn")
 		if order.type == Order.Type.MOVE and not Terrain.is_empty():
@@ -1587,6 +1620,9 @@ func _report_orders(order: Order, accepted: int, refused: int) -> void:
 					radio.flash("Land on that course — following the coast", "warn", u)
 					break
 	elif attempted > 0:
+		if order.type == Order.Type.INVESTIGATE and not map.selected.is_empty():
+			radio.flash(UnitManager.investigation_rejection(map.selected[0], order.track), "warn")
+			return
 		if order.type == Order.Type.SET_SPEED and map.selected.any(func(u: Unit) -> bool: return u.patrol_active):
 			radio.flash("Speed refused: allow more turning room in the patrol area, or assign a transit route", "warn")
 			return
@@ -1599,6 +1635,25 @@ func _report_orders(order: Order, accepted: int, refused: int) -> void:
 			_world_view.add_effect(order.target_pos, "refused")
 	else:
 		radio.flash("Select a controllable platform first", "warn")
+
+
+## A short crew response ties the command to the platform and the plotted target.
+static func _order_acknowledgement(order: Order) -> String:
+	match order.type:
+		Order.Type.MOVE:
+			return "Waypoint added, aye" if order.append else "Making for the ordered position, aye"
+		Order.Type.PATROL:
+			return "Establishing patrol, aye"
+		Order.Type.INVESTIGATE:
+			return "Investigating track %s" % DataDisplay.track_number_for_track(order.track)
+		Order.Type.ENGAGE:
+			var weapon := DataDB.weapon(order.weapon_id)
+			return "Engaging track %s, %d × %s" % [DataDisplay.track_number_for_track(order.track), order.salvo, weapon.compact_name() if weapon != null else order.weapon_id]
+		Order.Type.STOP:
+			return "All stop, aye"
+		Order.Type.RETURN_TO_BASE:
+			return "Returning to %s" % (order.recovery_base.callsign if order.recovery_base != null else "base")
+	return order.describe().capitalize() + ", aye"
 
 
 func _toggle_radar_on_selection() -> void:

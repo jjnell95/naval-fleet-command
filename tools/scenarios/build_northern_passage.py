@@ -14,7 +14,12 @@ def build():
                  description=("An allied freighter is making a short passage off the Norwegian coast. "
                               "Two Russian surface combatants have entered the approaches, among civilian traffic. "
                               "Your task is to deliver the freighter, not clear the sea of every opposing ship. "
-                              "There is time to put a Seahawk airborne before the surface forces close."))
+                              "There is time to put a Seahawk airborne before the surface forces close. "
+                              "Broken clouds and light drizzle hang over a moderate sea."))
+    # Original authored weather for this fictional mission. Cloud/rain affect presentation;
+    # the existing sea state and visibility continue to govern sensor conditions.
+    s.d["environment"]["cloud_cover"] = 0.65
+    s.d["environment"]["rain_intensity"] = 0.12
     cargo = "MV Northern Light"
     burke = "USS Truxtun (DDG 103)"
     nansen = "HNoMS Roald Amundsen (F 311)"
@@ -33,7 +38,7 @@ def build():
            "Bring Northern Light into the exit box before 08:45Z. Keep neutral traffic alive; enemy destruction is optional.",
            ["Northern Light is already following an eight-mile dogleg at 15 knots. The escorts are following her; keep that screen together.",
             "While paused, press Air / F3, select Truxtun and the Seahawk, then Launch. Once airborne, choose Patrol and click two corners near the convoy to repeat a search circuit. Recover early when threats close; right-click water gives a transit order instead.",
-            "Use Space to run or pause. Identify before firing: Shift+E opens Weapon Control. Automatic defence is on; radar and the escorts' position determine what they can protect."],
+            "Click a contact to inspect it without losing your selected ship. Right-click an unknown and choose Investigate; use the Seahawk so the escorts stay with the convoy. Right-click a classified hostile for a ready weapon and stated salvo. Weapons opens the full firing board. Automatic defence is on."],
            setting_note="Original fictional 2027 operation, not a reconstruction of a real conflict or a 1999 order of battle.")
     s.d["force_note"] = ("Represented families: Arleigh Burke Flight IIA, Fridtjof Nansen, Project 22350, Project 20380, "
                          "and MH-60R. The single US helicopter detachment, readiness, magazines, sensor performance, "

@@ -200,16 +200,74 @@ static func engage_weapon_items(units: Array, target: Track) -> Array:
 	return items
 
 
+## A routine engagement is one visible choice. Use the same envelope, guidance and channel
+## checks as the firing board; issue ordinary finite orders to only the ready selected shooters.
+## Detailed weapon/salvo choices remain in Engage with and the firing board.
+static func quick_engage_item(units: Array, target: Track, weapon_manager: WeaponManager = null) -> Dictionary:
+	if units.is_empty():
+		return item("Select a platform to engage", {}, true)
+	if target == null:
+		return item("Select a contact to engage", {}, true)
+	var weapons: Array[WeaponSpec] = []
+	var seen := {}
+	for u: Unit in units:
+		for spec: WeaponSpec in u.weapons:
+			if Combat.suits_track(spec, target) and not seen.has(spec.id):
+				weapons.append(spec)
+				seen[spec.id] = true
+	weapons.sort_custom(func(a: WeaponSpec, b: WeaponSpec) -> bool:
+		if a.is_gun() != b.is_gun():
+			return b.is_gun()
+		if not is_equal_approx(a.max_range_nm, b.max_range_nm):
+			return a.max_range_nm > b.max_range_nm
+		return a.id < b.id)
+	var reason := "Identify contact first" if target.domain == "" else "No suitable weapon aboard"
+	var have_reason := false
+	for spec: WeaponSpec in weapons:
+		var pairs: Array = []
+		var total := 0
+		var details := PackedStringArray()
+		for u: Unit in units:
+			if u.get_weapon(spec.id) == null:
+				continue
+			var check := weapon_manager.engagement_check(u, spec, target, weapon_manager.now_s) if weapon_manager != null else Combat.check_engagement(u, spec, target)
+			if not bool(check["ok"]):
+				if not have_reason:
+					reason = str(check["reason"]).capitalize()
+					have_reason = true
+				continue
+			var rounds := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
+			pairs.append([u, Order.engage(target, spec.id, rounds)])
+			total += rounds
+			details.append("%s: %d round%s" % [u.callsign, rounds, "" if rounds == 1 else "s"])
+		if not pairs.is_empty():
+			var label := "Fire %d × %s" % [total, spec.compact_name()]
+			if units.size() > 1:
+				label += " from %d platform%s" % [pairs.size(), "" if pairs.size() == 1 else "s"]
+			return item(label, {"kind": "unit_orders", "pairs": pairs}, false,
+				"Track %s. %s. Other weapons and quantities: Engage with." % [DataDisplay.track_number_for_track(target), "; ".join(details)])
+	return item("Cannot engage: " + reason, {}, true, reason)
+
+
 ## Right-click on a contact.
-static func engage_items(units: Array, target: Track, controllable: bool) -> Array:
+static func engage_items(units: Array, target: Track, controllable: bool, weapon_manager: WeaponManager = null) -> Array:
 	var items: Array = []
 	var number := DataDisplay.track_number_for_track(target)
 	items.append({"text": "Track %s  %s" % [number, target.description().capitalize()], "disabled": true})
 	if controllable and not units.is_empty():
+		items.append(quick_engage_item(units, target, weapon_manager))
 		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
 		items.append(submenu("Engage with", engage_weapon_items(units, target), false, "Weapons that suit this contact."))
-		if target.identity != "HOSTILE" and not target.is_bearing_only():
-			items.append(item("Close to identify", {"kind": "close_in", "track": target}, false, "Steer the hooked units toward the contact to classify it."))
+		if target.classification < Track.Classification.CLASS_KNOWN:
+			var can_investigate := false
+			var reason := ""
+			for u: Unit in units:
+				var rejection := UnitManager.investigation_rejection(u, target)
+				can_investigate = can_investigate or rejection == ""
+				if reason == "" and rejection != "":
+					reason = rejection
+			items.append(item("Investigate contact", {"kind": "investigate", "track": target}, not can_investigate,
+				"Follow the held contact until its class is identified. Weapons remain under your control." if can_investigate else reason))
 	elif units.is_empty():
 		items.append({"text": "Hook a platform to engage", "disabled": true})
 	items.append(sep())

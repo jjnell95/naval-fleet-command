@@ -144,6 +144,9 @@ var center_nm := Vector2.ZERO
 var ppn := 4.0  # pixels per nautical mile
 var selected: Array[Unit] = []
 var selected_track: Track = null
+## The last object inspected is separate from the platforms receiving commands. A contact can
+## drive the data display and camera while the selected shooter remains ready to engage it.
+var _inspecting_track := false
 var show_key := false
 var show_rings := false
 var show_trails := true
@@ -416,8 +419,8 @@ func _process(delta: float) -> void:
 	_keyboard_zoom(delta)
 	_prune_selection()
 	if follow_selection and _drag_mode == DragMode.NONE:
-		if selected_track != null:
-			_center_world_in_chart(selected_track.position)
+		if inspection_track() != null:
+			_center_world_in_chart(inspection_track().position)
 		elif selected.size() == 1:
 			_center_world_in_chart((selected[0] as Unit).position)
 	_record_trails()
@@ -820,6 +823,9 @@ func _right_click(e: InputEventMouseButton) -> void:
 			var u: Unit = ctx["unit"]
 			if not selected.has(u):
 				select_units([u])
+			elif _inspecting_track:
+				_inspecting_track = false
+				selection_changed.emit(selected)
 		"water", "empty":
 			var world: Vector2 = ctx["world_pos"]
 			if _has_controllable_selection() and int(_move_acceptance(world)["accepted"]) > 0:
@@ -1043,6 +1049,7 @@ func _click_select(screen_pos: Vector2, additive: bool) -> void:
 		if t != null:
 			select_track(t)
 			return
+	_inspecting_track = false
 	if additive:
 		if hit != null:
 			if selected.has(hit):
@@ -1060,6 +1067,7 @@ func _click_select(screen_pos: Vector2, additive: bool) -> void:
 
 
 func _box_select(rect: Rect2, additive: bool) -> void:
+	_inspecting_track = false
 	if not additive:
 		selected.clear()
 	for u in _own_units():
@@ -1070,19 +1078,31 @@ func _box_select(rect: Rect2, additive: bool) -> void:
 
 
 func select_units(units: Array) -> void:
+	_inspecting_track = false
+	# Some callers reselect the current formation to inspect it after viewing a contact.
+	var next := units.duplicate()
 	selected.clear()
-	for u in units:
+	for u in next:
 		selected.append(u)
 	_normalize_interaction_state()
 	selection_changed.emit(selected)
 
 
 func select_track(t: Track) -> void:
-	if t == selected_track:
+	var inspecting := t != null
+	if t == selected_track and _inspecting_track == inspecting:
 		return
 	selected_track = t
+	_inspecting_track = inspecting
 	_normalize_interaction_state()
 	track_selected.emit(t)
+
+
+## Which contact the player is inspecting, independently of the retained command selection.
+func inspection_track() -> Track:
+	if (_inspecting_track or selected.is_empty()) and selected_track != null and selected_track.status != Track.Status.LOST:
+		return selected_track
+	return null
 
 
 func clear_selection() -> void:
@@ -1474,6 +1494,9 @@ func _geo_map() -> Dictionary:
 ## The scenario's place names in the chart's white bold with a shadow and no plate: a land name
 ## beside a small white + at its position, a sea name centred on it.
 func _draw_chart_labels() -> void:
+	# A swap briefly reparents this control through a zero-size slot before layout settles.
+	if size.x <= 16.0 or size.y <= 16.0:
+		return
 	var m := _geo_map()
 	var safe := Rect2(Vector2(8, 8), size - Vector2(16, 16))
 	var occupied: Array[Rect2] = []
@@ -2362,7 +2385,7 @@ func _symbol_key_rect() -> Rect2:
 ## Hovering over a symbol shows what the console knows about it, without a click: plain readout
 ## lines beside the cursor, no card.
 func _draw_hover_card() -> void:
-	if not _mouse_inside or _drag_mode != DragMode.NONE:
+	if not _mouse_inside or _drag_mode != DragMode.NONE or menu_open or interaction_mode != InteractionMode.SELECT:
 		return
 	var wp := _waypoint_at(_mouse)
 	if not wp.is_empty():
@@ -2379,6 +2402,7 @@ func _draw_hover_card() -> void:
 		lines.append(u.spec.display_name)
 		lines.append("%s  ·  %s" % [Damage.condition_text(u), Damage.damage_report(u)])
 		lines.append(u.status_line())
+		lines.append("Click to command · Right-click for orders")
 		_draw_card(lines)
 		return
 	var t := _track_at(_mouse)
@@ -2402,6 +2426,7 @@ func _draw_hover_card() -> void:
 	var ref := reference_unit()
 	if ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
 		lines.append("Radar jammed on this bearing")
+	lines.append("Click to inspect · Right-click to investigate or engage")
 	_draw_card(lines)
 
 

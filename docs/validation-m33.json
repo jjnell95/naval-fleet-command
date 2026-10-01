@@ -1,0 +1,1042 @@
+{
+  "milestone": "M33 / Command Intent",
+  "date": "2026-09-30",
+  "timezone": "America/New_York",
+  "status": "local source and browser package updated; uncommitted and unpublished",
+  "base_commit": "ce2de11",
+  "scope": "Local source and browser package; no remote CI or publication result is claimed.",
+  "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+  "research_sources": [
+    "https://archive.org/stream/Janes_Fleet_Command/Janes_Fleet_Command_djvu.txt",
+    "https://www.combatsim.com/htm/may99/fleet-rev1.htm",
+    "https://www.combatsim.com/htm/may99/fleet-rev3.htm",
+    "https://www.subsim.com/ssr/fleet1.html"
+  ],
+  "baseline": {
+    "regression_passed": 599,
+    "native_command_watch_checks": 42,
+    "browser_page_errors": 0,
+    "browser_webgl_warnings_on_resize": 257
+  },
+  "regression": {
+    "tests": 620,
+    "failed": 0,
+    "runner_self_check": "PASS: runtime exception before assertions makes the real runner fail"
+  },
+  "native_interactions": [
+    {
+      "checks": {
+        "all command panes fit": true,
+        "camera full control fills window": true,
+        "camera return control restores panes": true,
+        "camera swap control enlarges live view": true,
+        "camera swap returns chart to top": true,
+        "chart menu selects graphic symbols": true,
+        "chart menu selects tactical symbols": true,
+        "chart menu toggles labels": true,
+        "command control fits: air_operations": true,
+        "command control fits: chart_menu": true,
+        "command control fits: missions": true,
+        "command control fits: next_contact": true,
+        "command control fits: plot_move": true,
+        "command control fits: plot_patrol": true,
+        "command control fits: status_boards": true,
+        "command control fits: swap_views": true,
+        "command control fits: time_menu": true,
+        "command control fits: toggle_pause": true,
+        "command control fits: weapon_control": true,
+        "contact click moves camera to held track": true,
+        "contact click retains commanded shooter": true,
+        "contact data shows held report and command platform": true,
+        "direct engage commits exactly the displayed finite salvo": true,
+        "direct engage preserves pause and shooter": true,
+        "fullscreen return control remains visible": true,
+        "intro force available": true,
+        "investigate click tasks the retained shooter while paused": true,
+        "investigate route follows changing held report": true,
+        "investigation ends on real classification": true,
+        "investigation spends no offensive rounds": true,
+        "mission opens through mouse input": true,
+        "mouse selects camera mode 0": true,
+        "mouse selects camera mode 1": true,
+        "mouse selects camera mode 2": true,
+        "mouse selects camera mode 3": true,
+        "no unexpected engine errors": true,
+        "normal deck cycle launches aircraft": true,
+        "opening contact menu spends no rounds": true,
+        "own click restores data and camera without losing target": true,
+        "own ship selected through chart input": true,
+        "real hostile enters a ready weapon envelope": true,
+        "scenario clouds and rain reach live renderer": true,
+        "screenshot: action": true,
+        "screenshot: aircraft-weather": true,
+        "screenshot: command": true,
+        "screenshot: inspected-contact": true,
+        "screenshot: investigation-result": true,
+        "screenshot: ready-engagement": true,
+        "screenshot: ship-fullscreen": true,
+        "screenshot: ship-weather": true,
+        "screenshot: unknown-orders": true,
+        "sensors produce an investigable unknown": true,
+        "time menu changes speed without resuming": true,
+        "time menu returns to real time while paused": true,
+        "unknown has a visible blocked engagement choice": true,
+        "weather animation preserves pause": true
+      },
+      "errors": [],
+      "facts": {
+        "engagement": {
+          "after": 4,
+          "before": 8,
+          "salvo": 4,
+          "time_s": 236.25,
+          "track": "T1003",
+          "weapon": "nsm_strike_missile"
+        },
+        "investigation": {
+          "result": "Contact classified",
+          "time_s": 55.25,
+          "track": "T1001"
+        }
+      },
+      "screenshots": [
+        "res://work/m33/command-1280.png",
+        "res://work/m33/ship-weather-1280.png",
+        "res://work/m33/ship-fullscreen-1280.png",
+        "res://work/m33/inspected-contact-1280.png",
+        "res://work/m33/unknown-orders-1280.png",
+        "res://work/m33/investigation-result-1280.png",
+        "res://work/m33/aircraft-weather-1280.png",
+        "res://work/m33/ready-engagement-1280.png",
+        "res://work/m33/action-1280.png"
+      ],
+      "window": [
+        1280,
+        720
+      ]
+    },
+    {
+      "checks": {
+        "all command panes fit": true,
+        "camera full control fills window": true,
+        "camera return control restores panes": true,
+        "camera swap control enlarges live view": true,
+        "camera swap returns chart to top": true,
+        "chart menu selects graphic symbols": true,
+        "chart menu selects tactical symbols": true,
+        "chart menu toggles labels": true,
+        "command control fits: air_operations": true,
+        "command control fits: chart_menu": true,
+        "command control fits: missions": true,
+        "command control fits: next_contact": true,
+        "command control fits: plot_move": true,
+        "command control fits: plot_patrol": true,
+        "command control fits: status_boards": true,
+        "command control fits: swap_views": true,
+        "command control fits: time_menu": true,
+        "command control fits: toggle_pause": true,
+        "command control fits: weapon_control": true,
+        "contact click moves camera to held track": true,
+        "contact click retains commanded shooter": true,
+        "contact data shows held report and command platform": true,
+        "direct engage commits exactly the displayed finite salvo": true,
+        "direct engage preserves pause and shooter": true,
+        "fullscreen return control remains visible": true,
+        "intro force available": true,
+        "investigate click tasks the retained shooter while paused": true,
+        "investigate route follows changing held report": true,
+        "investigation ends on real classification": true,
+        "investigation spends no offensive rounds": true,
+        "mission opens through mouse input": true,
+        "mouse selects camera mode 0": true,
+        "mouse selects camera mode 1": true,
+        "mouse selects camera mode 2": true,
+        "mouse selects camera mode 3": true,
+        "no unexpected engine errors": true,
+        "normal deck cycle launches aircraft": true,
+        "opening contact menu spends no rounds": true,
+        "own click restores data and camera without losing target": true,
+        "own ship selected through chart input": true,
+        "real hostile enters a ready weapon envelope": true,
+        "scenario clouds and rain reach live renderer": true,
+        "screenshot: action": true,
+        "screenshot: aircraft-weather": true,
+        "screenshot: command": true,
+        "screenshot: inspected-contact": true,
+        "screenshot: investigation-result": true,
+        "screenshot: ready-engagement": true,
+        "screenshot: ship-fullscreen": true,
+        "screenshot: ship-weather": true,
+        "screenshot: unknown-orders": true,
+        "sensors produce an investigable unknown": true,
+        "time menu changes speed without resuming": true,
+        "time menu returns to real time while paused": true,
+        "unknown has a visible blocked engagement choice": true,
+        "weather animation preserves pause": true
+      },
+      "errors": [],
+      "facts": {
+        "engagement": {
+          "after": 4,
+          "before": 8,
+          "salvo": 4,
+          "time_s": 236.25,
+          "track": "T1003",
+          "weapon": "nsm_strike_missile"
+        },
+        "investigation": {
+          "result": "Contact classified",
+          "time_s": 55.25,
+          "track": "T1001"
+        }
+      },
+      "screenshots": [
+        "res://work/m33/command-1920.png",
+        "res://work/m33/ship-weather-1920.png",
+        "res://work/m33/ship-fullscreen-1920.png",
+        "res://work/m33/inspected-contact-1920.png",
+        "res://work/m33/unknown-orders-1920.png",
+        "res://work/m33/investigation-result-1920.png",
+        "res://work/m33/aircraft-weather-1920.png",
+        "res://work/m33/ready-engagement-1920.png",
+        "res://work/m33/action-1920.png"
+      ],
+      "window": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "native_aircraft_and_receipts": [
+    {
+      "checks": {
+        "aircraft clears host through normal climb and transit": true,
+        "cruise camera keeps the same aircraft subject": true,
+        "intro force available": true,
+        "launch camera retains the aircraft subject": true,
+        "launch camera stays outside the own host hull": true,
+        "mission opens through mouse input": true,
+        "no unexpected engine errors": true,
+        "normal deck cycle launches aircraft": true,
+        "screenshot: aircraft-launch": true,
+        "screenshot: aircraft-weather": true,
+        "screenshot: inspected-hostile": true,
+        "screenshot: ready-engagement": true,
+        "selection orders caps an oversized salvo at remaining inventory": true,
+        "selection orders receipt has a real ready target": true,
+        "selection orders receipt preserves the paused watch": true,
+        "selection orders receipt reports actual committed rounds": true,
+        "unit orders caps an oversized salvo at remaining inventory": true,
+        "unit orders receipt has a real ready target": true,
+        "unit orders receipt preserves the paused watch": true,
+        "unit orders receipt reports actual committed rounds": true
+      },
+      "errors": [],
+      "facts": {
+        "aircraft": {
+          "altitude_m": 500.0,
+          "host_distance_nm": 1.01679193973541,
+          "speed_kn": 110.0,
+          "time_s": 190.0
+        },
+        "launch_camera": {
+          "aircraft_altitude_m": 0.0,
+          "horizontal_host_clearance_m": 293.617095947266,
+          "host_length_m": 155.0,
+          "time_s": 120.0
+        },
+        "receipts": [
+          {
+            "committed": 8,
+            "receipt": "2027-05-18 08:05:08Z  HNoMS Roald Amundsen (F 311): Engaging track 1003, 8 \u00d7 NSM",
+            "requested": 13,
+            "route": "unit orders",
+            "shooter": "HNoMS Roald Amundsen (F 311)",
+            "weapon": "nsm_strike_missile"
+          },
+          {
+            "committed": 8,
+            "receipt": "2027-05-18 08:05:08Z  USS Truxtun (DDG 103): Engaging track 1003, 8 \u00d7 Tomahawk",
+            "requested": 13,
+            "route": "selection orders",
+            "shooter": "USS Truxtun (DDG 103)",
+            "weapon": "tomahawk_block_v"
+          }
+        ]
+      },
+      "screenshots": [
+        "res://work/m33/aircraft-launch-1280.png",
+        "res://work/m33/aircraft-weather-1280.png",
+        "res://work/m33/inspected-hostile-1280.png",
+        "res://work/m33/ready-engagement-1280.png"
+      ],
+      "window": [
+        1280,
+        720
+      ]
+    },
+    {
+      "checks": {
+        "aircraft clears host through normal climb and transit": true,
+        "cruise camera keeps the same aircraft subject": true,
+        "intro force available": true,
+        "launch camera retains the aircraft subject": true,
+        "launch camera stays outside the own host hull": true,
+        "mission opens through mouse input": true,
+        "no unexpected engine errors": true,
+        "normal deck cycle launches aircraft": true,
+        "screenshot: aircraft-launch": true,
+        "screenshot: aircraft-weather": true,
+        "selection orders caps an oversized salvo at remaining inventory": true,
+        "selection orders receipt has a real ready target": true,
+        "selection orders receipt preserves the paused watch": true,
+        "selection orders receipt reports actual committed rounds": true,
+        "unit orders caps an oversized salvo at remaining inventory": true,
+        "unit orders receipt has a real ready target": true,
+        "unit orders receipt preserves the paused watch": true,
+        "unit orders receipt reports actual committed rounds": true
+      },
+      "errors": [],
+      "facts": {
+        "aircraft": {
+          "altitude_m": 500.0,
+          "host_distance_nm": 1.01679193973541,
+          "speed_kn": 110.0,
+          "time_s": 190.0
+        },
+        "launch_camera": {
+          "aircraft_altitude_m": 0.0,
+          "horizontal_host_clearance_m": 293.617095947266,
+          "host_length_m": 155.0,
+          "time_s": 120.0
+        },
+        "receipts": [
+          {
+            "committed": 8,
+            "receipt": "2027-05-18 08:05:08Z  HNoMS Roald Amundsen (F 311): Engaging track 1003, 8 \u00d7 NSM",
+            "requested": 13,
+            "route": "unit orders",
+            "shooter": "HNoMS Roald Amundsen (F 311)",
+            "weapon": "nsm_strike_missile"
+          },
+          {
+            "committed": 8,
+            "receipt": "2027-05-18 08:05:08Z  USS Truxtun (DDG 103): Engaging track 1003, 8 \u00d7 Tomahawk",
+            "requested": 13,
+            "route": "selection orders",
+            "shooter": "USS Truxtun (DDG 103)",
+            "weapon": "tomahawk_block_v"
+          }
+        ]
+      },
+      "screenshots": [
+        "res://work/m33/aircraft-launch-1920.png",
+        "res://work/m33/aircraft-weather-1920.png"
+      ],
+      "window": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "legacy": {
+    "result": "PASS",
+    "gui": [
+      {
+        "name": "cold-war-smoke",
+        "exit_code": 0,
+        "checks": 47,
+        "failed": 0,
+        "seconds": 24.15,
+        "log": "work/m33/legacy/cold-war-smoke.log",
+        "errors": [],
+        "warnings": [
+          "WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver."
+        ]
+      },
+      {
+        "name": "aviation-smoke",
+        "exit_code": 0,
+        "checks": 19,
+        "failed": 0,
+        "seconds": 25.46,
+        "log": "work/m33/legacy/aviation-smoke.log",
+        "errors": [],
+        "warnings": [
+          "WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver."
+        ]
+      },
+      {
+        "name": "fleet-workshop-smoke",
+        "exit_code": 0,
+        "checks": 34,
+        "failed": 0,
+        "seconds": 19.87,
+        "log": "work/m33/legacy/fleet-workshop-smoke.log",
+        "errors": [],
+        "warnings": [
+          "WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver.",
+          "WARNING: ScenarioLoader: DDG Burke IIA 1 starts ashore at (70.0, -30.0)",
+          "WARNING: ScenarioLoader: DDG Burke IIA 2 starts ashore at (72.0, -30.0)",
+          "WARNING: ScenarioLoader: DDG Burke IIA 3 starts ashore at (74.0, -30.0)",
+          "WARNING: ScenarioLoader: DDG Burke IIA 4 starts ashore at (76.0, -30.0)",
+          "WARNING: ScenarioLoader: DDG Burke IIA 5 starts ashore at (70.0, -28.0)",
+          "WARNING: ScenarioLoader: DDG Burke IIA 6 starts ashore at (72.0, -28.0)"
+        ]
+      },
+      {
+        "name": "weapon-control-smoke",
+        "exit_code": 0,
+        "checks": 24,
+        "failed": 0,
+        "seconds": 15.25,
+        "log": "work/m33/legacy/weapon-control-smoke.log",
+        "errors": [],
+        "warnings": [
+          "WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver."
+        ]
+      },
+      {
+        "name": "command-watch-1280",
+        "exit_code": 0,
+        "checks": 44,
+        "failed": 0,
+        "seconds": 42.87,
+        "log": "work/m33/legacy/command-watch-1280.log",
+        "errors": [],
+        "warnings": [
+          "WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver."
+        ]
+      }
+    ],
+    "northern_passage": {
+      "runs": [
+        {
+          "name": "escort-31",
+          "checks": 19,
+          "failed": 0,
+          "result": 1,
+          "sim_time_s": 1850.0,
+          "log": "work/m33/legacy/policies/escort-31.log",
+          "errors": [],
+          "warnings": [
+            "WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details)."
+          ]
+        },
+        {
+          "name": "escort-31-repeat",
+          "checks": 19,
+          "failed": 0,
+          "result": 1,
+          "sim_time_s": 1850.0,
+          "log": "work/m33/legacy/policies/escort-31-repeat.log",
+          "errors": [],
+          "warnings": [
+            "WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details)."
+          ]
+        },
+        {
+          "name": "escort-13",
+          "checks": 19,
+          "failed": 0,
+          "result": 1,
+          "sim_time_s": 1850.0,
+          "log": "work/m33/legacy/policies/escort-13.log",
+          "errors": [],
+          "warnings": [
+            "WARNING: 10 ObjectDB instances were leaked at exit (run with `--verbose` for details)."
+          ]
+        },
+        {
+          "name": "abandon-31",
+          "checks": 14,
+          "failed": 0,
+          "result": 2,
+          "sim_time_s": 1066.0,
+          "log": "work/m33/legacy/policies/abandon-31.log",
+          "errors": [],
+          "warnings": [
+            "WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details)."
+          ]
+        },
+        {
+          "name": "abandon-13",
+          "checks": 14,
+          "failed": 0,
+          "result": 2,
+          "sim_time_s": 1066.0,
+          "log": "work/m33/legacy/policies/abandon-13.log",
+          "errors": [],
+          "warnings": [
+            "WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details)."
+          ]
+        },
+        {
+          "name": "deadline-31",
+          "checks": 14,
+          "failed": 0,
+          "result": 2,
+          "sim_time_s": 2700.0,
+          "log": "work/m33/legacy/policies/deadline-31.log",
+          "errors": [],
+          "warnings": []
+        },
+        {
+          "name": "civilian-31",
+          "checks": 16,
+          "failed": 0,
+          "result": 2,
+          "sim_time_s": 44.0,
+          "log": "work/m33/legacy/policies/civilian-31.log",
+          "errors": [],
+          "warnings": []
+        }
+      ],
+      "replay_identical": true,
+      "checks": 115,
+      "failed": 0
+    },
+    "gui_checks": 168,
+    "gui_failed": 0,
+    "total_checks": 283,
+    "unexpected_error_lines": 0,
+    "command_watch_report": "work/m33/legacy/command-watch-1280.json",
+    "command_watch_screenshots": [
+      "work/m33/legacy/command-1280.png",
+      "work/m33/legacy/patrol-preview-1280.png",
+      "work/m33/legacy/patrol-orders-1280.png",
+      "work/m33/legacy/air-patrol-1280.png",
+      "work/m33/legacy/frigate-3d-1280.png",
+      "work/m33/legacy/gulf_01_hormuz-1280.png",
+      "work/m33/legacy/med_01_tartus-1280.png",
+      "work/m33/legacy/pacific_03_spratly-1280.png"
+    ],
+    "scope": "Existing GUI smokes and Northern Passage policies only. Full regression and scenario sweep run by root separately.",
+    "visual_review": {
+      "inspected": [
+        "work/m33/legacy/command-1280.png",
+        "work/m33/legacy/air-patrol-1280.png",
+        "work/m33/legacy/frigate-3d-1280.png"
+      ],
+      "controls": "Chart/time/camera controls remain inside viewport and readable in normal and swapped layouts.",
+      "concern": "Cloud layer in expanded frigate capture has cellular ceiling/vertical banding. Sent to world_audit; capture may precede later shader changes."
+    }
+  },
+  "scenario_sweep": {
+    "seconds_per_run": 6000,
+    "runs": [
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 549.4
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 538.8
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 409.4
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 438.2
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 311.9
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 314.8
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 141.9
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 135.7
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 84.0
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 85.0
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 96.2
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 73.8
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 53.4
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 59.9
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 44.5
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 46.9
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 41.2
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 40.6
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 34.2
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 37.1
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 33.3
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 34.6
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 34.3
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 34.1
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 19.7
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 24.3
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 19.4
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 20.7
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 19.1
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 21.7
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 13.1
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 13.3
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 13.5
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 10.9
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 12.1
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 15.3
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 14.2
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 11.3
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.1
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.2
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 6.7
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 6.8
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 6.2
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 6.2
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 5.0
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "exit_code": 0,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 4.7
+      }
+    ]
+  },
+  "browser": {
+    "page_http_status": 200,
+    "console_counts": [
+      {
+        "stage": "boot",
+        "type": "log",
+        "count": 4
+      },
+      {
+        "stage": "briefing",
+        "type": "log",
+        "count": 1
+      },
+      {
+        "stage": "swap",
+        "type": "warning",
+        "count": 162
+      },
+      {
+        "stage": "fullscreen",
+        "type": "warning",
+        "count": 95
+      }
+    ],
+    "page_errors": [],
+    "engine_version": [
+      "Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org"
+    ]
+  },
+  "final_visual_review": {
+    "native": "Reviewed chart, gray sensor-estimate contact, direct salvo menu, launch and cruise aircraft, expanded ship view at 1280 and aircraft at 1920. Earlier cellular-cloud concern is resolved in final native and browser captures.",
+    "theatres": "Reviewed Northern Passage, Hormuz, Tartus and Spratly command captures.",
+    "browser": "Reviewed final command layout, menus, swap/fullscreen, air and weapon boards."
+  },
+  "screenshots": [
+    "docs/2026-09-30-fleet-command-command.png",
+    "docs/2026-09-30-fleet-command-contact.png",
+    "docs/2026-09-30-fleet-command-aircraft.png",
+    "docs/2026-09-30-fleet-command-3d.png"
+  ],
+  "browser_package": {
+    "path": "docs/play/index.pck",
+    "bytes": 60818376,
+    "sha256": "9d6a6dc82e6d21d46cd8e56e26929162b79675801457847e326cdc2134be6be1"
+  },
+  "limits": [
+    "Existing Chromium/SwiftShader buffer warnings on 3D viewport resizing reproduce in baseline and updated builds.",
+    "Native rendering uses Mesa llvmpipe and emits an unsupported V-Sync warning.",
+    "Policy test shutdown retains pre-existing ObjectDB exit warnings.",
+    "Clouds and rain are presentation-only; sensor weather continues to use existing sea state and visibility.",
+    "Automatic intercept-to-engage, a developed campaign, mid-battle saves, voiced crew and detailed aircraft textures are not part of this change."
+  ]
+}

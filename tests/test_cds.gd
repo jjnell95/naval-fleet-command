@@ -287,6 +287,119 @@ func test_engage_menu_lists_suitable_weapons_with_salvo_sizes() -> void:
 		assert_eq(salvos[0]["action"]["track"], target)
 
 
+func test_contact_inspection_shows_contact_and_retains_commanded_shooter() -> void:
+	var shooter := _unit()
+	var target := _track("T1094", "UNKNOWN", Vector2(20, 0))
+	var map := TacticalMap.new()
+	var simulation := Simulation.new()
+	var display := DataDisplay.new()
+	display.map = map
+	display.simulation = simulation
+	map.select_units([shooter])
+	map.select_track(target)
+	assert_eq(map.selected, [shooter], "inspection must not drop the shooter needed for engagement")
+	assert_eq(map.inspection_track(), target)
+	var text := _text(display.build_rows())
+	assert_true(text.contains("TRACK #: 1094"), "the clicked contact drives the visible pane")
+	assert_true(text.contains("COMMAND: USS Test"), "the retained command selection is explicit")
+	assert_true(text.contains("IDENTITY: UNKNOWN"), "a held contact is described at its known quality")
+	map.select_units(map.selected)
+	assert_eq(map.selected, [shooter], "reselecting the retained shooter preserves its command group")
+	assert_eq(map.inspection_track(), null)
+	assert_true(_text(display.build_rows()).begins_with("USS Test\n"), "clicking back restores the own-platform data")
+	assert_eq(map.selected_track, target, "inspecting the shooter keeps its target ready")
+	map.select_track(target)
+	assert_eq(map.inspection_track(), target, "reclicking the same target after viewing a shooter inspects it again")
+	target.status = Track.Status.LOST
+	map._prune_selection()
+	assert_eq(map.inspection_track(), null, "a lost track cannot retain inspection focus")
+	assert_true(_text(display.build_rows()).begins_with("USS Test\n"), "losing the target returns to the shooter")
+	display.free()
+	map.free()
+	simulation.free()
+
+
+func test_quick_engagement_exposes_finite_shooter_orders_without_nested_menu() -> void:
+	var shooter := _unit()
+	var target := _track("T1095", "HOSTILE", Vector2(20, 0))
+	target.domain = "surface"
+	target.classification = Track.Classification.SURFACE
+	var before := shooter.magazines.duplicate()
+	var items := CdsMenus.engage_items([shooter], target, true)
+	var direct: Dictionary = items[1]
+	assert_true(str(direct["text"]).begins_with("Fire "), "the first command is a direct, visibly quantified engagement")
+	assert_eq(direct["action"]["kind"], "unit_orders")
+	var pair: Array = direct["action"]["pairs"][0]
+	var order: Order = pair[1]
+	assert_eq(pair[0], shooter)
+	assert_eq(order.type, Order.Type.ENGAGE)
+	assert_eq(order.track, target)
+	assert_true(order.salvo > 0 and order.salvo <= shooter.magazine_count(order.weapon_id))
+	assert_eq(shooter.magazines, before, "opening the menu cannot spend or reserve a round")
+	assert_true(not _find(items, "Engage with").is_empty(), "explicit weapon and salvo choices remain available")
+
+
+func test_quick_engagement_omits_blocked_shooters_and_caps_each_magazine() -> void:
+	var ready := _unit()
+	var held := _unit()
+	held.roe = Unit.Roe.HOLD
+	for id: String in ready.magazines:
+		ready.magazines[id] = 1
+	var target := _track("T1096", "HOSTILE", Vector2(20, 0))
+	target.domain = "surface"
+	var direct := CdsMenus.quick_engage_item([held, ready], target)
+	assert_true(not bool(direct["disabled"]))
+	var pairs: Array = direct["action"]["pairs"]
+	assert_eq(pairs.size(), 1, "weapons-hold platforms never get a hidden group-fire order")
+	assert_eq(pairs[0][0], ready)
+	assert_eq((pairs[0][1] as Order).salvo, 1, "a partial magazine gets only its available round")
+	assert_true(str(direct["text"]).contains("Fire 1 ×"))
+	assert_true(str(direct["text"]).ends_with("from 1 platform"))
+
+
+func test_quick_engagement_gives_visible_reasons_and_preserves_protected_identities() -> void:
+	var shooter := _unit()
+	var target := _track("T1097", "NEUTRAL", Vector2(20, 0))
+	target.domain = "surface"
+	var direct := CdsMenus.quick_engage_item([shooter], target)
+	assert_true(bool(direct["disabled"]))
+	assert_true(str(direct["text"]).to_lower().contains("protected identity"))
+	assert_eq(direct["action"], {}, "a blocked entry carries no firing action")
+	target.identity = "UNKNOWN"
+	shooter.roe = Unit.Roe.TIGHT
+	direct = CdsMenus.quick_engage_item([shooter], target)
+	assert_true(bool(direct["disabled"]))
+	assert_true(str(direct["text"]).to_lower().contains("identify contact"))
+	target.identity = "HOSTILE"
+	for id: String in shooter.magazines:
+		shooter.magazines[id] = 0
+	direct = CdsMenus.quick_engage_item([shooter], target)
+	assert_true(bool(direct["disabled"]))
+	assert_true(str(direct["text"]).to_lower().contains("magazine empty"))
+
+
+func test_quick_engagement_uses_only_unreserved_rounds_and_firing_supersedes_old_result() -> void:
+	var shooter := _unit()
+	var target := _track("T1098", "HOSTILE", Vector2(20, 0))
+	target.domain = "surface"
+	var spec: WeaponSpec = shooter.weapons_for_track(target)[0]
+	shooter.weapons = [spec]
+	shooter.magazines = {spec.id: 3}
+	shooter.investigation_track_id = target.id
+	shooter.investigation_result = "Contact identified"
+	var weapons := WeaponManager.new()
+	assert_true(weapons.launch(shooter, spec, target, 2, 0.0))
+	assert_eq(shooter.magazine_count(spec.id), 1, "queued rounds are already reserved out of the free magazine")
+	assert_eq(weapons.committed_rounds(shooter, spec, target), 2)
+	var direct := CdsMenus.quick_engage_item([shooter], target, weapons)
+	var order: Order = direct["action"]["pairs"][0][1]
+	assert_eq(order.salvo, 1, "the shortcut cannot recommit a queued round")
+	assert_eq(DataDisplay.orders_text(shooter, weapons), "Engage track 1098", "current firing outranks an old investigation report")
+	weapons.in_flight.clear()
+	assert_true(DataDisplay.orders_text(shooter, weapons).begins_with("Engage ("), "a waiting salvo is still current engagement")
+	weapons.free()
+
+
 func test_cds_menu_reflects_layer_state() -> void:
 	var items := CdsMenus.cds_items({"leaders": true, "tags": false, "symbol_mode": 2})
 	assert_eq(int(_find(items, "Velocity leaders  [Shift+V]")["checked"]), 1)

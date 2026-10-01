@@ -1,7 +1,7 @@
 {
   "id": "northern_passage",
   "name": "NORTHERN PASSAGE",
-  "description": "An allied freighter is making a short passage off the Norwegian coast. Two Russian surface combatants have entered the approaches, among civilian traffic. Your task is to deliver the freighter, not clear the sea of every opposing ship. There is time to put a Seahawk airborne before the surface forces close. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
+  "description": "An allied freighter is making a short passage off the Norwegian coast. Two Russian surface combatants have entered the approaches, among civilian traffic. Your task is to deliver the freighter, not clear the sea of every opposing ship. There is time to put a Seahawk airborne before the surface forces close. Broken clouds and light drizzle hang over a moderate sea. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction.",
   "start_time_utc": "2027-05-18T08:00:00",
   "player_faction": "BLUE",
   "map": {
@@ -228,7 +228,9 @@
     "visibility_nm": 9,
     "layer_depth_m": 0,
     "layer_strength": 0.0,
-    "cz_range_nm": 0
+    "cz_range_nm": 0,
+    "cloud_cover": 0.65,
+    "rain_intensity": 0.12
   },
   "terrain": {
     "land": [
@@ -11870,7 +11872,7 @@
   "first_orders": [
     "Northern Light is already following an eight-mile dogleg at 15 knots. The escorts are following her; keep that screen together.",
     "While paused, press Air / F3, select Truxtun and the Seahawk, then Launch. Once airborne, choose Patrol and click two corners near the convoy to repeat a search circuit. Recover early when threats close; right-click water gives a transit order instead.",
-    "Use Space to run or pause. Identify before firing: Shift+E opens Weapon Control. Automatic defence is on; radar and the escorts' position determine what they can protect."
+    "Click a contact to inspect it without losing your selected ship. Right-click an unknown and choose Investigate; use the Seahawk so the escorts stay with the convoy. Right-click a classified hostile for a ready weapon and stated salvo. Weapons opens the full firing board. Automatic defence is on."
   ],
   "setting_note": "Original fictional 2027 operation, not a reconstruction of a real conflict or a 1999 order of battle.",
   "force_note": "Represented families: Arleigh Burke Flight IIA, Fridtjof Nansen, Project 22350, Project 20380, and MH-60R. The single US helicopter detachment, readiness, magazines, sensor performance, hit probabilities and deployments are representative gameplay assumptions; see DATA_SOURCES.md. The freighter uses the existing generic bulk carrier's 15-knot cap and is under your navigation orders; all merchant names are fictional.",

@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -86,6 +86,14 @@ static func patrol(points: Array[Vector2]) -> Order:
 	var o := Order.new()
 	o.type = Type.PATROL
 	o.route.assign(points)
+	return o
+
+
+## Follow the faction's reported plot until classification or contact loss ends the task.
+static func investigate(target: Track) -> Order:
+	var o := Order.new()
+	o.type = Type.INVESTIGATE
+	o.track = target
 	return o
 
 
@@ -241,6 +249,8 @@ func describe() -> String:
 			return "MOVE to %s/%s%s" % [Geo.format_axis(target_pos.x, "E", "W"), Geo.format_axis(target_pos.y, "N", "S"), " (append)" if append else ""]
 		Type.PATROL:
 			return "PATROL %d-POINT CIRCUIT" % route.size()
+		Type.INVESTIGATE:
+			return "INVESTIGATE %s" % (track.id if track != null else "?")
 		Type.SET_COURSE:
 			return "COURSE %s" % Geo.format_bearing(heading_deg)
 		Type.SET_SPEED:

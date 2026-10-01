@@ -51,6 +51,9 @@ var mode := TETHER
 var orbit_az := DEFAULT_AZ
 var orbit_pitch := DEFAULT_PITCH
 var zoom := 1.0
+## Keep the default horizon composition when this same camera moves between a wide lower pane
+## and the full screen. Orbit and zoom remain the player's, in the reference 4:3 frame.
+var viewport_aspect := 4.0 / 3.0
 
 var _az := DEFAULT_AZ  # smoothed azimuth, absolute (degrees true, focus to camera)
 var _pitch := DEFAULT_PITCH
@@ -210,18 +213,22 @@ func update(delta: float, origin_nm: Vector2, subject: Dictionary, lookup: Calla
 func _tether_shot(delta: float, subject: Dictionary) -> Dictionary:
 	var target: Vector3 = subject["position"]
 	var want_az := wrapf(float(subject.get("heading", 0.0)) + orbit_az, 0.0, 360.0)
-	var want_dist := tether_distance(float(subject.get("length", 150.0)), zoom)
+	var want_dist := tether_distance(framing_length(subject), zoom)
 	if _cut or not _valid:
 		_az = want_az
-		_pitch = orbit_pitch
+		_pitch = framed_pitch(orbit_pitch, viewport_aspect)
 		_dist = want_dist
 		_valid = true
 	else:
 		var rate := 1.0 - exp(-FOLLOW_RATE * delta)
 		_az = wrapf(_az + Geo.heading_delta(_az, want_az) * rate, 0.0, 360.0)
-		_pitch = lerpf(_pitch, orbit_pitch, minf(rate * 2.0, 1.0))
+		_pitch = lerpf(_pitch, framed_pitch(orbit_pitch, viewport_aspect), minf(rate * 2.0, 1.0))
 		_dist = lerpf(_dist, want_dist, minf(rate * 2.0, 1.0))
-	return {"eye": target + orbit_offset(_az, _pitch, _dist), "look": target, "fov": FOV_DEG}
+	# Only the aircraft's own visible deck participates in this composition guard. Preserve the
+	# chosen orbit ray, but do not leave the eye inside that hull as the normal tether closes in.
+	var direction := orbit_offset(_az, _pitch, 1.0)
+	var distance := deck_clearance_distance(subject, direction, _dist)
+	return {"eye": target + direction * distance, "look": target, "fov": FOV_DEG}
 
 
 func _flyby_shot(origin_nm: Vector2, subject: Dictionary) -> Dictionary:
@@ -274,6 +281,44 @@ func _action_shot(delta: float, origin_nm: Vector2, lookup: Callable) -> Diction
 
 
 # --- Geometry (pure) ---------------------------------------------------------------------
+
+## A just-launched or recovering own aircraft shares the frame with its deck until it climbs
+## or separates. The airframe remains the subject; this changes the standoff, never its position.
+static func framing_length(subject: Dictionary) -> float:
+	var length := float(subject.get("length", 150.0))
+	var deck: Dictionary = subject.get("own_deck", {})
+	if deck.is_empty():
+		return length
+	var host_length := float(deck["length"])
+	var relative: Vector3 = subject["position"] - deck["position"]
+	var separation := Vector2(relative.x, relative.z).length()
+	var near := 1.0 - smoothstep(host_length * 0.5, host_length * 2.0, separation)
+	var low := 1.0 - smoothstep(float(deck["height"]), float(deck["height"]) + host_length * 0.6, maxf(relative.y, 0.0))
+	return maxf(length, lerpf(length, host_length, near * low))
+
+
+## A small bounding sphere around the known launch/recovery hull keeps even a zoomed-in eye
+## outside it. Solve only along the player's existing orbit ray; this is not a world collision
+## system and it never queries other units. Far from the deck it leaves the shot unchanged.
+static func deck_clearance_distance(subject: Dictionary, direction: Vector3, distance: float) -> float:
+	var deck: Dictionary = subject.get("own_deck", {})
+	if deck.is_empty():
+		return distance
+	var relative: Vector3 = subject["position"] - deck["position"]
+	var radius := float(deck["length"]) * 0.65
+	if (relative + direction * distance).length_squared() >= radius * radius:
+		return distance
+	var along := relative.dot(direction)
+	var exit_distance := -along + sqrt(maxf(along * along - relative.length_squared() + radius * radius, 0.0))
+	return maxf(distance, exit_distance + 2.0)
+
+## KEEP_WIDTH narrows the vertical field in a wide pane. A fixed downward pitch then removes
+## almost all sky. Scale its tangent with the vertical field, keeping the horizon at the same
+## fraction of the frame. Steep overhead views retain their angle so orbiting still reaches 85°.
+static func framed_pitch(pitch_deg: float, aspect: float) -> float:
+	var ratio := minf(1.0, (4.0 / 3.0) / maxf(aspect, 0.1))
+	var framed := rad_to_deg(atan(tan(deg_to_rad(pitch_deg)) * ratio))
+	return lerpf(framed, pitch_deg, smoothstep(25.0, 70.0, pitch_deg))
 
 ## Tether range for a subject `length_m` long at a zoom factor.
 static func tether_distance(length_m: float, zoom_factor: float) -> float:

@@ -62,6 +62,12 @@ jobs:
       - name: Command deck checks (1600 x 900)
         run: timeout 600 xvfb-run -a -s "-screen 0 1600x900x24" ~/godot/godot --path . --resolution 1600x900 -- --cold-war-smoke
 
+      - name: Contact intent and camera mouse checks (1280 x 720)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/fleet_command_playtest.gd -- --seed=31 --capture
+
+      - name: Contact intent and camera mouse checks (1920 x 1080)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1920x1080x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1920x1080 --script tools/fleet_command_playtest.gd -- --seed=31 --capture
+
       - name: Air operations checks
         run: timeout 600 xvfb-run -a -s "-screen 0 1600x1000x24" ~/godot/godot --path . --resolution 1600x1000 -- --aviation-smoke
 

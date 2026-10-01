@@ -5,12 +5,14 @@ extends Control
 ## and what the plot holds, and nothing else.
 ##
 ## The pane fills whatever rect its parent gives it (the bottom-centre slot, the big top slot when
-## the screen is swapped, or the whole window) and draws no chrome of its own beyond the camera
-## mode, in red at the top left: Tether, Fly-by, Action or Detached. It renders only while it is
+## the screen is swapped, or the whole window). The camera mode stays in red at the top left;
+## compact mouse controls and a subject caption keep every camera discoverable. It renders only while it is
 ## visible in the tree and not suspended behind a modal screen. Mouse input inside it never
 ## reaches anything underneath; the keyboard stays with Main.
 
 signal camera_mode_changed(mode: int)
+signal swap_requested
+signal fullscreen_requested
 
 const CAM_TETHER := WorldCamera.TETHER
 const CAM_FLYBY := WorldCamera.FLYBY
@@ -40,12 +42,19 @@ var _container: SubViewportContainer
 var _viewport: SubViewport
 var _scene: WorldScene
 var _hud: Control
+var _camera_select: OptionButton
+var _swap_button: Button
+var _full_button: Button
+var _subject_label: Label
+var _rain: ColorRect
+var _rain_material: ShaderMaterial
 var _origin_nm := Vector2.ZERO
 var _focus: Dictionary = {}
 var _focus_key := ""
 ## What the hook held on the last frame, to tell a new hook from one that only lost something.
 var _hook_units: Array[Unit] = []
 var _hook_track: Track = null
+var _hook_inspection: Track = null
 var _dragging := false
 var _entries: Array = []
 ## The simulation only moves on its ticks, so the entries (what may be drawn, and where) are rebuilt
@@ -84,12 +93,22 @@ func _ready() -> void:
 	_viewport.add_child(_scene)
 	_scene.build()
 	_frame_lookup = _scene.focus_frame
+	_rain = ColorRect.new()
+	_rain.name = "Rain"
+	_rain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_rain_material = ShaderMaterial.new()
+	_rain_material.shader = load("res://scripts/ui/world_rain.gdshader")
+	_rain.material = _rain_material
+	_rain.hide()
+	add_child(_rain)
 	_hud = Control.new()
 	_hud.name = "Hud"
 	_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.draw.connect(_draw_hud)
 	add_child(_hud)
+	_build_camera_controls()
 	visibility_changed.connect(_sync_visibility)
 	resized.connect(_sync_visibility)
 	_sync_visibility()
@@ -102,6 +121,8 @@ func set_camera_mode(next: int) -> void:
 	var before := rig.mode
 	rig.set_mode(next)
 	if rig.mode != before:
+		if _camera_select != null:
+			_camera_select.select(rig.mode)
 		camera_mode_changed.emit(rig.mode)
 		if _hud != null:
 			_hud.queue_redraw()
@@ -205,6 +226,7 @@ func reset_presentation() -> void:
 	_entries_reference = null
 	_hook_units.clear()
 	_hook_track = null
+	_hook_inspection = null
 	_chart_generation = -1
 	rig.reset()
 
@@ -227,6 +249,8 @@ func _sync_visibility() -> void:
 		_dragging = false
 	if _hud != null:
 		_hud.queue_redraw()
+	if _swap_button != null:
+		_swap_button.visible = size.x >= 350.0
 
 
 # --- Per frame -----------------------------------------------------------------------------
@@ -244,6 +268,7 @@ func _process(delta: float) -> void:
 	var focus := _pick_focus(own_units, hooked_anew)
 	_hook_units = map.selected.duplicate()
 	_hook_track = map.selected_track
+	_hook_inspection = map.inspection_track()
 	if String(focus.get("key", "")) != String(_focus.get("key", "")):
 		rig.cut()
 	_focus = focus
@@ -278,6 +303,13 @@ func _process(delta: float) -> void:
 	for e: Dictionary in _scene.take_events():
 		rig.notify(e["kind"], e["at"], e.get("key", ""))
 	_update_camera(delta)
+	_update_subject_label()
+	_rain.visible = _scene.rain_intensity > 0.0 and _scene.camera.position.y < _scene.cloud_base_m
+	if _rain.visible:
+		_rain_material.set_shader_parameter("weather_time", _scene.weather_time)
+		_rain_material.set_shader_parameter("intensity", _scene.rain_intensity)
+		_rain_material.set_shader_parameter("daylight", _scene.daylight)
+		_rain_material.set_shader_parameter("aspect", size.x / maxf(size.y, 1.0))
 	Debug.time_add("world", Time.get_ticks_usec() - t0)
 
 
@@ -285,7 +317,8 @@ func _process(delta: float) -> void:
 ## subject that has just been lost is watched until it has gone down, unless the player has
 ## hooked something new since.
 func _pick_focus(own_units: Array, hooked_anew: bool) -> Dictionary:
-	var focus := WorldPresentation.choose_focus(map.selected, map.selected_track, own_units)
+	var inspected := map.inspection_track()
+	var focus := WorldPresentation.choose_focus([] if inspected != null else map.selected, inspected if inspected != null else map.selected_track, own_units)
 	var lost: Unit = _focus.get("unit")
 	if not hooked_anew and lost != null and not lost.alive and not lost.departed and String(focus.get("key", "")) != String(_focus.get("key", "")) and _scene.has_record(_focus_key):
 		return _focus
@@ -296,6 +329,8 @@ func _pick_focus(own_units: Array, hooked_anew: bool) -> Dictionary:
 ## hooked something. A hook that only lost something (a ship sunk and pruned from it, a contact
 ## dropped) is not a new one.
 func _hooked_anew() -> bool:
+	if map.inspection_track() != _hook_inspection:
+		return true
 	if map.selected_track != null and map.selected_track != _hook_track:
 		return true
 	for u: Unit in map.selected:
@@ -305,6 +340,7 @@ func _hooked_anew() -> bool:
 
 
 func _update_camera(delta: float) -> void:
+	rig.viewport_aspect = size.x / maxf(size.y, 1.0)
 	var subject := _scene.focus_frame(_focus_key)
 	if subject.is_empty() and not _focus.is_empty():
 		subject = _point_frame(_focus)
@@ -391,6 +427,86 @@ func _select_at(screen: Vector2) -> void:
 
 
 # --- HUD -----------------------------------------------------------------------------------
+
+## The four camera modes and pane controls are available by mouse where the view is displayed.
+## The shell owns layout; these signals keep it out of the rendering/presentation boundary.
+func _build_camera_controls() -> void:
+	var row := HBoxContainer.new()
+	row.name = "CameraControls"
+	row.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	row.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	row.offset_left = -244.0
+	row.offset_top = 5.0
+	row.offset_right = -6.0
+	row.offset_bottom = 30.0
+	row.add_theme_constant_override("separation", 3)
+	add_child(row)
+	_camera_select = OptionButton.new()
+	_camera_select.custom_minimum_size = Vector2(96, 25)
+	_camera_select.add_theme_font_size_override("font_size", 12)
+	_camera_select.focus_mode = Control.FOCUS_NONE
+	_camera_select.tooltip_text = "Choose camera · drag to orbit · wheel to zoom"
+	for mode in WorldCamera.MODE_NAMES:
+		_camera_select.add_item(mode)
+	_camera_select.item_selected.connect(set_camera_mode)
+	row.add_child(_camera_select)
+	_swap_button = _view_button("Swap", "Swap the chart and 3D view", func() -> void: swap_requested.emit())
+	row.add_child(_swap_button)
+	_full_button = _view_button("Full", "Expand the 3D view to the whole screen", func() -> void: fullscreen_requested.emit())
+	row.add_child(_full_button)
+	_subject_label = Label.new()
+	_subject_label.name = "CameraSubject"
+	_subject_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_subject_label.offset_left = 7.0
+	_subject_label.offset_right = -7.0
+	_subject_label.offset_top = 33.0
+	_subject_label.offset_bottom = 51.0
+	_subject_label.clip_text = true
+	_subject_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_subject_label.add_theme_font_override("font", _default_label_font())
+	_subject_label.add_theme_font_size_override("font_size", 12)
+	_subject_label.add_theme_color_override("font_color", Color("f0f3f7"))
+	_subject_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	_subject_label.add_theme_constant_override("shadow_offset_x", 1)
+	_subject_label.add_theme_constant_override("shadow_offset_y", 1)
+	add_child(_subject_label)
+
+
+func _update_subject_label() -> void:
+	var caption := String(_focus.get("name", ""))
+	var action := rig.action()
+	if rig.mode == WorldCamera.ACTION and not action.is_empty():
+		var names := {"launch": "Weapon launch", "air_launch": "Aircraft launch", "recovery": "Aircraft recovery", "hit": "Weapon impact", "destroyed": "Unit lost", "intercept": "Intercept"}
+		caption = names.get(String(action.get("kind", "")), "Action")
+		for e: Dictionary in _entries:
+			if e["key"] == action.get("key", ""):
+				caption += " · " + String(e.get("label", ""))
+				break
+	elif _focus.get("track") != null:
+		caption += " · " + String(_focus.get("detail", ""))
+		if _focus_key.begins_with("t:"):
+			caption = "SENSOR ESTIMATE · " + caption
+	_subject_label.text = caption
+
+
+func _view_button(text: String, hint: String, action: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.tooltip_text = hint
+	b.custom_minimum_size = Vector2(54, 25)
+	b.add_theme_font_size_override("font_size", 12)
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(action)
+	return b
+
+
+func set_layout_state(swapped: bool, full: bool) -> void:
+	if _swap_button == null:
+		return
+	_swap_button.disabled = full
+	_swap_button.text = "Chart" if swapped else "Swap"
+	_full_button.text = "Back" if full else "Full"
+	_full_button.tooltip_text = "Return to the command screen" if full else "Expand the 3D view to the whole screen"
 
 ## The camera mode, red, top left, no box.
 func _draw_hud() -> void:

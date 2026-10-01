@@ -31,6 +31,11 @@ var waypoints: Array[Vector2] = []
 ## Player's repeating circuit, independent of the AI's scenario patrol_route.
 var patrol_active := false
 var patrol_legs_completed := 0
+## The reported contact remains the destination as fresh sensor plots arrive. No truth lookup.
+var investigation_track: Track
+var investigation_track_id := ""
+var investigation_result := ""
+var investigation_speed_kn := 0.0
 var alive := true
 ## Left the chart for a base off the map. Not alive for the simulation, but not lost either.
 var departed := false
@@ -349,11 +354,21 @@ func at_periscope_depth() -> bool:
 
 
 func apply_order(order: Order) -> void:
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL]:
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL, Order.Type.INVESTIGATE]:
 		evasion_remaining_s = 0.0
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION]:
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.INVESTIGATE]:
 		patrol_active = false
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE]:
+		clear_investigation()
 	match order.type:
+		Order.Type.INVESTIGATE:
+			formation_leader = null
+			investigation_track = order.track
+			investigation_track_id = order.track.id
+			waypoints.assign([order.track.position])
+			if ordered_speed_kn <= 0.0:
+				ordered_speed_kn = spec.cruise_speed_kn
+			investigation_speed_kn = ordered_speed_kn
 		Order.Type.PATROL:
 			formation_leader = null
 			patrol_active = true
@@ -372,6 +387,8 @@ func apply_order(order: Order) -> void:
 			ordered_heading_deg = fposmod(order.heading_deg, 360.0)
 		Order.Type.SET_SPEED:
 			ordered_speed_kn = clampf(order.speed_kn, 0.0, effective_max_speed())
+			if investigation_track != null:
+				investigation_speed_kn = ordered_speed_kn
 		Order.Type.STOP:
 			waypoints.clear()
 			ordered_speed_kn = 0.0
@@ -418,6 +435,16 @@ func apply_order(order: Order) -> void:
 			ordered_altitude_m = clampf(order.altitude_m, 0.0, spec.max_altitude_m)
 		Order.Type.LAUNCH_AIRCRAFT, Order.Type.RETURN_TO_BASE, Order.Type.DEPLOY_SONOBUOY:
 			pass  # routed to AviationManager by Simulation
+
+
+## Other navigation replaces this task; a completed task may keep a readable result until then.
+func clear_investigation() -> void:
+	if investigation_track != null:
+		waypoints.clear()
+	investigation_track = null
+	investigation_track_id = ""
+	investigation_result = ""
+	investigation_speed_kn = 0.0
 
 
 func in_formation() -> bool:
