@@ -8,7 +8,8 @@ class_name TorpedoDefence
 ##    the same interceptor path as a SAM: it runs out to the torpedo and the intercept is rolled.
 ##  - Soft kill. Once a torpedo homing on the ship is inside DECOY_RANGE_NM, the towed decoy (if
 ##    streamed, which takes way on the ship) has one try at pulling it off, then, if that fails, one
-##    expendable acoustic decoy. A torpedo pulled off searches on along its heading, and may find
+##    finite expendable acoustic pulse. The pulse covers nearby compatible seekers and uses the
+##    same reload as a manual deployment. A torpedo pulled off searches on along its heading, and may find
 ##    another ship; that ship's countermeasures then get their own try (WeaponManager.seduce).
 ##
 ## Manoeuvre is the AI's business (AIController turns away and runs); the player's ships get these
@@ -32,8 +33,8 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 		if not u.is_engageable() or u.in_flight():
 			continue
 		if not pictures.has(u.faction):
-			pictures[u.faction] = threat_manager.get_threats(u.faction).filter(func(w: Weapon) -> bool: return w.spec.is_torpedo() and not w.is_interceptor())
-		for w: Weapon in pictures[u.faction]:
+			pictures[u.faction] = DefensiveResponse.acquired_threats(threat_manager, u.faction, true)
+		for w: Weapon in pictures[u.faction].get(u, []):
 			if w.phase == Weapon.Phase.DEAD or w.is_interceptor() or not w.spec.is_torpedo() or w.acquired != u:
 				continue
 			if not threat_manager.visible_to(u, w):
@@ -41,6 +42,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 			used += _hard_kill(u, w, weapon_manager, now)
 			if w.phase != Weapon.Phase.DEAD:
 				used += _soft_kill(u, w, weapon_manager)
+			DefensiveResponse.update_acquired_threat(pictures[u.faction], w, u)
 	return used
 
 
@@ -69,26 +71,27 @@ static func _hard_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager, now: f
 
 
 static func _soft_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager) -> int:
-	if not u.auto_countermeasures or (u.countermeasure_kind == "acoustic" and u.countermeasure_remaining_s > 0):
+	if not u.auto_countermeasures or u.position.distance_to(w.position) > DECOY_RANGE_NM:
 		return 0
-	if w.acoustic_decoy_tried.has(u.id) or u.position.distance_to(w.position) > DECOY_RANGE_NM:
-		return 0
+	var active := u.countermeasure_kind == "acoustic" and u.countermeasure_remaining_s > 0.0
 	var towed := u.spec.towed_torpedo_decoy and u.speed_kn >= TOWED_MIN_SPEED_KN
-	if not towed and u.torpedo_decoys <= 0:
+	if not towed and u.torpedo_decoys <= 0 and not active:
 		return 0
-	w.acoustic_decoy_tried[u.id] = true
-	var chance := decoy_chance(u.spec, w.spec)
+	if not w.acoustic_decoy_tried.has(u.id):
+		w.acoustic_decoy_tried[u.id] = true
+		if towed and weapon_manager.rng.randf() < decoy_chance(u.spec, w.spec):
+			weapon_manager.seduce(w, u)
+			return 0
+	# Manual and automatic expendables share a pulse, its reload and its attempt record.
+	# A failed towed try while reloading may still release a canister once it is ready.
+	if w.decoy_attempted:
+		return 0
 	var used := 0
-	if towed:
-		if weapon_manager.rng.randf() < chance:
-			weapon_manager.seduce(w, u)
-			return used
-	if u.torpedo_decoys > 0:
-		u.torpedo_decoys -= 1
-		used += 1
-		weapon_manager.decoys_spent.emit(u, 1)
-		if weapon_manager.rng.randf() < chance:
-			weapon_manager.seduce(w, u)
+	if not active:
+		if not DefensiveResponse.deploy(u, "acoustic", weapon_manager):
+			return 0
+		used = 1
+	DefensiveResponse.try_active(u, w, weapon_manager)
 	return used
 
 

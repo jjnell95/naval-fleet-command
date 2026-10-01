@@ -1,0 +1,874 @@
+{
+  "change": "Combat controls, missile tracking and performance cleanup",
+  "recorded_at_utc": "2026-10-01T02:21:57.640520+00:00",
+  "status": "local, uncommitted, unpublished",
+  "base_commit": "ce2de11b2d84ee682552e4a9afb3dacd7ea2aaff",
+  "environment": {
+    "engine": "4.7.2.stable.official.ed1daf0bf",
+    "native_renderer": "OpenGL Compatibility / Mesa llvmpipe under Xvfb",
+    "browser": "Chromium 151.0.7922.173 / SwiftShader WebGL 2"
+  },
+  "regression": {
+    "tests": 638,
+    "failed": 0,
+    "added_tests": 39,
+    "command": "godot --headless --path . --script tests/run_tests.gd",
+    "runner_self_check": "PASS: runtime exception before assertions makes the real runner fail"
+  },
+  "native_ui": {
+    "checks": 338,
+    "failed": 0,
+    "cases": [
+      {
+        "case": "weapons-last-1280",
+        "checks": 30,
+        "failed": 0
+      },
+      {
+        "case": "weapons-last-1600",
+        "checks": 30,
+        "failed": 0
+      },
+      {
+        "case": "passage-last-1280",
+        "checks": 29,
+        "failed": 0
+      },
+      {
+        "case": "passage-last-1920",
+        "checks": 29,
+        "failed": 0
+      },
+      {
+        "case": "watch-last-1280",
+        "checks": 43,
+        "failed": 0
+      },
+      {
+        "case": "watch-last-1920",
+        "checks": 43,
+        "failed": 0
+      },
+      {
+        "case": "cold-war-1600",
+        "checks": 47,
+        "failed": 0
+      },
+      {
+        "case": "aviation",
+        "checks": 19,
+        "failed": 0
+      },
+      {
+        "case": "workshop-1280",
+        "checks": 34,
+        "failed": 0
+      },
+      {
+        "case": "workshop-1600",
+        "checks": 34,
+        "failed": 0
+      }
+    ]
+  },
+  "northern_passage": {
+    "checks": 115,
+    "failed": 0,
+    "replay_identical": true,
+    "runs": [
+      {
+        "name": "escort-31",
+        "policy": "escort",
+        "seed": 31,
+        "checks": 19,
+        "failed": 0,
+        "result": 1,
+        "sim_seconds": 1850.0
+      },
+      {
+        "name": "escort-31-repeat",
+        "policy": "escort",
+        "seed": 31,
+        "checks": 19,
+        "failed": 0,
+        "result": 1,
+        "sim_seconds": 1850.0
+      },
+      {
+        "name": "escort-13",
+        "policy": "escort",
+        "seed": 13,
+        "checks": 19,
+        "failed": 0,
+        "result": 1,
+        "sim_seconds": 1850.0
+      },
+      {
+        "name": "abandon-31",
+        "policy": "abandon",
+        "seed": 31,
+        "checks": 14,
+        "failed": 0,
+        "result": 2,
+        "sim_seconds": 1066.0
+      },
+      {
+        "name": "abandon-13",
+        "policy": "abandon",
+        "seed": 13,
+        "checks": 14,
+        "failed": 0,
+        "result": 2,
+        "sim_seconds": 1066.0
+      },
+      {
+        "name": "deadline-31",
+        "policy": "deadline",
+        "seed": 31,
+        "checks": 14,
+        "failed": 0,
+        "result": 2,
+        "sim_seconds": 2700.0
+      },
+      {
+        "name": "civilian-31",
+        "policy": "civilian",
+        "seed": 31,
+        "checks": 16,
+        "failed": 0,
+        "result": 2,
+        "sim_seconds": 44.0
+      }
+    ],
+    "command": "python tools/verify_northern_passage.py /path/to/godot work/combat-cleanup/passage-final"
+  },
+  "scenario_sweep": {
+    "total": 46,
+    "completed": 46,
+    "passed": 46,
+    "failed": 0,
+    "wall_s": 1252.4,
+    "model_hash": "6e6594768eb7318206cc75defe5817b6d227e4954c228617c58a98a9f3e359b4",
+    "final_model_hash": "6e6594768eb7318206cc75defe5817b6d227e4954c228617c58a98a9f3e359b4",
+    "model_hash_unchanged": true,
+    "runtime": "4.7.2.stable.official.ed1daf0bf",
+    "cases_per_seed": {
+      "2": 23,
+      "13": 23
+    },
+    "unique_cases": 46,
+    "all_reached_6000_seconds": true,
+    "total_simulated_seconds": 276000.0,
+    "aground_total": 0,
+    "cases_with_aground": 0,
+    "script_or_engine_error_count": 0,
+    "has_no_home_cases": 0,
+    "timeouts": 0,
+    "nonzero_exit_cases": 0,
+    "scenarios": 23,
+    "seeds": [
+      2,
+      13
+    ],
+    "sim_seconds_per_case": 6000,
+    "workers": 4,
+    "model_files": 520,
+    "engine_errors": 0,
+    "unintended_groundings": 0,
+    "no_home_errors": 0,
+    "cases": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 194.2,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 349.3,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 21.7,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 37.9,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 10.0,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.1,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 7.4,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 33.9,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 11.6,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 112.3,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 12.2,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 83.3,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 103.5,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 11.8,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 15.0,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 16.3,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.9,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 569.0,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 28.0,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 457.8,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 45.6,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 88.5,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.8,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 236.3,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 365.2,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.1,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 33.4,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 9.1,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.1,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 8.1,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 38.4,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 9.0,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 80.7,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 8.5,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 46.8,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 103.5,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 7.7,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 17.6,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 15.6,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 10.2,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 459.8,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 29.0,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 372.7,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 43.8,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 61.0,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 6.1,
+        "returncode": 0,
+        "errors": [],
+        "has_no_home": false,
+        "timed_out": false
+      }
+    ]
+  },
+  "browser": {
+    "http_status": 200,
+    "canvas_count": 1,
+    "loader_removed": true,
+    "page_errors": [],
+    "request_failures": [],
+    "engine_errors": [],
+    "visually_inspected": [
+      "desk",
+      "briefing",
+      "command",
+      "attack",
+      "defence",
+      "air",
+      "3d"
+    ],
+    "warnings": [
+      {
+        "message": "[.WebGL-0x157c06658200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "count": 3
+      },
+      {
+        "message": "[.WebGL-0x157c06658200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+        "count": 1
+      },
+      {
+        "message": "WebGL: INVALID_OPERATION: bindBuffer: element array buffers can not be bound to a different target",
+        "count": 126
+      },
+      {
+        "message": "WebGL: INVALID_OPERATION: bufferSubData: no buffer",
+        "count": 126
+      },
+      {
+        "message": "WebGL: too many errors, no more errors will be reported to the console for this context.",
+        "count": 1
+      }
+    ],
+    "limitation": "Inherited Godot/WebGL buffer binding and subdata warnings on G viewport expansion in Chromium SwiftShader. Earlier M26\u2013M32 records document the same warnings; the inspected 3D view renders correctly. Driver-only attribution is unproven."
+  },
+  "web_package": {
+    "path": "docs/play/index.pck",
+    "bytes": 60801056,
+    "sha256": "c981bd8a8419566ec43fc3b8bff08b26c8de2ff03359dba9c8d9cd473214eaa9",
+    "wasm_bytes": 39514754,
+    "loader_sizes_match": true,
+    "game_source_digest": "384bc60bf4b1cbf7bb67aef340407ac8c34ba27433f140cefc597d64caa2eb76",
+    "game_source_digest_method": "SHA256 of compact sorted JSON mapping relative file paths to SHA256 content hashes, for all scripts files plus project.godot and export_presets.cfg",
+    "game_sources_newer_than_package": []
+  },
+  "performance": {
+    "kind": "isolated before/after script probes on exact Godot 4.7.2; these are not total FPS results",
+    "probes": [
+      {
+        "operation": "Countermeasure target traversal",
+        "workload": "120 hulls, 800 torpedoes",
+        "unit": "ms/cycle",
+        "before": 50.586,
+        "after": 4.082
+      },
+      {
+        "operation": "Observer track lookup",
+        "workload": "200 tracks, 30000 queries",
+        "unit": "ms",
+        "before": 966.285,
+        "after": 45.397
+      },
+      {
+        "operation": "Launcher readiness",
+        "workload": "500 queued rounds, 300 queries",
+        "unit": "ms",
+        "before": 523.98,
+        "after": 267.565
+      },
+      {
+        "operation": "Model availability",
+        "workload": "48 entries, 1000 frames",
+        "unit": "ms",
+        "before": 913.746,
+        "after": 25.33
+      }
+    ],
+    "graphical_sample": {
+      "scenario": "Joint Task Force",
+      "units": 115,
+      "sim_speed": "1x",
+      "sample_seconds": 5,
+      "baseline_frame_ms": 111.6,
+      "final_frame_ms": 110.9,
+      "limitation": "About 9 FPS on Mesa llvmpipe both before and after. No weapons were in flight. This does not establish overall combat FPS improvement or a hardware GPU budget."
+    }
+  },
+  "notes": "docs/2026-09-30-combat-cleanup.md",
+  "screenshot": "docs/2026-09-30-combat-cleanup-weapons-1280.png"
+}

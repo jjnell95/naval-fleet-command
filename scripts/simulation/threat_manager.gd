@@ -9,7 +9,7 @@ extends Node
 
 signal threat_detected(faction: String, weapon: Weapon)
 
-var _observers: Dictionary = {}
+var _observers: Dictionary = {}  # faction -> weapon id -> Array[Unit]
 var _detected: Dictionary = {}  # faction -> Dictionary[int weapon_id, Weapon]
 var _first_seen: Dictionary = {}  # faction -> Dictionary[int weapon_id, float]
 var revision := 0  # invalidates presentation geometry, including detections while paused
@@ -23,10 +23,15 @@ func begin_cycle() -> void:
 
 
 func mark_detected(faction: String, w: Weapon, now: float, observer: Unit = null) -> void:
+	if w.phase == Weapon.Phase.DEAD or (observer != null and observer.faction != faction):
+		return
 	revision += 1
-	if not _observers.has(w.id):
-		_observers[w.id] = []
-	_observers[w.id].append(observer)
+	var observers: Dictionary = _observers.get(faction, {})
+	if not observers.has(w.id):
+		observers[w.id] = []
+	if not observers[w.id].has(observer):
+		observers[w.id].append(observer)
+	_observers[faction] = observers
 	if not _detected.has(faction):
 		_detected[faction] = {}
 	if not _first_seen.has(faction):
@@ -46,23 +51,24 @@ func get_threats(faction: String) -> Array[Weapon]:
 
 
 func is_detected(faction: String, w: Weapon) -> bool:
-	return _detected.get(faction, {}).has(w.id)
+	return w != null and w.phase != Weapon.Phase.DEAD and _detected.get(faction, {}).get(w.id) == w
 
 
 func visible_to(u: Unit, w: Weapon) -> bool:
-	if not is_detected(u.faction, w):
+	if u == null or not u.alive or not is_detected(u.faction, w):
 		return false
-	for observer: Unit in _observers.get(w.id, []):
+	for observer: Unit in _observers.get(u.faction, {}).get(w.id, []):
 		if observer == u:
 			return true
-		if u.datalink_connected() and (observer == null or (observer.faction == u.faction and observer.datalink_connected())):
+		if u.datalink_connected() and (observer == null or observer.datalink_connected()):
 			return true
 	return false
 
 
 func forget(w: Weapon) -> void:
 	revision += 1
-	_observers.erase(w.id)
+	for faction in _observers:
+		_observers[faction].erase(w.id)
 	for faction in _detected.keys():
 		_detected[faction].erase(w.id)
 	for faction in _first_seen.keys():

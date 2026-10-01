@@ -502,7 +502,11 @@ static func sun_angles(unix_time: float, lat_deg: float, lon_deg: float) -> Vect
 
 ## Unit vector toward the sun in world axes (+X east, +Y up, -Z north).
 static func sun_direction(unix_time: float, lat_deg: float, lon_deg: float) -> Vector3:
-	var a := sun_angles(unix_time, lat_deg, lon_deg)
+	return sun_direction_from_angles(sun_angles(unix_time, lat_deg, lon_deg))
+
+
+## Uses an already-computed solar position when the caller needs both elevation and direction.
+static func sun_direction_from_angles(a: Vector2) -> Vector3:
 	var el := deg_to_rad(a.x)
 	var az := deg_to_rad(a.y)
 	return Vector3(cos(el) * sin(az), sin(el), -cos(el) * cos(az)).normalized()

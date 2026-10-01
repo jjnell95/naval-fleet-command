@@ -79,6 +79,15 @@ func test_sun_is_below_the_horizon_at_local_midnight() -> void:
 	assert_true(WorldPresentation.sun_direction(_unix("1990-03-21T00:00:00"), 60.0, 0.0).y < 0.0)
 
 
+func test_sun_direction_uses_the_same_angles_the_sky_reads() -> void:
+	for date: String in ["1990-03-21T12:00:00", "1990-12-21T00:00:00", "1990-06-21T06:30:00"]:
+		var unix := _unix(date)
+		var angles := WorldPresentation.sun_angles(unix, 60.0, 12.0)
+		var direction := WorldPresentation.sun_direction_from_angles(angles)
+		assert_true(direction.is_equal_approx(WorldPresentation.sun_direction(unix, 60.0, 12.0)), "the shared solar calculation preserves the sun direction")
+		assert_near(direction.length(), 1.0)
+
+
 func test_sun_follows_longitude() -> void:
 	var east := WorldPresentation.sun_angles(_unix("1990-03-21T06:00:00"), 60.0, 90.0).x
 	var prime := WorldPresentation.sun_angles(_unix("1990-03-21T06:00:00"), 60.0, 0.0).x
@@ -961,6 +970,106 @@ func _free_view(f: Dictionary) -> void:
 	sim.unit_manager.free()
 	sim.track_manager.free()
 	sim.free()
+
+
+func test_paused_world_updates_detected_and_forgotten_missiles() -> void:
+	var saved_paused := SimClock.paused
+	SimClock.paused = true
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var f := _live_view([ship])
+	var sim: Simulation = f["sim"]
+	sim.weapon_manager = WeaponManager.new()
+	sim.threat_manager = ThreatManager.new()
+	var w := Weapon.new()
+	w.id = 42
+	w.spec = DataDB.weapon("cw90_kh22")
+	w.faction = "RED"
+	w.position = Vector2(4, 0)
+	sim.weapon_manager.in_flight.append(w)
+	var view: WorldView = f["view"]
+	(f["map"] as TacticalMap).selected = [ship] as Array[Unit]
+	view._process(0.016)
+	assert_true(not view._scene.has_record("w:42"), "an undetected missile is absent")
+	sim.threat_manager.mark_detected("BLUE", w, SimClock.sim_time, ship)
+	view._process(0.016)
+	assert_true(view._scene.has_record("w:42"), "a detection appears without waiting for another simulation tick")
+	sim.threat_manager.forget(w)
+	view._process(0.016)
+	assert_true(not view._scene.has_record("w:42"), "a forgotten missile disappears while paused")
+	sim.weapon_manager.free()
+	sim.threat_manager.free()
+	_free_view(f)
+	SimClock.paused = saved_paused
+
+
+func test_paused_world_updates_fired_and_cleared_weapons() -> void:
+	var saved_paused := SimClock.paused
+	SimClock.paused = true
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var f := _live_view([ship])
+	var sim: Simulation = f["sim"]
+	sim.weapon_manager = WeaponManager.new()
+	var view: WorldView = f["view"]
+	(f["map"] as TacticalMap).selected = [ship] as Array[Unit]
+	view._process(0.016)
+	var track := Track.new()
+	track.position = Vector2(10, 0)
+	sim.weapon_manager._fire_round(ship, DataDB.weapon("cw90_harpoon"), track)
+	view._process(0.016)
+	assert_true(view._scene.has_record("w:1"), "an own launch appears immediately while paused")
+	sim.weapon_manager.clear()
+	view._process(0.016)
+	assert_true(not view._scene.has_record("w:1"), "cleared weapons leave the paused pane immediately")
+	sim.weapon_manager.free()
+	_free_view(f)
+	SimClock.paused = saved_paused
+
+
+func test_paused_world_drops_shared_missiles_when_reference_goes_off_the_link() -> void:
+	var saved_paused := SimClock.paused
+	SimClock.paused = true
+	var boat := _unit("cw90_los_angeles", "BLUE", Vector2.ZERO)
+	boat.spec = boat.spec.duplicate() as PlatformSpec
+	boat.spec.has_datalink = true
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2(1, 0))
+	var f := _live_view([boat, ship])
+	var sim: Simulation = f["sim"]
+	sim.weapon_manager = WeaponManager.new()
+	sim.threat_manager = ThreatManager.new()
+	var w := Weapon.new()
+	w.id = 42
+	w.spec = DataDB.weapon("cw90_kh22")
+	w.faction = "RED"
+	w.position = Vector2(4, 0)
+	sim.weapon_manager.in_flight.append(w)
+	sim.threat_manager.mark_detected("BLUE", w, SimClock.sim_time, ship)
+	var view: WorldView = f["view"]
+	(f["map"] as TacticalMap).selected = [boat] as Array[Unit]
+	view._process(0.016)
+	assert_true(view._scene.has_record("w:42"), "the surfaced boat receives its escort's detection")
+	boat.depth_m = 100.0
+	view._process(0.016)
+	assert_true(not view._scene.has_record("w:42"), "going off the link removes another observer's missile from the paused pane")
+	sim.weapon_manager.free()
+	sim.threat_manager.free()
+	_free_view(f)
+	SimClock.paused = saved_paused
+
+
+func test_clearing_a_paused_hook_reculls_around_the_force_centre() -> void:
+	var first := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var second := _unit("cw90_perry", "BLUE", Vector2(70, 0))
+	var f := _live_view([first, second])
+	var view: WorldView = f["view"]
+	var map: TacticalMap = f["map"]
+	map.selected = [first] as Array[Unit]
+	view._process(0.016)
+	assert_true(not view._scene.has_record("u:%d" % second.id), "the distant escort starts outside the hooked ship's view")
+	map.selected.clear()
+	view._process(0.016)
+	assert_eq(view._focus_key, "force", "clearing the hook follows the force centre")
+	assert_true(view._scene.has_record("u:%d" % second.id), "both ships are drawn around the new focus without waiting for a tick")
+	_free_view(f)
 
 
 func test_a_new_hook_takes_the_camera_off_a_ship_that_is_going_down() -> void:

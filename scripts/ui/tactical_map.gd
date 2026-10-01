@@ -202,6 +202,9 @@ var _threat_candidates: Array = []
 var _threat_cache_time := -1.0
 var _threat_cache_revision := -1
 var _weapon_trails: Dictionary = {}  # weapon id -> PackedVector2Array of recent positions
+var _weapon_trail_time := -1.0
+var _weapon_trail_revision := -1
+var _weapon_trail_threat_revision := -1
 var _hit_flash := 0.0
 var show_range_grid := false
 var _floor: ChartFloor
@@ -458,11 +461,19 @@ func _record_weapon_trails() -> void:
 	if weapon_manager == null:
 		return
 	var ref := reference_unit()
+	var threat_revision := threat_manager.revision if threat_manager != null else -1
+	if _trail_reference == ref and _weapon_trail_time == SimClock.sim_time and _weapon_trail_revision == weapon_manager.revision and _weapon_trail_threat_revision == threat_revision:
+		return
+	_weapon_trail_time = SimClock.sim_time
+	_weapon_trail_revision = weapon_manager.revision
+	_weapon_trail_threat_revision = threat_revision
 	if _trail_reference != ref:
 		_weapon_trails.clear()
 		_trail_reference = ref
 	var live: Dictionary = {}
 	for w: Weapon in weapon_manager.in_flight:
+		if w.phase == Weapon.Phase.DEAD:
+			continue
 		if w.faction != player_faction and not Debug.enabled and (threat_manager == null or ref == null or not threat_manager.visible_to(ref, w)):
 			continue
 		live[w.id] = true
@@ -546,6 +557,10 @@ func reset_presentation() -> void:
 	_own_alive.clear()
 	_clear_range_circle()
 	_weapon_trails.clear()
+	_trail_reference = null
+	_weapon_trail_time = -1.0
+	_weapon_trail_revision = -1
+	_weapon_trail_threat_revision = -1
 	_effects.clear()
 	_hit_flash = 0.0
 	_trail_last_s = -1.0e9
@@ -724,6 +739,46 @@ func _gui_input(event: InputEvent) -> void:
 ## The whole chart takes commands: there is no header, footer or card to click through to.
 func _chart_accepts_point(point: Vector2) -> bool:
 	return Rect2(Vector2.ZERO, size).has_point(point)
+
+
+## Inspect a plotted round without changing the shooter or contact selection. Enemy rounds
+## use the hooked observer's picture and never expose a launcher or an enemy target at truth.
+func _get_tooltip(at: Vector2) -> String:
+	var w := _weapon_at(at)
+	if w == null:
+		return ""
+	var own := w.faction == player_faction
+	var lines := PackedStringArray(["%s #%d — %s" % ["OWN WEAPON" if own else "DETECTED WEAPON", w.id, w.spec.display_name]])
+	lines.append("Course %03d° · Speed %d kn" % [int(roundf(w.heading_deg)) % 360, int(w.spec.speed_kn)])
+	if own:
+		if w.shooter != null:
+			lines.append("Fired by %s" % w.shooter.callsign)
+		if w.is_interceptor():
+			lines.append("Intercepting weapon #%d · estimated %s" % [w.intercept_target.id, Track._fmt_age(w.time_to_reach_s(w.intercept_target.position))])
+		elif w.target_track != null:
+			lines.append("Target %s · estimated %s to aim point" % [w.target_track.label(), Track._fmt_age(w.time_to_reach_s(w.aim_point))])
+		lines.append("%s · %.1f nm range remaining" % ["Terminal" if w.phase == Weapon.Phase.TERMINAL else "Cruise", maxf(w.spec.max_range_nm - w.distance_flown_nm, 0.0)])
+	else:
+		lines.append("%s · visible to the current platform" % w.threat_class().capitalize())
+	return "\n".join(lines)
+
+
+func _weapon_at(screen_pos: Vector2) -> Weapon:
+	if weapon_manager == null or not _chart_accepts_point(screen_pos):
+		return null
+	var observer := reference_unit()
+	var best: Weapon = null
+	var distance_sq := 12.0 * 12.0
+	for w: Weapon in weapon_manager.in_flight:
+		if w.phase == Weapon.Phase.DEAD:
+			continue
+		if w.faction != player_faction and (observer == null or threat_manager == null or not threat_manager.visible_to(observer, w)):
+			continue
+		var d := world_to_screen(w.position).distance_squared_to(screen_pos)
+		if d < distance_sq:
+			best = w
+			distance_sq = d
+	return best
 
 
 func _handle_mouse_button(e: InputEventMouseButton) -> void:
@@ -2093,6 +2148,8 @@ func _draw_weapons() -> void:
 	var visible_chart := Rect2(Vector2(-20, -20), size + Vector2(40, 40))
 	var dense := weapon_manager.in_flight.size() > 200
 	for w: Weapon in weapon_manager.in_flight:
+		if w.phase == Weapon.Phase.DEAD:
+			continue
 		var own := w.faction == player_faction
 		var detected := not own and ref != null and threat_manager != null and threat_manager.visible_to(ref, w)
 		if not own and not detected and not Debug.enabled:

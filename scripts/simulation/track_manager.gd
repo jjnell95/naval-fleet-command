@@ -43,10 +43,10 @@ func tracks_for(u: Unit) -> Array:
 
 
 func find_for(u: Unit, target: Unit) -> Track:
-	for t: Track in tracks_for(u):
-		if t.truth == target:
-			return t
-	return null
+	if u == null:
+		return null
+	var key: String = u.faction if u.datalink_connected() else _local_keys.get(u, "")
+	return find_track(key, target)
 
 
 func find_track(faction: String, target: Unit) -> Track:
