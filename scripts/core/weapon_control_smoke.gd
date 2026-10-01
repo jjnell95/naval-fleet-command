@@ -51,6 +51,8 @@ static func run(main: Main) -> void:
 	board.refresh()
 	checks["mixed-weapon plan enables commit"] = board._plan.size() == 3 and not board._commit.disabled
 	checks["plan summary counts all selected rounds"] = board._plan_summary.text.begins_with("6 rounds planned across 3 systems")
+	await main.get_tree().process_frame
+	checks["firing solution and plan summary retain visible height"] = board._quality.size.y > 0 and board._detail.size.y > 0 and board._plan_summary.size.y > 0 and not board._quality.text.is_empty()
 	board._role_option.select(1)
 	board._role_option.item_selected.emit(1)
 	checks["filtering discloses hidden planned systems"] = board._plan_summary.text.contains("3 systems hidden by filter")
@@ -62,6 +64,7 @@ static func run(main: Main) -> void:
 		return
 	board._commit.pressed.emit()
 	checks["all three unit orders were accepted"] = board._receipt.text.contains("6 rounds committed across 3 systems; 0 orders refused")
+	checks["mixed-system receipt counts orders without duplicating platforms"] = main.radio.journal[-1].contains("3 orders accepted")
 	checks["each independent launcher fires one round"] = wm.in_flight.size() == 3
 	checks["remaining salvo rounds are reserved"] = wm.committed_rounds(own[0], gun, track, true) == 1 and wm.committed_rounds(own[0], missile, track, true) == 1 and wm.committed_rounds(own[1], missile, track, true) == 1
 	checks["after-action launch count includes only rounds actually fired"] = main._stats["own_rounds"] == 3
@@ -92,6 +95,20 @@ static func run(main: Main) -> void:
 	checks["clearing the target clears the chart hook"] = main.map.selected_track == null and board.target == null
 	checks["no target disables firing"] = board._commit.disabled and board._items.all(func(i: TreeItem) -> bool: return not i.is_editable(8))
 	main._close_weapon_control()
+	main.command_bar.refresh()
+	main.command_bar.buttons["weapon_control"].pressed.emit()
+	checks["Attack command key opens weapon control"] = board.visible
+	main._close_weapon_control()
+	main.command_bar.buttons["open_defence"].pressed.emit()
+	await main.get_tree().process_frame
+	checks["Defence command key opens defensive controls"] = main.status_boards.visible and main.orders_panel._tabs.current_tab == 4
+	checks["command strip fits the viewport"] = main.command_bar.get_minimum_size().x <= main.get_viewport_rect().size.x
+	main._toggle_boards()
+	main.map.select_units(own)
+	own[0].magazines[gun.id] = 1
+	own[1].magazines[gun.id] = 3
+	main._apply_unit_orders([[own[0], Order.engage(track, gun.id, 1)], [own[1], Order.engage(track, gun.id, 3)]])
+	checks["group attack receipt totals actual committed rounds"] = main.radio.journal[-1].contains("4 rounds committed") and main.radio.journal[-1].contains("2 orders accepted")
 	var failures := 0
 	for name: String in checks:
 		print("%s weapon-control: %s" % ["PASS" if checks[name] else "FAIL", name])

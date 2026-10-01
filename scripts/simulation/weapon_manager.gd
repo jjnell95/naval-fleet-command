@@ -10,6 +10,8 @@ signal unit_destroyed(unit: Unit, killer_faction: String)
 signal engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String)
 signal interceptor_launched(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int)
 signal weapon_defeated(threat: Weapon, reason: String, by_unit: Unit)
+## Every completed flight, including ordinary impacts, losses of guidance and exhausted range.
+signal weapon_resolved(weapon: Weapon)
 ## A round pulled off its target by decoys that found another ship in its seeker basket.
 signal weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit)
 ## Expendable decoys used, chaff or acoustic, whether or not they worked. A towed decoy is not one.
@@ -27,6 +29,7 @@ var unit_manager: UnitManager
 var track_manager: TrackManager
 var rng := RandomNumberGenerator.new()
 var in_flight: Array[Weapon] = []
+var revision := 0  # presentation invalidation for launches/cancellations while paused
 
 var _channel_batch := false
 var _channel_cache: Dictionary = {}
@@ -35,6 +38,7 @@ var _next_id := 1
 var _launcher_ready_at: Dictionary = {}  # shooter -> launcher group -> next launch time
 var now_s := 0.0
 var _pending: Array = []  # queued salvo rounds: {shooter, spec, track, time}
+var _pending_dirty := false
 
 
 func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: float) -> bool:
@@ -52,11 +56,13 @@ func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: floa
 			_mark_launched(shooter, spec, now)
 		else:
 			_pending.append({"shooter": shooter, "spec": spec, "track": track, "time": launch_at})
+			_pending_dirty = true
 		launch_at += launch_spacing(shooter, spec)
 	if _channel_batch and spec.requires_fire_control_channel() and track.domain == "air":
 		var held: Dictionary = _channel_cache.get(shooter, {})
 		held[track] = true
 		_channel_cache[shooter] = held
+	revision += 1
 	weapon_launched.emit(shooter, spec, track, rounds)
 	return true
 
@@ -83,11 +89,19 @@ func _mark_launched(shooter: Unit, spec: WeaponSpec, now: float) -> void:
 
 func ready_in_s(shooter: Unit, spec: WeaponSpec, now: float) -> float:
 	var at := maxf(now, _ready_time(shooter, spec))
-	var queue: Array = _pending.filter(func(p: Dictionary) -> bool: return p.shooter == shooter and launcher_key(shooter, p.spec) == launcher_key(shooter, spec))
-	queue.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.time) < float(b.time))
-	for p: Dictionary in queue:
-		at = maxf(at, float(p.time)) + launch_spacing(shooter, p.spec)
+	var key := launcher_key(shooter, spec)
+	_sort_pending()
+	for p: Dictionary in _pending:
+		if p.shooter == shooter and launcher_key(shooter, p.spec) == key:
+			at = maxf(at, float(p.time)) + launch_spacing(shooter, p.spec)
 	return maxf(at - now, 0.0)
+
+
+func _sort_pending() -> void:
+	if not _pending_dirty:
+		return
+	_pending.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.time) < float(b.time))
+	_pending_dirty = false
 
 
 
@@ -121,13 +135,17 @@ func engagement_check(shooter: Unit, spec: WeaponSpec, track: Track, now: float,
 ## Unfired rounds stay aboard. A cancel, hold order or invalid solution refunds only reservations.
 func cancel_salvo(shooter: Unit, track: Track = null) -> int:
 	var count := 0
-	for i in range(_pending.size() - 1, -1, -1):
-		var p: Dictionary = _pending[i]
+	var retained: Array = []
+	for p: Dictionary in _pending:
 		if p.shooter == shooter and (track == null or p.track == track):
-			_pending.remove_at(i)
 			if shooter.alive:
 				shooter.magazines[p.spec.id] = shooter.magazine_count(p.spec.id) + 1
 			count += 1
+		else:
+			retained.append(p)
+	_pending = retained
+	if count > 0:
+		revision += 1
 	return count
 
 
@@ -182,6 +200,7 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		var held: Dictionary = _channel_cache.get(shooter, {})
 		held[threat] = true
 		_channel_cache[shooter] = held
+	revision += 1
 	interceptor_launched.emit(shooter, spec, threat, available)
 	return available
 
@@ -192,16 +211,18 @@ func defeat_weapon(threat: Weapon, reason: String, by_unit: Unit = null) -> void
 		return
 	threat.phase = Weapon.Phase.DEAD
 	threat.dead_reason = reason
+	revision += 1
 	weapon_defeated.emit(threat, reason, by_unit)
 
 
 func tick(dt: float, now: float) -> void:
 	now_s = now
-	_pending.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.time) < float(b.time))
+	_sort_pending()
 	for p: Dictionary in _pending.duplicate():
 		var check := engagement_check(p.shooter, p.spec, p.track, now, true)
 		if not check.ok:
 			_pending.erase(p)
+			revision += 1
 			if p.shooter.alive:
 				p.shooter.magazines[p.spec.id] = p.shooter.magazine_count(p.spec.id) + 1
 			engagement_rejected.emit(p.shooter, p.spec, "QUEUED ROUND CANCELLED: " + str(check.reason))
@@ -212,16 +233,21 @@ func tick(dt: float, now: float) -> void:
 	for i in range(in_flight.size() - 1, -1, -1):
 		_step(in_flight[i], dt)
 		if in_flight[i].phase == Weapon.Phase.DEAD:
+			var resolved := in_flight[i]
 			in_flight.remove_at(i)
+			revision += 1
+			weapon_resolved.emit(resolved)
 
 
 func clear() -> void:
 	end_channel_batch()
 	in_flight.clear()
 	_pending.clear()
+	_pending_dirty = false
 	_launcher_ready_at.clear()
 	now_s = 0.0
 	_next_id = 1
+	revision += 1
 
 
 func _fire_round(shooter: Unit, spec: WeaponSpec, track: Track) -> void:
@@ -239,6 +265,7 @@ func _fire_round(shooter: Unit, spec: WeaponSpec, track: Track) -> void:
 	w.launch_range_nm = w.position.distance_to(w.aim_point)
 	w.heading_deg = Geo.bearing_deg(w.position, w.aim_point)
 	in_flight.append(w)
+	revision += 1
 	round_fired.emit(shooter, spec, track)
 
 
@@ -288,14 +315,11 @@ func _step(w: Weapon, dt: float) -> void:
 	var max_turn := w.spec.turn_rate_deg_s * dt
 	w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
 
-	var travel := w.speed_nm_per_s() * dt
+	var previous := w.position
+	var distance_before := w.distance_flown_nm
+	var travel := minf(w.speed_nm_per_s() * dt, maxf(w.spec.max_range_nm - distance_before, 0.0))
 	w.position += Geo.heading_to_vector(w.heading_deg) * travel
 	w.distance_flown_nm += travel
-
-	if w.distance_flown_nm >= w.spec.max_range_nm:
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "RANGE EXHAUSTED"
-		return
 
 	if _hits_terrain(w, travel):
 		w.phase = Weapon.Phase.DEAD
@@ -307,21 +331,30 @@ func _step(w: Weapon, dt: float) -> void:
 			# A torpedo runs out before its seeker comes on, then searches the whole way in.
 			# That is why a shot down a rough bearing is still worth taking.
 			if w.distance_flown_nm >= w.spec.run_to_enable_nm:
-				_try_acquire(w, travel)
-			return
-		if w.position.distance_to(w.aim_point) <= w.spec.acquisition_radius_nm():
-			_try_acquire(w, travel)
-		return
+				# Only the part of the step after run-out is inside the seeker basket.
+				var enabled_fraction := clampf((w.spec.run_to_enable_nm - distance_before) / maxf(travel, 1e-9), 0.0, 1.0)
+				previous = previous.lerp(w.position, enabled_fraction)
+				previous = _try_acquire(w, previous)
+		else:
+			var radius := w.spec.acquisition_radius_nm()
+			var enabled_fraction := _first_radius_contact_fraction(previous, w.position, w.aim_point, radius)
+			if is_finite(enabled_fraction):
+				previous = previous.lerp(w.position, enabled_fraction)
+				previous = _try_acquire(w, previous)
 
-	var impact := maxf(IMPACT_MIN_NM, travel)
-	if w.acquired != null and w.position.distance_to(w.acquired.position) <= impact:
+	# Sweep the travelled segment instead of inflating the impact radius by speed. Fast rounds
+	# must not skip a target, or hit one they passed a long way abeam while unable to turn.
+	if w.phase == Weapon.Phase.TERMINAL and w.acquired != null and _segment_distance_squared(previous, w.position, w.acquired.position) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
 		_resolve_impact(w)
+	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "RANGE EXHAUSTED"
 
 
 ## Rocket-delivered ASW: fly to the held launch solution, then put a fresh torpedo into the
 ## water. The payload has its own speed, seeker and run distance, with no hidden target cue.
 func _step_delivery(w: Weapon, dt: float) -> void:
-	var travel := w.speed_nm_per_s() * dt
+	var travel := minf(w.speed_nm_per_s() * dt, maxf(w.spec.max_range_nm - w.distance_flown_nm, 0.0))
 	var remaining := w.position.distance_to(w.aim_point)
 	w.heading_deg = Geo.bearing_deg(w.position, w.aim_point)
 	if remaining <= travel:
@@ -385,18 +418,31 @@ func _step_interceptor(w: Weapon, dt: float) -> void:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "GUIDANCE LOST"
 		return
-	var desired := Geo.bearing_deg(w.position, threat.position)
+	# Lead a moving inbound. Pointing only at its current position makes crossing shots chase
+	# its wake, and an accurate swept collision check exposes the miss hidden by a wide radius.
+	var aim := Combat.intercept_point(w.position, w.spec.speed_kn, threat.position, threat.heading_deg, threat.spec.speed_kn, true)
+	var desired := Geo.bearing_deg(w.position, aim if aim.is_finite() else threat.position)
 	var max_turn := w.spec.turn_rate_deg_s * dt
 	w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
-	var travel := w.speed_nm_per_s() * dt
+	var previous := w.position
+	var travel := minf(w.speed_nm_per_s() * dt, maxf(w.spec.max_range_nm - w.distance_flown_nm, 0.0))
 	w.position += Geo.heading_to_vector(w.heading_deg) * travel
 	w.distance_flown_nm += travel
-	if w.distance_flown_nm >= w.spec.max_range_nm:
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "RANGE EXHAUSTED"
-		return
-	var impact := maxf(IMPACT_MIN_NM, travel + threat.speed_nm_per_s() * dt)
-	if w.position.distance_to(threat.position) > impact:
+	# Interceptors are advanced before the inbound. Test relative motion through this tick,
+	# including the inbound's remaining run, instead of a speed-dependent proximity radius.
+	var flight_dt := travel / w.speed_nm_per_s() if w.speed_nm_per_s() > 0.0 else 0.0
+	var threat_remaining := maxf(threat.spec.max_range_nm - threat.distance_flown_nm, 0.0)
+	if threat.speed_nm_per_s() > 0.0:
+		flight_dt = minf(flight_dt, threat_remaining / threat.speed_nm_per_s())
+	elif threat_remaining <= 0.0:
+		flight_dt = 0.0
+	var intercept_end := previous + Geo.heading_to_vector(w.heading_deg) * w.speed_nm_per_s() * flight_dt
+	var threat_travel := threat.speed_nm_per_s() * flight_dt
+	var threat_end := threat.position + Geo.heading_to_vector(threat.heading_deg) * threat_travel
+	if _segment_distance_squared(previous - threat.position, intercept_end - threat_end, Vector2.ZERO) > IMPACT_MIN_NM * IMPACT_MIN_NM:
+		if w.distance_flown_nm >= w.spec.max_range_nm:
+			w.phase = Weapon.Phase.DEAD
+			w.dead_reason = "RANGE EXHAUSTED"
 		return
 	w.phase = Weapon.Phase.DEAD
 	if rng.randf() < Combat.intercept_probability(w.spec, threat.spec):
@@ -406,24 +452,56 @@ func _step_interceptor(w: Weapon, dt: float) -> void:
 		w.dead_reason = "INTERCEPT MISS"
 
 
-func _try_acquire(w: Weapon, travel: float) -> void:
+static func _segment_distance_squared(from: Vector2, to: Vector2, point: Vector2) -> float:
+	var delta := to - from
+	var fraction := clampf((point - from).dot(delta) / maxf(delta.length_squared(), 1e-12), 0.0, 1.0)
+	return point.distance_squared_to(from + delta * fraction)
+
+
+## The first point of a step inside a circle. INF means the entire step misses the basket.
+static func _first_radius_contact_fraction(from: Vector2, to: Vector2, point: Vector2, radius: float) -> float:
+	var offset := from - point
+	var c := offset.length_squared() - radius * radius
+	if c <= 0.0:
+		return 0.0
+	var delta := to - from
+	var a := delta.length_squared()
+	if a <= 1e-12:
+		return INF
+	var b := offset.dot(delta)
+	var discriminant := b * b - a * c
+	if discriminant < 0.0:
+		return INF
+	var fraction := (-b - sqrt(discriminant)) / a
+	return fraction if fraction >= 0.0 and fraction <= 1.0 else INF
+
+
+## Return the actual lock point, so an impact cannot use travel completed before acquisition.
+func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	var radius := w.spec.acquisition_radius_nm()
 	var best: Unit = null
-	var best_d := radius
+	var first_fraction := INF
+	var best_d_squared := INF
 	for u in unit_manager.units:
 		if u.faction == w.faction or not can_target(w.spec, u):
 			continue
-		var d := w.position.distance_to(u.position)
-		if d <= best_d:
+		var fraction := _first_radius_contact_fraction(previous, w.position, u.position, radius)
+		if not is_finite(fraction):
+			continue
+		var lock_point := previous.lerp(w.position, fraction)
+		var d_squared := lock_point.distance_squared_to(u.position)
+		if fraction < first_fraction or (is_equal_approx(fraction, first_fraction) and d_squared <= best_d_squared):
 			best = u
-			best_d = d
+			first_fraction = fraction
+			best_d_squared = d_squared
 	if best == null:
-		if w.position.distance_to(w.aim_point) <= maxf(IMPACT_MIN_NM * 2.0, travel * 1.5):
+		if _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0:
 			w.phase = Weapon.Phase.DEAD
 			w.dead_reason = "NO ACQUISITION"
-		return
+		return previous
 	w.acquired = best
 	w.phase = Weapon.Phase.TERMINAL
+	return previous.lerp(w.position, first_fraction)
 
 
 ## Decoys have beaten the lock on `from`. The seeker searches on along its heading; if another
@@ -451,6 +529,7 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	w.acquired = best
 	w.phase = Weapon.Phase.TERMINAL
 	w.decoy_attempted = false  # the new target gets its own chance to decoy it; acoustic tries are per ship already
+	revision += 1
 	weapon_seduced.emit(w, from, best)
 	return best
 

@@ -47,7 +47,7 @@ static func order_action(o: Order) -> Dictionary:
 
 
 ## The Orders menu for the hooked own units. `target` is the hooked contact, if any.
-static func orders_items(units: Array, target: Track, controllable: bool, movable: bool) -> Array:
+static func orders_items(units: Array, target: Track, controllable: bool, movable: bool, weapon_manager: WeaponManager = null) -> Array:
 	var items: Array = []
 	var ships: Array = []
 	var aircraft: Array = []
@@ -73,7 +73,8 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 	var why := "" if controllable else "These platforms are not under your command."
 	if target != null and controllable:
 		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
-		items.append(submenu("Engage with", engage_weapon_items(units, target), false, "Weapons that suit track %s." % DataDisplay.track_number_for_track(target)))
+		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit track %s." % DataDisplay.track_number_for_track(target)))
+		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact. Weapons already away continue."))
 	if movable:
 		var speeds: Array = [item("Stop", order_action(Order.stop()))]
 		for kn in SPEEDS_KN:
@@ -121,6 +122,7 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		item("Tight", order_action(Order.set_roe(Unit.Roe.TIGHT)), false, "", _all(units, func(u: Unit) -> bool: return u.roe == Unit.Roe.TIGHT)),
 		item("Hold", order_action(Order.set_roe(Unit.Roe.HOLD)), false, "", _all(units, func(u: Unit) -> bool: return u.roe == Unit.Roe.HOLD)),
 	], not controllable, why))
+	items.append(submenu("Defence", defence_items(units, movable), not controllable, why))
 	if any_deck:
 		items.append(item("Flight deck...", {"kind": "palette", "id": "air_operations"}, false, "Launch aircraft, or choose where an aircraft lands."))
 	if ships.size() >= 2:
@@ -145,6 +147,32 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 	return items
 
 
+## Defence actions sit beside navigation and attack in the own-platform menu. Mixed settings
+## leave every policy unmarked instead of claiming that the first selected ship speaks for all.
+static func defence_items(units: Array, movable: bool) -> Array:
+	var items: Array = []
+	for entry in [["radar", "Chaff / RF  [D]"], ["infrared", "Flares / IR"], ["acoustic", "Acoustic decoy"]]:
+		var ready := 0
+		for u: Unit in units:
+			if DefensiveResponse.can_deploy(u, entry[0]):
+				ready += 1
+		items.append(item(entry[1], order_action(Order.deploy_countermeasures(entry[0])), ready == 0,
+			"%d of %d platforms ready. One pack per eligible platform; 20 s active, 25 s between deployments." % [ready, units.size()]))
+	var evading := units.any(func(u: Unit) -> bool: return u.evasion_remaining_s > 0.0)
+	items.append(item("Evade  [V]", order_action(Order.evade()), not movable, "Requires a detected inbound weapon and room to turn; the route resumes after the maneuver."))
+	items.append(item("Run away", order_action(Order.evade("away")), not movable, "Turn away from a detected inbound weapon; the route resumes after the maneuver."))
+	items.append(item("Resume plan", order_action(Order.resume_plan()), not evading, "End temporary evasion and resume the existing route or formation."))
+	var policies: Array = []
+	for policy: String in ["conserve", "balanced", "saturation"]:
+		policies.append(item(policy.capitalize(), order_action(Order.set_defence_policy(policy)), false, "", _all(units, func(u: Unit) -> bool: return u.defence_policy == policy)))
+	items.append(submenu("Interceptor policy", policies))
+	items.append(submenu("Countermeasures", [
+		item("Automatic", order_action(Order.set_auto_countermeasures(true)), false, "", _all(units, func(u: Unit) -> bool: return u.auto_countermeasures)),
+		item("Manual", order_action(Order.set_auto_countermeasures(false)), false, "", _all(units, func(u: Unit) -> bool: return not u.auto_countermeasures)),
+	]))
+	return items
+
+
 ## The orders board's wording for the under-the-layer preset, so the menu and the board agree.
 static func under_layer_reason(under_m: float, floor_m: float) -> String:
 	if under_m >= 0.0:
@@ -165,7 +193,7 @@ static func _all(units: Array, test: Callable) -> int:
 
 
 ## Weapons the hooked units carry that suit the target, each with its rounds and a salvo choice.
-static func engage_weapon_items(units: Array, target: Track) -> Array:
+static func engage_weapon_items(units: Array, target: Track, weapon_manager: WeaponManager = null) -> Array:
 	var items: Array = []
 	var seen := {}
 	for u: Unit in units:
@@ -180,7 +208,7 @@ static func engage_weapon_items(units: Array, target: Track) -> Array:
 				if v.get_weapon(spec.id) == null:
 					continue
 				rounds += v.magazine_count(spec.id)
-				var check := Combat.check_engagement(v, spec, target)
+				var check := weapon_manager.engagement_check(v, spec, target, weapon_manager.now_s) if weapon_manager != null else Combat.check_engagement(v, spec, target)
 				if check["ok"]:
 					ready = true
 				else:
@@ -193,8 +221,9 @@ static func engage_weapon_items(units: Array, target: Track) -> Array:
 				if added.has(n):
 					continue
 				added[n] = true
-				salvos.append(item("%d round%s%s" % [n, "" if n == 1 else "s", "  (default)" if n == spec.salvo_default else ""],
-					{"kind": "engage", "weapon": spec.id, "rounds": n, "track": target}))
+				salvos.append(item("%d round%s%s%s" % [n, "" if n == 1 else "s", " per platform" if units.size() > 1 else "", "  (default)" if n == spec.salvo_default else ""],
+					{"kind": "engage", "weapon": spec.id, "rounds": n, "track": target}, false,
+					"Each eligible selected platform fires up to %d available rounds. Queued rounds are already reserved." % n))
 			var entry := submenu("%s - %d" % [spec.display_name, rounds], salvos, not ready, "" if ready else reason.capitalize())
 			items.append(entry)
 	return items
@@ -257,7 +286,8 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 	if controllable and not units.is_empty():
 		items.append(quick_engage_item(units, target, weapon_manager))
 		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
-		items.append(submenu("Engage with", engage_weapon_items(units, target), false, "Weapons that suit this contact."))
+		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit this contact."))
+		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact. Weapons already away continue."))
 		if target.classification < Track.Classification.CLASS_KNOWN:
 			var can_investigate := false
 			var reason := ""

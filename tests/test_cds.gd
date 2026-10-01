@@ -168,6 +168,20 @@ func test_orders_text_describes_what_the_unit_is_doing() -> void:
 	assert_eq(DataDisplay.orders_text(u), "Transit (1 wpt)")
 
 
+func test_orders_text_drops_completed_weapon_engagements() -> void:
+	var u := _unit()
+	u.ordered_speed_kn = 0.0
+	var manager := WeaponManager.new()
+	var w := Weapon.new()
+	w.shooter = u
+	w.target_track = _track("T1001", "HOSTILE", Vector2(10, 0))
+	manager.in_flight.append(w)
+	assert_eq(DataDisplay.orders_text(u, manager), "Engage track 1001")
+	w.phase = Weapon.Phase.DEAD
+	assert_eq(DataDisplay.orders_text(u, manager), "Hold position", "a completed round no longer masks the ship's orders")
+	manager.free()
+
+
 func test_contact_rows_never_read_truth() -> void:
 	var truth := _unit("usn_ddg_burke_iii", "RED")
 	truth.callsign = "SECRET NAME"

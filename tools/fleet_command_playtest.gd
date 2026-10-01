@@ -1,5 +1,6 @@
 extends SceneTree
-## Native command-screen interaction checks; use Xvfb and --resolution, optionally --capture.
+## Native command-screen checks; use Xvfb and --resolution, optionally --capture and
+## --output-dir=res://work/validation-name to preserve evidence from earlier runs.
 
 func _initialize() -> void:
 	call_deferred("_run")

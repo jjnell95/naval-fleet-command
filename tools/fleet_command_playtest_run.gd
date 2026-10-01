@@ -9,6 +9,7 @@ var facts := {}
 var shots: Array[String] = []
 var errors: Logger
 var capture := false
+var output_dir := "res://work/m33"
 var host: Unit
 var frigate: Unit
 var helo: Unit
@@ -17,7 +18,10 @@ var helo: Unit
 func run(scene_tree: SceneTree) -> void:
 	tree = scene_tree
 	capture = OS.get_cmdline_user_args().has("--capture")
-	DirAccess.make_dir_recursive_absolute("res://work/m33")
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--output-dir="):
+			output_dir = argument.trim_prefix("--output-dir=").trim_suffix("/")
+	DirAccess.make_dir_recursive_absolute(output_dir)
 	errors = load("res://tests/test_error_log.gd").new()
 	OS.add_logger(errors)
 	main = load("res://scenes/main/Main.tscn").instantiate()
@@ -387,7 +391,7 @@ func _shot(label: String) -> void:
 	await _frames()
 	await RenderingServer.frame_post_draw
 	var frame := main.get_viewport().get_texture().get_image()
-	var path := "res://work/m33/%s-%d.png" % [label, frame.get_width()]
+	var path := output_dir.path_join("%s-%d.png" % [label, frame.get_width()])
 	checks["screenshot: " + label] = frame.save_png(path) == OK
 	shots.append(path)
 
@@ -402,7 +406,7 @@ func _finish() -> void:
 			failures += 1
 	var result := {"window": [tree.root.size.x, tree.root.size.y], "checks": checks, "facts": facts, "errors": logged, "screenshots": shots}
 	var suffix := "-aircraft" if OS.get_cmdline_user_args().has("--aircraft-capture-only") else ""
-	var file := FileAccess.open("res://work/m33/fleet-command%s-%d.json" % [suffix, tree.root.size.x], FileAccess.WRITE)
+	var file := FileAccess.open(output_dir.path_join("fleet-command%s-%d.json" % [suffix, tree.root.size.x]), FileAccess.WRITE)
 	file.store_string(JSON.stringify(result, "\t") + "\n")
 	file.close()
 	print("[Fleet Command] %d checks, %d failed" % [checks.size(), failures])

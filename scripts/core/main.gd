@@ -756,6 +756,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "plot_move", "label": "Plot route", "description": "Arm a left-click route; Shift chains waypoints. Right-click water moves the hooked platform at once.", "shortcut": "W", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Hook a deployed mobile platform first."},
 		{"id": "plot_patrol", "label": "Assign patrol area", "description": "Click two opposite corners of a repeating patrol circuit. Fuel and recovery still apply.", "shortcut": "Shift+W", "enabled": movable, "reason": "Hook a deployed mobile platform first."},
 		{"id": "weapon_control", "label": "Weapon control", "description": "Commit mixed weapons, inspect target quality and cancel queued rounds.", "shortcut": "Shift+E", "enabled": controllable},
+		{"id": "open_defence", "label": "Defence commands", "description": "Countermeasures, evasion and interceptor policy for the hooked platforms.", "shortcut": "", "enabled": controllable},
 		{"id": "open_engagement", "label": "Engagement board", "description": "Weapon, salvo, range and time of flight for the hooked contact.", "shortcut": "", "enabled": controllable and has_target, "state": map.selected_track.id if has_target else "no target", "reason": "Hook a shooter and a contact first."},
 		{"id": "next_contact", "label": "Next priority contact", "description": "Cycle hostile, unknown, fresh, and nearby contacts first.", "shortcut": "N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
 		{"id": "previous_contact", "label": "Previous priority contact", "description": "Cycle backward through the priority contact stack.", "shortcut": "Shift+N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
@@ -859,6 +860,9 @@ func _run_palette_action(id: String) -> void:
 		"open_engagement":
 			status_boards.open_board(StatusBoards.BOARD_ORDERS)
 			orders_panel.open_engagement(true)
+		"open_defence":
+			status_boards.open_board(StatusBoards.BOARD_ORDERS)
+			orders_panel._tabs.current_tab = 4
 		"next_contact":
 			_cycle_priority_track(1)
 		"previous_contact":
@@ -1431,7 +1435,7 @@ func _on_engage_requested(t: Track) -> void:
 	if map.selected.is_empty():
 		radio.flash("Select a shooter before you engage", "warn")
 	else:
-		radio.flash("No weapon in envelope for %s" % t.id, "warn")
+		radio.flash("Engagement refused for %s — check weapon solution and weapons posture" % t.id, "warn")
 
 
 ## Right-click on a waypoint marker drops just that leg. Order objects only carry "set a new
@@ -1463,7 +1467,7 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			var u: Unit = context.get("unit")
 			if u != null and not map.selected.has(u):
 				map.select_units([u])
-			items = CdsMenus.orders_items(map.selected, map.selected_track, _all_controllable(map.selected), _all_movable(map.selected))
+			items = CdsMenus.orders_items(map.selected, map.selected_track, _all_controllable(map.selected), _all_movable(map.selected), simulation.weapon_manager)
 		"track":
 			var t: Track = context.get("track")
 			if t == null:
@@ -1561,14 +1565,16 @@ func _apply_order_to_selection(order: Order) -> void:
 	var rounds_committed := 0
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
-			var before := u.magazine_count(order.weapon_id) if order.type == Order.Type.ENGAGE else 0
+			var before := _committed_for_order(u, order)
 			if simulation.unit_manager.issue_order(u, order):
 				accepted += 1
 				if order.type == Order.Type.ENGAGE:
-					rounds_committed += maxi(before - u.magazine_count(order.weapon_id), 0)
+					rounds_committed += maxi(_committed_for_order(u, order) - before, 0)
 			else:
 				refused += 1
 	var receipt := _order_acknowledgement(Order.engage(order.track, order.weapon_id, rounds_committed)) if order.type == Order.Type.ENGAGE and accepted > 0 else ""
+	if receipt != "":
+		receipt += " · %d rounds committed" % rounds_committed
 	_report_orders(order, accepted, refused, receipt)
 
 
@@ -1578,12 +1584,13 @@ func _apply_unit_orders(pairs: Array) -> void:
 	var refused := 0
 	var sample: Order = null
 	var volleys := {}
+	var rounds_committed := 0
 	for pair: Array in pairs:
 		var u: Unit = pair[0]
 		if u.faction != simulation.player_faction or not map.selected.has(u):
 			continue
 		sample = pair[1]
-		var before := u.magazine_count(sample.weapon_id) if sample.type == Order.Type.ENGAGE else 0
+		var before := _committed_for_order(u, sample)
 		pair[1].execution_accepted = simulation.unit_manager.issue_order(u, pair[1])
 		if pair[1].execution_accepted:
 			accepted += 1
@@ -1591,14 +1598,26 @@ func _apply_unit_orders(pairs: Array) -> void:
 				var key := "%s|%s" % [sample.track.id, sample.weapon_id]
 				if not volleys.has(key):
 					volleys[key] = {"track": sample.track, "weapon": sample.weapon_id, "rounds": 0}
-				volleys[key]["rounds"] += maxi(before - u.magazine_count(sample.weapon_id), 0)
+				var committed := maxi(_committed_for_order(u, sample) - before, 0)
+				volleys[key]["rounds"] += committed
+				rounds_committed += committed
 		else:
 			refused += 1
 	if sample != null:
 		var receipts := PackedStringArray()
 		for volley: Dictionary in volleys.values():
 			receipts.append(_order_acknowledgement(Order.engage(volley["track"], volley["weapon"], volley["rounds"])))
-		_report_orders(sample, accepted, refused, "; ".join(receipts))
+		var receipt := "; ".join(receipts)
+		if not receipts.is_empty():
+			receipt += " · %d rounds committed" % rounds_committed
+		_report_orders(sample, accepted, refused, receipt)
+
+
+func _committed_for_order(u: Unit, order: Order) -> int:
+	if order.type != Order.Type.ENGAGE:
+		return 0
+	var spec := u.get_weapon(order.weapon_id)
+	return simulation.weapon_manager.committed_rounds(u, spec, order.track) if spec != null else 0
 
 
 func _report_orders(order: Order, accepted: int, refused: int, receipt_override := "") -> void:
@@ -1607,8 +1626,8 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 		SoundFx.play("click", 0.05)
 		var receipt := receipt_override if receipt_override != "" else _order_acknowledgement(order)
 		var speaker: Unit = map.selected[0] if map.selected.size() == 1 else null
-		if speaker == null:
-			receipt += " · %d orders acknowledged" % accepted
+		if speaker == null or accepted > 1:
+			receipt += " · %d orders accepted" % accepted
 		if refused > 0:
 			receipt += " / %d refused" % refused
 		radio.flash(receipt, "warn" if refused > 0 else "good", speaker)

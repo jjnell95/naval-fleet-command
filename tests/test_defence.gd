@@ -216,6 +216,27 @@ func test_interceptors_are_not_treated_as_threats() -> void:
 	_cleanup(h)
 
 
+func test_an_unlocked_air_to_air_missile_cannot_cue_a_ship_response() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, 100.0, [_sam("essm", 25.0, 1.0)])
+	var h := _harness([ship])
+	var shot := Weapon.new()
+	shot.id = 904
+	shot.spec = _asm()
+	shot.spec.type = "aam"
+	shot.spec.target_types = PackedStringArray(["air"])
+	shot.faction = "RED"
+	shot.position = Vector2(0.0, 10.0)
+	shot.heading_deg = 180.0
+	(h[2] as WeaponManager).in_flight.append(shot)
+	(h[1] as ThreatManager).mark_detected("BLUE", shot, 0.0, ship)
+	assert_true(not AirDefence.is_inbound(ship, shot), "the seeker cannot acquire a surface hull")
+	assert_true(AirDefence.threatened_unit(h[0], "BLUE", shot) == null)
+	assert_true(AirDefence.inbound_threats(h[0], h[1], "BLUE").is_empty())
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 0.0), 0, "do not waste ship SAMs")
+	assert_true(not DefensiveResponse.start_evasion(ship, h[0], h[1]), "do not abandon the route")
+	_cleanup(h)
+
+
 # --- Interception ------------------------------------------------------------------------
 
 func test_intercept_probability_scales_with_difficulty() -> void:

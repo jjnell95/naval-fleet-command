@@ -258,7 +258,7 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 		return "Evade %03d (%ds), then resume plan" % [int(u.evasion_course_deg), int(ceil(u.evasion_remaining_s))]
 	if weapon_manager != null:
 		for w in weapon_manager.in_flight:
-			if w.shooter == u and w.target_track != null and not w.is_interceptor():
+			if w.phase != Weapon.Phase.DEAD and w.shooter == u and w.target_track != null and not w.is_interceptor():
 				return "Engage track %s" % track_number_for_track(w.target_track)
 		for spec: WeaponSpec in u.weapons:
 			var queued := weapon_manager.committed_rounds(u, spec, null, true)

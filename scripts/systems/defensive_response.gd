@@ -71,8 +71,8 @@ static func run_cycle(um: UnitManager, tm: ThreatManager, wm: WeaponManager) -> 
 		if not u.is_engageable():
 			continue
 		if not pictures.has(u.faction):
-			pictures[u.faction] = tm.get_threats(u.faction).filter(func(w: Weapon) -> bool: return not w.is_interceptor())
-		for w: Weapon in pictures[u.faction]:
+			pictures[u.faction] = acquired_threats(tm, u.faction)
+		for w: Weapon in pictures[u.faction].get(u, []):
 			if w.phase == Weapon.Phase.DEAD:
 				continue
 			if w.acquired != u or not tm.visible_to(u, w) or w.is_interceptor():
@@ -83,6 +83,33 @@ static func run_cycle(um: UnitManager, tm: ThreatManager, wm: WeaponManager) -> 
 					and u.position.distance_to(w.position) <= MISSILE_RANGE_NM:
 				deploy(u, band, wm)
 			try_active(u, w, wm)
+			update_acquired_threat(pictures[u.faction], w, u)
+
+
+## Countermeasures only answer seekers locked on this unit. Partition each faction picture
+## once instead of walking every missile for every hull during a large salvo.
+static func acquired_threats(tm: ThreatManager, faction: String, torpedoes_only := false) -> Dictionary:
+	var by_target := {}
+	for w: Weapon in tm.get_threats(faction):
+		if w.phase == Weapon.Phase.DEAD or w.is_interceptor() or w.acquired == null:
+			continue
+		if torpedoes_only and not w.spec.is_torpedo():
+			continue
+		if not by_target.has(w.acquired):
+			by_target[w.acquired] = []
+		by_target[w.acquired].append(w)
+	return by_target
+
+
+## A seduced round may lock a later consort in this same cycle. Keep that consort's bucket
+## current so grouping does not postpone its response until the next defence cycle.
+static func update_acquired_threat(by_target: Dictionary, w: Weapon, previous: Unit) -> void:
+	if w.phase == Weapon.Phase.DEAD or w.acquired == null or w.acquired == previous:
+		return
+	if not by_target.has(w.acquired):
+		by_target[w.acquired] = []
+	if not by_target[w.acquired].has(w):
+		by_target[w.acquired].append(w)
 
 
 static func start_evasion(u: Unit, um: UnitManager, tm: ThreatManager, mode := "auto") -> bool:
