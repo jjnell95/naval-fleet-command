@@ -384,10 +384,16 @@ static func cds_items(state: Dictionary) -> Array:
 		item("Radar coverage  [Ctrl+W]", {"kind": "palette", "id": "radar_coverage"}, false, "", _on(state, "radar_coverage")),
 		item("Symbol key  [F2]", {"kind": "layer", "name": "key"}, false, "", _on(state, "key")),
 	]
+	var sound: Array = [
+		item("Sound  [Ctrl+M]", {"kind": "palette", "id": "sound"}, false, "", _on(state, "sound")),
+		item("Crew voice", {"kind": "palette", "id": "voice"}, false, "", _on(state, "voice")),
+		item("Ambient sea and machinery", {"kind": "palette", "id": "ambient"}, false, "", _on(state, "ambient")),
+	]
 	return [
 		submenu("Symbols", symbols),
 		submenu("Symbol controls", controls),
 		submenu("Map", overlays),
+		submenu("Sound", sound),
 		item("Range circle  [B]", {"kind": "palette", "id": "range_circle"}),
 		sep(),
 		item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}),

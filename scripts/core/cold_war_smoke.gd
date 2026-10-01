@@ -138,6 +138,22 @@ static func run(main: Main) -> void:
 	checks["right-click on water sends the hooked platform there"] = not ship.waypoints.is_empty() and ship.waypoints[ship.waypoints.size() - 1].distance_to(water) < 0.01
 	main.radio.flash("Radio check", "warn", ship)
 	checks["the radio net reaches the chart, the comms board and the lamp"] = main.radio.history[0].ends_with("%s: Radio check" % ship.callsign) and main.status_boards.message_count() > 0 and main.data_display.unread_alerts > 0
+	# The crew you can hear, through a recording sink: a scripted run never reaches the OS speech.
+	checks["a scripted run never installs the operating system's speech"] = not main.voice.os_speech and not main.voice.sink.is_valid()
+	var heard: Array = []
+	main.voice.sink = func(line: Dictionary) -> void: heard.append(line)
+	main.voice.muted = Callable()
+	main.voice.compression = func() -> float: return 1.0
+	main.voice.enabled = true
+	main._apply_order_to_selection(Order.activate_radar() if ship.radar_on else Order.silence_radar())
+	var receipt: String = main.radio.journal.back()
+	checks["an accepted order is acknowledged aloud by the platform, not read off the radio"] = heard.size() == 1 and heard[0]["event"] == "order_ack" and str(heard[0]["text"]).begins_with(CrewVoice.spoken_name(ship.callsign)) and not receipt.ends_with(str(heard[0]["text"]))
+	var journal_before: int = main.radio.journal.size()
+	main.voice._last_spoken_s = -1000.0
+	main._apply_order_to_selection(Order.patrol([ship.position, ship.position, ship.position]))
+	checks["a refused order is spoken as a refusal and explained as advice"] = heard.size() == 2 and heard[1]["event"] == "order_refused" and main.radio.last_advice != "" and main.radio.journal.size() == journal_before
+	main.voice.enabled = false
+	main.voice.sink = Callable()
 	main._run_palette_action("air_operations")
 	await main.get_tree().process_frame
 	checks["air operations opens launch controls"] = main._air_operations.visible and SimClock.paused
