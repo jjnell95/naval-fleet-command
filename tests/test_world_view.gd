@@ -1657,3 +1657,42 @@ func test_a_hull_wears_its_way_as_shared_variants_and_a_tint_lifts_back_to_it() 
 	var lifted := mi.get_surface_override_material(0) as ShaderMaterial
 	assert_near(float(lifted.get_shader_parameter("hull_speed")), WorldMaterials.WAY_BANDS[1], 1e-6, "and comes back at the way it has now")
 	node.free()
+
+
+func test_detached_after_an_action_pursuit_comes_back_to_the_hook() -> void:
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.ACTION)
+	var ship := _frame(Vector3.ZERO, 0.0)
+	var round := {"position": Vector3(0, 30, -2000), "length": 6.0, "heading": 0.0, "domain": "weapon"}
+	var lookup := func(key: String) -> Dictionary: return round if key == "w:9" else {}
+	cam.notify("launch", Vector3(0, 0, 10), "w:9", {"pursue": true})
+	var far := Vector2(200, 100)
+	cam.update(0.016, far, ship, lookup)
+	assert_eq(cam.action_subject_key(), "w:9", "Action is out with the round, 200 nm off")
+	cam.set_mode(WorldCamera.DETACHED)
+	var shot := cam.update(0.016, Vector2.ZERO, ship, Callable())
+	assert_true((shot["eye"] as Vector3).distance_to(shot["look"]) <= WorldCamera.TETHER_MAX_M, "the detached eye starts beside the hooked ship, not where the round was")
+
+
+func test_a_pursued_round_takes_a_hit_drawn_at_an_uncertain_plot() -> void:
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.ACTION)
+	var ship := _frame(Vector3.ZERO, 0.0)
+	var round := {"position": Vector3(0, 30, -2000), "length": 6.0, "heading": 0.0, "domain": "weapon"}
+	var flying := func(key: String) -> Dictionary: return round if key == "w:3" else {}
+	var gone := func(_key: String) -> Dictionary: return {}
+	cam.notify("launch", Vector3(0, 0, 10), "w:3", {"pursue": true})
+	cam.update(0.016, Vector2.ZERO, ship, flying)
+	cam.notify("hit", Vector3(4.0, 0.0, 9), "", {"label": "Track 1004", "radius": 4.5})
+	cam.update(0.016, Vector2.ZERO, ship, gone)
+	assert_eq(cam.action().get("kind", ""), "hit", "a hit 4 nm off, drawn at a plot uncertain by 3 nm, is how the round ended")
+	assert_eq(cam.action().get("label", ""), "Track 1004")
+	cam.set_mode(WorldCamera.TETHER)
+	cam.set_mode(WorldCamera.ACTION)
+	cam.notify("launch", Vector3(0, 0, 10), "w:3", {"pursue": true})
+	cam.update(0.016, Vector2.ZERO, ship, flying)
+	cam.update(0.016, Vector2.ZERO, ship, gone)
+	assert_eq(cam.action().get("kind", ""), "lost", "with nothing reported the round is held as lost")
+	cam.notify("hit", Vector3(9.0, 0.0, 9), "", {"label": "Track 1005"})
+	cam.update(WorldCamera.MIN_SHOT_S + 0.1, Vector2.ZERO, ship, gone)
+	assert_eq(cam.action().get("kind", ""), "hit", "and a hit reported a moment later can still take over")

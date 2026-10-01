@@ -252,7 +252,14 @@ func add_effect(pos: Vector2, kind: String, own := false, height_m := -1.0, targ
 		# `own` is Main's "it happened to one of ours" for a hit, miss or kill; for an intercept
 		# it means our defence did it, which is no loss.
 		var ours := own and kind != "intercept"
-		_witnessed(kind, Vector3(at.x, at.y, h), "", {"own": ours, "label": _event_label(ours, target)})
+		# Drawn at a held plot, the event carries that plot's own uncertainty, never truth.
+		var radius := 0.0
+		if at != pos:
+			for t: Track in tracks:
+				if t.position == at:
+					radius = maxf(WorldPresentation.WITNESS_PLOT_NM, t.position_error_nm * 1.5)
+					break
+		_witnessed(kind, Vector3(at.x, at.y, h), "", {"own": ours, "label": _event_label(ours, target), "radius": radius})
 
 
 ## A witnessed event the cameras may want: Action queues it; the tether names it in the caption

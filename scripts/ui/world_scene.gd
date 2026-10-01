@@ -968,7 +968,9 @@ func _air_events(rec: Dictionary, e: Dictionary, fresh: bool) -> void:
 		_events.append({"kind": "air_launch", "at": Vector3(nm.x, nm.y, float(e["height_m"])), "key": e["key"]})
 	elif u.flight_state == Unit.FlightState.RECOVERING and d <= RECOVERY_WATCH_NM:
 		_flagged[e["key"]] = "recovery"
-		_events.append({"kind": "recovery", "at": Vector3(base.position.x, base.position.y, 20.0), "key": ""})
+		# Redrawn after the view jumped away and back, a recovery already under way is not news.
+		if not (fresh and _settling):
+			_events.append({"kind": "recovery", "at": Vector3(base.position.x, base.position.y, 20.0), "key": ""})
 
 
 # --- Wakes and trails ----------------------------------------------------------------------

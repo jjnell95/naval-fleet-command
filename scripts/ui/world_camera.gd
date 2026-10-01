@@ -104,6 +104,8 @@ func set_mode(next: int) -> void:
 	next = clampi(next, TETHER, DETACHED)
 	if next == mode:
 		return
+	# An Action shot can be anywhere on the plot; Detached must not freeze the eye out there.
+	var from_action := mode == ACTION and not _action.is_empty()
 	mode = next
 	_station_valid = false
 	_action = {}
@@ -112,7 +114,7 @@ func set_mode(next: int) -> void:
 	_serial += 1
 	if mode == DETACHED:
 		_detached = _last_eye
-		_detached_valid = _last_eye_valid
+		_detached_valid = _last_eye_valid and not from_action
 	_cut = true
 
 
@@ -177,7 +179,7 @@ func notify(kind: String, at: Vector3, key := "", extra := {}) -> void:
 		return
 	var own := bool(extra.get("own", false))
 	if RESOLUTIONS.has(kind):
-		_resolution = {"kind": kind, "at": at, "time": _clock, "label": String(extra.get("label", "")), "own": own}
+		_resolution = {"kind": kind, "at": at, "time": _clock, "label": String(extra.get("label", "")), "own": own, "radius": float(extra.get("radius", 0.0))}
 	if not EVENT_PRIORITY.has(kind):
 		return
 	var e := {"kind": kind, "at": at, "key": key, "time": _clock, "priority": event_priority(kind, own), "pursue": bool(extra.get("pursue", false)) and key != "", "label": String(extra.get("label", "")), "own": own}
@@ -466,7 +468,8 @@ func _resolve(a: Dictionary) -> void:
 	if not r.is_empty() and _clock - float(r["time"]) <= ACTION_RESOLVE_S:
 		var at: Vector3 = a["at"]
 		var rat: Vector3 = r["at"]
-		if Vector2(at.x, at.y).distance_to(Vector2(rat.x, rat.y)) <= ACTION_RESOLVE_NM:
+		# An event drawn at a held plot is as far off as that plot is uncertain.
+		if Vector2(at.x, at.y).distance_to(Vector2(rat.x, rat.y)) <= maxf(ACTION_RESOLVE_NM, float(r.get("radius", 0.0))):
 			a["kind"] = r["kind"]
 			a["at"] = rat
 			a["label"] = r["label"]
@@ -475,6 +478,8 @@ func _resolve(a: Dictionary) -> void:
 				if _queue[i]["at"] == rat:
 					_queue.remove_at(i)
 	_resolution = {}
+	# A lost round's hold gives way to a witnessed event, so a hit reported a moment later shows.
+	a["guarded"] = a["kind"] != "lost"
 	a["until"] = _clock + ACTION_IMPACT_HOLD_S
 
 
