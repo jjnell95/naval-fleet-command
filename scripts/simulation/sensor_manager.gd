@@ -43,15 +43,33 @@ func run_cycle(now: float) -> void:
 	_update_manoeuvre()
 	Detection.refresh_jammers(unit_manager.units)
 	Detection.begin_jamming_batch()
+	var radar_us := 0
+	var sonar_us := 0
+	var esm_us := 0
 	for observer in unit_manager.units:
 		if not observer.is_engageable():
 			continue
+		var at := Time.get_ticks_usec()
 		_radar_pass(observer, now)
+		var mid := Time.get_ticks_usec()
 		_sonar_pass(observer, now)
+		var late := Time.get_ticks_usec()
 		_esm_pass(observer, now)
+		radar_us += mid - at
+		sonar_us += late - mid
+		esm_us += Time.get_ticks_usec() - late
+	Debug.time_add("sensors/radar", radar_us)
+	Debug.time_add("sensors/sonar", sonar_us)
+	Debug.time_add("sensors/esm", esm_us)
+	var step := Time.get_ticks_usec()
 	_buoy_pass(now)
+	Debug.time_add("sensors/buoys", Time.get_ticks_usec() - step)
+	step = Time.get_ticks_usec()
 	track_manager.tick(now, SENSOR_DT)
+	Debug.time_add("sensors/tracks", Time.get_ticks_usec() - step)
+	step = Time.get_ticks_usec()
 	_detect_weapons(now)
+	Debug.time_add("sensors/weapons", Time.get_ticks_usec() - step)
 	Detection.end_jamming_batch()
 
 
