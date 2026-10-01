@@ -36,6 +36,7 @@ func _torpedo_spec() -> WeaponSpec:
 	w.id = "test_torpedo"
 	w.display_name = "Test torpedo"
 	w.type = "torpedo"
+	w.guidance = "active_passive_acoustic"
 	w.profile = "subsurface"
 	w.target_types = PackedStringArray(["surface", "subsurface"])
 	w.speed_kn = 50.0
@@ -142,6 +143,48 @@ func test_an_expendable_is_spent_only_when_the_towed_decoy_fails_and_each_ship_t
 	_cleanup(h)
 
 
+func test_an_automatic_acoustic_pulse_covers_a_salvo_without_spending_per_torpedo() -> void:
+	var ship := _ship(_hull(false, 4, 0.0))
+	var h := _harness([ship])
+	var first := _homing(h, ship, Vector2(0.0, 1.0), 701)
+	var second := _homing(h, ship, Vector2(0.0, 1.5), 702)
+	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0), 1,
+		"one finite acoustic pulse serves every compatible seeker in range")
+	assert_eq(ship.torpedo_decoys, 3)
+	assert_true(ship.countermeasure_remaining_s > 0.0)
+	assert_true(ship.countermeasure_reload_s > ship.countermeasure_remaining_s)
+	assert_true(not first.countermeasure_attempts.is_empty())
+	assert_true(not second.countermeasure_attempts.is_empty())
+	_cleanup(h)
+
+
+func test_automatic_acoustic_launch_waits_for_a_manual_pulse_to_reload() -> void:
+	var ship := _ship(_hull(false, 4, 0.0))
+	var h := _harness([ship])
+	assert_true(DefensiveResponse.deploy(ship, "radar", h[2]))
+	var torp := _homing(h, ship, Vector2(0.0, 1.0))
+	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0), 0)
+	assert_eq(ship.torpedo_decoys, 4, "automatic defence obeys the same launcher reload as the player")
+	DefensiveResponse.tick(ship, DefensiveResponse.RELOAD_SECONDS)
+	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], DefensiveResponse.RELOAD_SECONDS), 1)
+	assert_eq(ship.torpedo_decoys, 3, "a blocked first encounter can respond when reload finishes")
+	assert_true(not torp.countermeasure_attempts.is_empty())
+	_cleanup(h)
+
+
+func test_a_failed_manual_acoustic_attempt_does_not_trigger_another_automatic_canister() -> void:
+	var ship := _ship(_hull(false, 4, 0.0))
+	var h := _harness([ship])
+	var torp := _homing(h, ship, Vector2(0.0, 1.0))
+	assert_true(DefensiveResponse.deploy(ship, "acoustic", h[2]))
+	DefensiveResponse.run_cycle(h[0], h[1], h[2])
+	assert_true(torp.decoy_attempted)
+	DefensiveResponse.tick(ship, DefensiveResponse.RELOAD_SECONDS)
+	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], DefensiveResponse.RELOAD_SECONDS), 0)
+	assert_eq(ship.torpedo_decoys, 3, "manual and automatic responses share the attempt record")
+	_cleanup(h)
+
+
 func test_a_torpedo_decoyed_onto_a_consort_meets_the_consorts_own_countermeasures() -> void:
 	var first := _ship(_hull(false, 2, 10.0), Vector2.ZERO)
 	var second := _ship(_hull(false, 2, 10.0), Vector2(0.0, -0.6))
@@ -153,6 +196,24 @@ func test_a_torpedo_decoyed_onto_a_consort_meets_the_consorts_own_countermeasure
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
 	assert_true(torp.acoustic_decoy_tried.has(second.id), "the new target gets its own try")
 	assert_eq(first.torpedo_decoys, 2, "and the first ship spends nothing more on it")
+	_cleanup(h)
+
+
+func test_a_seeker_retargeted_during_the_cycle_gets_the_consorts_response_immediately() -> void:
+	var first := _ship(_hull(false, 2, 10.0), Vector2.ZERO)
+	var second := _ship(_hull(false, 2, 10.0), Vector2(0.0, -0.6))
+	var retarget_seed := 1
+	var probe := RandomNumberGenerator.new()
+	for seed_value in range(1, 200):
+		probe.seed = seed_value
+		if probe.randf() < TorpedoDefence.MAX_DECOY_CHANCE and probe.randf() < WeaponManager.SEDUCED_REACQUIRE_P:
+			retarget_seed = seed_value
+			break
+	var h := _harness([first, second], retarget_seed)
+	_homing(h, first, Vector2(0.0, 1.2))
+	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
+	assert_eq(first.torpedo_decoys, 1)
+	assert_eq(second.torpedo_decoys, 1, "a changed seeker lock updates the cycle's target grouping")
 	_cleanup(h)
 
 

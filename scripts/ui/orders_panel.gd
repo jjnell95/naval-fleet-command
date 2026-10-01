@@ -60,6 +60,7 @@ var _air_ops_btn: Button
 var _rtb_btn: Button
 var _buoy_btn: Button
 var _mag_signature := ""
+var _shown_weapon: WeaponSpec
 
 
 func _ready() -> void:
@@ -172,6 +173,7 @@ func _ready() -> void:
 	_salvo.max_value = 16
 	_salvo.value = 2
 	_salvo.custom_minimum_size.x = 70
+	_salvo.tooltip_text = "Rounds per eligible platform. Each selected carrier fires up to this many available rounds; queued rounds are already reserved."
 	wrow.add_child(_salvo)
 
 	_engage_btn = Button.new()
@@ -255,8 +257,8 @@ func _ready() -> void:
 		_defence_buttons[kind] = b
 	_defence_buttons["evade"] = _add_button(response, "EVADE", func() -> void: _emit_raw(Order.evade()))
 	_defence_buttons["evade"].tooltip_text = "Turn across a detected incoming missile, or away from a torpedo. Routes and stations resume after the maneuver. [V]"
-	_add_button(response, "RUN AWAY", func() -> void: _emit_raw(Order.evade("away")))
-	_add_button(response, "RESUME PLAN", func() -> void: _emit_raw(Order.resume_plan()))
+	_defence_buttons["away"] = _add_button(response, "RUN AWAY", func() -> void: _emit_raw(Order.evade("away")))
+	_defence_buttons["resume"] = _add_button(response, "RESUME PLAN", func() -> void: _emit_raw(Order.resume_plan()))
 	var policy := HBoxContainer.new()
 	defence.add_child(policy)
 	policy.add_child(_label("INTERCEPTORS"))
@@ -390,14 +392,26 @@ func _sync_defence() -> void:
 		evading += int(u.evasion_remaining_s > 0)
 	for kind: String in ["radar", "infrared", "acoustic"]:
 		var ready := false
+		var ready_count := 0
 		for u: Unit in _units:
-			ready = ready or DefensiveResponse.can_deploy(u, kind)
+			if DefensiveResponse.can_deploy(u, kind):
+				ready = true
+				ready_count += 1
 		_defence_buttons[kind].disabled = not _controllable or not ready
+		_defence_buttons[kind].tooltip_text = "%d of %d platforms ready. One pack per eligible platform; 20 s active, 25 s between deployments. Only compatible seekers can be seduced." % [ready_count, _units.size()]
 	_defence_buttons["evade"].disabled = not _controllable or not _movable
+	_defence_buttons["away"].disabled = not _controllable or not _movable
+	_defence_buttons["resume"].disabled = not _controllable or evading == 0
 	var policy: String = _units[0].defence_policy if not _units.is_empty() else "balanced"
-	var automatic: bool = _units[0].auto_countermeasures if not _units.is_empty() else true
+	var automatic := "AUTO" if _units.is_empty() or _units[0].auto_countermeasures else "MANUAL"
+	for u: Unit in _units:
+		if u.defence_policy != policy:
+			policy = "mixed"
+		if ("AUTO" if u.auto_countermeasures else "MANUAL") != automatic:
+			automatic = "MIXED"
 	var detail := DefensiveResponse.status(_units[0]) if _units.size() == 1 else "%d active / %d evading" % [active, evading]
-	_defence_summary.text = "%d RF/IR packs / %d acoustic / %s / CM %s / %s" % [packs, acoustic, str(policy).to_upper(), "AUTO" if automatic else "MANUAL", detail]
+	_defence_summary.text = "%d RF/IR packs / %d acoustic / %s / CM %s / %s" % [packs, acoustic, policy.to_upper(), automatic, detail]
+	_defence_summary.tooltip_text = _defence_summary.text
 
 
 ## A MIXED selection state reads amber without tinting the whole button.
@@ -682,7 +696,8 @@ func _rebuild_weapons() -> void:
 		for u: Unit in _units:
 			# With a contact selected, offer what actually suits it. Without one, the anti-surface
 			# weapons are the sensible default to look at.
-			var options: Array = u.weapons_for_track(_target) if _target != null else u.offensive_weapons()
+			# Spent systems remain visible so their queued and airborne rounds can be tracked.
+			var options: Array = u.weapons.filter(func(w: WeaponSpec) -> bool: return Combat.suits_track(w, _target)) if _target != null else u.offensive_weapons()
 			for spec: WeaponSpec in options:
 				if not _weapon_ids.has(spec.id):
 					_weapon_ids.append(spec.id)
@@ -696,6 +711,7 @@ func _rebuild_weapons() -> void:
 				carriers += 1
 		var suffix := "  [%d]" % rounds if carriers == _units.size() else "  [%d, %d ship(s)]" % [rounds, carriers]
 		_weapon_option.add_item(spec.display_name + suffix)
+		_weapon_option.set_item_tooltip(i, "%s\n%d available rounds across %d carrier(s). Reserved rounds are shown as queued in the firing solution." % [spec.display_name, rounds, carriers])
 		if _weapon_ids[i] == previous:
 			_weapon_option.select(i)
 	_weapon_option.disabled = _weapon_ids.is_empty()
@@ -704,16 +720,18 @@ func _rebuild_weapons() -> void:
 
 
 func _refresh_envelope() -> void:
+	_envelope.tooltip_text = ""
 	var spec := current_weapon_spec()
-	weapon_selection_changed.emit(spec)
-	_weapon_art.texture = PlatformArt.thumbnail(spec.id, true) if spec != null else null
+	if spec != _shown_weapon:
+		_shown_weapon = spec
+		weapon_selection_changed.emit(spec)
+		_weapon_art.texture = PlatformArt.thumbnail(spec.id, true) if spec != null else null
 	_inspect_weapon.disabled = spec == null
 	_salvo.editable = _controllable and spec != null and _target != null
 	if not _controllable or spec == null:
 		_engage_btn.disabled = true
 		_envelope.text = ""
 		return
-	_salvo.max_value = maxi(spec.salvo_default * 2, 1)
 	if _target == null:
 		_engage_btn.disabled = true
 		_envelope.text = "no target — select a contact"
@@ -724,31 +742,55 @@ func _refresh_envelope() -> void:
 	var nearest := INF
 	var farthest := 0.0
 	var carriers := 0
+	var available := 0
+	var max_per_unit := 1
+	var queued := 0
+	var away := 0
+	var first_delay := INF
+	var longest_flight := 0.0
+	var details := PackedStringArray()
 	for u: Unit in _units:
 		if u.get_weapon(spec.id) == null:
 			continue
 		carriers += 1
 		var check := weapon_manager.engagement_check(u, spec, _target, weapon_manager.now_s) if weapon_manager != null else Combat.check_engagement(u, spec, _target)
-		if check["ok"] and weapon_manager != null and spec.type == "sam" and _target.domain == "air" and not weapon_manager.channel_available(u, _target):
-			check["ok"] = false
-			check["reason"] = "FIRE CONTROL SATURATED"
 		nearest = minf(nearest, check["range_nm"])
 		farthest = maxf(farthest, check["range_nm"])
 		if check["ok"]:
 			ready += 1
+			available += u.magazine_count(spec.id)
+			max_per_unit = maxi(max_per_unit, u.magazine_count(spec.id))
+			first_delay = minf(first_delay, float(check.get("ready_in_s", 0.0)))
+			longest_flight = maxf(longest_flight, float(check.get("flight_time_s", Combat.time_of_flight_s(spec, check["range_nm"]))))
 		else:
 			reason = check["reason"]
+		var state := str(check["reason"])
+		if check["ok"]:
+			var delay := float(check.get("ready_in_s", 0.0))
+			state = "READY" if delay <= 0.0 else "QUEUE +%ds" % int(ceil(delay))
+		details.append("%s: %d available / %s" % [u.callsign, u.magazine_count(spec.id), state])
+		if weapon_manager != null:
+			var pending := weapon_manager.committed_rounds(u, spec, _target, true)
+			queued += pending
+			away += weapon_manager.committed_rounds(u, spec, _target) - pending
+	_salvo.max_value = mini(max_per_unit, maxi(spec.salvo_default * 2, 1))
+	_salvo.editable = _controllable and ready > 0
 	_engage_btn.disabled = ready == 0
 	if carriers == 0:
 		_envelope.text = "no selected ship carries this weapon"
 		_envelope.modulate = UITheme.COL_RED
 	elif ready > 0:
-		var tof := Combat.time_of_flight_s(spec, farthest)
-		_envelope.text = "%s  RNG %.1f-%.1f / %.0f nm  ·  %s to target  —  %d of %d in envelope" % [_target.id, nearest, farthest, spec.max_range_nm, _fmt_tof(tof), ready, carriers]
+		var tof := longest_flight
+		_envelope.text = "%s  RNG %.1f-%.1f nm · %s TOF · %d/%d ready" % [_target.id, nearest, farthest, _fmt_tof(tof), ready, carriers]
+		if first_delay > 0.0:
+			_envelope.text += " · queue +%ds" % int(ceil(first_delay))
 		_envelope.modulate = UITheme.COL_GREEN if tof < 480.0 else UITheme.COL_AMBER
 	else:
 		_envelope.text = "%s  RNG %.1f / %.0f nm  —  %s" % [_target.id, nearest, spec.max_range_nm, reason]
 		_envelope.modulate = UITheme.COL_RED
+	if queued > 0 or away > 0:
+		_envelope.text += " · %d queued / %d away" % [queued, away]
+	_envelope.tooltip_text = "%s\n%d rounds available to eligible platforms. SALVO is per platform.\n%d queued / %d away against %s.\n%s" % [_envelope.text, available, queued, away, _target.id, "\n".join(details)]
 
 
 func _fmt_tof(seconds: float) -> String:
@@ -757,12 +799,27 @@ func _fmt_tof(seconds: float) -> String:
 	return "%dm%02ds" % [int(seconds / 60.0), int(seconds) % 60]
 
 
-func _on_engage() -> void:
+func _on_engage() -> bool:
+	# Recheck at the gesture, rather than trusting the last 0.3 s dock refresh.
+	_sync_live_eligibility()
+	_refresh_envelope()
 	var spec := current_weapon_spec()
-	if spec == null or _target == null:
-		return
-	_emit(Order.engage(_target, spec.id, int(_salvo.value)))
+	if not _controllable or spec == null or _target == null or _engage_btn.disabled:
+		return false
+	var pairs: Array = []
+	for u: Unit in _units:
+		if u.get_weapon(spec.id) == null:
+			continue
+		var check := weapon_manager.engagement_check(u, spec, _target, weapon_manager.now_s) if weapon_manager != null else Combat.check_engagement(u, spec, _target)
+		if not check.ok:
+			continue
+		var order := Order.engage(_target, spec.id, mini(int(_salvo.value), u.magazine_count(spec.id)))
+		order.execution_accepted = false
+		pairs.append([u, order])
+	unit_orders_requested.emit(pairs)
+	var accepted := pairs.any(func(pair: Array) -> bool: return pair[1].execution_accepted)
 	_rebuild_weapons()
+	return accepted
 
 
 ## Fires the currently selected weapon at the current target if the shot is legal right now.
@@ -771,10 +828,7 @@ func _on_engage() -> void:
 ## Returns false without effect if there is no controllable shooter, no target, or nothing in
 ## envelope, so the caller can tell the player why nothing happened.
 func try_engage() -> bool:
-	if _engage_btn.disabled:
-		return false
-	_on_engage()
-	return true
+	return _on_engage()
 
 
 func _emit(order: Order) -> void:

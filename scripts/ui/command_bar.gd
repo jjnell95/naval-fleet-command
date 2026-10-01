@@ -15,7 +15,8 @@ const KEYS := [
 	["status_boards", "Orders  A", "Orders, task group, track file and communications"],
 	["plot_move", "Route  W", "Plot a route; hold Shift to append waypoints"],
 	["plot_patrol", "Patrol", "Assign a repeating patrol: click two opposite corners [Shift+W]"],
-	["weapon_control", "Weapons", "Weapon, salvo and target-quality control [Shift+E]"],
+	["weapon_control", "Attack", "Weapon, salvo and target-quality control [Shift+E]"],
+	["open_defence", "Defence", "Countermeasures, evasion, interceptor policy and inbound weapon tracking"],
 	["air_operations", "Air  F3", "Launch, task and recover aircraft"],
 	["next_contact", "Contact  N", "Hook the next priority contact"],
 	["swap_views", "3D  G", "Exchange the chart and the live camera"],
@@ -75,6 +76,7 @@ func refresh() -> void:
 	buttons["plot_move"].text = "Route *" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "Route  W"
 	buttons["plot_patrol"].text = "Patrol *" if map.interaction_mode == TacticalMap.InteractionMode.PATROL else "Patrol"
 	buttons["weapon_control"].disabled = map.selected.is_empty()
+	buttons["open_defence"].disabled = map.selected.is_empty()
 	buttons["toggle_pause"].text = "RESUME  ▷" if SimClock.paused else "PAUSE  %d×" % int(SimClock.multiplier())
 	if map.interaction_mode == TacticalMap.InteractionMode.PATROL:
 		_hint.text = "PATROL: two corners • allow turning room • right-click cancels"

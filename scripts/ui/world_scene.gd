@@ -79,6 +79,9 @@ var _records: Dictionary = {}
 var _trails: Dictionary = {}  # key -> Array[Vector3] (nm x, nm y, sim time), oldest first
 var _headings: Dictionary = {}  # key -> Vector3 (heading, sim time, bank)
 var _models := WorldModels.new()
+## Asset availability is fixed during play. Missing missile models use a marker, and checking
+## the resource filesystem again for every missile on every frame costs more than the lookup.
+var _model_exists: Dictionary = {}
 var _strip_pool: Array[MeshInstance3D] = []
 var _swell := Vector4.ZERO
 var _wind := Vector2.RIGHT
@@ -421,8 +424,11 @@ func _model_for(e: Dictionary) -> String:
 	if e["kind"] == "weapon" and e.get("gun", false):
 		return "marker:tracer"
 	var model: String = e["model"]
-	if model != "" and ResourceLoader.exists("res://assets/models/%s.glb" % model):
-		return model
+	if model != "":
+		if not _model_exists.has(model):
+			_model_exists[model] = ResourceLoader.exists("res://assets/models/%s.glb" % model)
+		if _model_exists[model]:
+			return model
 	if e["kind"] == "weapon":
 		return "marker:weapon"
 	var domain: String = e["domain"]

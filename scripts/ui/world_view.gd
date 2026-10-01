@@ -53,6 +53,12 @@ var _entries: Array = []
 ## on along their courses itself.
 var _entries_time := -1.0
 var _entries_reference: Unit = null
+var _entries_weapon_revision := -1
+var _entries_threat_revision := -1
+var _entries_datalink := false
+var _sun_unix := -INF
+var _sun_origin := Vector2(INF, INF)
+var _sun_anchor := Vector2(INF, INF)
 var _default_unix := 0
 var _frame_lookup: Callable
 var _chart_generation := -1
@@ -203,6 +209,9 @@ func reset_presentation() -> void:
 	_entries = []
 	_entries_time = -1.0
 	_entries_reference = null
+	_entries_weapon_revision = -1
+	_entries_threat_revision = -1
+	_sun_unix = -INF
 	_hook_units.clear()
 	_hook_track = null
 	_chart_generation = -1
@@ -244,7 +253,8 @@ func _process(delta: float) -> void:
 	var focus := _pick_focus(own_units, hooked_anew)
 	_hook_units = map.selected.duplicate()
 	_hook_track = map.selected_track
-	if String(focus.get("key", "")) != String(_focus.get("key", "")):
+	var focus_changed := String(focus.get("key", "")) != String(_focus.get("key", ""))
+	if focus_changed:
 		rig.cut()
 	_focus = focus
 	_origin_nm = _focus.get("position", _origin_nm)
@@ -259,14 +269,18 @@ func _process(delta: float) -> void:
 	var env := Detection.environment
 	_scene.set_weather(Detection.sea_state, WorldPresentation.visibility_nm(env), env)
 	var chart: Dictionary = simulation.scenario.get("map", {})
-	var latlon := WorldPresentation.latlon_of(_origin_nm, chart)
 	var unix := float(SimClock.start_unix_time if SimClock.start_unix_time > 0 else _default_unix) + SimClock.sim_time + sun_offset_s
-	var sun := WorldPresentation.sun_angles(unix, latlon.x, latlon.y)
-	_scene.set_time_of_day(WorldPresentation.sun_direction(unix, latlon.x, latlon.y), sun.x)
+	_update_sun(unix, chart)
 	var reference := map.reference_unit()
-	if SimClock.sim_time != _entries_time or reference != _entries_reference or hooked_anew or Debug.enabled:
+	var weapon_revision := simulation.weapon_manager.revision if simulation.weapon_manager != null else -1
+	var threat_revision := simulation.threat_manager.revision if simulation.threat_manager != null else -1
+	var datalink := reference != null and reference.datalink_connected()
+	if SimClock.sim_time != _entries_time or reference != _entries_reference or weapon_revision != _entries_weapon_revision or threat_revision != _entries_threat_revision or datalink != _entries_datalink or focus_changed or hooked_anew or Debug.enabled:
 		_entries_time = SimClock.sim_time
 		_entries_reference = reference
+		_entries_weapon_revision = weapon_revision
+		_entries_threat_revision = threat_revision
+		_entries_datalink = datalink
 		var entries: Array = WorldPresentation.unit_entries(um, simulation.track_manager, player, env, simulation.track_manager.neutral_factions)
 		entries.append_array(WorldPresentation.weapon_entries(simulation.weapon_manager, simulation.threat_manager, player, reference))
 		entries.append_array(WorldPresentation.buoy_entries(simulation.aviation_manager, player, SimClock.sim_time))
@@ -279,6 +293,20 @@ func _process(delta: float) -> void:
 		rig.notify(e["kind"], e["at"], e.get("key", ""))
 	_update_camera(delta)
 	Debug.time_add("world", Time.get_ticks_usec() - t0)
+
+
+## The sun and observer position move on simulation ticks. A paused pane only needs another
+## solar calculation when its focus, chart anchor, or the developer's time offset changes.
+func _update_sun(unix: float, chart: Dictionary) -> void:
+	var anchor := Vector2(float(chart.get("anchor_lat", 60.0)), float(chart.get("anchor_lon", 0.0)))
+	if unix == _sun_unix and _origin_nm == _sun_origin and anchor == _sun_anchor:
+		return
+	_sun_unix = unix
+	_sun_origin = _origin_nm
+	_sun_anchor = anchor
+	var latlon := WorldPresentation.latlon_of(_origin_nm, chart)
+	var sun := WorldPresentation.sun_angles(unix, latlon.x, latlon.y)
+	_scene.set_time_of_day(WorldPresentation.sun_direction_from_angles(sun), sun.x)
 
 
 ## The subject for this frame: what is hooked (WorldPresentation.choose_focus), except that a

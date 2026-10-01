@@ -65,8 +65,7 @@ func _ready() -> void:
 		range_role_selected.emit(WeaponPresentation.ROLES[i])
 		refresh())
 	selectors.add_child(_role_option)
-	_quality = _label(box, "")
-	_quality.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_quality = _wrapped_label(box, "")
 	_tree = Tree.new()
 	_tree.columns = 9
 	_tree.hide_root = true
@@ -83,27 +82,33 @@ func _ready() -> void:
 	_tree.item_edited.connect(_edit_quantity)
 	_tree.item_selected.connect(_select_weapon)
 	box.add_child(_tree)
-	_detail = _label(box, "Select a system for its solution. Set SALVO quantities, then commit the selected weapons together.")
-	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail = _wrapped_label(box, "Select a system for its solution. Set SALVO quantities, then commit the selected weapons together.")
 	var actions := HBoxContainer.new()
 	box.add_child(actions)
 	_commit = _button(actions, "COMMIT SALVO", _commit_plan)
 	_commit.theme_type_variation = "PrimaryButton"
 	_button(actions, "CLEAR PLAN", func() -> void: _plan.clear(); refresh())
 	_button(actions, "CANCEL QUEUED FOR CONTACT", _cancel_pending)
-	_plan_summary = _label(actions, "")
+	_plan_summary = _wrapped_label(actions, "")
 	_plan_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_plan_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var hint := _label(box, "LEFT excludes reserved rounds. AWAY includes payloads already delivered. TOF is flight time; queued launches add delay. Automatic missile defence remains active after you return to the chart.")
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_receipt = _label(box, "")
-	_receipt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_wrapped_label(box, "LEFT excludes reserved rounds. AWAY includes payloads already delivered. TOF is flight time; queued launches add delay. Automatic missile defence remains active after you return to the chart.")
+	_receipt = _wrapped_label(box, "")
 
 
 func _label(parent: Node, text: String) -> Label:
 	var label := Label.new()
 	label.text = text
 	parent.add_child(label)
+	return label
+
+
+## Clipped labels have no content minimum size. Reserve two lines explicitly so a wrapped
+## solution or receipt remains readable without its text widening the firing board.
+func _wrapped_label(parent: Node, text: String) -> Label:
+	var label := _label(parent, text)
+	label.clip_text = true
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.custom_minimum_size.y = ceilf(label.get_theme_font("font").get_height(label.get_theme_font_size("font_size")) * 2.0)
 	return label
 
 
@@ -152,6 +157,7 @@ static func plan_key(u: Unit, spec: WeaponSpec) -> String:
 
 func refresh() -> void:
 	_building = true
+	_validate_plan()
 	_tree.clear()
 	_items.clear()
 	var root := _tree.create_item()
@@ -189,9 +195,7 @@ func refresh() -> void:
 			item.set_range_config(8, 0, u.magazine_count(spec.id), 1)
 			item.set_editable(8, check.ok)
 			var key := plan_key(u, spec)
-			if not check.ok:
-				_plan.erase(key)
-			item.set_range(8, mini(int(_plan.get(key, 0)), u.magazine_count(spec.id)))
+			item.set_range(8, int(_plan.get(key, 0)))
 	_quality.text = WeaponPresentation.track_quality(target, SimClock.sim_time)
 	_update_plan_summary()
 	_building = false
@@ -208,7 +212,7 @@ func _edit_quantity() -> void:
 
 
 func set_salvo(u: Unit, spec: WeaponSpec, count: int) -> void:
-	if not units.has(u) or not simulation.weapon_manager.engagement_check(u, spec, target, SimClock.sim_time).ok:
+	if not units.has(u) or u.get_weapon(spec.id) == null or not simulation.weapon_manager.engagement_check(u, spec, target, SimClock.sim_time).ok:
 		return
 	var key := plan_key(u, spec)
 	count = clampi(count, 0, u.magazine_count(spec.id))
@@ -217,6 +221,25 @@ func set_salvo(u: Unit, spec: WeaponSpec, count: int) -> void:
 	else:
 		_plan.erase(key)
 	_update_plan_summary()
+
+
+## The role filter changes only the view, so validate every planned system before summarizing
+## or firing. A hidden system must not retain an old quantity after its available rounds change.
+func _validate_plan() -> void:
+	var valid := {}
+	for u: Unit in units:
+		if not u.is_engageable():
+			continue
+		for spec: WeaponSpec in u.weapons:
+			var key := plan_key(u, spec)
+			if not _plan.has(key):
+				continue
+			if not simulation.weapon_manager.engagement_check(u, spec, target, SimClock.sim_time).ok:
+				continue
+			var count := clampi(int(_plan[key]), 0, u.magazine_count(spec.id))
+			if count > 0:
+				valid[key] = count
+	_plan = valid
 
 
 func _update_plan_summary() -> void:
@@ -248,7 +271,9 @@ func _select_weapon() -> void:
 func _commit_plan() -> void:
 	if target == null:
 		return
+	_validate_plan()
 	var pairs: Array = []
+	var committed_before: Array[int] = []
 	for u: Unit in units:
 		for spec in u.weapons:
 			var count := int(_plan.get(plan_key(u, spec), 0))
@@ -256,13 +281,20 @@ func _commit_plan() -> void:
 				var order := Order.engage(target, spec.id, count)
 				order.execution_accepted = false
 				pairs.append([u, order])
+				committed_before.append(simulation.weapon_manager.committed_rounds(u, spec, target))
+	if pairs.is_empty():
+		refresh()
+		_receipt.text = "No planned rounds have a valid solution. Review the contact, weapons posture and magazines."
+		return
 	unit_orders_requested.emit(pairs)
 	var accepted := 0
 	var rounds := 0
-	for pair: Array in pairs:
+	for i in pairs.size():
+		var pair: Array = pairs[i]
 		if pair[1].execution_accepted:
 			accepted += 1
-			rounds += pair[1].salvo
+			var spec := (pair[0] as Unit).get_weapon(pair[1].weapon_id)
+			rounds += maxi(simulation.weapon_manager.committed_rounds(pair[0], spec, target) - committed_before[i], 0)
 	_plan.clear()
 	refresh()
 	_receipt.text = "%d rounds committed across %d systems; %d orders refused. Return to the chart to advance time." % [rounds, accepted, pairs.size() - accepted]
@@ -273,8 +305,17 @@ func _cancel_pending() -> void:
 		_receipt.text = "Select a contact to cancel its queued rounds."
 		return
 	var pairs: Array = []
+	var queued_before := 0
 	for u: Unit in units:
-		pairs.append([u, Order.cancel_fire(target)])
+		for spec: WeaponSpec in u.weapons:
+			queued_before += simulation.weapon_manager.committed_rounds(u, spec, target, true)
+		var order := Order.cancel_fire(target)
+		order.execution_accepted = false
+		pairs.append([u, order])
 	unit_orders_requested.emit(pairs)
+	var queued_after := 0
+	for u: Unit in units:
+		for spec: WeaponSpec in u.weapons:
+			queued_after += simulation.weapon_manager.committed_rounds(u, spec, target, true)
 	refresh()
-	_receipt.text = "Unfired rounds for %s returned to the magazines. Weapons already away continue their engagement." % target.id
+	_receipt.text = "%d unfired rounds for %s returned to the magazines; %d remain queued. Weapons already away continue their engagement." % [maxi(queued_before - queued_after, 0), target.id, queued_after]

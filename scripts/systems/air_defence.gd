@@ -49,6 +49,8 @@ static func is_inbound(u: Unit, w: Weapon) -> bool:
 		return false
 	if w.acquired == u:
 		return true
+	if not WeaponManager.can_target(w.spec, u):
+		return false
 	if not within_reach(u, w):
 		return false
 	var cpa := closest_approach(u, w)
@@ -66,6 +68,8 @@ static func threatened_unit(unit_manager: UnitManager, faction: String, w: Weapo
 	var weapon_velocity := Geo.heading_to_vector(w.heading_deg) * w.speed_nm_per_s()
 	for u: Unit in (unit_manager.units if candidates.is_empty() else candidates):
 		if not u.alive or u.faction != faction or not u.is_engageable():
+			continue
+		if not WeaponManager.can_target(w.spec, u):
 			continue
 		if not within_reach(u, w):
 			continue
