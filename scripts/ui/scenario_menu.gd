@@ -89,7 +89,7 @@ func _ready() -> void:
 	_intro.tooltip_text = "Start here: protect a freighter, launch reconnaissance and identify contacts. Opens the briefing with time paused."
 	_intro.pressed.connect(func() -> void: scenario_chosen.emit(INTRO_PATH))
 	filter_row.add_child(_intro)
-	for entry in [["operations", "OPERATIONS", "Fourteen authored operations across four theatres, 1990 and 2027, with stars for difficulty and your best result"], ["training", "TRAINING", "Short engagements and exercises: learn the screen, the air wing and the sonar picture"], ["custom", "MY MISSIONS", "Missions you built or imported"]]:
+	for entry in [["operations", "OPERATIONS", "Seven authored operations, one 2027 operation in each of four theatres and three from 1990, with stars for difficulty and your best result"], ["training", "TRAINING", "Short engagements and exercises: learn the screen, the air wing and the sonar picture"], ["custom", "MY MISSIONS", "Missions you built or imported"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
 		button.theme_type_variation = "MenuBigButton"

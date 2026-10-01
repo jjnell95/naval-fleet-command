@@ -123,10 +123,13 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
   in all, and pooled models keep theirs while hidden. Past that Godot prints "Too many instances using shader
   instance variables" and the values go wrong. Use shared material variants instead, as
   `WorldMaterials.set_way` and `WorldScene._lamp_material` do; a test fails if one comes back.
-- **Data that a generator writes is regenerated, not edited.** `tools/scenarios/build_northern_passage.py` owns the introductory escort. `build_cold_war.py`, then
-  `build_theatres.py`, then `operation_design.py` reproduce `data/` byte for byte; the 1990 and 2027
-  catalogues' platforms and weapons (short names and torpedo countermeasures included) live in those
-  scripts. Change the script and run the three, or the next rebuild undoes a hand edit.
+- **Data that a generator writes is regenerated, not edited.** From `tools/scenarios/`, run
+  `build_scenarios.py`, `build_northern_passage.py`, `build_cold_war.py`, `build_theatres.py`, then
+  `operation_design.py`; that reproduces `data/` byte for byte (checked in M35). The 1990 and 2027
+  catalogues' platforms and weapons (short names, torpedo countermeasures, the Perry's shared Mk 13
+  launcher and the Type 07's rocket delivery included) live in those scripts. Change the script and
+  run the sequence, or the next rebuild undoes a hand edit. M35 found three hand edits from earlier
+  pull requests that a rebuild would have reverted, and moved them into the scripts.
 - **The browser build needs the web export templates**: the `web_*.zip` files and `version.txt` from the
   official 4.7.2 `export_templates.tpz`, in `~/.local/share/godot/export_templates/4.7.2.stable/`. The
   1.3 GB download resumes with `curl -C -` if the connection drops.

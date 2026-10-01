@@ -71,7 +71,7 @@ func test_period_inventory_resolves_recursively_and_does_not_inherit_modern_fits
 
 func test_all_1990_missions_have_reviewable_metadata_and_only_period_actors() -> void:
 	var manifest := _manifest()
-	assert_eq(manifest["scenario_ids"].size(), 5)
+	assert_eq(manifest["scenario_ids"].size(), 3)
 	for id in manifest["scenario_ids"]:
 		var h := _mission(id)
 		var sc: Dictionary = h[2]
@@ -156,7 +156,7 @@ func test_barrier_can_resolve_by_kill_watch_or_breakout() -> void:
 		_cleanup(h)
 
 
-func test_carrier_watch_and_baltic_neutral_have_meaningful_loss_conditions() -> void:
+func test_carrier_watch_and_convoy_neutral_have_meaningful_loss_conditions() -> void:
 	var h := _mission("cold_war_03_carrier")
 	h[1].tick(0)
 	h[1].tick(300)
@@ -169,9 +169,9 @@ func test_carrier_watch_and_baltic_neutral_have_meaningful_loss_conditions() -> 
 	h[1].tick(7200)
 	assert_eq(h[1].result, MissionManager.Result.DEFEAT, "air-defence screen loss overrides the watch")
 	_cleanup(h)
-	h = _mission("cold_war_04_baltic")
-	Damage.apply(_find(h[0], "MV Baltic Trader"), 10000)
-	Damage.apply(_find(h[0], "Otlichnyy"), 10000)
+	h = _mission("cold_war_01_convoy")
+	Damage.apply(_find(h[0], "MV Skagen Trader"), 10000)
+	Damage.apply(_find(h[0], "Soviet missile corvette (Nanuchka III)"), 10000)
 	h[1].tick(1)
 	assert_eq(h[1].result, MissionManager.Result.DEFEAT, "sinking the enemy does not erase a neutral loss")
 	_cleanup(h)

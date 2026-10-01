@@ -7,9 +7,9 @@ static func run(main: Main) -> void:
 	main._show_menu()
 	await main.get_tree().process_frame
 	checks["authored operations are the default front door"] = main._menu._era == "operations"
-	checks["operations shelf holds only authored operations, newest era first"] = main._menu._entries.size() == 14 and main._menu._entries.all(func(e: Dictionary) -> bool: return not e["custom"]) and int(main._menu._entries[0]["year"]) == 2027 and int(main._menu._entries[-1]["year"]) == 1990
+	checks["operations shelf holds only authored operations, newest era first"] = main._menu._entries.size() == 7 and main._menu._entries.all(func(e: Dictionary) -> bool: return not e["custom"]) and int(main._menu._entries[0]["year"]) == 2027 and int(main._menu._entries[-1]["year"]) == 1990
 	main._menu._set_era("training")
-	checks["training shelf holds the exercises and Northern Passage"] = main._menu._entries.size() == 9 and main._menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
+	checks["training shelf holds the carrier exercise and Northern Passage"] = main._menu._entries.size() == 2 and main._menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
 	main._menu._set_era("custom")
 	checks["custom shelf contains only custom files"] = main._menu._entries.all(func(e: Dictionary) -> bool: return e["custom"])
 	main._show_editor()

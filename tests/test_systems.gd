@@ -124,9 +124,9 @@ func test_damage_control_restores_subsystems_to_a_cap() -> void:
 	assert_near(jet.component("sensors"), 0.3, 1e-6, "aircraft carry no repair party")
 
 
-func test_arctic_shield_scenario_resolves_every_actor() -> void:
+func test_carrier_task_group_scenario_resolves_every_actor() -> void:
 	var um := UnitManager.new()
-	var sc := ScenarioLoader.load_file("res://data/scenarios/arctic_shield.json")
+	var sc := ScenarioLoader.load_file("res://data/scenarios/aegis_bastion.json")
 	ScenarioLoader.populate(um, sc)
 	assert_true(um.units.size() >= 29, "the scenario fields a full task group")
 	var jammers := 0
@@ -148,7 +148,7 @@ func test_arctic_shield_scenario_resolves_every_actor() -> void:
 	assert_true(bmd >= 1, "and a ballistic-missile shooter")
 	# Cruisers and destroyers have hangars, and a hangar with nothing in it is a scenario bug.
 	assert_true(escort_helos >= 3, "escorts sail with their helicopter detachments")
-	assert_eq(int(sc["environment"]["sea_state"]), 4, "rough sea declared")
+	assert_eq(int(sc["environment"]["sea_state"]), 3, "the Barents sea state is declared")
 	um.free()
 
 

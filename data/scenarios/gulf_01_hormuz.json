@@ -5547,6 +5547,7 @@
       {
         "id": "neutral_sunk",
         "type": "unit_lost",
+        "caused_by": "BLUE",
         "callsigns": [
           "MV Khor Fakkan Trader",
           "Dhow Al Noor"

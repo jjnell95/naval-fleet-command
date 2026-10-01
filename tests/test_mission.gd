@@ -345,6 +345,41 @@ func test_a_damaged_commander_log_reads_as_typed_entries_and_can_be_written_agai
 	CommanderLog.path_override = ""
 
 
+func _write_probe(path: String, name: String) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"id": "custom_index_probe", "name": name, "player_faction": "BLUE", "units": [],
+		"objectives": {"victory": [], "loss": []}}))
+	f.close()
+
+func _probe_name() -> String:
+	for e: Dictionary in ScenarioIndex.list_all():
+		if e["id"] == "custom_index_probe":
+			return e["name"]
+	return ""
+
+func test_the_desk_index_parses_shipped_missions_once_and_rereads_a_changed_custom_one() -> void:
+	var first := ScenarioIndex.list_all()
+	var parsed := ScenarioIndex.parses
+	var shipped := first.filter(func(e: Dictionary) -> bool: return not e["custom"])
+	assert_eq(shipped.size(), 9, "nine missions ship")
+	first[0]["name"] = "scribbled on by a caller"
+	var again := ScenarioIndex.list_all()
+	assert_eq(ScenarioIndex.parses, parsed, "a second refresh parses nothing it has already read")
+	assert_true(again[0]["name"] != "scribbled on by a caller", "callers get copies, not the cache")
+	ScenarioIndex.ensure_user_dir()
+	var path := ScenarioIndex.custom_path("custom_index_probe")
+	_write_probe(path, "Probe A")
+	assert_eq(_probe_name(), "Probe A", "a new custom mission appears")
+	_write_probe(path, "Probe Bee")
+	assert_eq(_probe_name(), "Probe Bee", "a rewrite of a different length is seen at once")
+	_write_probe(path, "Probe Cee")
+	ScenarioIndex.forget(path)
+	assert_eq(_probe_name(), "Probe Cee", "and a same-length rewrite once the writer says so")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	assert_eq(_probe_name(), "", "a deleted mission leaves the desk")
+	ScenarioIndex.forget(path)
+
+
 func test_the_commander_log_lives_beside_the_mission_library_not_in_it() -> void:
 	assert_eq(CommanderLog.path(), "user://commander_log.json", "in play, beside user://scenarios")
 	assert_true(not CommanderLog.path().begins_with(ScenarioIndex.USER_ROOT + "/"), "never inside the library the desk scans")

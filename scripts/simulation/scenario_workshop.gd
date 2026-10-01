@@ -3,7 +3,9 @@ class_name ScenarioWorkshop
 ## scripted battle. Geography can be reused without inheriting a template's story or enemies.
 
 const REGIONS := ["north_atlantic", "west_pacific", "arabian_sea", "mediterranean"]
-const CHARTS := ["north_atlantic_shadow_line", "pacific_02_taiwan_strait", "gulf_01_hormuz", "med_01_tartus"]
+## Geography only: each region borrows a shipped mission's coastline, never its forces or story.
+## The Norwegian Sea comes from the 1990 carrier watch, whose open-water origin sits at 68°N 4°E.
+const CHARTS := ["cold_war_03_carrier", "pacific_02_taiwan_strait", "gulf_01_hormuz", "med_01_tartus"]
 
 
 static func generate(recipe: Dictionary) -> Dictionary:

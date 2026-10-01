@@ -8,19 +8,19 @@ static func run(main: Main) -> void:
 	main._show_menu()
 	await main.get_tree().process_frame
 	menu._set_era("cold_war")
-	checks["five period missions on the Cold War shelf"] = menu._entries.filter(func(e: Dictionary) -> bool: return str(e["path"]).begins_with("res://")).size() == 5
+	checks["three period missions on the Cold War shelf"] = menu._entries.filter(func(e: Dictionary) -> bool: return str(e["path"]).begins_with("res://")).size() == 3
 	checks["all period shelf entries are dated 1990"] = menu._entries.all(func(e: Dictionary) -> bool: return int(e["year"]) == 1990)
 	checks["period portrait uses the historical catalogue"] = menu._portrait.spec_override != null and menu._portrait.spec_override.id.begins_with("cw90_")
 	checks["mission desk exposes first orders and date"] = menu._detail.text.contains("YOUR FIRST ORDERS") and menu._mission_meta.text.contains("1990")
 	menu._set_era("exercises")
-	checks["eight existing exercises plus Northern Passage remain available"] = menu._entries.size() == 9 and menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
+	checks["the carrier exercise and Northern Passage remain available"] = menu._entries.size() == 2 and menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
 	menu._set_era("atlantic")
-	checks["Atlantic shelf consolidates into three expanded operations"] = menu._entries.size() == 3
+	checks["Atlantic shelf holds one 2027 operation"] = menu._entries.size() == 1
 	checks["operation desk displays the authored sequence"] = menu._detail.text.contains("OPERATION SEQUENCE")
 	menu._set_era("modern")
-	checks["existing modern operations remain available"] = menu._entries.size() >= 11 and menu._entries.all(func(e: Dictionary) -> bool: return int(e["year"]) != 1990)
+	checks["modern operations and exercises remain available"] = menu._entries.size() == 6 and menu._entries.all(func(e: Dictionary) -> bool: return int(e["year"]) != 1990)
 	menu._set_era("all")
-	checks["all operations includes both eras"] = menu._entries.size() >= 15
+	checks["all operations includes both eras"] = menu._entries.size() >= 9
 	menu._set_era("cold_war")
 	menu._play.pressed.emit()
 	await main.get_tree().process_frame

@@ -28,9 +28,11 @@ The operations desk opens on the authored operations, as the late-1990s mission 
 
 | Shelf | Missions |
 |---|---|
-| **Operations · 2027** | North Cape: Ballistic Missile Defence · Barents Sea: Arctic Shield · Norwegian Sea: Joint Task Force · Bashi Channel: Silent Passage · Taiwan Strait: The Picket Line · Spratly Watch: Fiery Cross · Sea of Japan: Northern Guard · Strait of Hormuz: Tanker Transit · Eastern Mediterranean: The Tartus Line |
-| **Operations · 1990** | Northern Convoy · The Iceland–Faroe Barrier · Norwegian Sea: Carrier Watch · Baltic: The Narrow Water · Sea of Japan: The Vladivostok Sortie |
-| **Training** | Northern Passage · Norwegian Sea: Shadow Line · Gotland Basin · Iceland–Faroe Gap · Faroe–Shetland Channel · Vestfjorden Approaches · Norwegian Sea: Replenishment Group · Vestfjorden Exercise Area · Carrier Qualification |
+| **Operations · 2027** | North Cape: Ballistic Missile Defence · Taiwan Strait: The Picket Line · Strait of Hormuz: Tanker Transit · Eastern Mediterranean: The Tartus Line |
+| **Operations · 1990** | Northern Convoy · The Iceland–Faroe Barrier · Norwegian Sea: Carrier Watch |
+| **Training** | Northern Passage · Carrier Qualification |
+
+Nine missions ship, each a different command problem: one 2027 operation in each chart region, three from 1990, and two to learn on. Earlier builds carried 23; the overlapping ones were cut in M35 and remain in git history.
 
 Every mission ends with a graded **mission effectiveness** from 0 to 100%: the task is worth 60 and is credited only on a win, the force kept 20 and the enemy's points taken 20, with partial credit for damage; each neutral vessel your weapons sink costs 25. Before any civilian penalty, a victory grades between 60 and 100% and a defeat between 0 and 40%; a neutral your weapons damage but do not sink costs a pro-rata share of the 25. Platforms are worth points by type (a carrier 1,000, a destroyer 400, a frigate 250, a fighter 60), and a scenario can set its own. The commander's log in your browser or application storage keeps each mission's best result and date.
 
@@ -90,13 +92,13 @@ godot --path . -- --aviation-smoke                          # 19 air-operations 
 godot --path . -- --fleet-workshop-smoke                    # 34 authoring and defensive-control checks
 godot --path . -- --weapon-control-smoke                   # 24 weapon-control checks
 python3 tools/verify_northern_passage.py "$(command -v godot)" # real-scene outcomes and replay
-godot --path . -- --scenario=res://data/scenarios/northern_vigil.json --fastforward=2400 --run --perf=8   # frame budget
+godot --path . -- --scenario=res://data/scenarios/pacific_02_taiwan_strait.json --fastforward=2400 --run --perf=8   # frame budget
 godot --path .
 ```
 
 GitHub Actions runs the regression, command, aviation, workshop and weapon-control suites on every pull request, plus Command Watch mouse/patrol checks, Northern Passage outcomes/replay and graphical checks at 1280 × 720 and 1920 × 1080 (`.github/workflows/tests.yml`).
 
-Regenerate the scenarios with `python3 tools/scenarios/build_scenarios.py`, `build_cold_war.py`, `build_theatres.py` and `build_northern_passage.py`; each validates every start position, patrol leg and objective against the shipped coastline before writing. The regional coastline extractions and sea-floor rasters come from `tools/scenarios/import_coastlines.py` and `import_bathymetry.py` over the Natural Earth downloads named in `tools/scenarios/regions.py`. Generated files are committed, so playing needs neither Python packages nor network access. `tools/art/` builds the models and renders the recognition art without Blender; `tools/blender/` holds the earlier pipeline.
+Regenerate the scenarios by running, from `tools/scenarios/`, `build_scenarios.py`, `build_northern_passage.py`, `build_cold_war.py`, `build_theatres.py` and then `operation_design.py`; that sequence reproduces `data/` byte for byte. Each builder validates every start position, patrol leg and objective against the shipped coastline before writing. The regional coastline extractions and sea-floor rasters come from `tools/scenarios/import_coastlines.py` and `import_bathymetry.py` over the Natural Earth downloads named in `tools/scenarios/regions.py`. Generated files are committed, so playing needs neither Python packages nor network access. `tools/art/` builds the models and renders the recognition art without Blender; `tools/blender/` holds the earlier pipeline.
 
 The repository includes the matching Godot 4.7.2 browser runtime. After changing the game, run `tools/web/build_web.sh` to rebuild `docs/play/index.pck` and record its size in the loader page (set `GODOT=/path/to/Godot` if `godot` is not on your PATH). GitHub Pages serves `main:/docs`, so merging to `main` publishes the browser build.
 

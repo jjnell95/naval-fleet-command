@@ -1386,6 +1386,7 @@ func save() -> bool:
 		return false
 	f.store_string(to_json())
 	f.close()
+	ScenarioIndex.forget(path)
 	_opened_path = path
 	_say("Saved %s" % path, false)
 	_refresh_load_menu()

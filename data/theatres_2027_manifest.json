@@ -1,10 +1,7 @@
 {
   "year": 2027,
   "scenario_ids": [
-    "pacific_01_bashi_channel",
     "pacific_02_taiwan_strait",
-    "pacific_03_spratly",
-    "pacific_04_sea_of_japan",
     "gulf_01_hormuz",
     "med_01_tartus"
   ],

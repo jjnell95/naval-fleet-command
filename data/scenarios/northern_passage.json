@@ -60,7 +60,7 @@
         "kind": "water"
       },
       {
-        "text": "FAROE\u2013SHETLAND CHANNEL",
+        "text": "FAROE–SHETLAND CHANNEL",
         "position_nm": [
           -375.1019,
           -360.0
@@ -68,7 +68,7 @@
         "kind": "water"
       },
       {
-        "text": "ICELAND\u2013FAROE RIDGE",
+        "text": "ICELAND–FAROE RIDGE",
         "position_nm": [
           -555.6197,
           -234.0
@@ -164,7 +164,7 @@
         "kind": "land"
       },
       {
-        "text": "\u00d6LAND",
+        "text": "ÖLAND",
         "position_nm": [
           114.875,
           -612.0
@@ -204,7 +204,7 @@
         "kind": "land"
       },
       {
-        "text": "BJ\u00d8RN\u00d8YA",
+        "text": "BJØRNØYA",
         "position_nm": [
           171.1402,
           462.0
@@ -219,7 +219,7 @@
       173.0,
       156.0
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {

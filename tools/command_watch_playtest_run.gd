@@ -110,7 +110,7 @@ func run(scene_tree: SceneTree) -> void:
 	await _click_control(main.command_bar.buttons["toggle_pause"])
 	checks["pause key stops time"] = SimClock.paused
 	if capture:
-		for id: String in ["gulf_01_hormuz", "med_01_tartus", "pacific_03_spratly"]:
+		for id: String in ["gulf_01_hormuz", "med_01_tartus", "pacific_02_taiwan_strait"]:
 			var path := "res://data/scenarios/%s.json" % id
 			if not FileAccess.file_exists(path):
 				checks["theatre exists: " + id] = false
