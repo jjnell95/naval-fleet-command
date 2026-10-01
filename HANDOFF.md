@@ -1,5 +1,11 @@
 # Handoff
 
+Latest: M33 restores the inspected-contact focus without dropping command selection, adds persistent `Order.investigate(track)`, direct finite shots, Chart/time menus and mouse camera controls. Read [the source comparison and behavioral limits](docs/2026-09-30-fleet-command-intent.md). The contact inspection API is `TacticalMap.inspection_track()`; use it for presentation, keep `selected` for orders. Investigation uses held tracks only and reports completion through `UnitManager.investigation_ended`. Optional scenario `cloud_cover`, `rain_intensity` and `cloud_base_m` affect the live view only.
+
+The combined build also preserves the combat cleanup from `7e1d7a2`: Attack/Defence controls, authoritative firing, queued-fire cancellation and live missile tracking. Receipts measure `WeaponManager.committed_rounds()` deltas; the solar cache honors weather invalidation even while paused. Use [validation-m33-merge.json](docs/validation-m33-merge.json) for the current package hash and integration evidence.
+
+The new real-input suite is `godot --path . --resolution 1280x720 --script tools/fleet_command_playtest.gd -- --seed=31 --capture` (also run at 1920x1080). It checks contact inspection, context menus, investigation, finite salvos and chart/time/camera controls. On the retained cloud workspace, source `/workspace/.cloud-onboarding/naval-fleet-command/activate.sh` to use the matching Godot 4.7.2 runtime and export templates; the base image's `godot` is older.
+
 The short version for whoever picks this up next. `README.md` says what the game is and how to
 play it, `ARCHITECTURE.md` how the code is laid out, `CURRENT_STATE.md` where the last milestone
 left things, and `docs/` holds the dated notes and validation records for each milestone.
@@ -21,7 +27,7 @@ tools/web/build_web.sh                                     # rebuild docs/play/i
 ```
 
 The interface suites need a window (`xvfb-run -a -s "-screen 0 1600x900x24"` on a server).
-`.github/workflows/tests.yml` runs the tests and command, aviation, workshop, weapon-control, passage and Command Watch suites on every pull request. The
+`.github/workflows/tests.yml` runs the tests and command, aviation, workshop, weapon-control, passage, Command Watch and contact-intent suites on every pull request. The
 workshop suite also runs at 1280 × 720. Use `--scenario-storage=res://work/<name>` after `--`
 when a validation run should have its own mission library.
 

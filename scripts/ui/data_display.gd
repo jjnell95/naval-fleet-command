@@ -96,11 +96,18 @@ func refresh() -> void:
 	queue_redraw()
 
 
-## Rows for the current hook: an own unit, else a held contact, else the mission.
+## Rows for the inspected hook, retaining the selected shooter when a contact is inspected.
 func build_rows() -> Array:
 	if map == null or simulation == null:
 		return []
 	var ref := map.reference_unit()
+	var inspected := map.inspection_track()
+	if inspected != null:
+		var rows := track_rows(inspected, ref, SimClock.sim_time)
+		if not map.selected.is_empty():
+			var shooter := (map.selected[0] as Unit).callsign if map.selected.size() == 1 else "%d platforms" % map.selected.size()
+			rows.insert(2, _kv("COMMAND", shooter))
+		return rows
 	if map.selected.size() == 1:
 		var u: Unit = map.selected[0]
 		if u != null and is_instance_valid_unit(u):
@@ -253,6 +260,14 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 		for w in weapon_manager.in_flight:
 			if w.phase != Weapon.Phase.DEAD and w.shooter == u and w.target_track != null and not w.is_interceptor():
 				return "Engage track %s" % track_number_for_track(w.target_track)
+		for spec: WeaponSpec in u.weapons:
+			var queued := weapon_manager.committed_rounds(u, spec, null, true)
+			if queued > 0:
+				return "Engage (%d × %s queued)" % [queued, spec.compact_name()]
+	if u.investigation_track != null:
+		return "Investigate track %s" % track_number_for_track(u.investigation_track)
+	if u.investigation_result != "":
+		return "Track %s: %s" % [MapSymbols.track_number(u.investigation_track_id), u.investigation_result]
 	if u.is_aircraft():
 		match u.flight_state:
 			Unit.FlightState.STOWED:

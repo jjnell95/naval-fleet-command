@@ -1,5 +1,7 @@
 # Naval Fleet Command
 
+**M33 Command Intent:** inspect a contact while retaining your shooter, order a persistent investigation, and fire a stated finite salvo directly from its menu. Mouse-accessible chart, time and camera controls, readable 3D framing, subject captions and scenario-driven clouds and rain connect orders to the battle. See the [Fleet Command research, controls and validation](docs/2026-09-30-fleet-command-intent.md).
+
 **Combat cleanup:** direct Attack and Defence keys, clearer salvo receipts, live missile inspection and corrected interceptor guidance. See the [fixes and validation](docs/2026-09-30-combat-cleanup.md).
 
 **M32 Command Watch:** a quieter relief chart, larger track numbers, persistent command keys, repeating patrol areas and rebuilt Nansen, Gorshkov and Steregushchiy models bring the command screen closer to its late-1990s inspiration. See the [controls, screenshots and validation](docs/2026-09-30-command-watch.md).
@@ -16,7 +18,7 @@ Locally, open **Launch Preview.command** for the included browser build, or open
 
 The operations desk puts the task, first orders, theatre, difficulty and estimated play time beside the chart. The briefing separates **Orders & Objectives**, **Situation**, and **Command Reference**. All of the conflicts are fiction on real charts.
 
-![Command Watch: the relief chart, persistent command keys, regional map, live Nansen frigate and platform data](docs/2026-09-30-command-watch-1280.png)
+![Fleet Command: the relief chart, mouse command controls, regional map, live Nansen frigate and platform data](docs/2026-09-30-fleet-command-command.png)
 
 ## Optional templates
 
@@ -53,6 +55,8 @@ The command screen is laid out the way the late-1990s fleet-command games laid t
 - **Respond to an attack:** **Defence** on the command strip opens defensive controls; your platform's right-click menu also includes them. **D** deploys a radar countermeasure pack; **V** orders evasion against a detected inbound weapon. The **Defence** tab on the orders board adds infrared and acoustic packs, run-away steering, resume-plan, automatic/manual countermeasures and Conserve/Balanced/Saturation interceptor policies. Stores, active windows and reload times are finite. Evasion keeps the existing route and formation assignment.
 - **Command large groups:** **J** opens Fleet Operations with group readiness, station error, defensive ammunition and group orders. **Ctrl+1 to 9** stores a selection and **Alt+1 to 9** recalls it. Screen, column, abreast, wedge and dispersed formations grow to fit the selection, pace slower consorts and pass command after a flagship is lost.
 - **Engage:** hook a shooter, then **right-click a contact** for **Engage with**, or choose **Attack** on the command strip for the firing board. Each system shows available, queued and airborne rounds; group salvo quantities apply per eligible platform. Hover a plotted weapon for its course and speed; own rounds also show shooter, target, estimated time and remaining range. Unknown and neutral contacts are not free targets. Land-attack rounds can be fired at a battery or an airfield once it is classified.
+- **Inspect and investigate:** clicking a contact updates its data and 3D view while retaining your selected shooter. Right-click an unresolved contact for **Investigate contact**, which follows the held plot until classification or loss. Use a reconnaissance aircraft to keep escorts on station. A ready **Fire N × weapon** choice gives a direct finite salvo; blocked shots state why. Click your own platform to restore its view.
+- **Mouse controls:** **Chart** opens silhouettes, labels, symbol explanations, ranges, zoom and framing. The time menu beside Pause selects acceleration while preserving pause. The live view exposes camera selection, Swap and Full/Back controls.
 - **Build the picture:** contacts begin uncertain and classify through observation. A passive bearing is not a measured range. **N / Shift-N** cycles priority contacts. **Tab** switches NTDS and graphic symbols; **Shift-V / K / I** toggle velocity leaders, track numbers and tags.
 - **Read the data display:** the hooked platform's class, track number, course, speed, damage, orders, sensors and weapons (the hull's reach for each job, then every system and its rounds in columns, strike first), or a contact as held, or the mission's tasking with nothing hooked. Its footer carries the watch time and the time scale (click them to pause or step the scale) and a lamp that flashes for new warnings.
 - **See it:** the 3D view follows the hook. **T** cycles the cameras: **F9** tether, **F11** fly-by, **F12** action, **F8** detached. **G** swaps the chart and the 3D view; **F10** gives the 3D view the whole window, with sun shadows. After dark, ships show their navigation lights on their proper arcs, so the lights alone say which way a ship is heading.

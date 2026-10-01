@@ -4,6 +4,7 @@ extends Node
 
 signal unit_added(unit: Unit)
 signal order_issued(unit: Unit, order: Order)
+signal investigation_ended(unit: Unit, track: Track, reason: String)
 
 var units: Array[Unit] = []
 var _next_id := 1
@@ -22,6 +23,7 @@ func tick(dt: float) -> void:
 		if not u.alive:
 			continue
 		DefensiveResponse.tick(u, dt)
+		_step_investigation(u, dt)
 		Formation.step(u)
 		Movement.step(u, dt)
 
@@ -44,6 +46,8 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 	if u == null or order == null or not u.alive:
 		return false
 	match order.type:
+		Order.Type.INVESTIGATE:
+			return investigation_rejection(u, order.track) == ""
 		Order.Type.PATROL:
 			return patrol_rejection(u, order.route) == ""
 		Order.Type.DEPLOY_COUNTERMEASURES:
@@ -86,6 +90,65 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
 	return false
+
+
+## Uses only information held by this unit's faction, including datalink visibility. An
+## investigation never obtains a hidden position or an early classification from Track.truth.
+static func investigation_rejection(u: Unit, track: Track) -> String:
+	if u == null or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		return "Select a deployed mobile platform"
+	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
+		return "Aircraft must be airborne and available for tasking"
+	if track == null or (track.owner_faction != "" and track.owner_faction != u.faction):
+		return "Contact is not available to this unit"
+	if track.status == Track.Status.LOST:
+		return "Contact lost"
+	if not track.visible_to(u):
+		return "Contact is not available to this unit"
+	if track.is_bearing_only():
+		return "Contact range unresolved"
+	if track.classification >= Track.Classification.CLASS_KNOWN:
+		return "Contact classified"
+	if not track.position.is_finite():
+		return "Contact position unavailable"
+	if u.needs_sea_room() and (Terrain.is_land(track.position) or Terrain.first_land_contact(u.position, track.position) >= 0.0):
+		return "Land blocks investigation — choose another course"
+	return ""
+
+
+func _step_investigation(u: Unit, dt: float) -> void:
+	var track := u.investigation_track
+	if track == null:
+		return
+	# Aviation may take over automatically for fuel. Do not overwrite its return/tanker route.
+	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
+		u.clear_investigation()
+		return
+	var reason := investigation_rejection(u, track)
+	if reason != "":
+		u.investigation_track = null
+		u.investigation_result = reason
+		_hold_investigation_position(u)
+		investigation_ended.emit(u, track, reason)
+		return
+	if u.evasion_remaining_s > 0.0:
+		return
+	# A task may wait at the last plot and then follow a later update. Keep the player's chosen
+	# transit speed separately because ordinary waypoint arrival commands zero speed.
+	var arrive := maxf(Movement.ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
+	if u.position.distance_to(track.position) <= arrive:
+		_hold_investigation_position(u)
+	else:
+		u.waypoints.assign([track.position])
+		u.ordered_speed_kn = u.investigation_speed_kn
+
+
+static func _hold_investigation_position(u: Unit) -> void:
+	u.waypoints.clear()
+	u.ordered_heading_deg = u.heading_deg
+	# A fixed-wing aircraft cannot hover at a contact plot. Keep it flying on its present course;
+	# while the task remains active, later ticks bring it back toward the held plot as it turns.
+	u.ordered_speed_kn = maxf(u.investigation_speed_kn, u.spec.cruise_speed_kn) if u.is_aircraft() and not u.spec.can_hover else 0.0
 
 
 ## Validate the entire circuit before changing any standing order. No partial patrol over land.
@@ -143,6 +206,7 @@ func clear() -> void:
 	# Units are RefCounted. A carrier owns its air wing, and each airframe owns a
 	# reference to its carrier; dropping the array alone leaks both on every restart.
 	for u in units:
+		u.clear_investigation()
 		u.home = null
 		u.recovery_base = null
 		u.embarked.clear()

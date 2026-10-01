@@ -1,0 +1,1293 @@
+{
+  "milestone": "M33 integration with current combat fixes",
+  "date": "2026-09-30",
+  "timezone": "America/New_York",
+  "tested_game_commit": "5364f8231f845b7cb7a99367a248362cfbe2af67",
+  "upstream_base": "7e1d7a24cc53bb98d162904baa3568295a931c01",
+  "pull_request": "https://github.com/jjnell95/naval-fleet-command/pull/29",
+  "scope": "Fresh local validation of the combined game; final documentation/screenshots commit contains the resulting evidence.",
+  "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+  "game_source_ci": {
+    "commit": "5364f8231f845b7cb7a99367a248362cfbe2af67",
+    "conclusion": "success",
+    "url": "https://github.com/jjnell95/naval-fleet-command/actions/runs/36811692591"
+  },
+  "regression": {
+    "tests": 660,
+    "failed": 0,
+    "runner_self_check": "PASS: runtime exception before assertions makes the real runner fail"
+  },
+  "native_interactions": [
+    {
+      "checks": {
+        "aircraft clears host through normal climb and transit": true,
+        "all command panes fit": true,
+        "camera full control fills window": true,
+        "camera return control restores panes": true,
+        "camera swap control enlarges live view": true,
+        "camera swap returns chart to top": true,
+        "chart menu selects graphic symbols": true,
+        "chart menu selects tactical symbols": true,
+        "chart menu toggles labels": true,
+        "command control fits: air_operations": true,
+        "command control fits: chart_menu": true,
+        "command control fits: missions": true,
+        "command control fits: next_contact": true,
+        "command control fits: open_defence": true,
+        "command control fits: plot_move": true,
+        "command control fits: plot_patrol": true,
+        "command control fits: status_boards": true,
+        "command control fits: swap_views": true,
+        "command control fits: time_menu": true,
+        "command control fits: toggle_pause": true,
+        "command control fits: weapon_control": true,
+        "contact click moves camera to held track": true,
+        "contact click retains commanded shooter": true,
+        "contact data shows held report and command platform": true,
+        "cruise camera keeps the same aircraft subject": true,
+        "direct engage commits exactly the displayed finite salvo": true,
+        "direct engage preserves pause and shooter": true,
+        "fullscreen return control remains visible": true,
+        "intro force available": true,
+        "investigate click tasks the retained shooter while paused": true,
+        "investigate route follows changing held report": true,
+        "investigation ends on real classification": true,
+        "investigation spends no offensive rounds": true,
+        "launch camera retains the aircraft subject": true,
+        "launch camera stays outside the own host hull": true,
+        "mission opens through mouse input": true,
+        "mouse selects camera mode 0": true,
+        "mouse selects camera mode 1": true,
+        "mouse selects camera mode 2": true,
+        "mouse selects camera mode 3": true,
+        "no unexpected engine errors": true,
+        "normal deck cycle launches aircraft": true,
+        "opening contact menu spends no rounds": true,
+        "own click restores data and camera without losing target": true,
+        "own ship selected through chart input": true,
+        "real hostile enters a ready weapon envelope": true,
+        "scenario clouds and rain reach live renderer": true,
+        "screenshot: action": true,
+        "screenshot: aircraft-launch": true,
+        "screenshot: aircraft-weather": true,
+        "screenshot: command": true,
+        "screenshot: inspected-contact": true,
+        "screenshot: investigation-result": true,
+        "screenshot: ready-engagement": true,
+        "screenshot: ship-fullscreen": true,
+        "screenshot: ship-weather": true,
+        "screenshot: unknown-orders": true,
+        "sensors produce an investigable unknown": true,
+        "time menu changes speed without resuming": true,
+        "time menu returns to real time while paused": true,
+        "unknown has a visible blocked engagement choice": true,
+        "weather animation preserves pause": true
+      },
+      "errors": [],
+      "facts": {
+        "aircraft": {
+          "altitude_m": 500.0,
+          "host_distance_nm": 1.02340698242188,
+          "speed_kn": 110.0,
+          "time_s": 190.25
+        },
+        "engagement": {
+          "after": 4,
+          "before": 8,
+          "salvo": 4,
+          "time_s": 236.25,
+          "track": "T1003",
+          "weapon": "nsm_strike_missile"
+        },
+        "investigation": {
+          "result": "Contact classified",
+          "time_s": 55.25,
+          "track": "T1001"
+        },
+        "launch_camera": {
+          "aircraft_altitude_m": 2.0,
+          "horizontal_host_clearance_m": 295.146667480469,
+          "host_length_m": 155.0,
+          "time_s": 120.25
+        }
+      },
+      "screenshots": [
+        "res://work/m33-merge/command-1280.png",
+        "res://work/m33-merge/ship-weather-1280.png",
+        "res://work/m33-merge/ship-fullscreen-1280.png",
+        "res://work/m33-merge/inspected-contact-1280.png",
+        "res://work/m33-merge/unknown-orders-1280.png",
+        "res://work/m33-merge/investigation-result-1280.png",
+        "res://work/m33-merge/aircraft-launch-1280.png",
+        "res://work/m33-merge/aircraft-weather-1280.png",
+        "res://work/m33-merge/ready-engagement-1280.png",
+        "res://work/m33-merge/action-1280.png"
+      ],
+      "window": [
+        1280,
+        720
+      ]
+    },
+    {
+      "checks": {
+        "aircraft clears host through normal climb and transit": true,
+        "all command panes fit": true,
+        "camera full control fills window": true,
+        "camera return control restores panes": true,
+        "camera swap control enlarges live view": true,
+        "camera swap returns chart to top": true,
+        "chart menu selects graphic symbols": true,
+        "chart menu selects tactical symbols": true,
+        "chart menu toggles labels": true,
+        "command control fits: air_operations": true,
+        "command control fits: chart_menu": true,
+        "command control fits: missions": true,
+        "command control fits: next_contact": true,
+        "command control fits: open_defence": true,
+        "command control fits: plot_move": true,
+        "command control fits: plot_patrol": true,
+        "command control fits: status_boards": true,
+        "command control fits: swap_views": true,
+        "command control fits: time_menu": true,
+        "command control fits: toggle_pause": true,
+        "command control fits: weapon_control": true,
+        "contact click moves camera to held track": true,
+        "contact click retains commanded shooter": true,
+        "contact data shows held report and command platform": true,
+        "cruise camera keeps the same aircraft subject": true,
+        "direct engage commits exactly the displayed finite salvo": true,
+        "direct engage preserves pause and shooter": true,
+        "fullscreen return control remains visible": true,
+        "intro force available": true,
+        "investigate click tasks the retained shooter while paused": true,
+        "investigate route follows changing held report": true,
+        "investigation ends on real classification": true,
+        "investigation spends no offensive rounds": true,
+        "launch camera retains the aircraft subject": true,
+        "launch camera stays outside the own host hull": true,
+        "mission opens through mouse input": true,
+        "mouse selects camera mode 0": true,
+        "mouse selects camera mode 1": true,
+        "mouse selects camera mode 2": true,
+        "mouse selects camera mode 3": true,
+        "no unexpected engine errors": true,
+        "normal deck cycle launches aircraft": true,
+        "opening contact menu spends no rounds": true,
+        "own click restores data and camera without losing target": true,
+        "own ship selected through chart input": true,
+        "real hostile enters a ready weapon envelope": true,
+        "scenario clouds and rain reach live renderer": true,
+        "screenshot: action": true,
+        "screenshot: aircraft-launch": true,
+        "screenshot: aircraft-weather": true,
+        "screenshot: command": true,
+        "screenshot: inspected-contact": true,
+        "screenshot: investigation-result": true,
+        "screenshot: ready-engagement": true,
+        "screenshot: ship-fullscreen": true,
+        "screenshot: ship-weather": true,
+        "screenshot: unknown-orders": true,
+        "sensors produce an investigable unknown": true,
+        "time menu changes speed without resuming": true,
+        "time menu returns to real time while paused": true,
+        "unknown has a visible blocked engagement choice": true,
+        "weather animation preserves pause": true
+      },
+      "errors": [],
+      "facts": {
+        "aircraft": {
+          "altitude_m": 500.0,
+          "host_distance_nm": 1.02340698242188,
+          "speed_kn": 110.0,
+          "time_s": 190.25
+        },
+        "engagement": {
+          "after": 4,
+          "before": 8,
+          "salvo": 4,
+          "time_s": 236.25,
+          "track": "T1003",
+          "weapon": "nsm_strike_missile"
+        },
+        "investigation": {
+          "result": "Contact classified",
+          "time_s": 55.25,
+          "track": "T1001"
+        },
+        "launch_camera": {
+          "aircraft_altitude_m": 2.0,
+          "horizontal_host_clearance_m": 295.146667480469,
+          "host_length_m": 155.0,
+          "time_s": 120.25
+        }
+      },
+      "screenshots": [
+        "res://work/m33-merge/command-1920.png",
+        "res://work/m33-merge/ship-weather-1920.png",
+        "res://work/m33-merge/ship-fullscreen-1920.png",
+        "res://work/m33-merge/inspected-contact-1920.png",
+        "res://work/m33-merge/unknown-orders-1920.png",
+        "res://work/m33-merge/investigation-result-1920.png",
+        "res://work/m33-merge/aircraft-launch-1920.png",
+        "res://work/m33-merge/aircraft-weather-1920.png",
+        "res://work/m33-merge/ready-engagement-1920.png",
+        "res://work/m33-merge/action-1920.png"
+      ],
+      "window": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "checks": {
+        "aircraft clears host through normal climb and transit": true,
+        "cruise camera keeps the same aircraft subject": true,
+        "intro force available": true,
+        "launch camera retains the aircraft subject": true,
+        "launch camera stays outside the own host hull": true,
+        "mission opens through mouse input": true,
+        "no unexpected engine errors": true,
+        "normal deck cycle launches aircraft": true,
+        "screenshot: aircraft-launch": true,
+        "screenshot: aircraft-weather": true,
+        "screenshot: inspected-hostile": true,
+        "screenshot: ready-engagement": true,
+        "selection orders caps an oversized salvo at remaining inventory": true,
+        "selection orders receipt has a real ready target": true,
+        "selection orders receipt preserves the paused watch": true,
+        "selection orders receipt reports actual committed rounds": true,
+        "unit orders caps an oversized salvo at remaining inventory": true,
+        "unit orders receipt has a real ready target": true,
+        "unit orders receipt preserves the paused watch": true,
+        "unit orders receipt reports actual committed rounds": true
+      },
+      "errors": [],
+      "facts": {
+        "aircraft": {
+          "altitude_m": 500.0,
+          "host_distance_nm": 1.01679193973541,
+          "speed_kn": 110.0,
+          "time_s": 190.0
+        },
+        "launch_camera": {
+          "aircraft_altitude_m": 0.0,
+          "horizontal_host_clearance_m": 293.617095947266,
+          "host_length_m": 155.0,
+          "time_s": 120.0
+        },
+        "receipts": [
+          {
+            "committed": 8,
+            "receipt": "2027-05-18 08:05:08Z  HNoMS Roald Amundsen (F 311): Engaging track 1003, 8 \u00d7 NSM \u00b7 8 rounds committed",
+            "requested": 13,
+            "route": "unit orders",
+            "shooter": "HNoMS Roald Amundsen (F 311)",
+            "weapon": "nsm_strike_missile"
+          },
+          {
+            "committed": 8,
+            "receipt": "2027-05-18 08:05:08Z  USS Truxtun (DDG 103): Engaging track 1003, 8 \u00d7 Tomahawk \u00b7 8 rounds committed",
+            "requested": 13,
+            "route": "selection orders",
+            "shooter": "USS Truxtun (DDG 103)",
+            "weapon": "tomahawk_block_v"
+          }
+        ]
+      },
+      "screenshots": [
+        "res://work/m33-merge/aircraft-launch-1280.png",
+        "res://work/m33-merge/aircraft-weather-1280.png",
+        "res://work/m33-merge/inspected-hostile-1280.png",
+        "res://work/m33-merge/ready-engagement-1280.png"
+      ],
+      "window": [
+        1280,
+        720
+      ]
+    },
+    {
+      "checks": {
+        "aircraft clears host through normal climb and transit": true,
+        "cruise camera keeps the same aircraft subject": true,
+        "intro force available": true,
+        "launch camera retains the aircraft subject": true,
+        "launch camera stays outside the own host hull": true,
+        "mission opens through mouse input": true,
+        "no unexpected engine errors": true,
+        "normal deck cycle launches aircraft": true,
+        "screenshot: aircraft-launch": true,
+        "screenshot: aircraft-weather": true,
+        "screenshot: inspected-hostile": true,
+        "screenshot: ready-engagement": true,
+        "selection orders caps an oversized salvo at remaining inventory": true,
+        "selection orders receipt has a real ready target": true,
+        "selection orders receipt preserves the paused watch": true,
+        "selection orders receipt reports actual committed rounds": true,
+        "unit orders caps an oversized salvo at remaining inventory": true,
+        "unit orders receipt has a real ready target": true,
+        "unit orders receipt preserves the paused watch": true,
+        "unit orders receipt reports actual committed rounds": true
+      },
+      "errors": [],
+      "facts": {
+        "aircraft": {
+          "altitude_m": 500.0,
+          "host_distance_nm": 1.01679193973541,
+          "speed_kn": 110.0,
+          "time_s": 190.0
+        },
+        "launch_camera": {
+          "aircraft_altitude_m": 0.0,
+          "horizontal_host_clearance_m": 293.617095947266,
+          "host_length_m": 155.0,
+          "time_s": 120.0
+        },
+        "receipts": [
+          {
+            "committed": 8,
+            "receipt": "2027-05-18 08:05:08Z  HNoMS Roald Amundsen (F 311): Engaging track 1003, 8 \u00d7 NSM \u00b7 8 rounds committed",
+            "requested": 13,
+            "route": "unit orders",
+            "shooter": "HNoMS Roald Amundsen (F 311)",
+            "weapon": "nsm_strike_missile"
+          },
+          {
+            "committed": 8,
+            "receipt": "2027-05-18 08:05:08Z  USS Truxtun (DDG 103): Engaging track 1003, 8 \u00d7 Tomahawk \u00b7 8 rounds committed",
+            "requested": 13,
+            "route": "selection orders",
+            "shooter": "USS Truxtun (DDG 103)",
+            "weapon": "tomahawk_block_v"
+          }
+        ]
+      },
+      "screenshots": [
+        "res://work/m33-merge/aircraft-launch-1920.png",
+        "res://work/m33-merge/aircraft-weather-1920.png",
+        "res://work/m33-merge/inspected-hostile-1920.png",
+        "res://work/m33-merge/ready-engagement-1920.png"
+      ],
+      "window": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "native_summary": {
+    "engine": "Godot 4.7.2.stable.official.ed1daf0bf",
+    "renderer": "Mesa llvmpipe, OpenGL Compatibility; Xvfb",
+    "suites": [
+      {
+        "suite": "full",
+        "width": 1280,
+        "checks": 62,
+        "failed": [],
+        "engine_errors": [],
+        "script_errors": [],
+        "exit_warnings": [],
+        "facts": {
+          "aircraft": {
+            "altitude_m": 500.0,
+            "host_distance_nm": 1.02340698242188,
+            "speed_kn": 110.0,
+            "time_s": 190.25
+          },
+          "engagement": {
+            "after": 4,
+            "before": 8,
+            "salvo": 4,
+            "time_s": 236.25,
+            "track": "T1003",
+            "weapon": "nsm_strike_missile"
+          },
+          "investigation": {
+            "result": "Contact classified",
+            "time_s": 55.25,
+            "track": "T1001"
+          },
+          "launch_camera": {
+            "aircraft_altitude_m": 2.0,
+            "horizontal_host_clearance_m": 295.146667480469,
+            "host_length_m": 155.0,
+            "time_s": 120.25
+          }
+        },
+        "result": "fleet-command-1280.json",
+        "log": "full-1280.log"
+      },
+      {
+        "suite": "aircraft_receipts",
+        "width": 1280,
+        "checks": 20,
+        "failed": [],
+        "engine_errors": [],
+        "script_errors": [],
+        "exit_warnings": [
+          "WARNING: 2 ObjectDB instances were leaked at exit (run with `--verbose` for details)."
+        ],
+        "facts": {
+          "aircraft": {
+            "altitude_m": 500.0,
+            "host_distance_nm": 1.01679193973541,
+            "speed_kn": 110.0,
+            "time_s": 190.0
+          },
+          "launch_camera": {
+            "aircraft_altitude_m": 0.0,
+            "horizontal_host_clearance_m": 293.617095947266,
+            "host_length_m": 155.0,
+            "time_s": 120.0
+          },
+          "receipts": [
+            {
+              "committed": 8,
+              "receipt": "2027-05-18 08:05:08Z  HNoMS Roald Amundsen (F 311): Engaging track 1003, 8 \u00d7 NSM \u00b7 8 rounds committed",
+              "requested": 13,
+              "route": "unit orders",
+              "shooter": "HNoMS Roald Amundsen (F 311)",
+              "weapon": "nsm_strike_missile"
+            },
+            {
+              "committed": 8,
+              "receipt": "2027-05-18 08:05:08Z  USS Truxtun (DDG 103): Engaging track 1003, 8 \u00d7 Tomahawk \u00b7 8 rounds committed",
+              "requested": 13,
+              "route": "selection orders",
+              "shooter": "USS Truxtun (DDG 103)",
+              "weapon": "tomahawk_block_v"
+            }
+          ]
+        },
+        "result": "fleet-command-aircraft-1280.json",
+        "log": "receipts-1280.log"
+      },
+      {
+        "suite": "full",
+        "width": 1920,
+        "checks": 62,
+        "failed": [],
+        "engine_errors": [],
+        "script_errors": [],
+        "exit_warnings": [],
+        "facts": {
+          "aircraft": {
+            "altitude_m": 500.0,
+            "host_distance_nm": 1.02340698242188,
+            "speed_kn": 110.0,
+            "time_s": 190.25
+          },
+          "engagement": {
+            "after": 4,
+            "before": 8,
+            "salvo": 4,
+            "time_s": 236.25,
+            "track": "T1003",
+            "weapon": "nsm_strike_missile"
+          },
+          "investigation": {
+            "result": "Contact classified",
+            "time_s": 55.25,
+            "track": "T1001"
+          },
+          "launch_camera": {
+            "aircraft_altitude_m": 2.0,
+            "horizontal_host_clearance_m": 295.146667480469,
+            "host_length_m": 155.0,
+            "time_s": 120.25
+          }
+        },
+        "result": "fleet-command-1920.json",
+        "log": "full-1920.log"
+      },
+      {
+        "suite": "aircraft_receipts",
+        "width": 1920,
+        "checks": 20,
+        "failed": [],
+        "engine_errors": [],
+        "script_errors": [],
+        "exit_warnings": [
+          "WARNING: 2 ObjectDB instances were leaked at exit (run with `--verbose` for details)."
+        ],
+        "facts": {
+          "aircraft": {
+            "altitude_m": 500.0,
+            "host_distance_nm": 1.01679193973541,
+            "speed_kn": 110.0,
+            "time_s": 190.0
+          },
+          "launch_camera": {
+            "aircraft_altitude_m": 0.0,
+            "horizontal_host_clearance_m": 293.617095947266,
+            "host_length_m": 155.0,
+            "time_s": 120.0
+          },
+          "receipts": [
+            {
+              "committed": 8,
+              "receipt": "2027-05-18 08:05:08Z  HNoMS Roald Amundsen (F 311): Engaging track 1003, 8 \u00d7 NSM \u00b7 8 rounds committed",
+              "requested": 13,
+              "route": "unit orders",
+              "shooter": "HNoMS Roald Amundsen (F 311)",
+              "weapon": "nsm_strike_missile"
+            },
+            {
+              "committed": 8,
+              "receipt": "2027-05-18 08:05:08Z  USS Truxtun (DDG 103): Engaging track 1003, 8 \u00d7 Tomahawk \u00b7 8 rounds committed",
+              "requested": 13,
+              "route": "selection orders",
+              "shooter": "USS Truxtun (DDG 103)",
+              "weapon": "tomahawk_block_v"
+            }
+          ]
+        },
+        "result": "fleet-command-aircraft-1920.json",
+        "log": "receipts-1920.log"
+      }
+    ],
+    "legacy": [
+      {
+        "suite": "weapon-control",
+        "checks": 30,
+        "failed": 0,
+        "exit_code": 0,
+        "script_errors": [],
+        "engine_errors": [],
+        "exit_warnings": [],
+        "log": "weapon-control-1280.log"
+      },
+      {
+        "suite": "command-watch",
+        "checks": 37,
+        "failed": 0,
+        "exit_code": 0,
+        "script_errors": [],
+        "engine_errors": [],
+        "exit_warnings": [],
+        "log": "command-watch-1280.log"
+      }
+    ],
+    "totals": {
+      "checks": 231,
+      "failed": 0
+    },
+    "visual_review": [
+      "command-1280.png",
+      "ready-engagement-1280.png",
+      "inspected-hostile-1280.png",
+      "aircraft-launch-1280.png",
+      "aircraft-weather-1280.png",
+      "aircraft-weather-1920.png",
+      "ship-weather-1280.png"
+    ],
+    "notes": [
+      "Menu selections use actual OS pointer placement and normal window mouse input, including scaled viewports.",
+      "All firing and investigation checks use actual detected contacts and real magazines.",
+      "Both targeted receipt runs report two ObjectDB instances leaked at exit after passing; no script errors or captured engine errors.",
+      "The Xvfb driver also reports its usual unsupported V-Sync warning.",
+      "Fixed-path legacy artifacts were copied here and original bytes restored."
+    ]
+  },
+  "simulation": {
+    "ok": true,
+    "sweep_runs": 46,
+    "sweep_passed": 46,
+    "sweep_simulated_seconds_requested_per_run": 6000,
+    "seeds": [
+      2,
+      13
+    ],
+    "max_sweep_workers": 3,
+    "sweep_failures": [],
+    "policy_exit_code": 0,
+    "policy_runs": 7,
+    "policy_checks": 115,
+    "policy_failed_checks": 0,
+    "policy_replay_identical": true,
+    "policy_errors": [],
+    "model_data_stable": true,
+    "hashes_before": {
+      "model": "f42bd8ec3392a699a6058163cdffc832c89e134e01fc628cc2106de767de65fa",
+      "data": "238a7b1b4f7e029b01b49aa0381fed3cf73a326136f855f4a75114d5a434d912"
+    },
+    "hashes_after": {
+      "model": "f42bd8ec3392a699a6058163cdffc832c89e134e01fc628cc2106de767de65fa",
+      "data": "238a7b1b4f7e029b01b49aa0381fed3cf73a326136f855f4a75114d5a434d912"
+    },
+    "wall_s": 1308.6,
+    "warnings": [
+      "WARNING: 10 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+      "WARNING: 7 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+      "WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details)."
+    ],
+    "all_sweep_runs_reached_6000_seconds": true,
+    "all_sweep_runs_zero_aground": true
+  },
+  "scenario_sweep": [
+    {
+      "scenario": "northern_vigil",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 573.4,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/northern_vigil-2.log"
+    },
+    {
+      "scenario": "northern_vigil",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 573.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/northern_vigil-13.log"
+    },
+    {
+      "scenario": "pacific_02_taiwan_strait",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 461.0,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/pacific_02_taiwan_strait-2.log"
+    },
+    {
+      "scenario": "pacific_02_taiwan_strait",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 353.9,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/pacific_02_taiwan_strait-13.log"
+    },
+    {
+      "scenario": "arctic_shield",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 264.4,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/arctic_shield-2.log"
+    },
+    {
+      "scenario": "arctic_shield",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 281.3,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/arctic_shield-13.log"
+    },
+    {
+      "scenario": "aegis_bastion",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 138.3,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/aegis_bastion-2.log"
+    },
+    {
+      "scenario": "aegis_bastion",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 145.0,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/aegis_bastion-13.log"
+    },
+    {
+      "scenario": "med_01_tartus",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 88.1,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/med_01_tartus-2.log"
+    },
+    {
+      "scenario": "med_01_tartus",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 92.1,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/med_01_tartus-13.log"
+    },
+    {
+      "scenario": "cold_war_05_sea_of_japan",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 77.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_05_sea_of_japan-2.log"
+    },
+    {
+      "scenario": "cold_war_05_sea_of_japan",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 78.3,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_05_sea_of_japan-13.log"
+    },
+    {
+      "scenario": "pacific_04_sea_of_japan",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0,
+      "wall_s": 54.1,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/pacific_04_sea_of_japan-2.log"
+    },
+    {
+      "scenario": "pacific_04_sea_of_japan",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 56.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/pacific_04_sea_of_japan-13.log"
+    },
+    {
+      "scenario": "gulf_01_hormuz",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 42.0,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/gulf_01_hormuz-2.log"
+    },
+    {
+      "scenario": "gulf_01_hormuz",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 44.6,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/gulf_01_hormuz-13.log"
+    },
+    {
+      "scenario": "pacific_03_spratly",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 39.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/pacific_03_spratly-2.log"
+    },
+    {
+      "scenario": "pacific_03_spratly",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 36.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/pacific_03_spratly-13.log"
+    },
+    {
+      "scenario": "cold_war_03_carrier",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 31.8,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_03_carrier-2.log"
+    },
+    {
+      "scenario": "cold_war_03_carrier",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 33.7,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_03_carrier-13.log"
+    },
+    {
+      "scenario": "baltic_sentinel",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 29.7,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/baltic_sentinel-2.log"
+    },
+    {
+      "scenario": "baltic_sentinel",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 30.4,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/baltic_sentinel-13.log"
+    },
+    {
+      "scenario": "pacific_01_bashi_channel",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0,
+      "wall_s": 23.9,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/pacific_01_bashi_channel-2.log"
+    },
+    {
+      "scenario": "pacific_01_bashi_channel",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0,
+      "wall_s": 24.1,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/pacific_01_bashi_channel-13.log"
+    },
+    {
+      "scenario": "northern_passage",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 2,
+      "aground": 0,
+      "wall_s": 13.7,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/northern_passage-2.log"
+    },
+    {
+      "scenario": "northern_passage",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 2,
+      "aground": 0,
+      "wall_s": 15.4,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/northern_passage-13.log"
+    },
+    {
+      "scenario": "northern_sentry",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 13.7,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/northern_sentry-2.log"
+    },
+    {
+      "scenario": "northern_sentry",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 13.4,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/northern_sentry-13.log"
+    },
+    {
+      "scenario": "atlantic_gate",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 14.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/atlantic_gate-2.log"
+    },
+    {
+      "scenario": "atlantic_gate",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 14.6,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/atlantic_gate-13.log"
+    },
+    {
+      "scenario": "carrier_qualification",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 9.6,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/carrier_qualification-2.log"
+    },
+    {
+      "scenario": "carrier_qualification",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 9.9,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/carrier_qualification-13.log"
+    },
+    {
+      "scenario": "giuk_passage",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 9.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/giuk_passage-2.log"
+    },
+    {
+      "scenario": "giuk_passage",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 8.7,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/giuk_passage-13.log"
+    },
+    {
+      "scenario": "cold_war_04_baltic",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 2,
+      "aground": 0,
+      "wall_s": 11.1,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_04_baltic-2.log"
+    },
+    {
+      "scenario": "cold_war_04_baltic",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 2,
+      "aground": 0,
+      "wall_s": 9.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_04_baltic-13.log"
+    },
+    {
+      "scenario": "northern_shield",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 8.8,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/northern_shield-2.log"
+    },
+    {
+      "scenario": "northern_shield",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 8.3,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/northern_shield-13.log"
+    },
+    {
+      "scenario": "cold_war_01_convoy",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 7.0,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_01_convoy-2.log"
+    },
+    {
+      "scenario": "cold_war_01_convoy",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 7.8,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_01_convoy-13.log"
+    },
+    {
+      "scenario": "north_atlantic_shadow_line",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 7.5,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/north_atlantic_shadow_line-2.log"
+    },
+    {
+      "scenario": "north_atlantic_shadow_line",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 7.4,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/north_atlantic_shadow_line-13.log"
+    },
+    {
+      "scenario": "cold_war_02_barrier",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0,
+      "wall_s": 6.9,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_02_barrier-2.log"
+    },
+    {
+      "scenario": "cold_war_02_barrier",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0,
+      "wall_s": 6.4,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/cold_war_02_barrier-13.log"
+    },
+    {
+      "scenario": "sandbox_m1",
+      "seed": 2,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 0,
+      "aground": 0,
+      "wall_s": 5.2,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/sandbox_m1-2.log"
+    },
+    {
+      "scenario": "sandbox_m1",
+      "seed": 13,
+      "ok": true,
+      "exit_code": 0,
+      "seconds": 6000.0,
+      "result": 1,
+      "aground": 0,
+      "wall_s": 5.0,
+      "errors": [],
+      "timed_out": false,
+      "log": "work/m33-merge/sweep/sandbox_m1-13.log"
+    }
+  ],
+  "browser": [
+    {
+      "page_http_status": 200,
+      "console_counts": [
+        {
+          "stage": "boot",
+          "type": "log",
+          "count": 4
+        },
+        {
+          "stage": "briefing",
+          "type": "log",
+          "count": 1
+        },
+        {
+          "stage": "swap",
+          "type": "warning",
+          "count": 162
+        },
+        {
+          "stage": "fullscreen",
+          "type": "warning",
+          "count": 95
+        }
+      ],
+      "page_errors": [],
+      "engine_version": [
+        "Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org"
+      ]
+    },
+    {
+      "page_http_status": 200,
+      "console_counts": [
+        {
+          "stage": "boot",
+          "type": "log",
+          "count": 4
+        },
+        {
+          "stage": "briefing",
+          "type": "log",
+          "count": 1
+        }
+      ],
+      "page_errors": [],
+      "engine_version": [
+        "Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org"
+      ]
+    }
+  ],
+  "browser_visual_review": "Reviewed combined command layout, mouse chart/time/camera menus, expanded view, Air Operations, Defence and Attack boards at 1280x720. Inherited resize warnings match baseline; no page or script errors.",
+  "browser_package": {
+    "path": "docs/play/index.pck",
+    "bytes": 60861576,
+    "sha256": "2bd5ef605bd9afff9c2381eb8cda9ce9b5c0ec40f7a6470bd03ccb609caeb3ff"
+  },
+  "screenshots": [
+    "docs/2026-09-30-fleet-command-command.png",
+    "docs/2026-09-30-fleet-command-contact.png",
+    "docs/2026-09-30-fleet-command-aircraft.png",
+    "docs/2026-09-30-fleet-command-3d.png"
+  ],
+  "limits": [
+    "Existing Chromium/SwiftShader buffer warnings on 3D viewport resizing remain.",
+    "Native rendering uses Mesa llvmpipe and reports unsupported V-Sync.",
+    "Cloud and rain are presentation-only; existing sea state and visibility govern sensors.",
+    "Automatic intercept-to-engage, a developed campaign, mid-battle saves and detailed aircraft textures remain outside this change."
+  ]
+}

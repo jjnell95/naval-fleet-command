@@ -57,6 +57,12 @@ var land: WorldLand
 var daylight := 1.0
 var sea_state := -1
 var anim := 0.0
+## Weather animation pauses with the simulation, while camera orbit remains interactive.
+var weather_time := 0.0
+var cloud_cover := 0.28
+var rain_intensity := 0.0
+var cloud_base_m := 1800.0
+var _weather_key: Array = []
 var sim_now := 0.0
 ## Simulation seconds since the last tick, for drawing moving things where they are between ticks.
 var lead_s := 0.0
@@ -221,13 +227,25 @@ func set_running(_live: bool) -> void:
 ## Sea state and visibility from the scenario. Cheap to call every frame; it only touches the
 ## renderer when something changed.
 func set_weather(state: int, visibility_nm: float, env: Dictionary) -> void:
-	if state == sea_state and is_equal_approx(visibility_nm, _visibility_nm):
+	var weather := weather_profile(env)
+	var wind_kn := float(env.get("wind_kn", 8.0 + 4.0 * state))
+	var wind := WorldPresentation.wind_direction(env)
+	var key := [state, visibility_nm, wind_kn, wind, weather]
+	if key == _weather_key:
 		return
+	_weather_key = key
+	_sun_key = Vector2(INF, INF)  # cloud cover changes the direct and ambient light too
 	sea_state = state
 	_visibility_nm = visibility_nm
+	cloud_cover = weather["cloud_cover"]
+	rain_intensity = weather["rain_intensity"]
+	cloud_base_m = weather["cloud_base_m"]
 	_swell = WorldPresentation.swell_params(state)
-	_wind = WorldPresentation.wind_direction(env)
+	_wind = wind
 	_wind2 = _wind.rotated(0.65)
+	_sky_material.set_shader_parameter("cloud_cover", cloud_cover)
+	_sky_material.set_shader_parameter("cloud_wind", _wind * wind_kn * 0.00018)
+	_sky_material.set_shader_parameter("rain_intensity", rain_intensity)
 	_ocean_material.set_shader_parameter("sea_state", float(state))
 	_ocean_material.set_shader_parameter("swell_a", _swell)
 	_ocean_material.set_shader_parameter("swell_dir", Vector4(_wind.x, _wind.y, _wind2.x, _wind2.y))
@@ -240,12 +258,27 @@ func set_weather(state: int, visibility_nm: float, env: Dictionary) -> void:
 	_env.fog_density = haze_density(visibility_nm)
 	_env.fog_sky_affect = sky_murk(visibility_nm)
 	_ocean_material.set_shader_parameter("fog_density", sea_fog_density(visibility_nm))
-	var wind_kn := float(env.get("wind_kn", 8.0 + 4.0 * state))
 	effects.wind = Vector3(_wind.x, 0.0, _wind.y) * wind_kn * 0.51
 
 
+## Optional scenario weather: rainfall is only drawn when explicitly specified. Older scenarios
+## receive a scattered cloud layer, with no rain inferred from rough water or poor visibility.
+static func weather_profile(env: Dictionary) -> Dictionary:
+	var rain := clampf(float(env.get("rain_intensity", 0.0)), 0.0, 1.0)
+	return {
+		"cloud_cover": maxf(clampf(float(env.get("cloud_cover", 0.28)), 0.0, 1.0), rain * 0.85),
+		"rain_intensity": rain,
+		"cloud_base_m": maxf(float(env.get("cloud_base_m", 1800.0)), 100.0),
+	}
+
+
+## A weather change can alter the light even while the simulation time and camera stay fixed.
+func sunlight_needs_update() -> bool:
+	return _sun_key == Vector2(INF, INF)
+
+
 ## Sky, sun, moon, ambient and haze for a solar elevation. Three palettes, night, twilight and
-## day, are blended by elevation; the day is the violet-blue and lavender of the old games. Only
+## day, are blended by elevation; cloud cover softens direct light without losing the hull's silhouette. Only
 ## touches the renderer when the sun has moved enough to matter.
 func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	var key := Vector2(snappedf(elevation_deg, 0.05), snappedf(atan2(sun_dir.x, sun_dir.z), 0.002))
@@ -263,6 +296,8 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_sky_material.set_shader_parameter("horizon_color", horizon)
 	_sky_material.set_shader_parameter("zenith_color", pal[2])
 	_sky_material.set_shader_parameter("haze_color", pal[3])
+	_sky_material.set_shader_parameter("cloud_light", horizon.lerp(Color(0.91, 0.93, 0.96), 0.78 * day))
+	_sky_material.set_shader_parameter("cloud_shadow", horizon.lerp(Color(0.37, 0.43, 0.52), 0.7 * day) * (1.0 - rain_intensity * 0.25))
 	_sky_material.set_shader_parameter("below_color", Color(0.075, 0.094, 0.137) * (0.3 + 0.7 * (0.08 + 0.42 * twilight + 0.5 * day)))
 	_sky_material.set_shader_parameter("sun_dir", sun_dir)
 	var sun_up := smoothstep(-1.0, 6.0, elevation_deg)
@@ -272,7 +307,8 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_sky_material.set_shader_parameter("sun_glow", lerpf(0.55, 0.22, day))
 	_sky_material.set_shader_parameter("stars", 0.8 * (1.0 - twilight))
 	_sun.light_color = sun_color
-	_sun.light_energy = 1.15 * sun_up
+	var direct_light := 1.0 - smoothstep(0.35, 1.0, cloud_cover) * 0.65
+	_sun.light_energy = 1.15 * sun_up * direct_light
 	_sun_up = sun_up
 	_apply_shadows()
 	if sun_dir.length_squared() > 1e-6:
@@ -282,7 +318,7 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	var moon_dir := Vector3(-sun_dir.x, 0.65, -sun_dir.z).normalized()
 	_moon.look_at_from_position(moon_dir * 1000.0, Vector3.ZERO, Vector3.UP)
 	_env.ambient_light_color = Color(0.10, 0.11, 0.20).lerp(Color(0.44, 0.40, 0.60), twilight).lerp(Color(0.57, 0.64, 0.72), day)
-	_env.ambient_light_energy = 0.28 + 0.14 * twilight + 0.1 * day
+	_env.ambient_light_energy = 0.28 + 0.14 * twilight + 0.16 * day
 	_env.fog_light_color = pal[4]
 	_env.fog_light_energy = 1.0
 	_ocean_material.set_shader_parameter("fog_color", pal[4])
@@ -293,7 +329,7 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	RenderingServer.global_shader_parameter_set("world_sky_color", horizon.lerp(top, 0.3).lerp(Color(0.64, 0.68, 0.74), 0.65 * day))
 	RenderingServer.global_shader_parameter_set("world_sea_color", Color(0.09, 0.1, 0.14).lerp(Color(0.2, 0.23, 0.3), day))
 	RenderingServer.global_shader_parameter_set("world_horizon_color", horizon)
-	RenderingServer.global_shader_parameter_set("world_ambient", 0.1 + 0.2 * twilight + 0.3 * day)
+	RenderingServer.global_shader_parameter_set("world_ambient", 0.1 + 0.2 * twilight + 0.42 * day)
 	RenderingServer.global_shader_parameter_set("world_daylight", daylight)
 	_lamps_lit = daylight < LAMPS_BELOW_DAYLIGHT
 	land.set_daylight(daylight)
@@ -301,7 +337,7 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	_ocean_material.set_shader_parameter("sky_horizon", horizon)
 	_ocean_material.set_shader_parameter("sun_color", sun_color)
 	_ocean_material.set_shader_parameter("sun_dir", sun_dir)
-	_ocean_material.set_shader_parameter("sun_strength", smoothstep(-1.5, 5.0, elevation_deg))
+	_ocean_material.set_shader_parameter("sun_strength", smoothstep(-1.5, 5.0, elevation_deg) * direct_light)
 	_ocean_material.set_shader_parameter("daylight", daylight)
 
 
@@ -361,6 +397,9 @@ func ground_at(p: Vector3) -> float:
 ## and for a round means leaving its smoke behind.
 func update(delta: float, entries: Array, focus_key: String) -> void:
 	anim += delta
+	if not paused:
+		weather_time += delta
+	_sky_material.set_shader_parameter("weather_time", weather_time)
 	_focus_key = focus_key
 	effects.origin_nm = origin_nm
 	effects.rate = 0.0 if paused else clampf(time_rate, 1.0, WorldEffects.MAX_RATE)
@@ -732,8 +771,10 @@ func _apply_look(rec: Dictionary, e: Dictionary, _focus_key: String) -> void:
 	var tint := ""
 	if kind == "own" and under:
 		tint = "ghost:%s" % Color(0.55, 0.75, 0.95).to_html(false)
-	elif kind == "plotted":
-		tint = ("ghost:%s" if under else "tint:%s") % color.to_html(false)
+	elif kind == "plotted" and under:
+		tint = "ghost:%s" % color.to_html(false)
+	elif kind == "plotted" and rec["model_id"].begins_with("marker:"):
+		tint = "marker:%s" % color.to_html(false)
 	elif kind == "weapon" and under:
 		tint = "ghost:%s" % Color(0.7, 0.85, 0.95).to_html(false)
 	elif rec["model_id"] == "marker:tracer":
@@ -1285,7 +1326,18 @@ func focus_frame(key: String) -> Dictionary:
 	var e: Dictionary = rec["entry"]
 	var root: Node3D = rec["root"]
 	var height: float = rec["height_m"]
-	return {"position": root.position + Vector3(0.0, height * 0.22, 0.0), "length": float(e["length_m"]), "height": height, "heading": float(e["heading_deg"]) if e["has_heading"] else 0.0, "domain": e["domain"], "speed_mps": _speed_kn(e) * 0.5144}
+	var frame := {"position": root.position + Vector3(0.0, height * 0.22, 0.0), "length": float(e["length_m"]), "height": height, "heading": float(e["heading_deg"]) if e["has_heading"] else 0.0, "domain": e["domain"], "speed_mps": _speed_kn(e) * 0.5144}
+	# A camera on a tiny airframe at deck level otherwise places its eye inside the host's hull.
+	# Use only our aircraft's own already-rendered home/recovery ship; plotted contacts never
+	# acquire this extra context and no hostile home or location is consulted.
+	if e["kind"] == "own" and e["domain"] == "air":
+		var aircraft: Unit = e.get("unit")
+		var host: Unit = aircraft.recovery_base if aircraft != null and aircraft.recovery_base != null else (aircraft.home if aircraft != null else null)
+		if host != null:
+			var deck: Dictionary = _records.get("u:%d" % host.id, {})
+			if not deck.is_empty() and deck.get("root") != null and deck["entry"]["kind"] == "own" and deck["entry"]["domain"] == "surface":
+				frame["own_deck"] = {"position": (deck["root"] as Node3D).position, "length": float(deck["entry"]["length_m"]), "height": float(deck["height_m"])}
+	return frame
 
 
 ## The nearest own unit to a point on the view, within `radius_px`, for double-click selection.
@@ -1337,6 +1389,7 @@ func add_effect(pos_nm: Vector2, kind: String, _own: bool, height_m := -1.0) -> 
 
 
 func reset() -> void:
+	weather_time = 0.0
 	for key in _records.keys():
 		_release(key)
 	effects.reset()

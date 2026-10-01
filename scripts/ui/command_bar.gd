@@ -12,6 +12,7 @@ var _refresh := 0.0
 
 const KEYS := [
 	["missions", "Mission", "Operations desk [M]"],
+	["chart_menu", "Chart ▾", "Graphic symbols, readable labels, sensor ranges and chart navigation"],
 	["status_boards", "Orders  A", "Orders, task group, track file and communications"],
 	["plot_move", "Route  W", "Plot a route; hold Shift to append waypoints"],
 	["plot_patrol", "Patrol", "Assign a repeating patrol: click two opposite corners [Shift+W]"],
@@ -49,6 +50,14 @@ func _ready() -> void:
 	_hint.clip_text = true
 	_hint.add_theme_font_size_override("font_size", 13)
 	row.add_child(_hint)
+	var speed := Button.new()
+	speed.custom_minimum_size.x = 62.0
+	speed.focus_mode = Control.FOCUS_NONE
+	speed.add_theme_font_size_override("font_size", 14)
+	speed.tooltip_text = "Choose time acceleration. Combat returns the watch to 1×."
+	speed.pressed.connect(func() -> void: action_requested.emit("time_menu"))
+	row.add_child(speed)
+	buttons["time_menu"] = speed
 	var pause := Button.new()
 	pause.custom_minimum_size.x = 130.0
 	pause.focus_mode = Control.FOCUS_NONE
@@ -76,6 +85,7 @@ func refresh() -> void:
 	buttons["plot_move"].text = "Route *" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "Route  W"
 	buttons["plot_patrol"].text = "Patrol *" if map.interaction_mode == TacticalMap.InteractionMode.PATROL else "Patrol"
 	buttons["weapon_control"].disabled = map.selected.is_empty()
+	buttons["time_menu"].text = "%d× ▾" % int(SimClock.multiplier())
 	buttons["open_defence"].disabled = map.selected.is_empty()
 	buttons["toggle_pause"].text = "RESUME  ▷" if SimClock.paused else "PAUSE  %d×" % int(SimClock.multiplier())
 	if map.interaction_mode == TacticalMap.InteractionMode.PATROL:
@@ -84,8 +94,40 @@ func refresh() -> void:
 		_hint.text = "ROUTE: click destination • Shift adds a leg • right-click cancels"
 	elif map.selected.size() == 1:
 		var u: Unit = map.selected[0]
-		_hint.text = "%s  |  %s" % [u.callsign, DataDisplay.orders_text(u)]
+		if map.inspection_track() != null:
+			_hint.text = "%s → TRACK %s" % [u.callsign, map.track_number_text(map.inspection_track())]
+		else:
+			_hint.text = "%s  |  %s" % [u.callsign, DataDisplay.orders_text(u)]
 	elif not map.selected.is_empty():
 		_hint.text = "%d platforms hooked • right-click for orders" % map.selected.size()
 	else:
 		_hint.text = "Hook a platform to command • right-click for context • H for keys"
+	_hint.tooltip_text = _hint.text
+
+
+## The basic chart tools are available even with a shooter selected, without knowing a key.
+static func chart_items(chart: TacticalMap) -> Array:
+	return [
+		CdsMenus.item("Graphic ship & aircraft symbols", {"kind": "symbols", "mode": TacticalMap.SymbolMode.MEDIUM}, false, "Recognized platforms use their plan-view silhouettes; uncertain contacts retain their reported symbols.", 1 if chart.symbol_mode != TacticalMap.SymbolMode.NTDS else 0),
+		CdsMenus.item("Classic tactical symbols", {"kind": "symbols", "mode": TacticalMap.SymbolMode.NTDS}, false, "", 1 if chart.symbol_mode == TacticalMap.SymbolMode.NTDS else 0),
+		CdsMenus.item("Platform names & contact labels", {"kind": "layer", "name": "tags"}, false, "Contact names show only what your sensors have established.", 1 if chart.show_tags else 0),
+		CdsMenus.item("Explain symbols", {"kind": "layer", "name": "key"}, false, "", 1 if chart.show_key else 0),
+		CdsMenus.sep(),
+		CdsMenus.item("Sensor ranges", {"kind": "layer", "name": "sensors"}, false, "", 1 if chart.show_rings else 0),
+		CdsMenus.item("Weapon ranges", {"kind": "layer", "name": "weapon_ranges"}, false, "", 1 if chart.show_weapon_ranges else 0),
+		CdsMenus.item("Movement trails", {"kind": "layer", "name": "trails"}, false, "", 1 if chart.show_trails else 0),
+		CdsMenus.sep(),
+		CdsMenus.item("Zoom in", {"kind": "palette", "id": "chart_zoom_in"}),
+		CdsMenus.item("Zoom out", {"kind": "palette", "id": "chart_zoom_out"}),
+		CdsMenus.item("Frame selected platforms & target", {"kind": "palette", "id": "focus_selection"}),
+		CdsMenus.item("Find my fleet", {"kind": "palette", "id": "fit_fleet"}),
+		CdsMenus.item("Whole theatre", {"kind": "palette", "id": "fit_theatre"}),
+	]
+
+
+static func time_items() -> Array:
+	var items: Array = []
+	for i in SimClock.SPEEDS.size():
+		items.append(CdsMenus.item("%d×%s" % [int(SimClock.SPEEDS[i]), "  Real time" if i == 0 else ""],
+			{"kind": "palette", "id": "speed_%d" % i}, false, "Choosing a speed leaves a paused watch paused.", 1 if SimClock.speed_index == i else 0))
+	return items

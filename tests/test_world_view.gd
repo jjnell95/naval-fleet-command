@@ -558,6 +558,68 @@ func test_tether_follows_a_turn_smoothly_not_in_one_jump() -> void:
 	assert_true((shot["eye"] as Vector3).distance_to(want) < 1.0, "a few seconds later it has swung astern again")
 
 
+func test_tether_horizon_stays_in_frame_when_the_pane_is_wide() -> void:
+	var cam := WorldCamera.new()
+	var ratios: Array[float] = []
+	for aspect: float in [4.0 / 3.0, 16.0 / 9.0, 2.6]:
+		cam.viewport_aspect = aspect
+		cam.cut()
+		var shot := cam.update(0.016, Vector2.ZERO, _frame(Vector3.ZERO, 0.0), Callable())
+		var eye: Vector3 = shot["eye"]
+		var vertical_half := tan(deg_to_rad(float(shot["fov"])) * 0.5) / aspect
+		var pitch_tangent := eye.y / Vector2(eye.x, eye.z).length()
+		ratios.append(pitch_tangent / vertical_half)
+	assert_near(ratios[0], ratios[1], 1e-5, "widening to the expanded pane retains the horizon's position")
+	assert_near(ratios[0], ratios[2], 1e-5, "the short lower pane keeps the same share of sky")
+	assert_true(ratios[2] < 0.6, "the horizon remains below the top fifth of the frame")
+	assert_eq(WorldCamera.framed_pitch(85.0, 2.6), 85.0, "a deliberate overhead orbit still reaches overhead")
+
+
+func test_aircraft_tether_clears_its_own_deck_then_returns_to_airframe_scale() -> void:
+	var aircraft := _frame(Vector3(0, 8, 0), 90.0, 16.0, 1.0)
+	aircraft["domain"] = "air"
+	aircraft["own_deck"] = {"position": Vector3.ZERO, "length": 155.0, "height": 35.0}
+	var cam := WorldCamera.new()
+	cam.viewport_aspect = 2.6
+	var shot := cam.update(0.016, Vector2.ZERO, aircraft, Callable())
+	assert_true((shot["eye"] as Vector3).length() > 155.0 * 0.65, "at liftoff the eye stands outside the known host hull")
+	assert_eq(shot["look"], aircraft["position"], "the aircraft remains the camera subject")
+	cam.zoom = WorldCamera.MIN_ZOOM
+	cam.cut()
+	shot = cam.update(0.016, Vector2.ZERO, aircraft, Callable())
+	assert_true((shot["eye"] as Vector3).length() > 155.0 * 0.65, "even close zoom keeps the eye out of the deck")
+	var orbit := WorldCamera.orbit_offset(90.0 + cam.orbit_az, WorldCamera.framed_pitch(cam.orbit_pitch, cam.viewport_aspect), 1.0)
+	assert_near(((shot["eye"] - shot["look"]) as Vector3).normalized().dot(orbit), 1.0, 1e-5, "the player's orbit direction is retained")
+	aircraft["position"] = Vector3(1852.0, 500.0, 0.0)
+	cam.zoom = 1.0
+	cam.cut()
+	shot = cam.update(0.016, Vector2.ZERO, aircraft, Callable())
+	assert_near(((shot["eye"] - shot["look"]) as Vector3).length(), WorldCamera.tether_distance(16.0, 1.0), 0.01, "ordinary flight uses the unmodified airframe tether")
+
+
+func test_known_plotted_hull_has_real_finish_without_observed_damage_or_wake() -> void:
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	var red := _unit("cw90_slava", "RED", Vector2(40, 0))
+	red.fire = 0.8
+	red.speed_kn = 25.0
+	var managers := _managers([red])
+	var t := _hold(managers["tm"], "T1", red, Vector2(38, 2), Track.Classification.CLASS_KNOWN)
+	var entry := WorldPresentation.plotted_entry(t)
+	scene.update(0.016, [entry], entry["key"])
+	var rec: Dictionary = scene._records[entry["key"]]
+	assert_eq(rec["tint"], "", "a held class has its ordinary naval finish")
+	assert_true(rec["ring"] != null, "its sensor-estimate uncertainty ring remains")
+	assert_true(rec["fire"] == null and rec["wake"] == null and not rec["lamps_on"], "unobserved damage, speed wake and lights are not invented")
+	assert_eq(rec["nm"], t.position, "the class model remains at the sensor estimate")
+	assert_true(not scene.focus_frame(entry["key"]).has("own_deck"), "a plotted contact gets no own-deck context")
+	root.remove_child(scene)
+	scene.free()
+	_free_all(managers)
+
+
 func test_flyby_waits_ahead_and_beside_then_moves_on_once_passed() -> void:
 	var station := WorldCamera.flyby_station(Vector2.ZERO, 0.0, 10.0, 150.0, "surface")
 	assert_true(station.y > 0.0, "ahead of a ship heading north")
@@ -902,6 +964,54 @@ func test_ocean_shader_compiles_takes_its_fog_and_hashes_its_noise_in_integers()
 	var body := code.substr(at, code.find("}", at) - at)
 	assert_true(body.contains("uvec2") and not body.contains("fract("), "and hashes in integers: a float fract of a large product goes flat tens of kilometres from the origin")
 	assert_true(code.contains("fog_density") and code.substr(code.find("void fragment()")).contains("fog_density"), "the sea applies its fog in the fragment")
+
+
+func test_weather_follows_explicit_rain_and_wind_changes_without_a_sea_state_change() -> void:
+	assert_eq(WorldScene.weather_profile({"sea_state": 6, "visibility_nm": 1.0})["rain_intensity"], 0.0, "rough or foggy conditions alone never imply rainfall")
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	scene.set_weather(3, 9.0, {"wind_kn": 12.0, "cloud_cover": 0.2})
+	var old_wind := scene.effects.wind.length()
+	scene.set_weather(3, 9.0, {"wind_kn": 24.0, "cloud_cover": 0.65, "rain_intensity": 0.12, "cloud_base_m": 1100.0})
+	assert_near(scene.effects.wind.length(), old_wind * 2.0, 0.01, "a wind-only change invalidates the weather cache")
+	assert_eq(scene.cloud_cover, 0.65)
+	assert_eq(scene.rain_intensity, 0.12)
+	assert_eq(scene.cloud_base_m, 1100.0)
+	assert_eq(float(scene._sky_material.get_shader_parameter("cloud_cover")), 0.65, "the sky receives the scenario's cloud cover")
+	scene.paused = false
+	scene.update(0.25, [], "")
+	var clock := scene.weather_time
+	scene.paused = true
+	scene.update(2.0, [], "")
+	assert_eq(scene.weather_time, clock, "paused weather does not drift while the camera can still orbit")
+	scene.reset()
+	assert_eq(scene.weather_time, 0.0, "new operations reset the weather animation")
+	root.remove_child(scene)
+	scene.free()
+
+
+func test_paused_sun_cache_relights_when_cloud_cover_changes() -> void:
+	var view := WorldView.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(view)
+	var noon := _unix("1990-03-21T12:00:00")
+	var chart := {"anchor_lat": 0.0, "anchor_lon": 0.0}
+	view._scene.set_weather(3, 9.0, {"cloud_cover": 0.0})
+	view._update_sun(noon, chart)
+	var clear_energy := view._scene._sun.light_energy
+	assert_true(clear_energy > 1.0, "the clear noon scene is directly lit")
+	view._scene.set_weather(3, 9.0, {"cloud_cover": 1.0})
+	assert_true(view._scene.sunlight_needs_update(), "weather invalidates the scene's lighting")
+	view._update_sun(noon, chart)
+	assert_true(view._scene._sun.light_energy < clear_energy * 0.5, "unchanged paused time still applies cloud attenuation")
+	assert_true(not view._scene.sunlight_needs_update(), "the updated lighting is cached again")
+	view._scene.set_weather(3, 9.0, {"cloud_cover": 0.0})
+	view._update_sun(noon, chart)
+	assert_near(view._scene._sun.light_energy, clear_energy, 0.001, "clearing weather restores light without a clock tick")
+	root.remove_child(view)
+	view.free()
 
 
 func test_world_view_fills_its_slot_names_its_cameras_and_stops_behind_a_modal() -> void:

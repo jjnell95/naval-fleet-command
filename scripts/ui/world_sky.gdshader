@@ -19,11 +19,37 @@ uniform float sun_size_deg = 0.7;
 uniform float sun_glow = 0.28;
 uniform float sun_visible = 1.0;
 uniform float stars = 0.0;
+uniform float cloud_cover : hint_range(0.0, 1.0) = 0.28;
+uniform float rain_intensity : hint_range(0.0, 1.0) = 0.0;
+uniform vec2 cloud_wind = vec2(0.002, 0.0);
+uniform float weather_time = 0.0;
+uniform vec3 cloud_light : source_color = vec3(0.9, 0.92, 0.95);
+uniform vec3 cloud_shadow : source_color = vec3(0.4, 0.45, 0.54);
 
 float hash31(vec3 p) {
 	p = fract(p * vec3(443.897, 441.423, 437.195));
 	p += dot(p, p.yzx + 19.19);
 	return fract((p.x + p.y) * p.z);
+}
+
+float cloud_noise(vec2 p) {
+	vec2 cell = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash31(vec3(cell, 0.0));
+	float b = hash31(vec3(cell + vec2(1.0, 0.0), 0.0));
+	float c = hash31(vec3(cell + vec2(0.0, 1.0), 0.0));
+	float e = hash31(vec3(cell + vec2(1.0), 0.0));
+	return mix(mix(a, b, f.x), mix(c, e, f.x), f.y);
+}
+
+float cloud_field(vec2 p) {
+	mat2 turn = mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8));
+	float broad = cloud_noise(p);
+	p = turn * p * 2.07 + vec2(19.0, 7.0);
+	float middle = cloud_noise(p);
+	p = turn * p * 2.13 + vec2(43.0, 13.0);
+	return broad * 0.63 + middle * 0.25 + cloud_noise(p) * 0.12;
 }
 
 void sky() {
@@ -47,6 +73,22 @@ void sky() {
 		vec3 cell = floor(d * 420.0);
 		float star = step(0.9975, hash31(cell)) * hash31(cell + 3.1);
 		col += vec3(star) * stars * smoothstep(0.0, 0.2, y);
+	}
+	// A drifting horizontal layer, continuous across all camera headings. Broad soft banks read
+	// at pane size; three noise octaves avoid the cost of volumetrics in the browser renderer.
+	if (y > 0.0 && cloud_cover > 0.0) {
+		// A curved distant layer avoids a hard projection clamp near the horizon, which repeats
+		// the same sample vertically and makes curtains. Haze merges the far banks into the sky.
+		vec2 p = d.xz / (y + 0.25) * 1.5 + cloud_wind * weather_time;
+		float field = cloud_field(p);
+		float threshold = mix(0.8, 0.22, cloud_cover);
+		float density = smoothstep(threshold - 0.05, threshold + 0.17, field);
+		density *= smoothstep(0.005, 0.07, y) * smoothstep(0.0, 0.06, cloud_cover);
+		float body = smoothstep(threshold - 0.03, threshold + 0.28, field);
+		float silver = pow(max(dot(d, s), 0.0), 12.0) * (1.0 - body) * sun_visible;
+		vec3 cloud = mix(cloud_shadow, cloud_light, 0.5 + body * (0.5 - rain_intensity * 0.2));
+		cloud += sun_color * silver * 0.05;
+		col = mix(col, cloud, density * 0.96);
 	}
 	COLOR = col;
 }
