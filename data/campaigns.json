@@ -1,0 +1,21 @@
+{
+  "note": "Original fictional campaigns. Each lists shipped operations in their in-game date order. An operation opens when the one before it has been won at the gate percentage or better in the commander's log. Nothing carries between operations: each is a different force in a different sea.",
+  "campaigns": [
+    {
+      "id": "northern_flank_1990",
+      "name": "NORTHERN FLANK, SEPTEMBER 1990",
+      "short_name": "1990",
+      "summary": "Five days in a fictional September 1990 crisis as it spreads north: a convoy across the North Sea, a submarine barrier south of Iceland and a carrier watch in the Norwegian Sea. It climbs from one star to three.",
+      "gate_percent": 60,
+      "operations": ["cold_war_01_convoy", "cold_war_02_barrier", "cold_war_03_carrier"]
+    },
+    {
+      "id": "four_crises_2027",
+      "name": "FOUR CRISES, 2027",
+      "short_name": "2027",
+      "summary": "A fictional year in four seas: a missile-defence picket off the North Cape in March, the Taiwan Strait in April, a tanker transit through Hormuz in May and the Tartus line in October.",
+      "gate_percent": 60,
+      "operations": ["aegis_bastion", "pacific_02_taiwan_strait", "gulf_01_hormuz", "med_01_tartus"]
+    }
+  ]
+}

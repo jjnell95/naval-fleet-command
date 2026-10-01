@@ -58,6 +58,7 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 		if u.defence_policy not in ["balanced", "conserve", "saturation"]:
 			u.defence_policy = "balanced"
 		u.defence_priority = int(ud.get("defence_priority", 2 if spec.category.contains("carrier") else 0))
+		u.points = maxi(int(ud.get("points", 0)), 0)
 		u.home_callsign = ud.get("home", "")
 		if spec.domain == "air":
 			u.flight_state = Unit.FlightState.STOWED

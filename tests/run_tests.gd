@@ -1,8 +1,9 @@
 extends SceneTree
 ## Headless test runner:
 ##   ~/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/run_tests.gd
+##   ... --script tests/run_tests.gd -- --only=test_attack.gd,test_cds.gd   (a few files)
 
-const TESTS := ["res://tests/test_investigate.gd", "res://tests/test_weapon_plot.gd", "res://tests/test_combat_commands.gd", "res://tests/test_weapon_tracking.gd", "res://tests/test_patrol.gd", "res://tests/test_northern_passage.gd", "res://tests/test_qc_fixes.gd", "res://tests/test_weapon_control.gd", "res://tests/test_fleet_workshop.gd", "res://tests/test_operations.gd", "res://tests/test_regressions.gd", "res://tests/test_cold_war.gd", "res://tests/test_air_operations.gd", "res://tests/test_roster_m20.gd", "res://tests/test_lifecycle.gd", "res://tests/test_relative_motion.gd", "res://tests/test_clock.gd", "res://tests/test_tracking.gd", "res://tests/test_realism.gd", "res://tests/test_cic.gd", "res://tests/test_aegis.gd", "res://tests/test_systems.gd", "res://tests/test_geo.gd", "res://tests/test_movement.gd", "res://tests/test_sensors.gd", "res://tests/test_combat.gd", "res://tests/test_defence.gd", "res://tests/test_ai.gd", "res://tests/test_mission.gd", "res://tests/test_sonar.gd", "res://tests/test_aviation.gd", "res://tests/test_ew.gd", "res://tests/test_terrain.gd", "res://tests/test_art.gd", "res://tests/test_ux.gd", "res://tests/test_ocean.gd", "res://tests/test_damage_control.gd", "res://tests/test_shore_strike.gd", "res://tests/test_world_view.gd", "res://tests/test_cds.gd", "res://tests/test_fits.gd", "res://tests/test_torpedo_defence.gd", "res://tests/test_chart.gd", "res://tests/test_theme.gd"]
+const TESTS := ["res://tests/test_attack.gd", "res://tests/test_readout.gd", "res://tests/test_voice.gd", "res://tests/test_investigate.gd", "res://tests/test_weapon_plot.gd", "res://tests/test_combat_commands.gd", "res://tests/test_weapon_tracking.gd", "res://tests/test_patrol.gd", "res://tests/test_northern_passage.gd", "res://tests/test_qc_fixes.gd", "res://tests/test_weapon_control.gd", "res://tests/test_fleet_workshop.gd", "res://tests/test_operations.gd", "res://tests/test_regressions.gd", "res://tests/test_cold_war.gd", "res://tests/test_air_operations.gd", "res://tests/test_roster_m20.gd", "res://tests/test_lifecycle.gd", "res://tests/test_relative_motion.gd", "res://tests/test_clock.gd", "res://tests/test_tracking.gd", "res://tests/test_realism.gd", "res://tests/test_cic.gd", "res://tests/test_aegis.gd", "res://tests/test_systems.gd", "res://tests/test_geo.gd", "res://tests/test_movement.gd", "res://tests/test_sensors.gd", "res://tests/test_combat.gd", "res://tests/test_defence.gd", "res://tests/test_ai.gd", "res://tests/test_mission.gd", "res://tests/test_sonar.gd", "res://tests/test_aviation.gd", "res://tests/test_ew.gd", "res://tests/test_terrain.gd", "res://tests/test_art.gd", "res://tests/test_ux.gd", "res://tests/test_ocean.gd", "res://tests/test_damage_control.gd", "res://tests/test_shore_strike.gd", "res://tests/test_world_view.gd", "res://tests/test_cds.gd", "res://tests/test_fits.gd", "res://tests/test_torpedo_defence.gd", "res://tests/test_chart.gd", "res://tests/test_theme.gd"]
 
 
 func _initialize() -> void:
@@ -22,6 +23,11 @@ func _run() -> void:
 	var paths := TESTS.duplicate()
 	if OS.get_cmdline_user_args().has("--self-test-runtime-error"):
 		paths = ["res://tests/fixtures/runtime_error.gd"]
+	# `-- --only=test_attack.gd,test_cds.gd` runs a few files while working on them.
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--only="):
+			var wanted := arg.get_slice("=", 1).split(",", false)
+			paths = paths.filter(func(path: String) -> bool: return wanted.has(path.get_file()))
 	for path in paths:
 		var script: GDScript = load(path)
 		if script == null or not script.can_instantiate():

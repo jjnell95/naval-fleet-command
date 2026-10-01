@@ -401,19 +401,25 @@ static func _unit_focus(u: Unit) -> Dictionary:
 	return {"key": "u:%d" % u.id, "position": u.position, "unit": u, "track": null, "name": u.callsign, "detail": u.spec.display_name}
 
 
-## The nearest entries to the focus, inside `max_range_nm`, at most `cap` of them. The entry that
-## carries `focus_key` is always kept.
-static func cull(entries: Array, focus_nm: Vector2, focus_key := "", max_range_nm := MAX_RANGE_NM, cap := MAX_ENTITIES) -> Array:
+## The nearest entries to `focus_nm` (the floating origin), inside `max_range_nm`, at most `cap`
+## of them. The entries that carry `focus_key` (the hooked subject) and `keep_key` (what the
+## Action camera follows, which may be far from the hook) are always kept, in that order.
+static func cull(entries: Array, focus_nm: Vector2, focus_key := "", max_range_nm := MAX_RANGE_NM, cap := MAX_ENTITIES, keep_key := "") -> Array:
 	var kept: Array = []
 	for e in entries:
 		var d: float = (e["position"] as Vector2).distance_to(focus_nm)
-		if d <= max_range_nm or e["key"] == focus_key:
+		if d <= max_range_nm or e["key"] == focus_key or (keep_key != "" and e["key"] == keep_key):
 			kept.append(e)
 	kept.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if a["key"] == focus_key:
 			return true
 		if b["key"] == focus_key:
 			return false
+		if keep_key != "":
+			if a["key"] == keep_key:
+				return true
+			if b["key"] == keep_key:
+				return false
 		return (a["position"] as Vector2).distance_squared_to(focus_nm) < (b["position"] as Vector2).distance_squared_to(focus_nm))
 	if kept.size() > cap:
 		kept.resize(cap)

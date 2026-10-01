@@ -25,6 +25,10 @@ signal track_selected(track: Track)
 signal move_order_requested(world_pos: Vector2, append: bool)
 signal patrol_order_requested(order: Order)
 signal engage_requested(track: Track)
+## The classic display's default verbs: a bare right-click on a hostile contact attacks it with
+## the hooked platforms, on an unidentified one investigates it. Main issues the orders.
+signal attack_requested(track: Track)
+signal investigate_requested(track: Track)
 ## Emitted by the shell's "Delete leg" menu item via request_waypoint_delete(); the chart no longer
 ## deletes a leg on a bare right-click.
 signal waypoint_delete_requested(unit: Unit, index: int)
@@ -127,6 +131,9 @@ const COL_ACCENT := UITheme.COL_ACCENT
 const COL_READOUT := Color.WHITE
 const COL_READOUT_SHADOW := Color(0.0, 0.0, 0.0, 0.9)
 const COL_RADIO_ALERT := Color("ff5050")
+## Interface advice on the radio line (RadioNet.advise): the same face, dimmed, so it reads as the
+## console talking rather than the crew.
+const COL_RADIO_ADVICE := Color(0.78, 0.8, 0.84, 0.72)
 const COL_FIRE := Color(1.0, 0.55, 0.22)
 const DEFAULT_WIND_FROM_DEG := 250.0  # prevailing winter westerlies, when a scenario names none
 
@@ -864,7 +871,9 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 
 
 ## A right-click without a drag, the classic display's way: transit at once on open water with a
-## controllable unit hooked, otherwise hook what is under the cursor and ask the shell for a menu.
+## controllable unit hooked; attack a hostile or investigate an unknown at once with one hooked;
+## otherwise hook what is under the cursor and ask the shell for a menu. Shift always asks for
+## the menu on a contact, for the weapon and salvo choices.
 func _right_click(e: InputEventMouseButton) -> void:
 	var ctx := context_at(e.position)
 	match String(ctx["kind"]):
@@ -874,6 +883,14 @@ func _right_click(e: InputEventMouseButton) -> void:
 				engage_requested.emit(t)
 				return
 			select_track(t)
+			if not e.shift_pressed and _has_controllable_selection():
+				match default_contact_verb(t):
+					"attack":
+						attack_requested.emit(t)
+						return
+					"investigate":
+						investigate_requested.emit(t)
+						return
 		"own_unit":
 			var u: Unit = ctx["unit"]
 			if not selected.has(u):
@@ -888,6 +905,34 @@ func _right_click(e: InputEventMouseButton) -> void:
 				return
 	ctx["viewport_pos"] = get_global_transform_with_canvas() * e.position if is_inside_tree() else e.position
 	context_menu_requested.emit(e.position, ctx)
+
+
+## What a bare right-click does to a contact, from the plot alone: "attack" a contact the plot
+## calls hostile, "investigate" one it has not yet classified, "" (the menu) for a neutral or
+## friendly one, a classified contact of unknown allegiance, or a contact already lost.
+static func default_contact_verb(t: Track) -> String:
+	if t == null or t.status == Track.Status.LOST:
+		return ""
+	if t.identity == "HOSTILE":
+		return "attack"
+	if t.identity == "UNKNOWN" and t.classification < Track.Classification.CLASS_KNOWN:
+		return "investigate"
+	return ""
+
+
+## The cursor over the chart says what a right-click would do: a cross over a contact the hooked
+## platforms would attack, a query over one they would investigate, the arrow otherwise.
+func hover_cursor_shape(screen_pos: Vector2) -> Control.CursorShape:
+	if interaction_mode != InteractionMode.SELECT:
+		return Control.CURSOR_CROSS
+	if not _has_controllable_selection() or _unit_at(screen_pos) != null:
+		return Control.CURSOR_ARROW
+	match default_contact_verb(_track_at(screen_pos)):
+		"attack":
+			return Control.CURSOR_CROSS
+		"investigate":
+			return Control.CURSOR_HELP
+	return Control.CURSOR_ARROW
 
 
 ## What a right-click at this chart pixel is on, for the shell's menus: kind is "own_unit",
@@ -927,6 +972,7 @@ func request_waypoint_delete(unit: Unit, index: int) -> void:
 func _handle_mouse_motion(e: InputEventMouseMotion) -> void:
 	_mouse = e.position
 	if _drag_mode == DragMode.NONE:
+		mouse_default_cursor_shape = hover_cursor_shape(e.position)
 		return
 	if not _drag_moved and e.position.distance_to(_drag_start) > DRAG_THRESHOLD_PX:
 		_drag_moved = true
@@ -1151,6 +1197,17 @@ func select_track(t: Track) -> void:
 	_inspecting_track = inspecting
 	_normalize_interaction_state()
 	track_selected.emit(t)
+
+
+## The contact under the cursor, by the same rules the hover card uses: the chart in plain select
+## mode, no drag or menu open, and no own platform under the cursor (own units win, as they do
+## for a click). The data display reads it when nothing is hooked.
+func hovered_track() -> Track:
+	if not _mouse_inside or _drag_mode != DragMode.NONE or menu_open or interaction_mode != InteractionMode.SELECT:
+		return null
+	if _unit_at(_mouse) != null:
+		return null
+	return _track_at(_mouse)
 
 
 ## Which contact the player is inspecting, independently of the retained command selection.
@@ -2359,8 +2416,8 @@ func _draw_radio_line() -> void:
 	for i in range(lines.size() - 1, -1, -1):
 		var e: Dictionary = lines[i]
 		var alpha := RadioLine.alpha_at(_anim - float(e["t0"]))
-		var col := COL_RADIO_ALERT if e["severity"] == "alert" else COL_READOUT
-		_shadow_text(Vector2(0.0, baseline), e["text"], READOUT_FONT_SIZE, Color(col, alpha), HORIZONTAL_ALIGNMENT_CENTER, size.x)
+		var col := COL_RADIO_ALERT if e["severity"] == "alert" else (COL_RADIO_ADVICE if e["severity"] == RadioNet.ADVICE else COL_READOUT)
+		_shadow_text(Vector2(0.0, baseline), e["text"], READOUT_FONT_SIZE, Color(col, alpha * col.a), HORIZONTAL_ALIGNMENT_CENTER, size.x)
 		baseline -= READOUT_LINE_H
 
 
@@ -2474,17 +2531,28 @@ func _draw_hover_card() -> void:
 		_draw_card(lines)
 		return
 	lines.append("%s  %s" % [MapSymbols.track_number(t.id), t.description()])
-	lines.append("%s · %s · %s" % [t.identity, t.status_text(SimClock.sim_time), t.source.to_upper().replace("_", " ")])
-	if t.has_kinematics:
-		lines.append("CSE %s  SPD %.0f kts (est)" % [Geo.format_bearing(t.course_deg), t.speed_kn])
+	lines.append("%s · %s" % [t.identity, t.status_text(SimClock.sim_time)])
+	lines.append("Source %s" % DataDisplay.source_readout(t))
+	if t.has_kinematics and not t.is_bearing_only():
+		lines.append("CSE %s  SPD %.0f kts  ·  damage %s" % [Geo.format_bearing(t.course_deg), t.speed_kn, DataDisplay.damage_text(t)])
 	else:
-		lines.append("Kinematics estimating")
+		lines.append("Kinematics estimating  ·  damage %s" % DataDisplay.damage_text(t))
 	lines.append("+/-%.1f nm  ·  observed %s" % [t.position_error_nm, Track._fmt_age(t.observation_time_s)])
 	var ref := reference_unit()
 	if ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
 		lines.append("Radar jammed on this bearing")
-	lines.append("Click to inspect · Right-click to investigate or engage")
+	lines.append(contact_hint(default_contact_verb(t) if _has_controllable_selection() else ""))
 	_draw_card(lines)
+
+
+## The hover card's last line says what a right-click on this contact will do now.
+static func contact_hint(verb: String) -> String:
+	match verb:
+		"attack":
+			return "Click to inspect · Right-click to attack · Shift for menu"
+		"investigate":
+			return "Click to inspect · Right-click to investigate · Shift for menu"
+	return "Click to inspect · Right-click for the contact menu"
 
 
 ## Hover text beside the cursor, flipped to stay on the chart.

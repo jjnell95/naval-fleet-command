@@ -1360,6 +1360,11 @@ func _forces_summary() -> String:
 	return " / ".join(parts)
 
 
+## The custom mission file this editor last opened or saved, or "".
+func opened_path() -> String:
+	return _opened_path
+
+
 func save() -> bool:
 	var problem := validate()
 	if problem != "":
@@ -1381,6 +1386,7 @@ func save() -> bool:
 		return false
 	f.store_string(to_json())
 	f.close()
+	ScenarioIndex.forget(path)
 	_opened_path = path
 	_say("Saved %s" % path, false)
 	_refresh_load_menu()

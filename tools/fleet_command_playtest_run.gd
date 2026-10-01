@@ -22,6 +22,7 @@ func run(scene_tree: SceneTree) -> void:
 		if argument.begins_with("--output-dir="):
 			output_dir = argument.trim_prefix("--output-dir=").trim_suffix("/")
 	DirAccess.make_dir_recursive_absolute(output_dir)
+	CommanderLog.path_override = output_dir.path_join("commander_log.json")  # never the developer's own record
 	errors = load("res://tests/test_error_log.gd").new()
 	OS.add_logger(errors)
 	main = load("res://scenes/main/Main.tscn").instantiate()
@@ -64,6 +65,7 @@ func run(scene_tree: SceneTree) -> void:
 		if unknown != null: break
 	checks["sensors produce an investigable unknown"] = unknown != null
 	if unknown != null:
+		await _hover_readout(unknown)
 		await _contact_and_investigation(unknown)
 	await _aircraft_and_engagement()
 	_finish()
@@ -120,6 +122,31 @@ func _camera_controls() -> void:
 	checks["weather animation preserves pause"] = view._scene.weather_time == weather_time
 
 
+## With nothing hooked, the cursor over a contact fills the data display with its readout, and
+## moving off the chart restores the mission page.
+func _hover_readout(track: Track) -> void:
+	main.map.clear_selection()
+	await _frames()
+	checks["nothing hooked before the hover"] = main.map.selected.is_empty() and main.map.inspection_track() == null
+	await _move(main.map.get_global_transform_with_canvas() * main.map.world_to_screen(track.position))
+	var rows := _rows_text(main.data_display.build_rows())
+	# _rows_text joins spans with a space, so a label and its value read "TRACK #:  1001".
+	checks["hovering a contact with nothing hooked reads it out"] = main.map.hovered_track() == track and rows.contains("TRACK #:  %s" % DataDisplay.track_number_for_track(track))
+	checks["hover readout names the reporting platform and set"] = rows.contains("SOURCE:  %s" % DataDisplay.source_readout(track)) and track.source_platform != "" and track.source_sensor != ""
+	checks["hover readout carries the damage estimate"] = rows.contains("%DAMAGE:  ")
+	facts["hover"] = {"track": track.id, "rows": rows}
+	await _shot("hover-readout")
+	await _move(main.data_display.get_global_rect().get_center())
+	checks["moving off the contact restores the mission page"] = main.map.hovered_track() == null and _rows_text(main.data_display.build_rows()).contains("CONTACTS:")
+
+
+func _move(point: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = point
+	main.get_viewport().push_input(motion, true)
+	await _frames()
+
+
 func _contact_and_investigation(track: Track) -> void:
 	main.map.select_units([frigate])
 	main.map.select_track(track)
@@ -132,14 +159,19 @@ func _contact_and_investigation(track: Track) -> void:
 	checks["contact click moves camera to held track"] = main._world_view._focus.get("track") == track
 	await _shot("inspected-contact")
 	var rounds_before := _rounds(frigate)
-	await _chart_click(track.position, MOUSE_BUTTON_RIGHT)
-	var menu := main._cds_menus._root
-	checks["unknown has a visible blocked engagement choice"] = menu != null and menu.visible and menu.item_count > 1 and menu.is_item_disabled(1) and not menu.get_item_text(1).is_empty() and not menu.get_item_tooltip(1).is_empty()
-	checks["opening contact menu spends no rounds"] = _rounds(frigate) == rounds_before
-	await _shot("unknown-orders")
 	var leader := frigate.formation_leader
 	var offset := frigate.formation_offset
 	var paused_time := SimClock.sim_time
+	checks["cursor over an unknown offers to investigate"] = main.map.hover_cursor_shape(main.map.world_to_screen(track.position)) == Control.CURSOR_HELP
+	await _chart_click(track.position, MOUSE_BUTTON_RIGHT)
+	checks["bare right-click on an unknown investigates it at once"] = frigate.investigation_track == track and (main._cds_menus._root == null or not main._cds_menus._root.visible)
+	checks["the direct investigation keeps the watch paused"] = SimClock.paused and SimClock.sim_time == paused_time
+	await _chart_click(track.position, MOUSE_BUTTON_RIGHT, true)
+	var menu := main._cds_menus._root
+	checks["shift-right-click opens the contact menu"] = menu != null and menu.visible
+	checks["unknown has a visible blocked attack choice"] = menu != null and menu.visible and menu.item_count > 1 and menu.is_item_disabled(1) and menu.get_item_text(1).begins_with("Attack track") and not menu.get_item_tooltip(1).is_empty()
+	checks["opening contact menu spends no rounds"] = _rounds(frigate) == rounds_before
+	await _shot("unknown-orders")
 	await _choose_action({"kind": "investigate"})
 	checks["investigate click tasks the retained shooter while paused"] = frigate.investigation_track == track and SimClock.paused and SimClock.sim_time == paused_time
 	var initial_plot := track.position
@@ -221,10 +253,25 @@ func _aircraft_and_engagement() -> void:
 	main.map.select_track(target)
 	main.map.center_on_selection()
 	await _frames()
-	await _chart_click(target.position, MOUSE_BUTTON_RIGHT)
 	var order: Order = direct["action"]["pairs"][0][1]
 	var before := frigate.magazine_count(order.weapon_id)
 	var paused_time := SimClock.sim_time
+	var leader := frigate.formation_leader
+	var offset := frigate.formation_offset
+	checks["cursor over a hostile offers to attack"] = main.map.hover_cursor_shape(main.map.world_to_screen(target.position)) == Control.CURSOR_CROSS
+	await _chart_click(target.position, MOUSE_BUTTON_RIGHT)
+	checks["bare right-click on a hostile orders a standing attack"] = frigate.attack_track == target and (main._cds_menus._root == null or not main._cds_menus._root.visible)
+	checks["the attack order spends nothing while paused"] = frigate.magazine_count(order.weapon_id) == before and SimClock.paused and SimClock.sim_time == paused_time
+	checks["the orders line narrates the attack"] = DataDisplay.orders_text(frigate, main.simulation.weapon_manager).begins_with("Intercept track") or DataDisplay.orders_text(frigate, main.simulation.weapon_manager).begins_with("Engage track")
+	checks["the attack order is acknowledged on the radio"] = main.radio.journal.back().contains("Attacking track")
+	facts["attack"] = {"track": target.id, "orders": DataDisplay.orders_text(frigate, main.simulation.weapon_manager), "time_s": SimClock.sim_time}
+	await _shot("standing-attack")
+	if leader != null:
+		main.simulation.unit_manager.issue_order(frigate, Order.form_up(leader, offset))
+	else:
+		main.simulation.unit_manager.issue_order(frigate, Order.stop())
+	checks["navigation replaces the attack"] = frigate.attack_track == null
+	await _chart_click(target.position, MOUSE_BUTTON_RIGHT, true)
 	await _shot("ready-engagement")
 	await _choose_action({"kind": "unit_orders"})
 	checks["direct engage commits exactly the displayed finite salvo"] = before - frigate.magazine_count(order.weapon_id) == order.salvo and order.salvo > 0
@@ -265,7 +312,7 @@ func _receipt_check() -> void:
 			await _frames()
 			await _chart_click(target.position)
 			await _shot("inspected-hostile")
-			await _chart_click(target.position, MOUSE_BUTTON_RIGHT)
+			await _chart_click(target.position, MOUSE_BUTTON_RIGHT, true)
 			await _shot("ready-engagement")
 			var window_id := main._cds_menus._root.get_window_id()
 			for pressed: bool in [true, false]:
@@ -368,11 +415,11 @@ func _click_control(control: Control) -> void:
 	await _click(control.get_global_rect().get_center())
 
 
-func _chart_click(world: Vector2, button := MOUSE_BUTTON_LEFT) -> void:
-	await _click(main.map.get_global_transform_with_canvas() * main.map.world_to_screen(world), button)
+func _chart_click(world: Vector2, button := MOUSE_BUTTON_LEFT, shift := false) -> void:
+	await _click(main.map.get_global_transform_with_canvas() * main.map.world_to_screen(world), button, shift)
 
 
-func _click(point: Vector2, button := MOUSE_BUTTON_LEFT) -> void:
+func _click(point: Vector2, button := MOUSE_BUTTON_LEFT, shift := false) -> void:
 	var motion := InputEventMouseMotion.new()
 	motion.position = point
 	main.get_viewport().push_input(motion, true)
@@ -381,6 +428,7 @@ func _click(point: Vector2, button := MOUSE_BUTTON_LEFT) -> void:
 		event.button_index = button
 		event.position = point
 		event.pressed = pressed
+		event.shift_pressed = shift
 		main.get_viewport().push_input(event, true)
 		await tree.process_frame
 	await _frames()

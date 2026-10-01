@@ -43,6 +43,20 @@ static var _cell_nm := CELL_NM
 static var _origin := Vector2.ZERO
 static var _grid_rect := Rect2()
 
+## Landmasses by area, so a sight line or a sound path looks only at the coast near it rather
+## than every island on the chart (406 in the Taiwan Strait). Each landmass is listed in every
+## bucket within one bucket of its grown bounds, and a query samples its line at half a bucket,
+## so every landmass the exhaustive loop would find is still found: tests compare the two.
+const INDEX_BUCKETS := 48
+const INDEX_MIN_LANDMASSES := 64  # below this, testing every landmass is cheaper (measured)
+static var _index: Array[PackedInt32Array] = []
+static var _index_origin := Vector2.ZERO
+static var _index_size := 1.0
+static var _index_cols := 0
+static var _index_rows := 0
+static var _seen := PackedInt32Array()
+static var _seen_mark := 0
+
 
 # --- Scenario state ---------------------------------------------------------------------
 
@@ -54,6 +68,9 @@ static func clear() -> void:
 	_cols = 0
 	_rows = 0
 	_origin = Vector2.ZERO
+	_index = []
+	_index_cols = 0
+	_index_rows = 0
 	_grid_rect = Rect2()
 
 
@@ -86,6 +103,7 @@ static func set_landmasses(list: Array[Landmass]) -> void:
 	generation += 1
 	_recompute_bounds()
 	_build_grid()
+	_build_index()
 
 
 static func to_dict() -> Dictionary:
@@ -258,10 +276,31 @@ static func first_land_contact(a: Vector2, b: Vector2) -> float:
 ## affordable: the whole sensor layer asks this thousands of times a second at 60x compression.
 ## Returns x > y when the segment cannot reach any land at all.
 static func _land_span(a: Vector2, b: Vector2) -> Vector2:
-	var empty := Vector2(1.0, 0.0)
+	if _index_cols == 0:
+		return _land_span_exhaustive(a, b)
 	var box := Rect2(a, Vector2.ZERO).expand(b)
 	if not _grid_rect.intersects(box):
-		return empty
+		return Vector2(1.0, 0.0)
+	var lo := INF
+	var hi := -INF
+	for i: int in _candidates(a, b):
+		var l := landmasses[i]
+		if not l.bounds.intersects(box):
+			continue
+		var span := _clip_to_rect(a, b, l.bounds.grow(_cell_nm))
+		if span.x > span.y:
+			continue
+		lo = minf(lo, span.x)
+		hi = maxf(hi, span.y)
+	return Vector2(1.0, 0.0) if lo > hi else Vector2(lo, hi)
+
+
+## The same span from every landmass, without the index: what small charts use, and what the
+## index must always agree with.
+static func _land_span_exhaustive(a: Vector2, b: Vector2) -> Vector2:
+	var box := Rect2(a, Vector2.ZERO).expand(b)
+	if not _grid_rect.intersects(box):
+		return Vector2(1.0, 0.0)
 	var lo := INF
 	var hi := -INF
 	for l in landmasses:
@@ -272,7 +311,69 @@ static func _land_span(a: Vector2, b: Vector2) -> Vector2:
 			continue
 		lo = minf(lo, span.x)
 		hi = maxf(hi, span.y)
-	return empty if lo > hi else Vector2(lo, hi)
+	return Vector2(1.0, 0.0) if lo > hi else Vector2(lo, hi)
+
+
+## `force` builds it on a small chart too, so the test can compare it there.
+static func _build_index(force := false) -> void:
+	_index = []
+	_index_cols = 0
+	_index_rows = 0
+	if landmasses.is_empty() or (landmasses.size() < INDEX_MIN_LANDMASSES and not force):
+		return
+	var area := bounds.grow(_cell_nm)
+	_index_size = maxf(maxf(area.size.x, area.size.y) / float(INDEX_BUCKETS), _cell_nm)
+	_index_origin = area.position
+	_index_cols = int(ceilf(area.size.x / _index_size)) + 1
+	_index_rows = int(ceilf(area.size.y / _index_size)) + 1
+	var lists: Array = []
+	lists.resize(_index_cols * _index_rows)
+	for k in lists.size():
+		lists[k] = []
+	for i in landmasses.size():
+		var g := landmasses[i].bounds.grow(_cell_nm)
+		var c0 := clampi(int(floorf((g.position.x - _index_origin.x) / _index_size)) - 1, 0, _index_cols - 1)
+		var c1 := clampi(int(floorf((g.end.x - _index_origin.x) / _index_size)) + 1, 0, _index_cols - 1)
+		var r0 := clampi(int(floorf((g.position.y - _index_origin.y) / _index_size)) - 1, 0, _index_rows - 1)
+		var r1 := clampi(int(floorf((g.end.y - _index_origin.y) / _index_size)) + 1, 0, _index_rows - 1)
+		for r in range(r0, r1 + 1):
+			for c in range(c0, c1 + 1):
+				lists[r * _index_cols + c].append(i)
+	_index.resize(lists.size())
+	for k in lists.size():
+		_index[k] = PackedInt32Array(lists[k])
+	_seen = PackedInt32Array()
+	_seen.resize(landmasses.size())
+	_seen.fill(0)
+	_seen_mark = 0
+
+
+## Every landmass listed in a bucket the line passes within half a bucket of, each once.
+static func _candidates(a: Vector2, b: Vector2) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	_seen_mark += 1
+	if _seen_mark >= 2147483647:
+		_seen.fill(0)
+		_seen_mark = 1
+	var samples := int(ceilf(a.distance_to(b) / (_index_size * 0.5))) + 1
+	var inv := 1.0 / _index_size
+	var last := -1
+	for k in samples + 1:
+		var p := a.lerp(b, float(k) / float(samples))
+		var c := int(floorf((p.x - _index_origin.x) * inv))
+		var r := int(floorf((p.y - _index_origin.y) * inv))
+		# A sample more than a bucket off the grid is more than a quarter-bucket from any land.
+		if c < -1 or r < -1 or c > _index_cols or r > _index_rows:
+			continue
+		var bucket := clampi(r, 0, _index_rows - 1) * _index_cols + clampi(c, 0, _index_cols - 1)
+		if bucket == last:
+			continue
+		last = bucket
+		for i: int in _index[bucket]:
+			if _seen[i] != _seen_mark:
+				_seen[i] = _seen_mark
+				out.append(i)
+	return out
 
 
 ## Slab clip of the segment a→b against a rectangle, in fractions along the segment.

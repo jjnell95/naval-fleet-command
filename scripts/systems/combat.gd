@@ -122,6 +122,43 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	return out
 
 
+## A point on the shooter's side of the target at the standoff distance, swung round the target in
+## steps when the direct one is on land. Shared by the AI's approach and the player's Attack task.
+const STANDOFF_ARC_DEG: Array[float] = [0.0, 25.0, 50.0, 75.0, 100.0, 130.0, 160.0]
+
+
+static func standoff_point(from: Vector2, target_pos: Vector2, standoff_nm: float) -> Vector2:
+	var offset := (from - target_pos).normalized() * standoff_nm
+	if offset.length() < 0.001:
+		offset = Vector2(0.0, -standoff_nm)
+	if Terrain.is_empty():
+		return target_pos + offset
+	for step: float in STANDOFF_ARC_DEG:
+		for side: float in [1.0, -1.0]:
+			var candidate := target_pos + offset.rotated(deg_to_rad(step * side))
+			if not Terrain.is_land(candidate):
+				return candidate
+	return target_pos + offset
+
+
+## A sea point within `standoff_nm` of the target from which a surface-bound round has an open
+## line to it: the standoff ring swung round the target, then drawn in. Vector2.INF when the
+## coast leaves none, which ends an attack rather than parking it behind a headland.
+static func clear_standoff_point(from: Vector2, target_pos: Vector2, standoff_nm: float) -> Vector2:
+	if Terrain.is_empty():
+		return standoff_point(from, target_pos, standoff_nm)
+	var bearing := (from - target_pos).normalized()
+	if bearing.length() < 0.001:
+		bearing = Vector2(0.0, -1.0)
+	for fraction: float in [1.0, 0.75, 0.5, 0.3]:
+		for step: float in STANDOFF_ARC_DEG:
+			for side: float in [1.0, -1.0]:
+				var candidate := target_pos + bearing.rotated(deg_to_rad(step * side)) * standoff_nm * fraction
+				if not Terrain.is_land(candidate) and not Terrain.blocks_path(candidate, target_pos):
+					return candidate
+	return Vector2.INF
+
+
 ## Unpowered bombs depend on the launch aircraft height. All numbers are gameplay tuning.
 static func effective_range_nm(shooter: Unit, spec: WeaponSpec) -> float:
 	if spec.type == "bomb":

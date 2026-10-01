@@ -18,10 +18,14 @@ var classify_rate := 1.0
 var range_nm := 0.0
 var tma_gain := 0.0  # how much this observation improves the range solution
 var altitude_m := -1.0
-var source := "radar"  # radar | sonar_passive | sonar_active
+var source := "radar"  # radar | sonar_passive | sonar_active | sonar_cz | esm | sonobuoy
+## The set that made this observation: its catalogue id and display name. Empty when it came from
+## something that is not a fitted sensor; a sonobuoy report names the buoys instead.
+var sensor_id := ""
+var sensor_name := ""
 
 
-static func make(target_unit: Unit, pos: Vector2, error_nm: float, quality_value: float, rate: float, range_value: float, source_name := "radar", observer_unit: Unit = null) -> SensorContact:
+static func make(target_unit: Unit, pos: Vector2, error_nm: float, quality_value: float, rate: float, range_value: float, source_name := "radar", observer_unit: Unit = null, sensor: SensorSpec = null) -> SensorContact:
 	var c := SensorContact.new()
 	c.target = target_unit
 	c.position = pos
@@ -32,6 +36,14 @@ static func make(target_unit: Unit, pos: Vector2, error_nm: float, quality_value
 	c.range_nm = range_value
 	c.source = source_name
 	c.observer = observer_unit
+	c.set_sensor(sensor)
 	if source_name == "radar" and target_unit.in_flight():
 		c.altitude_m = target_unit.altitude_m
 	return c
+
+
+func set_sensor(sensor: SensorSpec) -> void:
+	if sensor == null:
+		return
+	sensor_id = sensor.id
+	sensor_name = sensor.display_name

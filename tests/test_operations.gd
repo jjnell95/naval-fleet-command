@@ -197,8 +197,8 @@ func test_all_operations_have_valid_dependencies_wings_and_finite_stores() -> vo
 				if int(sc.year) == 1990:
 					assert_true(str(ud.platform).begins_with("cw90_"))
 		um.free()
-	assert_eq(operations, 14)
-	assert_eq(exercises, 9, "eight existing exercises plus Northern Passage")
+	assert_eq(operations, 7, "one 2027 operation per chart region and three from 1990")
+	assert_eq(exercises, 2, "Northern Passage and Carrier Qualification")
 
 
 func test_scheduled_raid_fires_once_preserves_fog_and_resets_on_reload() -> void:

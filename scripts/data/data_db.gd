@@ -9,6 +9,8 @@ static var _platforms: Dictionary = {}
 static var _sensors: Dictionary = {}
 static var _weapons: Dictionary = {}
 static var _loaded := false
+static var _by_short_name: Dictionary = {}  # short_name -> Array[PlatformSpec], sorted by id
+const COLD_WAR_PREFIX := "cw90_"
 
 
 static func platform(id: String) -> PlatformSpec:
@@ -24,6 +26,31 @@ static func sensor(id: String) -> SensorSpec:
 static func weapon(id: String) -> WeaponSpec:
 	_ensure_loaded()
 	return _weapons.get(id)
+
+
+## The catalogue entry a reported class name refers to, as a track's `known_class` holds it.
+## The 1990 and 2027 catalogues share a few short names (CG Slava, E-2C ...); `hint_id`, any
+## platform or weapon id from the same scenario, picks the entry from its own catalogue.
+## Otherwise the first by id. Null when no class has that short name.
+static func platform_by_short_name(short_name: String, hint_id := "") -> PlatformSpec:
+	_ensure_loaded()
+	if _by_short_name.is_empty():
+		var ids: Array = _platforms.keys()
+		ids.sort()
+		for id in ids:
+			var p: PlatformSpec = _platforms[id]
+			if not _by_short_name.has(p.short_name):
+				_by_short_name[p.short_name] = []
+			_by_short_name[p.short_name].append(p)
+	var matches: Array = _by_short_name.get(short_name, [])
+	if matches.is_empty():
+		return null
+	if hint_id != "":
+		var cold_war := hint_id.begins_with(COLD_WAR_PREFIX)
+		for p: PlatformSpec in matches:
+			if p.id.begins_with(COLD_WAR_PREFIX) == cold_war:
+				return p
+	return matches[0]
 
 
 ## Every platform, sorted by domain then nation then name, for the scenario editor's palette.

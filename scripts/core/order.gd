@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -31,6 +31,9 @@ var automatic := true
 ## to the caller, so a UI receipt can distinguish a command that was merely routed from one that
 ## actually secured a firing channel, deck spot, return state, or buoy deployment.
 var execution_accepted := true
+## Set by Unit.apply_order when a CANCEL_FIRE also ended the unit's standing attack, so the
+## receipt counts it as carried out even when no queued round was left to refund.
+var stopped_attack := false
 
 
 static func cancel_fire(target: Track = null) -> Order:
@@ -94,6 +97,17 @@ static func investigate(target: Track) -> Order:
 	var o := Order.new()
 	o.type = Type.INVESTIGATE
 	o.track = target
+	return o
+
+
+## The standing attack of the classic command screen: close to weapon range on the held plot,
+## choose the best weapon aboard (or the one named), fire, and keep firing until the contact is
+## destroyed or lost, the magazines are empty, or another order replaces the task.
+static func attack(target: Track, weapon := "") -> Order:
+	var o := Order.new()
+	o.type = Type.ATTACK
+	o.track = target
+	o.weapon_id = weapon
 	return o
 
 
@@ -251,6 +265,8 @@ func describe() -> String:
 			return "PATROL %d-POINT CIRCUIT" % route.size()
 		Type.INVESTIGATE:
 			return "INVESTIGATE %s" % (track.id if track != null else "?")
+		Type.ATTACK:
+			return "ATTACK %s%s" % [track.id if track != null else "?", " with " + weapon_id if weapon_id != "" else ""]
 		Type.SET_COURSE:
 			return "COURSE %s" % Geo.format_bearing(heading_deg)
 		Type.SET_SPEED:

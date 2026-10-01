@@ -51,47 +51,6 @@ def pla_field(j16=0, kj500=0, y8q=0, h6j=0, isr_patrol=None, strike_patrol=None)
 
 # ==============================================================================================
 
-def bashi_channel():
-    s = Scenario("pacific_01_bashi_channel", "BASHI CHANNEL: SILENT PASSAGE", 21.0, 121.0, 300, 21,
-                 layer=(180, 0.55), cz_range_nm=30, sea_state=3, wind_kn=14, visibility_nm=10, start="2027-04-03T19:20:00",
-                 seed=41,
-                 description=("A Type 093B attack submarine is trying to reach the Philippine Sea through the Bashi Channel "
-                              "between Taiwan and the Batanes, screened by a Type 039A picket ahead of it. USS Vermont, a Flight IIA "
-                              "destroyer with two Seahawks and a P-8A detachment at Clark hold the barrier. A maritime patrol aircraft "
-                              "and a pair of J-16s from Fujian are working the channel against you. Deep water east of the sill "
-                              "carries convergence zones; the ridge itself is shelf."))
-    s.meta("Western Pacific", "Intermediate", 25, "ASW barrier commander",
-           "Passive bearings across a strait, convergence zones at a shelf edge, buoy barriers laid by a patrol aircraft under a fighter threat",
-           "Deny the Bashi Channel for six hours, or neutralize the Type 093B. A breakout into the Philippine Sea loses the watch.",
-           ["Select Vermont and read its passive picture; keep it slow and under the layer until it has a bearing worth working.",
-            "Put Peralta's helicopters across the channel narrows with buoys; the P-8A from Clark extends the line but has fighters to worry about.",
-            "The Type 039A picket is bait as much as a screen. Do not spend torpedoes on it while the Shang is still moving east."],
-           setting_note="A fictional April 2027 crisis. Real geography, real class names; the deployment and the encounter are invented.")
-    s.afloat("usn_ssn_virginia", "USS Vermont (SSN 792)", "BLUE", 21.45, 122.05, 300, 6, depth_m=150, radar_on=False)
-    s.afloat("usn_ddg_arleigh_burke_iia", "USS Rafael Peralta (DDG 115)", "BLUE", 21.5, 121.85, 10, 12,
-             patrol=[s.xy(21.25, 121.85), s.xy(21.75, 121.85)])
-    s.site("shore_air_station", "Clark Air Base", "BLUE", 15.186, 120.560,
-           air_wing=[{"platform": "usn_mpa_p8a", "count": 2, "squadron": "VP-47", "callsign": "Golden Sword", "first_modex": 41,
-                      "patrol_nm": [s.xy(21.3, 120.9), s.xy(21.5, 122.3)]}])
-    s.afloat("pla_ssn_type093b", "Type 093B (Shang II)", "RED", 21.35, 121.55, 80, 7, depth_m=180, radar_on=False,
-             ai_posture="breakout", patrol=[s.xy(21.5, 122.2)], loadout={"pla_yj18": 4, "pla_yu6": 14})
-    # The picket starts a watch's steaming west of the barrier, so its missiles arrive as a
-    # mid-mission event rather than in the opening minute.
-    s.afloat("pla_ssk_type039a", "Type 039A (Yuan)", "RED", 21.7, 121.15, 120, 4, depth_m=90, radar_on=False,
-             patrol=[s.xy(21.5, 121.45), s.xy(21.85, 121.1)])
-    s.site("shore_air_station", "Huian Air Base", "RED", 25.033, 118.821,
-           air_wing=pla_field(j16=2, y8q=1,
-                              isr_patrol=[s.xy(21.8, 120.8), s.xy(21.4, 122.0), s.xy(21.0, 121.2)],
-                              strike_patrol=[s.xy(21.9, 121.0), s.xy(21.5, 121.9)]))
-    s.d["victory_mode"] = "any"
-    s.objectives("Hold the channel for six hours, or neutralize the Type 093B. The Shang crossing into the Philippine Sea, or the loss of Peralta, fails the mission.",
-        [hold(6), targets(["Type 093B (Shang II)"], "Neutralize the Type 093B")],
-        [protected(["USS Rafael Peralta (DDG 115)"]),
-         arrival("breakout", ["Type 093B (Shang II)"], s.xy(21.5, 122.2), 6, "The Type 093B reached the Philippine Sea")])
-    s.forces("US: 1 attack submarine, 1 destroyer (2 embarked helicopters), Clark patrol det  ·  PLAN: 1 nuclear attack submarine, 1 AIP submarine, Fujian patrol and fighter det")
-    return s
-
-
 def taiwan_strait():
     s = Scenario("pacific_02_taiwan_strait", "TAIWAN STRAIT: THE PICKET LINE", 24.0, 123.0, 560, 22,
                  layer=(150, 0.5), cz_range_nm=30, sea_state=4, wind_kn=22, visibility_nm=8, start="2027-04-07T21:30:00",
@@ -157,109 +116,6 @@ def taiwan_strait():
     return s
 
 
-def spratly_watch():
-    s = Scenario("pacific_03_spratly", "SPRATLY WATCH: FIERY CROSS", 10.0, 114.5, 260, 23,
-                 layer=(80, 0.5), cz_range_nm=0, sea_state=2, wind_kn=10, visibility_nm=12, start="2027-06-11T22:10:00",
-                 neutral_factions=["NEUTRAL"], seed=43,
-                 description=("A chartered merchant must reach a resupply box in the eastern Spratlys. USS Dewey and the Japanese frigate "
-                              "Kumano escort her past Fiery Cross Reef, a reclaimed island with a runway, a coastal battery and a "
-                              "long-range SAM site, while a Type 054A, two corvettes and three Type 022 missile boats contest the "
-                              "passage. A P-8A detachment flies from Palawan. Dewey carries eight Tomahawks; whether the battery is "
-                              "struck before it fires is your decision and your rules of engagement."))
-    s.meta("Western Pacific", "Intermediate", 25, "Escort commander",
-           "Escorting a slow merchant through littoral waters, small fast missile boats, an island base with its own air defence, and a land-attack strike as a choice rather than a reflex",
-           "Get the merchant to the resupply box. Fiery Cross is a threat to be managed, not an objective; Tomahawks are for when it has become one.",
-           ["Put Dewey between the merchant and Fiery Cross; keep Kumano on the merchant's disengaged side.",
-            "The Type 022s are fast and small. Radar on, and hold ESSM for them rather than the corvettes.",
-            "A Tomahawk salvo can silence the battery. So can staying outside its horizon."],
-           setting_note="A fictional June 2027 incident. Real geography including the reclaimed outposts, real class names; the deployment and the encounter are invented.")
-    s.extra_land = [
-        g.reclaimed_island(9.552, 112.888, 1.7, 0.5, 67, s.lat0, s.lon0, "Fiery Cross Reef", 8.0),
-        g.reclaimed_island(10.925, 114.078, 2.1, 0.9, 45, s.lat0, s.lon0, "Subi Reef", 6.0),
-        g.reclaimed_island(9.905, 115.532, 3.2, 1.0, 20, s.lat0, s.lon0, "Mischief Reef", 6.0),
-    ]
-    s.height_m = 40  # low reef islets and Palawan's coastal plain; the chart's plateau rule would overstate them
-    s.afloat("civ_merchant_bulk", "MV Lapu-Lapu Trader", "BLUE", 10.35, 116.9, 250, 12, radar_on=True,
-             patrol=[s.xy(9.85, 115.9)])
-    s.afloat("usn_ddg_arleigh_burke_iia", "USS Dewey (DDG 105)", "BLUE", 10.25, 116.6, 250, 12)
-    s.afloat("jmsdf_ffm_mogami", "JS Kumano (FFM 2)", "BLUE", 10.45, 116.75, 250, 12)
-    s.site("shore_air_station", "Antonio Bautista Air Base, Puerto Princesa", "BLUE", 9.742, 118.759,
-           air_wing=[{"platform": "usn_mpa_p8a", "count": 1, "squadron": "VP-8 det", "callsign": "Fighting Tiger", "first_modex": 21}])
-    s.afloat("pla_ffg_type054a", "Hengshui (572)", "RED", 9.6, 113.6, 90, 16, patrol=[s.xy(9.9, 115.2), s.xy(9.5, 113.2)])
-    s.afloat("pla_fsg_type056a", "Type 056A (Jiangdao)", "RED", 9.3, 114.2, 60, 14, patrol=[s.xy(9.8, 115.4), s.xy(9.2, 113.8)])
-    s.afloat("pla_fsg_type056a", "Type 056A (Jiangdao) 2", "RED", 10.7, 114.4, 120, 14, patrol=[s.xy(10.2, 115.6), s.xy(10.8, 114.1)])
-    for i in range(3):
-        s.afloat("pla_pgg_type022", "Type 022 boat %d" % (i + 1), "RED", 9.5 + i * 0.08, 113.0 + i * 0.1, 80, 24,
-                 ai_posture="breakout", patrol=[s.xy(9.9, 115.0), s.xy(10.2, 116.2)])
-    s.unit("shore_air_station", "Fiery Cross Reef airfield", "RED", s.xy(9.552, 112.888), 0, 0,
-           air_wing=pla_field(j16=2, kj500=1, y8q=1,
-                              isr_patrol=[s.xy(9.9, 114.6), s.xy(10.4, 116.4)],
-                              strike_patrol=[s.xy(10.0, 115.4), s.xy(10.4, 116.6)]))
-    s.unit("pla_battery_yj12b", "Fiery Cross coastal battery", "RED", s.xy(9.548, 112.880), 0, 0)
-    s.unit("pla_sam_hq9b_site", "Fiery Cross SAM site", "RED", s.xy(9.556, 112.895), 0, 0)
-    s.afloat("civ_fishing_trawler", "FV Bagong Pag-asa", "NEUTRAL", 10.1, 115.7, 300, 6, patrol=[s.xy(10.4, 115.2), s.xy(9.9, 116.0)])
-    s.afloat("civ_merchant_bulk", "MV Sabah Star", "NEUTRAL", 8.9, 116.4, 330, 13, patrol=[s.xy(11.0, 115.6), s.xy(8.2, 116.8)])
-    s.objectives("Escort MV Lapu-Lapu Trader into the resupply box. Losing her or Dewey fails the mission; neutral traffic is protected.",
-        [arrival("resupply", ["MV Lapu-Lapu Trader"], s.xy(9.85, 115.9), 6, "Lapu-Lapu Trader reached the resupply box")],
-        [protected(["MV Lapu-Lapu Trader", "USS Dewey (DDG 105)", "FV Bagong Pag-asa", "MV Sabah Star"])])
-    s.forces("US/Japan: 1 destroyer, 1 frigate, 1 chartered merchant, Palawan patrol det  ·  PLAN: 1 frigate, 2 corvettes, 3 missile boats, Fiery Cross airfield, coastal battery and SAM site  ·  Neutral traffic")
-    return s
-
-
-def sea_of_japan():
-    s = Scenario("pacific_04_sea_of_japan", "SEA OF JAPAN: NORTHERN GUARD", 41.0, 135.5, 520, 24,
-                 layer=(120, 0.6), cz_range_nm=30, sea_state=5, wind_kn=28, visibility_nm=6, start="2027-03-02T20:30:00",
-                 seed=44,
-                 description=("A Russian Pacific Fleet surface group led by the cruiser Varyag has sortied from Vladivostok toward the "
-                              "Tsugaru Strait overnight and is already well out into the Japan Basin, with a Kilo ahead of it and Backfires on call at Kamenny Ruchey. You command the Izumo group: "
-                              "the carrier with an Air Self-Defense Force F-35B detachment, the Aegis destroyer Maya, Akizuki, the frigate "
-                              "Kumano and the submarine Taigei, with P-1s at Hachinohe, F-2s at Misawa and a Type 12 battery on the Oga "
-                              "coast. Hold the group away from the strait for five hours or neutralize it."))
-    s.meta("Western Pacific", "Advanced", 30, "Escort flotilla commander",
-           "Fighting a Japanese task group: STOVL fighters, Aegis ballistic and air defence, quiet lithium-ion submarine tactics, land-based anti-ship strike and a coastal battery as part of the same picture",
-           "Deny the Tsugaru approaches to Varyag's group for six hours, or neutralize Varyag and Marshal Shaposhnikov. Izumo and Maya must survive.",
-           ["Launch a P-1 from Hachinohe toward the group's last position; keep the F-35Bs for the Backfires, not for the ships.",
-            "Get the Misawa Hawkeye and a pair of F-35Bs north-east early. The Backfires release from three hundred miles; they have to be met before that, not after.",
-            "Taigei is quiet and slow. Put her across the group's track early and leave her alone."],
-           setting_note="A fictional March 2027 crisis in the Sea of Japan. Real geography, real class and squadron names; the deployment and the encounter are invented.")
-    s.afloat("jmsdf_ddh_izumo", "JS Izumo (DDH 183)", "BLUE", 40.3, 136.2, 20, 18,
-             air_wing=[{"platform": "jasdf_fighter_f35b", "count": 6, "squadron": "301 Sqn det", "callsign": "Lightning", "first_modex": 11},
-                       {"platform": "jmsdf_helo_sh60k", "count": 3, "squadron": "Fleet Air Wing 21", "callsign": "Seahawk", "first_modex": 21}])
-    s.afloat("jmsdf_ddg_maya", "JS Maya (DDG 179)", "BLUE", 40.5, 136.5, 20, 18)
-    s.afloat("jmsdf_dd_akizuki", "JS Akizuki (DD 115)", "BLUE", 40.15, 135.9, 20, 18)
-    s.afloat("jmsdf_ffm_mogami", "JS Kumano (FFM 2)", "BLUE", 40.6, 135.8, 20, 18, radar_on=False)
-    s.afloat("jmsdf_ssk_taigei", "JS Taigei (SS 513)", "BLUE", 42.0, 134.2, 330, 5, depth_m=140, radar_on=False)
-    s.site("shore_air_station", "Hachinohe Air Base", "BLUE", 40.556, 141.466,
-           air_wing=[{"platform": "jmsdf_mpa_p1", "count": 2, "squadron": "Fleet Air Wing 2", "callsign": "Kawasaki", "first_modex": 51}])
-    s.site("shore_air_station", "Misawa Air Base", "BLUE", 40.703, 141.368,
-           air_wing=[{"platform": "jasdf_fighter_f2", "count": 4, "squadron": "3rd Sqn", "callsign": "Viper Zero", "first_modex": 61},
-                     {"platform": "usn_aew_e2d", "count": 1, "squadron": "JASDF 601 Sqn", "callsign": "Hawkeye", "first_modex": 71,
-                      "patrol_nm": [s.xy(41.6, 136.8), s.xy(42.4, 136.0)]}])
-    s.site("jgsdf_type12_battery", "Oga coastal battery", "BLUE", 39.9, 139.8)
-    s.afloat("rfn_cg_slava", "Varyag (011)", "RED", 42.0, 135.6, 110, 24, ai_posture="breakout",
-             patrol=[s.xy(41.4, 139.6)])
-    s.afloat("rfn_ddg_udaloy", "Marshal Shaposhnikov (543)", "RED", 42.1, 135.85, 110, 24, ai_posture="breakout",
-             patrol=[s.xy(41.5, 139.7)])
-    s.afloat("rfn_fsg_steregushchiy", "Gremyashchiy (337)", "RED", 41.9, 135.35, 110, 24, ai_posture="breakout",
-             patrol=[s.xy(41.3, 139.5)])
-    s.afloat("rfn_ssk_kilo", "Petropavlovsk-Kamchatsky (B-274)", "RED", 41.8, 135.2, 150, 5, depth_m=120, radar_on=False,
-             patrol=[s.xy(41.2, 136.6), s.xy(41.9, 134.6)])
-    s.site("shore_air_station", "Kamenny Ruchey", "RED", 49.235, 140.194,
-           air_wing=[{"platform": "rfn_bomber_tu22m3", "count": 3, "squadron": "Naval missile aviation regiment", "callsign": "Backfire", "first_modex": 21,
-                      "patrol_nm": [s.xy(42.4, 137.8), s.xy(40.6, 136.4)]},
-                     {"platform": "rfn_mpa_tu142", "count": 1, "squadron": "Long-range ASW regiment", "callsign": "Bear", "first_modex": 71,
-                      "patrol_nm": [s.xy(42.6, 136.0), s.xy(40.4, 137.4), s.xy(41.6, 134.8)]},
-                     {"platform": "rfn_mpa_il38n", "count": 1, "squadron": "Naval aviation ASW squadron", "callsign": "May", "first_modex": 51,
-                      "patrol_nm": [s.xy(41.4, 135.6), s.xy(42.2, 134.4)]}])
-    s.d["victory_mode"] = "any"
-    s.objectives("Keep Varyag's group out of the Tsugaru approaches for six hours, or neutralize Varyag and Marshal Shaposhnikov. Izumo or Maya lost, or Varyag reaching the strait, fails the mission.",
-        [hold(6), targets(["Varyag (011)", "Marshal Shaposhnikov (543)"], "Neutralize the cruiser and the destroyer")],
-        [protected(["JS Izumo (DDH 183)", "JS Maya (DDG 179)"]),
-         arrival("tsugaru", ["Varyag (011)"], s.xy(41.4, 139.6), 8, "Varyag reached the Tsugaru approaches")])
-    s.forces("Japan: 1 STOVL carrier (F-35B det), 1 Aegis destroyer, 1 destroyer, 1 frigate, 1 submarine, Hachinohe and Misawa dets with an E-2D, 1 coastal battery  ·  Russia: 1 cruiser, 1 destroyer, 1 corvette, 1 submarine, Kamenny Ruchey bomber and patrol det")
-    return s
-
-
 def hormuz():
     s = Scenario("gulf_01_hormuz", "STRAIT OF HORMUZ: TANKER TRANSIT", 26.3, 56.6, 240, 25,
                  layer=(30, 0.3), cz_range_nm=0, sea_state=2, wind_kn=12, visibility_nm=9, start="2027-05-19T02:00:00",
@@ -313,7 +169,7 @@ def hormuz():
          # Neutral traffic is protected by the rules of engagement, not by the escort: a round
          # that loses its target in the strait and finds a dhow ends the mission, and the failure
          # has to say so.
-         {"id": "neutral_sunk", "type": "unit_lost", "callsigns": ["MV Khor Fakkan Trader", "Dhow Al Noor"],
+         {"id": "neutral_sunk", "type": "unit_lost", "caused_by": "BLUE", "callsigns": ["MV Khor Fakkan Trader", "Dhow Al Noor"],
           "text": "Neutral vessel sunk by own fire"},
          {"id": "deadline", "type": "time_elapsed", "seconds": 36000, "text": "The transit window closed"}])
     s.d["objectives"]["victory"][0]["count"] = 2
@@ -373,7 +229,7 @@ def tartus_line():
     return s
 
 
-BUILDERS = [bashi_channel, taiwan_strait, spratly_watch, sea_of_japan, hormuz, tartus_line]
+BUILDERS = [taiwan_strait, hormuz, tartus_line]
 
 
 if __name__ == "__main__":

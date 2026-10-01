@@ -168,10 +168,11 @@ func test_charted_box_hands_the_coast_to_the_polygons_only_where_there_are_polyg
 
 func test_land_fill_is_one_mesh_for_every_landmass() -> void:
 	# Regression: ChartLand drew one mesh per landmass, 689 draw calls a frame in the regional pane
-	# for northern_vigil. The whole coastline is one mesh now: one draw call, the same triangles.
-	var sc = JSON.parse_string(FileAccess.get_file_as_string("res://data/scenarios/northern_vigil.json"))
+	# for the (since cut) Norwegian Sea joint task force. The whole coastline is one mesh now: one
+	# draw call, the same triangles. Taiwan's chart is the largest that still ships.
+	var sc = JSON.parse_string(FileAccess.get_file_as_string("res://data/scenarios/pacific_02_taiwan_strait.json"))
 	Terrain.load_from(sc)
-	assert_true(Terrain.landmasses.size() > 600, "a coastline of many islands")
+	assert_true(Terrain.landmasses.size() > 400, "a coastline of many islands")
 	var mesh := ChartLand.land_mesh()
 	assert_true(mesh != null and mesh.get_surface_count() == 1, "one mesh of one surface for %d landmasses" % Terrain.landmasses.size())
 	var verts := 0

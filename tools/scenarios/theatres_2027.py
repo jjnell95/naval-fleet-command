@@ -28,12 +28,12 @@ def packed(items):
     return "PackedStringArray(" + ", ".join(json.dumps(v) for v in items) + ")"
 
 
-def resource(kind, key, data, packed_fields=()):
+def resource(kind, key, data, packed_fields=(), note=""):
     cls = {"platforms": "PlatformSpec", "weapons": "WeaponSpec", "sensors": "SensorSpec"}[kind]
     script = {"platforms": "platform_spec", "weapons": "weapon_spec", "sensors": "sensor_spec"}[kind]
     output = ROOT / "data" / kind / ("theatres" if kind == "platforms" else "")
     output.mkdir(parents=True, exist_ok=True)
-    fields = {"id": key, **data, "source_status": SOURCE}
+    fields = {"id": key, **data, "source_status": (note + " " if note else "") + SOURCE}
     lines = [f'[gd_resource type="Resource" script_class="{cls}" load_steps=2 format=3]', "",
              f'[ext_resource type="Script" path="res://scripts/data/{script}.gd" id="1"]', "",
              '[resource]', 'script = ExtResource("1")']
@@ -100,8 +100,15 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
                  launch_interval_s=1.0)
     if kind == "aam":
         d.update(min_range_nm=1.0, altitude_m=8000.0, signature_factor=0.05)
+    note = kw.pop("note", "")
+    payload = kw.pop("delivery_payload_id", "")
     d.update(kw)
-    resource("weapons", key, d, ["target_types"])
+    if payload:
+        # A rocket-delivered torpedo names its underwater payload beside its guidance.
+        items = list(d.items())
+        at = [k for k, _ in items].index("guidance") + 1
+        d = dict(items[:at] + [("delivery_payload_id", payload)] + items[at:])
+    resource("weapons", key, d, ["target_types"], note)
 
 
 def platform(key, name, short, nation, category, sensors, weapons, **kw):
@@ -389,7 +396,11 @@ def catalogue():
            base_pk=0.82, salvo_default=4, defensive_difficulty=1.15, altitude_m=8.0, soft_kill_resistance=1.3, signature_factor=0.1)
     weapon("jmsdf_type90_ssm", "Type 90 ship-to-ship missile", "asm", ["surface"], 81, 480, 45, base_pk=0.78, salvo_default=4)
     weapon("jmsdf_type07_vla", "Type 07 vertical-launch ASW rocket", "torpedo", ["subsurface"], 12, 240, 55,
-           vls_pack=1, base_pk=0.68, run_to_enable_nm=0.4, guidance="rocket_delivery_abstracted")
+           vls_pack=1, base_pk=0.68, run_to_enable_nm=0.4, type="asw_rocket", guidance="inertial_delivery",
+           delivery_payload_id="jmsdf_type97_torpedo", profile="high", altitude_m=300.0,
+           note=("M30: modeled rocket delivery followed by a Type 97-family underwater payload. Payload selection and "
+                 "trajectory are representative gameplay assumptions; public JMSDF records identify the Type 07 as a "
+                 "torpedo-delivery rocket."))
     weapon("jmsdf_type12_torpedo", "Type 12 lightweight torpedo", "torpedo", ["subsurface"], 6, 45, 55, base_pk=0.70, run_to_enable_nm=0.4)
     weapon("jmsdf_type97_torpedo", "Type 97 air-launched torpedo", "torpedo", ["subsurface"], 6, 45, 55, base_pk=0.70, run_to_enable_nm=0.3)
     weapon("jmsdf_type18_torpedo", "Type 18 heavyweight torpedo", "torpedo", ["surface", "subsurface"], 27, 55, 95,
@@ -453,11 +464,12 @@ def catalogue():
                length_m=19.8, endurance_s=10800.0, health=20.0, sonobuoy_count=16, sonobuoy_sensitivity_nm=15.0,
                role="Shipboard ASW / localization")
     aircraft("jasdf_fighter_f35b", "F-35B Lightning II (Air Self-Defense Force)", "F-35B", "Japan", "fighter",
-             ["an_apg_81", "an_asq_239"], {"aim120_family": 4, "aim9x_air": 2, "jsm_missile": 2}, 1000,
+             ["an_apg_81", "an_asq_239"], {"aim120_family": 4, "aim9x_air": 2}, 1000,
              cruise_speed_kn=500.0, cruise_altitude_m=10000.0, max_altitude_m=15000.0, endurance_s=7800.0, health=30.0,
              signature_factor=0.22, length_m=15.7, launch_requirement="stovl", can_refuel=True,
-             role="Fifth-generation air defence / anti-ship strike from the Izumo deck",
-             service_note="The same airframe as the Royal Navy's; the Joint Strike Missile is on order for Japan's F-35s.")
+             role="STOVL fleet air defence from the Izumo deck",
+             service_note=("Japanese STOVL counter-air fit. JSM procurement specifies F-35A; an F-35B strike integration "
+                           "is not assumed. External Sidewinders are included in this scenario fit."))
     aircraft("jasdf_fighter_f2", "Mitsubishi F-2 fighter", "F-2", "Japan", "strike fighter",
              ["jasdf_japg2", "jasdf_esm"], {"jasdf_asm3": 2, "jasdf_aam4b": 2, "jasdf_aam5": 2}, 1100,
              cruise_speed_kn=480.0, cruise_altitude_m=9000.0, max_altitude_m=15000.0, endurance_s=7800.0, health=28.0,

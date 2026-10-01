@@ -3,9 +3,7 @@
   "scenario_ids": [
     "cold_war_01_convoy",
     "cold_war_02_barrier",
-    "cold_war_03_carrier",
-    "cold_war_04_baltic",
-    "cold_war_05_sea_of_japan"
+    "cold_war_03_carrier"
   ],
   "platforms": [
     "cw90_airfield",

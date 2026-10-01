@@ -1,6 +1,10 @@
 # Handoff
 
-Latest: M33 restores the inspected-contact focus without dropping command selection, adds persistent `Order.investigate(track)`, direct finite shots, Chart/time menus and mouse camera controls. Read [the source comparison and behavioral limits](docs/2026-09-30-fleet-command-intent.md). The contact inspection API is `TacticalMap.inspection_track()`; use it for presentation, keep `selected` for orders. Investigation uses held tracks only and reports completion through `UnitManager.investigation_ended`. Optional scenario `cloud_cover`, `rain_intensity` and `cloud_base_m` affect the live view only.
+Latest: M35 cuts the missions to nine through the generators (run the five builders in the order below; they reproduce `data/` byte for byte), adds `CampaignBook` over `data/campaigns.json` and the commander's log, caches `ScenarioIndex` summaries (`forget(path)` after writing a mission), indexes landmasses in `Terrain` (`_land_span_exhaustive` is the reference the test compares against), and merges `CrewVoice`, `RadioNet.advise`, the ambient beds, the contact readout (`Track.source_*`, `damage_estimate`, `DataDisplay.source_readout`) and the far-reaching Action camera (`WorldCamera` pursuit and impact hold, an origin that re-centres on the Action subject, `WorldPresentation.witness_point` still deciding what may be shown). Voice on Linux needs speech-dispatcher, and enabling `audio/general/text_to_speech` prints one `libspeechd.so.2` line at start-up where it is missing; that line is not an engine error. Read [the M35 note](docs/2026-10-01-m35-nine-missions-a-crew-and-campaigns.md).
+
+Previously: M34 adds the standing attack, `Order.attack(track, weapon := "")`, stepped by `UnitManager._step_attack` and ended through `UnitManager.attack_ended`; `UnitManager` now holds `weapon_manager` and is ticked with `tick(dt, now)`. A bare right-click decides from `TacticalMap.default_contact_verb(track)` (attack a HOSTILE, investigate an unclassified UNKNOWN, otherwise the menu); Shift+right-click is the contact menu. `MissionManager.assessment()` grades a finished mission and `CommanderLog` keeps best results beside the custom-mission directory; Main logs only missions the player took command of and the AI did not play. The desk opens on the `operations` shelf. Read [the research note and the remaining gaps](docs/2026-10-01-fleet-command-command-loop.md) before choosing the next milestone. `tests/run_tests.gd -- --only=test_attack.gd,...` runs a few test files.
+
+Previously: M33 restores the inspected-contact focus without dropping command selection, adds persistent `Order.investigate(track)`, direct finite shots, Chart/time menus and mouse camera controls. Read [the source comparison and behavioral limits](docs/2026-09-30-fleet-command-intent.md). The contact inspection API is `TacticalMap.inspection_track()`; use it for presentation, keep `selected` for orders. Investigation uses held tracks only and reports completion through `UnitManager.investigation_ended`. Optional scenario `cloud_cover`, `rain_intensity` and `cloud_base_m` affect the live view only.
 
 The combined build also preserves the combat cleanup from `7e1d7a2`: Attack/Defence controls, authoritative firing, queued-fire cancellation and live missile tracking. Receipts measure `WeaponManager.committed_rounds()` deltas; the solar cache honors weather invalidation even while paused. Use [validation-m33-merge.json](docs/validation-m33-merge.json) for the current package hash and integration evidence.
 
@@ -82,9 +86,11 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
 | `scripts/ui/data_display.gd` | the data display, bottom right, built from rows of coloured spans |
 | `scripts/ui/status_boards.gd` | the boards on A, hosting `orders_panel.gd`, `unit_panel.gd`, `contact_panel.gd` (+ `defence_board.gd`) and the comms history |
 | `scripts/ui/cds_menus.gd`, `key_commands.gd`, `command_palette.gd` | right-click menus, the H board, Ctrl-K |
+| `scripts/core/commander_log.gd` | the commander's record of best mission results, read by the operations desk |
 | `scripts/ui/air_operations.gd`, `briefing_panel.gd`, `after_action.gd` | in-mission dialogs |
 | `scripts/ui/scenario_menu.gd`, `scenario_editor.gd`, `platform_library.gd` | the front end: operations desk, editor, reference |
-| `scripts/ui/ui_theme.gd`, `jfc_style.gd`, `ui_icons.gd`, `sound_fx.gd` | the theme (built in code, no `.tres`), bevels and lamps, icons, procedural sound |
+| `scripts/ui/ui_theme.gd`, `jfc_style.gd`, `ui_icons.gd`, `sound_fx.gd` | the theme (built in code, no `.tres`), bevels and lamps, icons, procedural sound and the ambient bed |
+| `scripts/ui/crew_voice.gd`, `data/voice/phrases.json`, `user_settings.gd` | spoken crew phrases through an injectable text-to-speech sink; preferences in `user://settings.cfg` |
 | `scripts/core/dev_harness.gd`, `cold_war_smoke.gd`, `aviation_smoke.gd`, `fleet_workshop_smoke.gd` | scaffolding: flags and three interface suites |
 | `tests/` | the regression suite; `run_tests.gd` lists the files |
 | `tools/scenarios/` | the scenario builders and the Natural Earth and GMTED2010 extractions |
@@ -109,6 +115,9 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
   matched nothing.
 - **The event log is quiet by default in release builds.** `Debug.event()` prints only in debug
   builds and scripted runs; `print()` in gameplay code would reach a player's browser console.
+- **Never reach `DisplayServer.tts_*` unless `CrewVoice.use_os_speech()` has set `os_speech`.** On Linux without
+  speech-dispatcher each call is an engine error, which fails the tests and the interface suites.
+  Tests inject a sink Callable. Interface-only lines go through `RadioNet.advise`, not `flash`.
 - **Original assets only.** See `assets/README.md`. No Jane's assets, names or copied art.
 - **The 3D view dresses models by material name.** `WorldMaterials.TABLE` maps each glTF material name
   to a finish; a model with a material name it does not know keeps its flat authored colour in the 3D
@@ -120,10 +129,13 @@ the regional map, the 3D view and the data display. `docs/2026-09-27-cds-screen.
   in all, and pooled models keep theirs while hidden. Past that Godot prints "Too many instances using shader
   instance variables" and the values go wrong. Use shared material variants instead, as
   `WorldMaterials.set_way` and `WorldScene._lamp_material` do; a test fails if one comes back.
-- **Data that a generator writes is regenerated, not edited.** `tools/scenarios/build_northern_passage.py` owns the introductory escort. `build_cold_war.py`, then
-  `build_theatres.py`, then `operation_design.py` reproduce `data/` byte for byte; the 1990 and 2027
-  catalogues' platforms and weapons (short names and torpedo countermeasures included) live in those
-  scripts. Change the script and run the three, or the next rebuild undoes a hand edit.
+- **Data that a generator writes is regenerated, not edited.** From `tools/scenarios/`, run
+  `build_scenarios.py`, `build_northern_passage.py`, `build_cold_war.py`, `build_theatres.py`, then
+  `operation_design.py`; that reproduces `data/` byte for byte (checked in M35). The 1990 and 2027
+  catalogues' platforms and weapons (short names, torpedo countermeasures, the Perry's shared Mk 13
+  launcher and the Type 07's rocket delivery included) live in those scripts. Change the script and
+  run the sequence, or the next rebuild undoes a hand edit. M35 found three hand edits from earlier
+  pull requests that a rebuild would have reverted, and moved them into the scripts.
 - **The browser build needs the web export templates**: the `web_*.zip` files and `version.txt` from the
   official 4.7.2 `export_templates.tpz`, in `~/.local/share/godot/export_templates/4.7.2.stable/`. The
   1.3 GB download resumes with `curl -C -` if the connection drops.

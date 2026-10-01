@@ -1,0 +1,462 @@
+{
+  "milestone": "M35 Nine missions, a crew and campaigns",
+  "date": "2026-10-01",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "base_commit": "41f54f54af2fe29bec7a84c2cd762053ba731432",
+  "scope": "Fresh local validation of the final source tree in a cloud container (Xvfb, Mesa llvmpipe): the 23-to-9 mission cut, the desk index cache, campaigns, the landmass index, crew voice and ambient sound, the contact readout and the Action camera.",
+  "regression": {
+    "tests": 723,
+    "failed": 0,
+    "runner_self_check": "PASS"
+  },
+  "native_suites": [
+    {
+      "suite": "coldwar-1600",
+      "checks": 50,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "aviation-1600",
+      "checks": 19,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "workshop-1600",
+      "checks": 44,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "workshop-1280",
+      "checks": 44,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "weapons-1600",
+      "checks": 30,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "weapons-1280",
+      "checks": 30,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "passage-1280",
+      "checks": 32,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "passage-1920",
+      "checks": 32,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "watch-1280",
+      "checks": 45,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "watch-1920",
+      "checks": 45,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "intent-1280",
+      "checks": 79,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "intent-1920",
+      "checks": 79,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "intent-air-1280",
+      "checks": 20,
+      "failed": 0,
+      "exit": 0
+    }
+  ],
+  "northern_passage_policies": [
+    {
+      "run": "escort-31",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "escort-31-repeat",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "escort-13",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "abandon-31",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 1066.0
+    },
+    {
+      "run": "abandon-13",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 1066.0
+    },
+    {
+      "run": "deadline-31",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 2700.0
+    },
+    {
+      "run": "civilian-31",
+      "checks_passed": 19,
+      "result": 2,
+      "sim_time_s": 44.0
+    }
+  ],
+  "northern_passage_replay_identical": true,
+  "scenario_sweep": {
+    "runs": 18,
+    "passed": 18,
+    "workers": 2,
+    "commit": "40c5a84 (the later commit changes only the 3D view, which the headless sweep does not draw)",
+    "all_reached_6000_s": true,
+    "all_zero_aground": true,
+    "outcomes_unchanged_from_m34": 18,
+    "changed": [],
+    "runs_detail": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 221.7,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 14.3,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 11.5,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "result": 1,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 11.3,
+        "m34_result": 1,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 54.1,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 65.9,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 136.2,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 2,
+        "ok": true,
+        "result": 2,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 21.2,
+        "m34_result": 2,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 483.0,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 228.1,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 15.2,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 12.4,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "result": 1,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 10.6,
+        "m34_result": 1,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 51.0,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 70.5,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 141.4,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 13,
+        "ok": true,
+        "result": 2,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 23.6,
+        "m34_result": 2,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 506.2,
+        "m34_result": 0,
+        "outcome_unchanged": true
+      }
+    ]
+  },
+  "generators": {
+    "command": "from tools/scenarios: build_scenarios.py, build_northern_passage.py, build_cold_war.py, build_theatres.py, operation_design.py",
+    "reproduces_data_byte_for_byte": true,
+    "kept_scenarios_identical_to_m34": "all nine byte-identical except gulf_01_hormuz, which gains caused_by BLUE on neutral_sunk; northern_passage differs from its M34 file only in JSON escaping of non-ASCII labels (parsed content identical)",
+    "hand_edits_moved_into_generators": [
+      "cw90_perry launcher_groups and launcher_service_s",
+      "jmsdf_type07_vla rocket delivery and source note",
+      "jasdf_fighter_f35b fit, role and service note"
+    ]
+  },
+  "browser_package": {
+    "path": "docs/play/index.pck",
+    "bytes": 56431148,
+    "sha256": "0c710502fdf7224779af34120d97e4e46343dc3ff3199c702d4ea151aad3c60d",
+    "m34_bytes": 60941244
+  },
+  "measurements": {
+    "machine": "shared 4-CPU cloud container, native Godot 4.7.2 headless; other validation work running, so A/B pairs were run back to back",
+    "scenario_data_bytes": {
+      "m34": 7309182,
+      "m34_files": 23,
+      "m35": 2649032,
+      "m35_files": 9
+    },
+    "desk_index_ms": {
+      "m34_parse_23_files": [
+        94.3,
+        95.4,
+        97.0
+      ],
+      "m35_first_call_9_files": [
+        35.8,
+        32.9,
+        35.7
+      ],
+      "m35_later_calls": [
+        0.1,
+        0.3
+      ],
+      "uncached_later_calls_9_files": [
+        29.4,
+        55.0
+      ]
+    },
+    "terrain_clip_us_per_call": {
+      "taiwan_strait_before": 43.8,
+      "taiwan_strait_after": 11.9,
+      "north_cape_before": 21.8,
+      "north_cape_after": 11.7,
+      "hormuz_unindexed": [
+        8.6,
+        8.3
+      ],
+      "tartus_unindexed": [
+        3.1,
+        3.4
+      ]
+    },
+    "sight_line_us_per_call_taiwan_strait": {
+      "before": 61.2,
+      "after": 20.8
+    },
+    "taiwan_strait_sensor_s_per_600_sim_s_at_1800_2400": {
+      "without_index": [
+        44.7,
+        42.3
+      ],
+      "with_index": [
+        36.6,
+        35.1
+      ]
+    },
+    "taiwan_strait_tick_ms_at_1800_2400": {
+      "without_index": [
+        26.2,
+        24.8
+      ],
+      "with_index": [
+        22.8,
+        21.7
+      ]
+    }
+  },
+  "browser_boot": {
+    "browser": "headless Chromium (Playwright), SwiftShader WebGL, served from localhost with COOP/COEP",
+    "ms_to_engine_started": {
+      "m34": [
+        8801,
+        8978
+      ],
+      "m35": [
+        9015,
+        9407
+      ]
+    },
+    "page_errors": 0,
+    "script_errors": 0,
+    "first_screen": "operations desk, 7 operations (2027 then 1990), Campaigns shelf present",
+    "note": "The paired M34/M35 runs were back to back under load; localhost hides the smaller download, and boot time is unchanged within noise. The final package was booted once more after the camera fixes, under lighter load.",
+    "final_package_ms_to_engine_started": 7211
+  },
+  "github_ci": {
+    "commit": "fd3c48cab3decd12c7ec2ce01a5c26dd6f1808c9",
+    "check": "Godot regression and interface checks",
+    "conclusion": "success",
+    "url": "https://github.com/jjnell95/naval-fleet-command/actions/runs/36887282488/job/110453712091"
+  },
+  "review": "Main diff: four read-only reviewers (cut and data; desk, campaigns and cache; voice merge; readout and terrain index), each with an adversarial verifier. 18 findings; 15 confirmed (13 distinct), all fixed; 3 rejected (voice doc wording, reworded anyway; kill estimate on stale tracks, consistent with the existing radio rule; terrain test on unindexed charts, tightened anyway). Camera diff: one reviewer and one verifier; 3 findings, all confirmed and fixed, two with regression tests shown to fail without the fix.",
+  "limits": [
+    "Speech and the ambient bed were never heard: no speech-dispatcher in the container, and suites use a recording sink and the dummy audio driver.",
+    "The sensor cycle still grows with radiating aircraft; at 30x and 60x the clock cannot keep up late in the Taiwan Strait.",
+    "Timings come from a shared 4-CPU container under load; A/B comparisons were run back to back.",
+    "Campaign gate (60%), effectiveness weights and platform points are gameplay estimates.",
+    "No human playtest is recorded."
+  ]
+}

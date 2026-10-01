@@ -10,8 +10,8 @@ extends Node
 ## dictionary goes back to Main through `action_chosen`, which is where orders are actually issued.
 ##
 ## Item: {text, action?, children?, disabled?, tooltip?, checked? (-1 none, 0 off, 1 on), separator?}
-## Action kinds: order, unit_orders, formation, engage, close_in, palette, hook, waypoint_delete,
-## layer, symbols, board, inspect.
+## Action kinds: order, unit_orders, formation, engage, attack, investigate, palette, hook,
+## waypoint_delete, layer, symbols, board, inspect.
 
 signal action_chosen(action: Dictionary)
 ## The menu went away, chosen from or dismissed.
@@ -74,7 +74,7 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 	if target != null and controllable:
 		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
 		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit track %s." % DataDisplay.track_number_for_track(target)))
-		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact. Weapons already away continue."))
+		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))
 	if movable:
 		var speeds: Array = [item("Stop", order_action(Order.stop()))]
 		for kn in SPEEDS_KN:
@@ -278,16 +278,62 @@ static func quick_engage_item(units: Array, target: Track, weapon_manager: Weapo
 	return item("Cannot engage: " + reason, {}, true, reason)
 
 
+## The standing attack, the classic display's one-click engagement: the hooked platforms close
+## to range, choose the weapon and keep firing. Greyed with the reason when none of them can.
+static func attack_item(units: Array, target: Track) -> Dictionary:
+	var number := DataDisplay.track_number_for_track(target)
+	var reason := ""
+	var able := 0
+	for u: Unit in units:
+		var rejection := UnitManager.attack_rejection(u, target)
+		if rejection == "":
+			able += 1
+		elif reason == "":
+			reason = rejection
+	if able == 0:
+		return item("Attack track %s" % number, {}, true, reason if reason != "" else "Select a platform to attack with")
+	var who := "" if units.size() == 1 else " with %d of %d platforms" % [able, units.size()]
+	return item("Attack track %s%s" % [number, who], {"kind": "attack", "track": target}, false,
+		"Close to weapon range, fire the best weapon aboard and keep firing until the contact is destroyed or lost. A bare right-click on a hostile does the same.")
+
+
+## Attack with a chosen weapon: the same standing task, holding that weapon's envelope.
+static func attack_with_items(units: Array, target: Track) -> Array:
+	var items: Array = []
+	var seen := {}
+	for u: Unit in units:
+		for spec: WeaponSpec in u.weapons_for_track(target):
+			if seen.has(spec.id):
+				continue
+			seen[spec.id] = true
+			var able := 0
+			var reason := ""
+			for v: Unit in units:
+				if v.get_weapon(spec.id) == null:
+					continue
+				var rejection := UnitManager.attack_rejection(v, target, spec.id)
+				if rejection == "":
+					able += 1
+				elif reason == "":
+					reason = rejection
+			items.append(item(spec.display_name, {"kind": "attack", "track": target, "weapon": spec.id}, able == 0, reason if able == 0 else "Close inside %s range and keep firing it until the contact is destroyed or lost." % spec.compact_name()))
+	return items
+
+
 ## Right-click on a contact.
 static func engage_items(units: Array, target: Track, controllable: bool, weapon_manager: WeaponManager = null) -> Array:
 	var items: Array = []
 	var number := DataDisplay.track_number_for_track(target)
 	items.append({"text": "Track %s  %s" % [number, target.description().capitalize()], "disabled": true})
 	if controllable and not units.is_empty():
+		items.append(attack_item(units, target))
+		var with_weapons := attack_with_items(units, target)
+		if not with_weapons.is_empty():
+			items.append(submenu("Attack with", with_weapons, false, "The standing attack, holding a chosen weapon's envelope."))
 		items.append(quick_engage_item(units, target, weapon_manager))
 		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
 		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit this contact."))
-		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact. Weapons already away continue."))
+		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))
 		if target.classification < Track.Classification.CLASS_KNOWN:
 			var can_investigate := false
 			var reason := ""
@@ -338,10 +384,16 @@ static func cds_items(state: Dictionary) -> Array:
 		item("Radar coverage  [Ctrl+W]", {"kind": "palette", "id": "radar_coverage"}, false, "", _on(state, "radar_coverage")),
 		item("Symbol key  [F2]", {"kind": "layer", "name": "key"}, false, "", _on(state, "key")),
 	]
+	var sound: Array = [
+		item("Sound  [Ctrl+M]", {"kind": "palette", "id": "sound"}, false, "", _on(state, "sound")),
+		item("Crew voice", {"kind": "palette", "id": "voice"}, false, "", _on(state, "voice")),
+		item("Ambient sea and machinery", {"kind": "palette", "id": "ambient"}, false, "", _on(state, "ambient")),
+	]
 	return [
 		submenu("Symbols", symbols),
 		submenu("Symbol controls", controls),
 		submenu("Map", overlays),
+		submenu("Sound", sound),
 		item("Range circle  [B]", {"kind": "palette", "id": "range_circle"}),
 		sep(),
 		item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}),

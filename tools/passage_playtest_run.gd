@@ -37,6 +37,10 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute("res://work/m31")
 	clock = tree.root.get_node("SimClock")
 	policy = _option("--policy=", "escort")
+	# A validation run keeps its own commander's log, never the developer's.
+	var out_arg := _option("--out=", "")
+	CommanderLog.path_override = (out_arg.get_basename() + "-commander_log.json") if out_arg != "" else "res://work/m31/%s-%s-%d-commander_log.json" % [policy, _option("--seed=", "31"), DisplayServer.window_get_size().x]
+	CommanderLog.clear()
 	capture = OS.get_cmdline_user_args().has("--capture")
 	errors = load("res://tests/test_error_log.gd").new()
 	OS.add_logger(errors)
@@ -125,6 +129,11 @@ func _run() -> void:
 	if policy == "deadline":
 		checks["stationary convoy ends through deadline expiry"] = main.simulation.mission_manager.loss_objectives[1].complete and cargo.alive
 	checks["debrief is visible and pauses the clock"] = main._report.visible and clock.paused
+	var graded: Dictionary = CommanderLog.best("northern_passage")
+	var won := main.simulation.mission_manager.result == MissionManager.Result.VICTORY
+	checks["debrief leads with a graded effectiveness"] = main._report._body.text.contains("MISSION EFFECTIVENESS") and main._report._tiles["effectiveness"]["value"].text.ends_with("%")
+	checks["the commander's log records the commanded result"] = graded.get("result", "") == ("VICTORY" if won else "DEFEAT") and int(graded.get("attempts", 0)) == 1
+	checks["a victory grades 60 to 100 and a defeat 0 to 40"] = (int(graded.get("best_percent", -1)) >= 60) if won else (int(graded.get("best_percent", 101)) <= 40)
 	checks["debrief includes civilians and observed timeline"] = main._report._body.text.contains("CIVILIAN INCIDENTS") and main._report._body.text.contains("OBSERVED EVENT TIMELINE")
 	if policy == "escort":
 		checks["investigation precedes incoming fire"] = facts.first_red_shot_s > 120

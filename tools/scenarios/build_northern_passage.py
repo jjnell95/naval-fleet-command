@@ -38,7 +38,7 @@ def build():
            "Bring Northern Light into the exit box before 08:45Z. Keep neutral traffic alive; enemy destruction is optional.",
            ["Northern Light is already following an eight-mile dogleg at 15 knots. The escorts are following her; keep that screen together.",
             "While paused, press Air / F3, select Truxtun and the Seahawk, then Launch. Once airborne, choose Patrol and click two corners near the convoy to repeat a search circuit. Recover early when threats close; right-click water gives a transit order instead.",
-            "Click a contact to inspect it without losing your selected ship. Right-click an unknown and choose Investigate; use the Seahawk so the escorts stay with the convoy. Right-click a classified hostile for a ready weapon and stated salvo. Weapons opens the full firing board. Automatic defence is on."],
+            "Click a contact to inspect it without losing your selected ship. Right-click an unknown to investigate it; use the Seahawk so the escorts stay with the convoy. Right-click a classified hostile to attack it: the ship closes to range, chooses the weapon and keeps firing until the contact is destroyed. Shift+right-click a contact for a stated salvo or the full firing board. Automatic defence is on."],
            setting_note="Original fictional 2027 operation, not a reconstruction of a real conflict or a 1999 order of battle.")
     s.d["force_note"] = ("Represented families: Arleigh Burke Flight IIA, Fridtjof Nansen, Project 22350, Project 20380, "
                          "and MH-60R. The single US helicopter detachment, readiness, magazines, sensor performance, "

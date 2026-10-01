@@ -1,4 +1,24 @@
-# Current State: M33 Command Intent
+# Current State: M35 Nine Missions, a Crew and Campaigns
+
+Nine missions ship, down from 23: one 2027 operation in each chart region (North Cape, Taiwan Strait, Hormuz, Tartus), three 1990 operations and two training missions. The cut was made in the generators, which now reproduce `data/` byte for byte after three earlier hand edits were moved into them. Hormuz's neutral-loss condition now counts only the player's fire. The [M35 note](docs/2026-10-01-m35-nine-missions-a-crew-and-campaigns.md) gives the reasoning, the measurements and what was not verified.
+
+The desk adds a **Campaigns** shelf: Northern Flank, September 1990 and Four Crises, 2027, each opened one operation at a time by a win at 60% or better in the commander's log. The crew speaks through the system's text-to-speech, interface advice has its own dimmer line, and an ambient sea and machinery bed plays. A contact's data display reads SOURCE (platform and set), %DAMAGE (estimated from your own hits) and plain COURSE and SPEED, a hovered contact reads out with nothing hooked, and F7 opens a classified contact's class. The Action camera follows an own strike round to its impact anywhere on the plot and cuts to any event the plot witnessed; the tether names an out-of-frame event without leaving the hooked ship.
+
+Desk refreshes after the first cost about 0.1 ms instead of 30–55 ms, the shipped scenario data fell from 7.3 MB to 2.6 MB, and a landmass index cuts the Taiwan Strait's sight-line test from 61 to 21 µs. The sensor cycle's growth with radiating aircraft is the main remaining performance gap.
+
+Validation is recorded in [validation-m35.json](docs/validation-m35.json).
+
+# Previous: M34 The Command Loop
+
+Research into the 1999 original's manual and reviews found that the project had rebuilt Fleet Command's screen but not its command loop; the [research note](docs/2026-10-01-fleet-command-command-loop.md) gives the sources, the diagnosis and the ranked remaining gaps.
+
+A right-click on a hostile contact now orders a standing **Attack**: the hooked platforms close to their best weapon's range (INTERCEPT TRACK on the orders line), fire, let the salvo land and read the plot, and keep firing until the contact is destroyed or lost, the magazines are empty or weapons are put on hold, moving on to the next weapon when one runs out. A right-click on an unidentified contact investigates it, the cursor says which, and Shift+right-click opens the contact menu, which now leads with **Attack track N** and **Attack with**. The task reads only the held plot and never fires at a stale one.
+
+The operations desk opens on the 14 authored operations again, with **Training** and **My Missions** beside them. Every mission ends with a graded mission effectiveness (task 60 on a win only, force 20, attrition 20, less 25 per neutral the player sinks and a pro-rata share for one damaged; before that penalty a victory grades 60–100% and a defeat 0–40%), and a commander's log keeps each operation's best result and date, shown on the desk.
+
+Validation is recorded in [validation-m34.json](docs/validation-m34.json).
+
+# Previous: M33 Command Intent
 
 Contact inspection now drives data and 3D without discarding selected shooters. A direct contact-menu shot states its finite salvo and checks current ROE, range, guidance and ammunition. Persistent Investigate orders follow only held track positions and end on classification or unavailable/blocked contact, with attributed radio reports. Normal navigation and accepted aircraft recovery supersede them; fixed-wing aircraft retain forward flight.
 

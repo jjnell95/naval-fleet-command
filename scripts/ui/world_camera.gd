@@ -5,6 +5,12 @@ extends RefCounted
 ## rule is testable headless; WorldView feeds it the subject's frame each frame and applies the
 ## shot it returns to the Camera3D.
 ##
+## Action pursues a strike round of ours for its whole flight and then holds on how it ended,
+## giving way only to a hit on or the loss of one of ours. Other launches are followed for
+## ACTION_FOLLOW_S, fixed events held for ACTION_HOLD_S. The view moves its floating origin to
+## whatever Action shows (`advance` first, then the origin, then `frame_shot`), so an event any
+## distance off is drawn with its own sea and land around it.
+##
 ## Frames are world dictionaries as WorldScene.focus_frame returns them: {position: Vector3 in
 ## metres about the floating origin, length, heading, domain, speed_mps}. Places that must hold
 ## still while that origin slides under them (a fly-by station, a detached eye, an impact being
@@ -42,8 +48,23 @@ const ACTION_HOLD_S := 6.0
 const ACTION_FOLLOW_S := 8.0
 const ACTION_QUEUE := 4
 const ACTION_STALE_S := 3.0
-## Which events Action cuts to, and which may cut away from a running one.
-const EVENT_PRIORITY := {"destroyed": 4, "hit": 3, "intercept": 2, "launch": 1, "air_launch": 1, "recovery": 1}
+## A strike round of ours is pursued for its whole flight (a safety cap, in seconds of the
+## camera's own clock, stands in for "for ever"), then the camera holds on where it ended.
+const ACTION_PURSUE_MAX_S := 1800.0
+const ACTION_IMPACT_HOLD_S := 4.5
+## The hit, kill or miss that ended a pursued round: reported this recently, this close to where
+## the round was last drawn (it is drawn where the plot holds the target, which may be off).
+const ACTION_RESOLVE_S := 2.0
+const ACTION_RESOLVE_NM := 3.0
+## Which events Action cuts to, and which may cut away from a running one. An inbound round the
+## plot holds is the least of them; a hit on or the loss of one of ours (OWN_LOSS_BONUS) the most.
+const EVENT_PRIORITY := {"destroyed": 4, "hit": 3, "intercept": 2, "launch": 1, "air_launch": 1, "recovery": 1, "inbound": 0}
+const OWN_LOSS_BONUS := 3
+## Only an event at least this urgent (a hit on one of ours, or its loss) takes the camera off a
+## pursued round or the impact it is holding on.
+const PURSUIT_PREEMPT := 6
+## Events that end a round's run: remembered so a pursuit can hold on what it came to.
+const RESOLUTIONS: Array[String] = ["hit", "destroyed", "intercept", "miss"]
 const MIN_SHOT_S := 2.5
 
 var mode := TETHER
@@ -70,6 +91,11 @@ var _last_eye_valid := false
 var _queue: Array[Dictionary] = []
 var _action: Dictionary = {}
 var _clock := 0.0
+## Counts every change of what Action shows (a new shot, a round's run ending, back to the
+## tether), so the view knows when to move its origin and redo its caption without comparing.
+var _serial := 0
+## The latest hit, kill, intercept or miss, for a pursuit to hold on: {kind, at, time, label, own}.
+var _resolution: Dictionary = {}
 
 
 # --- Modes -------------------------------------------------------------------------------
@@ -78,13 +104,17 @@ func set_mode(next: int) -> void:
 	next = clampi(next, TETHER, DETACHED)
 	if next == mode:
 		return
+	# An Action shot can be anywhere on the plot; Detached must not freeze the eye out there.
+	var from_action := mode == ACTION and not _action.is_empty()
 	mode = next
 	_station_valid = false
 	_action = {}
 	_queue.clear()
+	_resolution = {}
+	_serial += 1
 	if mode == DETACHED:
 		_detached = _last_eye
-		_detached_valid = _last_eye_valid
+		_detached_valid = _last_eye_valid and not from_action
 	_cut = true
 
 
@@ -121,6 +151,8 @@ func zoom_by(factor: float) -> void:
 func reset() -> void:
 	_queue.clear()
 	_action = {}
+	_resolution = {}
+	_serial += 1
 	_station_valid = false
 	_detached_valid = false
 	_last_eye_valid = false
@@ -137,18 +169,35 @@ func reset_orbit() -> void:
 # --- Action events -----------------------------------------------------------------------
 
 ## Something Action may cut to. The caller has already decided the player may see it: a launch of
-## ours, a hit on something held, an aircraft of ours leaving or reaching a deck. `key` names an
-## entity to follow (a round, an aircraft), or "" for a fixed point.
-func notify(kind: String, at: Vector3, key := "") -> void:
-	if not EVENT_PRIORITY.has(kind):
-		return
+## ours, a hit on something held, an aircraft of ours leaving or reaching a deck, a round the plot
+## holds. `key` names an entity to follow (a round, an aircraft), or "" for a fixed point. `extra`
+## may carry `own` (it happened to one of ours), `pursue` (a strike round of ours, followed until
+## it ends) and `label` (what the caption may call it). A miss is never cut to, but like a hit it
+## may be how a pursued round's run ended.
+func notify(kind: String, at: Vector3, key := "", extra := {}) -> void:
 	if mode != ACTION:
 		return
-	var e := {"kind": kind, "at": at, "key": key, "time": _clock, "priority": int(EVENT_PRIORITY[kind])}
+	var own := bool(extra.get("own", false))
+	if RESOLUTIONS.has(kind):
+		_resolution = {"kind": kind, "at": at, "time": _clock, "label": String(extra.get("label", "")), "own": own, "radius": float(extra.get("radius", 0.0))}
+	if not EVENT_PRIORITY.has(kind):
+		return
+	var e := {"kind": kind, "at": at, "key": key, "time": _clock, "priority": event_priority(kind, own), "pursue": bool(extra.get("pursue", false)) and key != "", "label": String(extra.get("label", "")), "own": own}
 	_queue.append(e)
 	_queue.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["priority"]) > int(b["priority"]) or (int(a["priority"]) == int(b["priority"]) and float(a["time"]) > float(b["time"])))
 	if _queue.size() > ACTION_QUEUE:
 		_queue.resize(ACTION_QUEUE)
+
+
+## How urgent an event is: its kind's priority, raised when it is a hit on or the loss of one of
+## ours. -1 for something Action never cuts to.
+static func event_priority(kind: String, own := false) -> int:
+	if not EVENT_PRIORITY.has(kind):
+		return -1
+	var priority := int(EVENT_PRIORITY[kind])
+	if own and (kind == "hit" or kind == "destroyed"):
+		priority += OWN_LOSS_BONUS
+	return priority
 
 
 ## What Action is showing now: {} between events, else the event dictionary.
@@ -156,14 +205,31 @@ func action() -> Dictionary:
 	return _action
 
 
+## Changes whenever what Action shows changes; see `_serial`.
+func action_serial() -> int:
+	return _serial
+
+
+## The entity Action is following ("" when it watches a fixed point, or shows nothing).
+func action_subject_key() -> String:
+	if mode != ACTION or _action.is_empty() or not bool(_action["follow"]):
+		return ""
+	return String(_action["key"])
+
+
 func _start(e: Dictionary) -> void:
 	var shot := e.duplicate()
 	shot["since"] = _clock
-	var follow: bool = e["key"] != "" and e["kind"] in ["launch", "air_launch"]
+	var follow: bool = e["key"] != "" and e["kind"] in ["launch", "air_launch", "inbound"]
+	var pursue: bool = follow and bool(e.get("pursue", false))
 	shot["follow"] = follow
-	shot["until"] = _clock + (ACTION_FOLLOW_S if follow else ACTION_HOLD_S)
+	shot["pursue"] = pursue
+	# A pursuit, and the impact it ends in, give way only to a hit on or the loss of one of ours.
+	shot["guarded"] = pursue
+	shot["until"] = _clock + (ACTION_PURSUE_MAX_S if pursue else (ACTION_FOLLOW_S if follow else ACTION_HOLD_S))
 	shot["eye_valid"] = false
 	_action = shot
+	_serial += 1
 	_cut = true
 
 
@@ -175,6 +241,7 @@ func _next_action() -> void:
 			return
 	if not _action.is_empty():
 		_action = {}
+		_serial += 1
 		_cut = true
 
 
@@ -184,12 +251,31 @@ func _next_action() -> void:
 ## `lookup` returns the world frame for an entity key, {} when it has gone. Returns
 ## {eye: Vector3, look: Vector3, fov: float, cut: bool} in world metres, or {} for no shot.
 func update(delta: float, origin_nm: Vector2, subject: Dictionary, lookup: Callable) -> Dictionary:
+	advance(delta)
+	return frame_shot(delta, origin_nm, subject, lookup)
+
+
+## The first half of `update`: the clock, and which event Action shows. The view calls it on its
+## own before it places its floating origin, which goes wherever the shot is.
+func advance(delta: float) -> void:
 	_clock += delta
-	if mode == ACTION:
-		if _action.is_empty() or _clock >= float(_action["until"]):
-			_next_action()
-		elif not _queue.is_empty() and int(_queue[0]["priority"]) > int(_action["priority"]) and _clock - float(_action["since"]) >= MIN_SHOT_S:
-			_next_action()
+	if mode != ACTION:
+		return
+	if _action.is_empty() or _clock >= float(_action["until"]):
+		_next_action()
+	elif not _queue.is_empty() and _preempts(_queue[0]) and _clock - float(_action["since"]) >= MIN_SHOT_S:
+		_next_action()
+
+
+func _preempts(e: Dictionary) -> bool:
+	var p := int(e["priority"])
+	if p <= int(_action["priority"]):
+		return false
+	return not bool(_action.get("guarded", false)) or p >= PURSUIT_PREEMPT
+
+
+## The second half of `update`: the shot, about the origin the view chose after `advance`.
+func frame_shot(delta: float, origin_nm: Vector2, subject: Dictionary, lookup: Callable) -> Dictionary:
 	var shot := {}
 	if mode == ACTION and not _action.is_empty():
 		shot = _action_shot(delta, origin_nm, lookup)
@@ -269,9 +355,13 @@ func _action_shot(delta: float, origin_nm: Vector2, lookup: Callable) -> Diction
 			else:
 				a["az"] = wrapf(float(a["az"]) + Geo.heading_delta(float(a["az"]), az) * (1.0 - exp(-4.0 * delta)), 0.0, 360.0)
 			return {"eye": target + orbit_offset(float(a["az"]), 9.0, dist), "look": target, "fov": FOV_DEG}
-		# The round has gone: stay on where it was for a moment, then move on.
 		a["follow"] = false
-		a["until"] = minf(float(a["until"]), _clock + 2.0)
+		_serial += 1
+		if a["pursue"]:
+			_resolve(a)
+		else:
+			# The round has gone: stay on where it was for a moment, then move on.
+			a["until"] = minf(float(a["until"]), _clock + 2.0)
 	var at: Vector3 = a["at"]
 	var look := to_world(at, origin_nm) + Vector3(0.0, 8.0, 0.0)
 	if not a["eye_valid"]:
@@ -367,6 +457,30 @@ static func watch_station(at: Vector3, from: Vector3, kind: String) -> Vector3:
 	var dir := rel.normalized() if rel.length_squared() > 1e-12 else Vector2(0.0, -1.0)
 	var p := Vector2(at.x, at.y) + dir * dist / WorldPresentation.NM_TO_M
 	return Vector3(p.x, p.y, maxf(at.z, 0.0) + dist * 0.2)
+
+
+## A pursued round has gone. If a hit, kill, intercept or miss was reported just now close to
+## where it was last drawn, that is how its run ended: hold on that, where the player saw it, and
+## let the hold stand in for the queued cut to the same event. Otherwise hold where the round was.
+func _resolve(a: Dictionary) -> void:
+	a["kind"] = "lost"
+	var r := _resolution
+	if not r.is_empty() and _clock - float(r["time"]) <= ACTION_RESOLVE_S:
+		var at: Vector3 = a["at"]
+		var rat: Vector3 = r["at"]
+		# An event drawn at a held plot is as far off as that plot is uncertain.
+		if Vector2(at.x, at.y).distance_to(Vector2(rat.x, rat.y)) <= maxf(ACTION_RESOLVE_NM, float(r.get("radius", 0.0))):
+			a["kind"] = r["kind"]
+			a["at"] = rat
+			a["label"] = r["label"]
+			a["own"] = r["own"]
+			for i in range(_queue.size() - 1, -1, -1):
+				if _queue[i]["at"] == rat:
+					_queue.remove_at(i)
+	_resolution = {}
+	# A lost round's hold gives way to a witnessed event, so a hit reported a moment later shows.
+	a["guarded"] = a["kind"] != "lost"
+	a["until"] = _clock + ACTION_IMPACT_HOLD_S
 
 
 static func to_chart(world: Vector3, origin_nm: Vector2) -> Vector3:

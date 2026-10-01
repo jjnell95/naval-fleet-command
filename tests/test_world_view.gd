@@ -795,6 +795,37 @@ func test_land_follows_the_chart_coast_and_heights() -> void:
 	Bathymetry.clear()
 
 
+## The Action camera can take the view 100 nm in one frame. The coast masks are redrawn for the
+## new place before the grid moves there, so in between the grid is hidden rather than drawn with
+## a coast that belongs somewhere else; sliding a few miles keeps it.
+func test_land_hides_rather_than_misplaces_its_coast_while_the_view_jumps() -> void:
+	var sc := {"map": {"anchor_lat": 68.8, "anchor_lon": 13.5, "chart_region": "north_atlantic"}, "terrain": {"land": [
+		{"id": "near", "points_nm": [[0, 0], [4, 0], [4, 4], [0, 4]], "elevation_m": 200},
+		{"id": "far", "points_nm": [[100, 100], [104, 100], [104, 104], [100, 104]], "elevation_m": 200},
+	]}}
+	Bathymetry.load_for(sc)
+	Terrain.load_from(sc)
+	var land := WorldLand.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(land)
+	land.build()
+	land.update(Vector2(2, 2))
+	assert_true(land._mesh.visible)
+	land.update(Vector2(7, 2))
+	assert_true(land._mesh.visible, "a slide of a few miles keeps the land in view while it recentres")
+	land.update(Vector2(7, 2))
+	land.update(Vector2(102, 102))
+	assert_true(not land._mesh.visible, "a jump hides the old grid while the new coast is drawn")
+	land.update(Vector2(102, 102))
+	assert_true(land._mesh.visible, "and shows the land again once the grid is there")
+	assert_eq(land._centre, Vector2(102, 102))
+	assert_near(land._mesh.position.length(), 0.0, 0.01, "centred on the new origin")
+	root.remove_child(land)
+	land.free()
+	Terrain.clear()
+	Bathymetry.clear()
+
+
 func test_smoke_trails_linger_after_the_round_and_then_go() -> void:
 	var fx := WorldEffects.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
@@ -1237,7 +1268,7 @@ func test_hooking_a_contact_beside_the_ship_leaves_a_detached_eye_where_it_is() 
 	_free_view(f)
 
 
-func test_action_cuts_only_to_events_the_view_can_draw_around() -> void:
+func test_action_cuts_to_witnessed_events_anywhere_on_the_plot() -> void:
 	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
 	var far := _unit("cw90_perry", "BLUE", Vector2(60, 0))
 	var near := _unit("cw90_perry", "BLUE", Vector2(8, 0))
@@ -1248,9 +1279,208 @@ func test_action_cuts_only_to_events_the_view_can_draw_around() -> void:
 	view.set_camera_mode(WorldView.CAM_ACTION)
 	view._process(0.016)
 	view.add_effect(far.position, "hit", true)
-	assert_true(view.rig._queue.is_empty(), "a hit 60 nm off, beyond everything the view holds, is not cut to")
+	assert_eq(view.rig._queue.size(), 1, "a hit on one of ours 60 nm off is cut to: the view goes there")
+	assert_eq(int(view.rig._queue[0]["priority"]), WorldCamera.EVENT_PRIORITY["hit"] + WorldCamera.OWN_LOSS_BONUS, "as a hit on one of ours")
 	view.add_effect(near.position, "hit", true)
-	assert_eq(view.rig._queue.size(), 1, "one 8 nm off is")
+	assert_eq(view.rig._queue.size(), 2, "and so is one 8 nm off")
+	view._process(0.016)
+	assert_eq(view._origin_nm, far.position, "the origin moves to the event Action shows")
+	assert_true(view._scene.has_record("u:%d" % far.id), "and what it happened to is drawn there")
+	assert_true(view._scene.camera.global_position.length() < 3000.0, "with the eye beside it, not 60 nm from the origin")
+	_free_view(f)
+
+
+## The Action camera's subject is our round for its whole flight, however far it goes; the view's
+## origin goes with it, and the impact holds the camera for a few seconds after.
+func test_action_pursues_our_round_to_a_target_90_nm_off_and_then_holds_on_the_impact() -> void:
+	var saved_paused := SimClock.paused
+	SimClock.paused = true
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var red := _unit("cw90_slava", "RED", Vector2(90, 0))
+	var f := _live_view([ship, red])
+	var sim: Simulation = f["sim"]
+	sim.weapon_manager = WeaponManager.new()
+	var view: WorldView = f["view"]
+	(f["map"] as TacticalMap).selected = [ship] as Array[Unit]
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view._process(0.016)
+	var held := _hold(f["tm"], "T1003", red, Vector2(90.2, 0.1), Track.Classification.SURFACE)
+	sim.weapon_manager._fire_round(ship, DataDB.weapon("cw90_harpoon"), held)
+	var w: Weapon = sim.weapon_manager.in_flight[-1]
+	view._process(0.016)
+	view._process(0.016)
+	assert_eq(view.rig.action_subject_key(), "w:%d" % w.id, "the launch of our round is cut to and followed")
+	assert_true(view.rig.action()["pursue"], "as a pursuit")
+	w.position = Vector2(60, 0)
+	sim.weapon_manager.revision += 1
+	for i in int(WorldCamera.ACTION_FOLLOW_S / 0.25) + 8:
+		view._process(0.25)
+	assert_eq(view.rig.action_subject_key(), "w:%d" % w.id, "well past the old follow time and 60 nm out it is still the subject")
+	assert_eq(view._origin_nm, w.position, "the floating origin has gone with it")
+	assert_true(view._scene.has_record("w:%d" % w.id), "it is drawn")
+	assert_true(view._scene.has_record("t:T1003"), "and so is the contact it is flying at, as the plot holds it")
+	var eye: Vector3 = view._scene.camera.global_position
+	assert_true(eye.length() < 1000.0, "the eye is close behind the round, near the origin, where the sea is drawn")
+	var sea: Vector3 = view._scene._ocean.position
+	assert_near(Vector2(sea.x, sea.z).distance_to(Vector2(eye.x, eye.z)), 0.0, 0.01, "the ocean is under the eye")
+	assert_true(view._scene.has_record("u:%d" % ship.id), "the hooked ship is kept, so the tether finds it again")
+	# The round arrives: it is gone from the air, and the hit is reported where the plot has it.
+	w.position = Vector2(90.15, 0.0)
+	sim.weapon_manager.revision += 1
+	view._process(0.016)
+	w.phase = Weapon.Phase.DEAD
+	sim.weapon_manager.in_flight.erase(w)
+	sim.weapon_manager.revision += 1
+	view.add_effect(red.position, "hit", false, -1.0, red)
+	view._process(0.016)
+	var a := view.rig.action()
+	assert_eq(a.get("kind", ""), "hit", "the run ends in the hit")
+	assert_true(not a["follow"], "the camera holds on it")
+	assert_true(view.rig._queue.is_empty(), "and the hold stands in for a separate cut to the same hit")
+	view._process(0.016)
+	assert_eq(view._origin_nm, held.position, "the origin is at the impact as the plot holds it")
+	assert_eq(view._subject_label.text, "Weapon impact · Track 1003")
+	for i in int((WorldCamera.ACTION_IMPACT_HOLD_S - 1.0) / 0.25):
+		view._process(0.25)
+	assert_eq(view.rig.action().get("kind", ""), "hit", "the impact holds for a few seconds")
+	for i in 8:
+		view._process(0.25)
+	assert_true(view.rig.action().is_empty(), "and then it is over")
+	assert_eq(view._origin_nm, ship.position, "the camera is back on the hooked ship")
+	assert_eq(view._subject_label.text, ship.callsign)
+	sim.weapon_manager.free()
+	_free_view(f)
+	SimClock.paused = saved_paused
+
+
+func test_a_pursuit_gives_way_only_to_a_hit_on_one_of_ours() -> void:
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.ACTION)
+	var ship := _frame(Vector3.ZERO, 0.0)
+	var round := {"position": Vector3(0, 30, -2000), "length": 6.0, "heading": 0.0, "domain": "weapon"}
+	var lookup := func(key: String) -> Dictionary: return round if key == "w:7" else {}
+	cam.notify("launch", Vector3(0, 0, 10), "w:7", {"pursue": true})
+	cam.update(0.016, Vector2.ZERO, ship, lookup)
+	assert_eq(cam.action_subject_key(), "w:7")
+	cam.notify("destroyed", Vector3(5, 5, 9))
+	cam.update(WorldCamera.MIN_SHOT_S + 0.1, Vector2.ZERO, ship, lookup)
+	assert_eq(cam.action_subject_key(), "w:7", "someone else's loss does not take the camera off our round")
+	for i in int(WorldCamera.ACTION_FOLLOW_S / 0.25) + 4:
+		cam.update(0.25, Vector2.ZERO, ship, lookup)
+	assert_eq(cam.action_subject_key(), "w:7", "nor does the clock")
+	cam.notify("hit", Vector3(0.1, 0.1, 9), "", {"own": true, "label": "USS Example"})
+	cam.update(0.1, Vector2.ZERO, ship, lookup)
+	assert_eq(cam.action().get("kind", ""), "hit", "a hit on one of ours does")
+	assert_true(cam.action()["own"])
+	cam.set_mode(WorldCamera.TETHER)
+	cam.set_mode(WorldCamera.ACTION)
+	cam.notify("launch", Vector3(0, 0, 10), "w:8", {"pursue": true})
+	cam.update(0.016, Vector2.ZERO, ship, func(_k: String) -> Dictionary: return {})
+	assert_eq(cam.action().get("kind", ""), "lost", "a round that vanishes with nothing reported is held on as lost")
+	assert_near(float(cam.action()["until"]) - cam._clock, WorldCamera.ACTION_IMPACT_HOLD_S, 0.01)
+
+
+## Seen from an aircraft of ours, a hit far beyond the hooked ship's horizon may be watched.
+func test_action_cuts_to_a_hit_120_nm_off_that_an_aircraft_of_ours_witnesses() -> void:
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var jet := _unit("cw90_f14a", "BLUE", Vector2(118, 0))
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	jet.altitude_m = 6000.0
+	var red := _unit("cw90_slava", "RED", Vector2(120, 0))
+	var f := _live_view([ship, jet, red])
+	var view: WorldView = f["view"]
+	(f["map"] as TacticalMap).selected = [ship] as Array[Unit]
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view._process(0.016)
+	view.add_effect(red.position, "hit", false, -1.0, red)
+	assert_eq(view.rig._queue.size(), 1, "the aircraft's lookout sees it")
+	view._process(0.016)
+	assert_eq(view.rig.action().get("kind", ""), "hit", "it is cut to")
+	assert_eq(view._origin_nm, red.position, "the view goes 120 nm to it")
+	assert_true(view._scene.has_record("u:%d" % red.id), "the ship hit is drawn as the aircraft sees it")
+	assert_true(view._scene.has_record("u:%d" % jet.id), "and so is the aircraft")
+	assert_true(view._scene.camera.global_position.length() < 3000.0, "the eye is at the event, not 120 nm off")
+	assert_eq(view._subject_label.text, "Weapon impact")
+	_free_view(f)
+
+
+func test_an_undetected_enemy_round_never_becomes_an_action_event() -> void:
+	var saved_paused := SimClock.paused
+	SimClock.paused = true
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var f := _live_view([ship])
+	var sim: Simulation = f["sim"]
+	sim.weapon_manager = WeaponManager.new()
+	sim.threat_manager = ThreatManager.new()
+	var view: WorldView = f["view"]
+	(f["map"] as TacticalMap).selected = [ship] as Array[Unit]
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view._process(0.016)
+	var w := Weapon.new()
+	w.id = 42
+	w.spec = DataDB.weapon("cw90_kh22")
+	w.faction = "RED"
+	w.position = Vector2(20, 0)
+	w.heading_deg = 270.0
+	w.time_alive_s = 0.5
+	sim.weapon_manager.in_flight.append(w)
+	sim.weapon_manager.revision += 1
+	for i in 12:
+		view._process(0.25)
+	assert_true(view.rig._queue.is_empty() and view.rig.action().is_empty(), "an enemy round nobody of ours holds is never an Action event")
+	assert_true(not view._scene.has_record("w:42"), "nor drawn")
+	view.set_camera_mode(WorldView.CAM_TETHER)
+	for i in 4:
+		view._process(0.25)
+	assert_eq(view._subject_label.text, ship.callsign, "nor named in the tether's caption")
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	sim.threat_manager.mark_detected("BLUE", w, SimClock.sim_time, ship)
+	view._process(0.016)
+	view._process(0.016)
+	assert_eq(view.rig.action().get("kind", ""), "inbound", "once the plot holds it, it is an inbound launch")
+	assert_eq(view.rig.action_subject_key(), "w:42", "followed while it is held")
+	sim.threat_manager.forget(w)
+	view._process(0.016)
+	view._process(0.016)
+	assert_true(not view._scene.has_record("w:42"), "and gone from the view when the plot loses it")
+	assert_eq(view.rig.action_subject_key(), "", "the camera stops following it")
+	sim.weapon_manager.free()
+	sim.threat_manager.free()
+	_free_view(f)
+	SimClock.paused = saved_paused
+
+
+func test_tether_names_an_event_out_of_frame_and_stays_on_the_hooked_ship() -> void:
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var red := _unit("cw90_slava", "RED", Vector2(100, 0))
+	var f := _live_view([ship, red])
+	var view: WorldView = f["view"]
+	(f["map"] as TacticalMap).selected = [ship] as Array[Unit]
+	var held := _hold(f["tm"], "T1003", red, Vector2(100.3, 0.0), Track.Classification.SURFACE)
+	for i in 3:
+		view._process(0.016)
+	assert_eq(view.camera_mode(), WorldView.CAM_TETHER)
+	assert_eq(view._subject_label.text, ship.callsign)
+	view.add_effect(ship.position, "hit", true, -1.0, ship)
+	view._process(0.016)
+	assert_eq(view._subject_label.text, ship.callsign, "a hit on the ship in the frame needs no pointer")
+	view.add_effect(red.position, "hit", false, -1.0, red)
+	view._process(0.016)
+	assert_eq(view._subject_label.text, "Weapon impact · Track 1003 · F12 to watch", "the caption points to the Action camera")
+	assert_true(view.rig.action().is_empty(), "the camera does not cut")
+	assert_eq(view._focus_key, "u:%d" % ship.id, "the hooked ship stays the subject")
+	assert_eq(view._origin_nm, ship.position, "and the view stays round it")
+	assert_true(view._scene.camera.global_position.length() < 2000.0, "with the eye on the tether")
+	for i in int(WorldView.HINT_S / 0.25) + 2:
+		view._process(0.25)
+	assert_eq(view._subject_label.text, ship.callsign, "after about three seconds the caption names the ship again")
+	view.add_effect(red.position, "destroyed", false, -1.0, red)
+	view._process(0.016)
+	assert_true(view._subject_label.text.begins_with("Target destroyed · Track 1003"))
+	view.set_camera_mode(WorldView.CAM_ACTION)
+	view._process(0.016)
+	assert_eq(view.rig.action().get("kind", ""), "destroyed", "pressing F12 then shows the event it named")
+	assert_eq(view._origin_nm, held.position, "where the plot holds it")
 	_free_view(f)
 
 
@@ -1427,3 +1657,42 @@ func test_a_hull_wears_its_way_as_shared_variants_and_a_tint_lifts_back_to_it() 
 	var lifted := mi.get_surface_override_material(0) as ShaderMaterial
 	assert_near(float(lifted.get_shader_parameter("hull_speed")), WorldMaterials.WAY_BANDS[1], 1e-6, "and comes back at the way it has now")
 	node.free()
+
+
+func test_detached_after_an_action_pursuit_comes_back_to_the_hook() -> void:
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.ACTION)
+	var ship := _frame(Vector3.ZERO, 0.0)
+	var round := {"position": Vector3(0, 30, -2000), "length": 6.0, "heading": 0.0, "domain": "weapon"}
+	var lookup := func(key: String) -> Dictionary: return round if key == "w:9" else {}
+	cam.notify("launch", Vector3(0, 0, 10), "w:9", {"pursue": true})
+	var far := Vector2(200, 100)
+	cam.update(0.016, far, ship, lookup)
+	assert_eq(cam.action_subject_key(), "w:9", "Action is out with the round, 200 nm off")
+	cam.set_mode(WorldCamera.DETACHED)
+	var shot := cam.update(0.016, Vector2.ZERO, ship, Callable())
+	assert_true((shot["eye"] as Vector3).distance_to(shot["look"]) <= WorldCamera.TETHER_MAX_M, "the detached eye starts beside the hooked ship, not where the round was")
+
+
+func test_a_pursued_round_takes_a_hit_drawn_at_an_uncertain_plot() -> void:
+	var cam := WorldCamera.new()
+	cam.set_mode(WorldCamera.ACTION)
+	var ship := _frame(Vector3.ZERO, 0.0)
+	var round := {"position": Vector3(0, 30, -2000), "length": 6.0, "heading": 0.0, "domain": "weapon"}
+	var flying := func(key: String) -> Dictionary: return round if key == "w:3" else {}
+	var gone := func(_key: String) -> Dictionary: return {}
+	cam.notify("launch", Vector3(0, 0, 10), "w:3", {"pursue": true})
+	cam.update(0.016, Vector2.ZERO, ship, flying)
+	cam.notify("hit", Vector3(4.0, 0.0, 9), "", {"label": "Track 1004", "radius": 4.5})
+	cam.update(0.016, Vector2.ZERO, ship, gone)
+	assert_eq(cam.action().get("kind", ""), "hit", "a hit 4 nm off, drawn at a plot uncertain by 3 nm, is how the round ended")
+	assert_eq(cam.action().get("label", ""), "Track 1004")
+	cam.set_mode(WorldCamera.TETHER)
+	cam.set_mode(WorldCamera.ACTION)
+	cam.notify("launch", Vector3(0, 0, 10), "w:3", {"pursue": true})
+	cam.update(0.016, Vector2.ZERO, ship, flying)
+	cam.update(0.016, Vector2.ZERO, ship, gone)
+	assert_eq(cam.action().get("kind", ""), "lost", "with nothing reported the round is held as lost")
+	cam.notify("hit", Vector3(9.0, 0.0, 9), "", {"label": "Track 1005"})
+	cam.update(WorldCamera.MIN_SHOT_S + 0.1, Vector2.ZERO, ship, gone)
+	assert_eq(cam.action().get("kind", ""), "hit", "and a hit reported a moment later can still take over")

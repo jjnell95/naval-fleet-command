@@ -315,3 +315,31 @@ func test_terrain_state_does_not_leak_into_later_tests() -> void:
 	Terrain.clear()
 	assert_true(Terrain.is_empty(), "terrain resets")
 	assert_eq(Terrain.elevation_at(Vector2.ZERO), 0.0, "and so does the raster")
+
+
+func test_the_landmass_index_finds_exactly_what_the_exhaustive_search_finds() -> void:
+	# The index only shrinks the work. Every line, long or short, on the chart or wandering off
+	# it, must give the same land span as testing every landmass. The small charts normally skip
+	# the index; it is forced on here so all five charts exercise it.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var indexed := 0
+	for id in ["pacific_02_taiwan_strait", "aegis_bastion", "cold_war_03_carrier", "gulf_01_hormuz", "med_01_tartus"]:
+		Terrain.load_from(ScenarioLoader.load_file("res://data/scenarios/%s.json" % id))
+		if Terrain._index_cols > 0:
+			indexed += 1
+		else:
+			Terrain._build_index(true)
+		assert_true(Terrain._index_cols > 0, "%s is compared through the index" % id)
+		var area := Terrain.bounds.grow(80.0)
+		var mismatches := 0
+		for i in 3000:
+			var a := Vector2(rng.randf_range(area.position.x, area.end.x), rng.randf_range(area.position.y, area.end.y))
+			var reach: float = [0.5, 6.0, 40.0, 300.0][i % 4]
+			var b: Vector2 = a + Vector2.from_angle(rng.randf() * TAU) * reach * rng.randf()
+			if Terrain._land_span(a, b) != Terrain._land_span_exhaustive(a, b):
+				mismatches += 1
+		assert_eq(mismatches, 0, "%s: indexed and exhaustive spans agree" % id)
+	assert_eq(indexed, 3, "only the three large charts build it on their own")
+	Terrain.clear()
+	assert_eq(Terrain._index_cols, 0, "and clearing the chart drops it")

@@ -112,6 +112,10 @@ var _lamp_mesh: QuadMesh
 var _lamp_materials: Dictionary = {}
 var _lamps_lit := false
 var _focus_key := ""
+## Set for one update after the floating origin has jumped (a new hook, or the Action camera
+## going to an event far off): records that appear then appear because the view moved, so an
+## aircraft near its deck is not taken for one that has just launched.
+var _settling := false
 
 
 # --- Construction --------------------------------------------------------------------------
@@ -416,6 +420,12 @@ func update(delta: float, entries: Array, focus_key: String) -> void:
 			_flagged.erase(key)
 	effects.tick(delta)
 	_warm = true
+	_settling = false
+
+
+## The next update follows a jump of the floating origin; see `_settling`.
+func settle() -> void:
+	_settling = true
 
 
 ## After the camera has been placed for the frame: the sea follows it, and the ribbons and glows
@@ -450,7 +460,8 @@ func _fit_shadows(eye: Vector3) -> void:
 
 
 ## Launches, aircraft leaving or reaching a deck: things the Action camera may cut to, since the
-## last call. Each is {kind, at: Vector3 chart (nm, nm, m), key}.
+## last call. Each is {kind, at: Vector3 chart (nm, nm, m), key}; a launch of ours also carries
+## `pursue` (a strike round, followed to the end of its run) and `label` (the weapon's name).
 func take_events() -> Array[Dictionary]:
 	var out := _events
 	_events = []
@@ -886,7 +897,9 @@ func _on_new_round(rec: Dictionary, e: Dictionary) -> void:
 	var gun: bool = e.get("gun", false)
 	var nm: Vector2 = rec["nm"]
 	if e["own"] and not gun:
-		_events.append({"kind": "launch", "at": Vector3(nm.x, nm.y, float(e["height_m"])), "key": e["key"]})
+		# A strike round is pursued to the end of its run; a torpedo or an interceptor is not.
+		var pursue: bool = not e.get("torpedo", false) and not e.get("interceptor", false)
+		_events.append({"kind": "launch", "at": Vector3(nm.x, nm.y, float(e["height_m"])), "key": e["key"], "pursue": pursue, "label": w.spec.display_name})
 	var shooter_key := "u:%d" % w.shooter.id
 	var srec: Dictionary = _records.get(shooter_key, {})
 	if srec.is_empty() or srec.get("root") == null or not (srec["entry"]["kind"] in ["own", "visual"]):
@@ -950,12 +963,14 @@ func _air_events(rec: Dictionary, e: Dictionary, fresh: bool) -> void:
 	var d := u.position.distance_to(base.position)
 	var nm: Vector2 = rec["nm"]
 	# A sortie whose launch was shown still has its recovery to show.
-	if seen == "" and fresh and _warm and d <= AIR_LAUNCH_NM and u.flight_state == Unit.FlightState.AIRBORNE:
+	if seen == "" and fresh and _warm and not _settling and d <= AIR_LAUNCH_NM and u.flight_state == Unit.FlightState.AIRBORNE:
 		_flagged[e["key"]] = "launch"
 		_events.append({"kind": "air_launch", "at": Vector3(nm.x, nm.y, float(e["height_m"])), "key": e["key"]})
 	elif u.flight_state == Unit.FlightState.RECOVERING and d <= RECOVERY_WATCH_NM:
 		_flagged[e["key"]] = "recovery"
-		_events.append({"kind": "recovery", "at": Vector3(base.position.x, base.position.y, 20.0), "key": ""})
+		# Redrawn after the view jumped away and back, a recovery already under way is not news.
+		if not (fresh and _settling):
+			_events.append({"kind": "recovery", "at": Vector3(base.position.x, base.position.y, 20.0), "key": ""})
 
 
 # --- Wakes and trails ----------------------------------------------------------------------
@@ -1400,5 +1415,6 @@ func reset() -> void:
 	_launch_clock.clear()
 	_flagged.clear()
 	_warm = false
+	_settling = false
 	if land != null:
 		land.reset()

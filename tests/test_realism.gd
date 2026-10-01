@@ -21,57 +21,50 @@ func _cleanup(h: Array) -> void:
 	h[1].free()
 	h[0].free()
 
-func test_escort_arrival_wins_without_destroying_the_enemy() -> void:
-	var h := _mission("northern_shield")
-	var maud := _find(h[0], "HNoMS Maud (A 530)")
+# Escort arrival without a kill, and the escorted ship's loss overriding arrival, are covered by
+# test_northern_passage. A passage watch resolved by kill, watch or breakout is covered by the
+# 1990 barrier in test_cold_war. M35 cut the missions these tests used to load.
+
+func test_named_target_victory_ignores_the_rest_of_the_enemy_force() -> void:
+	var um := UnitManager.new()
+	for pair in [["Boat", 10.0], ["Flanker 11", 30.0]]:
+		var spec := PlatformSpec.new()
+		spec.health = pair[1]
+		var u := Unit.new()
+		u.spec = spec
+		u.faction = "RED"
+		u.callsign = pair[0]
+		u.health = pair[1]
+		um.add_unit(u)
+	var hunt := MissionObjective.from_dict({"type": "all_units_lost", "callsigns": ["Boat"]})
+	assert_true(not hunt.evaluate(um, 1), "the boat is still afloat")
+	Damage.apply(_find(um, "Boat"), 10000)
+	assert_true(hunt.evaluate(um, 2), "sinking the named boat is the task")
+	assert_true(_find(um, "Flanker 11").alive, "its supporting aircraft never had to die")
+	um.free()
+
+func test_hormuz_needs_two_tankers_through_and_only_own_fire_on_neutrals_fails_it() -> void:
+	var h := _mission("gulf_01_hormuz")
 	h[1].tick(0)
-	assert_eq(h[1].result, MissionManager.Result.RUNNING)
-	maud.position = h[1].victory_objectives[0].center
-	h[1].tick(1)
+	h[1].tick(300)
+	var transit: MissionObjective = h[1].victory_objectives[1]
+	_find(h[0], "MT Gulf Horizon").position = transit.center
+	h[1].tick(301)
+	assert_true(not transit.complete, "one tanker is not the convoy")
+	_find(h[0], "MT Ras Laffan Pride").position = transit.center
+	h[1].tick(302)
+	assert_true(transit.complete, "two of the three tankers clear the strait")
+	assert_eq(h[1].result, MissionManager.Result.RUNNING, "then hold the box")
+	h[1].tick(603)
 	assert_eq(h[1].result, MissionManager.Result.VICTORY)
-	assert_true(h[0].get_engageable_units("RED").size() > 0, "escorting is enough")
 	_cleanup(h)
-
-func test_maud_loss_overrides_arrival() -> void:
-	var h := _mission("northern_shield")
-	var maud := _find(h[0], "HNoMS Maud (A 530)")
-	maud.position = h[1].victory_objectives[0].center
-	Damage.apply(maud, 10000)
+	h = _mission("gulf_01_hormuz")
+	Damage.apply(_find(h[0], "Dhow Al Noor"), 10000, "gun", "RED")
 	h[1].tick(1)
-	assert_eq(h[1].result, MissionManager.Result.DEFEAT)
-	_cleanup(h)
-
-func test_asw_hunt_does_not_require_destroying_supporting_aircraft() -> void:
-	var h := _mission("northern_sentry")
-	Damage.apply(_find(h[0], "Magnitogorsk (B-471)"), 10000)
-	h[1].tick(1)
-	assert_eq(h[1].result, MissionManager.Result.VICTORY)
-	assert_true(_find(h[0], "Flanker 11").alive)
-	_cleanup(h)
-
-func test_passage_denial_accepts_either_victory_but_exit_takes_precedence() -> void:
-	for outcome in ["time", "sink", "exit"]:
-		var h := _mission("giuk_passage")
-		var boat := _find(h[0], "Vladikavkaz (B-459)")
-		if outcome == "sink": Damage.apply(boat, 10000)
-		if outcome == "exit": boat.position = h[1].loss_objectives[-1].center
-		h[1].tick(1 if outcome == "sink" else 21600)
-		assert_eq(h[1].result, MissionManager.Result.DEFEAT if outcome == "exit" else MissionManager.Result.VICTORY, outcome)
-		_cleanup(h)
-
-func test_baltic_requires_both_merchants_and_protects_neutral_traffic() -> void:
-	var h := _mission("baltic_sentinel")
-	_find(h[0], "MV Baltic Trader").position = h[1].victory_objectives[0].center
-	h[1].tick(1)
-	assert_eq(h[1].result, MissionManager.Result.RUNNING)
-	_find(h[0], "MV Gotland Star").position = h[1].victory_objectives[1].center
+	assert_eq(h[1].result, MissionManager.Result.RUNNING, "an enemy sinking a dhow is not the player's incident")
+	Damage.apply(_find(h[0], "MV Khor Fakkan Trader"), 10000, "gun", "BLUE")
 	h[1].tick(2)
-	assert_eq(h[1].result, MissionManager.Result.VICTORY)
-	_cleanup(h)
-	h = _mission("baltic_sentinel")
-	Damage.apply(_find(h[0], "FV Stormfagel"), 10000)
-	h[1].tick(1)
-	assert_eq(h[1].result, MissionManager.Result.DEFEAT)
+	assert_eq(h[1].result, MissionManager.Result.DEFEAT, "own fire on a neutral fails the operation")
 	_cleanup(h)
 
 func test_missing_named_target_cannot_count_as_destroyed() -> void:

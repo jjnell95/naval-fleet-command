@@ -23,7 +23,9 @@ var _close: Button
 var _close_pair: Control
 var _entries: Array = []
 var _all_entries: Array = []
-var _era := "custom"
+## The shelf on view. The authored operations are the front door, as the mission list was in
+## the late-1990s fleet-command games; the player's own missions have their own shelf.
+var _era := "operations"
 var _filters: Dictionary = {}
 var _mission_title: Label
 var _mission_meta: Label
@@ -70,7 +72,7 @@ func _ready() -> void:
 	brand.add_child(_title)
 	_subtitle = _label("Build the picture. Protect the force. Control the sea.", 14, UITheme.MENU_INK)
 	brand.add_child(_subtitle)
-	_mast_note = _label("Build your forces and write the plan.\nThe clock waits for you.", 13, UITheme.MENU_INK)
+	_mast_note = _label("Choose an operation and read its orders.\nThe clock waits for you.", 13, UITheme.MENU_INK)
 	_mast_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_mast_note.size_flags_vertical = Control.SIZE_SHRINK_END
 	masthead.add_child(_mast_note)
@@ -87,7 +89,7 @@ func _ready() -> void:
 	_intro.tooltip_text = "Start here: protect a freighter, launch reconnaissance and identify contacts. Opens the briefing with time paused."
 	_intro.pressed.connect(func() -> void: scenario_chosen.emit(INTRO_PATH))
 	filter_row.add_child(_intro)
-	for entry in [["custom", "MY MISSIONS"], ["templates", "OPTIONAL TEMPLATES"]]:
+	for entry in [["operations", "OPERATIONS", "Seven authored operations, one 2027 operation in each of four theatres and three from 1990, with stars for difficulty and your best result"], ["campaigns", "CAMPAIGNS", "The same operations as two campaigns, 1990 and 2027, taken in order: win each at 60% or better to open the next"], ["training", "TRAINING", "Two missions to learn on: the screen and the contact picture, then the air-operations cycle"], ["custom", "MY MISSIONS", "Missions you built or imported"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
 		button.theme_type_variation = "MenuBigButton"
@@ -95,6 +97,7 @@ func _ready() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 19)
 		button.toggle_mode = true
+		button.tooltip_text = entry[2]
 		button.pressed.connect(func() -> void: _set_era(key))
 		filter_row.add_child(button)
 		_filters[key] = button
@@ -235,18 +238,36 @@ func _apply_layout() -> void:
 	_title.set_font_size(38 if compact else 54)
 
 
-func refresh(current_path := "") -> void:
+## `played` says the current operation was actually commanded, not merely loaded at start-up:
+## coming back from it, the desk opens on the shelf that holds it. Otherwise the front door
+## stays the authored operations.
+func refresh(current_path := "", played := false) -> void:
 	_all_entries = ScenarioIndex.list_all()
-	# The player-created library is the front door. Legacy missions remain optional templates
-	# and regression fixtures; a fresh installation starts with an invitation to build.
-	if current_path != "":
+	if current_path != "" and not _initial_refresh:
 		for entry: Dictionary in _all_entries:
 			if entry["path"] == current_path:
-				if not _initial_refresh:
-					_era = "custom" if entry["custom"] else _era
+				# A custom mission is always shown on My Missions, played or only saved; a shipped
+				# one moves the desk only once it was actually commanded.
+				var in_campaign: bool = not entry["custom"] and not CampaignBook.find(str(entry["id"])).is_empty()
+				var keep_campaigns: bool = _era == "campaigns" and in_campaign
+				if _era in ["operations", "training", "custom", "campaigns"] and (played or entry["custom"]) and not keep_campaigns:
+					_era = shelf_for(entry)
 				break
 	_initial_refresh = false
 	_populate(current_path)
+
+
+## Opens My Missions on a mission just saved in the editor.
+func show_saved(path: String) -> void:
+	_era = "custom"
+	_populate(path)
+
+
+## Which of the three front shelves an entry lives on.
+static func shelf_for(entry: Dictionary) -> String:
+	if entry["custom"]:
+		return "custom"
+	return "training" if str(entry.get("collection", "operations")) == "exercises" else "operations"
 
 
 func _set_era(era: String) -> void:
@@ -260,9 +281,14 @@ func _populate(current_path := "") -> void:
 	for key: String in _filters:
 		var button: Button = _filters[key]
 		button.set_pressed_no_signal(key == _era)
-	for entry: Dictionary in _all_entries:
+	if _era == "campaigns":
+		_entries = _campaign_entries()
+	for entry: Dictionary in ([] if _era == "campaigns" else _all_entries):
 		if _era == "custom":
 			if not entry["custom"]:
+				continue
+		elif _era in ["operations", "training"]:
+			if entry["custom"] or shelf_for(entry) != _era:
 				continue
 		elif _era == "templates":
 			if entry["custom"]:
@@ -273,16 +299,40 @@ func _populate(current_path := "") -> void:
 		elif _era != "all" and (entry["custom"] or _shelf_of(entry) != _era):
 			continue
 		_entries.append(entry)
+	if _era == "operations":
+		# The contemporary operations first, as the headlines of the day; the 1990 pack after.
+		_entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			if int(a["year"]) != int(b["year"]):
+				return int(a["year"]) > int(b["year"])
+			return int(a["order"]) < int(b["order"]))
+	var log := CommanderLog.load_all()
 	var selected := 0
 	for i in _entries.size():
 		var e: Dictionary = _entries[i]
 		var period := "CUSTOM" if e["custom"] else (str(e["year"]) if int(e["year"]) > 0 else "MODERN")
 		var mission_name := str(e["name"]).replace(" — ", " / ")
+		if not e["custom"] and str(e.get("theatre", "")) != "" and not mission_name.to_upper().contains(str(e["theatre"]).to_upper()):
+			mission_name += "  ·  " + str(e["theatre"])
+		var record = log.get(str(e["id"]), {})
+		if typeof(record) == TYPE_DICTIONARY and not record.is_empty():
+			period = "%d%%" % int(record.get("best_percent", 0))
+		if e.has("campaign_state"):
+			mission_name = "%s  %d/%d   %s" % [e["campaign_short"], int(e["campaign_step"]), int(e["campaign_total"]), mission_name]
+			if e["campaign_state"] == CampaignBook.LOCKED:
+				period = "LOCKED"
+			elif e["campaign_state"] == CampaignBook.OPEN and record is Dictionary and record.is_empty():
+				period = "OPEN"
 		_list.add_row(mission_name, period, Color.TRANSPARENT, stars(str(e.get("difficulty", ""))))
 		_list.set_item_tooltip(i, "%s\n%s  ·  %s\n%s" % [e["name"], e.get("role", "Task force command"), e.get("difficulty", "Open command"), e["description"]])
 		if e["path"] == current_path:
 			selected = i
 	_count.text = "%d OPERATIONS  /  %s" % [_entries.size(), SHELF_NAMES.get(_era, "ALL ERAS + CUSTOM")]
+	if _era == "campaigns":
+		var parts := PackedStringArray()
+		for c: Dictionary in CampaignBook.load_all():
+			var done := CampaignBook.progress(c, log)
+			parts.append("%s  %d OF %d WON" % [str(c.get("short_name", c.get("name", ""))), int(done["won"]), int(done["total"])])
+		_count.text = "   ·   ".join(parts)
 	_play.disabled = _entries.is_empty()
 	if not _entries.is_empty():
 		_list.select(selected)
@@ -298,6 +348,63 @@ func _populate(current_path := "") -> void:
 		_ship_caption.text = ""
 
 
+## The campaign shelf: every campaign's operations in order, each a copy of its desk entry with
+## the campaign's name, the step and whether the commander's log has opened it.
+func _campaign_entries() -> Array:
+	var by_id := {}
+	for entry: Dictionary in _all_entries:
+		if not entry["custom"]:
+			by_id[str(entry["id"])] = entry
+	var log := CommanderLog.load_all()
+	var out: Array = []
+	for c: Dictionary in CampaignBook.load_all():
+		for step: Dictionary in CampaignBook.steps(c, log):
+			if not by_id.has(step["id"]):
+				continue
+			var e: Dictionary = by_id[step["id"]].duplicate()
+			e["campaign_name"] = str(c.get("name", ""))
+			e["campaign_short"] = str(c.get("short_name", c.get("name", "")))
+			e["campaign_summary"] = str(c.get("summary", ""))
+			e["campaign_step"] = step["step"]
+			e["campaign_total"] = step["total"]
+			e["campaign_state"] = step["state"]
+			e["campaign_gate"] = step["gate_percent"]
+			e["campaign_previous"] = _entry_name(by_id, step["previous_id"])
+			e["campaign_next"] = _entry_name(by_id, step["next_id"])
+			e["campaign_average"] = int(CampaignBook.progress(c, log)["average"])
+			out.append(e)
+	return out
+
+
+static func _entry_name(by_id: Dictionary, id: String) -> String:
+	return str(by_id[id]["name"]).replace(" — ", " / ") if by_id.has(id) else ""
+
+
+## The campaign paragraph at the head of a campaign step's orders, and whether it may be played.
+static func campaign_note(e: Dictionary) -> String:
+	if not e.has("campaign_state"):
+		return ""
+	var gate := int(e["campaign_gate"])
+	var best: Dictionary = CommanderLog.best(str(e["id"]))
+	var text := ""
+	match str(e["campaign_state"]):
+		CampaignBook.LOCKED:
+			text = "[b]LOCKED.[/b] Win %s at %d%% or better to open this operation." % [_safe(str(e["campaign_previous"])), gate]
+			if CampaignBook.cleared(best, gate):
+				text += " Your %d%% win here already counts once the campaign reaches it." % int(best.get("best_percent", 0))
+		CampaignBook.WON:
+			if str(e["campaign_next"]) != "":
+				text = "Cleared at %d%%. %s is open." % [int(best.get("best_percent", 0)), _safe(str(e["campaign_next"]))]
+			else:
+				text = "Cleared at %d%%. Campaign complete, averaging %d%% across its operations." % [int(best.get("best_percent", 0)), int(e["campaign_average"])]
+		_:
+			var then := ("to open %s" % _safe(str(e["campaign_next"]))) if str(e["campaign_next"]) != "" else "to complete the campaign"
+			text = "Win at %d%% or better %s." % [gate, then]
+			if not best.is_empty():
+				text = "Best so far %d%%, %s. " % [int(best.get("best_percent", 0)), str(best.get("result", "")).to_lower()] + text
+	return "%s\n[color=%s]%s Nothing carries between operations: each is a different force in a different sea.[/color]\n" % [text, UITheme.HEX_INK_DIM, _safe(str(e["campaign_summary"]))]
+
+
 ## Green stars for a mission's difficulty: one for an introduction, three for the hardest.
 static func stars(difficulty: String) -> String:
 	return STARS.get(difficulty, "★★")
@@ -307,7 +414,7 @@ static func _is_cold_war(entry: Dictionary) -> bool:
 	return int(entry.get("year", 0)) == 1990
 
 
-const SHELF_NAMES := {"custom": "YOUR MISSIONS", "templates": "OPTIONAL TEMPLATES", "cold_war": "1990", "atlantic": "NORTH ATLANTIC 2027", "pacific": "WESTERN PACIFIC 2027", "gulf_med": "GULF & MEDITERRANEAN 2027", "modern": "CONTEMPORARY", "exercises": "TRAINING & SHORT ENGAGEMENTS"}
+const SHELF_NAMES := {"operations": "2027, THEN 1990", "campaigns": "IN ORDER", "training": "TRAINING & SHORT ENGAGEMENTS", "custom": "YOUR MISSIONS", "templates": "EVERY AUTHORED MISSION", "cold_war": "1990", "atlantic": "NORTH ATLANTIC 2027", "pacific": "WESTERN PACIFIC 2027", "gulf_med": "GULF & MEDITERRANEAN 2027", "modern": "CONTEMPORARY", "exercises": "TRAINING & SHORT ENGAGEMENTS"}
 
 
 ## Which shelf a built-in operation sits on: the 1990 pack, or a modern theatre by chart region.
@@ -352,10 +459,21 @@ func _on_selected(i: int) -> void:
 	var duration := int(e.get("duration_minutes", 0))
 	if duration > 0:
 		details.append("about %d min" % duration)
+	var best := CommanderLog.best(str(e["id"]))
+	if not best.is_empty():
+		details.append("best %d%% %s on %s" % [int(best.get("best_percent", 0)), str(best.get("result", "")).to_lower(), str(best.get("date", "")).substr(0, 10)])
+	if e.has("campaign_state"):
+		details.insert(0, "%s, operation %d of %d" % [str(e["campaign_name"]), int(e["campaign_step"]), int(e["campaign_total"])])
 	_mission_meta.text = "  ·  ".join(details).to_upper()
+	var locked := str(e.get("campaign_state", "")) == CampaignBook.LOCKED
+	_play.disabled = locked
+	_play.tooltip_text = "Win the operation before it to open this one" if locked else "Read the briefing for the selected operation  [Enter]"
 	var objective: Dictionary = sc.get("objectives", {})
 	_intent.text = sc.get("commander_intent", objective.get("text", "Read the situation and establish your command priorities."))
 	var lines := PackedStringArray()
+	if e.has("campaign_state"):
+		lines.append(_section("CAMPAIGN"))
+		lines.append(campaign_note(e))
 	var first_orders: Array = sc.get("first_orders", [])
 	if not first_orders.is_empty():
 		lines.append(_section("YOUR FIRST ORDERS"))
@@ -425,6 +543,8 @@ func _on_selected(i: int) -> void:
 func _on_play() -> void:
 	var selected := _list.get_selected_items()
 	if selected.is_empty() or selected[0] >= _entries.size():
+		return
+	if str(_entries[selected[0]].get("campaign_state", "")) == CampaignBook.LOCKED:
 		return
 	SoundFx.play("click")
 	scenario_chosen.emit(_entries[selected[0]]["path"])
