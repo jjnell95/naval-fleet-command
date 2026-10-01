@@ -238,6 +238,16 @@ func _set_mode(weapons: bool) -> void:
 	_build_domains()
 	_filter(_search.text)
 
+## The reference entry for a contact, from what its track reports and nothing else: the class
+## short name held once the contact is CLASS_KNOWN, matched against the catalogue. `hint_id` (an
+## own platform's id) picks between the 1990 and 2027 catalogues where they share a name. Null
+## when the class is not known or not in the catalogue.
+static func entry_for_track(t: Track, hint_id := "") -> PlatformSpec:
+	if t == null or t.classification < Track.Classification.CLASS_KNOWN or t.known_class == "":
+		return null
+	return DataDB.platform_by_short_name(t.known_class, hint_id)
+
+
 func inspect(asset_id: String, weapon := false) -> void:
 	_search.text = ""
 	_set_mode(weapon)

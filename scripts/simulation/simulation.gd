@@ -59,6 +59,9 @@ func _ready() -> void:
 	sensor_manager.weapon_manager = weapon_manager
 	weapon_manager.weapon_defeated.connect(func(w: Weapon, _r: String, _u: Unit) -> void: threat_manager.forget(w))
 	weapon_manager.weapon_resolved.connect(threat_manager.forget)
+	# Battle damage assessment: each side's plot learns from its own hits and the kills it sees.
+	weapon_manager.weapon_impact.connect(track_manager.on_weapon_impact)
+	weapon_manager.unit_destroyed.connect(track_manager.on_unit_destroyed)
 	aviation_manager = AviationManager.new()
 	aviation_manager.name = "AviationManager"
 	aviation_manager.unit_manager = unit_manager

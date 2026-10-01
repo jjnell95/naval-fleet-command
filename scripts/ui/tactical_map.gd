@@ -1196,6 +1196,17 @@ func select_track(t: Track) -> void:
 	track_selected.emit(t)
 
 
+## The contact under the cursor, by the same rules the hover card uses: the chart in plain select
+## mode, no drag or menu open, and no own platform under the cursor (own units win, as they do
+## for a click). The data display reads it when nothing is hooked.
+func hovered_track() -> Track:
+	if not _mouse_inside or _drag_mode != DragMode.NONE or menu_open or interaction_mode != InteractionMode.SELECT:
+		return null
+	if _unit_at(_mouse) != null:
+		return null
+	return _track_at(_mouse)
+
+
 ## Which contact the player is inspecting, independently of the retained command selection.
 func inspection_track() -> Track:
 	if (_inspecting_track or selected.is_empty()) and selected_track != null and selected_track.status != Track.Status.LOST:
@@ -2517,11 +2528,12 @@ func _draw_hover_card() -> void:
 		_draw_card(lines)
 		return
 	lines.append("%s  %s" % [MapSymbols.track_number(t.id), t.description()])
-	lines.append("%s · %s · %s" % [t.identity, t.status_text(SimClock.sim_time), t.source.to_upper().replace("_", " ")])
-	if t.has_kinematics:
-		lines.append("CSE %s  SPD %.0f kts (est)" % [Geo.format_bearing(t.course_deg), t.speed_kn])
+	lines.append("%s · %s" % [t.identity, t.status_text(SimClock.sim_time)])
+	lines.append("Source %s" % DataDisplay.source_readout(t))
+	if t.has_kinematics and not t.is_bearing_only():
+		lines.append("CSE %s  SPD %.0f kts  ·  damage %s" % [Geo.format_bearing(t.course_deg), t.speed_kn, DataDisplay.damage_text(t)])
 	else:
-		lines.append("Kinematics estimating")
+		lines.append("Kinematics estimating  ·  damage %s" % DataDisplay.damage_text(t))
 	lines.append("+/-%.1f nm  ·  observed %s" % [t.position_error_nm, Track._fmt_age(t.observation_time_s)])
 	var ref := reference_unit()
 	if ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):

@@ -65,6 +65,7 @@ func run(scene_tree: SceneTree) -> void:
 		if unknown != null: break
 	checks["sensors produce an investigable unknown"] = unknown != null
 	if unknown != null:
+		await _hover_readout(unknown)
 		await _contact_and_investigation(unknown)
 	await _aircraft_and_engagement()
 	_finish()
@@ -119,6 +120,31 @@ func _camera_controls() -> void:
 	var weather_time: float = view._scene.weather_time
 	await _frames()
 	checks["weather animation preserves pause"] = view._scene.weather_time == weather_time
+
+
+## With nothing hooked, the cursor over a contact fills the data display with its readout, and
+## moving off the chart restores the mission page.
+func _hover_readout(track: Track) -> void:
+	main.map.clear_selection()
+	await _frames()
+	checks["nothing hooked before the hover"] = main.map.selected.is_empty() and main.map.inspection_track() == null
+	await _move(main.map.get_global_transform_with_canvas() * main.map.world_to_screen(track.position))
+	var rows := _rows_text(main.data_display.build_rows())
+	# _rows_text joins spans with a space, so a label and its value read "TRACK #:  1001".
+	checks["hovering a contact with nothing hooked reads it out"] = main.map.hovered_track() == track and rows.contains("TRACK #:  %s" % DataDisplay.track_number_for_track(track))
+	checks["hover readout names the reporting platform and set"] = rows.contains("SOURCE:  %s" % DataDisplay.source_readout(track)) and track.source_platform != "" and track.source_sensor != ""
+	checks["hover readout carries the damage estimate"] = rows.contains("%DAMAGE:  ")
+	facts["hover"] = {"track": track.id, "rows": rows}
+	await _shot("hover-readout")
+	await _move(main.data_display.get_global_rect().get_center())
+	checks["moving off the contact restores the mission page"] = main.map.hovered_track() == null and _rows_text(main.data_display.build_rows()).contains("CONTACTS:")
+
+
+func _move(point: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = point
+	main.get_viewport().push_input(motion, true)
+	await _frames()
 
 
 func _contact_and_investigation(track: Track) -> void:

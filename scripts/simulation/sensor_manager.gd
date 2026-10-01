@@ -77,7 +77,7 @@ func _radar_pass(observer: Unit, now: float) -> void:
 		var d := observer.position.distance_to(target.position)
 		var sigma := OBS_SIGMA_BASE_NM + OBS_SIGMA_PER_NM * d
 		var obs := target.position + Vector2(rng.randfn(0.0, sigma), rng.randfn(0.0, sigma))
-		var c := SensorContact.make(target, obs, TrackManager.BASE_ERROR_NM + TrackManager.ERROR_PER_NM * d, q, rate, d, "radar", observer)
+		var c := SensorContact.make(target, obs, TrackManager.BASE_ERROR_NM + TrackManager.ERROR_PER_NM * d, q, rate, d, "radar", observer, Detection.radar_sensor_for(observer, target))
 		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
@@ -143,7 +143,7 @@ func _first_sonar(u: Unit) -> SensorSpec:
 
 func _report_active(observer: Unit, target: Unit, d: float, reach: float, rate: float, now: float) -> void:
 	var obs := target.position + Vector2(rng.randfn(0.0, ACTIVE_SONAR_SIGMA_NM), rng.randfn(0.0, ACTIVE_SONAR_SIGMA_NM))
-	var c := SensorContact.make(target, obs, ACTIVE_SONAR_SIGMA_NM * 3.0, clampf(1.0 - d / maxf(reach, 0.1), 0.0, 1.0), rate, d, "sonar_active", observer)
+	var c := SensorContact.make(target, obs, ACTIVE_SONAR_SIGMA_NM * 3.0, clampf(1.0 - d / maxf(reach, 0.1), 0.0, 1.0), rate, d, "sonar_active", observer, Detection.active_sonar_sensor_for(observer, target))
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
@@ -169,6 +169,7 @@ func _report_passive(observer: Unit, target: Unit, d: float, reach: float, senso
 	c.range_nm = d
 	c.source = "sonar_passive"
 	c.observer = observer
+	c.set_sensor(sensor)
 	var manoeuvre: float = _manoeuvre.get(observer, 0.0)
 	c.tma_gain = TMA_BASE_PER_S * SENSOR_DT * (0.4 + TMA_MANOEUVRE_GAIN * manoeuvre)
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
@@ -197,6 +198,7 @@ func _report_cz(observer: Unit, target: Unit, d: float, zone: Dictionary, sensor
 	c.classify_rate = rate * CZ_CLASSIFY_FACTOR
 	c.range_nm = d
 	c.source = "sonar_cz"
+	c.set_sensor(sensor)
 	var manoeuvre: float = _manoeuvre.get(observer, 0.0)
 	c.tma_gain = TMA_BASE_PER_S * SENSOR_DT * (0.4 + TMA_MANOEUVRE_GAIN * manoeuvre)
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
@@ -247,6 +249,7 @@ func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: 
 	c.classify_rate = sensor.classify_rate * ESM_CLASSIFY_BONUS
 	c.range_nm = d
 	c.source = "esm"
+	c.set_sensor(sensor)
 	var manoeuvre: float = _manoeuvre.get(observer, 0.0)
 	c.tma_gain = TMA_BASE_PER_S * SENSOR_DT * (0.4 + TMA_MANOEUVRE_GAIN * manoeuvre)
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
@@ -291,6 +294,10 @@ func _report_buoys(faction: String, target: Unit, buoys: Array, now: float) -> v
 	c.classify_rate = 0.8
 	c.range_nm = nearest.position.distance_to(target.position)
 	c.source = "sonobuoy"
+	# No platform holds a buoy report: the buoys themselves are the sensor, relayed to the side
+	# that laid them.
+	c.sensor_id = "sonobuoy"
+	c.sensor_name = "Sonobuoy field" if buoys.size() >= 2 else "Sonobuoy"
 	if buoys.size() >= 2:
 		# Overlapping circles cross: that is a position, not a guess.
 		var sigma := 0.35

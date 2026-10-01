@@ -725,6 +725,31 @@ func _focus_map_if_clear() -> void:
 		map.grab_focus()
 
 
+## F7: with a class-known contact hooked or inspected, the reference opens on that class's
+## entry; otherwise it opens on the last entry shown, as before. The class is the track's
+## reported one, looked up by short name in the catalogue, never the unit under the track.
+func _open_reference() -> void:
+	var spec := PlatformLibrary.entry_for_track(_reference_contact(), _catalogue_hint())
+	if spec != null and not _library.visible:
+		_inspect_asset(spec.id)
+		return
+	_toggle_library()
+
+
+## The contact F7 refers to: the one being inspected, else the hooked one.
+func _reference_contact() -> Track:
+	var t := map.inspection_track()
+	if t == null:
+		t = map.selected_track
+	return t if t != null and t.status != Track.Status.LOST else null
+
+
+## An own platform id, so a class name shared by both catalogues resolves in this mission's era.
+func _catalogue_hint() -> String:
+	var ref := map.reference_unit()
+	return ref.spec.id if ref != null and ref.spec != null else ""
+
+
 func _inspect_asset(id: String, weapon := false) -> void:
 	if not _library.visible:
 		_toggle_library()
@@ -799,7 +824,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "range_circle", "label": "Range circle", "description": "A range ring from the hooked platform through the cursor; B again fixes it, then clears it.", "shortcut": "B", "enabled": true},
 		{"id": "toggle_pause", "label": "Pause or resume time", "description": "Stop or resume simulation time without changing acceleration.", "shortcut": "Space", "enabled": true, "state": "paused" if SimClock.paused else "running"},
 		{"id": "briefing", "label": "Orders and briefing", "description": "Objectives, failure conditions, environment and controls.", "shortcut": "F1", "enabled": true},
-		{"id": "library", "label": "Reference", "description": "Platforms and weapons, with models.", "shortcut": "F7", "enabled": true},
+		{"id": "library", "label": "Reference", "description": "Platforms and weapons, with models; opens on a hooked contact's class once it is classified.", "shortcut": "F7", "enabled": true},
 		{"id": "air_operations", "label": "Air operations: launch and recover", "description": "Select aircraft types, manage sorties, and choose a carrier or airfield for landing.", "shortcut": "F3", "enabled": true},
 		{"id": "key_commands", "label": "Key commands", "description": "Every keyboard command on one board.", "shortcut": "H", "enabled": true},
 		{"id": "missions", "label": "Missions", "description": "The operations desk.", "shortcut": "M", "enabled": true},
@@ -930,7 +955,7 @@ func _run_palette_action(id: String) -> void:
 		"briefing":
 			_show_briefing()
 		"library":
-			_toggle_library()
+			_open_reference()
 		"air_operations":
 			_toggle_air_operations()
 		"key_commands":
@@ -1130,7 +1155,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F3:
 			_toggle_air_operations()
 		KEY_F7:
-			_toggle_library()
+			_open_reference()
 		KEY_SPACE:
 			SimClock.toggle_pause()
 		KEY_ESCAPE:

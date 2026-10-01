@@ -18,6 +18,8 @@ const TMA_DECAY_PER_S := 0.0008  # a solution goes off while contact is lost
 const FIRM_HOLD_S := 1.5  # a firm plot this recent outranks any bearing
 const HISTORY_INTERVAL_S := 30.0
 const HISTORY_LENGTH := 48
+## Damage pool assumed for a contact whose class is not yet known, for battle damage assessment.
+const GENERIC_HEALTH := 100.0  # GAMEPLAY
 
 ## Factions that are not at war with anyone. Their ships classify as NEUTRAL rather than HOSTILE,
 ## which is what makes identification a decision rather than a formality.
@@ -151,6 +153,9 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	t.error_axis_deg = c.error_axis_deg
 	t.position_error_nm = maxf(c.error_major_nm, c.error_minor_nm)
 	t.source = c.source
+	t.source_platform = c.observer.spec.short_name if c.observer != null and c.observer.spec != null else ""
+	t.source_sensor = c.sensor_name
+	t.source_sensor_id = c.sensor_id
 	if c.observer != null:
 		t.contributors[c.observer] = now
 	t.networked = shared
@@ -198,6 +203,48 @@ func tick(now: float, dt: float) -> void:
 			t.error_minor_nm += Track.ERROR_GROWTH_NM_PER_S * dt
 			t.position_error_nm = maxf(t.error_major_nm, t.error_minor_nm)
 			t.tma_quality = maxf(t.tma_quality - TMA_DECAY_PER_S * dt, 0.0)
+
+
+## Battle damage assessment. A hit by this side's own weapon on the unit one of its held tracks
+## follows raises that track's estimate by the round's damage over the class's catalogue health
+## when the class is known, else over a generic pool. Only the shooter's side learns anything,
+## and it learns it from its own hit, not from the target's true health.
+func record_hit(faction: String, spec: WeaponSpec, target: Unit) -> void:
+	if spec == null or target == null:
+		return
+	var t := find_track(faction, target)
+	if t == null or t.status == Track.Status.LOST:
+		return
+	t.damage_estimate = minf(t.damage_estimate + 100.0 * spec.damage / assessed_health(t, spec.id), 100.0)
+
+
+## The damage pool a side assumes for a contact: the catalogue health of the class its track
+## reports, else GENERIC_HEALTH. `hint_id` picks between catalogues that share a class name.
+static func assessed_health(t: Track, hint_id := "") -> float:
+	if t.classification >= Track.Classification.CLASS_KNOWN and t.known_class != "":
+		var spec := DataDB.platform_by_short_name(t.known_class, hint_id)
+		if spec != null and spec.health > 0.0:
+			return spec.health
+	return GENERIC_HEALTH
+
+
+## A kill the plot sees: every picture still holding a track on the unit marks it destroyed, as
+## the radio already reports it under that track's label.
+func record_kill(target: Unit) -> void:
+	for key in _by_target:
+		var index: Dictionary = _by_target[key]
+		var t: Track = index.get(target)
+		if t != null and t.status != Track.Status.LOST:
+			t.damage_estimate = 100.0
+
+
+func on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
+	if hit:
+		record_hit(faction, spec, target)
+
+
+func on_unit_destroyed(target: Unit, _killer_faction: String) -> void:
+	record_kill(target)
 
 
 func _any_contributor_linked(t: Track) -> bool:

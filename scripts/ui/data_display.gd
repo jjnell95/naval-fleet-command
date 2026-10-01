@@ -116,6 +116,10 @@ func build_rows() -> Array:
 		return group_rows(map.selected)
 	if map.selected_track != null:
 		return track_rows(map.selected_track, ref, SimClock.sim_time)
+	# Nothing hooked: a contact under the cursor reads out here until the cursor moves off it.
+	var hovered := map.hovered_track()
+	if hovered != null:
+		return track_rows(hovered, ref, SimClock.sim_time)
 	return mission_rows(simulation, map)
 
 
@@ -332,12 +336,13 @@ static func track_rows(t: Track, ref: Unit, now: float) -> Array:
 	rows.append([[title.capitalize() if title == title.to_upper() else title, TITLE]])
 	rows.append(_kv("TRACK #", track_number_for_track(t)))
 	rows.append(_kv("IDENTITY", t.identity, identity_key(t.identity)))
+	# Held kinematics read plainly, as the own platform's do; POSITION states the uncertainty.
 	if t.has_kinematics and not t.is_bearing_only():
-		rows.append(_kv("COURSE", "%03d (est)" % (int(round(t.course_deg)) % 360)))
-		rows.append(_kv("SPEED", "%d KTS (est)" % int(round(t.speed_kn))))
+		rows.append(_kv("COURSE", "%03d" % (int(round(t.course_deg)) % 360)) + [["   SPEED: ", LABEL], ["%d KTS" % int(round(t.speed_kn)), VALUE]])
 	else:
 		rows.append(_kv("COURSE", "unknown"))
-	rows.append(_kv("SOURCE", source_text(t.source)))
+	rows.append(_kv("%DAMAGE", damage_text(t)))
+	rows.append(_kv("SOURCE", source_readout(t)))
 	var status := "active" if t.status == Track.Status.ACTIVE else t.status_text(now).to_lower()
 	if t.is_bearing_only():
 		rows.append(_kv("POSITION", "bearing only, %s" % status))
@@ -372,16 +377,66 @@ static func identity_key(identity: String) -> String:
 	return "unknown"
 
 
+## The battle damage assessment as the data display states it: an estimate from our own hits.
+static func damage_text(t: Track) -> String:
+	return "%d (est)" % int(round(clampf(t.damage_estimate, 0.0, 100.0)))
+
+
+## Where the plot came from, as specifically as the side's records say: the observing platform's
+## class and the set ("MH-60R APS-153 multi-mode radar"), the buoys ("Sonobuoy field"), "Link"
+## for a plot that reached us from nothing we operate, else the sensor category ("Radar").
+static func source_readout(t: Track) -> String:
+	var sensor := sensor_label(t.source_sensor)
+	if sensor != "" and t.source_platform != "":
+		return "%s %s%s" % [t.source_platform, sensor, _sonar_mode(t.source)]
+	if sensor != "":
+		return sensor + _sonar_mode(t.source)
+	if t.source_platform != "":
+		return "%s %s" % [t.source_platform, source_text(t.source).to_lower()]
+	if t.contributors.is_empty() and t.source not in ["sonobuoy", "buoy"] and t.networked:
+		return "Link"
+	return source_text(t.source)
+
+
+## A catalogue sensor name trimmed for a readout line: no "AN/" prefix and no fit note in
+## brackets ("AN/SPS-48 air-search radar (representative carrier fit)" -> "SPS-48 air-search radar").
+static func sensor_label(display_name: String) -> String:
+	var text := display_name.strip_edges()
+	if text.begins_with("AN/"):
+		text = text.substr(3)
+	var open := text.find(" (")
+	while open >= 0:
+		var close := text.find(")", open)
+		if close < 0:
+			break
+		text = (text.substr(0, open) + text.substr(close + 1)).strip_edges()
+		open = text.find(" (")
+	return text
+
+
+static func _sonar_mode(source: String) -> String:
+	match source:
+		"sonar_passive":
+			return ", passive"
+		"sonar_active":
+			return ", active"
+		"sonar_cz":
+			return ", CZ"
+	return ""
+
+
 static func source_text(source: String) -> String:
 	match source:
 		"radar":
 			return "Radar"
 		"esm":
 			return "ESM"
-		"sonar", "passive_sonar":
+		"sonar", "passive_sonar", "sonar_passive":
 			return "Sonar passive"
-		"active_sonar":
+		"active_sonar", "sonar_active":
 			return "Sonar active"
+		"sonar_cz":
+			return "Sonar CZ"
 		"link", "datalink":
 			return "Link"
 		"visual":

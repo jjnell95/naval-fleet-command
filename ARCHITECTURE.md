@@ -219,6 +219,20 @@ Autoloads: SimClock (fixed 0.25 s ticks × speed), Debug (F3 flag).
 4. `TrackManager.tick()`: unobserved > 60 s → STALE (dead-reckoned, error grows); > 30 min → LOST.
 5. UI/AI read only `TrackManager.get_tracks(faction)`. `Track.truth` is for association/debug.
 6. Events: `track_added` / `track_classified` (player faction → SimClock.drop_to_realtime + flash).
+7. Source detail: every pass names the set that made the plot (`SensorContact.sensor_id` /
+   `sensor_name`; `Detection.radar_sensor_for` and `active_sonar_sensor_for` say which radar or
+   active set won; a buoy report names "Sonobuoy" or "Sonobuoy field"). When a plot is adopted,
+   `TrackManager` copies the observer's class short name and the set into `Track.source_platform`,
+   `source_sensor` and `source_sensor_id`. `DataDisplay.source_readout(t)` formats the SOURCE line
+   for the data display, the contact board and the hover card ("MH-60R APS-153 multi-mode radar",
+   "Link" for a plot no unit of ours made).
+8. Battle damage assessment: Simulation connects `WeaponManager.weapon_impact` and `unit_destroyed`
+   to `TrackManager.on_weapon_impact` / `on_unit_destroyed`. A hit raises only the shooter side's
+   track on that unit by `100 × damage / assessed_health(t)` (the catalogue health of the reported
+   `known_class` via `DataDB.platform_by_short_name`, else `GENERIC_HEALTH` 100), capped at 100; a
+   kill any held track sees sets 100. `Track.damage_estimate` never reads the target's health.
+   `TacticalMap.hovered_track()` feeds the data display when nothing is hooked, and F7 opens
+   `PlatformLibrary.entry_for_track(t)` for a class-known hooked or inspected contact.
 
 ## Weapon pipeline
 1. UI builds `Order.engage(track, weapon_id, salvo)`. `UnitManager.issue_order` emits
