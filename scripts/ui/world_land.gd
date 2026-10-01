@@ -19,6 +19,7 @@ const NEAR_PX := 1024
 const FAR_PX := 1024
 const RAMP_PX := 256
 const RECENTRE_NM := 4.0
+const JUMP_NM := NEAR_HALF_NM  # a recentre further than this is a jump, not the focus sliding on
 const BASE_M := 1.4  # land at the waterline stands this far above still water
 const SHELF_M := BASE_M
 const FLAT_M := 40.0  # inland height where no raster covers the chart
@@ -220,6 +221,11 @@ func _begin_recentre(centre: Vector2) -> void:
 	_present = _land_near(centre)
 	if not _present:
 		return
+	# A jump (a new hook far off, or the Action camera going to an event): the masks about to be
+	# drawn are for somewhere the grid is not yet, and would put a coast in the wrong place for
+	# the frames until it moves. Show no land until it has; a slide of a few miles keeps it.
+	if _centre != Vector2.INF and _centre.distance_to(centre) > JUMP_NM:
+		_mesh.visible = false
 	_draw_mask(_near, centre, NEAR_HALF_NM, NEAR_PX)
 	_draw_mask(_far, centre, MESH_HALF_NM, FAR_PX)
 	_draw_mask(_ramp, centre, MESH_HALF_NM, RAMP_PX)
