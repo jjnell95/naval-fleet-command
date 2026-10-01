@@ -269,15 +269,16 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 	lines.append("[b][color=%s]%s[/color][/b]  %s" % [hex, t.id, t.description()])
 	lines.append(_kv("IDENTITY", "[color=%s]%s[/color]" % [hex, t.identity]))
 	lines.append(_kv("STATUS", "%s · seen %s ago" % [t.status_text(now), Track._fmt_age(t.age_s(now))]))
-	lines.append(_kv("SOURCE", "%s%s" % [t.source.to_upper().replace("_", " "), "" if t.networked else "  [color=%s]not on the link[/color]" % UITheme.HEX_AMBER]))
+	lines.append(_kv("SOURCE", "%s%s" % [DataDisplay.source_readout(t), "" if t.networked else "  [color=%s]not on the link[/color]" % UITheme.HEX_AMBER]))
+	lines.append(_kv("%DAMAGE", DataDisplay.damage_text(t)))
 	if t.is_bearing_only():
 		lines.append(_kv("RANGE", "[color=%s]UNRESOLVED · bearing only[/color]" % UITheme.HEX_AMBER))
 		lines.append(_kv("", "±%.1f nm along %s, ±%.1f across" % [t.error_major_nm, Geo.format_bearing(t.error_axis_deg), t.error_minor_nm]))
 		lines.append(_kv("SOLUTION", "%.0f%%%s" % [t.tma_quality * 100.0, "  [color=%s]manoeuvre to refine[/color]" % UITheme.HEX_AMBER if t.tma_quality < 0.6 else ""]))
 	else:
 		lines.append(_kv("POS", "%s  %s  ±%.1f nm" % [Geo.format_axis(t.position.x, "E", "W"), Geo.format_axis(t.position.y, "N", "S"), t.position_error_nm]))
-	if t.has_kinematics:
-		lines.append(_kv("CSE/SPD", "%s / %.0f kn (est)" % [Geo.format_bearing(t.course_deg), t.speed_kn]))
+	if t.has_kinematics and not t.is_bearing_only():
+		lines.append(_kv("CSE/SPD", "%s / %.0f kn" % [Geo.format_bearing(t.course_deg), t.speed_kn]))
 	else:
 		lines.append(_kv("CSE/SPD", "[color=%s]estimating…[/color]" % UITheme.HEX_DIM))
 	if ref != null:

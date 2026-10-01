@@ -230,6 +230,24 @@ static func radar_quality(observer: Unit, target: Unit) -> float:
 	return clampf(1.0 - d / r, 0.0, 1.0)
 
 
+## Which of the observer's radars gives the reach `radar_quality` used against this target: the
+## set the plot is credited to. Null when it has no radar that reaches at all.
+static func radar_sensor_for(observer: Unit, target: Unit) -> SensorSpec:
+	var signature := radar_signature_of(target)
+	var best := 0.0
+	var best_sensor: SensorSpec = null
+	for s in observer.sensors:
+		if s.kind != "radar":
+			continue
+		var height := observer_height_m(observer, s)
+		var r := radar_air_range_nm(s, signature, target.altitude_m, height) if target.in_flight() \
+			else radar_range_vs_surface_nm(s, signature, mast_or_altitude_m(target), height)
+		if r > best:
+			best = r
+			best_sensor = s
+	return best_sensor
+
+
 ## Best classification rate among the observer's emitting radars.
 static func classify_rate(observer: Unit) -> float:
 	var best := 0.0
@@ -324,6 +342,22 @@ static func active_sonar_reach_nm(observer: Unit, target: Unit) -> float:
 			continue
 		best = maxf(best, s.active_range_nm * Acoustics.active_path_factor(observer, s, target))
 	return best * observer.sensor_efficiency()
+
+
+## Which set gives `active_sonar_reach_nm` its figure against this target. Null if none reaches.
+static func active_sonar_sensor_for(observer: Unit, target: Unit) -> SensorSpec:
+	var best := 0.0
+	var best_sensor: SensorSpec = null
+	for s in observer.sensors:
+		if s.kind != "sonar" or s.active_range_nm <= 0.0:
+			continue
+		if s.requires_hover and not observer.is_hovering():
+			continue
+		var r := s.active_range_nm * Acoustics.active_path_factor(observer, s, target)
+		if r > best:
+			best = r
+			best_sensor = s
+	return best_sensor
 
 
 ## Nominal passive reach against a baseline noisy surface ship, for drawing sensor rings.

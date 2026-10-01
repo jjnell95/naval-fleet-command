@@ -26,6 +26,17 @@ var tma_quality := 0.0  # 0 = bearing only, 1 = a range solution worth shooting 
 var domain := ""  # "surface" or "subsurface", known once the contact is classified
 var altitude_m := -1.0  # held radar altitude; -1 means not measured
 var source := "radar"  # sensor that last held it
+## Who made the plot the track last took its position from, as this side's own records have it:
+## the observing platform's class short name (own units are no secret to their own side) and the
+## sensor's display name and catalogue id. The platform is empty for a buoy report, which names
+## the buoys as its sensor, and both are empty for a plot that came in from nothing we operate.
+var source_platform := ""
+var source_sensor := ""
+var source_sensor_id := ""
+## Battle damage assessment, 0..100: what this side's own hits on the contact suggest, and 100
+## once the plot sees it destroyed. Never a read of the target's true condition; see
+## TrackManager.record_hit.
+var damage_estimate := 0.0
 ## Which of our own units have contributed to this track, and whether any of them is on the
 ## network. A contact held only by something off the link is ours alone until it reconnects.
 var contributors: Dictionary = {}

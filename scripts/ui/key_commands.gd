@@ -45,7 +45,7 @@ const COMMANDS := [
 		["A", "Status boards: orders, task group, track file, comms"],
 		["F3", "Air operations"],
 		["F1", "Orders and briefing"],
-		["F7", "Reference"],
+		["F7", "Reference; opens on a classified contact's class"],
 		["Ctrl+K", "Actions"],
 		["M / Ctrl+E", "Missions / scenario editor"],
 		["Ctrl+F10 twice", "Restart the mission"],
