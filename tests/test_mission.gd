@@ -345,6 +345,58 @@ func test_a_damaged_commander_log_reads_as_typed_entries_and_can_be_written_agai
 	CommanderLog.path_override = ""
 
 
+func test_campaigns_hold_every_operation_once_in_date_order() -> void:
+	var campaigns := CampaignBook.load_all()
+	assert_eq(campaigns.size(), 2, "1990 and 2027")
+	var shipped := {}
+	for e: Dictionary in ScenarioIndex.list_all():
+		if not e["custom"] and e["collection"] == "operations":
+			shipped[str(e["id"])] = e
+	var seen := {}
+	for c: Dictionary in campaigns:
+		assert_eq(int(c["gate_percent"]), 60, "a clean victory opens the next operation")
+		var previous := ""
+		for id: String in c["operations"]:
+			assert_true(shipped.has(id), "%s is a shipped operation" % id)
+			assert_true(not seen.has(id), "%s sits in one campaign only" % id)
+			seen[id] = true
+			var date := str(ScenarioLoader.load_file(shipped[id]["path"]).get("start_time_utc", ""))
+			assert_true(date > previous, "%s follows the operation before it in time" % id)
+			previous = date
+	assert_eq(seen.size(), shipped.size(), "every operation on the desk belongs to a campaign")
+
+func _states(log: Dictionary) -> Array:
+	return CampaignBook.steps(CampaignBook.load_all()[0], log).map(func(s: Dictionary) -> String: return s["state"])
+
+func test_a_campaign_opens_each_operation_on_a_clean_win_of_the_one_before() -> void:
+	assert_eq(_states({}), ["open", "locked", "locked"], "the first operation is open from the start")
+	assert_eq(_states({"cold_war_03_carrier": {"result": "VICTORY", "best_percent": 90}}), ["open", "locked", "locked"], "a win from the Operations shelf does not skip the order")
+	var log := {"cold_war_01_convoy": {"result": "VICTORY", "best_percent": 72}}
+	assert_eq(_states(log), ["won", "open", "locked"])
+	log["cold_war_02_barrier"] = {"result": "DEFEAT", "best_percent": 35}
+	assert_eq(_states(log), ["won", "open", "locked"], "a defeat opens nothing")
+	log["cold_war_02_barrier"] = {"result": "VICTORY", "best_percent": 55}
+	assert_eq(_states(log), ["won", "open", "locked"], "nor does a win spoiled by a sunk neutral")
+	log["cold_war_02_barrier"] = {"result": "VICTORY", "best_percent": 64}
+	assert_eq(_states(log), ["won", "won", "open"])
+	var progress := CampaignBook.progress(CampaignBook.load_all()[0], log)
+	assert_eq(progress["won"], 2)
+	assert_eq(progress["average"], 45, "an unplayed operation counts as nothing")
+	log["cold_war_03_carrier"] = "damaged"
+	assert_eq(_states(log), ["won", "won", "open"], "a damaged record reads as unplayed")
+
+func test_the_debrief_names_what_a_campaign_result_opens() -> void:
+	var won := AfterAction.campaign_line("cold_war_01_convoy", {"cold_war_01_convoy": {"result": "VICTORY", "best_percent": 72}})
+	assert_true(won.contains("cleared") and won.contains("THE ICELAND-FAROE BARRIER is open"), won)
+	var short := AfterAction.campaign_line("cold_war_01_convoy", {"cold_war_01_convoy": {"result": "VICTORY", "best_percent": 55}})
+	assert_true(short.contains("win at 60% or better to open THE ICELAND-FAROE BARRIER"), short)
+	var last := AfterAction.campaign_line("med_01_tartus", {"aegis_bastion": {"result": "VICTORY", "best_percent": 80},
+		"pacific_02_taiwan_strait": {"result": "VICTORY", "best_percent": 70}, "gulf_01_hormuz": {"result": "VICTORY", "best_percent": 60},
+		"med_01_tartus": {"result": "VICTORY", "best_percent": 90}})
+	assert_true(last.contains("The campaign is complete, averaging 75%"), last)
+	assert_eq(AfterAction.campaign_line("northern_passage", {}), "", "training is in no campaign")
+
+
 func _write_probe(path: String, name: String) -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(JSON.stringify({"id": "custom_index_probe", "name": name, "player_faction": "BLUE", "units": [],

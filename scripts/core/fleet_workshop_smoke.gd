@@ -10,6 +10,29 @@ static func run(main: Main) -> void:
 	checks["operations shelf holds only authored operations, newest era first"] = main._menu._entries.size() == 7 and main._menu._entries.all(func(e: Dictionary) -> bool: return not e["custom"]) and int(main._menu._entries[0]["year"]) == 2027 and int(main._menu._entries[-1]["year"]) == 1990
 	main._menu._set_era("training")
 	checks["training shelf holds the carrier exercise and Northern Passage"] = main._menu._entries.size() == 2 and main._menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
+	# The campaign shelf reads this session's own log, so start it empty.
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CommanderLog.path()))
+	main._menu._set_era("campaigns")
+	var campaign := main._menu._entries
+	checks["campaign shelf lists both campaigns in order"] = campaign.size() == 7 and campaign[0]["id"] == "cold_war_01_convoy" and campaign[3]["id"] == "aegis_bastion"
+	main._menu._list.select(0)
+	main._menu._on_selected(0)
+	checks["the first campaign operation is open"] = not main._menu._play.disabled and main._menu._detail.text.contains("CAMPAIGN")
+	main._menu._list.select(1)
+	main._menu._on_selected(1)
+	var chosen: Array = []
+	var catch_choice := func(path: String) -> void: chosen.append(path)
+	main._menu.scenario_chosen.connect(catch_choice)
+	main._menu._on_play()
+	checks["a locked operation cannot be accepted"] = main._menu._play.disabled and chosen.is_empty() and main._menu._detail.text.contains("LOCKED")
+	CommanderLog.record("cold_war_01_convoy", "VICTORY", 72, "2026-10-01T12:00:00")
+	main._menu._set_era("campaigns")
+	main._menu.scenario_chosen.disconnect(catch_choice)
+	main._menu._list.select(1)
+	main._menu._on_selected(1)
+	checks["a clean win opens the next operation"] = not main._menu._play.disabled and main._menu._entries[1]["campaign_state"] == CampaignBook.OPEN and main._menu._count.text.contains("1990  1 OF 3 WON")
+	await _shot(main, "workshop-campaigns")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CommanderLog.path()))
 	main._menu._set_era("custom")
 	checks["custom shelf contains only custom files"] = main._menu._entries.all(func(e: Dictionary) -> bool: return e["custom"])
 	main._show_editor()

@@ -142,7 +142,26 @@ func _set_tile(key: String, value: int, note: String, good_when_high: bool) -> v
 
 ## `assessment` is MissionManager.assessment() at the end; `log_entry` what CommanderLog.record
 ## returned for it. Both optional, so the harness's direct calls keep working.
-func show_report(result: String, summary: String, stats: Dictionary, objectives: Array, losses: Array, kills: Array, elapsed_s: float, timeline: Array[String] = [], civilian_incidents: PackedStringArray = [], loss_objectives: Array = [], omitted_events := 0, assessment: Dictionary = {}, log_entry: Dictionary = {}) -> void:
+## Where a logged result leaves the operation's campaign, or "" when it is in none.
+static func campaign_line(scenario_id: String, log: Dictionary) -> String:
+	var found := CampaignBook.find(scenario_id, log)
+	if found.is_empty():
+		return ""
+	var c: Dictionary = found["campaign"]
+	var step: Dictionary = found["step"]
+	var next := ""
+	for e: Dictionary in ScenarioIndex.list_all():
+		if e["id"] == step["next_id"]:
+			next = str(e["name"]).replace(" — ", " / ")
+	var head := "%s, operation %d of %d" % [str(c.get("name", "")), int(step["step"]), int(step["total"])]
+	if step["state"] == CampaignBook.WON:
+		var tail := ("%s is open on the Campaigns shelf." % next) if next != "" else "The campaign is complete, averaging %d%%." % int(CampaignBook.progress(c, log)["average"])
+		return "[color=%s]%s: cleared. %s[/color]" % [UITheme.HEX_INK_GREEN, _safe(head), _safe(tail)]
+	var then := ("to open %s" % next) if next != "" else "to complete the campaign"
+	return "[color=%s]%s: win at %d%% or better %s.[/color]" % [UITheme.HEX_INK_AMBER, _safe(head), int(step["gate_percent"]), _safe(then)]
+
+
+func show_report(result: String, summary: String, stats: Dictionary, objectives: Array, losses: Array, kills: Array, elapsed_s: float, timeline: Array[String] = [], civilian_incidents: PackedStringArray = [], loss_objectives: Array = [], omitted_events := 0, assessment: Dictionary = {}, log_entry: Dictionary = {}, scenario_id := "") -> void:
 	var victory := result == "VICTORY"
 	_title.text = result
 	_title.add_theme_color_override("font_color", UITheme.INK_GREEN if victory else UITheme.INK_RED)
@@ -174,6 +193,10 @@ func show_report(result: String, summary: String, stats: Dictionary, objectives:
 			lines.append("[color=%s]Attempt %d · best %d%% (%s), set %s[/color]" % [UITheme.HEX_INK_DIM, attempts, int(log_entry.get("best_percent", percent)), str(log_entry.get("result", result)).to_lower(), _safe(str(log_entry.get("date", "")))])
 		elif attempts == 1:
 			lines.append("[color=%s]First attempt, entered in the commander's log[/color]" % UITheme.HEX_INK_DIM)
+		if not log_entry.is_empty():
+			var line := campaign_line(scenario_id, CommanderLog.load_all())
+			if line != "":
+				lines.append(line)
 		lines.append("")
 	lines.append(UITheme.section_bb("Objectives", true))
 	for o in objectives:
