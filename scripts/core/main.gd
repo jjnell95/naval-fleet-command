@@ -246,8 +246,10 @@ func _ready() -> void:
 		print("[Dev] seed pinned to %d" % seed_value)
 	if scripted:
 		SoundFx.enabled = false
-	if scripted or CrewVoice.automated_run():
-		# A driven run never saves preferences and never reaches the operating system's speech.
+	# A player launches with no arguments, in the browser or on the desktop. Anything else is a
+	# driven run (a smoke, a probe, a screenshot), which never saves preferences and never reaches
+	# the operating system's speech.
+	if scripted or CrewVoice.automated_run() or not args.is_empty():
 		UserSettings.writable = false
 	else:
 		var silent := voice.configure_from_settings()
@@ -1295,10 +1297,12 @@ func _on_round_fired(shooter: Unit, spec: WeaponSpec, _track: Track) -> void:
 	map.add_effect(shooter.position, "launch", true)
 	_world_view.add_effect(shooter.position, "launch", true)
 	SoundFx.play("launch")
+	# Deferred a frame: a ready launcher fires inside issue_order, before the order's own
+	# acknowledgement is said, and the acknowledgement should come first.
 	if spec.is_torpedo():
-		voice.say("torpedo_away", shooter)
-	elif not spec.is_gun() and spec.type != "bomb":
-		voice.say("missile_away", shooter)
+		voice.say.call_deferred("torpedo_away", shooter)
+	elif not spec.is_gun() and spec.type not in ["bomb", "ciws"]:
+		voice.say.call_deferred("missile_away", shooter)
 
 
 func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
@@ -1501,7 +1505,9 @@ func _radio_name(u: Unit) -> String:
 func _on_engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String) -> void:
 	if shooter.faction == simulation.player_faction:
 		radio.flash("Cannot fire %s: %s" % [spec.display_name, reason], "warn", shooter)
-		voice.say("order_refused", shooter)
+		# A queued round the weapon system cancels was never an order the crew refused.
+		if not reason.begins_with("QUEUED ROUND CANCELLED"):
+			voice.say("order_refused", shooter)
 
 
 func _on_mission_ended(result: String, summary: String) -> void:

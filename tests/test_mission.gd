@@ -395,6 +395,10 @@ func test_the_debrief_names_what_a_campaign_result_opens() -> void:
 		"med_01_tartus": {"result": "VICTORY", "best_percent": 90}})
 	assert_true(last.contains("The campaign is complete, averaging 75%"), last)
 	assert_eq(AfterAction.campaign_line("northern_passage", {}), "", "training is in no campaign")
+	var ahead := AfterAction.campaign_line("pacific_02_taiwan_strait", {"pacific_02_taiwan_strait": {"result": "VICTORY", "best_percent": 80}})
+	assert_true(ahead.contains("is not open yet") and ahead.contains("Win NORTH CAPE / BALLISTIC MISSILE DEFENCE at 60% or better first"), ahead)
+	assert_true(ahead.contains("this 80% win counts once the campaign reaches it"), "a win flown ahead of the campaign is credited, not contradicted")
+	assert_true(not ahead.contains("to open STRAIT OF HORMUZ"), "and the debrief does not ask for the win just flown")
 
 
 func _write_probe(path: String, name: String) -> void:

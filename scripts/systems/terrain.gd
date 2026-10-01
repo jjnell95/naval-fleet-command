@@ -314,11 +314,12 @@ static func _land_span_exhaustive(a: Vector2, b: Vector2) -> Vector2:
 	return Vector2(1.0, 0.0) if lo > hi else Vector2(lo, hi)
 
 
-static func _build_index() -> void:
+## `force` builds it on a small chart too, so the test can compare it there.
+static func _build_index(force := false) -> void:
 	_index = []
 	_index_cols = 0
 	_index_rows = 0
-	if landmasses.size() < INDEX_MIN_LANDMASSES:
+	if landmasses.is_empty() or (landmasses.size() < INDEX_MIN_LANDMASSES and not force):
 		return
 	var area := bounds.grow(_cell_nm)
 	_index_size = maxf(maxf(area.size.x, area.size.y) / float(INDEX_BUCKETS), _cell_nm)

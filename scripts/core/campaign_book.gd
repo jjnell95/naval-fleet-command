@@ -37,7 +37,8 @@ static func cleared(record: Dictionary, gate_percent: int) -> bool:
 
 
 ## The campaign's operations with their state, read from the log:
-## [{id, step, total, state, record, gate_percent, previous_id, next_id}].
+## [{id, step, total, state, record, gate_percent, previous_id, next_id, frontier_id}]. The
+## frontier is the first operation not yet won: the one the campaign is waiting on.
 static func steps(campaign: Dictionary, log: Dictionary) -> Array:
 	var ids: Array = campaign.get("operations", [])
 	var gate := int(campaign.get("gate_percent", 60))
@@ -54,6 +55,12 @@ static func steps(campaign: Dictionary, log: Dictionary) -> Array:
 		out.append({"id": id, "step": i + 1, "total": ids.size(), "state": state, "record": record, "gate_percent": gate,
 			"previous_id": str(ids[i - 1]) if i > 0 else "", "next_id": str(ids[i + 1]) if i + 1 < ids.size() else ""})
 		open = state == WON
+	var frontier := ""
+	for s: Dictionary in out:
+		if s["state"] == OPEN:
+			frontier = s["id"]
+	for s: Dictionary in out:
+		s["frontier_id"] = frontier
 	return out
 
 

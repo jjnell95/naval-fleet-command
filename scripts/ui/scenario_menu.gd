@@ -89,7 +89,7 @@ func _ready() -> void:
 	_intro.tooltip_text = "Start here: protect a freighter, launch reconnaissance and identify contacts. Opens the briefing with time paused."
 	_intro.pressed.connect(func() -> void: scenario_chosen.emit(INTRO_PATH))
 	filter_row.add_child(_intro)
-	for entry in [["operations", "OPERATIONS", "Seven authored operations, one 2027 operation in each of four theatres and three from 1990, with stars for difficulty and your best result"], ["campaigns", "CAMPAIGNS", "The same operations as two campaigns, 1990 and 2027, taken in order: win each at 60% or better to open the next"], ["training", "TRAINING", "Short engagements and exercises: learn the screen, the air wing and the sonar picture"], ["custom", "MY MISSIONS", "Missions you built or imported"]]:
+	for entry in [["operations", "OPERATIONS", "Seven authored operations, one 2027 operation in each of four theatres and three from 1990, with stars for difficulty and your best result"], ["campaigns", "CAMPAIGNS", "The same operations as two campaigns, 1990 and 2027, taken in order: win each at 60% or better to open the next"], ["training", "TRAINING", "Two missions to learn on: the screen and the contact picture, then the air-operations cycle"], ["custom", "MY MISSIONS", "Missions you built or imported"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
 		button.theme_type_variation = "MenuBigButton"
@@ -248,7 +248,9 @@ func refresh(current_path := "", played := false) -> void:
 			if entry["path"] == current_path:
 				# A custom mission is always shown on My Missions, played or only saved; a shipped
 				# one moves the desk only once it was actually commanded.
-				if _era in ["operations", "training", "custom"] and (played or entry["custom"]):
+				var in_campaign: bool = not entry["custom"] and not CampaignBook.find(str(entry["id"])).is_empty()
+				var keep_campaigns: bool = _era == "campaigns" and in_campaign
+				if _era in ["operations", "training", "custom", "campaigns"] and (played or entry["custom"]) and not keep_campaigns:
 					_era = shelf_for(entry)
 				break
 	_initial_refresh = false
@@ -388,6 +390,8 @@ static func campaign_note(e: Dictionary) -> String:
 	match str(e["campaign_state"]):
 		CampaignBook.LOCKED:
 			text = "[b]LOCKED.[/b] Win %s at %d%% or better to open this operation." % [_safe(str(e["campaign_previous"])), gate]
+			if CampaignBook.cleared(best, gate):
+				text += " Your %d%% win here already counts once the campaign reaches it." % int(best.get("best_percent", 0))
 		CampaignBook.WON:
 			if str(e["campaign_next"]) != "":
 				text = "Cleared at %d%%. %s is open." % [int(best.get("best_percent", 0)), _safe(str(e["campaign_next"]))]

@@ -10,7 +10,9 @@ static func run(main: Main) -> void:
 	checks["operations shelf holds only authored operations, newest era first"] = main._menu._entries.size() == 7 and main._menu._entries.all(func(e: Dictionary) -> bool: return not e["custom"]) and int(main._menu._entries[0]["year"]) == 2027 and int(main._menu._entries[-1]["year"]) == 1990
 	main._menu._set_era("training")
 	checks["training shelf holds the carrier exercise and Northern Passage"] = main._menu._entries.size() == 2 and main._menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
-	# The campaign shelf reads this session's own log, so start it empty.
+	# The campaign checks write a scratch log, never the player's: this smoke can run without
+	# --scenario-storage, and then CommanderLog.path() is the player's own record.
+	CommanderLog.path_override = "res://work/workshop-smoke-campaign-log.json"
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(CommanderLog.path()))
 	main._menu._set_era("campaigns")
 	var campaign := main._menu._entries
@@ -33,6 +35,7 @@ static func run(main: Main) -> void:
 	checks["a clean win opens the next operation"] = not main._menu._play.disabled and main._menu._entries[1]["campaign_state"] == CampaignBook.OPEN and main._menu._count.text.contains("1990  1 OF 3 WON")
 	await _shot(main, "workshop-campaigns")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(CommanderLog.path()))
+	CommanderLog.path_override = ""
 	main._menu._set_era("custom")
 	checks["custom shelf contains only custom files"] = main._menu._entries.all(func(e: Dictionary) -> bool: return e["custom"])
 	main._show_editor()
@@ -114,6 +117,12 @@ static func run(main: Main) -> void:
 	editor.closed.emit()
 	await main.get_tree().process_frame
 	checks["closing the editor after a save lands on the saved mission"] = main._menu.visible and main._menu._era == "custom" and main._menu._entries.any(func(e: Dictionary) -> bool: return e["path"] == first_path) and main._menu._mission_title.text != "CREATE YOUR FIRST MISSION"
+	main._menu._set_era("campaigns")
+	main._menu.refresh(first_path, true)
+	checks["a custom mission played from the Campaigns shelf returns to My Missions"] = main._menu._era == "custom"
+	main._menu._set_era("campaigns")
+	main._menu.refresh("res://data/scenarios/cold_war_02_barrier.json", true)
+	checks["a campaign operation played from the Campaigns shelf stays there"] = main._menu._era == "campaigns"
 	checks["the commander's log sits beside the isolated library, not in it"] = CommanderLog.path() == ScenarioIndex.user_root().trim_suffix("/") + ".commander_log.json"
 	main.start_scenario(first_path)
 	main._show_briefing()
