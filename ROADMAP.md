@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M35 Nine missions, a crew and campaigns
+
+The mission list cut from 23 to nine, one distinct command problem each, through the generators (which now reproduce `data/` byte for byte). The seven operations also run as two campaigns gated on the commander's log. The crew speaks, an ambient bed plays, contacts read out with source and estimated damage, and the Action camera follows a strike to its impact anywhere the plot witnessed it. A landmass index cuts the heaviest chart's sight-line cost. See [the M35 note](docs/2026-10-01-m35-nine-missions-a-crew-and-campaigns.md).
+
+Next: the sensor cycle's cost still grows with radiating aircraft (about 8 ms a tick early in the Taiwan Strait, 22 ms forty minutes in), so high time compression cannot keep up late in the largest battle. Report unchanged held pairs less often, then re-baseline the sweep. After that, the M34 note's remaining ranked gaps: global options with a Classic preset, tasking that arrives during the fight, and launching a mission rather than an airframe.
+
 ## M34 The command loop
 
 The standing Attack order, right-click defaults with cursor feedback, the authored operations back on the front door, mission effectiveness and the commander's log. See [the research note](docs/2026-10-01-fleet-command-command-loop.md), which ranks what is still missing against the 1999 original. In order: a crew you can hear (spoken acknowledgements and an ambient bed, with interface advice moved off the radio line); global game options with a Classic preset (player-managed missile defence, a 4× time ceiling); tasking and intelligence that arrive mid-mission, with hidden objectives and seeded random starts; aircraft launched to a mission (CAP stations, identification sweeps, strikes, rally points, Return to Station); a campaign with effectiveness gates, after mid-mission save; an Action camera that reaches the whole battle; a fuller contact readout (sensor and platform source, estimated damage, hover-to-read, F7 to the contact's entry); stations and group attack; tutorials taught by doing; and a debrief replay of the truth.
