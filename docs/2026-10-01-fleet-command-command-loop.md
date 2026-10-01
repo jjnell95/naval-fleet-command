@@ -92,7 +92,20 @@ The research ranked fourteen gaps by how much they cost the feeling, then by how
 
 ## Validation
 
-See [validation-m34.json](validation-m34.json) for commands, counts and hashes.
+All of this ran on the final source in a cloud container, headless and under Xvfb with software rendering; the browser package was booted in headless Chromium. GitHub's own CI run on the commit also passed. [validation-m34.json](validation-m34.json) holds every count, the per-run sweep results and the package hash.
+
+| Check | Result |
+|---|---|
+| Regression tests | 690 pass, 0 fail (660 before this milestone) |
+| Command screen, aviation | 47 and 19 checks pass |
+| Fleet workshop, weapon control | 38 and 30 checks pass at 1600 and at 1280 wide |
+| Command Watch, contact intent and attack | 45 and 73 checks pass at 1280 and at 1920 wide, plus 20 aircraft and receipt checks |
+| Northern Passage, graphical | 32 checks pass at 1280 and at 1920 wide |
+| Northern Passage, seven ordinary-order policies | all pass; the seed-31 replay is identical |
+| Scenario sweep, every operation at two seeds | 46 of 46 reach 6,000 s with nothing aground; every outcome matches M33's |
+| Browser package | 58.1 MB; boots to the operations desk with no page or script errors |
+
+Two things this does not show. No human has played the build since the change, and the sweep's autopilot drives the player's side through the enemy AI, so it exercises the shared simulation but never issues the new Attack order. The attack is covered by 18 dedicated tests and by the real-input playtest, which right-clicks a live hostile.
 
 ## Sources
 

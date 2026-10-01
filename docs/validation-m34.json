@@ -1,0 +1,682 @@
+{
+  "milestone": "M34 The command loop",
+  "date": "2026-10-01",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "tested_game_commit": "bc26fa76a6e172da791176eac0e6c3833f1ade13",
+  "scope": "Fresh local validation of the final source tree in a cloud container (Xvfb, Mesa llvmpipe). The standing Attack order, right-click defaults, operations desk, mission effectiveness and commander's log. Local runs used the working tree that became tested_game_commit; between those runs and the commit the only source change was a comment in scripts/simulation/mission_manager.gd, and GitHub CI ran on the commit itself.",
+  "github_ci": {
+    "commit": "bc26fa76a6e172da791176eac0e6c3833f1ade13",
+    "check": "Godot regression and interface checks",
+    "conclusion": "success",
+    "url": "https://github.com/jjnell95/naval-fleet-command/actions/runs/36863936547/job/110374643769"
+  },
+  "regression": {
+    "tests": 690,
+    "failed": 0,
+    "runner_self_check": "PASS"
+  },
+  "native_suites": [
+    {
+      "suite": "coldwar-1600",
+      "checks": 47,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "aviation-1600",
+      "checks": 19,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "workshop-1600",
+      "checks": 38,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "workshop-1280",
+      "checks": 38,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "weapons-1600",
+      "checks": 30,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "weapons-1280",
+      "checks": 30,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "watch-1280",
+      "checks": 45,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "watch-1920",
+      "checks": 45,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "intent-1280",
+      "checks": 73,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "intent-1920",
+      "checks": 73,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "intent-air-1280",
+      "checks": 20,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "passage-1280",
+      "checks": 32,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "passage-1920",
+      "checks": 32,
+      "failed": 0,
+      "exit": 0
+    }
+  ],
+  "northern_passage_policies": [
+    {
+      "run": "escort-31",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "escort-31-repeat",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "escort-13",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "abandon-31",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 1066.0
+    },
+    {
+      "run": "abandon-13",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 1066.0
+    },
+    {
+      "run": "deadline-31",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 2700.0
+    },
+    {
+      "run": "civilian-31",
+      "checks_passed": 19,
+      "result": 2,
+      "sim_time_s": 44.0
+    }
+  ],
+  "northern_passage_replay_identical": true,
+  "scenario_sweep": {
+    "runs": 46,
+    "passed": 46,
+    "workers": 3,
+    "all_reached_6000_s": true,
+    "all_zero_aground": true,
+    "outcomes_unchanged_from_m33": 46,
+    "changed": [],
+    "runs_detail": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 313.5,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 537.2,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 45.2,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 74.6,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 16.8,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 13.2,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "result": 1,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 13.0,
+        "m33_result": 1,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 63.5,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 2,
+        "ok": true,
+        "result": 2,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 18.9,
+        "m33_result": 2,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 147.8,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 15.3,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 83.3,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 157.4,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 13.8,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 2,
+        "ok": true,
+        "result": 2,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 26.3,
+        "m33_result": 2,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 26.6,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 15.1,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 691.1,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 2,
+        "ok": true,
+        "result": 1,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 35.7,
+        "m33_result": 1,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 529.6,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 63.1,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 2,
+        "ok": true,
+        "result": 1,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 87.5,
+        "m33_result": 1,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 2,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 8.3,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 236.2,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "arctic_shield",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 444.3,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "atlantic_gate",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 21.6,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "baltic_sentinel",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 46.5,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 16.3,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 12.9,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "result": 1,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 10.1,
+        "m33_result": 1,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 55.2,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_04_baltic",
+        "seed": 13,
+        "ok": true,
+        "result": 2,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 14.0,
+        "m33_result": 2,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "cold_war_05_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 121.2,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "giuk_passage",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 13.7,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 73.0,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 141.3,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "north_atlantic_shadow_line",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 12.8,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 13,
+        "ok": true,
+        "result": 2,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 24.6,
+        "m33_result": 2,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_sentry",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 20.9,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_shield",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 12.9,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "northern_vigil",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 691.2,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_01_bashi_channel",
+        "seed": 13,
+        "ok": true,
+        "result": 1,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 37.4,
+        "m33_result": 1,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 550.0,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_03_spratly",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 55.9,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "pacific_04_sea_of_japan",
+        "seed": 13,
+        "ok": true,
+        "result": 0,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 90.8,
+        "m33_result": 0,
+        "outcome_unchanged": true
+      },
+      {
+        "scenario": "sandbox_m1",
+        "seed": 13,
+        "ok": true,
+        "result": 1,
+        "aground": 0,
+        "seconds": 6000.0,
+        "wall_s": 7.9,
+        "m33_result": 1,
+        "outcome_unchanged": true
+      }
+    ]
+  },
+  "browser_package": {
+    "path": "docs/play/index.pck",
+    "bytes": 60941244,
+    "sha256": "5efae81adb360db2553ef4a235c6218c4aa3eee49ac7ad534802bfcf2c7dd817"
+  },
+  "browser_boot": {
+    "browser": "headless Chromium (Playwright), SwiftShader WebGL, served with COOP/COEP",
+    "engine_started": true,
+    "page_errors": 0,
+    "script_errors": 0,
+    "http_errors": [
+      "../fonts/*.woff2 x3: present at docs/fonts on GitHub Pages; absent only because the local test served docs/play alone"
+    ],
+    "first_screen": "operations desk, OPERATIONS shelf, 14 operations, 2027 then 1990"
+  },
+  "review": "Four read-only reviewers (attack simulation, attack presentation, desk and log, scoring) and six skeptics. Fifteen findings, fourteen distinct; the log-key collision was judged unreachable in normal play; every other finding was fixed, and all but one tooltip wording change carry a new test or suite check.",
+  "limits": [
+    "The Attack task never fires at a stale plot, waits 20 s between salvos, and does not model launcher arcs (no TURNING TO ENGAGE).",
+    "A bare right-click never attacks a neutral, friendly or classified contact of unknown allegiance; the 1999 default attacked neutrals too.",
+    "Effectiveness weights and platform points are gameplay estimates.",
+    "Validation ran headless and under Xvfb with software rendering; no human playtest is recorded."
+  ]
+}
