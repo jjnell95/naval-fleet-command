@@ -445,7 +445,12 @@
     "note": "The paired M34/M35 runs were back to back under load; localhost hides the smaller download, and boot time is unchanged within noise. The final package was booted once more after the camera fixes, under lighter load.",
     "final_package_ms_to_engine_started": 7211
   },
-  "github_ci": {},
+  "github_ci": {
+    "commit": "fd3c48cab3decd12c7ec2ce01a5c26dd6f1808c9",
+    "check": "Godot regression and interface checks",
+    "conclusion": "success",
+    "url": "https://github.com/jjnell95/naval-fleet-command/actions/runs/36887282488/job/110453712091"
+  },
   "review": "Main diff: four read-only reviewers (cut and data; desk, campaigns and cache; voice merge; readout and terrain index), each with an adversarial verifier. 18 findings; 15 confirmed (13 distinct), all fixed; 3 rejected (voice doc wording, reworded anyway; kill estimate on stale tracks, consistent with the existing radio rule; terrain test on unindexed charts, tightened anyway). Camera diff: one reviewer and one verifier; 3 findings, all confirmed and fixed, two with regression tests shown to fail without the fix.",
   "limits": [
     "Speech and the ambient bed were never heard: no speech-dispatcher in the container, and suites use a recording sink and the dummy audio driver.",
