@@ -30,10 +30,13 @@ The phase and countdown are part of the saved Unit state. Lowering, listening an
 
 ## Validation
 
-- Full regression run: **897 passed**, followed by **7 passed** in the focused sonar suite, including one additional land/hover case (**898 unique tests**).
+- Full regression run: **897 passed**, followed by **7 passed** in the focused sonar suite, including one additional land/hover case. GitHub subsequently passed the expanded **898-test** suite.
 - New native viewport suite: **57 checks passed at 1280×720 and 57 at 1920×1080**. It exercises 100/110/125% scale selection, layout, the sole launch action, both modal clock states, sonar commands, the operations desk and briefing.
 - Existing carrier mission workflow at **125% / 1280×720: 62 checks passed**, including chart station selection, assignment, recovery and saved-state interaction.
+- Northern Passage: both escort seeds win, the repeated seed matches exactly, and abandonment, deadline and civilian-attack policies still lose as intended (7 runs, 139 checks).
 - Existing aviation lifecycle smoke: **19 checks passed**, including recovery, rearming, diversion and clock restoration.
 - The browser data pack is rebuilt with Godot 4.7.2. Browser execution was not available in this environment; runtime validation used native Godot under Xvfb/llvmpipe.
 
 Detailed results: [validation JSON](2026-10-02-command-priorities-validation.json). The new viewport suite is included in GitHub Actions at both resolutions.
+
+The scenario check exposed an unsafe assumption in its old escort policy: it automatically fired repeated salvos on a sonar-derived estimate with roughly 7 nm uncertainty, through held civilian traffic. Without incidental sonar during takeoff, the resulting missile acquisition killed a neutral. The driver now checks the held civilian corridor and report uncertainty before committing an anti-ship missile, and validates the actual defensive exchange instead. This changes test orders, not weapon behavior or civilian-loss rules; the separate deliberate civilian-attack case still fails the mission. Offensive destruction is optional in Northern Passage.
