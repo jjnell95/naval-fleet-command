@@ -1,0 +1,121 @@
+{
+  "date": "2026-10-02",
+  "base_commit": "b73febb32f5f09fddb15d39dccccd51155ea2963",
+  "working_tree": "uncommitted local implementation, includes earlier command-screen refinement",
+  "engine": "Godot 4.7.2 stable / native llvmpipe under Xvfb, dummy audio",
+  "manual_reference": {
+    "url": "https://archive.org/stream/Janes_Fleet_Command/Janes_Fleet_Command_djvu.txt",
+    "basis": "quotations previously verified in repository M34 and M36 research notes",
+    "fresh_fetch": "Firecrawl refused: insufficient credits"
+  },
+  "headless": {
+    "tests": 889,
+    "failed": 0,
+    "log": "work/deep-review/tests-final.log",
+    "after_final_world_changes": {
+      "tests": 72,
+      "failed": 0,
+      "log": "work/deep-review/world-final.log"
+    }
+  },
+  "native": [
+    {
+      "name": "guide-1280",
+      "report": "work/deep-review/native/fleet-command-1280.json",
+      "checks": 30,
+      "failed": 0,
+      "errors": [],
+      "window": [
+        1280,
+        720
+      ]
+    },
+    {
+      "name": "air-1280",
+      "report": "work/deep-review/air/air-missions-1280.json",
+      "checks": 62,
+      "failed": 0,
+      "errors": [],
+      "window": [
+        1280,
+        720
+      ]
+    },
+    {
+      "name": "fleet-1920",
+      "report": "work/deep-review/fleet/fleet-command-1920.json",
+      "checks": 79,
+      "failed": 0,
+      "errors": [],
+      "window": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "name": "fleet-1280",
+      "report": "work/deep-review/fleet-final/fleet-command-1280.json",
+      "checks": 79,
+      "failed": 0,
+      "errors": [],
+      "window": [
+        1280,
+        720
+      ]
+    }
+  ],
+  "native_checks_total": 250,
+  "guide_branch": "bearing-only report; explicitly skipped investigation; recovered to deck at 332 simulated seconds; saved and restored progress; F1 resumes",
+  "screenshots": [
+    {
+      "path": "docs/review/2026-10-02-deep-bearing.png",
+      "sha256": "2804079ea01484daa30133402e093955e8732f3160b60cd4507e86fbc68146a4"
+    },
+    {
+      "path": "docs/review/2026-10-02-deep-briefing.png",
+      "sha256": "7938492eecab9e2ccd38e4841a1904c8050c83e7512c72d9ffe351f1f1a202a5"
+    },
+    {
+      "path": "docs/review/2026-10-02-deep-complete.png",
+      "sha256": "ace78fb9c54de94ce9d9871e6f0cab30f1a9f92c0530a32d62ea585af64abb9c"
+    },
+    {
+      "path": "docs/review/2026-10-02-deep-estimate.png",
+      "sha256": "555ff8fcf88fbac53e54603f0cf5b893f91d604d9ce2f5e23cf7ab7c4bba48c5"
+    },
+    {
+      "path": "docs/review/2026-10-02-deep-guide.png",
+      "sha256": "e34dd9c0299b36d1d4ab7dc687b764cfbeeeaaf2833dfa6d20d189b8c334e2e5"
+    },
+    {
+      "path": "docs/review/2026-10-02-deep-hormuz.png",
+      "sha256": "31cabe97c09f7816b8d7fbfae0f8d38271bb17d6fce12e5e044ce49be45aff15"
+    },
+    {
+      "path": "docs/review/2026-10-02-deep-sighted.png",
+      "sha256": "6eedd2df98912b83ece2249c50363f5f476efaeb1590d9e56b59a0b35dedcb8c"
+    },
+    {
+      "path": "docs/review/2026-10-02-deep-taiwan.png",
+      "sha256": "d862c6ddb43f4f61fb4374ef8a8c3b04d3e710ed4521fa09e17da76bf60f4280"
+    },
+    {
+      "path": "docs/review/2026-10-02-deep-tartus.png",
+      "sha256": "f1c2e565673714c1407137ee120f3b693e670fa4ac31940b74bb800ee04216c8"
+    }
+  ],
+  "generated_data": "All five documented builders rerun. Only two Northern Passage briefing strings differ. No simulation balance data changed.",
+  "web": {
+    "package_bytes": 57366924,
+    "sha256": "eaa8380c8a7bba55da6f95c2ccd217b952778731886649bca7f0378da3e838e6",
+    "log": "work/deep-review/web-build.log",
+    "loader_size_matches": true,
+    "browser_runtime_tested": false,
+    "deployed": false
+  },
+  "limits": [
+    "No browser execution or browser save/reload in this session.",
+    "Full scenario balance sweep not repeated; simulation battle rules unchanged except newly chosen Classic defaults.",
+    "Audio playback and comprehensive accessibility not assessed."
+  ]
+}

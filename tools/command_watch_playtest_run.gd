@@ -48,8 +48,8 @@ func run(scene_tree: SceneTree) -> void:
 	checks["Shift W arms patrol through viewport keyboard input"] = main.map.interaction_mode == TacticalMap.InteractionMode.PATROL
 	await _key(KEY_ESCAPE)
 	checks["Escape cancels patrol through viewport keyboard input"] = main.map.interaction_mode == TacticalMap.InteractionMode.SELECT
-	await _click_control(main.command_bar.buttons["plot_patrol"])
-	checks["patrol command arms from strip"] = main.map.interaction_mode == TacticalMap.InteractionMode.PATROL
+	await _choose_patrol()
+	checks["patrol command arms from Orders menu"] = main.map.interaction_mode == TacticalMap.InteractionMode.PATROL
 	await _chart_click(Vector2(-3, 2))
 	await _chart_motion(Vector2(-1, 4))
 	checks["first corner issues no order"] = not frigate.patrol_active
@@ -67,7 +67,7 @@ func run(scene_tree: SceneTree) -> void:
 	checks["actual deck cycle launches the helicopter"] = helo.airborne()
 	main.map.select_units([helo])
 	main.command_bar.refresh()
-	await _click_control(main.command_bar.buttons["plot_patrol"])
+	await _choose_patrol()
 	await _chart_click(Vector2(2, 3))
 	await _chart_click(Vector2(3, 4))
 	checks["aircraft accepts area through same mouse tool"] = helo.patrol_active
@@ -92,17 +92,17 @@ func run(scene_tree: SceneTree) -> void:
 		if helo.completed_sorties >= 1: break
 	checks["patrol aircraft recovers alive"] = helo.alive and helo.completed_sorties == 1
 	main.map.select_units([frigate])
-	await _click_control(main.command_bar.buttons["swap_views"])
-	checks["3D key swaps the real live view"] = main._views_swapped and main._world_view.get_parent() == main._upper
+	await _click_control(main._world_view._swap_button)
+	checks["3D pane control swaps the real live view"] = main._views_swapped and main._world_view.get_parent() == main._upper
 	await _shot("frigate-3d")
-	await _click_control(main.command_bar.buttons["swap_views"])
+	await _click_control(main._world_view._swap_button)
 	await _click_control(main.command_bar.buttons["air_operations"])
 	checks["air key opens flight deck"] = main._air_operations.visible and SimClock.paused
 	main._close_air_operations(false)
 	await _click_control(main.command_bar.buttons["weapon_control"])
 	checks["weapons key opens weapon control"] = main._weapon_control.visible and SimClock.paused
 	main._close_weapon_control()
-	await _click_control(main.command_bar.buttons["status_boards"])
+	await _key(KEY_A)
 	checks["orders key opens boards"] = main.status_boards.visible
 	main.status_boards.close_boards()
 	await _click_control(main.command_bar.buttons["toggle_pause"])
@@ -188,3 +188,33 @@ func _shot(label: String) -> void:
 	var path := "res://work/m32/%s-%d.png" % [label, frame.get_width()]
 	checks["screenshot: " + label] = frame.save_png(path) == OK
 	shots.append(path)
+
+
+## Choose Patrol through the real Orders menu, including its popup hit testing.
+func _choose_patrol() -> void:
+	await _click_control(main.command_bar.buttons["orders_menu"])
+	var menu := main._cds_menus._root
+	var table: Dictionary = main._cds_menus._actions.get(menu.get_instance_id(), {})
+	for id: int in table:
+		if table[id].get("id") != "plot_patrol":
+			continue
+		await tree.create_timer(0.2).timeout
+		for y in range(6, menu.size.y, 5):
+			menu.warp_mouse(Vector2(menu.size.x * 0.5, y))
+			await _frames()
+			if menu.get_focused_item() != menu.get_item_index(id):
+				continue
+			var window_id := menu.get_window_id()
+			var point := Vector2(DisplayServer.mouse_get_position() - DisplayServer.window_get_position(window_id))
+			for pressed: bool in [true, false]:
+				var event := InputEventMouseButton.new()
+				event.window_id = window_id
+				event.button_index = MOUSE_BUTTON_LEFT
+				event.position = point
+				event.pressed = pressed
+				Input.parse_input_event(event)
+				await tree.process_frame
+			await _frames()
+			return
+	checks["Patrol is reachable through the Orders menu"] = false
+	main._cds_menus.close()

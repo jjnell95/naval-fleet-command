@@ -687,6 +687,11 @@ func _update_subject_label() -> void:
 	var serial := rig.action_serial()
 	var subject_name: String = _focus.get("name", "")
 	var detail: String = _focus.get("detail", "")
+	var track: Track = map.inspection_track() if map != null else null
+	if track == null:
+		track = _focus.get("track")
+	if track != null:
+		detail = WorldPresentation.contact_caption(track, _focus_key.begins_with("u:"))
 	if rig.mode == _caption_mode and serial == _caption_serial and hinting == _caption_hinting and _hint_serial == _caption_hint_serial and _focus_key == _caption_focus_key and subject_name == _caption_name and detail == _caption_detail:
 		return
 	_caption_mode = rig.mode
@@ -709,11 +714,10 @@ func _update_subject_label() -> void:
 					label = e.get("label", "")
 					break
 		caption = event_caption(String(action.get("kind", "")), bool(action.get("own", false)), label)
-	elif _focus.get("track") != null:
-		caption += " · " + detail
-		if _focus_key.begins_with("t:"):
-			caption = "SENSOR ESTIMATE · " + caption
+	elif track != null:
+		caption = detail
 	_subject_label.text = caption
+	_subject_label.tooltip_text = caption
 
 
 func _view_button(text: String, hint: String, action: Callable) -> Button:

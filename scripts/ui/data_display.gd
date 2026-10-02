@@ -106,7 +106,7 @@ func build_rows() -> Array:
 		var rows := track_rows(inspected, ref, SimClock.sim_time)
 		if not map.selected.is_empty():
 			var shooter := (map.selected[0] as Unit).callsign if map.selected.size() == 1 else "%d platforms" % map.selected.size()
-			rows.insert(2, _kv("COMMAND", shooter))
+			rows.insert(4, _kv("COMMAND", shooter))
 		return rows
 	if map.selected.size() == 1:
 		var u: Unit = map.selected[0]
@@ -380,24 +380,24 @@ static func track_rows(t: Track, ref: Unit, now: float) -> Array:
 	rows.append([[title.capitalize() if title == title.to_upper() else title, TITLE]])
 	rows.append(_kv("TRACK #", track_number_for_track(t)))
 	rows.append(_kv("IDENTITY", t.identity, identity_key(t.identity)))
+	rows.append(_kv("PLOT", plot_text(t, now), ALERT if t.status != Track.Status.ACTIVE else VALUE))
 	# Held kinematics read plainly, as the own platform's do; POSITION states the uncertainty.
 	if t.has_kinematics and not t.is_bearing_only():
-		rows.append(_kv("COURSE", "%03d" % (int(round(t.course_deg)) % 360)) + [["   SPEED: ", LABEL], ["%d KTS" % int(round(t.speed_kn)), VALUE]])
+		rows.append(_kv("LAST COURSE" if t.status != Track.Status.ACTIVE else "COURSE", "%03d" % (int(round(t.course_deg)) % 360)) + [["   SPEED: ", LABEL], ["%d KTS" % int(round(t.speed_kn)), VALUE]])
 	else:
 		rows.append(_kv("COURSE", "unknown"))
-	rows.append(_kv("%DAMAGE", damage_text(t)))
-	rows.append(_kv("SOURCE", source_readout(t)))
-	var status := "active" if t.status == Track.Status.ACTIVE else t.status_text(now).to_lower()
 	if t.is_bearing_only():
-		rows.append(_kv("POSITION", "bearing only, %s" % status))
+		rows.append(_kv("POSITION", "bearing only - range unresolved"))
 	else:
-		rows.append(_kv("POSITION", "+/-%.1f nm, %s" % [t.position_error_nm, status]))
+		rows.append(_kv("POSITION", "+/-%.1f nm (sensor estimate)" % t.position_error_nm))
+	rows.append(_kv("SOURCE", source_readout(t)))
+	rows.append(_kv("%DAMAGE", damage_text(t)))
 	if ref != null and ref.alive:
 		var brg := Geo.format_bearing(Geo.bearing_deg(ref.position, t.position))
 		if t.is_bearing_only():
 			rows.append(_kv("BEARING", "%s from %s" % [brg, ref.callsign]))
 		else:
-			rows.append(_kv("RANGE", "%.1f nm, bearing %s from %s" % [ref.position.distance_to(t.position), brg, ref.callsign]))
+			rows.append(_kv("RANGE", "~%.1f nm, bearing %s from %s" % [ref.position.distance_to(t.position), brg, ref.callsign]))
 		# The relative-motion solution from the track as held: a planning aid, never truth.
 		var solution := RelativeMotion.solution(ref, t, now)
 		if bool(solution.get("valid", false)):
@@ -408,6 +408,18 @@ static func track_rows(t: Track, ref: Unit, now: float) -> Array:
 			var closing := float(solution["closing_kn"])
 			rows.append(_kv("CLOSING" if closing >= 0.0 else "OPENING", "%d KTS" % int(round(absf(closing)))))
 	return rows
+
+
+## Freshness is independent of identification: a known class can still be an old report.
+static func plot_text(t: Track, now: float) -> String:
+	var age := Track._fmt_age(t.age_s(now))
+	if t.status == Track.Status.LOST:
+		return "LOST - last report %s ago" % age
+	if t.status == Track.Status.STALE:
+		return "STALE - last report %s ago" % age
+	if t.reported:
+		return "CONTACT REPORT - %s ago" % age
+	return "LIVE - updated %s ago" % age
 
 
 static func identity_key(identity: String) -> String:
@@ -423,6 +435,9 @@ static func identity_key(identity: String) -> String:
 
 ## The battle damage assessment as the data display states it: an estimate from our own hits.
 static func damage_text(t: Track) -> String:
+	# No assessed hit is not evidence of an undamaged hull.
+	if t.damage_estimate <= 0.0:
+		return "not assessed"
 	return "%d (est)" % int(round(clampf(t.damage_estimate, 0.0, 100.0)))
 
 

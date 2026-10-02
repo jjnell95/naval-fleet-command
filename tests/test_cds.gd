@@ -192,7 +192,7 @@ func test_contact_rows_never_read_truth() -> void:
 	assert_true(not text.contains("SECRET NAME"), "an unidentified contact is described only as held")
 	assert_true(text.contains("TRACK #: 1001"))
 	assert_true(text.contains("IDENTITY: UNKNOWN"))
-	assert_true(text.contains("RANGE: 12.0 nm"), "range from the hooked own unit")
+	assert_true(text.contains("RANGE: ~12.0 nm"), "estimated range from the hooked own unit")
 
 
 func test_bearing_only_contacts_claim_no_range() -> void:

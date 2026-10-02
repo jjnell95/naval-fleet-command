@@ -24,6 +24,98 @@ func _track(id: String, identity: String, position: Vector2, status := Track.Sta
 	return t
 
 
+func test_command_guide_records_accepted_player_orders_and_preserves_progress() -> void:
+	Terrain.clear()
+	var guide := CommandGuide.new()
+	guide.reset("northern_passage", "BLUE")
+	var um := UnitManager.new()
+	var air := _unit("usn_helo_mh60r")
+	air.flight_state = Unit.FlightState.AIRBORNE
+	um.add_unit(air)
+	um.order_issued.connect(guide.record_order)
+	guide.observe(um)
+	assert_eq(guide.step(), 1, "an actual airborne aircraft completes launch")
+	var route := Order.patrol_box(Vector2(1, 1), Vector2(3, 3))
+	route.execution_accepted = false
+	guide.record_order(air, route)
+	assert_true(not guide.done.has("patrol"), "an unaccepted order earns no progress")
+	var crew := Order.patrol_box(Vector2(1, 1), Vector2(3, 3))
+	crew.origin = "crew"
+	assert_true(um.issue_order(air, crew))
+	assert_true(not guide.done.has("patrol"), "autonomous crew movement is not a practiced command")
+	assert_true(um.issue_order(air, route))
+	assert_eq(guide.step(), 2)
+	guide.record_inspection(_track("T1", "UNKNOWN", Vector2(4, 4)))
+	assert_eq(guide.step(), 3)
+	guide.skip_step()
+	var restored := CommandGuide.new()
+	restored.reset("northern_passage", "BLUE")
+	restored.restore(guide.to_dict())
+	assert_eq(restored.to_dict(), guide.to_dict(), "save restores steps, skips and aircraft association")
+	assert_eq(restored.step(), 4)
+	assert_true(not restored.done.has("investigate"), "skipping never claims the command was practiced")
+	restored.restore({})
+	assert_true(not restored.enabled, "old saves do not introduce a guide mid-engagement")
+	restored.reset("cold_war_03_carrier", "BLUE")
+	restored.restore(guide.to_dict())
+	assert_true(not restored.enabled, "other operations cannot enable an unrelated lesson")
+	guide.free()
+	restored.free()
+	um.free()
+
+
+func test_command_guide_only_completes_return_after_its_investigation_is_classified() -> void:
+	Terrain.clear()
+	var guide := CommandGuide.new()
+	guide.reset("northern_passage", "BLUE")
+	var um := UnitManager.new()
+	var air := _unit("usn_helo_mh60r")
+	air.flight_state = Unit.FlightState.AIRBORNE
+	um.add_unit(air)
+	guide.aircraft_id = air.id
+	guide.target_id = "T1"
+	assert_true(um.issue_order(air, Order.patrol_box(Vector2(1, 1), Vector2(3, 3))))
+	guide.observe(um)
+	assert_true(not guide.done.has("return"), "already being on patrol is not a completed investigation")
+	guide.record_classification(air, _track("T2", "NEUTRAL", Vector2(2, 2)), "Contact classified")
+	guide.observe(um)
+	assert_true(not guide.done.has("return"), "another report does not complete the task")
+	guide.record_classification(air, _track("T1", "NEUTRAL", Vector2(2, 2)), "Contact classified")
+	guide.observe(um)
+	assert_true(guide.done.has("return"), "classification plus resumed station closes the command loop")
+	guide.free()
+	um.free()
+
+
+func test_command_guide_handles_unresolved_reports_recovery_and_torpedoes() -> void:
+	var guide := CommandGuide.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(guide)
+	guide.reset("northern_passage", "BLUE")
+	var um := UnitManager.new()
+	var air := _unit("usn_helo_mh60r")
+	air.flight_state = Unit.FlightState.AIRBORNE
+	um.add_unit(air)
+	guide.aircraft_id = air.id
+	guide.done.assign(["launch", "patrol", "inspect"])
+	var report := _track("T1", "UNKNOWN", Vector2(20, 1))
+	report.bearing_only = true
+	guide.refresh(um, GameOptions.classic(), false, report)
+	assert_true(guide._body.text.contains("range unresolved") and guide._body.text.contains("skip"), "no demand to investigate a bearing-only report")
+	assert_eq(TacticalMap.default_contact_verb(report), "", "cursor opens the explanatory menu instead of promising an impossible order")
+	guide.refresh(um, GameOptions.classic(), true, report, true)
+	assert_true(guide._body.text.contains("Torpedo") and not guide._body.text.contains("press X"), "missile intercept guidance is not given for torpedoes")
+	guide.skip_step()
+	var recovery := Order.return_to_base()
+	guide.record_order(air, recovery)
+	guide.observe(um)
+	assert_true(not guide.done.has("return"), "ordering recovery does not claim a safe landing")
+	air.flight_state = Unit.FlightState.TURNAROUND
+	guide.observe(um)
+	assert_true(guide.done.has("return"), "actual deck recovery closes the alternate lesson")
+	guide.free()
+	um.free()
+
+
 func test_priority_tracks_rank_identity_freshness_distance_and_id() -> void:
 	var reference := _unit()
 	var unknown_near := _track("T1001", "UNKNOWN", Vector2(1, 0))

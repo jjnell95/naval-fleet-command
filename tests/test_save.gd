@@ -486,8 +486,8 @@ func test_every_simulation_field_is_saved_or_declared_transient() -> void:
 	_free()
 
 
-## The Classic options as the simulation holds them: the side engages what its crews identify as
-## hostile, and its ships keep their SAMs for the rounds the commander orders intercepted.
+## Legacy M36 Classic, now Custom: preserve auto-attack after identification and manual SAMs
+## across a saved battle. Today's Classic defaults must never rewrite these stored rules.
 func _classic_doctrine() -> void:
 	var um := _sim.unit_manager
 	um.set_engage_on_hostile_id("BLUE", true)
@@ -569,7 +569,7 @@ func test_a_save_carries_the_gameplay_options_it_was_played_under() -> void:
 	var path := SaveGame.slot_path("options")
 	var classic := GameOptions.classic()
 	assert_eq(SaveGame.write(path, {"label": "test", "gameplay": classic.label()}, {"simulation": {}, "presentation": {"options": classic.to_dict()}}), "")
-	assert_eq(str(SaveGame.read_header(path).get("gameplay", "")), "CLASSIC 4×")
+	assert_eq(str(SaveGame.read_header(path).get("gameplay", "")), "CLASSIC 8×")
 	var back := SaveGame.read(path)
 	DirAccess.remove_absolute(path)
 	assert_eq(back.get("error", "?"), "")

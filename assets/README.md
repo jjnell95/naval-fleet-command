@@ -18,7 +18,7 @@ The presentation set contains 140 platform and 149 weapon models (`models/manife
 
 The air-operations expansion adds 18 dedicated platform silhouettes and 12 weapon models. Charles de Gaulle has a compact angled flight deck and parked Rafales; America has a straight STOVL deck; Juan Carlos I has a ski jump and Harriers; Mistral has helicopter landing spots and Panthers. The smaller combatants retain their different mast, gun and deckhouse arrangements, while Suffren and Gotland have X-shaped stern controls. The aircraft set includes separate Harrier, Typhoon, Gripen, F-16, Atlantic 2, Su-34, Panther and Hawkeye shapes. The Panther has an open enclosed tail rotor; the missile additions include the external ramjet ducts on Meteor and Kh-31. These are visual recognition cues at game scale, not dimensionally authoritative reference material.
 
-The recognition geometry is in `tools/blender/build_platform_art.py`. The additional geometry, materials, colour renders, thumbnails and GLB export are in `tools/blender/build_presentation_assets.py`. Blender is an authoring dependency only. The committed assets load directly in Godot and the exported web game.
+The earlier recognition geometry is in `tools/blender/build_platform_art.py`. Its additional geometry, materials, colour renders, thumbnails and GLB export are in `tools/blender/build_presentation_assets.py`. Revised models listed below are maintained in `tools/art/`; rebuilding them with the older Blender builders would overwrite their improvements. Blender is an authoring dependency only. The committed assets load directly in Godot and the exported web game.
 
 ```sh
 blender --background --python-exit-code 1 --python tools/blender/build_presentation_assets.py --
@@ -29,6 +29,34 @@ godot --headless --path . --editor --import --quit
 ```
 
 The pipeline was verified with Blender 5.2.1 and Godot 4.7.2. `ModelStage` uses a single visible SubViewport, simple studio lighting and a low-resolution procedural reflection sky. It stops viewport updates when hidden. Lists use thumbnails instead of loading all full-resolution portraits. The largest current model is under 24,000 triangles; the asset test limits each model to 20 material surfaces.
+
+## Aircraft and submarines (2 October 2026)
+
+`tools/art/build_air_subs.py` is the authoritative builder for 22 aircraft entries and all 14
+submarine entries, including the two donor copies. Its registry overrides the earlier builders in
+`build_models.py`. Aircraft use elliptical body sections, tapered airfoil sections, framed canopies,
+recessed intakes and open exhaust lips. The F-35C retains its wider carrier wing, the Tomcat its wing
+glove and swept flight pose, the delta fighters their canards, and the S-3 its T-tail. Patrol aircraft
+have curved cockpit glazing; E-2C and E-2D show four- and eight-blade propellers respectively.
+
+Submarines have rounded sonar bows, faired sails, class-specific hull proportions, bow or sail planes,
+cruciform or X stern controls, and open pump-jet shrouds or exposed screws. The Virginia, Astute and
+Kilo families no longer inherit another class's sail planes. Retracted mast heads and a clean flight
+pose avoid implying current sensor or weapon state. `submarine_coating` is a dark matte material with
+its matching shared world-view finish. Small fittings and poses remain illustrative; geometry does
+not change detection, loadouts, performance, or the held-report visibility rules.
+
+Regenerate models, portraits, thumbnails, profiles and plans together:
+
+```sh
+tools/art/rebuild_air_subs.sh
+```
+
+The script requires Python with numpy/trimesh/Pillow, Godot 4.7.2 and Xvfb. Set `GODOT` to select the
+engine. It imports before rendering and copies the Japanese F-35B and Iranian Kilo **after** their
+donor renders are refreshed. Preserve each plan texture's 384-pixel import limit. The render sidecar
+marks this set with `recognition_revision: "2026-10-02"`; `tools/recognition_playtest.gd` opens every
+marked entry in the actual Reference viewer and checks three camera presets and frame containment.
 
 ## Blender-free pipeline (2027 theatre catalogue)
 

@@ -268,7 +268,7 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 	var lines := PackedStringArray()
 	lines.append("[b][color=%s]%s[/color][/b]  %s" % [hex, t.id, t.description()])
 	lines.append(_kv("IDENTITY", "[color=%s]%s[/color]" % [hex, t.identity]))
-	lines.append(_kv("STATUS", "%s · seen %s ago" % [t.status_text(now), Track._fmt_age(t.age_s(now))]))
+	lines.append(_kv("PLOT", DataDisplay.plot_text(t, now)))
 	lines.append(_kv("SOURCE", "%s%s" % [DataDisplay.source_readout(t), "" if t.networked else "  [color=%s]not on the link[/color]" % UITheme.HEX_AMBER]))
 	lines.append(_kv("%DAMAGE", DataDisplay.damage_text(t)))
 	if t.is_bearing_only():
@@ -278,7 +278,7 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 	else:
 		lines.append(_kv("POS", "%s  %s  ±%.1f nm" % [Geo.format_axis(t.position.x, "E", "W"), Geo.format_axis(t.position.y, "N", "S"), t.position_error_nm]))
 	if t.has_kinematics and not t.is_bearing_only():
-		lines.append(_kv("CSE/SPD", "%s / %.0f kn" % [Geo.format_bearing(t.course_deg), t.speed_kn]))
+		lines.append(_kv("LAST CSE/SPD" if t.status != Track.Status.ACTIVE else "CSE/SPD", "%s / %.0f kn" % [Geo.format_bearing(t.course_deg), t.speed_kn]))
 	else:
 		lines.append(_kv("CSE/SPD", "[color=%s]estimating…[/color]" % UITheme.HEX_DIM))
 	if ref != null:

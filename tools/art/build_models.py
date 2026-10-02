@@ -30,6 +30,7 @@ sys.path.insert(0, str(HERE))
 from artkit import Model, split_hull_materials, SMOOTH  # noqa: E402
 import build_air_weapons as aw  # noqa: E402
 import build_flattops as flattops  # noqa: E402
+import build_air_subs as air_subs  # noqa: E402
 
 ROOT = HERE.parent.parent
 DATA = ROOT / "data"
@@ -1187,6 +1188,7 @@ BUILDERS = {
 }
 BUILDERS.update(aw.BUILDERS)
 BUILDERS.update(flattops.BUILDERS)
+BUILDERS.update(air_subs.BUILDERS)
 
 
 # --------------------------------------------------------------------------------------------
@@ -1226,6 +1228,8 @@ def build_one(sid, spec, is_weapon):
     entry = {"kind": "weapon" if is_weapon else "platform"}
     if not is_weapon:
         entry["domain"] = spec["domain"]
+        if sid in air_subs.BUILDERS:
+            entry["recognition_revision"] = "2026-10-02"
         if spec["domain"] in ("surface", "subsurface"):
             entry["waterline_y"] = round(info["waterline_y"], 4)
     print("MODEL %-28s %6d tris %2d surfaces %s" % (sid, info["triangles"], info["surfaces"],
@@ -1252,6 +1256,8 @@ def copy_asset(sid, donor, specs, sidecar, rows):
     entry = {"kind": kind, "copy_of": donor}
     if kind == "platform":
         entry["domain"] = specs[sid]["domain"]
+        if sidecar.get(donor, {}).get("recognition_revision"):
+            entry["recognition_revision"] = sidecar[donor]["recognition_revision"]
         if donor in sidecar and "waterline_y" in sidecar[donor]:
             entry["waterline_y"] = sidecar[donor]["waterline_y"]
     sidecar[sid] = entry

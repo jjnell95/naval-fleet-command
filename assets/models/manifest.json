@@ -167,12 +167,12 @@
   {
     "id": "cw90_e2c",
     "kind": "platform",
-    "triangles": 3528
+    "triangles": 3056
   },
   {
     "id": "cw90_f14a",
     "kind": "platform",
-    "triangles": 4492
+    "triangles": 2636
   },
   {
     "id": "cw90_fort",
@@ -202,7 +202,7 @@
   {
     "id": "cw90_los_angeles",
     "kind": "platform",
-    "triangles": 2344
+    "triangles": 2476
   },
   {
     "id": "cw90_merchant",
@@ -257,7 +257,7 @@
   {
     "id": "cw90_p3c",
     "kind": "platform",
-    "triangles": 6160
+    "triangles": 3500
   },
   {
     "id": "cw90_p500",
@@ -282,7 +282,7 @@
   {
     "id": "cw90_s3a",
     "kind": "platform",
-    "triangles": 3968
+    "triangles": 3384
   },
   {
     "id": "cw90_sea_sparrow",
@@ -357,7 +357,7 @@
   {
     "id": "cw90_victor3",
     "kind": "platform",
-    "triangles": 2532
+    "triangles": 3426
   },
   {
     "id": "deu_ffg_sachsen",
@@ -397,7 +397,7 @@
   {
     "id": "fra_aew_e2c",
     "kind": "platform",
-    "triangles": 3464
+    "triangles": 3056
   },
   {
     "id": "fra_cvn_charles_de_gaulle",
@@ -412,7 +412,7 @@
   {
     "id": "fra_fighter_rafale_m",
     "kind": "platform",
-    "triangles": 3572
+    "triangles": 2320
   },
   {
     "id": "fra_helo_panther",
@@ -432,7 +432,7 @@
   {
     "id": "fra_ssn_suffren",
     "kind": "platform",
-    "triangles": 1936
+    "triangles": 2872
   },
   {
     "id": "iris_t_aam",
@@ -527,12 +527,12 @@
   {
     "id": "irn_ssk_kilo_877ekm",
     "kind": "platform",
-    "triangles": 1480
+    "triangles": 2664
   },
   {
     "id": "irn_ssm_ghadir",
     "kind": "platform",
-    "triangles": 480
+    "triangles": 2624
   },
   {
     "id": "irn_test71me",
@@ -567,12 +567,12 @@
   {
     "id": "jasdf_fighter_f2",
     "kind": "platform",
-    "triangles": 1490
+    "triangles": 2192
   },
   {
     "id": "jasdf_fighter_f35b",
     "kind": "platform",
-    "triangles": 4900
+    "triangles": 2248
   },
   {
     "id": "jgsdf_type12_battery",
@@ -617,7 +617,7 @@
   {
     "id": "jmsdf_ssk_taigei",
     "kind": "platform",
-    "triangles": 624
+    "triangles": 2664
   },
   {
     "id": "jmsdf_type07_vla",
@@ -872,12 +872,12 @@
   {
     "id": "pla_fighter_j15",
     "kind": "platform",
-    "triangles": 1594
+    "triangles": 3318
   },
   {
     "id": "pla_fighter_j16",
     "kind": "platform",
-    "triangles": 1578
+    "triangles": 3430
   },
   {
     "id": "pla_fsg_type056a",
@@ -967,12 +967,12 @@
   {
     "id": "pla_ssk_type039a",
     "kind": "platform",
-    "triangles": 1308
+    "triangles": 2664
   },
   {
     "id": "pla_ssn_type093b",
     "kind": "platform",
-    "triangles": 920
+    "triangles": 2664
   },
   {
     "id": "pla_yj12",
@@ -1032,7 +1032,7 @@
   {
     "id": "raf_fighter_typhoon",
     "kind": "platform",
-    "triangles": 4232
+    "triangles": 2320
   },
   {
     "id": "ram_block2",
@@ -1102,7 +1102,7 @@
   {
     "id": "rfn_fighter_su35s",
     "kind": "platform",
-    "triangles": 3972
+    "triangles": 3238
   },
   {
     "id": "rfn_fsg_buyan_m",
@@ -1137,17 +1137,17 @@
   {
     "id": "rfn_ssk_kilo",
     "kind": "platform",
-    "triangles": 1480
+    "triangles": 2664
   },
   {
     "id": "rfn_ssk_kilo_877",
     "kind": "platform",
-    "triangles": 1480
+    "triangles": 2664
   },
   {
     "id": "rfn_ssn_yasen_m",
     "kind": "platform",
-    "triangles": 1468
+    "triangles": 2476
   },
   {
     "id": "rfn_strike_mig31k",
@@ -1157,7 +1157,7 @@
   {
     "id": "rfn_strike_su30sm",
     "kind": "platform",
-    "triangles": 3972
+    "triangles": 3510
   },
   {
     "id": "rfn_strike_su34",
@@ -1207,7 +1207,7 @@
   {
     "id": "rn_fighter_f35b",
     "kind": "platform",
-    "triangles": 4900
+    "triangles": 2248
   },
   {
     "id": "rn_helo_merlin_hm2",
@@ -1222,7 +1222,7 @@
   {
     "id": "rn_ssn_astute",
     "kind": "platform",
-    "triangles": 1740
+    "triangles": 3060
   },
   {
     "id": "rnon_aux_maud",
@@ -1292,7 +1292,7 @@
   {
     "id": "swe_fighter_gripen_c",
     "kind": "platform",
-    "triangles": 3708
+    "triangles": 1832
   },
   {
     "id": "swe_fsg_visby",
@@ -1302,7 +1302,7 @@
   {
     "id": "swe_ssk_gotland",
     "kind": "platform",
-    "triangles": 2456
+    "triangles": 2664
   },
   {
     "id": "tomahawk_block_v",
@@ -1332,7 +1332,7 @@
   {
     "id": "usaf_fighter_f16c",
     "kind": "platform",
-    "triangles": 4396
+    "triangles": 2192
   },
   {
     "id": "usmc_fighter_av8b",
@@ -1342,7 +1342,7 @@
   {
     "id": "usn_aew_e2d",
     "kind": "platform",
-    "triangles": 3528
+    "triangles": 3184
   },
   {
     "id": "usn_cg_ticonderoga",
@@ -1372,7 +1372,7 @@
   {
     "id": "usn_ea_ea18g",
     "kind": "platform",
-    "triangles": 4852
+    "triangles": 5488
   },
   {
     "id": "usn_ffg_constellation",
@@ -1382,17 +1382,17 @@
   {
     "id": "usn_fighter_f35c",
     "kind": "platform",
-    "triangles": 4520
+    "triangles": 2000
   },
   {
     "id": "usn_fighter_fa18e",
     "kind": "platform",
-    "triangles": 3972
+    "triangles": 2560
   },
   {
     "id": "usn_fighter_fa18f",
     "kind": "platform",
-    "triangles": 3972
+    "triangles": 2752
   },
   {
     "id": "usn_helo_mh60r",
@@ -1412,12 +1412,12 @@
   {
     "id": "usn_mpa_p8a",
     "kind": "platform",
-    "triangles": 2464
+    "triangles": 3384
   },
   {
     "id": "usn_ssn_virginia",
     "kind": "platform",
-    "triangles": 1740
+    "triangles": 2872
   },
   {
     "id": "usn_uas_scaneagle",

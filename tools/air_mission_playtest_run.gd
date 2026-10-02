@@ -163,30 +163,32 @@ func _save_and_reload(m: AirMission) -> void:
 
 ## The preset chip's menu chooses Classic for this watch and Ctrl+Shift+S saves it; the commander
 ## then goes back to Normal, and Ctrl+Shift+L brings the engagement back under Classic: its time
-## ladder, the chip, manual missile defence on the side's ships and engagement after
-## identification, while the player's own choice stays Normal. (A driven run never writes the
+## ladder, the chip, manual missile defence on the side's ships and attacks only on orders,
+## while the player's own choice stays Normal. (A driven run never writes the
 ## choice to the player's settings.) The next operation is played under Normal again.
 func _classic_save_restores_under_classic() -> void:
 	var um := main.simulation.unit_manager
 	await _click_control(main.command_bar.buttons["options_menu"])
 	await _choose_action({"kind": "palette", "id": "preset_classic"})
-	checks["the chip's menu chooses Classic"] = main.options.preset() == GameOptions.CLASSIC and main.command_bar.buttons["options_menu"].text == "CLASSIC 4×"
-	checks["Classic puts the side's ships on manual missile defence"] = _side_defence("BLUE", false) and _side_defence("RED", true) and um.engage_on_hostile_id.get("BLUE", false)
+	checks["the chip's menu chooses Classic"] = main.options.preset() == GameOptions.CLASSIC and main.command_bar.buttons["options_menu"].text == "CLASSIC 8×"
+	checks["Classic puts the side's ships on manual missile defence and attacks on orders"] = _side_defence("BLUE", false) and _side_defence("RED", true) and not um.engage_on_hostile_id.get("BLUE", false)
 	await _key(KEY_S, true, true)
 	var header := SaveGame.read_header(SaveGame.slot_path(SaveGame.QUICKSAVE))
-	checks["the quicksave names the gameplay it was played under"] = str(header.get("gameplay", "")) == "CLASSIC 4×"
+	checks["the quicksave names the gameplay it was played under"] = str(header.get("gameplay", "")) == "CLASSIC 8×"
 	await _click_control(main.command_bar.buttons["options_menu"])
 	await _choose_action({"kind": "palette", "id": "preset_normal"})
 	checks["back on Normal the ships defend themselves"] = main._preferred.preset() == GameOptions.NORMAL and SimClock.speeds().size() == SimClock.SPEEDS.size() and _side_defence("BLUE", true) and um.engage_on_hostile_id.is_empty()
 	await _key(KEY_L, true, true)
 	um = main.simulation.unit_manager
-	checks["the Classic save restores under Classic"] = main.options.preset() == GameOptions.CLASSIC and Array(SimClock.speeds()) == Array(GameOptions.CLASSIC_SCALES) and main.command_bar.buttons["options_menu"].text == "CLASSIC 4×"
-	checks["its ships are back on manual defence, engaging what they identify"] = _side_defence("BLUE", false) and _side_defence("RED", true) and um.engage_on_hostile_id == {"BLUE": true}
+	checks["the Classic save restores under Classic"] = main.options.preset() == GameOptions.CLASSIC and Array(SimClock.speeds()) == Array(GameOptions.CLASSIC_SCALES) and main.command_bar.buttons["options_menu"].text == "CLASSIC 8×"
+	checks["its ships are back on manual defence and attack on orders"] = _side_defence("BLUE", false) and _side_defence("RED", true) and um.engage_on_hostile_id.is_empty()
 	checks["the player's own choice is still Normal, and the desk shows it"] = main._preferred.preset() == GameOptions.NORMAL and main._menu._options.preset() == GameOptions.NORMAL and main._menu._style_buttons[GameOptions.NORMAL].button_pressed
 	checks["the radio says the engagement brought its own options"] = main.radio.last_advice.contains("own gameplay options")
-	SimClock.set_speed_index(2)
+	SimClock.set_speed_index(3)
 	await _key(KEY_4)
-	checks["the number keys stop at the saved ceiling"] = SimClock.speed_index == 2 and main.radio.last_advice.contains("ceiling")
+	checks["the fourth original time step runs at eight times real time"] = SimClock.speed_index == 3 and SimClock.speeds()[3] == 8.0
+	await _key(KEY_5)
+	checks["the number keys stop at the saved ceiling"] = SimClock.speed_index == 3 and main.radio.last_advice.contains("ceiling")
 	SimClock.set_speed_index(0)
 
 

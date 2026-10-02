@@ -4,8 +4,8 @@ class_name WorldPresentation
 ##
 ## The rule is the game's rule: no perfect information. Own units are drawn as they are. Anything
 ## else appears for exactly one of two reasons: a lookout could see it (VISUAL), or the plot holds
-## it (PLOTTED). A plotted contact is built from the Track alone; the only thing ever read through
-## `Track.truth` is the class model, and only once the class is known.
+## it (PLOTTED). A plotted contact is built from the Track alone and the public class catalogue.
+## `Track.truth` is used only to associate a sighted unit with its held contact.
 ##
 ## Axes: 1 world unit is 1 metre, the focus sits at the origin, +X is east, +Y is up and north is
 ## -Z. Models have their bow along +X, so heading h (degrees true) is a rotation of 90° - h about
@@ -65,7 +65,9 @@ static func in_visual_range(observers: Array, target: Unit, env: Dictionary) -> 
 	if target.submerged():
 		return false
 	for o: Unit in observers:
-		if o.position.distance_to(target.position) <= visual_range_nm(o, target, env):
+		if not o.is_engageable() or o.submerged():
+			continue  # a stowed aircraft or a boat below periscope depth has no lookout above water
+		if o.position.distance_to(target.position) <= visual_range_nm(o, target, env) and not Terrain.masks_line_of_sight(o.position, sighting_height_m(o), target.position, sighting_height_m(target)):
 			return true
 	return false
 
@@ -212,21 +214,38 @@ static func plotted_entry(t: Track) -> Dictionary:
 	var model := ""
 	var length := float(MARKER_LENGTH_M.get(t.domain, MARKER_LENGTH_M[""]))
 	var height := 0.0
-	var known := t.classification >= Track.Classification.CLASS_KNOWN and t.truth != null and t.truth.spec != null
-	if known:
-		model = t.truth.spec.id
-		length = length_of(t.truth.spec)
+	if t.classification >= Track.Classification.CLASS_KNOWN:
+		model = MapSymbols.platform_for_class(t.known_class, t.known_category)
+		if model != "":
+			length = length_of(DataDB.platform(model))
 	match t.domain:
 		"air":
-			height = t.truth.spec.cruise_altitude_m if known and t.truth.spec.cruise_altitude_m > 0.0 else PLOTTED_AIR_HEIGHT_M
+			height = t.altitude_m if t.altitude_m >= 0.0 else PLOTTED_AIR_HEIGHT_M
 		"subsurface":
-			height = -(t.truth.spec.patrol_depth_m if known and t.truth.spec.patrol_depth_m > 0.0 else PLOTTED_SUB_DEPTH_M)
+			height = -PLOTTED_SUB_DEPTH_M  # schematic water column; the plot has no depth measurement
 	return {
 		"kind": "plotted", "key": "t:%s" % t.id, "model": model,
 		"position": t.position, "heading_deg": t.course_deg if t.has_kinematics else 0.0, "has_heading": t.has_kinematics,
 		"height_m": height, "domain": t.domain, "length_m": length,
 		"label": t.id, "sublabel": t.description(), "color": identity_color(t.identity), "unit": null, "track": t,
 	}
+
+
+## The camera describes the evidence behind the picture, including why no model can be placed.
+static func contact_caption(t: Track, sighted: bool) -> String:
+	var subject := "%s · %s" % [t.id, t.description()]
+	if sighted:
+		return "SIGHTED · " + subject
+	if t.status != Track.Status.ACTIVE:
+		return "NO CURRENT FIX · %s · %s" % ["STALE" if t.status == Track.Status.STALE else "LOST", subject]
+	if t.is_bearing_only():
+		return "BEARING ONLY · range unresolved · " + subject
+	var qualifier := ""
+	if t.domain == "subsurface":
+		qualifier = " · depth unmeasured"
+	elif t.domain == "air" and t.altitude_m < 0.0:
+		qualifier = " · altitude unmeasured"
+	return "SENSOR ESTIMATE · " + subject + qualifier
 
 
 # --- Weapons and buoys -------------------------------------------------------------------
@@ -322,7 +341,7 @@ static func witness_point(pos: Vector2, own_units: Array, tracks: Array, env: Di
 		return Vector2.INF
 	var vis := visibility_nm(env)
 	for u: Unit in own_units:
-		if u != null and u.alive and u.position.distance_to(pos) <= vis:
+		if u != null and u.is_engageable() and not u.submerged() and u.position.distance_to(pos) <= vis:
 			return pos
 	var best := Vector2.INF
 	var best_d := INF

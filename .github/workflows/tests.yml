@@ -71,6 +71,12 @@ jobs:
       - name: Contact intent and camera mouse checks (1920 x 1080)
         run: timeout 600 xvfb-run -a -s "-screen 0 1920x1080x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1920x1080 --script tools/fleet_command_playtest.gd -- --seed=31 --capture
 
+      - name: Guided command, uncertain reports and recovery (1280 x 720)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/deep_command_playtest.gd -- --seed=31 --capture
+
+      - name: Aircraft and submarine recognition viewer (1280 x 720)
+        run: timeout 360 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/recognition_playtest.gd -- --capture --output-dir=res://work/ci-recognition
+
       - name: Air missions and stations, mouse and keyboard (1280 x 720)
         run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/air_mission_playtest.gd -- --output-dir=res://work/ci-air-1280
 

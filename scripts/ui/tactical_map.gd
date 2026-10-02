@@ -966,7 +966,7 @@ func _right_click(e: InputEventMouseButton) -> void:
 ## calls hostile, "investigate" one it has not yet classified, "" (the menu) for a neutral or
 ## friendly one, a classified contact of unknown allegiance, or a contact already lost.
 static func default_contact_verb(t: Track) -> String:
-	if t == null or t.status == Track.Status.LOST:
+	if t == null or t.status == Track.Status.LOST or t.is_bearing_only():
 		return ""
 	if t.identity == "HOSTILE":
 		return "attack"
@@ -2643,13 +2643,13 @@ func _draw_hover_card() -> void:
 		_draw_card(lines)
 		return
 	lines.append("%s  %s" % [MapSymbols.track_number(t.id), t.description()])
-	lines.append("%s · %s" % [t.identity, t.status_text(SimClock.sim_time)])
+	lines.append("%s · %s" % [t.identity, DataDisplay.plot_text(t, SimClock.sim_time)])
 	lines.append("Source %s" % DataDisplay.source_readout(t))
 	if t.has_kinematics and not t.is_bearing_only():
-		lines.append("CSE %s  SPD %.0f kts  ·  damage %s" % [Geo.format_bearing(t.course_deg), t.speed_kn, DataDisplay.damage_text(t)])
+		lines.append("%sCSE %s  SPD %.0f kts  ·  damage %s" % ["LAST " if t.status != Track.Status.ACTIVE else "", Geo.format_bearing(t.course_deg), t.speed_kn, DataDisplay.damage_text(t)])
 	else:
 		lines.append("Kinematics estimating  ·  damage %s" % DataDisplay.damage_text(t))
-	lines.append("+/-%.1f nm  ·  observed %s" % [t.position_error_nm, Track._fmt_age(t.observation_time_s)])
+	lines.append("Bearing only - range unresolved" if t.is_bearing_only() else "+/-%.1f nm (sensor estimate)" % t.position_error_nm)
 	var ref := reference_unit()
 	if ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
 		lines.append("Radar jammed on this bearing")
@@ -2679,5 +2679,10 @@ func _draw_card(lines: PackedStringArray) -> void:
 		pos.x = _mouse.x - width - 12.0
 	if pos.y + height > size.y - 4.0:
 		pos.y = _mouse.y - height - 10.0
+	pos.x = clampf(pos.x, 8.0, maxf(8.0, size.x - width - 8.0))
+	pos.y = clampf(pos.y, 8.0, maxf(8.0, size.y - height - 8.0))
+	var card := Rect2(pos - Vector2(6.0, 4.0), Vector2(width + 12.0, height + 8.0))
+	draw_rect(card, Color(0.04, 0.07, 0.16, 0.96))
+	draw_rect(card, UITheme.COL_BORDER_LIGHT, false, 1.0)
 	for i in lines.size():
 		_shadow_text(pos + Vector2(0.0, 12.0 + i * 15.0), lines[i], 12)
