@@ -108,6 +108,7 @@ func launch(parent: Unit, which := "") -> Unit:
 	chosen.ordered_heading_deg = parent.heading_deg
 	chosen.returning = false
 	chosen.patrol_active = false
+	chosen.clear_station()  # a new sortie starts with no station until it is given one
 	chosen.clear_investigation()
 	_set_recovery_base(chosen, null)
 	chosen.tanking_on = null
@@ -394,6 +395,7 @@ func _step_recovery(a: Unit, dt: float) -> void:
 	a.state_timer_s = base.spec.turnaround_time_s()
 	a.returning = false
 	a.tanking_on = null
+	a.clear_station()  # the sortie is over; any relief is the air mission's to send
 	a.altitude_m = 0.0
 	a.speed_kn = 0.0
 	a.ordered_speed_kn = 0.0
@@ -468,6 +470,9 @@ func _step_tanking_receiver(a: Unit) -> bool:
 		a.tanking_on = null  # full: unplug and go back to work
 		a.returning = false
 		a.waypoints.clear()
+		# Back to the station the refuelling interrupted, if it is still there to go back to.
+		if a.has_station() and unit_manager != null:
+			unit_manager.resume_station(a, "Refuelled")
 		return false
 	if t == null or not t.alive or not t.airborne() or t.returning or not t.is_tanker():
 		# The tanker is gone — shot down, or it gave away everything it had. The receiver is

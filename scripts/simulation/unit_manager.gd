@@ -9,6 +9,12 @@ signal investigation_ended(unit: Unit, track: Track, reason: String)
 ## "Weapons hold", "Launchers damaged" or an availability reason. Replacing it with another order
 ## is silent, as it is for an investigation.
 signal attack_ended(unit: Unit, track: Track, reason: String)
+## The platform went back to its standing assignment by itself: after a task ("Contact classified",
+## "Target destroyed") or after refuelling. A return the commander ordered is an ordinary order.
+signal station_resumed(unit: Unit, reason: String)
+## A return to station could not be made: the guide was lost, the circuit is blocked, the airframe
+## is committed to recovery. The platform keeps its present orders.
+signal station_unavailable(unit: Unit, reason: String)
 
 ## How far inside a weapon's reach an attacking platform settles: on the edge of the envelope a
 ## target that opens a few knots is out of range again before the salvo is away. GAMEPLAY.
@@ -79,6 +85,10 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return attack_rejection(u, order.track, order.weapon_id) == ""
 		Order.Type.PATROL:
 			return patrol_rejection(u, order.route) == ""
+		Order.Type.RETURN_TO_STATION:
+			return station_rejection(u) == ""
+		Order.Type.SET_AUTO_RETURN:
+			return u.is_engageable() and u.spec.max_speed_kn > 0.0
 		Order.Type.DEPLOY_COUNTERMEASURES:
 			return DefensiveResponse.can_deploy(u, order.countermeasure_kind)
 		Order.Type.EVADE:
@@ -121,6 +131,53 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 	return false
 
 
+## Why this platform cannot go back to its standing assignment now, or "" when it can. The circuit
+## is checked again from where the platform is now; a formation station needs a guide still afloat.
+static func station_rejection(u: Unit) -> String:
+	if u == null or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		return "Select a deployed mobile platform"
+	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
+		return "Aircraft committed to fuel or recovery"
+	match u.station_kind:
+		"patrol":
+			var reason := patrol_rejection(u, u.station_circuit_from_here())
+			return "" if reason == "" else "Station unavailable: " + reason.to_lower()
+		"formation":
+			if u.station_leader == null or not u.station_leader.alive:
+				return "Formation guide lost"
+			if not Formation.can_join(u, u.station_leader):
+				return "Formation guide not available"
+			return ""
+	return "No station assigned"
+
+
+## Hands a platform back to its standing assignment as the crew's own order, so the receipt, the
+## log and the specialist managers see it like any other. False, with the reason reported, when the
+## station cannot be taken up; the platform then keeps what it was doing.
+func resume_station(u: Unit, reason: String) -> bool:
+	var why := station_rejection(u)
+	if why != "":
+		u.station_note = why
+		station_unavailable.emit(u, why)
+		return false
+	var order := Order.return_to_station()
+	order.origin = "crew"
+	if not issue_order(u, order):
+		return false
+	station_resumed.emit(u, reason)
+	return true
+
+
+## After a task ends on its own: back to station when the platform is told to, and only when no
+## newer order arrived while the task ran. `started` is the generation the task began under.
+func _return_after_task(u: Unit, started: int, reason: String) -> void:
+	if not u.alive or not u.auto_return or not u.has_station() or u.on_station():
+		return
+	if u.order_generation != started:
+		return
+	resume_station(u, reason)
+
+
 ## Uses only information held by this unit's faction, including datalink visibility. An
 ## investigation never obtains a hidden position or an early classification from Track.truth.
 static func investigation_rejection(u: Unit, track: Track) -> String:
@@ -155,10 +212,12 @@ func _step_investigation(u: Unit, dt: float) -> void:
 		return
 	var reason := investigation_rejection(u, track)
 	if reason != "":
+		var started := u.task_generation
 		u.investigation_track = null
 		u.investigation_result = reason
 		_hold_investigation_position(u)
 		investigation_ended.emit(u, track, reason)
+		_return_after_task(u, started, reason)
 		return
 	if u.evasion_remaining_s > 0.0:
 		return
@@ -401,6 +460,7 @@ func _steer_attack(u: Unit, track: Track, standoff_nm: float, dt: float, opening
 
 
 func _end_attack(u: Unit, track: Track, reason: String) -> void:
+	var started := u.task_generation
 	u.attack_track = null
 	u.attack_phase = ""
 	u.attack_result = reason
@@ -410,6 +470,7 @@ func _end_attack(u: Unit, track: Track, reason: String) -> void:
 	if u.is_aircraft() and not u.spec.can_hover:
 		u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn)
 	attack_ended.emit(u, track, reason)
+	_return_after_task(u, started, reason)
 
 
 ## The plot does not expire a track just because the ship under it sank, so the attack is ended
@@ -483,6 +544,7 @@ func clear() -> void:
 		u.embarked.clear()
 		u.inbound_aircraft.clear()
 		u.formation_leader = null
+		u.station_leader = null
 		u.tanking_on = null
 		Detection.jammers.erase(u)
 	units.clear()

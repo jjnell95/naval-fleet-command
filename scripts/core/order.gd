@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -31,6 +31,14 @@ var automatic := true
 ## to the caller, so a UI receipt can distinguish a command that was merely routed from one that
 ## actually secured a firing channel, deck spot, return state, or buoy deployment.
 var execution_accepted := true
+## Who gave the order. "player" orders (and the AI's own commands for its faction) can replace a
+## standing assignment; "crew" orders are the automation carrying out a task the commander already
+## gave (an air mission's interception, a return to station) and never end that assignment.
+var origin := "player"
+## How a PATROL or FORM_UP names the standing assignment it sets ("CAP STATION", "SCREEN STATION").
+var station_label := ""
+## The air mission a crew PATROL belongs to, or -1.
+var mission_id := -1
 ## Set by Unit.apply_order when a CANCEL_FIRE also ended the unit's standing attack, so the
 ## receipt counts it as carried out even when no queued round was left to refund.
 var stopped_attack := false
@@ -108,6 +116,23 @@ static func attack(target: Track, weapon := "") -> Order:
 	o.type = Type.ATTACK
 	o.track = target
 	o.weapon_id = weapon
+	return o
+
+
+## Go back to the standing assignment (patrol circuit, formation station, air station) that an
+## investigation, attack, evasion or refuelling interrupted.
+static func return_to_station() -> Order:
+	var o := Order.new()
+	o.type = Type.RETURN_TO_STATION
+	return o
+
+
+## Whether the platform goes back to its station by itself once an identification, interception or
+## attack ends. Refuelling always hands back to a valid station: it was never the commander's task.
+static func set_auto_return(enabled: bool) -> Order:
+	var o := Order.new()
+	o.type = Type.SET_AUTO_RETURN
+	o.automatic = enabled
 	return o
 
 
@@ -259,6 +284,10 @@ func describe() -> String:
 			return "DEFENCE %s" % defence_policy.to_upper()
 		Type.SET_AUTO_COUNTERMEASURES:
 			return "COUNTERMEASURES %s" % ("AUTO" if automatic else "MANUAL")
+		Type.RETURN_TO_STATION:
+			return "RETURN TO STATION"
+		Type.SET_AUTO_RETURN:
+			return "AUTO RETURN TO STATION %s" % ("ON" if automatic else "OFF")
 		Type.MOVE:
 			return "MOVE to %s/%s%s" % [Geo.format_axis(target_pos.x, "E", "W"), Geo.format_axis(target_pos.y, "N", "S"), " (append)" if append else ""]
 		Type.PATROL:

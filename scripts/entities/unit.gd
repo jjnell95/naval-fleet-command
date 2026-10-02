@@ -48,6 +48,26 @@ var attack_standoff_nm := 0.0  # where the shooter holds once inside the envelop
 var attack_rounds_fired := 0
 var attack_assess_until_s := -1.0  # a pause between salvos to read the plot again
 var attack_stall_s := 0.0  # time held unable to fire; past UnitManager.ATTACK_STALL_S the task ends
+## The standing assignment: where this platform belongs when no temporary task holds it. A patrol
+## circuit (an air station is one too) or a formation station on a guide. Attack, Investigate,
+## evasion and air-to-air refuelling suspend it; an explicit replacement order from the commander (a
+## new transit, course, stop, clear, break or landing order) ends it. RETURN_TO_STATION resumes it.
+var station_kind := ""  # "" | "patrol" | "formation"
+var station_route: Array[Vector2] = []  # the circuit as ordered
+var station_leader: Unit  # the guide a formation station is kept on
+var station_offset := Vector2.ZERO  # in the guide's frame, as formation_offset
+var station_label := ""  # how the orders line names it: "PATROL", "SCREEN STATION", "CAP STATION"
+var station_note := ""  # why the last return to station could not be made, until the next order
+## The air mission that owns this airframe's station, or -1. Cleared with the station, so an order
+## from the commander that replaces the station also releases the airframe from the mission.
+var station_mission_id := -1
+## Go back to the station by itself once an identification, interception or attack ends.
+var auto_return := false
+## Bumped by every order that changes where this platform is going. A temporary task remembers the
+## generation it started under and hands back to the station only if nothing newer has arrived, so
+## a task that completes late can never overwrite a newer order.
+var order_generation := 0
+var task_generation := -1
 var alive := true
 ## Left the chart for a base off the map. Not alive for the simulation, but not lost either.
 var departed := false
@@ -368,22 +388,36 @@ func at_periscope_depth() -> bool:
 	return depth_m > 0.5 and depth_m <= PERISCOPE_DEPTH_M
 
 
+## Orders that change where the platform is going. Each advances order_generation.
+const NAVIGATION_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION, Order.Type.RETURN_TO_BASE]
+## Orders from the commander that end the standing assignment rather than interrupt it. PATROL and
+## FORM_UP end it too, by setting a new one.
+const STATION_REPLACING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.BREAK_FORMATION, Order.Type.RETURN_TO_BASE]
+
+
 func apply_order(order: Order) -> void:
 	# A second attack order on the contact already under attack keeps the task, its round count
 	# and its assessment pause; only the chosen weapon can change.
 	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
 		attack_weapon_id = order.weapon_id
 		return
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK]:
+	if order.type in NAVIGATION_ORDERS:
+		order_generation += 1
+		station_note = ""
+	if order.origin != "crew" and order.type in STATION_REPLACING_ORDERS:
+		clear_station()
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
 		evasion_remaining_s = 0.0
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.INVESTIGATE, Order.Type.ATTACK]:
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
 		patrol_active = false
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK]:
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
 		clear_investigation()
 		clear_attack()
 	match order.type:
 		Order.Type.INVESTIGATE:
+			# A temporary task: the formation or patrol is suspended, not forgotten.
 			formation_leader = null
+			task_generation = order_generation
 			investigation_track = order.track
 			investigation_track_id = order.track.id
 			waypoints.assign([order.track.position])
@@ -392,6 +426,7 @@ func apply_order(order: Order) -> void:
 			investigation_speed_kn = ordered_speed_kn
 		Order.Type.ATTACK:
 			formation_leader = null
+			task_generation = order_generation
 			attack_track = order.track
 			attack_track_id = order.track.id
 			attack_weapon_id = order.weapon_id
@@ -412,6 +447,13 @@ func apply_order(order: Order) -> void:
 			waypoints.assign(order.route)
 			if ordered_speed_kn <= 0.0:
 				ordered_speed_kn = spec.cruise_speed_kn
+			_set_station("patrol", order.station_label if order.station_label != "" else "PATROL")
+			station_route.assign(order.route)
+			station_mission_id = order.mission_id
+		Order.Type.RETURN_TO_STATION:
+			_resume_station()
+		Order.Type.SET_AUTO_RETURN:
+			auto_return = order.automatic
 		Order.Type.MOVE:
 			if not order.append:
 				waypoints.clear()
@@ -468,6 +510,9 @@ func apply_order(order: Order) -> void:
 			formation_leader = order.leader
 			formation_offset = order.offset_nm
 			waypoints.clear()
+			_set_station("formation", order.station_label if order.station_label != "" else "FORMATION STATION")
+			station_leader = order.leader
+			station_offset = order.offset_nm
 		Order.Type.BREAK_FORMATION:
 			formation_leader = null
 			waypoints.clear()
@@ -482,6 +527,91 @@ func apply_order(order: Order) -> void:
 			ordered_altitude_m = clampf(order.altitude_m, 0.0, spec.max_altitude_m)
 		Order.Type.LAUNCH_AIRCRAFT, Order.Type.RETURN_TO_BASE, Order.Type.DEPLOY_SONOBUOY:
 			pass  # routed to AviationManager by Simulation
+
+
+func _set_station(kind: String, label: String) -> void:
+	clear_station()
+	station_kind = kind
+	station_label = label
+
+
+## The standing assignment ends: an explicit replacement order, a landing, or a lost guide.
+func clear_station() -> void:
+	station_kind = ""
+	station_route.clear()
+	station_leader = null
+	station_offset = Vector2.ZERO
+	station_label = ""
+	station_mission_id = -1
+
+
+func has_station() -> bool:
+	return station_kind != ""
+
+
+## On the standing assignment now, rather than away on a task or holding it in reserve.
+func on_station() -> bool:
+	match station_kind:
+		"patrol":
+			return patrol_active
+		"formation":
+			return in_formation() and formation_leader == station_leader
+	return false
+
+
+## Where a return to station would steer first: the nearest corner of the circuit, or the guide's
+## present station point. INF when there is nowhere to go.
+func station_point() -> Vector2:
+	match station_kind:
+		"patrol":
+			if station_route.is_empty():
+				return Vector2.INF
+			return station_route[nearest_station_corner()]
+		"formation":
+			if station_leader == null or not station_leader.alive:
+				return Vector2.INF
+			var ahead := Geo.heading_to_vector(station_leader.heading_deg)
+			var starboard := Geo.heading_to_vector(station_leader.heading_deg + 90.0)
+			return station_leader.position + ahead * station_offset.y + starboard * station_offset.x
+	return Vector2.INF
+
+
+func nearest_station_corner() -> int:
+	var best := 0
+	var best_d := INF
+	for i in station_route.size():
+		var d := position.distance_squared_to(station_route[i])
+		if d < best_d:
+			best_d = d
+			best = i
+	return best
+
+
+## The circuit re-entered at its nearest corner, so a platform that broke off to investigate does
+## not sail back past half the box to start where it first began.
+func station_circuit_from_here() -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	var start := nearest_station_corner()
+	for i in station_route.size():
+		out.append(station_route[(start + i) % station_route.size()])
+	return out
+
+
+## UnitManager has already checked the station is still there to return to.
+func _resume_station() -> void:
+	station_note = ""
+	match station_kind:
+		"patrol":
+			formation_leader = null
+			patrol_active = true
+			patrol_legs_completed = 0
+			waypoints.assign(station_circuit_from_here())
+			if ordered_speed_kn <= 0.0:
+				ordered_speed_kn = spec.cruise_speed_kn
+		"formation":
+			formation_leader = station_leader
+			formation_offset = station_offset
+			waypoints.clear()
 
 
 ## Other navigation replaces this task; a completed task may keep a readable result until then.
