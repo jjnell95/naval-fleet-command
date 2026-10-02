@@ -507,6 +507,20 @@ func test_plan_budget_counts_queued_rounds_and_is_not_exceeded() -> void:
 	h.free_all()
 
 
+## The plan's budget is for its target. A warship that merely came too close gets what the side
+## would put on any contact, however large the budget.
+func test_a_contact_that_only_threatens_gets_the_sides_usual_weight() -> void:
+	var units: Array = []
+	for i in 6:
+		units.append(_ship("S%d" % i, Vector2(i, 0), _asm(60.0)))
+	var h := _harness(units, [_plan("threaten_carrier", {"units": ["S0", "S1", "S2", "S3", "S4", "S5"], "budget": 24, "salvo": 4, "threat_nm": 15})], true)
+	_plot(h, "T9101", Vector2(0, 10), "frigate", "FFG Perry")
+	h.ai.tick(100.0)
+	assert_eq(_committed(h), AIController.MAX_ROUNDS_IN_FLIGHT_PER_TRACK, "%d rounds at a threat" % _committed(h))
+	assert_eq(_orders_of(h, Order.Type.ENGAGE).size(), 2)
+	h.free_all()
+
+
 func test_faction_cap_counts_queued_salvo_rounds_without_a_plan() -> void:
 	var units: Array = []
 	for i in 4:

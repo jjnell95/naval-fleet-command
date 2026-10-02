@@ -413,7 +413,9 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 		if plan != null:
 			if plan.assessing(t.id, now):
 				continue  # the whole group waits to see what its last volley did
-			cap = plan.budget
+			# The budget is for what the plan is after. A contact shot at only because it came too
+			# close gets no more than the side would put on it anyway.
+			cap = plan.budget if bucket < THREAT_BUCKET else mini(plan.budget, MAX_ROUNDS_IN_FLIGHT_PER_TRACK)
 		var committed := _rounds_already_committed(t)
 		if committed >= cap:
 			continue
