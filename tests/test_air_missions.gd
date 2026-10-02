@@ -424,3 +424,26 @@ func test_the_ai_flying_a_side_leaves_its_mission_aircraft_to_the_mission() -> v
 	for a in m.aircraft:
 		assert_eq(a.station_mission_id, m.id, a.callsign)
 	_done()
+
+
+func test_a_dipping_helicopter_stops_to_listen_and_then_moves_on() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var area := cv.position + Vector2(12, 6)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.ASW, "cw90_sh3h", 1, area, 8.0)))
+	var m := _mission()
+	var helo: Unit = null
+	var hovered_at := -1.0
+	for i in 1800:
+		_advance(1.0)
+		if m.aircraft.is_empty():
+			continue
+		helo = m.aircraft[0]
+		if helo.is_hovering() and hovered_at < 0.0:
+			hovered_at = SimClock.sim_time
+		if hovered_at > 0.0 and SimClock.sim_time > hovered_at + AirMissionManager.DIP_S + 30.0:
+			break
+	assert_true(hovered_at > 0.0, "the Sea King came to a hover in the area to dip")
+	assert_true(helo.on_station() and helo.patrol_active, "and took up its search circuit again afterwards")
+	assert_eq(helo.station_label, "ASW SEARCH", "the station was kept through the dip")
+	_done()
