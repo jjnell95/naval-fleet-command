@@ -60,6 +60,8 @@ var unit_manager: UnitManager
 var track_manager: TrackManager
 var threat_manager: ThreatManager
 var weapon_manager: WeaponManager
+## Airframes flying an air mission are the mission's to steer, whichever side owns them.
+var air_mission_manager: AirMissionManager
 var enabled := true
 
 var _bb: Dictionary = {}  # Unit -> blackboard Dictionary
@@ -148,6 +150,8 @@ func _update_unit(u: Unit, now: float) -> void:
 		return  # in the hangar or on the deck cycle; the aviation layer owns it
 	if u.is_aircraft() and (u.returning or u.tanking_on != null):
 		return  # heading home or to the tanker on its own; leave it alone
+	if u.is_aircraft() and air_mission_manager != null and air_mission_manager.mission_for(u) != null:
+		return  # flying a mission: the mission steers it, under the same ROE and fuel rules
 	var b := _board(u)
 	var hostiles_scan: Array = []
 	var hostiles: Array = hostiles_scan

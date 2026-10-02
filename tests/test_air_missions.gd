@@ -377,3 +377,18 @@ func test_queued_launches_wait_for_an_aircraft_landing_on_the_deck() -> void:
 	assert_true(_sim.unit_manager.issue_order(cdg, o))
 	assert_true(o.receipt.contains("queued: deck recovering"), o.receipt)
 	_done()
+
+
+func test_the_ai_flying_a_side_leaves_its_mission_aircraft_to_the_mission() -> void:
+	_load(CARRIER_WATCH)
+	_sim.ai_plays_player = true
+	_sim.ai_enabled = true
+	_sim._build_ai()
+	var cv := _unit(IKE)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 2, cv.position + Vector2(0, 40), 10.0)))
+	var m := _mission()
+	_advance(240.0)
+	assert_eq(m.requested, 2, "no airframe was taken off the mission")
+	for a in m.aircraft:
+		assert_eq(a.station_mission_id, m.id, a.callsign)
+	_done()

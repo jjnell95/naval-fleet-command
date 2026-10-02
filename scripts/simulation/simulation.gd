@@ -163,6 +163,7 @@ func _build_ai(reset := true) -> void:
 		c.track_manager = track_manager
 		c.threat_manager = threat_manager
 		c.weapon_manager = weapon_manager
+		c.air_mission_manager = air_mission_manager
 		add_child(c)
 		ai_controllers[u.faction] = c
 
