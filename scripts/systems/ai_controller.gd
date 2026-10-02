@@ -975,7 +975,10 @@ func _assembled(p: AIPlan, now: float) -> bool:
 ## closes. Each uses the target as its own picture holds it; one that has lost the link keeps the
 ## last point it was given.
 func _assign_attack(p: AIPlan, now: float) -> void:
-	var strikers := p.members_in("strike")
+	var strikers: Array[Unit] = []
+	for u in p.members_in("strike"):
+		if u.spec.max_speed_kn > 0.0:
+			strikers.append(u)  # an installation shoots from where it stands; it takes no bearing
 	for u in strikers:
 		if not p.axes.has(u.id):
 			p.axes[u.id] = fposmod(p.base_axis_deg + p.axis_offset(p.axes.size(), strikers.size()), 360.0)
@@ -983,7 +986,7 @@ func _assign_attack(p: AIPlan, now: float) -> void:
 	var ready := 0
 	for u in strikers:
 		var view := _held_track(u, p.target_track_id)
-		if view == null or u.spec.max_speed_kn <= 0.0:
+		if view == null:
 			continue
 		var ip := _attack_point(u, view, float(p.axes[u.id]))
 		p.goals[u.id] = ip
@@ -1291,7 +1294,8 @@ func _strike_move(u: Unit, b: Dictionary, task: Dictionary, now: float, engaging
 		var view := _held_track(u, p.target_track_id)
 		b["target"] = view
 		# An aircraft that has spent everything it carried for this target is done; home it goes.
-		if u.is_aircraft() and view != null and u.weapons_for_track(view).is_empty():
+		var engaged: Dictionary = b["engaged"]
+		if u.is_aircraft() and view != null and not engaged.is_empty() and u.weapons_for_track(view).is_empty():
 			unit_manager.issue_order(u, Order.return_to_base())
 			return
 	elif not p.assembly.is_finite() and not u.patrol_route.is_empty():
@@ -1379,8 +1383,8 @@ func _scout_close(u: Unit, b: Dictionary, t: Track, standoff_nm: float, now: flo
 ## Legs through an area: its centre first, then round it.
 func _sweep(u: Unit, b: Dictionary, centre: Vector2, radius_nm: float, now: float) -> void:
 	_manage_altitude(u, false)
-	if not u.waypoints.is_empty() and b.get("sweep_leg", Vector2.INF) == b["goal"]:
-		return
+	if not u.waypoints.is_empty() and b.has("sweep_leg") and b["sweep_leg"] == b["goal"]:
+		return  # still on the way to the last sweep leg
 	var index := int(b.get("sweep_index", 0))
 	b["sweep_index"] = index + 1
 	var leg := centre
