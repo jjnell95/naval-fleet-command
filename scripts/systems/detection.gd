@@ -110,6 +110,8 @@ static func jam_penalty(observer: Unit, target_pos: Vector2) -> float:
 		lobes = _jam_lobes[observer]
 	else:
 		lobes = jamming_lobes(observer)
+	if lobes.is_empty():
+		return 1.0  # every jammer is friendly or out of reach: no bearing to take
 	var factor := 1.0
 	var bearing := Geo.bearing_deg(observer.position, target_pos)
 	for lobe: Vector2 in lobes:
