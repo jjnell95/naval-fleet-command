@@ -402,12 +402,13 @@ def _join(d, pid, callsigns=(), wing=(), role=None):
 
 
 def _convoy_plans(d):
-    # The corvette is after the cargo ship, not the frigates: it waits on its station until its own
-    # radar has classified a merchant on the route, then attacks her, firing at an escort only when
-    # one comes close. A second corvette joins the hunt on arrival.
+    # The corvette is after the cargo ship, not the frigates: once its own radar has classified a
+    # merchant on the route it closes on her and fires at her first. An escort inside its missiles'
+    # reach is still fought (a corvette that let the frigates shoot unanswered would be no threat to
+    # anyone). A second corvette joins the hunt on arrival.
     _join(d, 'convoy_strike', ['Soviet missile corvette 2 (Nanuchka III)'])
     return [plan('convoy_strike', 'attack_shipping', ['Soviet missile corvette (Nanuchka III)'], priorities=['merchant'],
-                 objective_nm=[1.6, 3.6], area_radius_nm=25, threat_nm=10, salvo=2, budget=4, assess_s=420)]
+                 objective_nm=[1.6, 3.6], area_radius_nm=25, threat_nm=60, budget=6, assess_s=300)]
 
 
 def _barrier_plans(d):

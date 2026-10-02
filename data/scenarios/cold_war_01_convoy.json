@@ -10357,10 +10357,9 @@
         3.6
       ],
       "area_radius_nm": 25,
-      "threat_nm": 10,
-      "salvo": 2,
-      "budget": 4,
-      "assess_s": 420
+      "threat_nm": 60,
+      "budget": 6,
+      "assess_s": 300
     }
   ]
 }

@@ -279,6 +279,52 @@ func test_each_operation_gives_the_enemy_a_mission_plan() -> void:
 	assert_eq(operations, 7)
 
 
+## The acceptance case in a shipped operation: in Carrier Watch the Soviet force is after the
+## carrier. Slava and the Backfire hold their first rounds until their own picture has classified
+## her, then fire at her together, past the cruiser and the destroyer nearer them.
+func test_carrier_watch_raid_pursues_the_carrier_not_the_nearest_escort() -> void:
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	sim.seed_override = 13
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario("res://data/scenarios/cold_war_03_carrier.json"))
+	var shots: Array = []
+	var record := func(u: Unit, o: Order) -> void:
+		if u.faction == "RED" and o.type == Order.Type.ENGAGE and o.track != null:
+			shots.append({"t": SimClock.sim_time, "unit": u.callsign, "category": o.track.known_category, "truth": o.track.truth})
+	sim.unit_manager.order_issued.connect(record)
+	while shots.is_empty() and SimClock.sim_time < 2400.0:
+		SimClock.advance(10.0)
+	sim.unit_manager.order_issued.disconnect(record)
+	assert_true(not shots.is_empty(), "the raid fires within forty minutes")
+	var carrier: Unit = null
+	for u in sim.unit_manager.units:
+		if u.callsign == "USS Dwight D. Eisenhower (CVN 69)":
+			carrier = u
+	var first: Dictionary = shots[0]
+	assert_true(str(first["category"]).contains("carrier"), "the first round goes at a contact classified as a carrier: %s" % first)
+	assert_eq(first["truth"], carrier)
+	var plan: AIPlan = sim.ai_controllers["RED"].plans[0]
+	assert_eq(plan.kind, AIPlan.Kind.THREATEN_CARRIER)
+	for shot: Dictionary in shots:
+		assert_true(shot["t"] == first["t"] and shot["truth"] == carrier, "one volley, at the carrier: %s" % shot)
+	var nearer := 0
+	for name: String in ["USS Bunker Hill (CG 52)", "USS Spruance (DD 963)"]:
+		for u in sim.unit_manager.units:
+			if u.callsign == name and u.position.distance_to(_unit_by_name(sim, "Slava").position) < carrier.position.distance_to(_unit_by_name(sim, "Slava").position):
+				nearer += 1
+	assert_true(nearer > 0, "an escort stood nearer Slava than the carrier did")
+	sim.unit_manager.clear()
+	sim.free()
+
+
+func _unit_by_name(sim: Simulation, callsign: String) -> Unit:
+	for u in sim.unit_manager.units:
+		if u.callsign == callsign:
+			return u
+	return null
+
+
 ## A player's start of an operation draws its events from a fresh variation seed; the engagement's
 ## own streams (sensors, weapons, damage) keep the scenario seed, and a save keeps the variation.
 func test_a_fresh_variation_changes_the_draw_and_nothing_else() -> void:
