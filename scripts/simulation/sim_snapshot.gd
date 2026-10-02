@@ -45,11 +45,12 @@ const MANAGER_FIELDS := {
 	"MissionManager": ["result"],
 	"AIController": ["enabled", "_bb"],
 }
-## Manager variables that are deliberately not saved, and why.
+## Manager variables that are deliberately not saved, and why. SensorManager.reference_path is a
+## development switch between two cycles that produce the same tracks, not engagement state.
 const MANAGER_TRANSIENT := {
 	"UnitManager": ["units", "weapon_manager"],
 	"TrackManager": ["neutral_factions"],
-	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng"],
+	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path"],
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
 	"AviationManager": ["unit_manager", "sonobuoys", "map_center", "map_extent_nm"],

@@ -3,6 +3,9 @@ extends Node
 ## Maintains per-faction track pictures. Observations arrive from SensorManager; tracks age,
 ## go stale, dead-reckon, and are eventually dropped. No SimClock access: `now` is passed in.
 
+## These fire from inside the sensor cycle, which works out every unit's position, emissions and
+## heights once at its start. A handler must not move a unit, switch a set or change its damage
+## there and then; anything of that kind waits for the next decision cycle.
 signal track_added(faction: String, track: Track)
 signal track_classified(faction: String, track: Track)
 signal track_lost(faction: String, track: Track)
