@@ -17,6 +17,10 @@ const RowList = preload("res://scripts/ui/tactical_row_list.gd")
 ## Difficulty as green stars, the way mission lists showed it.
 const STARS := {"Introductory": "★", "Intermediate": "★★", "Advanced": "★★★"}
 const INTRO_PATH := "res://data/scenarios/northern_passage.json"
+## The period campaign's own front door. 1990 is a setting (an alternate-history Cold War pack),
+## not the Classic option, which is a way of playing any operation.
+const CAMPAIGN_1990_ID := "northern_flank_1990"
+const CAMPAIGN_1990_TEXT := "CAMPAIGN: NORTHERN FLANK, SEPTEMBER 1990"
 
 var _list: RowList
 var _detail: RichTextLabel
@@ -47,6 +51,7 @@ var _mast_note: Label
 var _panel: PanelContainer
 var _top: HBoxContainer
 var _intro: Button
+var _campaign_1990: Button
 ## The options the desk shows: Main's, set by set_options. The desk never saves them itself.
 var _options := GameOptions.normal()
 var _style_buttons: Dictionary = {}  # preset name -> Button
@@ -130,10 +135,10 @@ func _ready() -> void:
 	_options_summary.custom_minimum_size.x = 380
 	_options_box.add_child(_options_summary)
 
-	# The shelves, as the big bevelled menu buttons; the open shelf is pressed in.
-	var filter_row := HBoxContainer.new()
-	filter_row.add_theme_constant_override("separation", 10)
-	v.add_child(filter_row)
+	# Two front doors: the training operation that teaches the screen, and the period campaign.
+	var start_row := HBoxContainer.new()
+	start_row.add_theme_constant_override("separation", 10)
+	v.add_child(start_row)
 	_intro = _button("START NORTHERN PASSAGE")
 	_intro.theme_type_variation = "MenuBigButton"
 	_intro.custom_minimum_size = Vector2(0, 44)
@@ -141,7 +146,18 @@ func _ready() -> void:
 	_intro.add_theme_font_size_override("font_size", 19)
 	_intro.tooltip_text = "Start here: protect a freighter, launch reconnaissance and identify contacts. Opens the briefing with time paused."
 	_intro.pressed.connect(func() -> void: scenario_chosen.emit(INTRO_PATH))
-	filter_row.add_child(_intro)
+	start_row.add_child(_intro)
+	_campaign_1990 = _button(CAMPAIGN_1990_TEXT)
+	_campaign_1990.theme_type_variation = "MenuBigButton"
+	_campaign_1990.custom_minimum_size = Vector2(0, 44)
+	_campaign_1990.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_campaign_1990.add_theme_font_size_override("font_size", 19)
+	_campaign_1990.pressed.connect(_start_campaign_1990)
+	start_row.add_child(_campaign_1990)
+	# The shelves, as the big bevelled menu buttons; the open shelf is pressed in.
+	var filter_row := HBoxContainer.new()
+	filter_row.add_theme_constant_override("separation", 10)
+	v.add_child(filter_row)
 	for entry in [["operations", "OPERATIONS", "Seven authored operations, one 2027 operation in each of four theatres and three from 1990, with stars for difficulty and your best result"], ["campaigns", "CAMPAIGNS", "The same operations as two campaigns, 1990 and 2027, taken in order: win each at 60% or better to open the next"], ["training", "TRAINING", "Two missions to learn on: the screen and the contact picture, then the air-operations cycle"], ["custom", "MY MISSIONS", "Missions you built or imported"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
@@ -309,6 +325,55 @@ func refresh(current_path := "", played := false) -> void:
 				break
 	_initial_refresh = false
 	_populate(current_path)
+	_refresh_campaign_button()
+
+
+## The 1990 campaign's start: the operation it is waiting on, briefed at once, with the desk left
+## on the Campaigns shelf at that operation for the way back.
+func _start_campaign_1990() -> void:
+	var id := campaign_start_id(CAMPAIGN_1990_ID, CommanderLog.load_all())
+	var path := ""
+	for entry: Dictionary in _all_entries:
+		if not entry["custom"] and str(entry["id"]) == id:
+			path = str(entry["path"])
+	if path == "":
+		return
+	SoundFx.play("click")
+	_era = "campaigns"
+	_populate(path)
+	scenario_chosen.emit(path)
+
+
+## The scenario id a campaign's start button opens: the operation the campaign is waiting on (the
+## first not yet won at the gate), or its first operation once it is complete. "" for no such
+## campaign.
+static func campaign_start_id(campaign_id: String, log: Dictionary) -> String:
+	for c: Dictionary in CampaignBook.load_all():
+		if str(c.get("id", "")) != campaign_id:
+			continue
+		var all := CampaignBook.steps(c, log)
+		if all.is_empty():
+			return ""
+		var frontier := str(all[0]["frontier_id"])
+		return frontier if frontier != "" else str(all[0]["id"])
+	return ""
+
+
+## The campaign button names where it will start, and how far the campaign has come.
+func _refresh_campaign_button() -> void:
+	if _campaign_1990 == null:
+		return
+	var log := CommanderLog.load_all()
+	var id := campaign_start_id(CAMPAIGN_1990_ID, log)
+	_campaign_1990.visible = id != ""
+	for c: Dictionary in CampaignBook.load_all():
+		if str(c.get("id", "")) == CAMPAIGN_1990_ID:
+			var done := CampaignBook.progress(c, log)
+			var name := ""
+			for entry: Dictionary in _all_entries:
+				if not entry["custom"] and str(entry["id"]) == id:
+					name = str(entry["name"]).replace(" — ", " / ")
+			_campaign_1990.tooltip_text = "The 1990 campaign: a fictional September 1990 crisis in %d operations, an alternate-history Cold War setting, taken in order (%d won so far). Opens %s with its briefing." % [int(done["total"]), int(done["won"]), name if name != "" else "the next operation"]
 
 
 # --- Gameplay options --------------------------------------------------------------------

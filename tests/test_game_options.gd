@@ -158,6 +158,40 @@ func test_choosing_normal_does_not_make_a_platform_voice_default_explicit() -> v
 		assert_true(UserSettings.has_value("gameplay", "time_scales")))
 
 
+func test_no_option_text_names_a_period_and_the_1990_campaign_is_not_classic() -> void:
+	for o: GameOptions in [GameOptions.normal(), GameOptions.classic()]:
+		var text := o.label() + " " + " ".join(o.summary_lines())
+		var years := RegEx.create_from_string("19\\d\\d|20\\d\\d")
+		assert_true(years.search(text) == null, "options describe rules, never an era: %s" % text)
+	var cw := _campaign("northern_flank_1990")
+	assert_true(not cw.is_empty())
+	var words := (str(cw["name"]) + " " + str(cw["summary"])).to_upper()
+	assert_true(words.contains("1990"))
+	assert_true(not words.contains("CLASSIC"), "the 1990 period pack is not the Classic option")
+	assert_true(RegEx.create_from_string("199[1-9]").search(words) == null, "1990 stays 1990, never the late 1990s")
+	assert_true(ScenarioMenu.CAMPAIGN_1990_TEXT.contains("1990") and not ScenarioMenu.CAMPAIGN_1990_TEXT.to_upper().contains("CLASSIC"))
+
+
+func test_the_1990_start_opens_the_next_operation_the_campaign_waits_on() -> void:
+	assert_eq(ScenarioMenu.campaign_start_id("northern_flank_1990", {}), "cold_war_01_convoy", "a new commander starts at the convoy")
+	var log := {"cold_war_01_convoy": {"result": "VICTORY", "best_percent": 72}}
+	assert_eq(ScenarioMenu.campaign_start_id("northern_flank_1990", log), "cold_war_02_barrier", "a cleared operation opens the next")
+	log["cold_war_01_convoy"] = {"result": "VICTORY", "best_percent": 40}
+	assert_eq(ScenarioMenu.campaign_start_id("northern_flank_1990", log), "cold_war_01_convoy", "a win below the gate is flown again")
+	log["cold_war_01_convoy"] = {"result": "VICTORY", "best_percent": 90}
+	log["cold_war_02_barrier"] = {"result": "VICTORY", "best_percent": 90}
+	log["cold_war_03_carrier"] = {"result": "VICTORY", "best_percent": 90}
+	assert_eq(ScenarioMenu.campaign_start_id("northern_flank_1990", log), "cold_war_01_convoy", "a finished campaign starts again from the top")
+	assert_eq(ScenarioMenu.campaign_start_id("no_such_campaign", {}), "")
+
+
+static func _campaign(id: String) -> Dictionary:
+	for c: Dictionary in CampaignBook.load_all():
+		if str(c.get("id", "")) == id:
+			return c
+	return {}
+
+
 # --- The time ladder ---------------------------------------------------------------------
 
 func test_menus_and_the_key_board_offer_only_the_ladder_in_use() -> void:
