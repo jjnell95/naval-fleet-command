@@ -356,7 +356,8 @@ func _update_group_status() -> void:
 		_budget.value = maxi(suggested, 1)
 		_building = was_building
 	var lead := _group_lead()
-	_group_commit.disabled = target == null or lead == null
+	# One attack at a time for the same platforms on a contact; the running one is cancelled first.
+	_group_commit.disabled = target == null or lead == null or manager.overlapping(simulation.player_faction, units, [target]) != null
 	if not running.is_empty():
 		_group_status.text = manager.summary(running[0])
 	elif target == null:

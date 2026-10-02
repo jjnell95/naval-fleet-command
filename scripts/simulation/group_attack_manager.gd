@@ -112,6 +112,11 @@ func request(lead: Unit, order: Order) -> GroupAttack:
 		return _refuse(order, "Choose a held contact")
 	if g.budget <= 0:
 		return _refuse(order, "No rounds to commit")
+	# A second order for the same platforms on the same contact would spend a second budget. The
+	# commander changes a running attack by cancelling it, not by stacking another on top.
+	var running := overlapping(g.faction, g.members, g.targets)
+	if running != null:
+		return _refuse(order, "Group attack %d is already on track %s (%d of %d rounds); cancel it to order another" % [running.id, running.target_label(), _spent(running), running.budget])
 	var reasons := {}
 	var feasible := false
 	for ti in g.targets.size():
@@ -149,9 +154,34 @@ func request(lead: Unit, order: Order) -> GroupAttack:
 		_fill(g, ti, log)
 		log["short"] = int(log["short"]) + maxi(g.target_mark[ti] - _spent_at(g, ti), 0)
 	order.receipt = _receipt(g, log)
+	if _spent(g) == 0:
+		# Every shooter that looked able was refused at the launcher: nothing to coordinate, and
+		# nothing to report beyond the refusal.
+		groups.erase(g)
+		order.execution_accepted = false
+		return null
 	order.execution_accepted = true
 	g.note = order.receipt
 	return g
+
+
+## An active attack by the faction that already has one of these platforms firing at one of these
+## contacts, or null.
+func overlapping(faction: String, members: Array, targets: Array) -> GroupAttack:
+	for g in groups:
+		if not g.active or g.faction != faction:
+			continue
+		var shares_target := false
+		for t: Track in targets:
+			if t != null and g.target_keys.has(WeaponManager.contact_key(t)) and g.target_done[g.target_keys.find(WeaponManager.contact_key(t))] == "":
+				shares_target = true
+		if not shares_target:
+			continue
+		for u: Unit in members:
+			var mi := g.member_index(u)
+			if mi >= 0 and g.member_withdrawn[mi] == "":
+				return g
+	return null
 
 
 func _refuse(order: Order, why: String) -> GroupAttack:
@@ -340,16 +370,18 @@ func _step_target(g: GroupAttack, ti: int, log: Dictionary) -> void:
 			if held == null or held.status != Track.Status.ACTIVE:
 				weapon_manager.cancel_group(g.id, u, key, "CONTACT STALE" if held != null else "TRACK NOT HELD")
 	if g.target_mark[ti] >= 0:
-		_fill(g, ti, log)
 		if weapon_manager.group_rounds(g.id, key) == 0 and g.target_volley_fired[ti] > 0:
 			# The volley has arrived. Read the plot before anyone spends more on it, unless there
-			# is nothing more to spend.
+			# is nothing more to spend. Checked before the volley is topped up: a round it is still
+			# short of, fired now, would be more expenditure without a look.
 			g.target_mark[ti] = -1
 			g.target_volley_fired[ti] = 0
 			if _volley_size(g, ti) <= 0:
 				_close_target(g, ti, "Budget fired" if _budget_left(g) <= 0 else "Share fired")
 			else:
 				g.target_assess_until[ti] = now_s + ASSESS_S
+			return
+		_fill(g, ti, log)
 		return
 	if g.target_assess_until[ti] >= 0.0:
 		if now_s < g.target_assess_until[ti]:

@@ -504,3 +504,46 @@ func test_the_firing_board_commits_a_group_attack_with_its_budget_and_cancels_it
 	assert_true(board._group_cancel.disabled)
 	board.free()
 	_done()
+
+
+func test_a_shooter_that_comes_into_range_late_waits_for_the_shared_assessment() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(0, -80))
+	ignatius.magazines[TOMAHAWK] = 2
+	var t := _plot("T1077", Vector2(0, 40))
+	var wm := _sim.weapon_manager
+	var o := _order(ignatius, [ignatius, nansen], [t], 8)
+	var g := _group()
+	assert_true(o.receipt.contains("Fridtjof Nansen refused: out of range") and o.receipt.contains("6 not placed: no other shooter can take them"), o.receipt)
+	assert_eq(_spent(g), 2)
+	assert_true(_until(func() -> bool: return wm.group_rounds(g.id) == 0, 600.0), "the destroyer's pair resolves")
+	# The frigate arrives in range just as the volley is over.
+	nansen.position = Vector2(4, 10)
+	SimClock.advance(1.0)
+	assert_eq(_spent(g), 2, "a round the volley was short of is not fired after the volley has landed")
+	assert_true(_sim.group_attack_manager.phase(g).begins_with("assessing"), _sim.group_attack_manager.phase(g))
+	SimClock.advance(GroupAttackManager.ASSESS_S + 1.0)
+	assert_eq(_spent(g), 8, "after the shared look the frigate takes the rest")
+	assert_eq(_committed_by(g, nansen), 6)
+	_done()
+
+
+func test_a_second_group_order_for_the_same_platforms_and_contact_is_refused() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(4, 10))
+	var roosevelt := _ship("usn_ddg_arleigh_burke_iia", "USS Roosevelt", Vector2(-4, 0))
+	var t := _plot("T1077", Vector2(0, 40))
+	var other := _plot("T1078", Vector2(20, 40))
+	_order(ignatius, [ignatius, nansen], [t], 4)
+	var first := _group()
+	var again := _order(nansen, [nansen, roosevelt], [t], 4)
+	assert_true(not again.execution_accepted, "the frigate is already firing at that contact for a group")
+	assert_true(again.receipt.contains("Group attack %d is already on track 1077" % first.id), again.receipt)
+	assert_eq(_sim.group_attack_manager.groups.size(), 1, "no second budget")
+	var elsewhere := _order(roosevelt, [roosevelt, ignatius], [other], 2)
+	assert_true(elsewhere.execution_accepted, "another contact is another attack: " + elsewhere.receipt)
+	var fresh := Unit.new()
+	assert_true(_sim.group_attack_manager.overlapping("BLUE", [fresh], [t]) == null, "other platforms may attack the same contact")
+	_done()
