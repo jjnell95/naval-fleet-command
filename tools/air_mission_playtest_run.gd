@@ -114,6 +114,7 @@ func _combat_air_patrol() -> void:
 	await _key(KEY_ESCAPE)
 	checks["Escape closes Air Operations"] = not panel.visible
 	await _save_and_reload(m)
+	await _classic_save_restores_under_classic()
 
 
 ## Ctrl+Shift+S, carry on, Ctrl+Shift+L: the battle, the air mission, the journal and the chart's
@@ -160,8 +161,92 @@ func _save_and_reload(m: AirMission) -> void:
 	DirAccess.remove_absolute(bad_path)
 
 
+## The preset chip's menu chooses Classic for this watch and Ctrl+Shift+S saves it; the commander
+## then goes back to Normal, and Ctrl+Shift+L brings the engagement back under Classic: its time
+## ladder, the chip, manual missile defence on the side's ships and engagement after
+## identification, while the player's own choice stays Normal. (A driven run never writes the
+## choice to the player's settings.) The next operation is played under Normal again.
+func _classic_save_restores_under_classic() -> void:
+	var um := main.simulation.unit_manager
+	await _click_control(main.command_bar.buttons["options_menu"])
+	await _choose_action({"kind": "palette", "id": "preset_classic"})
+	checks["the chip's menu chooses Classic"] = main.options.preset() == GameOptions.CLASSIC and main.command_bar.buttons["options_menu"].text == "CLASSIC 4×"
+	checks["Classic puts the side's ships on manual missile defence"] = _side_defence("BLUE", false) and _side_defence("RED", true) and um.engage_on_hostile_id.get("BLUE", false)
+	await _key(KEY_S, true, true)
+	var header := SaveGame.read_header(SaveGame.slot_path(SaveGame.QUICKSAVE))
+	checks["the quicksave names the gameplay it was played under"] = str(header.get("gameplay", "")) == "CLASSIC 4×"
+	await _click_control(main.command_bar.buttons["options_menu"])
+	await _choose_action({"kind": "palette", "id": "preset_normal"})
+	checks["back on Normal the ships defend themselves"] = main._preferred.preset() == GameOptions.NORMAL and SimClock.speeds().size() == SimClock.SPEEDS.size() and _side_defence("BLUE", true) and um.engage_on_hostile_id.is_empty()
+	await _key(KEY_L, true, true)
+	um = main.simulation.unit_manager
+	checks["the Classic save restores under Classic"] = main.options.preset() == GameOptions.CLASSIC and Array(SimClock.speeds()) == Array(GameOptions.CLASSIC_SCALES) and main.command_bar.buttons["options_menu"].text == "CLASSIC 4×"
+	checks["its ships are back on manual defence, engaging what they identify"] = _side_defence("BLUE", false) and _side_defence("RED", true) and um.engage_on_hostile_id == {"BLUE": true}
+	checks["the player's own choice is still Normal, and the desk shows it"] = main._preferred.preset() == GameOptions.NORMAL and main._menu._options.preset() == GameOptions.NORMAL and main._menu._style_buttons[GameOptions.NORMAL].button_pressed
+	checks["the radio says the engagement brought its own options"] = main.radio.last_advice.contains("own gameplay options")
+	SimClock.set_speed_index(2)
+	await _key(KEY_4)
+	checks["the number keys stop at the saved ceiling"] = SimClock.speed_index == 2 and main.radio.last_advice.contains("ceiling")
+	SimClock.set_speed_index(0)
+
+
+## Combat drops an accelerated watch to real time only for what the player's side could know of:
+## a salvo fired, or a ship lost, by another side nobody of ours holds or can see leaves the clock
+## alone (it would otherwise announce the enemy); our own launch brings it down at once.
+func _clock_answers_only_what_the_side_could_see() -> void:
+	var unseen: Unit = null
+	for u: Unit in main.simulation.unit_manager.units:
+		if u.faction != "BLUE" and u.alive and not u.weapons.is_empty() and not main._combat_observed(u, false):
+			unseen = u
+			break
+	var own: Unit = null
+	for u: Unit in main.simulation.unit_manager.get_faction_units("BLUE"):
+		if not u.weapons.is_empty():
+			own = u
+			break
+	if unseen == null or own == null:
+		checks["an unseen armed enemy and an armed ship of ours to test the clock with"] = false
+		return
+	facts["unseen_shooter"] = unseen.callsign
+	SimClock.set_speed_index(3)
+	main._on_weapon_launched(unseen, unseen.weapons[0], Track.new(), 1)
+	main._on_unit_destroyed(unseen, unseen.faction)
+	var kept := SimClock.speed_index == 3
+	main._on_weapon_launched(own, own.weapons[0], Track.new(), 1)
+	checks["the clock ignores combat nobody of ours could see, and answers our own"] = kept and SimClock.speed_index == 0
+
+
+## Every live ship and aircraft of a side on automatic (or manual) missile defence.
+func _side_defence(faction: String, automatic: bool) -> bool:
+	var units := main.simulation.unit_manager.get_faction_units(faction)
+	return not units.is_empty() and units.all(func(u: Unit) -> bool: return not u.alive or u.auto_air_defence == automatic)
+
+
+## Clicks the row of the open CDS menu whose action carries these values.
+func _choose_action(wanted: Dictionary) -> void:
+	var menu := main._cds_menus._root
+	if menu == null:
+		checks["menu available for " + str(wanted)] = false
+		return
+	var table: Dictionary = main._cds_menus._actions.get(menu.get_instance_id(), {})
+	for id: int in table:
+		var action: Dictionary = table[id]
+		var matches := true
+		for key: String in wanted:
+			if action.get(key) != wanted[key]:
+				matches = false
+		if matches:
+			await _popup_click(menu, menu.get_item_index(id))
+			return
+	checks["action available: " + str(wanted)] = false
+	main._cds_menus.close()
+	await _frames()
+
+
 func _escort_returns_to_station() -> void:
 	main.start_scenario(PASSAGE)
+	checks["a new operation is played under the player's own options again"] = main.options.preset() == GameOptions.NORMAL and SimClock.speeds().size() == SimClock.SPEEDS.size() and _side_defence("BLUE", true)
+	_clock_answers_only_what_the_side_could_see()
 	await _take_command()
 	var frigate: Unit
 	for u: Unit in main.simulation.unit_manager.get_faction_units("BLUE"):

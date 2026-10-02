@@ -10,6 +10,10 @@ signal menu_pressed()
 
 var mission_manager: MissionManager
 var unit_manager: UnitManager
+## The gameplay options the operation is played under, one line each (Main sets it): the preset
+## is part of the orders, since it decides who fires interceptors and how fast the watch may run.
+var options_lines := PackedStringArray()
+var options_label := ""
 var _eyebrow: Label
 var _title: Label
 var _body: RichTextLabel
@@ -243,10 +247,17 @@ func refresh(reset_scroll := false) -> void:
 	var duration := int(_scenario.get("duration_minutes", 0))
 	if duration > 0:
 		details.append("About %d min play" % duration)
+	# The preset rides on the meta line too: the posture rail that spells it out is hidden on a
+	# compact screen, and the rules of play belong in the orders at every size.
+	if options_label != "":
+		details.append("Gameplay " + options_label)
 	_meta.text = "  ·  ".join(details).to_upper()
+	_meta.tooltip_text = "\n".join(options_lines)
 	_meta.visible = not details.is_empty()
 	_intent.text = _scenario.get("commander_intent", mission_manager.briefing if mission_manager.briefing != "" else "Establish the tactical picture and accomplish the objectives below.")
 	_posture.text = "The clock is paused.\n\nTake Command begins at real time. Press Space whenever you need time to assess contacts or issue orders." if _pre_mission else "The clock is paused.\n\nReview your objectives, then Resume to continue the operation."
+	if options_label != "":
+		_posture.text += "\n\nGAMEPLAY: %s\n%s" % [options_label, "\n".join(options_lines)]
 	for key: String in _tabs:
 		var button: Button = _tabs[key]
 		button.set_pressed_no_signal(key == _active_section)
@@ -338,7 +349,7 @@ func _append_situation(out: PackedStringArray) -> void:
 ## right-click menus.
 func _append_controls(out: PackedStringArray) -> void:
 	out.append(_section("HOOK, ORDER, ENGAGE"))
-	out.append("[b]Left click[/b] hooks a platform or contact. [b]Shift-click[/b] adds friendly units to a group.\n[b]Right-click[/b] water to send the hooked platform there (Shift adds a waypoint); right-click a hostile contact to [b]attack[/b] it (the platform closes to range, chooses the weapon and keeps firing), an unidentified contact to [b]investigate[/b] it, your own platform for its orders menu, and empty chart with nothing hooked for the display menu. [b]Shift+right-click[/b] a contact for weapons, salvos and the firing board.\n[b]W[/b] arms a route; left-click water for each leg. [b]R[/b] radar, [b]P[/b] active sonar, [b]E[/b] emission control.\n")
+	out.append("[b]Left click[/b] hooks a platform or contact. [b]Shift-click[/b] adds friendly units to a group.\n[b]Right-click[/b] water to send the hooked platform there (Shift adds a waypoint); right-click a hostile contact to [b]attack[/b] it (the platform closes to range, chooses the weapon and keeps firing), an unidentified contact to [b]investigate[/b] it, your own platform for its orders menu, and empty chart with nothing hooked for the display menu. [b]Shift+right-click[/b] a contact for weapons, salvos and the firing board.\n[b]W[/b] arms a route; left-click water for each leg. [b]R[/b] radar, [b]P[/b] active sonar, [b]E[/b] emission control.\n[b]X[/b] fires the hooked ships' interceptors at the inbound weapons they hold, or right-click a detected inbound weapon; with manual missile defence the SAMs fire only then.\n")
 	out.append(_section("CHART & CONTACT PICTURE"))
 	out.append("[b]Wheel / pinch[/b] zooms. Right-drag, middle-drag or the arrow keys pan. The regional map at the bottom left pans and zooms the chart too.\n[b]Home[/b] fits the force. [b]F[/b] follows the hooked platform or contact. [b]C[/b] centres the shooter-target problem. [b]B[/b] draws a range circle.\n[b]N / Shift-N[/b] cycles priority contacts; [b].[/b] hooks the next own platform. [b]Tab[/b] switches NTDS and graphic symbols; [b]Shift-V / K / I[/b] velocity leaders, track numbers, tags.\n")
 	out.append(_section("3D VIEW"))
@@ -346,7 +357,7 @@ func _append_controls(out: PackedStringArray) -> void:
 	out.append(_section("BOARDS, AIR OPERATIONS AND SCREENS"))
 	out.append("[b]A[/b] opens the status boards: orders, task group, track file and comms. [b]F3[/b] opens the launch dialog: light the LAUNCH lamps, then Ok; select an airborne airframe to return it to a carrier or airfield. [b]F7[/b] reference. [b]M[/b] missions, [b]Ctrl-E[/b] editor, [b]Ctrl-F10[/b] twice restarts.\n")
 	out.append(_section("TIME & DISPLAY"))
-	out.append("[b]Space[/b] pauses, or click TIME on the data display. [b]1–6[/b] sets acceleration, or click SCALE. Use real time when contacts close; accelerate when the force is on station.\n[b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] relief shading · [b]Ctrl-L / S / W[/b] lat-long, scale, radar coverage · [b]Ctrl-M[/b] sound.\n[b]H[/b] lists every key command. [b]Command-K / Control-K[/b] opens the searchable Actions palette.")
+	out.append("[b]Space[/b] pauses, or click TIME on the data display. [b]%s[/b] sets acceleration up to %d×, or click SCALE. Use real time when contacts close; accelerate when the force is on station.\n[b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] relief shading · [b]Ctrl-L / S / W[/b] lat-long, scale, radar coverage · [b]Ctrl-M[/b] sound.\n[b]H[/b] lists every key command. [b]Command-K / Control-K[/b] opens the searchable Actions palette." % ["1–%d" % SimClock.speeds().size() if SimClock.speeds().size() > 1 else "1", int(SimClock.ceiling())])
 
 
 func _line(o: MissionObjective, loss := false) -> String:

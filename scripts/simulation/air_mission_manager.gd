@@ -689,6 +689,9 @@ func _assign_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var circuit := Order.patrol_box(m.station - Vector2(half, half), m.station + Vector2(half, half))
 	circuit.station_label = m.station_label()
 	circuit.mission_id = m.id
+	# Reconnaissance never fires: not on its own looks, nor on one the commander adds while it
+	# holds the station (engagement after identification is skipped for it).
+	circuit.identify_only = m.kind == AirMission.Kind.RECON
 	if not _crew(a, circuit):
 		_report(m, "%s: %s cannot take the station: %s" % [m.label(), a.callsign, UnitManager.patrol_rejection(a, circuit.route).to_lower()], false)
 		_crew(a, Order.return_to_base())
@@ -738,12 +741,13 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 			task["state"] = AirMission.ENGAGING
 			task["attacked"] = true
 			_report(m, "%s intercepting track %s" % [a.callsign, best.id], true)
-	elif _crew(a, Order.investigate(best)):
+	elif _crew(a, Order.investigate(best, true)):
 		task["state"] = AirMission.INVESTIGATING
 		_report(m, "%s identifying track %s" % [a.callsign, best.id], true)
 
 
-## Reconnaissance identifies what is in its area. It never fires.
+## Reconnaissance identifies what is in its area. It never fires: its looks are identify-only, so
+## not even engagement after identification can turn one into an attack.
 func _recon_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var best: Track = null
 	var best_d := INF
@@ -756,7 +760,7 @@ func _recon_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 		if d < best_d:
 			best = t
 			best_d = d
-	if best != null and _crew(a, Order.investigate(best)):
+	if best != null and _crew(a, Order.investigate(best, true)):
 		task["state"] = AirMission.INVESTIGATING
 		_report(m, "%s identifying track %s" % [a.callsign, best.id], true)
 
@@ -774,7 +778,7 @@ func _asw_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 				_report(m, "%s attacking submarine track %s" % [a.callsign, t.id], true)
 				return
 		elif t.classification < Track.Classification.CLASS_KNOWN and _committed(m.faction, t, false) == 0 and UnitManager.investigation_rejection(a, t) == "":
-			if _crew(a, Order.investigate(t)):
+			if _crew(a, Order.investigate(t, true)):
 				task["state"] = AirMission.INVESTIGATING
 				_report(m, "%s prosecuting track %s" % [a.callsign, t.id], true)
 				return
@@ -856,6 +860,8 @@ func _committed(faction: String, t: Track, attacking: bool) -> int:
 
 
 ## An order from the mission is the crew's: it never ends the commander's standing assignment.
+## Every look a mission orders is identify-only: a CAP or ASW mission attacks what it has
+## identified through its own look, with its own limit on how many airframes go after one contact.
 func _crew(a: Unit, order: Order) -> bool:
 	order.origin = "crew"
 	var ok := unit_manager.issue_order(a, order)

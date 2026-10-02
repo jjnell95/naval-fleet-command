@@ -45,16 +45,19 @@ func _bytes() -> PackedByteArray:
 
 ## The commander's orders before the save, the same in both runs: a CAP with relief and an ASW
 ## search off the carrier, an escort sent to look at the first contact, and one Tomcat recalled so
-## that it is on its way back to the deck when the save is taken.
-func _play_to_save_point() -> void:
+## that it is on its way back to the deck when the save is taken. `each_tick` is the commander's
+## standing rule, if any, applied after every step.
+func _play_to_save_point(save_at := SAVE_AT, each_tick := Callable()) -> void:
 	var cv := _unit(IKE)
 	var escort := _unit("USS Spruance (DD 963)")
 	_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 2, cv.position + Vector2(20, 60), 12.0, null, true))
 	_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.ASW, "cw90_s3a", 1, cv.position + Vector2(-20, 20), 10.0))
 	var investigated := false
 	var recalled := false
-	while SimClock.sim_time < SAVE_AT - 0.25:
+	while SimClock.sim_time < save_at - 0.25:
 		SimClock.advance(0.25)
+		if each_tick.is_valid():
+			each_tick.call()
 		if not investigated:
 			for t: Track in _sim.track_manager.tracks_for(escort):
 				if UnitManager.investigation_rejection(escort, t) == "":
@@ -67,6 +70,8 @@ func _play_to_save_point() -> void:
 					recalled = _sim.unit_manager.issue_order(a, Order.return_to_base(cv))
 					break
 	SimClock.advance(0.25)
+	if each_tick.is_valid():
+		each_tick.call()
 
 
 func _write_and_read(snapshot: Dictionary) -> Dictionary:
@@ -457,6 +462,99 @@ func test_every_simulation_field_is_saved_or_declared_transient() -> void:
 		for field: String in SimSnapshot.script_variables(node):
 			assert_true(saved.has(field) or transient.has(field), "%s.%s is neither saved nor declared transient" % [name, field])
 	_free()
+
+
+## The Classic options as the simulation holds them: the side engages what its crews identify as
+## hostile, and its ships keep their SAMs for the rounds the commander orders intercepted.
+func _classic_doctrine() -> void:
+	var um := _sim.unit_manager
+	um.set_engage_on_hostile_id("BLUE", true)
+	for u in um.get_faction_units("BLUE"):
+		assert_true(um.issue_order(u, Order.set_air_defence_mode(false)), u.callsign)
+
+
+## The commander's rule under manual missile defence, the same in both runs: each inbound round
+## the side holds that no ship has been ordered to engage goes to the ship it is closing on, or
+## failing that to the first ship of the force that can take it.
+func _intercept_inbound() -> void:
+	var um := _sim.unit_manager
+	for entry: Dictionary in AirDefence.inbound_threats(um, _sim.threat_manager, "BLUE"):
+		var w: Weapon = entry["weapon"]
+		if not w.intercept_cleared.is_empty():
+			continue
+		var ships: Array = [entry["target"]]
+		ships.append_array(um.get_faction_units("BLUE"))
+		for u: Unit in ships:
+			if AirDefence.intercept_rejection(u) == "" and AirDefence.threat_rejection(u, w, _sim.threat_manager) == "" and um.issue_order(u, Order.intercept(w)):
+				break
+
+
+func _play_classic(seconds: float) -> void:
+	var until := SimClock.sim_time + seconds
+	while SimClock.sim_time < until - 1e-6:
+		SimClock.advance(0.25)
+		_intercept_inbound()
+
+
+## The Classic options in play across a reload. Saved twice in the same battle: once while the
+## escort's look is still running, so its hostile identification becomes the crew's attack only
+## after the reload; once with a round the commander ordered intercepted still in the air, the
+## ship's SAMs on it and every other ship holding its own. Each continuation must match the
+## uninterrupted battle tick for tick.
+func test_continuation_under_classic_options_matches_the_uninterrupted_battle() -> void:
+	for save_at: float in [200.75, 571.75]:
+		_fresh(CARRIER_WATCH, 31)
+		_classic_doctrine()
+		_play_to_save_point(save_at, _intercept_inbound)
+		assert_eq(SimClock.sim_time, save_at)
+		var escort := _unit("USS Spruance (DD 963)")
+		var looking := save_at < 211.0
+		if looking:
+			assert_true(escort.investigation_track != null and escort.attack_track == null, "the escort is still looking at the save")
+		else:
+			var cleared := _sim.weapon_manager.in_flight.filter(func(w: Weapon) -> bool: return w.phase != Weapon.Phase.DEAD and not w.intercept_cleared.is_empty())
+			assert_true(not cleared.is_empty(), "a round the commander ordered intercepted is in the air at the save")
+			assert_true(_sim.weapon_manager.in_flight.any(func(w: Weapon) -> bool: return w.phase != Weapon.Phase.DEAD and w.faction == "BLUE" and cleared.has(w.intercept_target)), "with our SAMs on it")
+			assert_true(escort.attack_track != null, "and the escort is attacking the contact it identified")
+		var saved := _write_and_read(SimSnapshot.capture(_sim))
+		_play_classic(400.0)
+		var expected := _bytes()
+		_free()
+		_fresh(CARRIER_WATCH, 999)
+		assert_eq(_sim.restore_snapshot(saved), "")
+		assert_eq(_sim.unit_manager.engage_on_hostile_id, {"BLUE": true}, "the side still engages what it identifies")
+		assert_true(_sim.unit_manager.get_faction_units("BLUE").all(func(u: Unit) -> bool: return not u.auto_air_defence), "its ships are still on manual missile defence")
+		assert_true(_sim.unit_manager.get_faction_units("RED").all(func(u: Unit) -> bool: return u.auto_air_defence), "the other side still defends itself")
+		var crew_attacks: Array = []
+		_sim.unit_manager.order_issued.connect(func(u: Unit, o: Order) -> void:
+			if o.type == Order.Type.ATTACK and o.origin == "crew" and u.callsign == "USS Spruance (DD 963)":
+				crew_attacks.append(SimClock.sim_time))
+		_play_classic(400.0)
+		if looking:
+			assert_true(not crew_attacks.is_empty(), "the identification became the crew's attack after the reload")
+		var got := _bytes()
+		if got != expected:
+			failures.append("Classic continuation from %.2f s differs: %s" % [save_at, _first_difference(bytes_to_var(expected), bytes_to_var(got), "")])
+		_free()
+	DirAccess.remove_absolute(_scratch)
+	SaveGame.root_override = ""
+
+
+## The options an engagement is fought under travel in its save, with its header naming them.
+func test_a_save_carries_the_gameplay_options_it_was_played_under() -> void:
+	SaveGame.root_override = _scratch
+	var path := SaveGame.slot_path("options")
+	var classic := GameOptions.classic()
+	assert_eq(SaveGame.write(path, {"label": "test", "gameplay": classic.label()}, {"simulation": {}, "presentation": {"options": classic.to_dict()}}), "")
+	assert_eq(str(SaveGame.read_header(path).get("gameplay", "")), "CLASSIC 4×")
+	var back := SaveGame.read(path)
+	DirAccess.remove_absolute(path)
+	assert_eq(back.get("error", "?"), "")
+	var restored := GameOptions.from_dict(back["payload"]["presentation"]["options"])
+	assert_true(restored.equals(classic), "a Classic save restores Classic")
+	assert_eq(Array(restored.time_scales), Array(GameOptions.CLASSIC_SCALES))
+	DirAccess.remove_absolute(_scratch)
+	SaveGame.root_override = ""
 
 
 ## The path to the first difference between two snapshots, for a readable failure.

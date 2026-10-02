@@ -262,6 +262,10 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			group_attack_manager.request(u, o)
 		Order.Type.CANCEL_GROUP_ATTACK:
 			o.execution_accepted = group_attack_manager.cancel(o.group_id, u, o)
+		Order.Type.INTERCEPT:
+			var result := AirDefence.order_intercept(u, o.threat, unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
+			o.execution_accepted = int(result["cleared"]) > 0
+			o.receipt = str(result["reason"])
 
 
 func _on_tick(dt: float) -> void:

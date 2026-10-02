@@ -70,6 +70,16 @@ var _losses: PackedStringArray = []
 var _kills: PackedStringArray = []
 var _civilian_incidents: PackedStringArray = []
 var _foundered: Dictionary = {}  # Unit -> true, lost to fire or flooding rather than outright
+## The gameplay options in effect (time ladder, missile defence, engagement after identification,
+## voice and ambient). Usually the player's stored preference; a restored engagement plays under
+## its own until the next operation starts (apply_engagement_options).
+var options := GameOptions.normal()
+## The player's preference: what the desk, a new operation and a restart use. A driven run (any
+## command-line argument) plays Normal, or the --preset= it names, and never reads or saves it.
+var _preferred := GameOptions.normal()
+var _options_from_engagement := false
+## A smoke, a probe, a sweep or a screenshot: the sound devices and the stored settings are left alone.
+var _driven_run := false
 
 
 func _ready() -> void:
@@ -104,7 +114,7 @@ func _ready() -> void:
 	data_display.map = map
 	data_display.simulation = simulation
 	data_display.pause_requested.connect(SimClock.toggle_pause)
-	data_display.scale_step_requested.connect(func(step: int) -> void: SimClock.set_speed_index(SimClock.speed_index + step))
+	data_display.scale_step_requested.connect(func(step: int) -> void: _set_time_scale(SimClock.speed_index + step))
 	data_display.messages_requested.connect(_on_message_lamp)
 	status_boards.comms_shown.connect(func() -> void: data_display.unread_alerts = 0)
 	data_display.threat_requested.connect(_focus_urgent_threat)
@@ -145,6 +155,7 @@ func _ready() -> void:
 	map.patrol_order_requested.connect(_apply_order_to_selection)
 	map.engage_requested.connect(_on_engage_requested)
 	map.attack_requested.connect(func(t: Track) -> void: _apply_order_to_selection(Order.attack(t)))
+	map.intercept_requested.connect(func(w: Weapon) -> void: _apply_order_to_selection(Order.intercept(w)))
 	map.investigate_requested.connect(func(t: Track) -> void: _apply_order_to_selection(Order.investigate(t)))
 	map.waypoint_delete_requested.connect(_on_waypoint_delete_requested)
 	map.interaction_mode_changed.connect(orders_panel.set_move_mode)
@@ -224,6 +235,10 @@ func _ready() -> void:
 			radio.flash("OBJECTIVE COMPLETE — %s" % o.text, "good")
 		Debug.event("[Mission] objective %s: %s" % ["failed" if is_loss else "complete", o.text]))
 	_build_screens()
+	# Reinforcements and every airframe take the side's missile-defence doctrine as they arrive.
+	simulation.unit_manager.unit_added.connect(func(u: Unit) -> void:
+		if u.faction == simulation.player_faction:
+			_set_air_defence(u))
 	simulation.track_manager.track_added.connect(_on_track_added)
 	simulation.track_manager.track_classified.connect(_on_track_classified)
 	simulation.track_manager.track_lost.connect(_on_track_lost)
@@ -281,12 +296,18 @@ func _ready() -> void:
 	# A player launches with no arguments, in the browser or on the desktop. Anything else is a
 	# driven run (a smoke, a probe, a screenshot), which never saves preferences and never reaches
 	# the operating system's speech.
-	if scripted or CrewVoice.automated_run() or not args.is_empty():
+	_driven_run = scripted or CrewVoice.automated_run() or not args.is_empty()
+	if _driven_run:
 		UserSettings.writable = false
+		# Smokes and sweeps play Normal whatever the player chose, so their outcomes never depend on
+		# someone's preference; --preset=classic asks for the Classic rules (sound is left alone).
+		_preferred = GameOptions.classic() if args.has("--preset=classic") else GameOptions.normal(voice.enabled, SoundFx.ambient_enabled)
 	else:
 		var silent := voice.configure_from_settings()
 		if silent != "" and voice.enabled:
 			Debug.event("[Voice] %s" % silent)
+		_preferred = GameOptions.load_preferred()
+	_apply_options(_preferred, false, not _driven_run)
 	start_scenario(start_path)
 	if args.has("--brief"):
 		_show_briefing()
@@ -317,7 +338,9 @@ func _process(delta: float) -> void:
 		var primary: Dictionary = threats[0]
 		var weapon: Weapon = primary["weapon"]
 		var label := "TORPEDO IN THE WATER" if weapon.spec.is_torpedo() else ("BALLISTIC INBOUND" if weapon.threat_class() == "ballistic" else "MISSILE INBOUND")
-		radio.set_alert("%s - %d - %d s" % [label, threats.size(), maxi(int(primary["time_s"]), 0)])
+		# On manual missile defence the SAMs wait for the commander: say which key sends them.
+		var cue := " - X ENGAGES" if options.manual_missile_defence() and not weapon.spec.is_torpedo() and weapon.intercept_cleared.is_empty() else ""
+		radio.set_alert("%s - %d - %d s%s" % [label, threats.size(), maxi(int(primary["time_s"]), 0), cue])
 	Debug.time_add("shell", Time.get_ticks_usec() - t0)
 
 
@@ -333,6 +356,11 @@ func _objective_summary() -> String:
 
 func start_scenario(path: String) -> void:
 	_close_engagement_dialogs()
+	# A new operation (from the desk, a restart, the editor) is played under the player's own
+	# options, even after a restored engagement brought its own.
+	if _options_from_engagement:
+		_options_from_engagement = false
+		_apply_options(_preferred, false, not _driven_run)
 	if not simulation.load_scenario(path):
 		push_error("Main: failed to load scenario %s" % path)
 		return
@@ -363,6 +391,7 @@ func _close_engagement_dialogs() -> void:
 func _reset_command_screen() -> void:
 	SimClock.set_paused(true)
 	SimClock.set_speed_index(0)
+	_apply_doctrine()
 	_command_taken = false
 	# A replacement scenario starts behind its own briefing. Rebase any older modal snapshot so
 	# dismissing that briefing can never inherit a running state from the previous mission.
@@ -439,6 +468,7 @@ func save_engagement(slot: String, kind: String, label: String) -> String:
 		"version": SimSnapshot.VERSION,
 		"build": BUILD_MILESTONE,
 		"note": _objective_summary(),
+		"gameplay": options.label(),
 	}
 	return SaveGame.write(SaveGame.slot_path(slot), header, {"simulation": snapshot, "presentation": _capture_presentation()})
 
@@ -479,7 +509,8 @@ func load_engagement(path: String) -> String:
 		kept = {"simulation": simulation.capture_snapshot(), "presentation": _capture_presentation()}
 	var why := _install_engagement(payload)
 	if why == "":
-		radio.advise("Engagement restored at %s, paused. Space resumes." % SimClock.datetime_string())
+		var own_rules := " under its own gameplay options, %s," % options.label() if _options_from_engagement else ""
+		radio.advise("Engagement restored at %s,%s paused. Space resumes." % [SimClock.datetime_string(), own_rules])
 		return ""
 	if not kept.is_empty() and _install_engagement(kept) == "":
 		return why + ". The running engagement was kept"
@@ -494,6 +525,12 @@ func _install_engagement(payload: Dictionary) -> String:
 	var why := simulation.restore_snapshot(payload["simulation"])
 	if why != "":
 		return why
+	# The engagement goes on under the gameplay options it was saved with, put in place before the
+	# screen is reset: the doctrine the simulation restored already agrees with them, so the reset
+	# issues no order, and the clock, chip and menus show the saved ladder from the first frame.
+	var presentation: Variant = payload.get("presentation", {})
+	var saved_options: Variant = presentation.get("options", {}) if typeof(presentation) == TYPE_DICTIONARY else {}
+	apply_engagement_options(saved_options if typeof(saved_options) == TYPE_DICTIONARY else {}, false)
 	_reset_command_screen()
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
 	_briefing.set_mode(false)
@@ -543,6 +580,8 @@ func _capture_presentation() -> Dictionary:
 		"selected": selected,
 		"view": {"center": map.center_nm, "ppn": map.ppn},
 		"autosaved_at": _autosaved_at,
+		# The rules the engagement is fought under; a load continues under them (_install_engagement).
+		"options": engagement_options(),
 	}
 
 
@@ -693,6 +732,7 @@ func _build_screens() -> void:
 	_menu.dismissed.connect(_hide_screens)
 	_menu.editor_requested.connect(_show_editor)
 	_menu.library_requested.connect(_toggle_library)
+	_menu.options_requested.connect(_choose_options)
 	add_child(_menu)
 	_menu.hide()
 
@@ -1206,9 +1246,15 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "sound", "label": "Sound on or off", "description": "Mute or restore the game's sounds.", "shortcut": "Ctrl+M", "enabled": true, "state": "on" if SoundFx.enabled else "off"},
 		{"id": "voice", "label": "Crew voice", "description": "Spoken crew reports through the system's text-to-speech.", "shortcut": "", "enabled": true, "state": "on" if voice.enabled else "off"},
 		{"id": "ambient", "label": "Ambient sea and machinery", "description": "Sea wash by sea state and the hooked platform's engine or rotor.", "shortcut": "", "enabled": true, "state": "on" if SoundFx.ambient_enabled else "off"},
+		{"id": "intercept_inbound", "label": "Engage inbound weapons", "description": "Fire interceptors from the hooked ships at the inbound rounds they hold. With manual missile defence the SAMs fire only on this order; close-in guns answer by themselves.", "shortcut": "X", "enabled": controllable, "reason": "Hook your ships first."},
+		{"id": "preset_normal", "label": "Gameplay: Normal", "description": GameOptions.preset_description(GameOptions.NORMAL) + ".", "shortcut": "", "enabled": true, "state": "selected" if options.preset() == GameOptions.NORMAL else ""},
+		{"id": "preset_classic", "label": "Gameplay: Classic", "description": GameOptions.preset_description(GameOptions.CLASSIC) + ".", "shortcut": "", "enabled": true, "state": "selected" if options.preset() == GameOptions.CLASSIC else ""},
 	]
-	for i in SimClock.SPEEDS.size():
-		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(SimClock.SPEEDS[i]), "description": "Set simulation acceleration; time remains paused until resumed.", "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
+	for key: String in ["ceiling", "manual_defence", "engage_on_id"]:
+		actions.append({"id": "option_" + key, "label": GameOptions.option_text(key), "description": GameOptions.option_tooltip(key), "shortcut": "", "enabled": true, "state": "on" if options.option_on(key) else "off"})
+	var ladder := SimClock.speeds()
+	for i in ladder.size():
+		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(ladder[i]), "description": "Set simulation acceleration; time remains paused until resumed." + (" The ceiling." if i == ladder.size() - 1 and ladder.size() < SimClock.SPEEDS.size() else ""), "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
 	return actions
 
 
@@ -1230,7 +1276,8 @@ static func _on_off(state: Dictionary, key: String) -> String:
 
 ## What the chart and the regional map are currently showing, for the menus' check marks.
 func _cds_state() -> Dictionary:
-	var state := {"symbol_mode": map.symbol_mode, "radar_coverage": regional.show_radar_coverage, "sound": SoundFx.enabled, "voice": voice.enabled, "ambient": SoundFx.ambient_enabled}
+	var state := {"symbol_mode": map.symbol_mode, "radar_coverage": regional.show_radar_coverage, "sound": SoundFx.enabled, "voice": voice.enabled, "ambient": SoundFx.ambient_enabled,
+		"options": options}
 	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "graticule", "key"]:
 		state[layer] = map.has_layer(layer)
 	return state
@@ -1246,11 +1293,17 @@ func _state_name(state: int, off_name: String, on_name: String) -> String:
 
 func _run_palette_action(id: String) -> void:
 	match id:
-		"chart_menu", "time_menu":
+		"chart_menu", "time_menu", "options_menu":
 			var button: Button = command_bar.buttons[id]
-			var items := CommandBar.chart_items(map) if id == "chart_menu" else CommandBar.time_items()
+			var items := CommandBar.chart_items(map) if id == "chart_menu" else (CommandBar.time_items() if id == "time_menu" else CdsMenus.options_items(_cds_state()))
 			_cds_menus.open(items, button.get_global_rect().position + Vector2(0, button.size.y))
 			map.menu_open = true
+		"preset_normal", "preset_classic":
+			_choose_options(GameOptions.preset_named(id.trim_prefix("preset_"), options.voice, options.ambient))
+		"option_ceiling", "option_manual_defence", "option_engage_on_id":
+			_choose_options(options.toggled(id.trim_prefix("option_")))
+		"intercept_inbound":
+			_apply_order_to_selection(Order.intercept())
 		"chart_zoom_in", "chart_zoom_out":
 			map._zoom_at(map.size * 0.5, TacticalMap.ZOOM_STEP if id == "chart_zoom_in" else 1.0 / TacticalMap.ZOOM_STEP)
 		"fleet_operations":
@@ -1368,15 +1421,21 @@ func _run_palette_action(id: String) -> void:
 			if not sound_on:
 				voice.stop()
 			radio.advise("Sound %s" % ("on" if sound_on else "off"))
-		"voice":
-			radio.advise(voice.toggle())
-		"ambient":
-			radio.advise("Ambient sound %s" % ("on" if SoundFx.toggle_ambient() else "off"))
+		"voice", "ambient":
+			# Both are gameplay options too: a change goes through the options, so the preset chip
+			# says CUSTOM when Classic's crew and sea are turned off. The voice flips from what the
+			# menus show, the crew as heard: a system that cannot speak says why when asked again.
+			var o := options.duplicate_options()
+			if id == "voice":
+				o.voice = not voice.enabled
+			else:
+				o.ambient = not options.ambient
+			_choose_options(o)
 		"actions":
 			_toggle_command_palette()
 		_:
 			if id.begins_with("speed_"):
-				SimClock.set_speed_index(int(id.trim_prefix("speed_")))
+				_set_time_scale(int(id.trim_prefix("speed_")))
 
 
 ## Space is the pause key on the command deck. It is taken here, before the GUI sees it, because a
@@ -1593,7 +1652,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			elif not map.cancel_interaction_mode():
 				map.clear_selection()
 		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
-			SimClock.set_speed_index(k.keycode - KEY_1)
+			_set_time_scale(k.keycode - KEY_1)
 		KEY_F2:
 			map.toggle_layer("key")
 		KEY_F4:
@@ -1614,6 +1673,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_cycle_priority_track(1)
 		KEY_S:
 			_run_palette_action("return_to_station")
+		KEY_X:
+			_run_palette_action("intercept_inbound")
 		KEY_F1:
 			_show_briefing()
 		KEY_HOME:
@@ -1623,6 +1684,122 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+
+## A time scale by its step on the ladder in use (the number keys, SCALE, the time menu). A step
+## past the ceiling is refused with advice rather than quietly taken as the ceiling, so the keys
+## never seem to do something they did not.
+func _set_time_scale(index: int) -> void:
+	var ladder := SimClock.speeds()
+	if index >= ladder.size():
+		radio.advise("%d× is the ceiling: %s" % [int(SimClock.ceiling()), "keys 1 to %d set the time scale" % ladder.size() if ladder.size() > 1 else "time runs at real time only"])
+		return
+	SimClock.set_speed_index(maxi(index, 0))
+
+
+# --- Gameplay options ----------------------------------------------------------------------
+
+## The commander chose options (the desk, the chip, the palette, the CDS menu): they become the
+## preference, saved, and take effect at once, also mid-mission.
+func _choose_options(o: GameOptions) -> void:
+	var was := options.preset()
+	_preferred = o.duplicate_options()
+	_options_from_engagement = false
+	_apply_options(_preferred, true, true)
+	if options.preset() != was:
+		radio.advise("Gameplay %s: %s" % [options.label(), options.summary()])
+
+
+## Puts a set of gameplay options into effect: the clock's ladder, the player's ships' missile
+## defence (as orders), engagement after identification (plain data on the unit manager), the crew
+## voice and ambient sound, and every place the preset is shown. `persist` saves them as the
+## player's preference; a restored engagement's options are applied without it. `sound` switches
+## the voice and ambient bed to match: always for the commander's own choice, never on its own in a
+## driven run, which must not reach the system's speech unasked.
+func _apply_options(o: GameOptions, persist: bool, sound: bool) -> void:
+	options = o.duplicate_options()
+	SimClock.set_speeds(options.time_scales)
+	# Under the Classic ceiling the watch is slow enough to listen to, so routine reports are spoken.
+	voice.routine_ceiling = options.ceiling() if options.option_on("ceiling") else 1.0
+	_apply_doctrine()
+	if sound:
+		_apply_sound(options, persist)
+	if persist:
+		GameOptions.save_preferred(options)
+	_show_options()
+
+
+## The simulation's share of the options, for the side the player commands: engagement after
+## identification as plain data, and each unit's missile-defence mode by order. The AI's sides keep
+## automatic defence, and so does the player's when the AI flies it (a dev sweep).
+func _apply_doctrine() -> void:
+	var um := simulation.unit_manager
+	um.engage_on_hostile_id.clear()
+	um.set_engage_on_hostile_id(simulation.player_faction, options.engage_on_hostile_id and not simulation.ai_plays_player)
+	for u in um.units:
+		if u.faction == simulation.player_faction and u.alive:
+			_set_air_defence(u)
+
+
+func _set_air_defence(u: Unit) -> void:
+	var automatic := not options.manual_missile_defence() or simulation.ai_plays_player
+	if u.auto_air_defence != automatic:
+		simulation.unit_manager.issue_order(u, Order.set_air_defence_mode(automatic))
+
+
+func _apply_sound(o: GameOptions, persist: bool) -> void:
+	if o.voice != voice.enabled:
+		var note := voice.toggle(persist)
+		if _command_taken or voice.enabled != o.voice:
+			radio.advise(note)
+	if o.ambient != SoundFx.ambient_enabled:
+		SoundFx.set_ambient_enabled(o.ambient, persist)
+
+
+func _show_options() -> void:
+	if command_bar != null:
+		command_bar.options_label = options.label()
+		command_bar.options_tooltip = "\n".join(options.summary_lines())
+		command_bar.refresh()
+	# The desk chooses what a new operation is played under, so it shows the player's own choice,
+	# even while a restored engagement goes on under the options it was saved with.
+	if _menu != null:
+		_menu.set_options(_preferred)
+	if _briefing != null:
+		_briefing.options_label = options.label()
+		_briefing.options_lines = options.summary_lines()
+		if _briefing.visible:
+			_briefing.refresh()
+
+
+## The options this engagement is being played under, for a save file.
+func engagement_options() -> Dictionary:
+	return options.to_dict()
+
+
+## A restored engagement continues under the options it was saved with (its time ladder, missile
+## defence and engagement rules, its sound) without overwriting the player's preference; the next
+## operation started goes back to the preference. A save from before there were options was played
+## under Normal's rules, and leaves the sound as the player has it. Returns whether the engagement
+## brought options of its own, different from the preference.
+func apply_engagement_options(d: Dictionary, announce := true) -> bool:
+	var saved := d.duplicate()
+	if not saved.has("voice"):
+		saved["voice"] = voice.enabled
+	if not saved.has("ambient"):
+		saved["ambient"] = SoundFx.ambient_enabled
+	var o := GameOptions.from_dict(saved)
+	_options_from_engagement = not o.equals(_preferred)
+	_apply_options(o, false, not _driven_run)
+	if _options_from_engagement and announce:
+		radio.advise("This engagement continues under its own gameplay options: %s" % options.label())
+	return _options_from_engagement
+
+
+## The player's own options again, as at the start of a new operation.
+func restore_preferred_options() -> void:
+	_options_from_engagement = false
+	_apply_options(_preferred, false, not _driven_run)
 
 
 ## Hooks the next platform of the task group, in roster order ("." in the old games).
@@ -1702,7 +1879,8 @@ func _on_round_fired(shooter: Unit, spec: WeaponSpec, _track: Track) -> void:
 
 
 func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
-	SimClock.drop_to_realtime()
+	if _combat_observed(shooter, shooter.faction == simulation.player_faction):
+		SimClock.drop_to_realtime()
 	if shooter.faction == simulation.player_faction:
 		radio.flash("%d x %s committed to track %s; %d queued" % [rounds, spec.display_name, DataDisplay.track_number_for_track(t), simulation.weapon_manager.committed_rounds(shooter, spec, t, true)], "good", shooter)
 	Debug.event("[Combat] %s commits %d x %s at %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, t.id, shooter.position.distance_to(t.position)])
@@ -1831,10 +2009,14 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 		_world_view.add_effect(target.position, "miss", false, -1.0, target)
 		Debug.event("[Combat] %s miss on %s" % [spec.display_name, target.callsign])
 		return
-	SimClock.drop_to_realtime()
+	# The chart and the 3D view show only a hit someone could witness; the clock and the speaker
+	# keep to the same rule.
+	var observed := _combat_observed(target, own_target or faction == simulation.player_faction)
+	if observed:
+		SimClock.drop_to_realtime()
+		SoundFx.play("impact", 0.2)
 	map.add_effect(target.position, "hit", own_target, target)
 	_world_view.add_effect(target.position, "hit", own_target, -1.0, target)
-	SoundFx.play("impact", 0.2)
 	if own_target:
 		var casualties := ""
 		if target.fire > 0.0:
@@ -1854,10 +2036,11 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 
 
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
-	SimClock.drop_to_realtime()
+	if _combat_observed(u, u.faction == simulation.player_faction or killer_faction == simulation.player_faction):
+		SimClock.drop_to_realtime()
+		SoundFx.play("impact", 0.0)
 	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, u)
 	_world_view.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, -1.0, u)
-	SoundFx.play("impact", 0.0)
 	if u.faction == simulation.player_faction:
 		_losses.append(u.callsign)
 		radio.flash("%s %s" % [u.callsign, "LOST TO FIRE AND FLOODING" if _foundered.has(u) else "DESTROYED"], "alert")
@@ -1880,6 +2063,15 @@ func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 		elif killer_faction == simulation.player_faction and not neutral:
 			radio.flash("Target destroyed", "good")
 	Debug.event("[Combat] %s destroyed by %s" % [u.callsign, killer_faction])
+
+
+## Combat hands the watch back at real time, and sounds, only for what the player's side could
+## know: its own shot, hit or loss, or one a lookout could see or the plot holds (the 3D view's own
+## witness rule). An enemy salvo nobody has detected must not announce itself by slowing the clock;
+## when its rounds are detected, _on_threat_detected drops it then.
+func _combat_observed(subject: Unit, own_involved: bool) -> bool:
+	var own := simulation.unit_manager.get_faction_units(simulation.player_faction)
+	return WorldPresentation.combat_observed(subject, own_involved, own, simulation.track_manager.get_tracks(simulation.player_faction), Detection.environment)
 
 
 ## The player's own track on another side's unit, if the plot holds it (association is the one
@@ -1974,6 +2166,11 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			if u != null and not map.selected.has(u):
 				map.select_units([u])
 			items = CdsMenus.orders_items(map.selected, map.selected_track, _all_controllable(map.selected), _all_movable(map.selected), simulation.weapon_manager)
+		"weapon":
+			var w: Weapon = context.get("weapon")
+			if w == null:
+				return
+			items = CdsMenus.weapon_items(w, map.selected, _all_controllable(map.selected), _all_movable(map.selected))
 		"track":
 			var t: Track = context.get("track")
 			if t == null:
@@ -2075,18 +2272,29 @@ func _apply_order_to_selection(order: Order) -> void:
 	var accepted := 0
 	var refused := 0
 	var rounds_committed := 0
+	var interceptors_before := int(_stats.get("launched", 0))
+	var refusal := ""
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
 			var before := _committed_for_order(u, order)
+			if order.type == Order.Type.INTERCEPT:
+				order.receipt = ""  # each ship's refusal, if it has one
 			if simulation.unit_manager.issue_order(u, order):
 				accepted += 1
 				if order.type == Order.Type.ENGAGE:
 					rounds_committed += maxi(_committed_for_order(u, order) - before, 0)
 			else:
 				refused += 1
+				if order.type == Order.Type.INTERCEPT and refusal == "":
+					refusal = order.receipt if order.receipt != "" else AirDefence.intercept_rejection(u)
 	var receipt := _order_acknowledgement(Order.engage(order.track, order.weapon_id, rounds_committed)) if order.type == Order.Type.ENGAGE and accepted > 0 else ""
 	if receipt != "":
 		receipt += " · %d rounds committed" % rounds_committed
+	if order.type == Order.Type.INTERCEPT:
+		order.receipt = refusal
+		if accepted > 0:
+			var away := int(_stats.get("launched", 0)) - interceptors_before
+			receipt = _order_acknowledgement(order) + (" · %d interceptor%s away" % [away, "" if away == 1 else "s"] if away > 0 else " · cleared to fire as it closes")
 	_report_orders(order, accepted, refused, receipt)
 
 
@@ -2169,6 +2377,9 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 		if order.type == Order.Type.RETURN_TO_STATION and not map.selected.is_empty():
 			radio.advise("Cannot return to station: " + UnitManager.station_rejection(map.selected[0]).to_lower())
 			return
+		if order.type == Order.Type.INTERCEPT:
+			radio.advise("Cannot intercept: " + (order.receipt if order.receipt != "" else "no hooked ship can engage").to_lower())
+			return
 		radio.advise("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else ""])
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
@@ -2217,6 +2428,8 @@ static func _order_acknowledgement(order: Order) -> String:
 			return "All stop, aye"
 		Order.Type.RETURN_TO_BASE:
 			return "Returning to %s" % (order.recovery_base.callsign if order.recovery_base != null else "base")
+		Order.Type.INTERCEPT:
+			return "Engaging inbound #%d" % order.threat.id if order.threat != null else "Engaging inbound weapons"
 	return order.describe().capitalize() + ", aye"
 
 

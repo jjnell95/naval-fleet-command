@@ -336,6 +336,18 @@ static func witness_point(pos: Vector2, own_units: Array, tracks: Array, env: Di
 	return best
 
 
+## Whether the player's side could know a combat event happened to (or was fired by) `subject`:
+## one of its own units was involved, or the same witness rule as the 3D view's says it was seen
+## or is on a held contact. Main drops the watch to real time only for these, so the clock never
+## announces a salvo, a hit or a kill the plot does not hold.
+static func combat_observed(subject: Unit, own_involved: bool, own_units: Array, tracks: Array, env: Dictionary) -> bool:
+	if own_involved:
+		return true
+	if subject == null:
+		return false
+	return witness_point(subject.position, own_units, tracks, env, subject) != Vector2.INF
+
+
 # --- Focus and culling -------------------------------------------------------------------
 
 ## What the camera is looking at: the hooked own unit (a deck-bound airframe stands for its

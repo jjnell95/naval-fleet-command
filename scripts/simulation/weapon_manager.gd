@@ -234,8 +234,9 @@ func faction_commitment(faction: String, track: Track, queued_only := false) -> 
 
 
 
-## Fires interceptors at a weapon already in flight. Used by the automatic air-defence system,
-## never by a direct player order. Returns the number of rounds launched.
+## Fires interceptors at a weapon already in flight. Used by the air-defence system: by itself on
+## automatic defence, or for the rounds a commander's intercept order cleared (AirDefence
+## order_intercept), through the same layers and checks either way. Returns the rounds launched.
 func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int, now: float) -> int:
 	if not shooter.alive or not shooter.can_fire() or shooter.roe == Unit.Roe.HOLD or threat.phase == Weapon.Phase.DEAD:
 		return 0

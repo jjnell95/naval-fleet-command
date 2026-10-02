@@ -35,6 +35,9 @@ var guided_interceptors_committed := 0  # SAMs ever fired at this round
 var defence_commitments: Dictionary = {}  # defensive layer -> reserved shots
 var close_in_commitments: Dictionary = {}  # defending unit id -> bursts
 var close_in_bursts_committed := 0  # close-in engagements; a round is only in that envelope briefly
+## Ids of the units the commander has ordered to intercept this round (Order.intercept). A ship
+## on manual missile defence engages only rounds it is cleared for; one on automatic needs none.
+var intercept_cleared: Array[int] = []
 var position := Vector2.ZERO
 var heading_deg := 0.0
 var aim_point := Vector2.ZERO

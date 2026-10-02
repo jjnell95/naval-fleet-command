@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -63,6 +63,12 @@ var salvo_budget := 0
 var volley := 0
 ## The group attack a crew ENGAGE fires for, or the one CANCEL_GROUP_ATTACK ends; -1 for none.
 var group_id := -1
+## INTERCEPT: the inbound weapon to engage, or null for every inbound round the unit holds.
+var threat: Weapon
+## INVESTIGATE: identify only, never chain into an attack (an air mission's look, whose mission
+## decides itself what to attack, if anything). PATROL: the station is a reconnaissance one, where
+## nothing identified is attacked without the commander's own order.
+var identify_only := false
 
 
 static func cancel_fire(target: Track = null) -> Order:
@@ -106,6 +112,25 @@ static func set_auto_countermeasures(enabled: bool) -> Order:
 	return o
 
 
+## Whether the ship's area and point SAMs engage inbound missiles by themselves (automatic) or
+## only when the commander orders an intercept (manual). Close-in guns answer either way.
+static func set_air_defence_mode(enabled: bool) -> Order:
+	var o := Order.new()
+	o.type = Type.SET_AIR_DEFENCE_MODE
+	o.automatic = enabled
+	return o
+
+
+## Engage an inbound weapon with interceptors: the one named, or every inbound round this unit's
+## picture holds against the force. The ship is cleared to engage it as automatic defence would,
+## within its fire-control channels, magazines and rules of engagement, until it is gone.
+static func intercept(weapon: Weapon = null) -> Order:
+	var o := Order.new()
+	o.type = Type.INTERCEPT
+	o.threat = weapon
+	return o
+
+
 static func move(pos: Vector2, append_waypoint := false) -> Order:
 	var o := Order.new()
 	o.type = Type.MOVE
@@ -122,10 +147,12 @@ static func patrol(points: Array[Vector2]) -> Order:
 
 
 ## Follow the faction's reported plot until classification or contact loss ends the task.
-static func investigate(target: Track) -> Order:
+## `identify_only` keeps the task from turning into an attack when the contact proves hostile.
+static func investigate(target: Track, only_identify := false) -> Order:
 	var o := Order.new()
 	o.type = Type.INVESTIGATE
 	o.track = target
+	o.identify_only = only_identify
 	return o
 
 
@@ -352,6 +379,10 @@ func describe() -> String:
 			return "DEFENCE %s" % defence_policy.to_upper()
 		Type.SET_AUTO_COUNTERMEASURES:
 			return "COUNTERMEASURES %s" % ("AUTO" if automatic else "MANUAL")
+		Type.SET_AIR_DEFENCE_MODE:
+			return "MISSILE DEFENCE %s" % ("AUTO" if automatic else "MANUAL")
+		Type.INTERCEPT:
+			return "INTERCEPT %s" % ("INBOUND #%d" % threat.id if threat != null else "INBOUND WEAPONS")
 		Type.AIR_MISSION:
 			return "AIR MISSION %s: %d x %s" % [AirMission.KIND_NAMES[clampi(mission_kind, 0, 3)], aircraft_count, aircraft_id]
 		Type.CANCEL_AIR_MISSION:

@@ -7,7 +7,8 @@ extends Node
 ##
 ## Pacing: alerts (inbound missile, torpedo, own ship hit, unit lost) interrupt anything routine;
 ## routine lines wait their turn with at most one pending, at most one every ROUTINE_GAP_S, and are
-## dropped once older than STALE_S of real time; above 1x time compression only alerts are spoken.
+## dropped once older than STALE_S of real time; above `routine_ceiling` time compression (1x
+## unless the time ladder stops at 4x) only alerts are spoken.
 ##
 ## Safety: the speech sink is a Callable. Nothing here touches DisplayServer.tts_* unless
 ## use_os_speech() installed the operating system's sink, and Main only does that where speech is
@@ -60,6 +61,10 @@ var clock := Callable()
 var compression := Callable()
 ## func() -> bool: true while the game's sound is muted (Ctrl+M); the crew falls silent with it.
 var muted := Callable()
+## Routine lines are spoken at this time compression or slower; faster, only alerts. 1x by
+## default: at 5x and beyond a routine line is stale before it is finished. Main raises it to the
+## ceiling when the ladder stops at 4x, where a watch is still slow enough to listen to.
+var routine_ceiling := 1.0
 ## True only once use_os_speech() has installed the operating system as the sink.
 var os_speech := false
 ## The newest lines handed to the sink, oldest first.
@@ -147,10 +152,11 @@ func configure_from_settings() -> String:
 	return blocker
 
 
-## The Actions palette and the CDS menu toggle. Returns the line for the radio's advice.
-func toggle() -> String:
+## The Actions palette and the CDS menu toggle. Returns the line for the radio's advice. `persist`
+## saves the choice; a saved engagement's sound is played without becoming the preference.
+func toggle(persist := true) -> String:
 	if enabled:
-		set_enabled(false)
+		set_enabled(false, persist)
 		return "Crew voice off"
 	if not sink.is_valid():
 		var blocker := os_speech_blocker(true)
@@ -158,7 +164,7 @@ func toggle() -> String:
 			use_os_speech()
 		elif not automated_run():
 			return blocker
-	set_enabled(true)
+	set_enabled(true, persist)
 	return "Crew voice on"
 
 
@@ -297,7 +303,7 @@ func say(event: String, speaker: Variant = null, fields := {}) -> void:
 	if not enabled or not sink.is_valid() or (muted.is_valid() and bool(muted.call())):
 		return
 	var priority := event in ALERT_EVENTS or event in FINAL_EVENTS
-	if not priority and _compression() > 1.0:
+	if not priority and _compression() > routine_ceiling + 1e-6:
 		return
 	var now := _now()
 	if priority:
@@ -331,7 +337,7 @@ func _pump() -> void:
 		_pending = {}
 		dropped_stale += 1
 		return
-	if _compression() > 1.0:
+	if _compression() > routine_ceiling + 1e-6:
 		_pending = {}
 		return
 	if now - _last_spoken_s < ROUTINE_GAP_S:
@@ -359,4 +365,4 @@ func _now() -> float:
 func _compression() -> float:
 	if compression.is_valid():
 		return float(compression.call())
-	return SimClock.SPEEDS[clampi(SimClock.speed_index, 0, SimClock.SPEEDS.size() - 1)]
+	return SimClock.multiplier()

@@ -36,6 +36,9 @@ var investigation_track: Track
 var investigation_track_id := ""
 var investigation_result := ""
 var investigation_speed_kn := 0.0
+## The investigation only identifies: it never turns into an attack when the contact proves
+## hostile (a reconnaissance airframe's look, or a patrol whose mission decides that itself).
+var investigation_identify_only := false
 ## The standing attack: close to weapon range on the held plot, fire, keep firing. UnitManager
 ## steps it; the fields are the task as the crew would report it. No truth lookup here either.
 var attack_track: Track
@@ -62,6 +65,10 @@ var station_note := ""  # why the last return to station could not be made, unti
 ## The air mission that owns this airframe's station, or -1. Cleared with the station, so an order
 ## from the commander that replaces the station also releases the airframe from the mission.
 var station_mission_id := -1
+## The station is a reconnaissance mission's: while it holds it, nothing this platform identifies
+## is attacked on the crew's initiative (engagement after identification), even on a look the
+## commander ordered. Cleared with the station.
+var station_identify_only := false
 ## Go back to the station by itself once an identification, interception or attack ends.
 var auto_return := false
 ## Bumped by every order that changes where this platform is going. A temporary task remembers the
@@ -110,6 +117,10 @@ var aviation_stores: Dictionary = {}  # host reload rounds, separate from its ow
 var aviation_buoys := 0
 var decoys := 0
 var auto_countermeasures := true
+## Area and point SAMs engage inbound missiles by themselves. Off (manual missile defence), they
+## fire only at rounds the commander has ordered intercepted (Weapon.intercept_cleared); the
+## close-in guns, chaff and flares keep their own rules either way.
+var auto_air_defence := true
 var defence_policy := "balanced"  # balanced | conserve | saturation
 var defence_priority := 0
 var countermeasure_kind := ""
@@ -444,6 +455,7 @@ func apply_order(order: Order) -> void:
 			task_generation = order_generation
 			investigation_track = order.track
 			investigation_track_id = order.track.id
+			investigation_identify_only = order.identify_only
 			waypoints.assign([order.track.position])
 			if ordered_speed_kn <= 0.0:
 				ordered_speed_kn = spec.cruise_speed_kn
@@ -475,6 +487,7 @@ func apply_order(order: Order) -> void:
 			station_route.assign(order.route)
 			station_speed_kn = ordered_speed_kn
 			station_mission_id = order.mission_id
+			station_identify_only = order.identify_only
 		Order.Type.RETURN_TO_STATION:
 			_resume_station()
 		Order.Type.SET_AUTO_RETURN:
@@ -520,6 +533,10 @@ func apply_order(order: Order) -> void:
 			defence_policy = order.defence_policy
 		Order.Type.SET_AUTO_COUNTERMEASURES:
 			auto_countermeasures = order.automatic
+		Order.Type.SET_AIR_DEFENCE_MODE:
+			auto_air_defence = order.automatic
+		Order.Type.INTERCEPT:
+			pass  # Simulation clears the rounds with the threat picture it owns.
 		Order.Type.RESUME_PLAN:
 			evasion_remaining_s = 0.0
 		Order.Type.CANCEL_FIRE:
@@ -575,6 +592,7 @@ func clear_station() -> void:
 	station_label = ""
 	station_speed_kn = 0.0
 	station_mission_id = -1
+	station_identify_only = false
 
 
 func has_station() -> bool:
@@ -658,6 +676,7 @@ func clear_investigation() -> void:
 	investigation_track_id = ""
 	investigation_result = ""
 	investigation_speed_kn = 0.0
+	investigation_identify_only = false
 
 
 ## The standoff distance the attack closes to: a fraction of the reach of the named weapon, or
