@@ -1723,8 +1723,10 @@ func _show_options() -> void:
 		command_bar.options_label = options.label()
 		command_bar.options_tooltip = "\n".join(options.summary_lines())
 		command_bar.refresh()
+	# The desk chooses what a new operation is played under, so it shows the player's own choice,
+	# even while a restored engagement goes on under the options it was saved with.
 	if _menu != null:
-		_menu.set_options(options)
+		_menu.set_options(_preferred)
 	if _briefing != null:
 		_briefing.options_label = options.label()
 		_briefing.options_lines = options.summary_lines()

@@ -182,7 +182,7 @@ func _classic_save_restores_under_classic() -> void:
 	um = main.simulation.unit_manager
 	checks["the Classic save restores under Classic"] = main.options.preset() == GameOptions.CLASSIC and Array(SimClock.speeds()) == Array(GameOptions.CLASSIC_SCALES) and main.command_bar.buttons["options_menu"].text == "CLASSIC 4×"
 	checks["its ships are back on manual defence, engaging what they identify"] = _side_defence("BLUE", false) and _side_defence("RED", true) and um.engage_on_hostile_id == {"BLUE": true}
-	checks["the player's own choice is still Normal"] = main._preferred.preset() == GameOptions.NORMAL
+	checks["the player's own choice is still Normal, and the desk shows it"] = main._preferred.preset() == GameOptions.NORMAL and main._menu._options.preset() == GameOptions.NORMAL and main._menu._style_buttons[GameOptions.NORMAL].button_pressed
 	checks["the radio says the engagement brought its own options"] = main.radio.last_advice.contains("own gameplay options")
 	SimClock.set_speed_index(2)
 	await _key(KEY_4)
