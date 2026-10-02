@@ -120,6 +120,31 @@ func test_a_sides_own_plot_is_the_trigger_and_a_report_does_not_count() -> void:
 	_cleanup()
 
 
+## A condition is watched from the start and latches: the enemy having located the merchant before
+## the raid's window opens still sends the raid the moment it does, even if the contact has since
+## gone cold; never locating her leaves only the latest time.
+func test_a_condition_met_before_the_window_still_counts_when_it_opens() -> void:
+	var events := [{"id": "raid", "side": "RED", "at_s": 900, "latest_s": 3000, "when": {"type": "track_held", "faction": "RED", "callsigns": ["Cargo"], "min_classification": "SURFACE"}}]
+	_harness(_convoy(), WATCH, events)
+	var cargo := _unit("Cargo")
+	_tm.observe("RED", cargo, cargo.position, 1.0, 1.0, 100.0, 60.0, 30.0)
+	_director.tick(100.0)
+	assert_true(_director.fired.is_empty(), "located, but the window is not open")
+	_tm.find_track("RED", cargo).status = Track.Status.LOST
+	_director.tick(899.0)
+	assert_true(_director.fired.is_empty())
+	_director.tick(900.0)
+	assert_eq(_director.fired, {"raid": 900.0}, "the window opens on a raid already earned")
+	_cleanup()
+	_harness(_convoy(), WATCH, events)
+	_director.tick(900.0)
+	_director.tick(2999.0)
+	assert_true(_director.fired.is_empty(), "never located: nothing until the latest time")
+	_director.tick(3000.0)
+	assert_eq(_director.fired, {"raid": 3000.0})
+	_cleanup()
+
+
 func test_an_event_acts_only_on_its_own_sides_units_and_never_adds_an_airframe() -> void:
 	var units := _convoy()
 	units.append({"platform": "cw90_airfield", "callsign": "Field", "faction": "RED", "position_nm": [0, 80],

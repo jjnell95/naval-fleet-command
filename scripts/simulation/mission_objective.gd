@@ -318,12 +318,9 @@ func progress(um: UnitManager, now: float) -> String:
 		Kind.TRACK_HELD:
 			return "not yet located"
 		Kind.UNIT_DAMAGED:
-			var afloat := 0
-			for name in callsigns:
-				var u := _find(um, name)
-				if u != null and u.alive:
-					afloat += 1
-			return "%d of %d still up" % [afloat, callsigns.size()]
+			# The referee knows the ship's condition; the panel says only that it has not happened,
+			# so a strike task never reads out an enemy's damage before the hit is confirmed.
+			return "no hit yet"
 	return ""
 
 

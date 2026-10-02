@@ -6,7 +6,8 @@ extends Node
 ## condition on the battle itself (`when`, a MissionObjective predicate): a convoy passing a point,
 ## a side's own plot holding a ship, a base with aircraft ready, a ship hit or radiating, any or all
 ## of several. `latest_s` fires it anyway once that time comes; `unless` cancels it if its own
-## condition comes true first; `expires_s` cancels it if it has not fired by then. Some of its
+## condition comes true first; `expires_s` cancels it if it has not fired by then. Conditions are
+## watched from the start and latch, so one met before the event's time still counts. Some of its
 ## shape is drawn once per engagement from the director's own random stream: a window instead of a
 ## time (`at_s_window`, `latest_s_window`), a `chance` that it happens at all, or one of several
 ## weighted `variants` merged into it. So a replay has to be read off the plot, not remembered.
@@ -151,14 +152,17 @@ func tick(now: float) -> void:
 		if e.has("expires_s") and now >= float(e["expires_s"]):
 			skipped[id] = "expired"
 			continue
-		if now < float(e.get("at_s", 0.0)) or not _after_met(e.get("after", [])):
-			continue
+		# Both conditions are watched from the start and latch, like every objective: the enemy
+		# having located the carrier before a raid's window opens still sends the raid when it does.
 		var veto: MissionObjective = _vetoes.get(id)
-		if veto != null and veto.evaluate(unit_manager, now, track_manager):
-			skipped[id] = "unless"
-			continue
+		var vetoed := veto != null and veto.evaluate(unit_manager, now, track_manager)
 		var condition: MissionObjective = _conditions.get(id)
 		var due := condition == null or condition.evaluate(unit_manager, now, track_manager)
+		if now < float(e.get("at_s", 0.0)) or not _after_met(e.get("after", [])):
+			continue
+		if vetoed:
+			skipped[id] = "unless"
+			continue
 		if not due and e.has("latest_s") and now >= float(e["latest_s"]):
 			due = true
 		if due:
@@ -322,6 +326,7 @@ static func event_problem(sc: Dictionary) -> String:
 	var sides := {}
 	for u in sc.get("units", []):
 		factions[str(u.get("callsign", ""))] = str(u.get("faction", "BLUE"))
+		_wing_callsigns(u, factions)
 	for e in raw:
 		if typeof(e) != TYPE_DICTIONARY:
 			return "An event needs to be an object"
@@ -333,6 +338,7 @@ static func event_problem(sc: Dictionary) -> String:
 			for u in group:
 				if typeof(u) == TYPE_DICTIONARY:
 					factions[str(u.get("callsign", ""))] = str(u.get("faction", "BLUE"))
+					_wing_callsigns(u, factions)
 	for f in factions.values():
 		sides[f] = true
 	var objective_ids := {}
@@ -377,6 +383,23 @@ static func event_problem(sc: Dictionary) -> String:
 			if why != "":
 				return "Event '%s': %s" % [id, why]
 	return ""
+
+
+## The airframes a host's authored air wing names, as ScenarioLoader names them ("Fullback 21"):
+## an event may retask a base's strike element or make its drones a task. A wing entry without a
+## callsign or squadron is named after its host only when loaded, so it cannot be named here.
+static func _wing_callsigns(host: Dictionary, factions: Dictionary) -> void:
+	for entry in host.get("air_wing", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var base := str(entry.get("callsign", ""))
+		if base == "":
+			base = str(entry.get("squadron", ""))
+		if base == "":
+			continue
+		var first := int(entry.get("first_modex", 1))
+		for i in maxi(int(entry.get("count", 1)), 0):
+			factions["%s %d" % [base, first + i]] = str(host.get("faction", "BLUE"))
 
 
 static func _shape_problem(e: Dictionary, factions: Dictionary, sides: Dictionary, event_ids: Dictionary, objective_ids: Dictionary, player: String) -> String:
