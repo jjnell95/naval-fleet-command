@@ -1752,7 +1752,7 @@ func _depth_orders(metres: float) -> Array:
 			continue
 		var wanted := u.spec.patrol_depth_m if metres < 0.0 else metres
 		if metres == -2.0:
-			wanted = Acoustics.below_layer_depth_m(u)
+			wanted = Acoustics.below_layer_depth_m(u, true)
 			if wanted < 0.0:
 				continue
 		pairs.append([u, Order.set_depth(clampf(wanted, 0.0, u.spec.max_depth_m))])

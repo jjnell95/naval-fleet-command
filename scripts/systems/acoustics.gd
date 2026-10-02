@@ -72,9 +72,13 @@ static func layer_present_at(bottom_m: float) -> bool:
 # --- The floor under a unit ---------------------------------------------------------------
 
 ## Water depth under a unit, cached until it has moved half a mile or the chart has changed.
-## UNKNOWN (negative) when there is no chart.
-static func bottom_m(u: Unit) -> float:
+## UNKNOWN (negative) when there is no chart. The screen reads with `peek`: a fresh sample when the
+## cache is stale, without writing it, so what the commander looks at never changes the floor the
+## simulation uses (the cache keeps the sample from the tick that took it) or a seeded replay.
+static func bottom_m(u: Unit, peek := false) -> float:
 	if u.bottom_generation != Bathymetry.generation or u.position.distance_squared_to(u.bottom_sampled_at) > 0.25:
+		if peek:
+			return Bathymetry.depth_at(u.position)
 		u.bottom_depth_m = Bathymetry.depth_at(u.position)
 		u.bottom_sampled_at = u.position
 		u.bottom_generation = Bathymetry.generation
@@ -82,21 +86,21 @@ static func bottom_m(u: Unit) -> float:
 
 
 ## Deepest a boat can go here: its hull limit, or the floor less a margin, whichever is shallower.
-static func max_operating_depth_m(u: Unit) -> float:
+static func max_operating_depth_m(u: Unit, peek := false) -> float:
 	var limit := u.spec.max_depth_m
-	var floor_m := bottom_m(u)
+	var floor_m := bottom_m(u, peek)
 	if floor_m >= 0.0:
 		limit = minf(limit, maxf(floor_m - KEEL_CLEARANCE_M, 0.0))
 	return limit
 
 
 ## Depth a boat should run at to be under the layer, or -1 if it cannot get there here.
-static func below_layer_depth_m(u: Unit) -> float:
-	var floor_m := bottom_m(u)
+static func below_layer_depth_m(u: Unit, peek := false) -> float:
+	var floor_m := bottom_m(u, peek)
 	if not layer_present_at(floor_m):
 		return -1.0
 	var wanted := layer_depth_m() + BELOW_LAYER_MARGIN_M
-	var limit := max_operating_depth_m(u)
+	var limit := max_operating_depth_m(u, peek)
 	if limit <= layer_depth_m() + 5.0:
 		return -1.0
 	return minf(wanted, limit)
