@@ -35,7 +35,7 @@ const BUOY_SKIP := {}
 ## Manager state saved by name. Anything else a manager holds is wiring (manager references set
 ## once in Simulation._ready), catalogue data, or recomputed within a single tick.
 const MANAGER_FIELDS := {
-	"UnitManager": ["now_s", "_next_id"],
+	"UnitManager": ["now_s", "_next_id", "engage_on_hostile_id"],
 	"TrackManager": ["_tracks", "_by_target", "_local_keys", "_track_ids", "_next_number"],
 	"SensorManager": ["_accum", "_last_heading", "_manoeuvre"],
 	"ThreatManager": ["_observers", "_detected", "_first_seen"],
@@ -513,6 +513,9 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 		_fill(b, d, refs)
 		sim.aviation_manager.sonobuoys.append(b)
 	var managers: Dictionary = snap["managers"]
+	# Which sides engage what they identify is kept across a new mission, so it is not emptied with
+	# the units; a save from before the option existed was played with no side doing so.
+	um.engage_on_hostile_id = {}
 	for node: Node in [um, sim.track_manager, sim.sensor_manager, sim.threat_manager, sim.weapon_manager, sim.aviation_manager, sim.air_mission_manager, sim.mission_manager]:
 		_fill_manager(node, managers.get(_manager_name(node), {}), refs)
 	_restore_objectives(sim.mission_manager.victory_objectives, snap["objectives"].get("victory", []))
