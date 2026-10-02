@@ -210,6 +210,30 @@ func test_all_operations_have_valid_dependencies_wings_and_finite_stores() -> vo
 	assert_eq(exercises, 2, "Northern Passage and Carrier Qualification")
 
 
+## Replaying an operation means reading the plot again. Every operation draws part of its shape
+## per engagement (a raid's window and axis, how many come, where a ship waits, whether a report or
+## a second force comes at all); the same seed draws the same operation, and two seeds draw two.
+func test_each_operation_draws_its_shape_from_the_engagement_seed() -> void:
+	var operations := 0
+	for entry: Dictionary in ScenarioIndex.list_all():
+		if entry.custom or entry.collection != "operations":
+			continue
+		operations += 1
+		var sc := ScenarioLoader.load_file(entry.path)
+		assert_true(sc.has("seed"), "%s has its own seed, so the menu replays one engagement" % entry.id)
+		var draws := {}
+		for seed in [2, 13, 2]:
+			var director := OperationDirector.new()
+			director.configure(sc, seed)
+			if draws.has(seed):
+				assert_eq(director.variant, draws[seed], "%s: the same seed draws the same operation" % entry.id)
+			draws[seed] = director.variant.duplicate(true)
+			director.free()
+		assert_true(not draws[2].is_empty(), "%s draws part of its shape per engagement" % entry.id)
+		assert_true(draws[2] != draws[13], "%s: seeds 2 and 13 draw different operations: %s / %s" % [entry.id, draws[2], draws[13]])
+	assert_eq(operations, 7)
+
+
 ## The second Backfire element keeps no timetable: its window and its latest moment are drawn per
 ## engagement, and it goes sooner only when RED's own plot holds the carrier (or Slava is hit). It
 ## arrives once, on nobody's plot, and a reload draws the same operation again.

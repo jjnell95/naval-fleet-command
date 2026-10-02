@@ -303,6 +303,38 @@ func test_strike_needs_a_held_target_and_a_weapon_for_it() -> void:
 	_done()
 
 
+## The 1990 carrier's small strike element: Intruders with Harpoon are accepted for a strike on a
+## held, classified hostile ship; the Tomcats, armed only for air-to-air, are refused the same
+## strike; and a contact report on the cruiser is a datum to go and find, not a target.
+func test_a_1990_strike_is_flown_by_intruders_and_refused_to_tomcats() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var slava := _unit("Slava")
+	var amm := _sim.air_mission_manager
+	var report := _sim.track_manager.report_intel("BLUE", slava, slava.position + Vector2(6, -4), 15.0, 0.0, "Norwegian P-3 Orion")
+	assert_eq(amm.mission_rejection(cv, AirMission.Kind.STRIKE, "cw90_a6e", Vector2.INF, report), "Identify contact first", "a report alone cannot be struck")
+	var ship := _plot(cv.position + Vector2(70, 40), "0501", 0.0)
+	ship.classification = Track.Classification.CLASS_KNOWN
+	ship.domain = "surface"
+	ship.identity = "HOSTILE"
+	var tomcats := Order.air_mission(AirMission.Kind.STRIKE, "cw90_f14a", 2, Vector2.INF, 0.0, ship)
+	assert_true(not _sim.unit_manager.issue_order(cv, tomcats), "fighters with only air-to-air rounds")
+	assert_eq(tomcats.receipt, "F-14A+ carries no strike weapons")
+	var intruders := Order.air_mission(AirMission.Kind.STRIKE, "cw90_a6e", 2, Vector2.INF, 0.0, ship)
+	assert_true(_sim.unit_manager.issue_order(cv, intruders), intruders.receipt)
+	var m := _mission()
+	assert_true(m != null and m.kind == AirMission.Kind.STRIKE and m.platform_id == "cw90_a6e" and m.requested == 2, intruders.receipt)
+	for a in m.aircraft:
+		assert_eq(a.magazine_count("cw90_agm84"), 2, "%s carries two Harpoons" % a.callsign)
+	_advance(200.0)
+	var engaging := 0
+	for a in m.aircraft:
+		if a.attack_track == ship:
+			engaging += 1
+	assert_eq(engaging, 2, "both Intruders on the attack task")
+	_done()
+
+
 func test_an_explicit_order_releases_an_airframe_and_a_temporary_one_does_not() -> void:
 	_load(CARRIER_WATCH)
 	var cv := _unit(IKE)
