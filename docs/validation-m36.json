@@ -1,0 +1,551 @@
+{
+  "milestone": "M36 Missions, saves and an enemy with a plan",
+  "date": "2026-10-02",
+  "engine": "4.7.2.stable.official",
+  "base_commit": "b8139e7",
+  "validated_commit": "714991b (code); later commits change documentation and the browser package only",
+  "scope": "Fresh validation of the final merged tree in a cloud container (Xvfb, software rendering): standing stations, air missions, saved engagements, coordinated attacks, enemy mission plans in every operation, the Classic preset, reacting seeded operations with a 1990 strike element, and the optimised sensor cycle with a per-frame clock budget.",
+  "regression": {
+    "tests": 882,
+    "failed": 0,
+    "m35_tests": 723,
+    "runner_self_check": "PASS"
+  },
+  "native_suites": [
+    {
+      "suite": "northern-passage-1280",
+      "checks": 32,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "northern-passage-1920",
+      "checks": 32,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "command-watch-1280",
+      "checks": 46,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "command-watch-1920",
+      "checks": 46,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "coldwar-1600",
+      "checks": 50,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "fleet-command-contact-1280",
+      "checks": 80,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "fleet-command-contact-1920",
+      "checks": 80,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "air-missions-1280",
+      "checks": 54,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "air-missions-1920",
+      "checks": 54,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "aviation-1600",
+      "checks": 19,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "workshop-1600",
+      "checks": 44,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "workshop-1280",
+      "checks": 44,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "weapon-control-1600",
+      "checks": 38,
+      "failed": 0,
+      "exit": 0
+    },
+    {
+      "suite": "weapon-control-1280",
+      "checks": 38,
+      "failed": 0,
+      "exit": 0
+    }
+  ],
+  "northern_passage_policies": [
+    {
+      "run": "escort-31",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "escort-31-repeat",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "escort-13",
+      "checks_passed": 22,
+      "result": 1,
+      "sim_time_s": 1850.0
+    },
+    {
+      "run": "abandon-31",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 1066.0
+    },
+    {
+      "run": "abandon-13",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 1066.0
+    },
+    {
+      "run": "deadline-31",
+      "checks_passed": 17,
+      "result": 2,
+      "sim_time_s": 2700.0
+    },
+    {
+      "run": "civilian-31",
+      "checks_passed": 19,
+      "result": 2,
+      "sim_time_s": 44.0
+    }
+  ],
+  "northern_passage_replay_identical": true,
+  "save_continuation": {
+    "command": "python3 tools/verify_save_continuation.py <godot> <dir>",
+    "cases": [
+      "cold_war_03_carrier: save at 601.75s, compare at 1500.0s, 869652 state bytes, save file 102905 bytes: IDENTICAL",
+      "northern_passage: save at 500.75s, compare at 900.0s, 300768 state bytes, save file 72459 bytes: IDENTICAL",
+      "gulf_01_hormuz: save at 900.25s, compare at 1500.0s, 487968 state bytes, save file 72910 bytes: IDENTICAL",
+      "pacific_02_taiwan_strait: save at 1200.75s, compare at 1800.0s, 1994012 state bytes, save file 211601 bytes: IDENTICAL"
+    ],
+    "all_identical": true,
+    "in_process_tests": "tests/test_save.gd: Carrier Watch through the enemy's first planned volley (989.75 s to 2460 s), Northern Passage under damage, coordinated attacks, an enemy plan's reconnaissance and volley, Classic rules with a manual intercept, a load over another operation, damaged and truncated files refused"
+  },
+  "scenario_sweep": {
+    "command": "python3 tools/smoke_scenarios.py <godot> <dir>",
+    "runs": 18,
+    "passed": 18,
+    "all_reached_6000_s": true,
+    "all_zero_aground": true,
+    "runs_detail": [
+      {
+        "scenario": "aegis_bastion",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 134.4
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 15.7
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 13.2
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 11.8
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 59.8
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 76.4
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 98.3
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 21.4
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 2,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 315.5
+      },
+      {
+        "scenario": "aegis_bastion",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 137.1
+      },
+      {
+        "scenario": "carrier_qualification",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 15.7
+      },
+      {
+        "scenario": "cold_war_01_convoy",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 14.5
+      },
+      {
+        "scenario": "cold_war_02_barrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 1,
+        "aground": 0,
+        "wall_s": 11.5
+      },
+      {
+        "scenario": "cold_war_03_carrier",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 68.9
+      },
+      {
+        "scenario": "gulf_01_hormuz",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 74.3
+      },
+      {
+        "scenario": "med_01_tartus",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 100.6
+      },
+      {
+        "scenario": "northern_passage",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 2,
+        "aground": 0,
+        "wall_s": 23.7
+      },
+      {
+        "scenario": "pacific_02_taiwan_strait",
+        "seed": 13,
+        "ok": true,
+        "seconds": 6000.0,
+        "result": 0,
+        "aground": 0,
+        "wall_s": 317.6
+      }
+    ]
+  },
+  "generators": {
+    "command": "from tools/scenarios: build_scenarios.py, build_northern_passage.py, build_cold_war.py, build_theatres.py, operation_design.py (shapely 2.1.2 from requirements.txt)",
+    "passes": 2,
+    "reproduces_data_byte_for_byte": true,
+    "operation_revision": 27
+  },
+  "browser_package": {
+    "path": "docs/play/index.pck",
+    "bytes": 57331356,
+    "sha256": "26f35349f6b4ffd62cebd83e1310632415d3aa1ebb1b69c42de8a2d404afc38e",
+    "m35_bytes": 56431148
+  },
+  "browser_check": {
+    "command": "NODE_PATH=/opt/node-tools/node_modules node tools/web/browser_check.cjs",
+    "started": true,
+    "load_seconds": 11.181,
+    "page_errors": [],
+    "console_errors": [],
+    "save_after_quicksave": [
+      "/userfs/godot/app_userdata/Naval Fleet Command/saves/quicksave.nfcsave"
+    ],
+    "save_after_reload": [
+      "/userfs/godot/app_userdata/Naval Fleet Command/saves/quicksave.nfcsave"
+    ],
+    "loaded_from_desk": true,
+    "after_delete_and_reload": []
+  },
+  "measurements": {
+    "machine": "4-CPU cloud container, idle apart from the run (load average about 1), native Godot 4.7.2 headless",
+    "command": "godot --headless --path . --script tools/measure_sensor_cycle.gd -- --paths=reference,optimized --repeats=3 --fresh",
+    "battle": "pacific_02_taiwan_strait, seed 42, AI both sides, from 2400 s: 104 units, 66 track pictures, 412 tracks; reference and optimised paths interleaved in one process",
+    "median_with_min": {
+      "sensor_cycle_ms": {
+        "before": [
+          70.78,
+          67.83
+        ],
+        "after": [
+          24.81,
+          24.42
+        ]
+      },
+      "sensor_cycle_p95_ms": {
+        "before": 98.75,
+        "after": 37.58
+      },
+      "radar_esm_sonar_tracks_weapons_ms": {
+        "before": [
+          26.97,
+          35.84,
+          3.61,
+          1.02,
+          2.71
+        ],
+        "after": [
+          6.57,
+          10.94,
+          2.08,
+          0.95,
+          2.6
+        ]
+      },
+      "sensor_share_of_60x_tick_budget": {
+        "before": "425%",
+        "after": "149%"
+      },
+      "tick_mean_p95_ms": {
+        "before": [
+          26.39,
+          86.42
+        ],
+        "after": [
+          14.71,
+          37.66
+        ]
+      },
+      "wall_s_per_600_sim_s": {
+        "before": [
+          63.33,
+          60.47
+        ],
+        "after": [
+          35.3,
+          34.92
+        ]
+      },
+      "stepped_acceleration": {
+        "before": "9.5x",
+        "after": "17.0x"
+      },
+      "clock_60x_achieved": {
+        "before_no_budget": "8.8x",
+        "after_no_budget": "15.5x",
+        "before_budget": "8.5x",
+        "after_budget": "14.5x"
+      },
+      "order_to_next_frame_60x_ms": {
+        "before_no_budget": [
+          6839,
+          7018
+        ],
+        "after_no_budget": [
+          3841,
+          3940
+        ],
+        "before_budget": [
+          110,
+          176
+        ],
+        "after_budget": [
+          65,
+          102
+        ]
+      },
+      "order_batch_apply_ms": {
+        "before": 1.39,
+        "after": 1.39
+      }
+    },
+    "final_state_digest_all_runs": "5cb2c41d8169c6d9",
+    "clocked_runs_replayed_tick_by_tick_identical": true
+  },
+  "opening_plans": {
+    "command": "python3 tools/opening_plans.py <godot> --seeds=2,13 (and the gd runner per plan)",
+    "seeds": [
+      2,
+      13
+    ],
+    "rows": [
+      [
+        "cold_war_01_convoy",
+        "close_escort",
+        "V 99%",
+        "V 100%"
+      ],
+      [
+        "cold_war_01_convoy",
+        "scout_ahead",
+        "V 100%",
+        "V 100%"
+      ],
+      [
+        "cold_war_02_barrier",
+        "forward_barrier",
+        "V 100%",
+        "V 100%"
+      ],
+      [
+        "cold_war_02_barrier",
+        "gate_defence",
+        "V 100%",
+        "V 100%"
+      ],
+      [
+        "cold_war_03_carrier",
+        "all_cap",
+        "V 77%",
+        "V 78%"
+      ],
+      [
+        "cold_war_03_carrier",
+        "strike_slava",
+        "V 92%",
+        "V 100%"
+      ],
+      [
+        "aegis_bastion",
+        "forward_picket",
+        "V 90%",
+        "V 87%"
+      ],
+      [
+        "aegis_bastion",
+        "close_screen",
+        "V 85%",
+        "V 83%"
+      ],
+      [
+        "pacific_02_taiwan_strait",
+        "forward_cap",
+        "V 80%",
+        "V 78%"
+      ],
+      [
+        "pacific_02_taiwan_strait",
+        "strike_group",
+        "V 84%",
+        "V 84%"
+      ],
+      [
+        "gulf_01_hormuz",
+        "close_convoy",
+        "D 8%",
+        "V 77%"
+      ],
+      [
+        "gulf_01_hormuz",
+        "sweep_ahead",
+        "V 70%",
+        "D 11%"
+      ],
+      [
+        "med_01_tartus",
+        "direct_transit",
+        "V 83%",
+        "V 82%"
+      ],
+      [
+        "med_01_tartus",
+        "screen_first",
+        "V 82%",
+        "V 84%"
+      ]
+    ],
+    "not_viable_on_both_seeds": [
+      "gulf_01_hormuz: each opening wins one seed of two (Kilo on the lane's last leg, light torpedoes rarely hit it)"
+    ]
+  },
+  "not_verified": [
+    "speech and ambient sound not heard (no speech-dispatcher; dummy audio)",
+    "no human playtest",
+    "frame budget cost measured headless only",
+    "browser storage in headless Chromium only"
+  ]
+}

@@ -229,7 +229,24 @@ Both paths are measured in one process, interleaved, three repeats each, on an o
 
 Final runs on this tree, in a cloud container under Xvfb with software rendering. The full record is [validation-m36.json](validation-m36.json).
 
-The final validation table is added when the final runs on this tree finish.
+| Check | Result |
+|---|---|
+| Regression tests | 882 passed, 0 failed (723 at M35) |
+| Runner self-check | pass |
+| Command screen, aviation | 50 and 19 checks pass |
+| Fleet workshop, 1600 and 1280 wide | 44 checks pass at each |
+| Weapon control, 1600 and 1280 wide | 38 checks pass at each, group attacks included (30 at M35) |
+| Command Watch, 1280 and 1920 wide | 46 checks pass at each |
+| Contact intent, attack and readout, 1280 and 1920 wide | 80 checks pass at each |
+| Air missions, stations and saves (new), 1280 and 1920 wide | 54 checks pass at each, by real mouse and keyboard |
+| Northern Passage graphical, 1280 and 1920 wide | 32 checks pass at each |
+| Northern Passage policies | 7 of 7 pass with M35's outcomes and times; the seed 31 replay is identical |
+| Save and reload in a separate process | identical in all four operations checked: Carrier Watch, Northern Passage, Hormuz, Taiwan Strait |
+| Scenario sweep, 9 missions at seeds 2 and 13 | 18 of 18 reach 6,000 s with no errors and no grounded hulls |
+| Generators | the five builders, run twice, reproduce `data/` byte for byte |
+| Opening plans, two per operation at seeds 2 and 13 | both openings win on both seeds in six operations; in Hormuz each wins one seed of two |
+| Browser package | rebuilt, 56.4 MB to 57.3 MB; boots in headless Chromium in 11 s with no page or console errors; a quicksave survives a page reload, loads from the desk, and its deletion survives another reload |
+| Performance | the table under Performance, measured on an idle machine |
 
 **Review.** Each of the five tracks was built on its own branch and then reviewed by a separate agent that tried to break it before fixing what it confirmed. A report-only reviewer covered stations, air missions and save/load. The main findings, all fixed with a test that fails without the fix unless noted:
 
