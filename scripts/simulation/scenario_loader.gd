@@ -53,6 +53,8 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 		u.depth_m = clampf(float(ud.get("depth_m", 0.0)), 0.0, spec.max_depth_m)
 		u.ordered_depth_m = u.depth_m
 		u.ai_posture = ud.get("ai_posture", "standard")
+		u.ai_plan_id = str(ud.get("ai_plan", ""))
+		u.ai_role = str(ud.get("ai_role", ""))
 		u.auto_countermeasures = bool(ud.get("auto_countermeasures", true))
 		u.defence_policy = str(ud.get("defence_policy", "balanced"))
 		if u.defence_policy not in ["balanced", "conserve", "saturation"]:
@@ -191,6 +193,9 @@ static func _embark_air_wing(um: UnitManager, host: Unit, data: Dictionary) -> v
 				a.state_timer_s = float(entry["ready_after_s"])
 			for leg in entry.get("patrol_nm", []):
 				a.patrol_route.append(Vector2(leg[0], leg[1]))
+			# An element of a raid can be tagged into a plan by itself, without its whole airfield.
+			a.ai_plan_id = str(entry.get("ai_plan", ""))
+			a.ai_role = str(entry.get("ai_role", ""))
 			um.add_unit(a)
 
 
