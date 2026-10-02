@@ -7,6 +7,7 @@ extends PanelContainer
 signal start_pressed()
 signal restart_pressed()
 signal menu_pressed()
+signal guide_toggled(on: bool)
 
 var mission_manager: MissionManager
 var unit_manager: UnitManager
@@ -39,6 +40,7 @@ var _layout: VBoxContainer
 var _backdrop: TextureRect
 var _sheet: PanelContainer
 var _area_caption: Label
+var _guide: CheckButton
 
 
 func _ready() -> void:
@@ -123,6 +125,12 @@ func _ready() -> void:
 	_posture = _label("", 13, UITheme.MENU_INK)
 	_posture.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rail.add_child(_posture)
+	_guide = CheckButton.new()
+	_guide.text = "Command guide · learn while issuing real orders"
+	_guide.tooltip_text = "Optional Northern Passage practice. Close it at any time; resume here with F1."
+	_guide.toggled.connect(func(on: bool) -> void: guide_toggled.emit(on))
+	v.add_child(_guide)
+	_guide.hide()
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	v.add_child(buttons)
@@ -196,7 +204,7 @@ func _apply_layout() -> void:
 
 
 func _set_focus_cycle() -> void:
-	var controls: Array[Control] = [_tabs["orders"], _tabs["situation"], _tabs["controls"], _body, _start, _restart, _menu]
+	var controls: Array[Control] = [_tabs["orders"], _tabs["situation"], _tabs["controls"], _body, _guide, _start, _restart, _menu]
 	for i in controls.size():
 		controls[i].focus_next = controls[i].get_path_to(controls[(i + 1) % controls.size()])
 		controls[i].focus_previous = controls[i].get_path_to(controls[posmod(i - 1, controls.size())])
@@ -208,6 +216,8 @@ func configure(scenario_name: String, forces: String, situation: String, environ
 	_situation = situation
 	_environment = environment
 	_scenario = scenario
+	_guide.visible = str(scenario.get("id", "")) == "northern_passage"
+	_guide.set_pressed_no_signal(_guide.visible)
 	_active_section = "orders"
 	if _preview != null:
 		_preview.set_scenario(scenario)

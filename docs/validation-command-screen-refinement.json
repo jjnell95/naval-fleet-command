@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-02",
+  "base_commit": "b73febb32f5f09fddb15d39dccccd51155ea2963",
+  "engine": "Godot 4.7.2",
+  "regression": {
+    "passed": 884,
+    "failed": 0
+  },
+  "native_interface": {
+    "fleet_command_1280": 79,
+    "fleet_command_1920": 79,
+    "command_watch_1280": 42,
+    "weapon_control_1280": 38,
+    "total_passed": 238,
+    "failed": 0
+  },
+  "simulation_and_data_unchanged": true,
+  "web_export": {
+    "built": true,
+    "bytes": 57335660,
+    "sha256": "be6f92a24cc0b2c3d24650ca99ff1104f4750abf25dd64a809a668584e57d879",
+    "browser_smoke": "not run: browser-control tool unavailable in this session",
+    "deployed": false
+  },
+  "scope": "Presentation and command routing; no simulation rules, mission balance, assets, save format or gameplay preset changes.",
+  "screenshots": [
+    {
+      "file": "01-before-command.png",
+      "source": "work/ui-review/before/command-1280.png",
+      "sha256": "b59dca6dc677961e6ca57c000736573529a22a11e0698ae24b142a70c5bf026d"
+    },
+    {
+      "file": "01-command.png",
+      "source": "work/ui-review/after-1280/command-1280.png",
+      "sha256": "a867ea6bceff119b14aa2010abb592981ab1d94587e5c4116759ad5dba6581e0"
+    },
+    {
+      "file": "02-orders.png",
+      "source": "work/ui-review/after-1280/platform-orders-1280.png",
+      "sha256": "6fb65cb9a31732c540364c581963b689e6bcd5f7ec5bed1fdea5c5d9fa1d8140"
+    },
+    {
+      "file": "03-before-contact.png",
+      "source": "work/ui-review/before/unknown-orders-1280.png",
+      "sha256": "98a2569617faeee0de368b64e2b68f15fb23cc78617a1dddc5dcb282bfac9e20"
+    },
+    {
+      "file": "03-contact.png",
+      "source": "work/ui-review/after-1280/unknown-orders-1280.png",
+      "sha256": "42a0f696b12df1eca7ccf1ceff43df971e0d5aa3ddf20a0bdf34ae79e79dca79"
+    },
+    {
+      "file": "03-readout.png",
+      "source": "work/ui-review/after-1280/inspected-contact-1280.png",
+      "sha256": "7479d1208128a78be9f7e1783ef109eb72067209be7ff6775445e850d3d328a0"
+    },
+    {
+      "file": "04-engage.png",
+      "source": "work/ui-review/after-1920/ready-engagement-1920.png",
+      "sha256": "d72a7afd7a174c9d395948b64d0774903907f48cf261f6b67c2f03cb9d2dcf04"
+    }
+  ],
+  "limits": [
+    "Native Xvfb software rendering; no human playtest.",
+    "No screen-reader or full accessibility audit.",
+    "No fresh full scenario sweep: simulation/data unchanged; regression suite and relevant interface suites run.",
+    "Historical comparison uses the existing M34/M36 source research; original game not run in this session."
+  ]
+}

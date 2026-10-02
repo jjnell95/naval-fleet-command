@@ -49,6 +49,9 @@ static func order_action(o: Order) -> Dictionary:
 ## The Orders menu for the hooked own units. `target` is the hooked contact, if any.
 static func orders_items(units: Array, target: Track, controllable: bool, movable: bool, weapon_manager: WeaponManager = null) -> Array:
 	var items: Array = []
+	var tasks: Array = []
+	var navigation: Array = []
+	var view: Array = []
 	var ships: Array = []
 	var aircraft: Array = []
 	var diving: Array = []
@@ -80,13 +83,13 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		for kn in SPEEDS_KN:
 			speeds.append(item("%d knots" % int(kn), order_action(Order.set_speed(kn))))
 		speeds.append(item("Flank", order_action(Order.set_speed(999.0))))
-		items.append(submenu("Speed", speeds))
-		items.append(item("Course...", {"kind": "board", "board": StatusBoards.BOARD_ORDERS, "tab": 0}, false, "Set an exact course on the orders board."))
+		navigation.append(submenu("Speed", speeds))
+		navigation.append(item("Course...", {"kind": "board", "board": StatusBoards.BOARD_ORDERS, "tab": 0}, false, "Set an exact course on the orders board."))
 	if not aircraft.is_empty():
 		var alts: Array = []
 		for a in ALTITUDES:
 			alts.append(item(a[0], {"kind": "altitude", "metres": a[1]}))
-		items.append(submenu("Altitude", alts, not controllable, why))
+		navigation.append(submenu("Altitude", alts, not controllable, why))
 	if not diving.is_empty():
 		var depths: Array = []
 		var under := -1.0
@@ -101,7 +104,7 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		for d in DEPTHS:
 			var blocked: bool = d[1] == -2.0 and under < 0.0
 			depths.append(item(d[0], {"kind": "depth", "metres": d[1]}, blocked, under_layer_reason(under, floor_m) if d[1] == -2.0 else ""))
-		items.append(submenu("Depth", depths, not controllable, why))
+		navigation.append(submenu("Depth", depths, not controllable, why))
 	var sensors: Array = []
 	if any_radar:
 		sensors.append(item("Radar on", order_action(Order.activate_radar())))
@@ -123,38 +126,47 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		item("Hold", order_action(Order.set_roe(Unit.Roe.HOLD)), false, "", _all(units, func(u: Unit) -> bool: return u.roe == Unit.Roe.HOLD)),
 	], not controllable, why))
 	items.append(submenu("Defence", defence_items(units, movable), not controllable, why))
+	if movable:
+		tasks.append(item("Plot route  [W]", {"kind": "palette", "id": "plot_move"}))
+		tasks.append(item("Assign patrol area  [Shift+W]", {"kind": "palette", "id": "plot_patrol"}, false, "Click two corners; repeat the circuit until retasked or returning for fuel."))
+	var stationed := units.filter(func(u: Unit) -> bool: return u.has_station())
+	if movable and not stationed.is_empty():
+		var can_return := stationed.filter(func(u: Unit) -> bool: return UnitManager.station_rejection(u) == "")
+		var reason := "" if not can_return.is_empty() else UnitManager.station_rejection(stationed[0])
+		tasks.append(item("Return to station  [S]", order_action(Order.return_to_station()), can_return.is_empty(), reason if reason != "" else "Resume the patrol, screen or air station an investigation, attack or refuelling interrupted."))
 	if any_deck:
-		items.append(item("Flight deck...", {"kind": "palette", "id": "air_operations"}, false, "Launch aircraft, or choose where an aircraft lands."))
+		tasks.append(item("Flight deck...", {"kind": "palette", "id": "air_operations"}, false, "Launch aircraft, or choose where an aircraft lands."))
 	if ships.size() >= 2:
 		var forms: Array = []
 		for pattern in ["screen", "column", "abreast"]:
 			forms.append(item(pattern.capitalize(), {"kind": "formation", "pattern": pattern}))
 		forms.append(item("Break", order_action(Order.break_formation())))
-		items.append(submenu("Formation", forms, not controllable, why))
+		tasks.append(submenu("Formation", forms, not controllable, why))
 	elif ships.size() == 1 and (ships[0] as Unit).in_formation():
-		items.append(item("Break formation", order_action(Order.break_formation()), not controllable, why))
-	items.append(sep())
+		tasks.append(item("Break formation", order_action(Order.break_formation()), not controllable, why))
 	if movable:
-		items.append(item("Plot route  [W]", {"kind": "palette", "id": "plot_move"}))
-		items.append(item("Assign patrol area  [Shift+W]", {"kind": "palette", "id": "plot_patrol"}, false, "Click two corners; repeat the circuit until retasked or returning for fuel."))
-	var stationed := units.filter(func(u: Unit) -> bool: return u.has_station())
-	if movable and not stationed.is_empty():
-		var can_return := stationed.filter(func(u: Unit) -> bool: return UnitManager.station_rejection(u) == "")
-		var reason := "" if not can_return.is_empty() else UnitManager.station_rejection(stationed[0])
-		items.append(item("Return to station  [S]", order_action(Order.return_to_station()), can_return.is_empty(), reason if reason != "" else "Resume the patrol, screen or air station an investigation, attack or refuelling interrupted."))
-	if movable:
-		items.append(submenu("Auto-return to station", [
+		navigation.append(submenu("Auto-return to station", [
 			item("On", order_action(Order.set_auto_return(true)), false, "Go back to station once an identification, interception or attack ends. A newer order always stands.", _all(units, func(u: Unit) -> bool: return u.auto_return)),
 			item("Off", order_action(Order.set_auto_return(false)), false, "Hold where the task ends until ordered back with S.", _all(units, func(u: Unit) -> bool: return not u.auto_return)),
 		], not controllable, why))
 	if any_route:
-		items.append(item("Clear route", order_action(Order.clear_waypoints()), not controllable, why))
-	items.append(item("Follow  [F]", {"kind": "palette", "id": "follow_selection"}))
-	items.append(item("Centre  [C]", {"kind": "palette", "id": "focus_selection"}))
+		navigation.append(item("Clear route", order_action(Order.clear_waypoints()), not controllable, why))
+	view.append(item("Follow  [F]", {"kind": "palette", "id": "follow_selection"}))
+	view.append(item("Centre  [C]", {"kind": "palette", "id": "focus_selection"}))
 	if units.size() == 1:
-		items.append(item("Reference  [F7]", {"kind": "inspect", "id": (units[0] as Unit).spec.id}))
-	items.append(item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}))
-	return items
+		view.append(item("Reference  [F7]", {"kind": "inspect", "id": (units[0] as Unit).spec.id}))
+	view.append(item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}))
+	view.append(item("Fleet operations  [J]", {"kind": "palette", "id": "fleet_operations"}))
+	if units.is_empty():
+		return [item("Hook a platform to give orders", {}, true), view[-2], view[-1]]
+	if not tasks.is_empty():
+		tasks.append(sep())
+	if not navigation.is_empty():
+		tasks.append(submenu("Navigation", navigation))
+	tasks.append_array(items)
+	tasks.append(sep())
+	tasks.append(submenu("View & status", view))
+	return tasks
 
 
 ## Defence actions sit beside navigation and attack in the own-platform menu. Mixed settings
@@ -395,19 +407,9 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 	var number := DataDisplay.track_number_for_track(target)
 	items.append({"text": "Track %s  %s" % [number, target.description().capitalize()], "disabled": true})
 	if controllable and not units.is_empty():
-		items.append(attack_item(units, target))
-		var with_weapons := attack_with_items(units, target)
-		if not with_weapons.is_empty():
-			items.append(submenu("Attack with", with_weapons, false, "The standing attack, holding a chosen weapon's envelope."))
-		items.append(quick_engage_item(units, target, weapon_manager))
-		var group := group_attack_item(units, target, weapon_manager)
-		if not group.is_empty():
-			items.append(group)
-		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
-		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit this contact."))
-		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))
-		if target.domain in ["surface", "land"] and not target.identity in ["NEUTRAL", "FRIENDLY"]:
-			items.append(item("Air strike...", {"kind": "air_strike", "track": target}, false, "Open Air Operations set to strike this contact from a deck."))
+		# A hostile still leads with Attack, even before its exact class is established.
+		if target.identity == "HOSTILE":
+			items.append(attack_item(units, target))
 		if target.classification < Track.Classification.CLASS_KNOWN:
 			var can_investigate := false
 			var reason := ""
@@ -418,6 +420,27 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 					reason = rejection
 			items.append(item("Investigate contact", {"kind": "investigate", "track": target}, not can_investigate,
 				"Follow the held contact until its class is identified. Weapons remain under your control." if can_investigate else reason))
+		if target.identity != "HOSTILE":
+			items.append(attack_item(units, target))
+		var weapon_choices: Array = []
+		var with_weapons := attack_with_items(units, target)
+		if not with_weapons.is_empty():
+			weapon_choices.append(submenu("Attack with", with_weapons, false, "The standing attack, holding a chosen weapon's envelope."))
+		var quick := quick_engage_item(units, target, weapon_manager)
+		if not bool(quick.get("disabled", false)):
+			items.append(quick)
+		else:
+			weapon_choices.append(quick)
+		var group := group_attack_item(units, target, weapon_manager)
+		if not group.is_empty():
+			items.append(group)
+		weapon_choices.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
+		weapon_choices.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit this contact."))
+		weapon_choices.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))
+		items.append(submenu("Weapon selection", weapon_choices, false, "Choose a weapon for a standing attack or a finite salvo; inspect firing limits and cancel queued fire."))
+		if target.domain in ["surface", "land"] and not target.identity in ["NEUTRAL", "FRIENDLY"]:
+			items.append(item("Air strike...", {"kind": "air_strike", "track": target}, false, "Open Air Operations set to strike this contact from a deck."))
+
 	elif units.is_empty():
 		items.append({"text": "Hook a platform to engage", "disabled": true})
 	items.append(sep())

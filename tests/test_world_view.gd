@@ -179,9 +179,9 @@ func test_class_known_track_carries_the_class_model() -> void:
 	var m := _managers([own, red])
 	var t := _hold(m["tm"], "T1001", red, Vector2(38, 2), Track.Classification.CLASS_KNOWN)
 	var e := _find(WorldPresentation.unit_entries(m["um"], m["tm"], "BLUE", ENV), "t:T1001")
-	assert_eq(e["model"], "cw90_slava", "a known class is drawn as its class")
+	assert_eq(e["model"], "rfn_cg_slava", "a known class uses its public representative, not its hidden era variant")
 	assert_eq(e["position"], t.position, "still at the plotted position")
-	assert_eq(e["length_m"], red.spec.length_m)
+	assert_eq(e["length_m"], DataDB.platform("rfn_cg_slava").length_m)
 	_free_all(m)
 
 
@@ -225,6 +225,11 @@ func test_submerged_hostile_two_miles_away_is_absent() -> void:
 	assert_eq(WorldPresentation.unit_entries(m["um"], m["tm"], "BLUE", ENV).size(), 1, "nothing to see under the water")
 	boat.depth_m = 0.0
 	assert_eq(WorldPresentation.unit_entries(m["um"], m["tm"], "BLUE", ENV).size(), 2, "surfaced, it is a ship like any other")
+	boat.depth_m = 100.0
+	assert_true(not WorldPresentation.in_visual_range([boat], own, ENV), "a deep submarine is not a surface lookout either")
+	assert_eq(WorldPresentation.witness_point(own.position, [boat], [], ENV), Vector2.INF, "unassociated visual effects are not sighted through the water")
+	boat.depth_m = 8.0
+	assert_true(WorldPresentation.in_visual_range([boat], own, ENV), "at periscope depth it can see above water within the horizon")
 	_free_all(m)
 
 
@@ -597,7 +602,7 @@ func test_aircraft_tether_clears_its_own_deck_then_returns_to_airframe_scale() -
 	assert_near(((shot["eye"] - shot["look"]) as Vector3).length(), WorldCamera.tether_distance(16.0, 1.0), 0.01, "ordinary flight uses the unmodified airframe tether")
 
 
-func test_known_plotted_hull_has_real_finish_without_observed_damage_or_wake() -> void:
+func test_known_plotted_hull_is_provisional_without_observed_damage_or_wake() -> void:
 	var scene := WorldScene.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
 	root.add_child(scene)
@@ -610,7 +615,7 @@ func test_known_plotted_hull_has_real_finish_without_observed_damage_or_wake() -
 	var entry := WorldPresentation.plotted_entry(t)
 	scene.update(0.016, [entry], entry["key"])
 	var rec: Dictionary = scene._records[entry["key"]]
-	assert_eq(rec["tint"], "", "a held class has its ordinary naval finish")
+	assert_true(str(rec["tint"]).begins_with("tint:"), "a class representation is visibly distinct from a sighted hull")
 	assert_true(rec["ring"] != null, "its sensor-estimate uncertainty ring remains")
 	assert_true(rec["fire"] == null and rec["wake"] == null and not rec["lamps_on"], "unobserved damage, speed wake and lights are not invented")
 	assert_eq(rec["nm"], t.position, "the class model remains at the sensor estimate")
@@ -618,6 +623,37 @@ func test_known_plotted_hull_has_real_finish_without_observed_damage_or_wake() -
 	root.remove_child(scene)
 	scene.free()
 	_free_all(managers)
+
+
+func test_plotted_class_and_altitude_are_independent_of_hidden_truth() -> void:
+	var t := Track.new()
+	t.id = "T1"
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = DataDB.platform("cw90_slava").short_name
+	t.known_category = DataDB.platform("cw90_slava").category
+	t.position = Vector2(38, 2)
+	t.domain = "surface"
+	var report := WorldPresentation.plotted_entry(t)
+	assert_eq(report["model"], "rfn_cg_slava", "held class works even without a truth association")
+	t.truth = _unit("civ_merchant_bulk", "NEUTRAL", Vector2(-90, 14))
+	assert_eq(WorldPresentation.plotted_entry(t), report, "hidden class, dimensions and position cannot change a report")
+	t.domain = "air"
+	t.altitude_m = 830.0
+	assert_eq(WorldPresentation.plotted_entry(t)["height_m"], 830.0, "use the measured altitude, not catalogue cruise altitude")
+	t.altitude_m = -1.0
+	assert_true(WorldPresentation.contact_caption(t, false).contains("altitude unmeasured"))
+	t.status = Track.Status.STALE
+	assert_true(WorldPresentation.contact_caption(t, false).begins_with("NO CURRENT FIX"))
+	assert_true(WorldPresentation.contact_caption(t, true).begins_with("SIGHTED"), "eyes and a stale sensor report are different evidence")
+
+
+func test_an_island_blocks_visual_truth_in_the_world_view() -> void:
+	Terrain.load_from({"terrain": {"land": [{"id": "ridge", "elevation_m": 300.0, "points_nm": [[-1, -1], [1, -1], [1, 1], [-1, 1]]}]}})
+	var blue := _unit("cw90_ticonderoga", "BLUE", Vector2(-3, 0))
+	var red := _unit("cw90_slava", "RED", Vector2(3, 0))
+	assert_true(not WorldPresentation.in_visual_range([blue], red, ENV), "a nearby ship behind high ground is not sighted")
+	Terrain.clear()
+	assert_true(WorldPresentation.in_visual_range([blue], red, ENV), "the same range over clear sea permits a sighting")
 
 
 func test_flyby_waits_ahead_and_beside_then_moves_on_once_passed() -> void:

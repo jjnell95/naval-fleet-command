@@ -31,12 +31,12 @@ func test_normal_is_the_game_as_it_was_and_classic_is_the_late_nineties_rule_set
 	assert_eq(GameOptions.normal(true, false).preset(), GameOptions.NORMAL, "Normal leaves sound as the player set it")
 	var classic := GameOptions.classic()
 	assert_eq(classic.preset(), GameOptions.CLASSIC)
-	assert_eq(Array(classic.time_scales), [1.0, 2.0, 4.0], "Classic stops at 4x")
-	assert_eq(classic.ceiling(), 4.0)
+	assert_eq(Array(classic.time_scales), [1.0, 2.0, 4.0, 8.0], "four original steps, labelled at their actual rates")
+	assert_eq(classic.ceiling(), 8.0)
 	assert_true(classic.manual_missile_defence())
-	assert_true(classic.engage_on_hostile_id)
+	assert_true(not classic.engage_on_hostile_id, "identification alone is not authority to attack")
 	assert_true(classic.voice and classic.ambient, "Classic has the crew and the sea audible")
-	assert_eq(classic.label(), "CLASSIC 4×")
+	assert_eq(classic.label(), "CLASSIC 8×")
 	assert_eq(normal.label(), "NORMAL")
 
 
@@ -44,7 +44,7 @@ func test_changing_any_one_option_makes_the_preset_custom() -> void:
 	var changes := {
 		"time": func(o: GameOptions) -> void: o.time_scales = GameOptions.scales_to(10.0),
 		"defence": func(o: GameOptions) -> void: o.missile_defence = GameOptions.DEFENCE_AUTO,
-		"engage": func(o: GameOptions) -> void: o.engage_on_hostile_id = false,
+		"engage": func(o: GameOptions) -> void: o.engage_on_hostile_id = true,
 		"voice": func(o: GameOptions) -> void: o.voice = false,
 		"ambient": func(o: GameOptions) -> void: o.ambient = false,
 	}
@@ -76,10 +76,10 @@ func test_each_option_toggles_on_its_own_and_the_classic_ladder_is_one_constant(
 	assert_eq(GameOptions.CLASSIC_CEILING, GameOptions.CLASSIC_SCALES[GameOptions.CLASSIC_SCALES.size() - 1])
 	assert_true(GameOptions.valid_scales(GameOptions.CLASSIC_SCALES))
 	assert_eq(Array(o.toggled("ceiling").time_scales), Array(GameOptions.CLASSIC_SCALES), "the ceiling option is the Classic ladder")
-	assert_eq(GameOptions.option_text("ceiling"), "Time ceiling 4× (1×, 2×, 4×)")
-	assert_true(GameOptions.preset_description(GameOptions.CLASSIC).begins_with("4× time ceiling"))
+	assert_eq(GameOptions.option_text("ceiling"), "Time ceiling 8× (1×, 2×, 4×, 8×)")
+	assert_true(GameOptions.preset_description(GameOptions.CLASSIC).begins_with("8× actual time ceiling"))
 	var classic := GameOptions.classic()
-	assert_eq(classic.summary(), "4× ceiling · manual missile defence · engage after identification")
+	assert_eq(classic.summary(), "8× ceiling · manual missile defence · attack on orders")
 	assert_eq(GameOptions.normal().summary(), "60× ceiling · automatic missile defence · attack on orders")
 	assert_eq(classic.toggled("engage_on_id").toggled("engage_on_id").preset(), GameOptions.CLASSIC)
 
@@ -123,6 +123,11 @@ func test_options_round_trip_and_tolerate_damaged_data() -> void:
 	for bad: Array in [[], [1.0, 2.0, 2.0], [1.0, 120.0], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]]:
 		assert_true(not GameOptions.valid_scales(bad), "refused ladder %s" % [bad])
 	assert_eq(Array(GameOptions.from_dict({"time_scales": [1, 2, 4]}).time_scales), [1.0, 2.0, 4.0], "whole numbers from a config file are read")
+	var legacy := GameOptions.from_dict({"version": 1, "preset": "classic", "time_scales": [1, 2, 4], "missile_defence": "manual", "engage_on_hostile_id": true, "voice": true, "ambient": true})
+	assert_eq(legacy.label(), "CUSTOM 4×", "a saved legacy preset keeps its exact rules, not today's defaults")
+	assert_true(not legacy.option_on("ceiling"), "a legacy 4x ladder must not tick the 8x option")
+	assert_true(legacy.engage_on_hostile_id and legacy.manual_missile_defence())
+	assert_true(GameOptions.from_dict(legacy.to_dict()).equals(legacy))
 
 
 func test_the_preference_persists_in_the_gameplay_section_and_only_where_writable() -> void:
@@ -696,8 +701,8 @@ func test_the_briefing_names_the_preset_at_every_screen_size() -> void:
 	panel.configure("Test Operation", "", "", {}, {})
 	# The posture rail that spells the options out is hidden on a compact screen; the meta line
 	# above the orders is not.
-	assert_true(panel._meta.visible and panel._meta.text.contains("GAMEPLAY CLASSIC 4×"), panel._meta.text)
+	assert_true(panel._meta.visible and panel._meta.text.contains("GAMEPLAY CLASSIC 8×"), panel._meta.text)
 	assert_true(panel._meta.tooltip_text.contains("Missile defence: manual"), panel._meta.tooltip_text)
-	assert_true(panel._posture.text.contains("GAMEPLAY: CLASSIC 4×"))
+	assert_true(panel._posture.text.contains("GAMEPLAY: CLASSIC 8×"))
 	panel.free()
 	missions.free()

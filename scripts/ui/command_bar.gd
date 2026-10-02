@@ -17,14 +17,10 @@ var _refresh := 0.0
 const KEYS := [
 	["missions", "Mission", "Operations desk [M]"],
 	["chart_menu", "Chart ▾", "Graphic symbols, readable labels, sensor ranges and chart navigation"],
-	["status_boards", "Orders  A", "Orders, task group, track file and communications"],
-	["plot_move", "Route  W", "Plot a route; hold Shift to append waypoints"],
-	["plot_patrol", "Patrol", "Assign a repeating patrol: click two opposite corners [Shift+W]"],
+	["orders_menu", "Orders ▾", "Route, patrol, return to station and platform settings. Status boards [A]"],
 	["weapon_control", "Attack", "Weapon, salvo and target-quality control [Shift+E]"],
 	["open_defence", "Defence", "Countermeasures, evasion, interceptor policy and inbound weapon tracking"],
 	["air_operations", "Air  F3", "Launch, task and recover aircraft"],
-	["next_contact", "Contact  N", "Hook the next priority contact"],
-	["swap_views", "3D  G", "Exchange the chart and the live camera"],
 ]
 
 
@@ -92,11 +88,6 @@ func _process(delta: float) -> void:
 func refresh() -> void:
 	if map == null or buttons.is_empty():
 		return
-	var movable := map._has_controllable_selection()
-	for id: String in ["plot_move", "plot_patrol"]:
-		buttons[id].disabled = not movable
-	buttons["plot_move"].text = "Route *" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "Route  W"
-	buttons["plot_patrol"].text = "Patrol *" if map.interaction_mode == TacticalMap.InteractionMode.PATROL else "Patrol"
 	buttons["weapon_control"].disabled = map.selected.is_empty()
 	buttons["time_menu"].text = "%d× ▾" % int(SimClock.multiplier())
 	buttons["options_menu"].text = options_label
@@ -137,6 +128,8 @@ static func chart_items(chart: TacticalMap) -> Array:
 		CdsMenus.item("Frame selected platforms & target", {"kind": "palette", "id": "focus_selection"}),
 		CdsMenus.item("Find my fleet", {"kind": "palette", "id": "fit_fleet"}),
 		CdsMenus.item("Whole theatre", {"kind": "palette", "id": "fit_theatre"}),
+		CdsMenus.sep(),
+		CdsMenus.item("Next priority contact  [N]", {"kind": "palette", "id": "next_contact"}),
 	]
 
 

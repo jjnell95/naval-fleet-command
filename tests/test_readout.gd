@@ -213,7 +213,7 @@ func test_held_kinematics_read_plainly() -> void:
 	t.position_error_nm = 0.4
 	var text := _text(DataDisplay.track_rows(t, null, 0.0))
 	assert_true(text.contains("COURSE: 162   SPEED: 17 KTS"), text)
-	assert_true(text.contains("%DAMAGE: 0 (est)"), "the damage line is the estimate")
+	assert_true(text.contains("%DAMAGE: not assessed"), "no reported hit is not proof of an undamaged hull")
 	assert_true(not text.contains("162 (est)") and not text.contains("KTS (est)"))
 	assert_true(text.contains("POSITION: +/-0.4 nm"), "the position row states the uncertainty")
 
@@ -281,3 +281,37 @@ func test_reference_entry_comes_from_the_reported_class() -> void:
 	var burke := DataDB.platform("usn_ddg_burke_iii")
 	assert_eq(DataDB.platform_by_short_name(burke.short_name), burke, "an unshared short name finds its class")
 	assert_eq(PlatformLibrary.entry_for_track(null), null)
+
+
+func test_old_contact_kinematics_and_freshness_are_explicit() -> void:
+	var t := Track.new()
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = "FFG Test"
+	t.last_seen_time = 10.0
+	t.has_kinematics = true
+	t.course_deg = 90.0
+	t.speed_kn = 12.0
+	t.status = Track.Status.STALE
+	var text := _text(DataDisplay.track_rows(t, null, 130.0))
+	assert_true(text.contains("PLOT: STALE - last report 2m ago"), text)
+	assert_true(text.contains("LAST COURSE: 090"), "old kinematics must not imply a fresh observation")
+	t.status = Track.Status.LOST
+	assert_eq(DataDisplay.plot_text(t, 130.0), "LOST - last report 2m ago")
+	t.status = Track.Status.ACTIVE
+	t.reported = true
+	assert_eq(DataDisplay.plot_text(t, 15.0), "CONTACT REPORT - 5s ago", "an external report is not a live sensor plot")
+	t.reported = false
+	assert_eq(DataDisplay.plot_text(t, 15.0), "LIVE - updated 5s ago")
+
+
+func test_bearing_only_and_unassessed_damage_do_not_imply_measured_facts() -> void:
+	var t := Track.new()
+	t.bearing_only = true
+	t.has_kinematics = true
+	t.speed_kn = 99.0
+	var text := _text(DataDisplay.track_rows(t, _unit(_spec("Own"), "BLUE", Vector2.ZERO), 0.0))
+	assert_true(text.contains("range unresolved"))
+	assert_true(not text.contains("99 KTS") and not text.contains("RANGE:"), "a bearing-only datum supplies neither speed nor measured range")
+	assert_eq(DataDisplay.damage_text(t), "not assessed")
+	t.damage_estimate = 35.0
+	assert_eq(DataDisplay.damage_text(t), "35 (est)", "reported hits remain estimates")

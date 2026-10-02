@@ -75,6 +75,12 @@ func _chart_and_clock() -> void:
 	for id: String in main.command_bar.buttons:
 		checks["command control fits: " + id] = main.command_bar.get_global_rect().encloses(main.command_bar.buttons[id].get_global_rect())
 	checks["all command panes fit"] = _fits(main.map) and _fits(main.regional) and _fits(main._world_view) and _fits(main.data_display)
+	await _click_control(main.command_bar.buttons["orders_menu"])
+	checks["orders menu starts with route and patrol tasks"] = main._cds_menus._root.get_item_text(0).begins_with("Plot route") and main._cds_menus._root.get_item_text(1).begins_with("Assign patrol")
+	await _shot("platform-orders")
+	await _choose_action({"kind": "palette", "id": "plot_move"})
+	checks["Orders route action arms plotting"] = main.map.interaction_mode == TacticalMap.InteractionMode.MOVE
+	main.map.cancel_interaction_mode()
 	await _click_control(main.command_bar.buttons["chart_menu"])
 	await _choose_action({"kind": "symbols", "mode": TacticalMap.SymbolMode.NTDS})
 	checks["chart menu selects tactical symbols"] = main.map.symbol_mode == TacticalMap.SymbolMode.NTDS
@@ -169,7 +175,7 @@ func _contact_and_investigation(track: Track) -> void:
 	await _chart_click(track.position, MOUSE_BUTTON_RIGHT, true)
 	var menu := main._cds_menus._root
 	checks["shift-right-click opens the contact menu"] = menu != null and menu.visible
-	checks["unknown has a visible blocked attack choice"] = menu != null and menu.visible and menu.item_count > 1 and menu.is_item_disabled(1) and menu.get_item_text(1).begins_with("Attack track") and not menu.get_item_tooltip(1).is_empty()
+	checks["unknown leads with investigation and explains the blocked attack"] = menu != null and menu.visible and menu.item_count > 2 and menu.get_item_text(1) == "Investigate contact" and not menu.is_item_disabled(1) and menu.is_item_disabled(2) and menu.get_item_text(2).begins_with("Attack track") and not menu.get_item_tooltip(2).is_empty()
 	checks["opening contact menu spends no rounds"] = _rounds(frigate) == rounds_before
 	await _shot("unknown-orders")
 	await _choose_action({"kind": "investigate"})

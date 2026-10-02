@@ -1,0 +1,107 @@
+{
+  "date": "2026-10-02",
+  "engine": "Godot 4.7.2",
+  "base_commit": "b73febb32f5f09fddb15d39dccccd51155ea2963",
+  "scope": "Combined command UI, Classic defaults, held-report presentation, optional guide, aircraft and submarine recognition art",
+  "models": {
+    "total": 36,
+    "aircraft": 22,
+    "submarines": 14,
+    "ids": [
+      "cw90_e2c",
+      "cw90_f14a",
+      "cw90_los_angeles",
+      "cw90_p3c",
+      "cw90_s3a",
+      "cw90_victor3",
+      "fra_aew_e2c",
+      "fra_fighter_rafale_m",
+      "fra_ssn_suffren",
+      "irn_ssk_kilo_877ekm",
+      "irn_ssm_ghadir",
+      "jasdf_fighter_f2",
+      "jasdf_fighter_f35b",
+      "jmsdf_ssk_taigei",
+      "pla_fighter_j15",
+      "pla_fighter_j16",
+      "pla_ssk_type039a",
+      "pla_ssn_type093b",
+      "raf_fighter_typhoon",
+      "rfn_fighter_su35s",
+      "rfn_ssk_kilo",
+      "rfn_ssk_kilo_877",
+      "rfn_ssn_yasen_m",
+      "rfn_strike_su30sm",
+      "rn_fighter_f35b",
+      "rn_ssn_astute",
+      "swe_fighter_gripen_c",
+      "swe_ssk_gotland",
+      "usaf_fighter_f16c",
+      "usn_aew_e2d",
+      "usn_ea_ea18g",
+      "usn_fighter_f35c",
+      "usn_fighter_fa18e",
+      "usn_fighter_fa18f",
+      "usn_mpa_p8a",
+      "usn_ssn_virginia"
+    ],
+    "min_triangles": 1832,
+    "max_triangles": 5488,
+    "max_material_surfaces": 6,
+    "donor_copies_verified": 10
+  },
+  "regression": {
+    "tests": 889,
+    "failed": 0,
+    "log": "work/model-review/tests.log"
+  },
+  "native": [
+    {
+      "suite": "native-1280",
+      "window": [
+        1280,
+        720
+      ],
+      "checks": 154,
+      "failed": [],
+      "errors": []
+    },
+    {
+      "suite": "native-1920",
+      "window": [
+        1920,
+        1080
+      ],
+      "checks": 154,
+      "failed": [],
+      "errors": []
+    },
+    {
+      "suite": "guide",
+      "window": [
+        1280,
+        720
+      ],
+      "checks": 30,
+      "failed": [],
+      "errors": []
+    }
+  ],
+  "prior_integration_evidence": [
+    "validation-command-screen-refinement.json",
+    "validation-deep-command-review.json"
+  ],
+  "browser_package": {
+    "bytes": 57115804,
+    "sha256": "e3ec99a8cc551ed01197e09ecbf87449d82ba1911ff35e59cc8de5b41dc2f6d1",
+    "loader_size_matches": true,
+    "exported": true,
+    "browser_executed": false
+  },
+  "limitations": [
+    "Recognition models approximate visible class features; small fittings and flight poses are illustrative.",
+    "No new platform performance or scenario balance changes in the art pass.",
+    "Browser execution and audio playback were not verified in this session."
+  ],
+  "logs": "work/model-review/"
+}

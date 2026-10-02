@@ -1,0 +1,12 @@
+extends SceneTree
+## Exercise the actual Reference viewer with every revised aircraft/submarine.
+
+func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	var script: GDScript = load("res://tools/recognition_playtest_run.gd")
+	if script == null or not script.can_instantiate():
+		quit(1)
+		return
+	await script.new().run(self)

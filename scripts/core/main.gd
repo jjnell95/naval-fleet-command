@@ -34,6 +34,7 @@ var _report: AfterAction
 var _editor: ScenarioEditor
 var _menu: ScenarioMenu
 var _briefing: BriefingPanel
+var _command_guide: CommandGuide
 var _command_palette: CommandPalette
 var _air_operations: AirOperations
 ## The Air Operations dialog has handed the chart over to pick a station or a strike target.
@@ -247,6 +248,11 @@ func _ready() -> void:
 		if not is_loss:
 			radio.flash("OBJECTIVE COMPLETE — %s" % o.text, "good")
 		Debug.event("[Mission] objective %s: %s" % ["failed" if is_loss else "complete", o.text]))
+	_command_guide = CommandGuide.new()
+	_command_guide.name = "CommandGuide"
+	_command_guide.action_requested.connect(_run_palette_action)
+	_command_guide.dismissed.connect(func() -> void: _briefing._guide.set_pressed_no_signal(false))
+	add_child(_command_guide)
 	_build_screens()
 	# Reinforcements and every airframe take the side's missile-defence doctrine as they arrive.
 	simulation.unit_manager.unit_added.connect(func(u: Unit) -> void:
@@ -257,10 +263,12 @@ func _ready() -> void:
 	simulation.track_manager.track_lost.connect(_on_track_lost)
 	simulation.unit_manager.order_issued.connect(func(u: Unit, o: Order) -> void:
 		if u.faction == simulation.player_faction and not simulation.ai_plays_player:
+			_command_guide.record_order(u, o)
 			Debug.event("[Order] %s: %s" % [u.callsign, o.describe()]))
 	simulation.unit_manager.investigation_ended.connect(func(u: Unit, t: Track, reason: String) -> void:
 		if u.faction != simulation.player_faction:
 			return
+		_command_guide.record_classification(u, t, reason)
 		var report := "Track %s: %s" % [DataDisplay.track_number_for_track(t), reason.to_lower()]
 		if reason == "Contact classified":
 			report += " — " + t.description()
@@ -346,6 +354,9 @@ func _process(delta: float) -> void:
 	_autosave_if_due()
 	_announce_unannounced_threats()
 	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, map.reference_unit())
+	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo())
+	_command_guide.visible = _command_taken and _command_guide.enabled and not _has_visible_modal() and not status_boards.visible and not _views_swapped and not _world_full
+	_command_guide.position = map.global_position - global_position + Vector2(14, 14)
 	if threats.is_empty():
 		radio.set_alert("")
 	else:
@@ -411,6 +422,7 @@ func _reset_command_screen() -> void:
 	SimClock.set_speed_index(0)
 	_apply_doctrine()
 	_command_taken = false
+	_command_guide.reset(str(simulation.scenario.get("id", "")), simulation.player_faction)
 	# A replacement scenario starts behind its own briefing. Rebase any older modal snapshot so
 	# dismissing that briefing can never inherit a running state from the previous mission.
 	_modal_pause_captured = true
@@ -601,6 +613,7 @@ func _capture_presentation() -> Dictionary:
 		"autosaved_at": _autosaved_at,
 		# The rules the engagement is fought under; a load continues under them (_install_engagement).
 		"options": engagement_options(),
+		"command_guide": _command_guide.to_dict(),
 	}
 
 
@@ -636,6 +649,7 @@ func _restore_presentation(d: Dictionary) -> void:
 		map.ppn = float(view.get("ppn", map.ppn))
 		map.queue_redraw()
 	_autosaved_at = float(d.get("autosaved_at", SimClock.sim_time))
+	_command_guide.restore(d.get("command_guide", {}))
 
 
 func _toggle_saved_engagements() -> void:
@@ -775,6 +789,8 @@ func _build_screens() -> void:
 	_briefing.start_pressed.connect(_on_briefing_start)
 	_briefing.restart_pressed.connect(restart_scenario)
 	_briefing.menu_pressed.connect(_show_menu)
+	_briefing.guide_toggled.connect(func(on: bool) -> void:
+		_command_guide.enabled = on and _command_guide.available)
 	add_child(_briefing)
 	_briefing.hide()
 
@@ -889,6 +905,7 @@ func _show_briefing() -> void:
 	_briefing.set_mode(SimClock.sim_time <= 0.0)
 	_briefing._select_section("orders")
 	_briefing.refresh()
+	_briefing._guide.set_pressed_no_signal(_command_guide.enabled)
 	_briefing.show()
 	_briefing.call_deferred("focus_default")
 
@@ -1312,6 +1329,16 @@ func _state_name(state: int, off_name: String, on_name: String) -> String:
 
 func _run_palette_action(id: String) -> void:
 	match id:
+		"guide_aircraft":
+			var aircraft := _command_guide.aircraft(simulation.unit_manager)
+			if aircraft != null:
+				map.select_units([aircraft])
+				map.center_on_selection()
+		"orders_menu":
+			var button: Button = command_bar.buttons[id]
+			var items := CdsMenus.orders_items(map.selected, map.selected_track, _all_controllable(map.selected), _all_movable(map.selected), simulation.weapon_manager)
+			_cds_menus.open(items, button.get_global_rect().position + Vector2(0, button.size.y))
+			map.menu_open = true
 		"chart_menu", "time_menu", "options_menu":
 			var button: Button = command_bar.buttons[id]
 			var items := CommandBar.chart_items(map) if id == "chart_menu" else (CommandBar.time_items() if id == "time_menu" else CdsMenus.options_items(_cds_state()))
@@ -1739,7 +1766,7 @@ func _apply_options(o: GameOptions, persist: bool, sound: bool) -> void:
 	options = o.duplicate_options()
 	SimClock.set_speeds(options.time_scales)
 	# Under the Classic ceiling the watch is slow enough to listen to, so routine reports are spoken.
-	voice.routine_ceiling = options.ceiling() if options.option_on("ceiling") else 1.0
+	voice.routine_ceiling = options.ceiling() if options.ceiling() <= GameOptions.CLASSIC_CEILING else 1.0
 	_apply_doctrine()
 	if sound:
 		_apply_sound(options, persist)
@@ -1847,6 +1874,8 @@ func _on_selection_changed(units: Array) -> void:
 
 
 func _on_track_selected(t: Track) -> void:
+	if _command_guide != null:
+		_command_guide.record_inspection(t)
 	contact_panel.refresh()
 	orders_panel.set_target_track(t)
 	if _world_view != null:

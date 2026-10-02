@@ -12,20 +12,68 @@
  "cw90_agm84": {
   "kind": "weapon"
  },
+ "cw90_e2c": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "cw90_f14a": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "cw90_los_angeles": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.2215,
+  "recognition_revision": "2026-10-02"
+ },
  "cw90_nimitz": {
   "kind": "platform",
   "domain": "surface",
   "waterline_y": -0.6015
+ },
+ "cw90_p3c": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "cw90_s3a": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "cw90_victor3": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.2394,
+  "recognition_revision": "2026-10-02"
+ },
+ "fra_aew_e2c": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
  },
  "fra_cvn_charles_de_gaulle": {
   "kind": "platform",
   "domain": "surface",
   "waterline_y": -0.6966
  },
+ "fra_fighter_rafale_m": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
  "fra_lhd_mistral": {
   "kind": "platform",
   "domain": "surface",
   "waterline_y": -0.8693
+ },
+ "fra_ssn_suffren": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.1248,
+  "recognition_revision": "2026-10-02"
  },
  "irn_asbm_khalij_fars": {
   "kind": "platform",
@@ -43,9 +91,39 @@
   "kind": "platform",
   "domain": "land"
  },
+ "irn_ssk_kilo_877ekm": {
+  "kind": "platform",
+  "copy_of": "rfn_ssk_kilo_877",
+  "domain": "subsurface",
+  "recognition_revision": "2026-10-02",
+  "waterline_y": 0.3265
+ },
+ "irn_ssm_ghadir": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.179,
+  "recognition_revision": "2026-10-02"
+ },
+ "jasdf_fighter_f2": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "jasdf_fighter_f35b": {
+  "kind": "platform",
+  "copy_of": "rn_fighter_f35b",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
  "jgsdf_type12_battery": {
   "kind": "platform",
   "domain": "land"
+ },
+ "jmsdf_ssk_taigei": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.137,
+  "recognition_revision": "2026-10-02"
  },
  "jmsdf_type07_vla": {
   "kind": "weapon"
@@ -73,12 +151,39 @@
   "kind": "platform",
   "domain": "land"
  },
+ "pla_fighter_j15": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "pla_fighter_j16": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
  "pla_hpj13_30mm": {
   "kind": "weapon"
  },
  "pla_sam_hq9b_site": {
   "kind": "platform",
   "domain": "land"
+ },
+ "pla_ssk_type039a": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.2379,
+  "recognition_revision": "2026-10-02"
+ },
+ "pla_ssn_type093b": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.2542,
+  "recognition_revision": "2026-10-02"
+ },
+ "raf_fighter_typhoon": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
  },
  "rfn_battery_bastion": {
   "kind": "platform",
@@ -89,6 +194,11 @@
   "domain": "surface",
   "waterline_y": -1.0243
  },
+ "rfn_fighter_su35s": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
  "rfn_fsg_steregushchiy": {
   "kind": "platform",
   "domain": "surface",
@@ -98,10 +208,28 @@
   "kind": "platform",
   "domain": "land"
  },
+ "rfn_ssk_kilo": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.3212,
+  "recognition_revision": "2026-10-02"
+ },
  "rfn_ssk_kilo_877": {
   "kind": "platform",
   "domain": "subsurface",
-  "waterline_y": 0.0
+  "waterline_y": 0.3265,
+  "recognition_revision": "2026-10-02"
+ },
+ "rfn_ssn_yasen_m": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.2886,
+  "recognition_revision": "2026-10-02"
+ },
+ "rfn_strike_su30sm": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
  },
  "rgm_139_vla": {
   "kind": "weapon"
@@ -111,6 +239,17 @@
   "domain": "surface",
   "waterline_y": -0.7118
  },
+ "rn_fighter_f35b": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "rn_ssn_astute": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.3018,
+  "recognition_revision": "2026-10-02"
+ },
  "rnon_ffg_fridtjof_nansen": {
   "kind": "platform",
   "domain": "surface",
@@ -119,8 +258,29 @@
  "sm39_exocet": {
   "kind": "weapon"
  },
+ "swe_fighter_gripen_c": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "swe_ssk_gotland": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.0503,
+  "recognition_revision": "2026-10-02"
+ },
  "tomahawk_tlam_v": {
   "kind": "weapon"
+ },
+ "usaf_fighter_f16c": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "usn_aew_e2d": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
  },
  "usn_cvn_ford": {
   "kind": "platform",
@@ -137,13 +297,40 @@
   "domain": "surface",
   "waterline_y": -0.832258064516129
  },
+ "usn_ea_ea18g": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "usn_fighter_f35c": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
  "usn_fighter_fa18e": {
   "kind": "platform",
-  "domain": "air"
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "usn_fighter_fa18f": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
  },
  "usn_lha_america": {
   "kind": "platform",
   "domain": "surface",
   "waterline_y": -0.6792
+ },
+ "usn_mpa_p8a": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-10-02"
+ },
+ "usn_ssn_virginia": {
+  "kind": "platform",
+  "domain": "subsurface",
+  "waterline_y": 0.2476,
+  "recognition_revision": "2026-10-02"
  }
 }

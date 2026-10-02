@@ -7,9 +7,10 @@ extends RefCounted
 ##
 ## Two presets. NORMAL is this game as it has always played: the full time ladder to 60×,
 ## automatic missile defence and no engagement without an order; it says nothing about sound, which
-## stays as the player set it. CLASSIC is the late-1990s rule set: a 4× ceiling, missile defence
-## left to the commander, ships that engage what they identify as hostile (within their rules of
-## engagement), and the crew and the sea audible. Any other combination is CUSTOM. The preset is
+## stays as the player set it. CLASSIC follows the original default command rules: an 8× actual
+## ceiling, missile defence and attacks left to the commander, and the crew and the sea audible.
+## The optional investigation auto-attack is this game's convenience rule, not original VID.
+## Any other combination is CUSTOM. The preset is
 ## worked out from the values, never stored on its own, so it cannot disagree with them.
 ##
 ## The simulation never sees this object. Main copies what the simulation needs into it as orders
@@ -27,10 +28,9 @@ const SECTION := "gameplay"
 const AUDIO_SECTION := "audio"
 const NORMAL_SCALES: Array[float] = [1.0, 2.0, 5.0, 10.0, 30.0, 60.0]  # SimClock.SPEEDS
 ## The Classic time ladder, slowest first; its last step is the ceiling, and every menu, key board
-## and description reads it from here. The 1999 manual's top setting was labelled 4x but ran at
-## "eight times real time" (its 3x ran at four); this follows the brief's 4× of real time, and the
-## original's rate is the one-line change [1.0, 2.0, 4.0, 8.0].
-const CLASSIC_SCALES: Array[float] = [1.0, 2.0, 4.0]
+## and description reads it from here. The original labelled its four steps 1x/2x/3x/4x but ran
+## at 1/2/4/8 times real time. Display actual rates so the clock never misrepresents elapsed time.
+const CLASSIC_SCALES: Array[float] = [1.0, 2.0, 4.0, 8.0]
 const CLASSIC_CEILING: float = CLASSIC_SCALES[-1]
 ## The single options, in menu order; "" is a separator. Shared by the desk's OPTIONS menu, the
 ## chip's menu and the CDS Gameplay submenu; option_text and option_tooltip give their words.
@@ -54,7 +54,7 @@ static func classic() -> GameOptions:
 	var o := GameOptions.new()
 	o.time_scales = CLASSIC_SCALES.duplicate()
 	o.missile_defence = DEFENCE_MANUAL
-	o.engage_on_hostile_id = true
+	o.engage_on_hostile_id = false
 	o.voice = true
 	o.ambient = true
 	return o
@@ -71,7 +71,7 @@ static func preset_named(name: String, voice_now: bool, ambient_now: bool) -> Ga
 ## only, never a year: Classic is a way of playing any operation, not a period.
 static func preset_description(name: String) -> String:
 	if name == CLASSIC:
-		return "%s time ceiling, missile defence on your orders (X), ships that engage contacts they identify as hostile within the rules of engagement, crew voice and ambient sound on" % _times(CLASSIC_CEILING)
+		return "%s actual time ceiling, missile defence on your orders (X), attack on orders, crew voice and ambient sound on" % _times(CLASSIC_CEILING)
 	return "The full time ladder to %s, automatic missile defence, ships that attack only when ordered" % _times(NORMAL_SCALES[-1])
 
 
@@ -83,7 +83,7 @@ static func option_text(key: String) -> String:
 		"manual_defence":
 			return "Manual missile defence (X engages inbound)"
 		"engage_on_id":
-			return "Engage after hostile identification"
+			return "Auto-attack after investigation"
 		"voice":
 			return "Crew voice"
 		"ambient":
@@ -99,7 +99,7 @@ static func option_tooltip(key: String) -> String:
 		"manual_defence":
 			return "SAMs engage inbound missiles only when ordered (X or right-click the round); close-in guns, chaff and flares keep their own settings."
 		"engage_on_id":
-			return "A ship or aircraft whose investigation finds a hostile attacks it, within its rules of engagement. Never a neutral or an unknown; reconnaissance never fires."
+			return "Optional convenience rule: ships and aircraft attack a hostile after investigating it, within their rules of engagement. Off in Classic. Reconnaissance never fires."
 		"voice":
 			return "Spoken crew reports through the system's text-to-speech."
 		"ambient":
@@ -111,7 +111,7 @@ static func option_tooltip(key: String) -> String:
 func option_on(key: String) -> bool:
 	match key:
 		"ceiling":
-			return ceiling() <= CLASSIC_CEILING + 1e-6
+			return _same_scales(time_scales, CLASSIC_SCALES)
 		"manual_defence":
 			return manual_missile_defence()
 		"engage_on_id":
@@ -145,7 +145,7 @@ func preset() -> String:
 	var rules_normal := _same_scales(time_scales, NORMAL_SCALES) and missile_defence == DEFENCE_AUTO and not engage_on_hostile_id
 	if rules_normal:
 		return NORMAL
-	if _same_scales(time_scales, CLASSIC_SCALES) and missile_defence == DEFENCE_MANUAL and engage_on_hostile_id and voice and ambient:
+	if _same_scales(time_scales, CLASSIC_SCALES) and missile_defence == DEFENCE_MANUAL and not engage_on_hostile_id and voice and ambient:
 		return CLASSIC
 	return CUSTOM
 
@@ -158,7 +158,7 @@ func manual_missile_defence() -> bool:
 	return missile_defence == DEFENCE_MANUAL
 
 
-## The chip on the command bar: "NORMAL", "CLASSIC 4×" or "CUSTOM 10×".
+## The chip on the command bar: "NORMAL", "CLASSIC 8×" or "CUSTOM 10×".
 func label() -> String:
 	match preset():
 		NORMAL:
@@ -168,13 +168,13 @@ func label() -> String:
 	return "CUSTOM %d×" % int(ceiling())
 
 
-## "4× ceiling · manual missile defence · engage after identification" and the like: the rules in
+## "8× ceiling · manual missile defence · attack on orders" and the like: the rules in
 ## one line, for the desk and the radio (the preset's name is shown beside it).
 func summary() -> String:
 	var parts := PackedStringArray()
 	parts.append("%s ceiling" % _times(ceiling()))
 	parts.append("manual missile defence" if manual_missile_defence() else "automatic missile defence")
-	parts.append("engage after identification" if engage_on_hostile_id else "attack on orders")
+	parts.append("auto-attack after investigation" if engage_on_hostile_id else "attack on orders")
 	return " · ".join(parts)
 
 
@@ -183,7 +183,7 @@ func summary_lines() -> PackedStringArray:
 	var out := PackedStringArray()
 	out.append("Time: up to %d× (%s)" % [int(ceiling()), ", ".join(_scale_names())])
 	out.append("Missile defence: %s" % ("manual — ships fire SAMs only when ordered (X); close-in guns stay automatic" if manual_missile_defence() else "automatic"))
-	out.append("Engage after hostile identification: %s" % ("on, within the rules of engagement" if engage_on_hostile_id else "off"))
+	out.append("Auto-attack after investigation: %s" % ("on, within the rules of engagement" if engage_on_hostile_id else "off"))
 	out.append("Crew voice %s · ambient sound %s" % ["on" if voice else "off", "on" if ambient else "off"])
 	return out
 

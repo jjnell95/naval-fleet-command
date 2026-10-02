@@ -786,6 +786,10 @@ func _apply_look(rec: Dictionary, e: Dictionary, _focus_key: String) -> void:
 		tint = "ghost:%s" % color.to_html(false)
 	elif kind == "plotted" and rec["model_id"].begins_with("marker:"):
 		tint = "marker:%s" % color.to_html(false)
+	elif kind == "plotted":
+		# A subdued class representation; identity stays on the plot and uncertainty ring.
+		# Bright faction-painted hulls read like damage or light emitted by the target itself.
+		tint = "tint:7f99aa"
 	elif kind == "weapon" and under:
 		tint = "ghost:%s" % Color(0.7, 0.85, 0.95).to_html(false)
 	elif rec["model_id"] == "marker:tracer":

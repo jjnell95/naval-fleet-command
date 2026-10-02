@@ -33,6 +33,7 @@ const TABLE := {
 	"titanium": [Finish.METAL, Color("7b848c"), 0.38, 0.8],
 	"bronze": [Finish.METAL, Color("a1733c"), 0.35, 0.75],
 	"rubber": [Finish.ANECHOIC, Color("1b1c20"), 0.6, 0.0],
+	"submarine_coating": [Finish.ANECHOIC, Color("293139"), 0.73, 0.0],
 	"marking_white": [Finish.MARKING, Color("d2d6d0"), 0.7, 0.0],
 	"marking_yellow": [Finish.MARKING, Color("c99c2a"), 0.7, 0.0],
 	"hazard_red": [Finish.MARKING, Color("a32e1f"), 0.62, 0.0],
