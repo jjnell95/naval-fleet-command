@@ -238,6 +238,59 @@ func test_tasking_changes_say_what_changed_and_a_bonus_never_blocks_the_win() ->
 	_cleanup()
 
 
+## A tasking change is made only with the order that explains it. An event whose message places a
+## contact that is no longer there to report on does nothing at all: the box does not move away
+## from a battery that has already been destroyed, silently. And the other side's orders are never
+## kept with the player's tasking updates, whatever they change.
+func test_a_tasking_change_never_comes_without_its_order_and_the_enemys_stay_unheard() -> void:
+	_harness(_convoy(), {"victory": [
+		{"id": "deliver", "type": "reach_area", "callsigns": ["Cargo"], "center_nm": [0, 20], "radius_nm": 3, "text": "Deliver the cargo"}], "loss": []}, [
+		{"id": "battery_fixed", "at_s": 100, "intel": [{"target": "Corvette", "error_nm": 4}],
+			"objectives": {"update": {"deliver": {"center_nm": [0, 30], "text": "Deliver the cargo to the moved box"}}},
+			"message": "TASKING UPDATE: the corvette is near {pos}; the box moves north."},
+		{"id": "red_orders", "side": "RED", "at_s": 100, "objectives": {"update": {"deliver": {"radius_nm": 4}}},
+			"message": "RED: hold the convoy at the narrows."},
+	])
+	Damage.apply(_unit("Corvette"), 10000)
+	_director.tick(100.0)
+	assert_eq(_director.skipped.get("battery_fixed", ""), "unreported", "nothing left to report on")
+	assert_eq(_mm.objective("deliver").center, Vector2(0, 20), "so the box stays where the briefing put it")
+	assert_eq(_mm.objective("deliver").text, "Deliver the cargo")
+	assert_true(_director.fired.has("red_orders"))
+	assert_eq(_heard, [], "the enemy's orders are not on the radio")
+	assert_eq(_mm.tasking_updates, [], "nor in the briefing's tasking updates")
+	_cleanup()
+	# A report on a contact that arrives with the event is always possible.
+	_harness(_convoy(), WATCH, [
+		{"id": "second", "at_s": 10, "reinforcements": [{"platform": "cw90_nanuchka", "callsign": "Second", "faction": "RED", "position_nm": [10, 30]}],
+			"intel": [{"target": "Second", "error_nm": 6}], "message": "A second contact near {pos}."},
+	])
+	_director.tick(10.0)
+	assert_true(_director.fired.has("second") and _heard.size() == 1, str(_heard))
+	_cleanup()
+
+
+## A side that reacts to an enemy's progress reacts to where its own plot puts the enemy, not to
+## where the enemy really is: a track_held condition with an area asks the side's track.
+func test_a_side_reacts_to_where_its_own_plot_puts_a_ship_not_where_she_is() -> void:
+	_harness(_convoy(), WATCH, [
+		{"id": "surge", "side": "RED", "when": {"type": "track_held", "faction": "RED", "callsigns": ["Cargo"], "center_nm": [0, 20], "radius_nm": 5},
+			"ai": [{"units": ["Corvette"], "patrol_nm": [[0, 18]]}]},
+	])
+	var cargo := _unit("Cargo")
+	cargo.position = Vector2(0, 20)
+	_director.tick(10.0)
+	assert_true(_director.fired.is_empty(), "the merchant is in the area, but RED's plot does not hold her")
+	_tm.observe("RED", cargo, Vector2(0, 31), 1.0, 1.0, 20.0, 1.0, 30.0)
+	_director.tick(20.0)
+	assert_true(_director.fired.is_empty(), "RED's plot holds her outside the area")
+	_tm.observe("RED", cargo, Vector2(0, 19), 1.0, 1.0, 30.0, 1.0, 30.0)
+	_director.tick(30.0)
+	assert_true(_tm.find_track("RED", cargo).position.distance_to(Vector2(0, 20)) <= 5.0)
+	assert_true(_director.fired.has("surge"), "RED's plot puts her inside it")
+	_cleanup()
+
+
 func test_unless_cancels_latest_forces_and_expiry_ends_an_event() -> void:
 	_harness(_convoy(), WATCH, [
 		{"id": "report", "at_s": 100, "unless": {"type": "all_units_lost", "callsigns": ["Corvette"]}, "intel": [{"target": "Corvette"}], "message": "At {pos}"},

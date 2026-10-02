@@ -44,7 +44,8 @@ var anchor := Vector2.ZERO
 var events: Array = []
 ## Event id -> the sim time it fired, in the order they fired.
 var fired: Dictionary = {}
-## Event id -> why it never will: "chance", "unless" or "expired".
+## Event id -> why it never will: "chance", "unless", "expired", or "unreported" when the contact
+## its message places is no longer there to report on.
 var skipped: Dictionary = {}
 ## Event id -> what was drawn for it ("variant", "at_s", "latest_s", "happens"), for the record.
 var variant: Dictionary = {}
@@ -165,8 +166,34 @@ func tick(now: float) -> void:
 			continue
 		if not due and e.has("latest_s") and now >= float(e["latest_s"]):
 			due = true
-		if due:
+		if not due:
+			continue
+		if _reportable(e):
 			_fire(e, now)
+		else:
+			skipped[id] = "unreported"
+
+
+## Whether every contact report the event's message reads a position from can be made: its target
+## is still afloat, or enters with this event. An event that cannot say where its contact is does
+## nothing at all, so a tasking change is never made without the order that explains it (a box
+## moved away from a battery that has since been destroyed, say).
+func _reportable(e: Dictionary) -> bool:
+	var text := str(e.get("message", "")).replace("{pos}", "{pos0}")
+	if not text.contains("{pos"):
+		return true
+	var arriving := {}
+	for u in e.get("reinforcements", []):
+		arriving[str(u.get("callsign", ""))] = true
+	var items: Array = e.get("intel", [])
+	for i in items.size():
+		if not text.contains("{pos%d}" % i):
+			continue
+		var name := str((items[i] as Dictionary).get("target", ""))
+		var target := _unit(name)
+		if not arriving.has(name) and (target == null or not target.is_engageable()):
+			return false
+	return true
 
 
 ## Events that have fired, and objectives (victory or loss) that are complete.
@@ -199,9 +226,12 @@ func _fire(e: Dictionary, now: float) -> void:
 	for item: Dictionary in e.get("ready", []):
 		_bring_forward(item, side)
 	var text := _compose(str(e.get("message", "")), reports)
+	# Only a message for the player's side is heard, and only that is kept with the briefing's
+	# tasking updates: the other side's orders are never read out, on the radio or in F1.
+	var heard := text != "" and str(e.get("audience", side)) == player_faction
 	if e.has("objectives") and mission_manager != null:
-		mission_manager.apply_update(e["objectives"], now, text)
-	if text != "" and str(e.get("audience", side)) == player_faction:
+		mission_manager.apply_update(e["objectives"], now, text if heard else "")
+	if heard:
 		message.emit(text)
 
 
