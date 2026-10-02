@@ -968,7 +968,7 @@ func _assembled(p: AIPlan, now: float) -> bool:
 		if not _could_strike(u, p.target):
 			continue
 		potential += 1
-		if _in_hand(u) and u.position.distance_to(p.assembly) <= ASSEMBLY_RADIUS_NM:
+		if _in_hand(u) and u.position.distance_to(_sea_room(u, p.assembly)) <= ASSEMBLY_RADIUS_NM:
 			ready += 1
 	return potential > 0 and ready >= _package_needed(p, potential)
 
@@ -996,7 +996,8 @@ func _assign_attack(p: AIPlan, now: float) -> void:
 		if not _could_strike(u, view):
 			continue
 		potential += 1
-		if _in_hand(u) and u.position.distance_to(ip) <= maxf(IP_ARRIVAL_NM, 0.15 * view.position.distance_to(ip)):
+		# A ship whose point is ashore is in position at the water nearest it.
+		if _in_hand(u) and u.position.distance_to(_sea_room(u, ip)) <= maxf(IP_ARRIVAL_NM, 0.15 * view.position.distance_to(ip)):
 			ready += 1
 	if not p.weapons_free and (now - p.window_since >= p.assembly_window_s or (potential > 0 and ready >= _package_needed(p, potential))):
 		p.weapons_free = true
@@ -1457,12 +1458,14 @@ func _intruder(p: AIPlan, tracks: Array) -> Track:
 	return best
 
 
-## Go to a point and stay there: a ship stops on it, an aircraft flies legs round it.
+## Go to a point and stay there: a ship stops on it, an aircraft flies legs round it. A point
+## ashore is held from the water nearest it; judged against the point itself, a ship sitting off
+## the beach would never have arrived and would be sent there again every cycle.
 func _hold_point(u: Unit, b: Dictionary, point: Vector2, now: float) -> void:
 	if u.is_aircraft():
 		_orbit(u, b, point, ORBIT_RADIUS_NM, now)
 		return
-	if u.position.distance_to(point) <= HOLD_TOLERANCE_NM:
+	if u.position.distance_to(_sea_room(u, point)) <= HOLD_TOLERANCE_NM:
 		if u.waypoints.is_empty() and u.ordered_speed_kn > 0.5:
 			_command(u, b, u.heading_deg, 0.0, now)
 		return

@@ -140,6 +140,19 @@ func _plan(kind: String, extra := {}) -> Dictionary:
 	return d
 
 
+## Moves the harness's units for `seconds`, deciding every two seconds as Simulation does.
+func _play(h: Harness, start: float, seconds: float) -> float:
+	var now := start
+	var next_ai := now
+	while now < start + seconds:
+		if now >= next_ai:
+			h.ai.tick(now)
+			next_ai += 2.0
+		h.um.tick(DT, now)
+		now += DT
+	return now
+
+
 # --- What the formation is after -------------------------------------------------------------
 
 func test_threaten_carrier_fires_at_the_classified_carrier_not_the_nearer_escort() -> void:
@@ -301,6 +314,19 @@ func test_defend_installation_does_not_chase_beyond_its_leash() -> void:
 	assert_true(goal.is_finite())
 	assert_true(goal.length() <= 40.0 + 0.01)
 	assert_true(goal.y > 5.0, "toward the intruder")
+	h.free_all()
+
+
+## A station ashore is held from the water nearest it, not re-ordered every cycle from there.
+func test_a_defender_whose_station_is_ashore_holds_off_the_beach() -> void:
+	var guard := _ship("Guard", Vector2(0, 23), _asm(20.0))
+	var h := _harness([guard], [_plan("defend_installation", {"units": ["Guard"], "objective_nm": [0, 0], "area_radius_nm": 30, "leash_nm": 40})])
+	# Its station, fifteen miles from the installation, is five miles inland on this island.
+	Terrain.load_from({"terrain": {"land": [{"id": "isle", "name": "Isle", "elevation_m": 80.0, "points_nm": [[-20, -20], [20, -20], [20, 20], [-20, 20]]}]}})
+	_play(h, 100.0, 1200.0)
+	assert_true(guard.position.y > 20.0 and guard.position.y < 21.5, "off the beach nearest its station: %s" % guard.position)
+	assert_true(_orders_of(h, Order.Type.MOVE, guard).size() <= 2, "%d moves: arrived and holding, not sent again each cycle" % _orders_of(h, Order.Type.MOVE, guard).size())
+	Terrain.clear()
 	h.free_all()
 
 
