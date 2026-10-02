@@ -345,7 +345,10 @@ func _close_engagement_dialogs() -> void:
 	if _air_operations != null:
 		_air_operations.hide()
 		_air_operations.clear_selection()
-	_air_picking = false
+	if _air_picking:
+		# Cleared first, so the map's cancellation does not reopen Air Operations.
+		_air_picking = false
+		map.cancel_interaction_mode()
 
 
 ## The command screen as a fresh engagement finds it: panels closed and empty, the chart fitted, the
@@ -462,13 +465,27 @@ func load_engagement(path: String) -> String:
 	var validation := SimSnapshot.validate(payload.get("simulation"))
 	if validation != "":
 		return validation
+	# Validation checks the save's shape and every reference before anything changes, but the
+	# restore still replaces the running engagement before it finishes. Keep a copy to put back.
+	var kept := {}
+	if save_refusal() == "":
+		kept = {"simulation": simulation.capture_snapshot(), "presentation": _capture_presentation()}
+	var why := _install_engagement(payload)
+	if why == "":
+		radio.advise("Engagement restored at %s, paused. Space resumes." % SimClock.datetime_string())
+		return ""
+	if not kept.is_empty() and _install_engagement(kept) == "":
+		return why + ". The running engagement was kept"
+	# Nothing to go back to: start the operation over rather than leave a half-built one.
+	start_scenario(simulation.scenario_path)
+	return why
+
+
+func _install_engagement(payload: Dictionary) -> String:
 	_close_engagement_dialogs()
 	_hide_screens()
 	var why := simulation.restore_snapshot(payload["simulation"])
 	if why != "":
-		# Validated but not restorable: the old engagement is gone. Start the operation over rather
-		# than leave a half-built one on the screen.
-		start_scenario(simulation.scenario_path)
 		return why
 	_reset_command_screen()
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
@@ -478,7 +495,6 @@ func load_engagement(path: String) -> String:
 	_modal_pause_captured = false
 	_set_background_input_enabled(true)
 	SimClock.set_paused(true)
-	radio.advise("Engagement restored at %s, paused. Space resumes." % SimClock.datetime_string())
 	return ""
 
 
@@ -764,7 +780,7 @@ func _build_screens() -> void:
 		_saves.refresh()
 		_saves.show_message("Saved." if why == "" else "Cannot save: " + why, why == ""))
 	_saves.delete_requested.connect(func(path: String) -> void:
-		DirAccess.remove_absolute(path)
+		SaveGame.remove(path)
 		_saves.refresh())
 	_saves.load_requested.connect(func(path: String) -> void:
 		var why := load_engagement(path)
@@ -866,7 +882,8 @@ func _set_background_input_enabled(enabled: bool) -> void:
 
 
 func _has_visible_modal() -> bool:
-	return (_menu != null and _menu.visible) \
+	return _air_picking \
+		or (_menu != null and _menu.visible) \
 		or (_briefing != null and _briefing.visible) \
 		or (_editor != null and _editor.visible) \
 		or (_library != null and _library.visible) \
@@ -946,6 +963,11 @@ func _begin_air_pick(contact: bool) -> void:
 
 func _end_air_pick() -> void:
 	_air_picking = false
+	if not _modal_pause_captured:
+		# Nothing should have released Air Operations' pause while the chart was picking, but if
+		# it was, closing the dialog must still hand back the keyboard and a paused clock.
+		_modal_pause_captured = true
+		_modal_was_paused = true
 	SimClock.set_paused(true)
 	_set_background_input_enabled(false)
 	_air_operations.show()

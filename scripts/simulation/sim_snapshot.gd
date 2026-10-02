@@ -127,7 +127,7 @@ class Refs:
 				for k in v:
 					d[k] = enc(v[k])
 				return d
-		return v
+		return _copy_packed(v)
 
 	func dec(v: Variant) -> Variant:
 		match typeof(v):
@@ -145,6 +145,13 @@ class Refs:
 				for k in v:
 					d[k] = dec(v[k])
 				return d
+		return _copy_packed(v)
+
+	## Packed arrays are shared by reference: without a copy a snapshot would keep growing with
+	## the live track it was taken from, and a restored track would share the save's buffer.
+	static func _copy_packed(v: Variant) -> Variant:
+		if typeof(v) >= TYPE_PACKED_BYTE_ARRAY and typeof(v) <= TYPE_PACKED_VECTOR4_ARRAY:
+			return v.duplicate()
 		return v
 
 	func _marker(kind: String, value: Variant) -> Variant:
@@ -320,11 +327,113 @@ static func validate(snap: Variant) -> String:
 		return "Saved engagement is damaged (scenario does not match its checksum)"
 	if not (snap.get("errors", []) as Array).is_empty():
 		return "Saved engagement was written with errors: %s" % ", ".join(snap["errors"])
+	var damaged := _shape_problem(snap)
+	if damaged != "":
+		return "Saved engagement is damaged (%s)" % damaged
 	if int(snap["managers"].get("MissionManager", {}).get("result", MissionManager.Result.RUNNING)) != MissionManager.Result.RUNNING:
 		return "That engagement had already ended"
 	var missing := _missing_catalogue(snap)
 	if missing != "":
 		return "Saved engagement uses %s, which this build does not have" % missing
+	return ""
+
+
+## The first thing wrong with the snapshot's structure, or "": every record where a record should
+## be, ids where ids should be, and every reference pointing at something the snapshot holds. A
+## restore replaces the running engagement before it finishes, so a save that would fail half-way
+## has to be caught here.
+static func _shape_problem(snap: Dictionary) -> String:
+	for key in ["units", "tracks", "weapons"]:
+		if typeof(snap[key]) != TYPE_ARRAY:
+			return "%s" % key
+	for key in ["air_missions", "sonobuoys", "ai"]:
+		if snap.has(key) and typeof(snap[key]) != TYPE_ARRAY:
+			return "%s" % key
+	for key in ["clock", "rng", "simulation", "managers", "objectives"]:
+		if typeof(snap[key]) != TYPE_DICTIONARY:
+			return "%s" % key
+	var ids := {"$u": {}, "$w": {}, "$m": {}}
+	for pair in [["units", "$u"], ["weapons", "$w"], ["air_missions", "$m"]]:
+		for d in snap.get(pair[0], []):
+			if typeof(d) != TYPE_DICTIONARY or typeof(d.get("id")) != TYPE_INT:
+				return "a record in %s" % pair[0]
+			if ids[pair[1]].has(d["id"]):
+				return "two %s with id %d" % [pair[0], d["id"]]
+			ids[pair[1]][d["id"]] = true
+	for key in ["tracks", "sonobuoys"]:
+		for d in snap.get(key, []):
+			if typeof(d) != TYPE_DICTIONARY:
+				return "a record in %s" % key
+	for node in snap["managers"].values():
+		if typeof(node) != TYPE_DICTIONARY:
+			return "managers"
+	for entry in snap.get("ai", []):
+		if typeof(entry) != TYPE_ARRAY or entry.size() != 2 or typeof(entry[0]) != TYPE_STRING or typeof(entry[1]) != TYPE_DICTIONARY:
+			return "ai"
+	for stream in ["sensor", "weapon", "damage"]:
+		var pair: Variant = snap["rng"].get(stream)
+		if typeof(pair) != TYPE_ARRAY or pair.size() != 2 or typeof(pair[0]) != TYPE_INT or typeof(pair[1]) != TYPE_INT:
+			return "random stream %s" % stream
+	if not typeof(snap["clock"].get("sim_time")) in [TYPE_FLOAT, TYPE_INT] or typeof(snap["clock"].get("start_unix_time")) != TYPE_INT:
+		return "clock"
+	for key in ["defence_accum", "ai_accum"]:
+		if not typeof(snap["simulation"].get(key)) in [TYPE_FLOAT, TYPE_INT]:
+			return "simulation"
+	for key in ["victory", "loss"]:
+		var list: Variant = snap["objectives"].get(key, [])
+		if typeof(list) != TYPE_ARRAY:
+			return "objectives"
+		for d in list:
+			if typeof(d) != TYPE_DICTIONARY:
+				return "objectives"
+	for key in snap:
+		if key != "scenario":
+			var bad := _reference_problem(snap[key], ids, (snap["tracks"] as Array).size())
+			if bad != "":
+				return bad
+	return ""
+
+
+## A marker naming a unit, weapon, track or mission the snapshot does not hold, or a malformed one.
+static func _reference_problem(v: Variant, ids: Dictionary, track_count: int) -> String:
+	match typeof(v):
+		TYPE_DICTIONARY:
+			if v.size() == 1:
+				var key = v.keys()[0]
+				if key is String and (key as String).begins_with("$"):
+					var value: Variant = v[key]
+					match key:
+						"$u", "$w", "$m":
+							if typeof(value) != TYPE_INT or not ids[key].has(value):
+								return "%s %s missing" % [{"$u": "unit", "$w": "weapon", "$m": "air mission"}[key], value]
+							return ""
+						"$t":
+							if typeof(value) != TYPE_INT or value < 0 or value >= track_count:
+								return "track %s missing" % value
+							return ""
+						"$p", "$ws", "$s":
+							return "" if typeof(value) == TYPE_STRING else "catalogue reference"
+						"$pairs":
+							if typeof(value) != TYPE_ARRAY:
+								return "paired record"
+							for pair in value:
+								if typeof(pair) != TYPE_ARRAY or pair.size() != 2:
+									return "paired record"
+								for x in pair:
+									var bad := _reference_problem(x, ids, track_count)
+									if bad != "":
+										return bad
+							return ""
+					return "unknown reference %s" % key
+			for k in v:
+				var bad := _reference_problem(v[k], ids, track_count)
+				if bad != "":
+					return bad
+		TYPE_ARRAY:
+			for x in v:
+				var bad := _reference_problem(x, ids, track_count)
+				if bad != "":
+					return bad
 	return ""
 
 

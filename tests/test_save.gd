@@ -217,6 +217,22 @@ func test_damaged_foreign_and_newer_saves_are_refused_and_the_battle_is_untouche
 	var incomplete := good.duplicate(true)
 	incomplete.erase("weapons")
 	cases["incomplete"] = [incomplete, "Saved engagement is incomplete"]
+	# Structural damage that passed earlier checks and stopped a restore half-way.
+	var garbage := good.duplicate(true)
+	garbage["units"][3] = "garbage"
+	cases["garbage record"] = [garbage, "Saved engagement is damaged (a record in units)"]
+	var dangling := good.duplicate(true)
+	dangling["units"][0]["formation_leader"] = {"$u": 999}
+	cases["dangling unit"] = [dangling, "Saved engagement is damaged (unit 999 missing)"]
+	var lost_track := good.duplicate(true)
+	lost_track["managers"]["TrackManager"]["_tracks"]["BLUE"] = [{"$t": 100000}]
+	cases["dangling track"] = [lost_track, "Saved engagement is damaged (track 100000 missing)"]
+	var twin := good.duplicate(true)
+	twin["units"][1]["id"] = twin["units"][0]["id"]
+	cases["duplicate id"] = [twin, "Saved engagement is damaged (two units"]
+	var bad_stream := good.duplicate(true)
+	bad_stream["rng"]["damage"] = ["x"]
+	cases["random stream"] = [bad_stream, "Saved engagement is damaged (random stream damage)"]
 	for name: String in cases:
 		var why := _sim.restore_snapshot(cases[name][0])
 		assert_true(why.begins_with(str(cases[name][1])), "%s: %s" % [name, why])
@@ -248,6 +264,72 @@ func test_save_files_reject_garbage_and_stay_in_their_own_storage() -> void:
 		DirAccess.remove_absolute(str(h["path"]))
 	DirAccess.remove_absolute(_scratch)
 	SaveGame.root_override = ""
+
+
+## Bytes changed on disk inside a well-formed compressed stream must not load as a different
+## battle: the header carries a checksum of the engagement.
+func test_a_save_damaged_on_disk_never_loads_as_a_different_battle() -> void:
+	_fresh(PASSAGE, 31)
+	SimClock.advance(120.0)
+	SaveGame.root_override = _scratch
+	var path := SaveGame.slot_path("flipped")
+	assert_eq(SaveGame.write(path, {"label": "test"}, {"simulation": SimSnapshot.capture(_sim)}), "")
+	var original := var_to_bytes(SaveGame.read(path)["payload"])
+	var raw := FileAccess.get_file_as_bytes(path)
+	var accepted_changed := 0
+	var refused := 0
+	for i in 60:
+		var damaged := raw.duplicate()
+		var at := 8 + int(float(i) / 60.0 * float(raw.size() - 9))
+		damaged[at] = damaged[at] ^ 0x5A
+		var copy := FileAccess.open(path, FileAccess.WRITE)
+		copy.store_buffer(damaged)
+		copy.close()
+		var back := SaveGame.read(path)
+		if str(back.get("error", "")) != "":
+			refused += 1
+		elif var_to_bytes(back["payload"]) != original:
+			accepted_changed += 1
+	assert_eq(accepted_changed, 0, "no damaged file loads as a different battle")
+	assert_true(refused > 0)
+	DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute(_scratch)
+	SaveGame.root_override = ""
+	_free()
+
+
+## A snapshot is a copy: playing on does not change it, and restoring it does not tie the battle
+## to it.
+func test_a_snapshot_shares_no_buffers_with_the_battle() -> void:
+	_fresh(PASSAGE, 31)
+	SimClock.advance(120.0)
+	var snap := SimSnapshot.capture(_sim)
+	var taken := var_to_bytes(snap)
+	SimClock.advance(10.0)
+	assert_true(var_to_bytes(snap) == taken, "the live battle does not write into a snapshot")
+	assert_eq(_sim.restore_snapshot(snap), "")
+	SimClock.advance(10.0)
+	assert_true(var_to_bytes(snap) == taken, "nor into the snapshot it was restored from")
+	_free()
+
+
+## Loading from the list can happen over any operation, or none: the save brings its own world.
+func test_a_save_restores_over_a_different_operation() -> void:
+	_fresh(PASSAGE, 31)
+	SimClock.advance(300.75)
+	var saved := _write_and_read(SimSnapshot.capture(_sim))
+	SimClock.advance(120.0)
+	var expected := _bytes()
+	_free()
+	_fresh(CARRIER_WATCH, 7)
+	SimClock.advance(50.0)
+	assert_eq(_sim.restore_snapshot(saved), "")
+	assert_eq(_sim.scenario_name, str(saved["scenario"].get("name", "")))
+	SimClock.advance(120.0)
+	var got := _bytes()
+	if got != expected:
+		failures.append("restored over another operation, the battle differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
+	_free()
 
 
 ## Every script variable on the saved classes is either saved or listed as transient with a

@@ -147,6 +147,17 @@ func _save_and_reload(m: AirMission) -> void:
 	await _shot("saved-engagements")
 	await _key(KEY_ESCAPE)
 	checks["Escape closes the list"] = not main._saves.visible
+	# A save that passes every check but still cannot be restored (it names an AI side this build
+	# would not create) must leave the running engagement as it was.
+	var kept_time := SimClock.sim_time
+	var kept_units := main.simulation.unit_manager.units.size()
+	var unrestorable := main.simulation.capture_snapshot()
+	(unrestorable["ai"] as Array).append(["GREEN", {}])
+	var bad_path := SaveGame.slot_path("unrestorable")
+	SaveGame.write(bad_path, {"serial": SaveGame.next_serial(), "label": "unrestorable"}, {"simulation": unrestorable})
+	var why := main.load_engagement(bad_path)
+	checks["a save that cannot be restored keeps the running engagement"] = why.contains("kept") and SimClock.sim_time == kept_time and main.simulation.unit_manager.units.size() == kept_units and main._command_taken and main.simulation.air_mission_manager.active_missions("BLUE").size() == 1
+	DirAccess.remove_absolute(bad_path)
 
 
 func _escort_returns_to_station() -> void:
