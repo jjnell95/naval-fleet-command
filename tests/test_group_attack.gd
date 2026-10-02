@@ -547,3 +547,56 @@ func test_a_second_group_order_for_the_same_platforms_and_contact_is_refused() -
 	var fresh := Unit.new()
 	assert_true(_sim.group_attack_manager.overlapping("BLUE", [fresh], [t]) == null, "other platforms may attack the same contact")
 	_done()
+
+
+func test_a_boat_off_the_link_fires_on_its_own_copy_and_the_group_counts_it_as_the_same_contact() -> void:
+	_setup()
+	var astute := _ship("rn_ssn_astute", "HMS Astute", Vector2(0, 22))
+	astute.depth_m = 120.0
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(4, 10))
+	nansen.magazines[NSM] = 2
+	var t := _plot("T1077", Vector2(0, 40))
+	# The boat is deep, off the link: it holds the contact on its own plot, under the same number.
+	assert_true(not astute.datalink_connected() and not t.visible_to(astute))
+	var local := Track.new()
+	local.id = "T1077"
+	local.owner_faction = "BLUE"
+	local.identity = "HOSTILE"
+	local.domain = "surface"
+	local.classification = Track.Classification.SURFACE
+	local.position = Vector2(0, 40.5)
+	local.networked = false
+	local.contributors[astute] = SimClock.sim_time
+	local.last_seen_time = SimClock.sim_time
+	_sim.track_manager._local_keys[astute] = "local:astute"
+	_sim.track_manager._tracks["local:astute"] = [local]
+	_held.append(local)
+	var wm := _sim.weapon_manager
+	var o := _order(nansen, [nansen, astute], [t], 6, 6)
+	var g := _group()
+	assert_true(o.receipt.contains("Fridtjof Nansen 2 × NSM, HMS Astute 4 × Spearfish"), "the boat is given rounds on its own plot: " + o.receipt)
+	assert_eq(wm.group_rounds(g.id, g.target_keys[0]), wm.group_rounds(g.id), "every round, on either copy, is at the one contact")
+	assert_eq(g.target_fired[0], g.fired_total)
+	assert_eq(_spent(g), 6)
+	assert_eq(wm.faction_commitment("BLUE", t), wm.faction_commitment("BLUE", local), "the side's commitment is the same from either copy")
+	# The commander cancels on the shared plot; the boat's rounds, queued on its own copy, still go.
+	assert_true(_sim.unit_manager.issue_order(astute, Order.cancel_fire(t)))
+	assert_eq(wm.group_rounds(g.id, "", true, astute), 0, "cancelled by contact, not by Track object")
+	_done()
+
+
+func test_a_commander_allocation_caps_each_contact_within_the_budget() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var roosevelt := _ship("usn_ddg_arleigh_burke_iia", "USS Roosevelt", Vector2(-4, 0))
+	var first := _plot("T1077", Vector2(0, 40))
+	var second := _plot("T1078", Vector2(10, 40))
+	var o := Order.group_attack([ignatius, roosevelt], [first, second], 10, 0, [8, 8])
+	assert_true(_sim.unit_manager.issue_order(ignatius, o), o.receipt)
+	var g := _group()
+	assert_eq(g.target_share[0], 8, "the first contact gets what was asked")
+	assert_eq(g.target_share[1], 2, "the second only what the budget leaves")
+	assert_eq(_sim.weapon_manager.group_rounds(g.id, g.target_keys[0]), 8)
+	assert_eq(_sim.weapon_manager.group_rounds(g.id, g.target_keys[1]), 2)
+	assert_eq(_spent(g), 10)
+	_done()
