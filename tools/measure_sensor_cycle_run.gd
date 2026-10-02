@@ -10,9 +10,13 @@ extends RefCounted
 ##   --span=S               simulated seconds stepped tick by tick (default 600)
 ##   --clock-span=S         simulated seconds run on the real frame clock at 60x (default 240, 0 skips)
 ##   --repeats=N            default 3; paths are interleaved so machine load falls on each alike
-##   --paths=a,b            "current" (the code as it stands), or "reference" and "optimized" to
-##                          switch SensorManager's old reporting path on and off for an A/B pair
-##   --fresh                rebuild the save at --from
+##   --paths=a,b            "current" (the code as it stands), or "reference" and "optimized" for
+##                          a before/after pair: "reference" switches SensorManager.reference_path
+##                          on (the original pair-by-pair passes) and Terrain.height_shortcut off
+##                          (every sight line walked); "optimized" the reverse. Detection's jam
+##                          early-out is exact and has no switch, so both paths have it.
+##   --profile              also print every profiler path, per tick (sim/*) or per sensor cycle
+##   --fresh                rebuild the save at --from (needed after a change to the save format)
 ##
 ## Stepped phase: the clock is advanced one 0.25 s tick at a time. Each sensor cycle's own time is
 ## read from the profiler (Debug.time_add "sim/sensors" on the ticks the cycle ran), each tick's
@@ -142,10 +146,13 @@ func _restore(tree: SceneTree, scenario: String, save: String, path: String) -> 
 	return sim
 
 
-## "reference" runs SensorManager's original reporting; "optimized" and "current" the code as it is.
+## "reference" runs the sensor cycle as it was before it was optimised: SensorManager's
+## pair-by-pair passes, and every sight line walked to the end. "optimized" and "current" run the
+## code as it is.
 func _set_path(sim: Simulation, path: String) -> void:
 	if path == "reference" or path == "optimized":
-		sim.sensor_manager.set("reference_path", path == "reference")
+		sim.sensor_manager.reference_path = path == "reference"
+		Terrain.height_shortcut = path != "reference"
 
 
 func _free(sim: Simulation) -> void:
