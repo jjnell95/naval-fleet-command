@@ -610,3 +610,43 @@ func test_mission_airframes_launch_under_the_tightest_rules_on_the_station() -> 
 	_advance(4.0)
 	assert_true(a.attack_track != raid, "no intercept under the deck's weapons hold")
 	_done()
+
+
+func test_legacy_save_mid_dip_restores_the_search_route_and_deploys_deliberately() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.ASW, "cw90_sh3h", 1, cv.position + Vector2(12, 6), 8.0)))
+	var m := _mission()
+	var helo: Unit
+	for second in 1800:
+		_advance(1.0)
+		if m.aircraft.is_empty(): continue
+		helo = m.aircraft[0]
+		if DippingSonar.listening(helo): break
+	assert_true(helo != null and DippingSonar.listening(helo))
+	if helo == null:
+		_done()
+		return
+	# Reproduce the old save format: the crew stopped but kept its standing station,
+	# a task deadline was saved, and Unit had no deployment fields.
+	var stop := Order.stop()
+	stop.origin = "crew"
+	assert_true(_sim.unit_manager.issue_order(helo, stop))
+	m.tasks[helo].erase("dip_cycle")
+	m.tasks[helo]["dip_until"] = SimClock.sim_time + 30.0
+	var saved := SimSnapshot.capture(_sim)
+	for u: Dictionary in saved["units"]:
+		u.erase("dip_phase")
+		u.erase("dip_timer_s")
+		u.erase("dip_listen_s")
+	assert_eq(_sim.restore_snapshot(saved), "")
+	m = _mission()
+	helo = m.aircraft[0]
+	assert_eq(helo.dip_phase, DippingSonar.Phase.STOWED)
+	_advance(1.0)
+	assert_true(helo.dip_phase != DippingSonar.Phase.STOWED and not DippingSonar.listening(helo), "the old timer cannot invent an instantly deployed array")
+	assert_true(helo.patrol_active and helo.on_station(), "the standing search intent survives the migration")
+	_advance(95.0)
+	assert_eq(helo.dip_phase, DippingSonar.Phase.STOWED)
+	assert_true(helo.patrol_active and helo.speed_kn > DippingSonar.MAX_SPEED_KN, "the crew resumes its search instead of remaining stopped")
+	_done()

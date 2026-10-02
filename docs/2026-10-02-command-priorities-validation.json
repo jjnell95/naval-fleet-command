@@ -169,8 +169,8 @@
     "failed": 0
   },
   "web_pack": {
-    "bytes": 57141404,
-    "sha256": "85206a89c228bb7a2e2590d846a81300dc5ef8b903c4d2f9ce5723997d3ec274",
+    "bytes": 57142220,
+    "sha256": "c6be771dfe41fa175e7912abf8b168430c2ad68a33d1a9656e52f50dc3597692",
     "godot": "4.7.2",
     "loader_size_matches": true
   },
@@ -443,5 +443,11 @@
         "sim_time_s": 44.0
       }
     }
-  }
+  },
+  "legacy_air_mission_suite": {
+    "tests": 24,
+    "failed": 0,
+    "additional_case": "Old ASW save mid-dip restores its standing route, deploys deliberately, and resumes its search."
+  },
+  "unique_tests_passed": 899
 }

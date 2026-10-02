@@ -24,13 +24,13 @@ Only the listening phase participates in dipping-sonar passive detection, active
 
 Navigation, evasion and recovery retract the array before movement resumes. The cycle preserves navigation intent instead of restoring a stale route over a newer command. Automatic fuel returns cannot begin final approach with an array deployed. Land, a lost hover and sensor damage prevent a working dipped array. Hull and towed sonar retain their existing model.
 
-The phase and countdown are part of the saved Unit state. Lowering, listening and raising continuations match an uninterrupted simulation byte for byte after disk save/reload. Older saves without these fields load stowed.
+The phase and countdown are part of the saved Unit state. Lowering, listening and raising continuations match an uninterrupted simulation byte for byte after disk save/reload. Older saves without these fields load stowed. Legacy ASW missions saved during the old stopped-helicopter dip restore their search route, deliberately lower the array for the remaining listening interval, then continue the circuit.
 
 ![A deliberately deployed sonar listening](review/command-priorities/sonar-listening-1280.png)
 
 ## Validation
 
-- Full regression run: **897 passed**, followed by **7 passed** in the focused sonar suite, including one additional land/hover case. GitHub subsequently passed the expanded **898-test** suite.
+- Full regression run: **897 passed**, followed by **7 passed** in the focused sonar suite, including one additional land/hover case. GitHub subsequently passed the expanded **898-test** suite. A later **24-test air-mission run** includes one additional legacy mid-dip save case, for **899 unique passing tests**.
 - New native viewport suite: **57 checks passed at 1280×720 and 57 at 1920×1080**. It exercises 100/110/125% scale selection, layout, the sole launch action, both modal clock states, sonar commands, the operations desk and briefing.
 - Existing carrier mission workflow at **125% / 1280×720: 62 checks passed**, including chart station selection, assignment, recovery and saved-state interaction.
 - Northern Passage: both escort seeds win, the repeated seed matches exactly, and abandonment, deadline and civilian-attack policies still lose as intended (7 runs, 139 checks).

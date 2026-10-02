@@ -653,6 +653,16 @@ func _step_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 	if a.station_mission_id != m.id:
 		_release(m, a)
 		return
+	# Legacy saves used STOP plus an absolute dip_until time, with no physical array state.
+	# Restore their standing route before starting a deliberate cycle; otherwise on_station()
+	# stays false forever. Do this on a tick, so snapshot restoration itself emits no orders.
+	var legacy_until := float(task.get("dip_until", -1.0))
+	if legacy_until > 0.0:
+		task.erase("dip_until")
+		task["next_dip_at"] = now_s + DIP_INTERVAL_S
+		if _crew(a, Order.return_to_station()) and legacy_until > now_s:
+			task["dip_cycle"] = _crew(a, Order.deploy_dipping_sonar(legacy_until - now_s))
+		return
 	if bool(task.get("dip_cycle", false)):
 		if a.dip_phase != DippingSonar.Phase.STOWED:
 			task["state"] = AirMission.DIPPING
