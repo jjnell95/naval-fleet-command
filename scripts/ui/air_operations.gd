@@ -641,7 +641,7 @@ func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reas
 			where = "TARGET: none — PICK TARGET, or open Air strike from a contact's menu"
 	elif _station.is_finite():
 		var on_station := AirMissionManager.station_time_s(spec, _base.position.distance_to(_station))
-		where = "STATION: %s  ·  %.0f nm %s from %s  ·  radius %.0f nm  ·  about %d min on station each" % ["%s/%s" % [Geo.format_axis(_station.x, "E", "W"), Geo.format_axis(_station.y, "N", "S")], _base.position.distance_to(_station), Geo.format_bearing(Geo.bearing_deg(_base.position, _station)), _base.callsign, _radius.value, maxi(int(on_station / 60.0), 0)]
+		where = "STATION: %s  ·  %.0f nm %s from %s  ·  radius %.0f nm  ·  about %d min on station each" % [_position_text(_station), _base.position.distance_to(_station), Geo.format_bearing(Geo.bearing_deg(_base.position, _station)), _base.callsign, _radius.value, maxi(int(on_station / 60.0), 0)]
 	else:
 		where = "STATION: none — PICK ON CHART to place it"
 	_station_label.text = where
@@ -729,11 +729,23 @@ func _rebuild_deck(rows: Array[Unit]) -> void:
 		(_deck.get_child(base_cell + 4) as Label).text = "%d%%" % int(a.fuel_fraction() * 100.0)
 
 
+## A chart position as the chart's own readout writes it: latitude and longitude where the scenario
+## is charted, nautical miles from the origin otherwise.
+func _position_text(p: Vector2) -> String:
+	var m: Dictionary = simulation.scenario.get("map", {})
+	if m.has("anchor_lat"):
+		var ll := Geo.world_to_latlon(p, float(m["anchor_lat"]), float(m["anchor_lon"]))
+		return ChartReadout.format_position(ll.x, ll.y)
+	return ChartReadout.format_offset(p)
+
+
 func _launch_selected() -> void:
 	if _base == null or _type_id == "" or _launch.disabled or int(_count.value) <= 0:
 		return
 	if _mission_kind >= 0:
 		order_requested.emit(_base, Order.air_mission(_mission_kind, _type_id, int(_count.value), _station, float(_radius.value), _target, _relief.button_pressed, _auto_return.button_pressed))
+		# As a launch does: the lamps go dark, so Ok afterwards resumes rather than assigning again.
+		_count.set_value_no_signal(0)
 		_lower_tabs.current_tab = 1
 		refresh()
 		return
@@ -875,7 +887,7 @@ func _refresh_mission_detail() -> void:
 		return
 	var m := _selected_mission
 	var where := "track %s" % m.target_id if m.kind == AirMission.Kind.STRIKE else "%.0f nm radius" % m.radius_nm
-	_mission_detail.text = "%s from %s, %s%s%s. %s" % [m.label(), m.base_callsign, where, " · relief from reserve" if m.relief else "", " · back to station after a task" if m.auto_return and m.kind != AirMission.Kind.STRIKE else "", m.note]
+	_mission_detail.text = "%s from %s, %s%s%s.\nLast report: %s" % [m.label(), m.base_callsign, where, " · relief from reserve" if m.relief else "", " · back to station after a task" if m.auto_return and m.kind != AirMission.Kind.STRIKE else "", m.note]
 
 
 func _cancel_selected_mission() -> void:

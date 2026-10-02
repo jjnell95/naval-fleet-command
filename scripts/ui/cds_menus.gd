@@ -92,12 +92,12 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		var under := -1.0
 		var floor_m := -1.0
 		for u: Unit in diving:
-			var d := Acoustics.below_layer_depth_m(u)
+			var d := Acoustics.below_layer_depth_m(u, true)
 			if d > under:
 				under = d
-				floor_m = Acoustics.bottom_m(u)
+				floor_m = Acoustics.bottom_m(u, true)
 			elif floor_m < 0.0:
-				floor_m = Acoustics.bottom_m(u)
+				floor_m = Acoustics.bottom_m(u, true)
 		for d in DEPTHS:
 			var blocked: bool = d[1] == -2.0 and under < 0.0
 			depths.append(item(d[0], {"kind": "depth", "metres": d[1]}, blocked, under_layer_reason(under, floor_m) if d[1] == -2.0 else ""))

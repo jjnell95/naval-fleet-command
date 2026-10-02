@@ -319,7 +319,7 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null, group_att
 			return "Tanking on %s" % u.tanking_on.callsign
 		if u.patrol_active:
 			if u.station_kind == "patrol" and u.station_label not in ["", "PATROL"]:
-				return "%s (%d legs flown)" % [u.station_label.capitalize(), u.patrol_legs_completed]
+				return "%s (%d legs flown)" % [station_name(u.station_label), u.patrol_legs_completed]
 			return "Patrol circuit (%d legs flown)" % u.patrol_legs_completed
 		if u.has_station():
 			return "Off station" + _off_station_hint(u)
@@ -347,7 +347,18 @@ static func _off_station_hint(u: Unit) -> String:
 		return " · " + u.station_note.to_lower()
 	if not u.has_station() or u.on_station():
 		return ""
-	return " · S returns to %s" % (u.station_label.to_lower() if u.station_label != "" else "station")
+	return " · S returns to %s" % (station_name(u.station_label, false) if u.station_label != "" else "station")
+
+
+## "CAP STATION" reads "CAP station"; "SCREEN STATION" reads "Screen station". Acronyms stay up.
+static func station_name(label: String, sentence_case := true) -> String:
+	var words := PackedStringArray()
+	for word: String in label.split(" ", false):
+		words.append(word if word in ["CAP", "ASW", "AEW"] else word.to_lower())
+	var text := " ".join(words)
+	if sentence_case and text != "" and not words[0] in ["CAP", "ASW", "AEW"]:
+		text = text[0].to_upper() + text.substr(1)
+	return text
 
 
 static func sensors_text(u: Unit) -> String:

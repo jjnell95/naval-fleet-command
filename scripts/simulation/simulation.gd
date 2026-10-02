@@ -34,6 +34,9 @@ var ai_enabled := true
 var ai_plays_player := false
 var scenario_path := ""
 var seed_override := -1
+## The seed this engagement was started with, whether pinned, forced or drawn. Saved games keep it.
+var base_seed := 0
+var _in_tick := false
 
 
 func _ready() -> void:
@@ -90,9 +93,26 @@ func _ready() -> void:
 
 
 func load_scenario(path: String) -> bool:
-	scenario = ScenarioLoader.load_file(path)
-	if scenario.is_empty():
+	var loaded := ScenarioLoader.load_file(path)
+	if loaded.is_empty():
 		return false
+	_install_scenario(loaded, path)
+	base_seed = _resolve_seed(scenario)
+	sensor_manager.rng.seed = base_seed
+	weapon_manager.rng.seed = base_seed ^ 0x5EED
+	Damage.rng.seed = base_seed ^ 0xDA46
+	ScenarioLoader.populate(unit_manager, scenario)
+	mission_manager.configure(scenario)
+	_build_ai()
+	SimClock.reset(ScenarioLoader.start_unix_time(scenario))
+	return true
+
+
+## The world an engagement is fought in, from a scenario: chart, environment, the managers emptied,
+## the objectives and the timed events. A new mission and a restored one both start from this; a
+## new one then populates its forces, a restored one puts back the ones it saved.
+func _install_scenario(sc: Dictionary, path: String) -> void:
+	scenario = sc
 	# Keep full-rate sensors, defence and AI on different fixed ticks instead of one burst.
 	_defence_accum = 0.5
 	_ai_accum = 0.25
@@ -121,19 +141,31 @@ func load_scenario(path: String) -> bool:
 	aviation_manager.clear()
 	air_mission_manager.clear()
 	group_attack_manager.clear()
-	var base_seed := _resolve_seed(scenario)
-	sensor_manager.rng.seed = base_seed
-	weapon_manager.rng.seed = base_seed ^ 0x5EED
-	Damage.rng.seed = base_seed ^ 0xDA46
-	ScenarioLoader.populate(unit_manager, scenario)
 	mission_manager.player_faction = player_faction
-	mission_manager.configure(scenario)
 	operation_events = scenario.get("events", []).duplicate(true)
 	completed_events.clear()
-	_build_ai()
-	SimClock.reset(ScenarioLoader.start_unix_time(scenario))
-	return true
 
+
+## The running engagement as plain data, between ticks only. See SimSnapshot.
+func capture_snapshot() -> Dictionary:
+	if _in_tick:
+		return {}
+	return SimSnapshot.capture(self)
+
+
+## Replaces the running engagement with a saved one. Returns "" or the reason it was refused; a
+## refused snapshot leaves the running engagement as it was.
+func restore_snapshot(snap: Variant) -> String:
+	if _in_tick:
+		return "Cannot load while the simulation is stepping"
+	var why := SimSnapshot.validate(snap)
+	if why != "":
+		return why
+	var data: Dictionary = SimSnapshot.migrate(snap)
+	SimClock.set_paused(true)
+	_install_scenario(data["scenario"].duplicate(true), str(data.get("scenario_path", "")))
+	mission_manager.configure(scenario)
+	return SimSnapshot.restore(self, data)
 
 ## Scenarios stay reproducible when they pin a seed or the session forces one; otherwise every
 ## run of the same scenario plays out differently.
@@ -230,6 +262,12 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 
 
 func _on_tick(dt: float) -> void:
+	_in_tick = true
+	_step(dt)
+	_in_tick = false
+
+
+func _step(dt: float) -> void:
 	var profile_at := Time.get_ticks_usec()
 	_tick_operation_events(SimClock.sim_time)
 	unit_manager.tick(dt, SimClock.sim_time)
