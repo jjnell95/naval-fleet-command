@@ -32,6 +32,11 @@ const MAX_RADIUS_NM := 80.0
 const BUOY_SPACING_NM := 5.0
 const BUOY_INTERVAL_S := 90.0
 const ASW_ALTITUDE_M := 150.0
+## A helicopter with a dipping set searches by stopping low in the area to lower it, listening for
+## a while, then moving on along the search circuit. GAMEPLAY_ESTIMATE timings.
+const DIP_S := 180.0
+const DIP_INTERVAL_S := 240.0
+const DIP_ALTITUDE_M := 50.0
 ## A held radar altitude above this marks an unclassified contact as probably airborne.
 const AIRBORNE_ALTITUDE_M := 30.0
 
@@ -536,6 +541,17 @@ func _step_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 	if a.station_mission_id != m.id:
 		_release(m, a)
 		return
+	var dip_until := float(task.get("dip_until", -1.0))
+	if dip_until > now_s:
+		task["state"] = AirMission.ON_STATION  # in the water and listening
+		return
+	if dip_until > 0.0:
+		# The dip is over: the set comes up and the helicopter moves on along the search circuit.
+		task["dip_until"] = -1.0
+		task["next_dip_at"] = now_s + DIP_INTERVAL_S
+		_crew(a, Order.return_to_station())
+		_crew(a, Order.set_altitude(ASW_ALTITUDE_M))
+		return
 	if not a.on_station():
 		# A task ended with auto-return off: the airframe holds until told to go back (S).
 		task["state"] = AirMission.HOLDING
@@ -649,6 +665,12 @@ func _asw_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 				task["state"] = AirMission.INVESTIGATING
 				_report(m, "%s prosecuting track %s" % [a.callsign, t.id], true)
 				return
+	if _dips(a) and a.position.distance_to(m.station) <= m.radius_nm and now_s >= float(task.get("next_dip_at", 0.0)) and not Terrain.is_land(a.position):
+		# Stop low and lower the dipping set: it hears nothing at transit speed or height.
+		if _crew(a, Order.stop()):
+			_crew(a, Order.set_altitude(DIP_ALTITUDE_M))
+			task["dip_until"] = now_s + DIP_S
+			return
 	if a.sonobuoys <= 0 or a.spec.sonobuoy_sensitivity_nm <= 0.0:
 		return
 	if a.position.distance_to(m.station) > m.radius_nm or now_s - float(task["buoy_at"]) < BUOY_INTERVAL_S:
@@ -658,6 +680,16 @@ func _asw_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 			return
 	if _crew(a, Order.deploy_sonobuoy()):
 		task["buoy_at"] = now_s
+
+
+## A helicopter carrying a sonar that only works in the water: a dipping set.
+static func _dips(a: Unit) -> bool:
+	if not a.spec.can_hover:
+		return false
+	for s in a.sensors:
+		if s.kind == "sonar" and s.requires_hover:
+			return true
+	return false
 
 
 ## A strike flies straight at its target on the attack task, and comes home once it is over.
