@@ -234,6 +234,97 @@ func test_each_operation_draws_its_shape_from_the_engagement_seed() -> void:
 	assert_eq(operations, 7)
 
 
+## Every operation gives the opposing force a mission of its own (an AIPlan) instead of leaving it to
+## shoot at the nearest contact: the plan's members are the enemy's own units and the wing elements
+## tagged for it, a raid or swarm that enters later is tagged to join on arrival, and nothing in a
+## plan names a unit of the player's side. Plans act only on the enemy's own picture (test_ai_plans).
+func test_each_operation_gives_the_enemy_a_mission_plan() -> void:
+	SimClock.set_paused(true)
+	var operations := 0
+	for entry: Dictionary in ScenarioIndex.list_all():
+		if entry.custom or entry.collection != "operations":
+			continue
+		operations += 1
+		var sc := ScenarioLoader.load_file(entry.path)
+		var defs: Array = sc.get("ai_plans", [])
+		assert_true(not defs.is_empty(), "%s gives the enemy a plan" % entry.id)
+		assert_eq(ScenarioWorkshop.validate(sc), "", entry.id)
+		var player_units := {}
+		for u: Dictionary in sc["units"]:
+			if u["faction"] == sc.get("player_faction", "BLUE"):
+				player_units[u["callsign"]] = true
+		for d: Dictionary in defs:
+			for key: String in ["units", "protect", "recon"]:
+				for name in d.get(key, []):
+					assert_true(typeof(name) != TYPE_STRING or not player_units.has(name), "%s: a plan never names %s" % [entry.id, name])
+		var sim := Simulation.new()
+		sim.seed_override = 2
+		(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+		assert_true(sim.load_scenario(entry.path))
+		SimClock.advance(2.0)  # the first decision cycle adopts the members
+		var c: AIController = sim.ai_controllers.get("RED")
+		assert_true(c != null and c.plans.size() == defs.size(), entry.id)
+		for p: AIPlan in c.plans:
+			assert_true(not p.members.is_empty(), "%s: plan %s has members from the start" % [entry.id, p.id])
+			for m: Unit in p.members:
+				assert_eq(m.faction, "RED", "%s: %s" % [p.id, m.callsign])
+		# Units that enter later join the plan their tag names.
+		for e: Dictionary in sc.get("events", []):
+			for shape: Dictionary in [e] + e.get("variants", []):
+				for r: Dictionary in shape.get("reinforcements", []):
+					if r.has("ai_plan"):
+						assert_true(defs.any(func(d: Dictionary) -> bool: return d["id"] == r["ai_plan"]), "%s: %s joins a plan that exists" % [entry.id, r["callsign"]])
+		sim.unit_manager.clear()
+		sim.free()
+	assert_eq(operations, 7)
+
+
+## The acceptance case in a shipped operation: in Carrier Watch the Soviet force is after the
+## carrier. Slava and the Backfire hold their first rounds until their own picture has classified
+## her, then fire at her together, past the cruiser and the destroyer nearer them.
+func test_carrier_watch_raid_pursues_the_carrier_not_the_nearest_escort() -> void:
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	sim.seed_override = 13
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario("res://data/scenarios/cold_war_03_carrier.json"))
+	var shots: Array = []
+	var record := func(u: Unit, o: Order) -> void:
+		if u.faction == "RED" and o.type == Order.Type.ENGAGE and o.track != null:
+			shots.append({"t": SimClock.sim_time, "unit": u.callsign, "category": o.track.known_category, "truth": o.track.truth})
+	sim.unit_manager.order_issued.connect(record)
+	while shots.is_empty() and SimClock.sim_time < 2400.0:
+		SimClock.advance(10.0)
+	sim.unit_manager.order_issued.disconnect(record)
+	assert_true(not shots.is_empty(), "the raid fires within forty minutes")
+	var carrier: Unit = null
+	for u in sim.unit_manager.units:
+		if u.callsign == "USS Dwight D. Eisenhower (CVN 69)":
+			carrier = u
+	var first: Dictionary = shots[0]
+	assert_true(str(first["category"]).contains("carrier"), "the first round goes at a contact classified as a carrier: %s" % first)
+	assert_eq(first["truth"], carrier)
+	var plan: AIPlan = sim.ai_controllers["RED"].plans[0]
+	assert_eq(plan.kind, AIPlan.Kind.THREATEN_CARRIER)
+	for shot: Dictionary in shots:
+		assert_true(shot["t"] == first["t"] and shot["truth"] == carrier, "one volley, at the carrier: %s" % shot)
+	var nearer := 0
+	for name: String in ["USS Bunker Hill (CG 52)", "USS Spruance (DD 963)"]:
+		for u in sim.unit_manager.units:
+			if u.callsign == name and u.position.distance_to(_unit_by_name(sim, "Slava").position) < carrier.position.distance_to(_unit_by_name(sim, "Slava").position):
+				nearer += 1
+	assert_true(nearer > 0, "an escort stood nearer Slava than the carrier did")
+	sim.unit_manager.clear()
+	sim.free()
+
+
+func _unit_by_name(sim: Simulation, callsign: String) -> Unit:
+	for u in sim.unit_manager.units:
+		if u.callsign == callsign:
+			return u
+	return null
+
+
 ## A player's start of an operation draws its events from a fresh variation seed; the engagement's
 ## own streams (sensors, weapons, damage) keep the scenario seed, and a save keeps the variation.
 func test_a_fresh_variation_changes_the_draw_and_nothing_else() -> void:

@@ -59,6 +59,9 @@ var optional := false
 var min_classification := 0
 var allow_stale := false
 var include_reports := false
+## TRACK_HELD with a `center_nm`: the plot must also put the contact inside the area, where the
+## side's own track says it is. A side reacting to an enemy's progress reacts to what it can see.
+var plotted_in_area := false
 ## UNIT_DAMAGED: a named unit below this share of its health, or lost.
 var health_below := 1.0
 ## AIRCRAFT_READY: the airframe type at the named bases, by catalogue id or part of one.
@@ -93,6 +96,7 @@ static func from_dict(d: Dictionary) -> MissionObjective:
 	o.min_classification = int(CLASSIFICATION_NAMES.get(str(d.get("min_classification", "UNKNOWN")), 0))
 	o.allow_stale = bool(d.get("allow_stale", false))
 	o.include_reports = bool(d.get("include_reports", false))
+	o.plotted_in_area = o.kind == Kind.TRACK_HELD and d.has("center_nm")
 	o.health_below = float(d.get("health_below", 1.0))
 	o.platform = str(d.get("platform", ""))
 	for child in d.get("of", []):
@@ -243,8 +247,8 @@ func _test(um: UnitManager, now: float, tm: TrackManager = null) -> bool:
 	return false
 
 
-## Named units this side's own plot holds well enough. The plot is the faction's networked one,
-## the picture its commander would be acting on.
+## Named units this side's own plot holds well enough (and, given an area, puts inside it). The
+## plot is the faction's networked one, the picture its commander would be acting on.
 func _held_count(um: UnitManager, tm: TrackManager) -> int:
 	if tm == null:
 		return 0
@@ -259,6 +263,8 @@ func _held_count(um: UnitManager, tm: TrackManager) -> int:
 		if t.status == Track.Status.STALE and not allow_stale:
 			continue
 		if t.reported and not include_reports:
+			continue
+		if plotted_in_area and t.position.distance_to(center) > radius_nm:
 			continue
 		if int(t.classification) >= min_classification:
 			held += 1

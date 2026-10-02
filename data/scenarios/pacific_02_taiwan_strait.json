@@ -33520,7 +33520,9 @@
               21.9251,
               108.0
             ]
-          ]
+          ],
+          "ai_plan": "carrier_strike",
+          "ai_role": "recon"
         }
       ],
       "aviation_reload_cycles": 2
@@ -33647,7 +33649,7 @@
   },
   "forces": "US/Japan: 1 carrier (fictional 59-aircraft wing), 1 cruiser, 1 Flight III and 1 Flight IIA destroyer, 2 JMSDF destroyers, 1 submarine, Kadena det  ·  PLAN: 1 Type 055, 1 Type 052D, 1 Type 054A, 1 replenishment ship, 1 submarine, 4 H-6J in two raid elements, Huian fighter and early-warning det, 2 coastal batteries  ·  Neutral shipping",
   "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
-  "operation_revision": 26,
+  "operation_revision": 27,
   "collection": "operations",
   "operation_plan": [
     {
@@ -33708,7 +33710,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "carrier_strike"
             },
             {
               "platform": "pla_bomber_h6j",
@@ -33731,7 +33734,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "carrier_strike"
             }
           ]
         },
@@ -33759,7 +33763,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "carrier_strike"
             },
             {
               "platform": "pla_bomber_h6j",
@@ -33782,7 +33787,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "carrier_strike"
             }
           ]
         }
@@ -33847,6 +33853,32 @@
         ]
       },
       "message": "TASKING UPDATE: Kadena's P-8 reports the PLAN surface group near {pos}, accuracy about 20 nm, working south. Neutralizing Nanchang and Xi'an is a bonus task; the five-hour watch is still the mission."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "carrier_strike",
+      "faction": "RED",
+      "kind": "threaten_carrier",
+      "units": [
+        "Nanchang (101)",
+        "Xi'an (153)",
+        "Xuzhou (530)",
+        "Badger 1",
+        "Badger 2",
+        "PLARF battery, Fujian interior"
+      ],
+      "objective_nm": [
+        105.0,
+        -15.0
+      ],
+      "area_radius_nm": 80,
+      "package": 3,
+      "assembly_window_s": 900,
+      "spread_deg": 120,
+      "budget": 8,
+      "assess_s": 600,
+      "threat_nm": 25
     }
   ]
 }

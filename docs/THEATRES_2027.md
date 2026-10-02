@@ -6,7 +6,8 @@ game deliberately does not claim. Every performance number in `data/platforms/th
 `data/weapons/pla_*`, `jmsdf_*`, `jasdf_*`, `jgsdf_*`, `irn_*`, `rfn_48n6_sam` and the matching sensors is a
 `GAMEPLAY_ESTIMATE` on the catalogue's existing scale (Harpoon 70 nm at 480 kn, SM-2 45 nm, SPY-1D(V)
 200 nm against air, a Virginia at acoustic signature 0.08, a Kilo at 0.05). Nothing here is a
-capability assessment, and the six operations are fictional situations on real charts.
+capability assessment, and the operations that use it (Taiwan Strait, Hormuz and Tartus since M35) are
+fictional situations on real charts.
 
 ## Rules that kept the catalogue honest
 

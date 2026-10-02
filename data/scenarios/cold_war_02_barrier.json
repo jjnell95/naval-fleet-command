@@ -23154,7 +23154,7 @@
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
   },
-  "operation_revision": 26,
+  "operation_revision": 27,
   "collection": "operations",
   "operation_plan": [
     {
@@ -23309,7 +23309,9 @@
               -2.984,
               -8.4
             ]
-          ]
+          ],
+          "ai_plan": "breakout",
+          "ai_role": "escort"
         }
       ],
       "intel": [
@@ -23347,6 +23349,18 @@
         }
       },
       "message": "TASKING UPDATE: the fixed array holds a second submerged contact near {pos}, accuracy about 15 nm, heading for the same gap. It must not cross the barrier either; neutralizing the boats now means both."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "breakout",
+      "faction": "RED",
+      "kind": "protect_breakout",
+      "protect": [
+        "Soviet submarine (Victor III)"
+      ],
+      "screen_nm": 4,
+      "engage_within_nm": 8
     }
   ]
 }

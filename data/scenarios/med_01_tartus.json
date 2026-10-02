@@ -6552,7 +6552,8 @@
               -19.8027,
               -24.0
             ]
-          ]
+          ],
+          "ai_plan": "amphibious_strike"
         },
         {
           "platform": "rfn_strike_su34",
@@ -6570,7 +6571,8 @@
               -24.0
             ]
           ],
-          "ready_after_s": 12600
+          "ready_after_s": 12600,
+          "ai_plan": "amphibious_strike"
         },
         {
           "platform": "rfn_fighter_su35s",
@@ -6626,7 +6628,9 @@
               -19.8027,
               24.0
             ]
-          ]
+          ],
+          "ai_plan": "amphibious_strike",
+          "ai_role": "recon"
         }
       ],
       "aviation_reload_cycles": 2
@@ -6796,7 +6800,7 @@
   },
   "forces": "France/Italy/UK: 1 carrier (air group det), 1 amphibious ship, 1 destroyer, 1 frigate, 1 submarine, Akrotiri det  ·  Russia: 1 frigate, 1 missile corvette, 1 submarine, Khmeimim strike and patrol det, coastal battery and SAM site  ·  Neutral traffic",
   "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
-  "operation_revision": 26,
+  "operation_revision": 27,
   "collection": "operations",
   "operation_plan": [
     {
@@ -6898,16 +6902,17 @@
       "side": "RED",
       "at_s": 0,
       "when": {
-        "type": "reach_area",
+        "type": "track_held",
+        "faction": "RED",
         "callsigns": [
           "FS Mistral (L 9013)"
         ],
+        "min_classification": "UNKNOWN",
         "center_nm": [
           -75.0,
           -26.0
         ],
-        "radius_nm": 15,
-        "count": 1
+        "radius_nm": 15
       },
       "latest_s_window": [
         7200,
@@ -6993,6 +6998,41 @@
         }
       ],
       "message": "An RAF Poseidon reports a possible snorkel near {pos}, accuracy about 6 nm, on Mistral's side of the lane."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "tartus_defence",
+      "faction": "RED",
+      "kind": "defend_installation",
+      "units": [
+        "Admiral Grigorovich (494)",
+        "Vyshny Volochyok (609)"
+      ],
+      "protect": [
+        "Tartus coastal battery"
+      ],
+      "area_radius_nm": 70,
+      "leash_nm": 80,
+      "threat_nm": 15
+    },
+    {
+      "id": "amphibious_strike",
+      "faction": "RED",
+      "kind": "attack_shipping",
+      "priorities": [
+        "amphibious",
+        "carrier"
+      ],
+      "objective_nm": [
+        -40.0,
+        -25.0
+      ],
+      "area_radius_nm": 60,
+      "spread_deg": 60,
+      "budget": 6,
+      "assess_s": 300,
+      "threat_nm": 15
     }
   ]
 }

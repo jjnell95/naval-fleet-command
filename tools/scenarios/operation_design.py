@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # Bumped when the pass changes. A file already at or past it is left alone, so running this module
 # on its own only re-encodes the shipped files; regenerate through the five builders.
-REVISION = 26
+REVISION = 27
 # Each operation has a distinct command problem: one 2027 operation per chart region and three
 # 1990 operations. M35 cut the overlapping missions; the two exercises stay on the Training shelf.
 PLANS = {
@@ -313,8 +313,9 @@ def _hormuz(d):
     def swarm(origin, route):
         return [_moved(boat, [origin[0] + 1.2 * (i % 2), origin[1] - 1.0 * i], route, callsign='Peykaap %d' % (7 + i)) for i in range(4)]
     return [
-        # The convoy passing Larak is the signal for a second swarm, from ahead or from astern.
-        dict(id='second_swarm', side='RED', chance=0.6, when=reach(tankers, [-13.4, 12.0], 6), variants=[
+        # The convoy passing Larak, as Iran's own plot shows it, is the signal for a second swarm,
+        # from ahead or from astern.
+        dict(id='second_swarm', side='RED', chance=0.6, when=held('RED', tankers, center_nm=[-13.4, 12.0], radius_nm=8), variants=[
             dict(id='from_larak', reinforcements=swarm([-12.0, 30.0], [[0.0, 15.0], [13.0, -3.0]])),
             dict(id='from_qeshm', reinforcements=swarm([-30.0, 22.0], [[-20.0, 16.0], [-6.0, 10.0], [8.0, 2.0]]))]),
         dict(id='swarm_sighted', chance=0.7, after=['second_swarm'], intel=[report('Peykaap 7', 4, 'Omani coastal radar')],
@@ -323,6 +324,7 @@ def _hormuz(d):
              intel=[report('Ghadir', 3, 'UKMTO relay from a dhow')],
              message="UKMTO relays a dhow's sighting of a periscope in the outbound lane near {pos}, accuracy about 3 nm."),
         dict(id='fire_mission', chance=0.7, at_s_window=[600, 1800], when=held('RED', tankers, 'CLASS_KNOWN'),
+             unless=lost(['Mohajer 81', 'Mohajer 82']),
              objectives=dict(add=[bonus('drones_down', ['Mohajer 81', 'Mohajer 82'], 'Shoot down both Mohajer drones')]),
              message='TASKING UPDATE: intercepts show a Mohajer passing a tanker\'s position to the Khalij Fars battery. Expect '
                      'ballistic fire on the convoy. Shooting down both drones is a bonus task.'),
@@ -339,9 +341,11 @@ def _tartus(d):
             dict(id='direct', ai=[dict(units=strikers, patrol_nm=[[39.6, 12.0], [-19.8, -24.0]])]),
             dict(id='north_of_cyprus', ai=[dict(units=strikers, patrol_nm=[[30.0, 90.0], [-60.0, 80.0], [-50.0, -10.0]])]),
             dict(id='from_the_south', ai=[dict(units=strikers, patrol_nm=[[40.0, -40.0], [-20.0, -45.0]])])]),
-        # Mistral getting well under way east (past about 32°20'E) is what Khmeimim waits for; a
-        # transit held back for the picture leaves it to its own time.
-        dict(id='khmeimim_surge', side='RED', at_s=0, when=reach([mistral], [-75.0, -26.0], 15), latest_s_window=[7200, 10800],
+        # Mistral getting well under way east (past about 32°20'E), as Russia's own plot shows her,
+        # is what Khmeimim waits for; a transit held back for the picture, or never seen, leaves it to
+        # its own time.
+        dict(id='khmeimim_surge', side='RED', at_s=0, when=held('RED', [mistral], center_nm=[-75.0, -26.0], radius_nm=15),
+             latest_s_window=[7200, 10800],
              ready=[ready(base, 'su34', 300), ready(base, 'su35s', 300)]),
         dict(id='surge_intercept', chance=0.7, after=['khmeimim_surge'],
              message='Akrotiri intercepts: Khmeimim is arming its second strike element.'),
@@ -362,6 +366,120 @@ def _tartus(d):
 REACTIONS = {
     'cold_war_01_convoy': _convoy, 'cold_war_02_barrier': _barrier, 'cold_war_03_carrier': _carrier,
     'aegis_bastion': _aegis, 'pacific_02_taiwan_strait': _taiwan, 'gulf_01_hormuz': _hormuz, 'med_01_tartus': _tartus,
+}
+
+
+# --- The opposing force's mission plans, one per command problem -------------------------------
+# scripts/systems/ai_plan.gd documents the schema. A plan gives the enemy an objective to pursue on
+# its own picture (a merchant, the carrier, a boat to see through the gap, a base to hold) instead of
+# the nearest contact; it never names a player's unit and never knows where one is. The numbers are
+# GAMEPLAY_ESTIMATE: tuned so the plan is pursued without making the operation unwinnable.
+
+def plan(pid, kind, units=(), **keys):
+    out = dict(id=pid, faction='RED', kind=kind)
+    if units:
+        out['units'] = list(units)
+    out.update(keys)
+    return out
+
+
+def _join(d, pid, callsigns=(), wing=(), role=None):
+    """Tag units, reinforcements (in every variant) and air-wing elements for a plan: a unit that
+    enters later joins it on arrival, and one element of a base's wing can join without the base,
+    whose other aircraft keep flying their own routes."""
+    def tag(entry):
+        entry['ai_plan'] = pid
+        if role:
+            entry['ai_role'] = role
+    shapes = [s for e in d['events'] for s in [e] + e.get('variants', [])]
+    for u in d['units'] + [r for s in shapes for r in s.get('reinforcements', [])]:
+        if u['callsign'] in callsigns:
+            tag(u)
+    for host, platform in wing:
+        for entry in _unit(d, host).get('air_wing', []):
+            if platform in entry['platform']:
+                tag(entry)
+
+
+def _convoy_plans(d):
+    # The corvette is after the cargo ship, not the frigates: once its own radar has classified a
+    # merchant on the route it closes on her and fires at her first. An escort inside its missiles'
+    # reach is still fought (a corvette that let the frigates shoot unanswered would be no threat to
+    # anyone). A second corvette joins the hunt on arrival.
+    _join(d, 'convoy_strike', ['Soviet missile corvette 2 (Nanuchka III)'])
+    return [plan('convoy_strike', 'attack_shipping', ['Soviet missile corvette (Nanuchka III)'], priorities=['merchant'],
+                 objective_nm=[1.6, 3.6], area_radius_nm=25, threat_nm=60, budget=6, assess_s=300)]
+
+
+def _barrier_plans(d):
+    # The Victor III keeps its own breakout; a second boat, when one comes, covers it through the
+    # gap from a close screen and fires only at what closes on it.
+    _join(d, 'breakout', ['Soviet submarine 2 (Victor III)'], role='escort')
+    return [plan('breakout', 'protect_breakout', protect=['Soviet submarine (Victor III)'], screen_nm=4, engage_within_nm=8)]
+
+
+def _carrier_plans(d):
+    # Slava and the Backfires are after the carrier where the Northern Fleet expects her, and fire
+    # at her once their own sensors have classified her, from separate bearings; an escort is shot
+    # at only when it closes. Later raid elements join on arrival.
+    _join(d, 'carrier_strike', ['Backfire raid 2', 'Backfire raid 3'])
+    return [plan('carrier_strike', 'threaten_carrier', ['Slava', 'Backfire raid 1'], objective_nm=[4.5, 3.0], area_radius_nm=60,
+                 package=2, assembly_window_s=600, axes_deg=[-35, 35, 0], budget=8, assess_s=420, threat_nm=20)]
+
+
+def _aegis_plans(d):
+    # The Kinzhal carriers and the surface group are after the carrier, not the pickets in front of
+    # her; the Orlan scouts for them. The fighters escort on their own judgement.
+    base = 'Monchegorsk Air Base'
+    _join(d, 'carrier_strike', wing=[(base, 'mig31k')])
+    _join(d, 'carrier_strike', wing=[(base, 'orlan')], role='recon')
+    return [plan('carrier_strike', 'threaten_carrier', ['Admiral Kasatonov (461)', 'Soobrazitelny (531)'], objective_nm=[-30.0, 36.0],
+                 area_radius_nm=60, spread_deg=80, budget=8, assess_s=480, threat_nm=25)]
+
+
+def _taiwan_plans(d):
+    # The surface group, the bombers and the ballistic battery strike the carrier together once the
+    # KJ-500 or a ship has classified her, on separate axes and within one round budget, instead of
+    # each emptying its launchers at the first ship it sees. The fighters fly their own sweeps.
+    _join(d, 'carrier_strike', ['Badger 3', 'Badger 4'])
+    _join(d, 'carrier_strike', wing=[('Huian Air Base', 'kj500')], role='recon')
+    return [plan('carrier_strike', 'threaten_carrier', ['Nanchang (101)', "Xi'an (153)", 'Xuzhou (530)', 'Badger 1', 'Badger 2',
+                                                        'PLARF battery, Fujian interior'],
+                 objective_nm=[105.0, -15.0], area_radius_nm=80, package=3, assembly_window_s=900, spread_deg=120,
+                 budget=8, assess_s=600, threat_nm=25)]
+
+
+def _hormuz_plans(d):
+    # The swarm is after the tankers, not the destroyers, and a second swarm joins it on arrival.
+    # The submarines are left on their own patrols across the lane, where a tanker is what they
+    # meet: a boat deep off the link holds only its own sonar picture, so it could not be sent to a
+    # bearing the plan picked from the shore radars' plot. Batteries, frigates and drones fight on
+    # their own judgement.
+    _join(d, 'tanker_war', ['Peykaap %d' % i for i in range(7, 11)])
+    return [plan('tanker_war', 'attack_shipping', ['Peykaap %d' % i for i in range(1, 7)],
+                 priorities=['tanker', 'merchant'], objective_nm=[13.4, -3.0], area_radius_nm=45, threat_nm=6,
+                 salvo=2, budget=6, assess_s=300)]
+
+
+def _tartus_plans(d):
+    # The frigate and the corvette hold the sea off Tartus, where the battery covers them, and fight
+    # what enters it rather than steaming out to meet the transit; Khmeimim's strike element is after
+    # the amphibious ship, with the Il-38N looking for her.
+    base = 'Khmeimim Air Base'
+    _join(d, 'amphibious_strike', wing=[(base, 'su34')])
+    _join(d, 'amphibious_strike', wing=[(base, 'il38')], role='recon')
+    return [
+        plan('tartus_defence', 'defend_installation', ['Admiral Grigorovich (494)', 'Vyshny Volochyok (609)'],
+             protect=['Tartus coastal battery'], area_radius_nm=70, leash_nm=80, threat_nm=15),
+        plan('amphibious_strike', 'attack_shipping', priorities=['amphibious', 'carrier'], objective_nm=[-40.0, -25.0],
+             area_radius_nm=60, spread_deg=60, budget=6, assess_s=300, threat_nm=15),
+    ]
+
+
+ENEMY_PLANS = {
+    'cold_war_01_convoy': _convoy_plans, 'cold_war_02_barrier': _barrier_plans, 'cold_war_03_carrier': _carrier_plans,
+    'aegis_bastion': _aegis_plans, 'pacific_02_taiwan_strait': _taiwan_plans, 'gulf_01_hormuz': _hormuz_plans,
+    'med_01_tartus': _tartus_plans,
 }
 
 
@@ -465,6 +583,7 @@ def enhance(d):
     d['_delayed'] = delayed
     d['events'] = REACTIONS[sid](d)
     d.pop('_delayed', None)
+    d['ai_plans'] = ENEMY_PLANS[sid](d)
     _check_geometry(d)
     unique_wing_callsigns(d)
     for old in ('CVW-3 det', 'CVW-5 det'):

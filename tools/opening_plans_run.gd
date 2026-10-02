@@ -2,9 +2,11 @@ extends RefCounted
 ## Opening plans for the operations, each flown headless to the end of the mission against the AI.
 ##
 ## A plan is what a commander orders in the first minutes, given as real orders through
-## UnitManager.issue_order (moves, formations, air missions), plus the few standing rules a
-## commander keeps afterwards: engage a contact the plot calls hostile once a weapon reaches it,
-## send something to look at a contact report, steer for a box a tasking update moved. A plan reads
+## UnitManager.issue_order (moves, formations, air missions, interceptor policies), plus the few
+## standing rules a commander keeps afterwards: engage a contact the plot calls hostile once a
+## weapon reaches it (an escort from its station, not by chasing), send something to look at a
+## contact report, send fighters after the enemy's airborne early warning, steer for a box a
+## tasking update moved. A plan reads
 ## only what the player's side may read: its own units, its own track picture and the published
 ## objectives. The opposing side is flown by its AI, so the plans meet the seeded variations.
 ##
@@ -189,29 +191,33 @@ func _open() -> void:
 			_air(EISENHOWER, AirMission.Kind.CAP, "usn_fighter_fa18f", 4, _origin + Vector2(40.0, -15.0), 20.0, null, true)
 			_air(EISENHOWER, AirMission.Kind.ASW, "usn_helo_mh60r", 2, _origin + Vector2(10.0, 0.0), 10.0, null, true)
 		"pacific_02_taiwan_strait/forward_cap":
+			# The carrier's air defence first, then fighters forward toward the KJ-500's sector.
 			var rp := _u(REAGAN).position
+			_taiwan_screen()
 			_air(REAGAN, AirMission.Kind.RECON, "usn_aew_e2d", 1, rp + Vector2(-60.0, 40.0), 30.0)
 			_air(REAGAN, AirMission.Kind.CAP, "usn_fighter_fa18e", 4, rp + Vector2(-90.0, 50.0), 20.0, null, true)
 			_air(REAGAN, AirMission.Kind.CAP, "usn_fighter_f35c", 4, rp + Vector2(-30.0, 90.0), 20.0, null, true)
 			_air(KADENA, AirMission.Kind.RECON, "usn_mpa_p8a", 1, Vector2(140.0, 170.0), 40.0)
 		"pacific_02_taiwan_strait/strike_group":
+			# The same air defence, a lighter CAP, and the Super Hornets held for the surface group.
 			var rp := _u(REAGAN).position
+			_taiwan_screen()
 			_air(REAGAN, AirMission.Kind.RECON, "usn_aew_e2d", 1, rp + Vector2(-60.0, 40.0), 30.0)
 			_air(REAGAN, AirMission.Kind.CAP, "usn_fighter_fa18f", 4, rp + Vector2(-90.0, 50.0), 20.0, null, true)
 			_air(KADENA, AirMission.Kind.RECON, "usn_mpa_p8a", 1, Vector2(140.0, 170.0), 40.0)
 			_air(KADENA, AirMission.Kind.CAP, "usaf_fighter_f16c", 4, Vector2(130.0, 60.0), 20.0, null, true)
 		"gulf_01_hormuz/close_convoy":
-			# The tankers in column down the lane with the escorts around the lead, the Poseidon
-			# laying buoys over the approaches the convoy crosses last.
+			# The tankers in column down the lane with the escorts round the lead: the destroyer on
+			# the Iranian side, the Type 45 close in, the ASW frigate ahead to clear the lane with
+			# its towed array; the Poseidon laying buoys over the approaches the convoy crosses last.
 			_convoy_lane(15.0)
-			var lead := _u(TANKERS[0])
-			_order(_u(IGNATIUS), Order.form_up(lead, Vector2(0.0, 4.0)))
-			_order(_u(DUNCAN), Order.form_up(lead, Vector2(-3.0, 0.0)))
-			_order(_u(LANGUEDOC), Order.form_up(lead, Vector2(0.0, -6.0)))
+			_convoy_screen()
+			_hormuz_air_defence()
 			_air(AL_DHAFRA, AirMission.Kind.ASW, "usn_mpa_p8a", 1, HORMUZ_EXIT_ASW, 15.0)
 		"gulf_01_hormuz/sweep_ahead":
 			# The destroyers run ahead to Larak, where the swarm comes out, and hold the lane there;
 			# the tankers wait a quarter of an hour with Languedoc, then follow at best speed.
+			_hormuz_air_defence()
 			_order(_u(IGNATIUS), Order.move(HORMUZ_LANE[0]))
 			_order(_u(IGNATIUS), Order.set_speed(22.0))
 			_order(_u(DUNCAN), Order.move(HORMUZ_LANE[0] + Vector2(3.0, -4.0)))
@@ -274,27 +280,29 @@ func _step() -> void:
 				_strike(EISENHOWER, "usn_fighter_fa18e", 4, func(t: Track) -> bool: return t.domain == "surface")
 			_engage([LUCAS, GETTYSBURG, TRUXTUN], "surface", 80.0)
 		"pacific_02_taiwan_strait/forward_cap":
+			_hunt_aew(["usn_fighter_fa18e", "usn_fighter_f35c"])
 			_engage(TAIWAN_SHIPS, "surface", 100.0)
 		"pacific_02_taiwan_strait/strike_group":
+			_hunt_aew(["usn_fighter_fa18f", "usaf_fighter_f16c"])
 			if now >= 1800.0:
 				_strike(REAGAN, "usn_fighter_fa18e", 4, func(t: Track) -> bool: return t.domain == "surface" and t.known_category != "replenishment ship")
 			_engage(TAIWAN_SHIPS, "surface", 100.0)
 		"gulf_01_hormuz/close_convoy":
 			_hunt_reported_submarine()
 			_relead()
-			_engage([IGNATIUS, DUNCAN, LANGUEDOC], "surface", 5.0, Callable(), true)
-			_engage([LANGUEDOC, IGNATIUS], "subsurface", 6.0)
+			_sweep_lane_ahead()
+			_fire_from_station([IGNATIUS, DUNCAN, LANGUEDOC], "surface", true)
+			_fire_from_station([LANGUEDOC, IGNATIUS, DUNCAN], "subsurface")
 		"gulf_01_hormuz/sweep_ahead":
 			if now >= 900.0 and _once("convoy_sails"):
 				_convoy_lane(15.0)
-				var lead := _u(TANKERS[0])
-				_order(_u(IGNATIUS), Order.form_up(lead, Vector2(0.0, 6.0)))
-				_order(_u(DUNCAN), Order.form_up(lead, Vector2(-4.0, 0.0)))
+				_convoy_screen()
 			if _done.has("convoy_sails"):
 				_relead()
+				_sweep_lane_ahead()
 			_hunt_reported_submarine()
-			_engage([IGNATIUS, DUNCAN, LANGUEDOC], "surface", 5.0, Callable(), true)
-			_engage([LANGUEDOC, IGNATIUS], "subsurface", 6.0)
+			_fire_from_station([IGNATIUS, DUNCAN, LANGUEDOC], "surface", true)
+			_fire_from_station([LANGUEDOC, IGNATIUS, DUNCAN], "subsurface")
 		"med_01_tartus/direct_transit":
 			_follow_box("holding_box", [MISTRAL])
 			_engage([DORIA, PROVENCE], "surface", 60.0)
@@ -318,6 +326,121 @@ func _convoy_lane(speed_kn: float) -> void:
 	_order(lead, Order.set_speed(speed_kn))
 	_order(_u(TANKERS[1]), Order.form_up(lead, Vector2(0.0, -1.5)))
 	_order(_u(TANKERS[2]), Order.form_up(lead, Vector2(0.0, -3.0)))
+
+
+## Ballistic rounds (YJ-21, DF-21D) can be met only by SM-6 and SM-3, and the force gives each round
+## a limited number of area-defence shots in all: so the ships with them close up round the carrier,
+## where they see a round through its last minute, and spend their whole allowance (Saturation);
+## the forward picket, which would otherwise spend it on long crossing shots, keeps to Conserve.
+func _taiwan_screen() -> void:
+	var cv := _u(REAGAN)
+	_order(_u("USS Robert Smalls (CG 62)"), Order.form_up(cv, Vector2(0.0, 3.0)))
+	_order(_u("USS Jack H. Lucas (DDG 125)"), Order.form_up(cv, Vector2(-3.0, -2.0)))
+	_order(_u("USS Rafael Peralta (DDG 115)"), Order.form_up(cv, Vector2(3.0, -2.0)))
+	for name: String in ["USS Robert Smalls (CG 62)", "USS Jack H. Lucas (DDG 125)", "USS Rafael Peralta (DDG 115)"]:
+		_order(_u(name), Order.set_defence_policy("saturation"))
+	_order(_u("JS Maya (DDG 179)"), Order.set_defence_policy("conserve"))
+
+
+## The enemy's airborne early warning is what finds the carrier: two fighters of these types that
+## are airborne and armed for it go after an early-warning contact the plot calls hostile.
+func _hunt_aew(types: Array) -> void:
+	for t: Track in _hostiles("air"):
+		if not t.known_category.contains("early warning"):
+			continue
+		var on_it := 0
+		var free: Array[Unit] = []
+		for a: Unit in sim.unit_manager.get_faction_units(player):
+			if not a.is_aircraft() or not types.has(a.spec.id) or not a.airborne() or a.returning:
+				continue
+			if a.attack_track == t:
+				on_it += 1
+			elif a.attack_track == null and UnitManager.attack_rejection(a, t) == "":
+				free.append(a)
+		free.sort_custom(func(x: Unit, y: Unit) -> bool: return x.position.distance_to(t.position) < y.position.distance_to(t.position))
+		for a in free.slice(0, maxi(2 - on_it, 0)):
+			if _order(a, Order.attack(t)):
+				_note("%.0f %s sent after %s" % [clock.sim_time, a.callsign, t.label()])
+
+
+## The convoy's screen: the destroyer on the Iranian (port) side, the Type 45 close on the port
+## quarter, the ASW frigate ahead of the lead.
+func _convoy_screen() -> void:
+	var lead := _u(TANKERS[0])
+	_order(_u(IGNATIUS), Order.form_up(lead, Vector2(-3.0, 2.0)))
+	_order(_u(DUNCAN), Order.form_up(lead, Vector2(-2.0, -1.0)))
+	_order(_u(LANGUEDOC), Order.form_up(lead, Vector2(0.0, 5.0)))
+
+
+## The Khalij Fars battery's ballistic rounds can be met only by the Type 45's Aster 30, and the
+## force allows each round a few area-defence shots in all: the destroyers spend their whole
+## allowance (Saturation) from the first minute.
+func _hormuz_air_defence() -> void:
+	_order(_u(DUNCAN), Order.set_defence_policy("saturation"))
+	_order(_u(IGNATIUS), Order.set_defence_policy("saturation"))
+
+
+## Once the lead is through the narrows, the destroyer's Seahawks search the lane ahead of it for
+## the submarine that waits in the Gulf of Oman, and the Poseidon goes back there once it has
+## rearmed.
+func _sweep_lane_ahead() -> void:
+	var lead := _u(TANKERS[0])
+	if lead == null or not lead.alive:
+		for name: String in TANKERS:
+			if _u(name) != null and _u(name).alive:
+				lead = _u(name)
+				break
+	if lead == null or lead.position.x < 8.0:
+		return
+	var bearing := Geo.bearing_deg(lead.position, HORMUZ_LANE[2])
+	var ahead := lead.position + Geo.heading_to_vector(bearing) * 14.0
+	# Each is asked again every five minutes until its deck has the airframes for it.
+	if _due("lane_asw", 300.0) and _air(IGNATIUS, AirMission.Kind.ASW, "usn_helo_mh60r", 2, ahead, 8.0, null, true):
+		_done["lane_asw"] = true
+	if _due("lane_poseidon", 300.0) and _air(AL_DHAFRA, AirMission.Kind.ASW, "usn_mpa_p8a", 1, ahead + Geo.heading_to_vector(bearing) * 10.0, 15.0):
+		_done["lane_poseidon"] = true
+
+
+## True once every `interval_s` until `key` is done: for an order worth repeating until accepted.
+func _due(key: String, interval_s: float) -> bool:
+	if _done.has(key) or clock.sim_time < float(_done.get(key + ":next", 0.0)):
+		return false
+	_done[key + ":next"] = clock.sim_time + interval_s
+	return true
+
+
+
+## Escorts fight from their stations: each fires at the nearest contact its picture calls hostile
+## in the domain that a weapon of its can reach from where it is, and never leaves the convoy to
+## chase. With `guns_only` it uses its gun or nothing: in a strait full of dhows a missile that
+## loses its boat finds another (tried with the frigates' missiles at a Moudge 20 nm off: a
+## Tomahawk and a Harpoon each found a dhow instead).
+func _fire_from_station(shooters: Array, domain: String, guns_only := false) -> void:
+	for name: String in shooters:
+		var u := _u(name)
+		if u == null or not u.alive:
+			continue
+		var best: Track = null
+		var best_spec: WeaponSpec = null
+		var best_d := INF
+		for t in _hostiles(domain, u):
+			if clock.sim_time - float(_done.get("fired:%s:%s" % [name, t.id], -1000.0)) < 90.0:
+				continue
+			for spec: WeaponSpec in u.weapons_for_track(t):
+				if guns_only and not spec.is_gun():
+					continue
+				if u.magazine_count(spec.id) <= 0 or not sim.weapon_manager.engagement_check(u, spec, t, clock.sim_time)["ok"]:
+					continue
+				var d := u.position.distance_to(t.position)
+				if d < best_d:
+					best = t
+					best_spec = spec
+					best_d = d
+				break
+		if best != null and _order(u, Order.engage(best, best_spec.id, mini(best_spec.salvo_default, u.magazine_count(best_spec.id)))):
+			_done["fired:%s:%s" % [name, best.id]] = clock.sim_time
+			if not best_spec.is_gun():
+				_note("%.0f %s fires %s at %s" % [clock.sim_time, name, best_spec.short_name, best.label()])
 
 
 ## A convoy whose lead tanker is lost re-forms on the next one, which takes the rest of the lane.
