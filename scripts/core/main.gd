@@ -376,8 +376,9 @@ func start_scenario(path: String) -> void:
 	if _options_from_engagement:
 		_options_from_engagement = false
 		_apply_options(_preferred, false, not _driven_run)
-	if _fresh_draws and simulation.seed_override < 0:
-		simulation.variation_seed = randi() % 1000000
+	# A player's start draws the operation's events afresh. A driven run or a pinned --seed plays the
+	# scenario's own draw, even after a restored engagement brought its own variation with it.
+	simulation.variation_seed = randi() % 1000000 if _fresh_draws and simulation.seed_override < 0 else -1
 	if not simulation.load_scenario(path):
 		push_error("Main: failed to load scenario %s" % path)
 		return
