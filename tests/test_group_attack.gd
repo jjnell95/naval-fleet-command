@@ -487,6 +487,7 @@ func test_the_firing_board_commits_a_group_attack_with_its_budget_and_cancels_it
 	assert_true(board._group_status.text.begins_with("First volley: "), board._group_status.text)
 	# The plan is the first volley: two NSM from the frigate, then volleys of two.
 	board.set_salvo(nansen, nansen.get_weapon(NSM), 2)
+	assert_eq(board._group_status.text, "First volley: Fridtjof Nansen 2 × NSM", "the preview is the plan the commander set")
 	board._group_commit.pressed.emit()
 	var g := _group()
 	assert_true(g != null and g.active)

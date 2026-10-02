@@ -136,18 +136,10 @@ func request(lead: Unit, order: Order) -> GroupAttack:
 	groups.append(g)
 	var log := {"placed": [], "refused": {}, "short": 0}
 	for ti in g.targets.size():
-		var rows: Array = []
-		var planned := 0
-		for row: Array in order.group_plan:
-			# A plan row names its contact by its place in the order's own list of contacts.
-			if row.size() < 4 or int(row[2]) < 0 or int(row[2]) >= order.group_targets.size():
-				continue
-			if WeaponManager.contact_key(order.group_targets[int(row[2])]) == g.target_keys[ti] and g.member_index(row[0]) >= 0:
-				rows.append(row)
-				planned += maxi(int(row[3]), 0)
+		var rows := _plan_rows(g, order, ti)
 		var size := _volley_size(g, ti)
 		if not rows.is_empty():
-			size = mini(planned, size)
+			size = mini(_rounds_in(rows), size)
 		_open_volley(g, ti, size)
 		if not rows.is_empty():
 			_fire_plan(g, ti, rows, log)
@@ -163,6 +155,25 @@ func request(lead: Unit, order: Order) -> GroupAttack:
 	order.execution_accepted = true
 	g.note = order.receipt
 	return g
+
+
+## The rows of the board's plan for contact `ti`: [platform, weapon id, contact index, rounds]. A row
+## names its contact by its place in the order's own list, which may hold contacts the group left out.
+static func _plan_rows(g: GroupAttack, order: Order, ti: int) -> Array:
+	var rows: Array = []
+	for row: Array in order.group_plan:
+		if row.size() < 4 or int(row[2]) < 0 or int(row[2]) >= order.group_targets.size():
+			continue
+		if WeaponManager.contact_key(order.group_targets[int(row[2])]) == g.target_keys[ti] and g.member_index(row[0]) >= 0 and int(row[3]) > 0:
+			rows.append(row)
+	return rows
+
+
+static func _rounds_in(rows: Array) -> int:
+	var n := 0
+	for row: Array in rows:
+		n += int(row[3])
+	return n
 
 
 ## An active attack by the faction that already has one of these platforms firing at one of these
@@ -757,8 +768,9 @@ func summary(g: GroupAttack) -> String:
 	return "Group %d on %s · budget %d · fired %d · queued %d · away %d · %s · %d of %d shooters" % [g.id, g.target_label(), g.budget, int(s["fired"]), int(s["queued"]), int(s["airborne"]), str(s["phase"]), g.members_in_attack(), g.members.size()]
 
 
-## What a group attack would do if ordered now, without firing anything: the allocation of the
-## first volley and each refusal. The firing board shows it before the commander commits.
+## What a group attack would do if ordered now, without firing anything: the first volley (the
+## board's plan as it stands, else the allocation) and each refusal. The firing board shows it
+## before the commander commits.
 func preview(lead: Unit, order: Order) -> String:
 	var g := _build(lead, order)
 	if g.members.is_empty() or g.targets.is_empty() or g.budget <= 0:
@@ -766,18 +778,27 @@ func preview(lead: Unit, order: Order) -> String:
 	var log := {"placed": [], "refused": {}, "short": 0}
 	var budget_left := g.budget
 	for ti in g.targets.size():
-		var found := _candidates(g, ti)
-		for row: Array in found["refused"]:
-			if not (log["refused"] as Dictionary).has(row[0]):
-				log["refused"][row[0]] = row[1]
 		var size := mini(g.target_share[ti] if g.volley <= 0 else mini(g.volley, g.target_share[ti]), budget_left)
-		var counts := _place(found["candidates"], size)
 		var got := 0
-		for i in counts.size():
-			if counts[i] > 0:
-				var c: Dictionary = found["candidates"][i]
-				(log["placed"] as Array).append([c["member"], (c["spec"] as WeaponSpec).compact_name(), counts[i]])
-				got += counts[i]
+		var rows := _plan_rows(g, order, ti)
+		for row: Array in rows:
+			var mi := g.member_index(row[0])
+			var spec := g.members[mi].get_weapon(str(row[1]))
+			var n := mini(int(row[3]), size - got)
+			if spec != null and n > 0:
+				(log["placed"] as Array).append([mi, spec.compact_name(), n])
+				got += n
+		if rows.is_empty():
+			var found := _candidates(g, ti)
+			for row: Array in found["refused"]:
+				if not (log["refused"] as Dictionary).has(row[0]):
+					log["refused"][row[0]] = row[1]
+			var counts := _place(found["candidates"], size)
+			for i in counts.size():
+				if counts[i] > 0:
+					var c: Dictionary = found["candidates"][i]
+					(log["placed"] as Array).append([c["member"], (c["spec"] as WeaponSpec).compact_name(), counts[i]])
+					got += counts[i]
 		budget_left -= got
 		log["short"] = int(log["short"]) + size - got
 	var text := _placements_text(g, log)
