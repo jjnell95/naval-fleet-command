@@ -341,6 +341,20 @@ func _group_order() -> Order:
 	return Order.group_attack(units, [target], int(_budget.value), planned, [], _group_plan())
 
 
+## The running group attacks on the contact that a hooked platform fires in. Another group on the
+## same contact, made of other platforms, is not this board's to show or to cancel.
+func _hooked_groups() -> Array[GroupAttack]:
+	var out: Array[GroupAttack] = []
+	if target == null:
+		return out
+	for g: GroupAttack in simulation.group_attack_manager.groups_on(simulation.player_faction, target):
+		for u: Unit in units:
+			if g.member_index(u) >= 0:
+				out.append(g)
+				break
+	return out
+
+
 ## The group row shows the attack already running on this contact, or what one would do now.
 func _update_group_status() -> void:
 	if _group_row == null:
@@ -349,9 +363,7 @@ func _update_group_status() -> void:
 	if not _group_row.visible:
 		return
 	var manager := simulation.group_attack_manager
-	var running: Array[GroupAttack] = []
-	if target != null:
-		running = manager.groups_on(simulation.player_faction, target)
+	var running := _hooked_groups()
 	_group_cancel.disabled = running.is_empty()
 	if not _budget_set:
 		var was_building := _building
@@ -435,10 +447,12 @@ func _commit_group() -> void:
 func _cancel_group() -> void:
 	if target == null:
 		return
-	for g: GroupAttack in simulation.group_attack_manager.groups_on(simulation.player_faction, target):
+	var receipts := PackedStringArray()
+	for g: GroupAttack in _hooked_groups():
+		# Given to a hooked member of that group, the platform the commander has in hand.
 		var by: Unit = null
-		for u: Unit in g.members:
-			if u.alive:
+		for u: Unit in units:
+			if u.alive and g.member_index(u) >= 0:
 				by = u
 				break
 		if by == null:
@@ -446,7 +460,9 @@ func _cancel_group() -> void:
 		var order := Order.cancel_group_attack(g.id)
 		order.execution_accepted = false
 		group_order_requested.emit(by, order)
-		_receipt.text = order.receipt
+		receipts.append(order.receipt)
+	if not receipts.is_empty():
+		_receipt.text = " ".join(receipts)
 	refresh()
 
 

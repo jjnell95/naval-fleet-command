@@ -724,3 +724,30 @@ func test_the_boards_first_volley_is_not_fired_at_a_stale_plot() -> void:
 		assert_true(w.target_track != local, "no round at the stale plot")
 	assert_eq(_committed_by(g, nansen), 4, "the frigate makes up the volley")
 	_done()
+
+
+func test_the_board_shows_and_cancels_only_the_group_its_platforms_are_in() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(4, 10))
+	var roosevelt := _ship("usn_ddg_arleigh_burke_iia", "USS Roosevelt", Vector2(-4, 0))
+	var helge := _ship("rnon_ffg_fridtjof_nansen", "Helge Ingstad", Vector2(-4, 10))
+	var t := _plot("T1077", Vector2(0, 40))
+	_order(ignatius, [ignatius, nansen], [t], 4)
+	var first := _group()
+	_order(roosevelt, [roosevelt, helge], [t], 4)
+	var second := _group()
+	assert_true(first.active and second.active and first != second)
+	var board := WeaponControl.new()
+	board.simulation = _sim
+	(Engine.get_main_loop() as SceneTree).root.add_child(board)
+	board.group_order_requested.connect(func(lead: Unit, order: Order) -> void:
+		_sim.unit_manager.issue_order(lead, order))
+	board.open_for([roosevelt, helge], t)
+	assert_true(board._group_status.text.begins_with("Group %d on 1077" % second.id), board._group_status.text)
+	board._group_cancel.pressed.emit()
+	assert_true(not second.active, "the hooked pair's attack is cancelled")
+	assert_true(first.active, "the other pair's attack on the same contact is not")
+	assert_true(board._group_cancel.disabled, "nothing of the hooked pair's is left to cancel")
+	board.free()
+	_done()
