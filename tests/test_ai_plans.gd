@@ -249,6 +249,39 @@ func test_a_routed_striker_keeps_to_its_route_while_the_plan_searches() -> void:
 	h.free_all()
 
 
+## Scouts lost, or never close enough to classify anything: the strike does not hold where it
+## stands for the rest of the game. Once its search window has run it goes to look itself.
+func test_a_strike_that_finds_nothing_goes_looking_after_its_search_window() -> void:
+	var s1 := _ship("S1", Vector2.ZERO, _asm(60.0))
+	var h := _harness([s1], [_plan("threaten_carrier", {"units": ["S1"], "objective_nm": [0, 120], "area_radius_nm": 30, "search_window_s": 600})])
+	var contact := _plot(h, "T1101", Vector2(0, 120), "", "", Track.Classification.SURFACE)
+	var now := _play(h, 100.0, 590.0)
+	var p := h.ai.plans[0]
+	assert_eq(p.phase, AIPlan.Phase.RECON)
+	assert_eq(h.ai.state_name(s1), "HOLD", "inside the window the strike waits for its scouts")
+	assert_true(_orders_of(h, Order.Type.MOVE, s1).is_empty())
+	now = _play(h, now, 60.0)
+	assert_eq(h.ai.state_name(s1), "SCOUT", "the window has run: the strike searches for itself")
+	var goal := _goal(h, s1)
+	assert_true(goal.is_finite() and goal.distance_to(contact.position) < 60.0, "toward the unclassified contact in the objective area: %s" % goal)
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "looking, not shooting")
+	assert_eq(AIPlan.from_definition(_plan("threaten_carrier", {"assembly_window_s": 0})).search_window_s, AIPlan.DEFAULT_SEARCH_WINDOW_S, "a strike free to fire at once still gives its scouts time")
+	h.free_all()
+
+
+## A striker given to a plan that has no strike (a screen, a defence) is not left idle.
+func test_a_striker_in_a_defence_fights_on_its_own_judgement() -> void:
+	var guard := _ship("Guard", Vector2(0, 10), _asm(60.0))
+	guard.ai_role = "strike"
+	var h := _harness([guard], [_plan("defend_installation", {"units": ["Guard"], "objective_nm": [0, 0], "area_radius_nm": 30})])
+	_plot(h, "T1201", Vector2(0, 45), "destroyer", "DDG")
+	h.ai.tick(100.0)
+	assert_eq(h.ai.plans[0].role_of(guard), "strike")
+	assert_eq(h.ai.state_name(guard), "ENGAGE", "as a unit with no plan would")
+	assert_eq(_orders_of(h, Order.Type.ENGAGE).size(), 1)
+	h.free_all()
+
+
 # --- Kinds that hold ground ------------------------------------------------------------------
 
 func test_protect_breakout_escort_stays_with_the_breakout_unit() -> void:

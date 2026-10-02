@@ -36,6 +36,9 @@ extends RefCounted
 ##   "assembly_nm": [x, y]            where strikers gather once the target is found
 ##   "assembly_window_s": 900         the longest the strike waits, at the assembly point for the
 ##                                    package and then on its axes for shooters to be in position
+##   "search_window_s": 900           the longest the strikers hold while nothing the plan wants
+##                                    has been classified; after it they go and look for themselves,
+##                                    as scouts do (a striker on a route of its own keeps to it)
 ##   "package": 3                     shooters that must be ready before weapons are free (0: all)
 ##   "axes_deg": [-40, 0, 40]         attack bearings relative to the line from the target back to the
 ##                                    strike's own side; or "spread_deg": 90 spreads them evenly
@@ -51,7 +54,8 @@ extends RefCounted
 ##   "start_s": 0                     the plan takes effect at this mission time
 ## Unit-level keys, on a unit, an air-wing entry or a reinforcement: "ai_plan" (a plan id) and
 ## "ai_role" (strike | recon | escort | defender | protected | installation) when the kind's default
-## role is not the one wanted.
+## role is not the one wanted. A role the kind has no part for (a striker in a screen, a defender
+## in a strike) leaves the unit to its own judgement.
 
 enum Kind { PROTECT_BREAKOUT, ATTACK_SHIPPING, THREATEN_CARRIER, DEFEND_INSTALLATION }
 enum Phase { WAITING, RECON, ASSEMBLE, ATTACK, SCREEN, DEFEND }
@@ -68,11 +72,12 @@ const DEFAULT_PRIORITIES := {
 	"threaten_carrier": ["carrier", "amphibious"],
 	"defend_installation": [],
 }
-const NUMBER_KEYS := ["area_radius_nm", "assembly_window_s", "package", "spread_deg", "salvo", "budget", "assess_s", "threat_nm", "screen_nm", "engage_within_nm", "leash_nm", "start_s"]
+const NUMBER_KEYS := ["area_radius_nm", "assembly_window_s", "search_window_s", "package", "spread_deg", "salvo", "budget", "assess_s", "threat_nm", "screen_nm", "engage_within_nm", "leash_nm", "start_s"]
 
 ## The defaults below are GAMEPLAY_ESTIMATE values: tuned for play, not doctrine.
 const DEFAULT_AREA_RADIUS_NM := 40.0
 const DEFAULT_ASSEMBLY_WINDOW_S := 900.0
+const DEFAULT_SEARCH_WINDOW_S := 900.0
 const DEFAULT_SPREAD_DEG := 90.0
 const DEFAULT_BUDGET := 12
 const DEFAULT_ASSESS_S := 300.0
@@ -101,6 +106,7 @@ var recon_callsigns := PackedStringArray()
 var recon_air: Array[Dictionary] = []
 var assembly := Vector2.INF
 var assembly_window_s := DEFAULT_ASSEMBLY_WINDOW_S
+var search_window_s := DEFAULT_SEARCH_WINDOW_S
 var package := 0
 var axes_deg: Array[float] = []
 var spread_deg := DEFAULT_SPREAD_DEG
@@ -167,6 +173,13 @@ func set_phase(next: Phase, now: float) -> void:
 		phase_since = now
 
 
+## A strike that has searched for longer than search_window_s without finding what it is for stops
+## waiting on its scouts and goes to look. Without this a plan whose scouts are lost, or never
+## close enough to classify anything, would hold its strikers where they stand for the whole game.
+func searching_in_force(now: float) -> bool:
+	return is_strike_kind() and phase == Phase.RECON and now - phase_since >= search_window_s
+
+
 # --- Parsing ------------------------------------------------------------------------------------
 
 ## Every well-formed plan for `faction`. A malformed entry is reported and left out rather than
@@ -220,6 +233,7 @@ static func from_definition(d) -> AIPlan:
 			p.recon_requested.append(UNSET_TIME)
 	p.area_radius_nm = maxf(float(d.get("area_radius_nm", DEFAULT_AREA_RADIUS_NM)), 1.0)
 	p.assembly_window_s = float(d.get("assembly_window_s", DEFAULT_ASSEMBLY_WINDOW_S))
+	p.search_window_s = float(d.get("search_window_s", DEFAULT_SEARCH_WINDOW_S))
 	p.package = int(d.get("package", 0))
 	for a in d.get("axes_deg", []):
 		p.axes_deg.append(float(a))

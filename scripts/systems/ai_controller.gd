@@ -1057,6 +1057,8 @@ func _launch_scouts(p: AIPlan, now: float) -> void:
 		var host := a.home
 		if not p.recon_callsigns.has(a.callsign) and _has_airborne(host, func(x: Unit) -> bool: return p.role_of(x) == "recon"):
 			continue
+		if _flown_by_recon_mission(p, a):
+			continue  # the plan's air reconnaissance from this deck flies these, with its own relief
 		var hb := _board(host)
 		if now - float(hb.get("last_launch", -10000.0)) < LAUNCH_INTERVAL_S / float(maxi(host.spec.launch_capacity(), 1)):
 			continue
@@ -1230,6 +1232,8 @@ func _choose_plan_state(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array
 		return State.ENGAGE
 	match role:
 		"strike":
+			if _strike_searching(u, p, now):
+				return State.SCOUT
 			return State.APPROACH if p.phase == AIPlan.Phase.ATTACK else State.HOLD
 		"recon":
 			return State.SCOUT
@@ -1304,6 +1308,9 @@ func _plan_move(u: Unit, b: Dictionary, task: Dictionary, hostiles: Array, unkno
 ## axis. It keeps quiet until it shoots.
 func _strike_move(u: Unit, b: Dictionary, task: Dictionary, now: float, engaging: bool) -> void:
 	var p: AIPlan = task["plan"]
+	if _strike_searching(u, p, now):
+		_scout(u, b, task, now)
+		return
 	_manage_emissions(u, engaging)
 	if not engaging:
 		_manage_depth(u, DepthIntent.HIDE)
@@ -1324,6 +1331,13 @@ func _strike_move(u: Unit, b: Dictionary, task: Dictionary, now: float, engaging
 		_hold_point(u, b, goal, now)
 
 
+## The search has run out its window with nothing the plan wants classified, so this striker
+## stops holding and searches the objective area itself. One keeping to a route of its own (with no
+## assembly point to hold) stays on it: the author's route is already where it is meant to look.
+func _strike_searching(u: Unit, p: AIPlan, now: float) -> bool:
+	return p.searching_in_force(now) and (p.assembly.is_finite() or u.patrol_route.is_empty())
+
+
 ## A scout keeps the plan's target in sight once it is found, so the strike's rounds get their
 ## mid-course updates; until then it closes on the unclassified contact likeliest to be what the
 ## plan wants, and with nothing to look at it sweeps the area.
@@ -1338,9 +1352,13 @@ func _scout(u: Unit, b: Dictionary, task: Dictionary, now: float) -> void:
 		_scout_close(u, b, look, _scout_standoff(u), now)
 		return
 	b["target"] = null
+	# With no objective authored, round its own deck, else round the strike's own side: a fixed
+	# centre, so the legs do not wander off with the unit flying them.
 	var centre := p.objective
 	if not centre.is_finite():
-		centre = u.home.position if u.home != null else u.position
+		centre = u.home.position if u.home != null else p.own_side
+	if not centre.is_finite():
+		centre = u.position
 	_sweep(u, b, centre, p.area_radius_nm * SWEEP_FRACTION, now)
 
 
