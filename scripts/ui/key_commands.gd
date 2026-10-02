@@ -52,6 +52,8 @@ const COMMANDS := [
 		["Ctrl+K", "Actions"],
 		["M / Ctrl+E", "Missions / scenario editor"],
 		["Ctrl+F10 twice", "Restart the mission"],
+		["Ctrl+Shift+S / L", "Quicksave / quickload"],
+		["Ctrl+Shift+O", "Saved engagements and autosaves"],
 		["Ctrl+M", "Sound on or off"],
 		["H", "This board"],
 	]],

@@ -2262,7 +2262,7 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 		prev_world = wp
 	if u.patrol_active and u.waypoints.size() >= 3:
 		draw_dashed_line(prev, first, COL_ROUTE, 1.0, 5.0)
-		_shadow_text(first + Vector2(8, -8), "PATROL", 11, COL_ROUTE)
+		_shadow_text(first + Vector2(8, -8), u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL", 11, COL_ROUTE)
 
 
 ## A 2 px dot for trails and plot history: a filled square, which costs a fraction of an

@@ -47,6 +47,9 @@ jobs:
       - name: Northern Passage outcomes and deterministic replay
         run: python3 tools/verify_northern_passage.py ~/godot/godot
 
+      - name: Saved engagements continue identically in a new process
+        run: python3 tools/verify_save_continuation.py ~/godot/godot work/save-continuation --quick
+
       - name: Northern Passage graphical checks (1280 x 720)
         run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --path . --resolution 1280x720 --script tools/passage_playtest.gd -- --policy=escort --seed=31 --capture
 
@@ -67,6 +70,12 @@ jobs:
 
       - name: Contact intent and camera mouse checks (1920 x 1080)
         run: timeout 600 xvfb-run -a -s "-screen 0 1920x1080x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1920x1080 --script tools/fleet_command_playtest.gd -- --seed=31 --capture
+
+      - name: Air missions and stations, mouse and keyboard (1280 x 720)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/air_mission_playtest.gd -- --output-dir=res://work/ci-air-1280
+
+      - name: Air missions and stations, mouse and keyboard (1920 x 1080)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1920x1080x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1920x1080 --script tools/air_mission_playtest.gd -- --output-dir=res://work/ci-air-1920
 
       - name: Air operations checks
         run: timeout 600 xvfb-run -a -s "-screen 0 1600x1000x24" ~/godot/godot --path . --resolution 1600x1000 -- --aviation-smoke
