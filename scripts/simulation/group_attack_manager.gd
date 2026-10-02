@@ -303,8 +303,12 @@ func withdraw(u: Unit, track: Track) -> bool:
 			g.member_withdrawn[mi] = "fire cancelled"
 		if g.members_in_attack() == 0:
 			_end(g, "Fire cancelled")
-		else:
-			_report(g, "Group attack %s: %s withdrawn%s; the others carry on" % [g.target_label(), u.callsign, ", %d queued round%s back aboard" % [returned, "" if returned == 1 else "s"] if returned > 0 else ""], true)
+			continue
+		_report(g, "Group attack %s: %s withdrawn%s; the others carry on" % [g.target_label(), u.callsign, ", %d queued round%s back aboard" % [returned, "" if returned == 1 else "s"] if returned > 0 else ""], true)
+		# The last platform taken off a contact takes the contact out of the attack with it.
+		_close_abandoned(g)
+		if g.live_targets().is_empty():
+			_end(g, _targets_done_reason(g))
 	return any
 
 
@@ -329,6 +333,7 @@ func _step(g: GroupAttack) -> void:
 	if g.members_in_attack() == 0:
 		_end(g, "No shooters left")
 		return
+	_close_abandoned(g)
 	var tally := {"placed": [], "refused": {}, "short": 0}
 	for ti in g.targets.size():
 		if g.target_done[ti] == "":
@@ -447,8 +452,8 @@ func _spent_at(g: GroupAttack, ti: int) -> int:
 
 
 ## No more rounds go to this contact. Its queued rounds return to the magazines, rounds in the air
-## fly on, and its unspent share goes to the contacts still under attack.
-func _close_target(g: GroupAttack, ti: int, reason: String) -> void:
+## fly on, and (with `hand_on`) its unspent share goes to the contacts still under attack.
+func _close_target(g: GroupAttack, ti: int, reason: String, hand_on := true) -> void:
 	if g.target_done[ti] != "":
 		return
 	g.target_done[ti] = reason
@@ -457,11 +462,12 @@ func _close_target(g: GroupAttack, ti: int, reason: String) -> void:
 	var returned := weapon_manager.cancel_group(g.id, null, g.target_keys[ti], reason.to_upper())
 	var unspent := maxi(g.target_share[ti] - g.target_fired[ti], 0)
 	g.target_share[ti] = g.target_fired[ti]
-	_split(g, unspent, g.live_targets())
+	if hand_on:
+		_split(g, unspent, g.live_targets())
 	# The last contact's outcome is the attack's, and the end of the attack says it.
 	if g.live_targets().is_empty() or reason in ["Budget fired", "Allocation fired"]:
 		return
-	_report(g, "Group attack %s: track %s %s%s; its share goes to the others" % [g.target_label(), GroupAttack.track_number(g.target_ids[ti]), reason.to_lower(), " · %d queued round%s returned" % [returned, "" if returned == 1 else "s"] if returned > 0 else ""], reason == "Target destroyed")
+	_report(g, "Group attack %s: track %s %s%s; %s" % [g.target_label(), GroupAttack.track_number(g.target_ids[ti]), reason.to_lower(), " · %d queued round%s returned" % [returned, "" if returned == 1 else "s"] if returned > 0 else "", "its share goes to the others" if hand_on and unspent > 0 else "the others carry on"], reason == "Target destroyed")
 
 
 func _lose_member(g: GroupAttack, mi: int) -> void:
@@ -497,7 +503,9 @@ func _targets_done_reason(g: GroupAttack) -> String:
 	return ", ".join(reasons)
 
 
-## Every member out of every round that suits a contact still under attack.
+## Every member out of every round that suits a contact still under attack. A member that does not
+## hold the contact just now (a boat gone deep, off the link) still has its rounds, and is judged on
+## the group's own plot of it.
 func _all_out_of_rounds(g: GroupAttack) -> bool:
 	for mi in g.members.size():
 		for ti in g.live_targets():
@@ -505,11 +513,29 @@ func _all_out_of_rounds(g: GroupAttack) -> bool:
 				continue
 			var held := held_track(g.members[mi], g.targets[ti])
 			if held == null:
-				continue
+				held = g.targets[ti]
 			for spec: WeaponSpec in g.members[mi].weapons:
 				if g.members[mi].magazine_count(spec.id) > 0 and Combat.suits_track(spec, held):
 					return false
 	return true
+
+
+## Closes each contact the commander has taken every platform still in the attack off, with a
+## CANCEL_FIRE on that contact, while the group fights on against the others. Its share is not
+## handed on: cancelling fire on a contact is not an order to spend those rounds elsewhere.
+func _close_abandoned(g: GroupAttack) -> void:
+	if g.members_in_attack() == 0:
+		return
+	for ti in g.targets.size():
+		if g.target_done[ti] != "":
+			continue
+		var left := false
+		for mi in g.members.size():
+			if g.member_available(mi, ti):
+				left = true
+				break
+		if not left:
+			_close_target(g, ti, "Fire cancelled", false)
 
 
 # --- Allocation --------------------------------------------------------------------------

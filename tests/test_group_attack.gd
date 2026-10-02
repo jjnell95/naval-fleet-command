@@ -636,3 +636,57 @@ func test_a_round_short_of_a_part_landed_volley_waits_for_the_shared_look() -> v
 	assert_eq(_committed_by(g, makarov), 6)
 	assert_true(int(_peak.get(g.id, 0)) <= 10)
 	_done()
+
+
+func test_a_platform_that_has_lost_the_plot_still_counts_its_rounds() -> void:
+	_setup()
+	var astute := _ship("rn_ssn_astute", "HMS Astute", Vector2(0, 22))
+	astute.depth_m = 15.0
+	astute.ordered_depth_m = 15.0
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(4, 10))
+	for k in nansen.magazines.keys():
+		nansen.magazines[k] = 0
+	nansen.magazines[NSM] = 2
+	var t := _plot("T1077", Vector2(0, 40))
+	var wm := _sim.weapon_manager
+	var o := _order(nansen, [nansen, astute], [t], 8, 2)
+	var g := _group()
+	assert_true(o.receipt.begins_with("8-round group attack on track 1077: Fridtjof Nansen 2 × NSM"), o.receipt)
+	assert_true(_until(func() -> bool: return wm.group_rounds(g.id) == 0, 900.0), "the frigate's pair resolves")
+	# The boat goes deep for the next leg: off the link, with no plot of its own.
+	astute.depth_m = 120.0
+	astute.ordered_depth_m = 120.0
+	assert_true(not t.visible_to(astute) and _sim.group_attack_manager.held_track(astute, t) == null)
+	SimClock.advance(GroupAttackManager.ASSESS_S + 30.0)
+	assert_true(g.active, "a boat with torpedoes aboard is not out of rounds: " + g.ended_reason)
+	assert_eq(_sim.group_attack_manager.phase(g), "awaiting solution")
+	# Back at periscope depth it holds the contact again and takes up the rest of the budget.
+	astute.depth_m = 15.0
+	astute.ordered_depth_m = 15.0
+	SimClock.advance(2.0)
+	assert_true(_committed_by(g, astute) > 0, "the boat fires once it holds the contact again")
+	assert_true(_spent(g) <= 8)
+	_done()
+
+
+func test_cancelling_every_platform_on_one_contact_closes_it_without_moving_its_share() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var roosevelt := _ship("usn_ddg_arleigh_burke_iia", "USS Roosevelt", Vector2(-4, 0))
+	var a := _plot("T1077", Vector2(0, 40))
+	var b := _plot("T1078", Vector2(10, 40))
+	_order(ignatius, [ignatius, roosevelt], [a, b], 8, 2)
+	var g := _group()
+	assert_true(_sim.unit_manager.issue_order(ignatius, Order.cancel_fire(a)))
+	assert_eq(g.target_done[0], "", "one platform still fires at it")
+	assert_true(_sim.unit_manager.issue_order(roosevelt, Order.cancel_fire(a)))
+	assert_eq(g.target_done[0], "Fire cancelled", "no platform is left on it")
+	assert_eq(g.target_share[0], g.target_fired[0], "it takes nothing more")
+	assert_eq(g.target_share[1], 4, "and its share is not moved to the other contact")
+	assert_true(g.active, "the attack on the other contact goes on")
+	assert_eq(_sim.weapon_manager.group_rounds(g.id, g.target_keys[0], true), 0)
+	assert_true(_until(func() -> bool: return not g.active, 1800.0))
+	assert_true(g.ended_reason.contains("Fire cancelled") and not g.ended_reason.contains("Magazines"), g.ended_reason)
+	assert_eq(g.target_fired[1], 4)
+	assert_true(ignatius.magazine_count(TOMAHAWK) + roosevelt.magazine_count(TOMAHAWK) > 0, "rounds are still aboard; they were not asked for")
+	_done()
