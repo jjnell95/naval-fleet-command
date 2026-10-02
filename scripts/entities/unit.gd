@@ -552,6 +552,8 @@ func apply_order(order: Order) -> void:
 			pass  # routed to AviationManager by Simulation
 		Order.Type.AIR_MISSION, Order.Type.CANCEL_AIR_MISSION:
 			pass  # routed to AirMissionManager by Simulation
+		Order.Type.GROUP_ATTACK, Order.Type.CANCEL_GROUP_ATTACK:
+			pass  # routed to GroupAttackManager by Simulation; the group never steers its members
 
 
 func set_station(kind: String, label: String) -> void:

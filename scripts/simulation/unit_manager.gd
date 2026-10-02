@@ -123,6 +123,12 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return u.is_engageable() and u.spec.aircraft_capacity > 0
 		Order.Type.CANCEL_AIR_MISSION:
 			return u.alive
+		Order.Type.GROUP_ATTACK:
+			# Given to one member, the lead. The shooters' own checks, and the reasons, are
+			# GroupAttackManager's.
+			return u.is_engageable() and order.group_members.has(u) and not order.group_targets.is_empty()
+		Order.Type.CANCEL_GROUP_ATTACK:
+			return u.alive
 		Order.Type.RETURN_TO_BASE:
 			# Checked here, before the order is applied, so a landing that cannot be made leaves the
 			# station and the order generation as they were.
