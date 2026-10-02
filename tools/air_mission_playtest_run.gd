@@ -190,6 +190,32 @@ func _classic_save_restores_under_classic() -> void:
 	SimClock.set_speed_index(0)
 
 
+## Combat drops an accelerated watch to real time only for what the player's side could know of:
+## a salvo fired, or a ship lost, by another side nobody of ours holds or can see leaves the clock
+## alone (it would otherwise announce the enemy); our own launch brings it down at once.
+func _clock_answers_only_what_the_side_could_see() -> void:
+	var unseen: Unit = null
+	for u: Unit in main.simulation.unit_manager.units:
+		if u.faction != "BLUE" and u.alive and not u.weapons.is_empty() and not main._combat_observed(u, false):
+			unseen = u
+			break
+	var own: Unit = null
+	for u: Unit in main.simulation.unit_manager.get_faction_units("BLUE"):
+		if not u.weapons.is_empty():
+			own = u
+			break
+	if unseen == null or own == null:
+		checks["an unseen armed enemy and an armed ship of ours to test the clock with"] = false
+		return
+	facts["unseen_shooter"] = unseen.callsign
+	SimClock.set_speed_index(3)
+	main._on_weapon_launched(unseen, unseen.weapons[0], Track.new(), 1)
+	main._on_unit_destroyed(unseen, unseen.faction)
+	var kept := SimClock.speed_index == 3
+	main._on_weapon_launched(own, own.weapons[0], Track.new(), 1)
+	checks["the clock ignores combat nobody of ours could see, and answers our own"] = kept and SimClock.speed_index == 0
+
+
 ## Every live ship and aircraft of a side on automatic (or manual) missile defence.
 func _side_defence(faction: String, automatic: bool) -> bool:
 	var units := main.simulation.unit_manager.get_faction_units(faction)
@@ -220,6 +246,7 @@ func _choose_action(wanted: Dictionary) -> void:
 func _escort_returns_to_station() -> void:
 	main.start_scenario(PASSAGE)
 	checks["a new operation is played under the player's own options again"] = main.options.preset() == GameOptions.NORMAL and SimClock.speeds().size() == SimClock.SPEEDS.size() and _side_defence("BLUE", true)
+	_clock_answers_only_what_the_side_could_see()
 	await _take_command()
 	var frigate: Unit
 	for u: Unit in main.simulation.unit_manager.get_faction_units("BLUE"):
