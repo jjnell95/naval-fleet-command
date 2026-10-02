@@ -226,6 +226,11 @@ func test_jammer_batch_preserves_direction_and_clears_between_cycles() -> void:
 	Detection.end_jamming_batch()
 	Detection.refresh_jammers([])
 
+## Deliberately changed in M36: the count used to see only rounds that had fired, so a two-round
+## salvo counted 1 until the queued round left. Four ships each ordering four rounds in one cycle
+## then committed sixteen against a cap of eight, because three of every four were still on the
+## launcher when the next ship decided. A salvo now counts in full from the moment it is ordered,
+## by track id; the queued round leaving for the air does not count it twice.
 func test_ai_cycle_commit_counts_update_when_launches_fire_and_queued_rounds_leave() -> void:
 	Terrain.clear()
 	var brain := AIController.new()
@@ -233,15 +238,19 @@ func test_ai_cycle_commit_counts_update_when_launches_fire_and_queued_rounds_lea
 	brain.weapon_manager = wm
 	brain.faction = "BLUE"
 	brain._in_decision_cycle = true
-	wm.round_fired.connect(brain._on_cycle_round_fired)
+	wm.weapon_launched.connect(brain._on_cycle_salvo)
 	var ship := _ship("usn_cg_ticonderoga")
 	var t := _track()
+	t.id = "T9001"
 	assert_true(wm.launch(ship, DataDB.weapon("sm2_family"), t, 2, 0))
-	assert_eq(brain._rounds_already_committed(t), 1)
+	assert_eq(wm.in_flight.size(), 1, "one round leaves now and the other waits for the launcher")
+	assert_eq(brain._rounds_already_committed(t), 2, "the queued round is as committed as the flying one")
 	wm.tick(0, 8)
-	assert_eq(brain._rounds_already_committed(t), 2, "next decision sees the new commitment")
-	wm.round_fired.disconnect(brain._on_cycle_round_fired)
+	assert_eq(wm.in_flight.size(), 2)
+	assert_eq(brain._rounds_already_committed(t), 2, "the queued round leaving for the air is not counted twice")
+	wm.weapon_launched.disconnect(brain._on_cycle_salvo)
 	brain._in_decision_cycle = false
-	assert_eq(brain._rounds_already_committed(t), 2)
+	assert_eq(brain._rounds_already_committed(t), 2, "the next decision reads the same commitment")
+	assert_eq(int(wm.rounds_committed_by_track_id("RED").get(t.id, 0)), 0, "another side's T-number is its own")
 	brain.free()
 	wm.free()

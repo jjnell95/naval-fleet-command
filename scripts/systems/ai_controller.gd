@@ -14,7 +14,9 @@ const STATE_NAMES := ["PATROL", "SEARCH", "INVESTIGATE", "SHADOW", "ENGAGE", "DE
 
 const WITHDRAW_HEALTH_FRACTION := 0.35
 const ENGAGE_COOLDOWN_S := 200.0  # wait and assess before re-attacking the same track
-const MAX_ROUNDS_IN_FLIGHT_PER_TRACK := 8  # lets a group mass a saturating salvo on one target
+## Rounds flying or queued at one contact, across the side, before anyone adds more: enough for a
+## group to mass a saturating salvo on one target, and no more.
+const MAX_ROUNDS_IN_FLIGHT_PER_TRACK := 8
 const ORDER_REFRESH_S := 30.0
 const GOAL_TOLERANCE_NM := 3.0
 const COURSE_TOLERANCE_DEG := 8.0
@@ -93,13 +95,13 @@ func tick(now: float) -> void:
 	# Victim geometry is the same for every ship in this decision cycle. Observer visibility
 	# remains a per-unit check, including any emissions changes made by preceding orders.
 	_cycle_inbound = AirDefence.inbound_threats(unit_manager, threat_manager, faction) if threat_manager != null else []
-	_cycle_committed.clear()
+	_cycle_committed = {}
 	_cycle_torpedoes.clear()
 	if weapon_manager != null:
-		for w: Weapon in weapon_manager.in_flight:
-			if w.faction == faction and w.target_track != null:
-				_cycle_committed[w.target_track] = int(_cycle_committed.get(w.target_track, 0)) + 1
-		weapon_manager.round_fired.connect(_on_cycle_round_fired)
+		# Flying and queued rounds alike, by track id. A salvo ordered during this cycle is counted
+		# in full the moment it is accepted, so the next ship in the loop sees all of it.
+		_cycle_committed = weapon_manager.rounds_committed_by_track_id(faction)
+		weapon_manager.weapon_launched.connect(_on_cycle_salvo)
 	if threat_manager != null:
 		for w: Weapon in threat_manager.get_threats(faction):
 			if w.spec.is_torpedo() and not w.is_interceptor():
@@ -109,15 +111,16 @@ func tick(now: float) -> void:
 		_update_unit(u, now)
 	_in_decision_cycle = false
 	if weapon_manager != null:
-		weapon_manager.round_fired.disconnect(_on_cycle_round_fired)
+		weapon_manager.weapon_launched.disconnect(_on_cycle_salvo)
 	_cycle_inbound.clear()
-	_cycle_committed.clear()
+	_cycle_committed = {}
 	_cycle_torpedoes.clear()
 
 
-func _on_cycle_round_fired(shooter: Unit, _spec: WeaponSpec, track: Track) -> void:
-	if shooter.faction == faction:
-		_cycle_committed[track] = int(_cycle_committed.get(track, 0)) + 1
+## A salvo accepted during the decision cycle: the round that left and the ones queued behind it.
+func _on_cycle_salvo(shooter: Unit, _spec: WeaponSpec, track: Track, rounds: int) -> void:
+	if shooter.faction == faction and track != null:
+		_cycle_committed[track.id] = int(_cycle_committed.get(track.id, 0)) + rounds
 
 
 func clear() -> void:
@@ -332,14 +335,13 @@ func _strike_rounds_left(u: Unit, hostiles: Array) -> int:
 
 
 
+## Rounds this side already has flying or queued at the contact, whoever fired them.
 func _rounds_already_committed(t: Track) -> int:
 	if _in_decision_cycle:
-		return int(_cycle_committed.get(t, 0))
-	var n := 0
-	for w: Weapon in weapon_manager.in_flight:
-		if w.faction == faction and w.target_track == t:
-			n += 1
-	return n
+		return int(_cycle_committed.get(t.id, 0))
+	if weapon_manager == null:
+		return 0
+	return int(weapon_manager.rounds_committed_by_track_id(faction).get(t.id, 0))
 
 
 ## Returns {track, weapon, salvo}, or an empty Dictionary when there is no shot worth taking.

@@ -117,6 +117,23 @@ func committed_rounds(shooter: Unit, spec: WeaponSpec, track: Track = null, queu
 	return count
 
 
+## Rounds one side has on the way to each of its contacts, keyed by track id: those flying and those
+## still queued on a launcher behind the first round of a salvo. A queued round is as committed as a
+## flying one; leaving it out let a group spend four times its intended weight on one target. Keyed
+## by id because a boat off the link holds its own Track object for the same contact.
+func rounds_committed_by_track_id(faction: String) -> Dictionary:
+	var out := {}
+	for w in in_flight:
+		if w.faction == faction and w.target_track != null and w.phase != Weapon.Phase.DEAD:
+			out[w.target_track.id] = int(out.get(w.target_track.id, 0)) + 1
+	for p: Dictionary in _pending:
+		var shooter: Unit = p.shooter
+		var track: Track = p.track
+		if shooter.faction == faction and track != null:
+			out[track.id] = int(out.get(track.id, 0)) + 1
+	return out
+
+
 func engagement_check(shooter: Unit, spec: WeaponSpec, track: Track, now: float, reserved_round := false) -> Dictionary:
 	var check := Combat.check_engagement(shooter, spec, track, reserved_round)
 	if not check.ok:
