@@ -88,38 +88,70 @@ static func _unit_key(u: Unit) -> String:
 	return str(u.id) if u.id >= 0 else "i%d" % u.get_instance_id()
 
 
+## A contact report from outside the force (a shore array, an allied patrol aircraft, a signals
+## intercept) relayed to the side's networked plot. It is a datum to go and look at and nothing
+## more: the position carries the report's own error, nothing is classified from it, the solution
+## quality stays at nothing, the firm-plot clock is not started and no velocity is fitted, so no
+## weapon, strike or attack can be laid on it. A contact the plot already holds is left alone,
+## because the plot's own history is better founded than the report. Returns the new track or null.
+func report_intel(faction: String, target: Unit, reported_pos: Vector2, error_nm: float, now: float, source_name: String) -> Track:
+	if target == null or find_track(faction, target) != null:
+		return null
+	var t := _new_track(faction, faction, target, reported_pos, now)
+	t.reported = true
+	t.networked = true
+	t.last_seen_time = now
+	t.error_major_nm = error_nm
+	t.error_minor_nm = error_nm
+	t.position_error_nm = error_nm
+	t.source = "intel"
+	t.source_sensor = source_name
+	_record_history(t, now)
+	track_added.emit(faction, t)
+	return t
+
+
+func _new_track(key: String, faction: String, target: Unit, position: Vector2, now: float) -> Track:
+	var t := Track.new()
+	t.owner_faction = faction
+	t.truth = target
+	var identity_key := "%s:%s" % [faction, _unit_key(target)]
+	if not _track_ids.has(identity_key):
+		_track_ids[identity_key] = "T%d" % _next_id(faction)
+	t.id = _track_ids[identity_key]
+	t.position = position
+	t.first_seen_time = now
+	if not _tracks.has(key):
+		_tracks[key] = []
+	_tracks[key].append(t)
+	var index: Dictionary = _by_target.get(key, {})
+	index[target] = t
+	_by_target[key] = index
+	return t
+
+
 func _observe_picture(key: String, faction: String, c: SensorContact, now: float, dt: float, shared: bool) -> void:
 	var target := c.target
 	var t := find_track(key, target)
 	var is_new := t == null
 	if is_new:
-		t = Track.new()
-		t.owner_faction = faction
-		t.truth = target
-		var identity_key := "%s:%s" % [faction, _unit_key(target)]
-		if not _track_ids.has(identity_key):
-			_track_ids[identity_key] = "T%d" % _next_id(faction)
-		t.id = _track_ids[identity_key]
-		t.position = c.position
-		t.first_seen_time = now
-		if not _tracks.has(key):
-			_tracks[key] = []
-		_tracks[key].append(t)
-		var index: Dictionary = _by_target.get(key, {})
-		index[target] = t
-		_by_target[key] = index
+		t = _new_track(key, faction, target, c.position, now)
 	var already_this_cycle := (not is_new) and is_equal_approx(t.last_seen_time, now)
 	if not already_this_cycle:
 		var reacquired := not is_new and t.age_s(now) > Track.STALE_AFTER_S
+		# The side's own first look at a reported contact replaces the report outright: neither its
+		# position nor its age is evidence the sensor should be blended with.
+		var from_report := t.reported
+		t.reported = false
 		t._cycle_start_position = t.position
-		t._cycle_snap = is_new or reacquired
+		t._cycle_snap = is_new or reacquired or from_report
 		t._cycle_has_plot = false
 		t._cycle_firm = false
 		t._cycle_error = INF
 		t._cycle_observation_gain = 0.0
 		t._cycle_tma_start = t.tma_quality
 		t._cycle_tma_gain = 0.0
-		if reacquired:
+		if reacquired or from_report:
 			_reset_kinematics(t)
 	# Sensor order must not change classification speed, or multiply elapsed time.
 	var gain := dt * (0.5 + c.quality) * maxf(c.classify_rate, 0.1)

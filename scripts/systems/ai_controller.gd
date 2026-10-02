@@ -154,6 +154,18 @@ func clear() -> void:
 	_bb.clear()
 
 
+## The scenario has given one of this side's units a new standing route or posture (an operation
+## event deciding for this side). It starts the new route from its first leg and forgets where the
+## old one was taking it, so the next cycle steers by the new orders rather than finishing the old.
+func route_changed(u: Unit) -> void:
+	if not _bb.has(u):
+		return
+	var b: Dictionary = _bb[u]
+	b["patrol_index"] = 0
+	b["goal"] = Vector2.INF
+	b.erase("on_patrol_station")
+
+
 # --- Per-unit decision cycle -------------------------------------------------------------
 
 func _board(u: Unit) -> Dictionary:

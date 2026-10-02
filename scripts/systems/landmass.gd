@@ -58,10 +58,23 @@ func recompute() -> void:
 	centroid = sum / float(points.size())
 
 
+## Two more looks for contains(), a few metres off in different directions.
+const RECHECK_A := Vector2(0.0021, -0.0013)
+const RECHECK_B := Vector2(-0.0017, 0.0024)
+
+
+## Inside the coastline. The engine's polygon test counts a crossing twice where its test ray runs
+## through a vertex, which on a chart-sized polygon leaves hair-thin false lines of "land" across
+## open water (and of "sea" inside a coast); a ship whose step lands on one is stopped dead. A
+## second look a few metres away settles it when it agrees, and a third breaks a disagreement:
+## no such line passes through all three points.
 func contains(p: Vector2) -> bool:
 	if not bounds.has_point(p):
 		return false
-	return Geometry2D.is_point_in_polygon(p, points)
+	var first := Geometry2D.is_point_in_polygon(p, points)
+	if first == Geometry2D.is_point_in_polygon(p + RECHECK_A, points):
+		return first
+	return Geometry2D.is_point_in_polygon(p + RECHECK_B, points)
 
 
 ## Shortest distance from a point to the coastline, in nautical miles. Zero on the beach; this

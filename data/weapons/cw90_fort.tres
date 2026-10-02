@@ -21,4 +21,5 @@ salvo_default = 2
 launch_interval_s = 3.0
 seeker_range_nm = 5.0
 turn_rate_deg_s = 60.0
+intercept_min_altitude_m = 25.0
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

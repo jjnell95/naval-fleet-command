@@ -187,35 +187,104 @@ func test_all_operations_have_valid_dependencies_wings_and_finite_stores() -> vo
 				assert_true(DataDB.weapon(wid) != null and int(u.aviation_stores[wid]) >= 0)
 			for wid: String in u.sortie_loadout:
 				assert_true(u.spec.weapon_loadout.has(wid), "authored aircraft weapon is supported")
+		# An event waits on objectives or on events listed before it. Every variant's arrivals are
+		# new identities: whichever is drawn, no callsign aliases the opening force.
+		for o: Dictionary in sc.objectives.loss:
+			ids[o.id] = true
 		for event: Dictionary in sc.get("events", []):
 			for previous: String in event.get("after", []):
-				assert_true(ids.has(previous))
-			for ud: Dictionary in event.get("reinforcements", []):
-				assert_true(not names.has(ud.callsign), "reinforcement identity does not alias opening force")
-				names[ud.callsign] = true
-				assert_true(DataDB.platform(ud.platform) != null)
-				if int(sc.year) == 1990:
-					assert_true(str(ud.platform).begins_with("cw90_"))
+				assert_true(ids.has(previous), "%s event %s waits on %s" % [entry.id, event.id, previous])
+			ids[event.id] = true
+			var arrivals := {}
+			for shape: Dictionary in [event] + event.get("variants", []):
+				for ud: Dictionary in shape.get("reinforcements", []):
+					assert_true(not names.has(ud.callsign), "reinforcement identity does not alias opening force")
+					arrivals[ud.callsign] = true
+					assert_true(DataDB.platform(ud.platform) != null)
+					if int(sc.year) == 1990:
+						assert_true(str(ud.platform).begins_with("cw90_"))
+			names.merge(arrivals)
+		assert_eq(ScenarioWorkshop.validate(sc), "", "%s passes the authoring checks, events included" % entry.id)
 		um.free()
 	assert_eq(operations, 7, "one 2027 operation per chart region and three from 1990")
 	assert_eq(exercises, 2, "Northern Passage and Carrier Qualification")
 
 
-func test_scheduled_raid_fires_once_preserves_fog_and_resets_on_reload() -> void:
+## Replaying an operation means reading the plot again. Every operation draws part of its shape
+## per engagement (a raid's window and axis, how many come, where a ship waits, whether a report or
+## a second force comes at all); the same seed draws the same operation, and two seeds draw two.
+func test_each_operation_draws_its_shape_from_the_engagement_seed() -> void:
+	var operations := 0
+	for entry: Dictionary in ScenarioIndex.list_all():
+		if entry.custom or entry.collection != "operations":
+			continue
+		operations += 1
+		var sc := ScenarioLoader.load_file(entry.path)
+		assert_true(sc.has("seed"), "%s has its own seed, so the menu replays one engagement" % entry.id)
+		var draws := {}
+		for seed in [2, 13, 2]:
+			var director := OperationDirector.new()
+			director.configure(sc, seed)
+			if draws.has(seed):
+				assert_eq(director.variant, draws[seed], "%s: the same seed draws the same operation" % entry.id)
+			draws[seed] = director.variant.duplicate(true)
+			director.free()
+		assert_true(not draws[2].is_empty(), "%s draws part of its shape per engagement" % entry.id)
+		assert_true(draws[2] != draws[13], "%s: seeds 2 and 13 draw different operations: %s / %s" % [entry.id, draws[2], draws[13]])
+	assert_eq(operations, 7)
+
+
+## A player's start of an operation draws its events from a fresh variation seed; the engagement's
+## own streams (sensors, weapons, damage) keep the scenario seed, and a save keeps the variation.
+func test_a_fresh_variation_changes_the_draw_and_nothing_else() -> void:
+	var path := "res://data/scenarios/cold_war_03_carrier.json"
+	var sc := ScenarioLoader.load_file(path)
+	var expected := OperationDirector.new()
+	expected.configure(sc, 5)
 	var sim := Simulation.new()
 	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	sim.variation_seed = 5
+	assert_true(sim.load_scenario(path))
+	assert_eq(sim.base_seed, int(sc.seed), "the engagement keeps the scenario's seed")
+	assert_eq(sim.sensor_manager.rng.seed, int(sc.seed), "and its sensor stream")
+	assert_eq(sim.director.variant, expected.variant, "the events are drawn from the variation")
+	var snap := SimSnapshot.capture(sim)
+	sim.variation_seed = -1
+	assert_eq(sim.restore_snapshot(snap), "")
+	assert_eq(sim.variation_seed, 5, "a saved engagement keeps its variation for a restart")
+	expected.free()
+	sim.unit_manager.clear()
+	sim.free()
+
+
+## The second Backfire element keeps no timetable: its window and its latest moment are drawn per
+## engagement, and it goes sooner only when RED's own plot holds the carrier (or Slava is hit). It
+## arrives once, on nobody's plot, and a reload draws the same operation again.
+func test_scheduled_raid_fires_once_preserves_fog_and_resets_on_reload() -> void:
+	var sim := Simulation.new()
+	sim.seed_override = 13
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
 	assert_true(sim.load_scenario("res://data/scenarios/cold_war_03_carrier.json"))
+	var raid := sim.director.event("follow_on_raid")
+	var latest := float(raid["latest_s"])
+	var arriving: Array = raid["reinforcements"]
+	assert_true(latest >= 2700.0 and latest <= 3600.0, "the latest moment is drawn from its window: %s" % latest)
+	assert_true(not arriving.is_empty())
+	sim._tick_operation_events(0.25)  # the opening draws (Slava's station, the first raid's axis) act at once
 	var initial := sim.unit_manager.units.size()
-	sim._tick_operation_events(2399)
-	assert_eq(sim.unit_manager.units.size(), initial)
-	sim._tick_operation_events(2400)
-	assert_eq(sim.unit_manager.units.size(), initial + 1)
-	assert_eq(sim.unit_manager.units.back().callsign, "Backfire raid 2")
-	assert_true(sim.unit_manager.units.back().airborne())
-	assert_true(sim.track_manager.get_tracks("BLUE").is_empty(), "a new raid is not an automatic contact report")
-	sim._tick_operation_events(2401)
-	assert_eq(sim.unit_manager.units.size(), initial + 1)
+	sim._tick_operation_events(latest - 1.0)
+	assert_eq(sim.unit_manager.units.size(), initial, "RED's plot holds nothing, so the raid waits for its latest moment")
+	sim._tick_operation_events(latest)
+	assert_eq(sim.unit_manager.units.size(), initial + arriving.size())
+	var raider: Unit = sim.unit_manager.units.back()
+	assert_eq(raider.callsign, str(arriving.back()["callsign"]))
+	assert_true(raider.airborne())
+	assert_true(sim.track_manager.find_track("BLUE", raider) == null, "a new raid is not an automatic contact report")
+	sim._tick_operation_events(latest + 1.0)
+	assert_eq(sim.unit_manager.units.size(), initial + arriving.size())
 	assert_true(sim.reload())
 	assert_true(sim.completed_events.is_empty())
+	assert_eq(float(sim.director.event("follow_on_raid")["latest_s"]), latest, "the same seed draws the same operation")
+	sim._tick_operation_events(0.25)
 	assert_eq(sim.unit_manager.units.size(), initial)
 	sim.free()

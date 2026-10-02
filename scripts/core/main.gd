@@ -60,6 +60,9 @@ var _cds_menus: CdsMenus
 var _key_help: KeyCommands
 var _command_taken := false  # the player has taken command of the loaded operation
 var _scripted_session := false  # a dev-harness run: graded on the debrief, never logged
+## A player's session (no command-line arguments): each start of an operation draws its events
+## afresh. A driven run or a pinned --seed keeps the scenario's own draw, so it repeats exactly.
+var _fresh_draws := false
 var _restart_armed_ms := -100000
 const RESTART_CONFIRM_MS := 4000
 var _world_view: WorldView
@@ -190,6 +193,13 @@ func _ready() -> void:
 	simulation.operation_message.connect(func(message: String) -> void:
 		radio.flash(message, "info")
 		Debug.event("[Operation] %s" % message))
+	# New tasking: the order itself is the event's message above. Time drops to real time so it is
+	# read, and the objective line and an open briefing read the objectives again.
+	simulation.mission_manager.objectives_changed.connect(func() -> void:
+		SimClock.drop_to_realtime()
+		radio.set_objective_text(_objective_summary())
+		if _briefing != null and _briefing.visible:
+			_briefing.refresh())
 	simulation.threat_manager.threat_detected.connect(_on_threat_detected)
 	simulation.aviation_manager.aircraft_launched.connect(func(a: Unit, parent: Unit) -> void:
 		if a.faction == simulation.player_faction:
@@ -306,6 +316,7 @@ func _ready() -> void:
 		# someone's preference; --preset=classic asks for the Classic rules (sound is left alone).
 		_preferred = GameOptions.classic() if args.has("--preset=classic") else GameOptions.normal(voice.enabled, SoundFx.ambient_enabled)
 	else:
+		_fresh_draws = true
 		var silent := voice.configure_from_settings()
 		if silent != "" and voice.enabled:
 			Debug.event("[Voice] %s" % silent)
@@ -365,6 +376,8 @@ func start_scenario(path: String) -> void:
 	if _options_from_engagement:
 		_options_from_engagement = false
 		_apply_options(_preferred, false, not _driven_run)
+	if _fresh_draws and simulation.seed_override < 0:
+		simulation.variation_seed = randi() % 1000000
 	if not simulation.load_scenario(path):
 		push_error("Main: failed to load scenario %s" % path)
 		return

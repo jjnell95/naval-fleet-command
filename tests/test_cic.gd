@@ -200,7 +200,7 @@ func test_an_airframe_that_lands_is_not_immediately_a_sortie_again() -> void:
 	assert_true(cvn.spec.turnaround_time_s() > 0.0, "a big deck takes real time to turn a jet")
 
 func test_all_catalogue_resources_resolve_and_cells_fit() -> void:
-	assert_eq(DataDB.all_platforms().size(), 139)
+	assert_eq(DataDB.all_platforms().size(), 140, "139 and the 1990 A-6E TRAM")
 	for p: PlatformSpec in DataDB.all_platforms():
 		for sid in p.sensor_ids:
 			assert_true(DataDB.sensor(sid) != null, p.id + " sensor " + sid)

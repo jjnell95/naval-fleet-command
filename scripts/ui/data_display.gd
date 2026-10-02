@@ -428,8 +428,11 @@ static func damage_text(t: Track) -> String:
 
 ## Where the plot came from, as specifically as the side's records say: the observing platform's
 ## class and the set ("MH-60R APS-153 multi-mode radar"), the buoys ("Sonobuoy field"), "Link"
-## for a plot that reached us from nothing we operate, else the sensor category ("Radar").
+## for a plot that reached us from nothing we operate, else the sensor category ("Radar"). A
+## contact report says so and who made it, because it is a datum to investigate, not a plot.
 static func source_readout(t: Track) -> String:
+	if t.source == "intel":
+		return "Contact report" + (", " + t.source_sensor if t.source_sensor != "" else "")
 	var sensor := sensor_label(t.source_sensor)
 	if sensor != "" and t.source_platform != "":
 		return "%s %s%s" % [t.source_platform, sensor, _sonar_mode(t.source)]

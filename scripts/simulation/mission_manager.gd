@@ -3,10 +3,14 @@ extends Node
 ## Evaluates scenario objectives. Victory when every objective in the scenario's `victory` list
 ## is complete (or any for an explicit victory_mode="any"); defeat when any loss is true.
 ## Both lists are data,
-## so a new scenario needs no code.
+## so a new scenario needs no code. An operation's events can change them while it is fought
+## (apply_update): a task added, moved, completed or withdrawn, always with an order that says so.
 
 signal mission_ended(result: String, summary: String)
 signal objective_completed(objective: MissionObjective, is_loss: bool)
+## The tasking changed mid-operation. The order itself is the event's radio message; this is for
+## the screens that list the objectives, so they read them again.
+signal objectives_changed()
 
 enum Result { RUNNING, VICTORY, DEFEAT }
 
@@ -19,6 +23,9 @@ const TASK_WEIGHT := 60.0
 const FORCE_WEIGHT := 20.0
 const ATTRITION_WEIGHT := 20.0
 const CIVILIAN_PENALTY := 25.0  # per neutral vessel sunk by the player's weapons, pro rata for damage
+## Bonus tasks are credited on top, up to this in all, unless the mission was lost. GAMEPLAY: big
+## enough to be worth a risk, small enough that skipping them still leaves a full-marks victory.
+const BONUS_WEIGHT := 10.0
 ## What a platform is worth to the balance sheet, by catalogue category; a scenario may give a
 ## unit its own "points". The figures are the classic order of magnitude: a carrier a thousand,
 ## an escort a few hundred, an aircraft a few dozen.
@@ -37,6 +44,8 @@ const CATEGORY_POINTS := {
 const DOMAIN_POINTS := {"surface": 250, "subsurface": 300, "air": 50, "land": 200}
 
 var unit_manager: UnitManager
+## Asked only by objectives about what a side's own plot holds (track_held).
+var track_manager: TrackManager
 var player_faction := "BLUE"
 var briefing := ""
 var situation := ""
@@ -45,10 +54,14 @@ var loss_objectives: Array[MissionObjective] = []
 var result: Result = Result.RUNNING
 var victory_mode := "all"
 var neutral_factions := PackedStringArray()
+## Tasking updates received during this engagement, oldest first, as {"time_s", "text"}: the
+## briefing lists them under the original orders.
+var tasking_updates: Array = []
 
 
 func configure(scenario: Dictionary) -> void:
 	result = Result.RUNNING
+	tasking_updates.clear()
 	victory_mode = str(scenario.get("victory_mode", "all"))
 	neutral_factions = PackedStringArray()
 	for f in scenario.get("neutral_factions", []):
@@ -78,19 +91,20 @@ func tick(now: float) -> void:
 	if result != Result.RUNNING or unit_manager == null:
 		return
 	for o in loss_objectives:
-		if not o.complete and o.evaluate(unit_manager, now):
+		if not o.complete and o.evaluate(unit_manager, now, track_manager):
 			objective_completed.emit(o, true)
 			_finish(Result.DEFEAT, o.text)
 			return
 	var done := 0
 	var terminal_count := 0
 	for o in victory_objectives:
-		if not o.phase_only:
+		var counts := not o.phase_only and not o.optional
+		if counts:
 			terminal_count += 1
 		o.unlocked = prerequisites_complete(o.after)
 		var was := o.complete
-		if o.evaluate(unit_manager, now):
-			if not o.phase_only:
+		if o.evaluate(unit_manager, now, track_manager):
+			if counts:
 				done += 1
 			if not was:
 				objective_completed.emit(o, false)
@@ -108,6 +122,73 @@ func prerequisites_complete(ids: PackedStringArray) -> bool:
 		if not found:
 			return false
 	return true
+
+
+## The objective with this id, victory or loss, or null.
+func objective(id: String) -> MissionObjective:
+	for o in victory_objectives + loss_objectives:
+		if o.id == id:
+			return o
+	return null
+
+
+## Changes the tasking from an operation event: `add` and `add_loss` new objectives, `complete`
+## victory tasks, `remove` any, `update` the text, area, timing, count or bonus status of one by
+## id, and replace the `briefing`. `note` is the order that announced it, kept for the briefing.
+## A saved engagement replays the updates it had received without announcing them again.
+func apply_update(update: Dictionary, now: float, note := "", announce := true) -> void:
+	for d in update.get("add", []):
+		victory_objectives.append(_scoped(MissionObjective.from_dict(d)))
+	for d in update.get("add_loss", []):
+		loss_objectives.append(_scoped(MissionObjective.from_dict(d)))
+	for id in update.get("remove", []):
+		var gone := objective(str(id))
+		if gone != null:
+			victory_objectives.erase(gone)
+			loss_objectives.erase(gone)
+	var changes: Dictionary = update.get("update", {})
+	for id: String in changes:
+		var o := objective(id)
+		if o != null:
+			_revise(o, changes[id])
+	for id in update.get("complete", []):
+		var o := objective(str(id))
+		if o != null and victory_objectives.has(o) and not o.complete:
+			o.complete = true
+			o.unlocked = true
+			if announce:
+				objective_completed.emit(o, false)
+	if update.has("briefing"):
+		briefing = str(update["briefing"])
+	if note != "":
+		tasking_updates.append({"time_s": now, "text": note})
+	if announce:
+		objectives_changed.emit()
+
+
+## A task moved or reworded. A hold whose area or length changes starts its clock again, because
+## time spent in the old box was not time spent in the new one.
+static func _revise(o: MissionObjective, d: Dictionary) -> void:
+	if d.has("text"):
+		o.text = str(d["text"])
+	if d.has("center_nm"):
+		var c: Array = d["center_nm"]
+		o.center = Vector2(float(c[0]), float(c[1]))
+	if d.has("radius_nm"):
+		o.radius_nm = float(d["radius_nm"])
+	if d.has("seconds"):
+		o.seconds = float(d["seconds"])
+	if d.has("count"):
+		o.count = int(d["count"])
+	if d.has("optional"):
+		o.optional = bool(d["optional"])
+	if d.has("callsigns"):
+		o.callsigns = PackedStringArray()
+		for c in d["callsigns"]:
+			o.callsigns.append(str(c))
+	if d.has("center_nm") or d.has("radius_nm") or d.has("seconds"):
+		o.held_since = -1.0
+		o.held_seconds = 0.0
 
 
 func _finish(r: Result, summary: String) -> void:
@@ -132,9 +213,15 @@ static func platform_points(spec: PlatformSpec, authored := 0) -> int:
 ## truth; the screen sees only what this returns, after the mission ends.
 func assessment() -> Dictionary:
 	var out := {"task_done": 0, "task_total": 0, "task": 0.0, "force": 0.0, "attrition": 0.0, "civilian": 0.0,
-		"friendly_points": 0, "friendly_lost": 0.0, "hostile_points": 0, "hostile_earned": 0.0, "neutral_hit": 0, "percent": 0}
+		"friendly_points": 0, "friendly_lost": 0.0, "hostile_points": 0, "hostile_earned": 0.0, "neutral_hit": 0,
+		"bonus_done": 0, "bonus_total": 0, "bonus": 0.0, "percent": 0}
 	for o in victory_objectives:
 		if o.phase_only:
+			continue
+		if o.optional:
+			out["bonus_total"] += 1
+			if o.complete:
+				out["bonus_done"] += 1
 			continue
 		out["task_total"] += 1
 		if o.complete:
@@ -168,7 +255,10 @@ func assessment() -> Dictionary:
 				out["hostile_earned"] += pts * harm
 	out["force"] = FORCE_WEIGHT * (1.0 - float(out["friendly_lost"]) / float(out["friendly_points"])) if out["friendly_points"] > 0 else FORCE_WEIGHT
 	out["attrition"] = ATTRITION_WEIGHT * clampf(float(out["hostile_earned"]) / float(out["hostile_points"]), 0.0, 1.0) if out["hostile_points"] > 0 else ATTRITION_WEIGHT
-	out["percent"] = clampi(int(round(float(out["task"]) + float(out["force"]) + float(out["attrition"]) - float(out["civilian"]))), 0, 100)
+	# A bonus taken on the way to a defeat bought nothing.
+	if out["bonus_total"] > 0 and result != Result.DEFEAT:
+		out["bonus"] = BONUS_WEIGHT * float(out["bonus_done"]) / float(out["bonus_total"])
+	out["percent"] = clampi(int(round(float(out["task"]) + float(out["force"]) + float(out["attrition"]) + float(out["bonus"]) - float(out["civilian"]))), 0, 100)
 	return out
 
 
@@ -182,6 +272,8 @@ static func assessment_text(a: Dictionary) -> String:
 	parts.append("Task %d/%d" % [int(round(float(a["task"]))), int(TASK_WEIGHT)])
 	parts.append("Force %d/%d" % [int(round(float(a["force"]))), int(FORCE_WEIGHT)])
 	parts.append("Attrition %d/%d" % [int(round(float(a["attrition"]))), int(ATTRITION_WEIGHT)])
+	if int(a.get("bonus_total", 0)) > 0:
+		parts.append("Bonus %d/%d" % [int(round(float(a.get("bonus", 0.0)))), int(BONUS_WEIGHT)])
 	if float(a["civilian"]) > 0.0:
 		parts.append("Civilian −%d" % int(round(float(a["civilian"]))))
 	return "%s = %d%%" % [" · ".join(parts), int(a["percent"])]

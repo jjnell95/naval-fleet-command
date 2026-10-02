@@ -1,4 +1,4 @@
-"""Build the self-contained 1990 catalogue and four fictional Cold War missions.
+"""Build the self-contained 1990 catalogue and three fictional Cold War missions.
 
 Run: python3 tools/scenarios/build_cold_war.py (shapely==2.1.2, as other chart builders).
 The existing modern catalogue is never rewritten. All period systems use cw90_ IDs.
@@ -56,7 +56,7 @@ def sonar(key, name, passive, active, depth=0, hover=False, cz=False):
 
 # What the data display calls each weapon: eleven letters at most (WeaponSpec.short_name).
 SHORT_NAMES = {
-    "53_65": "53-65K", "aim54a": "Phoenix", "aim9m": "AIM-9M", "ak100": "AK-100",
+    "53_65": "53-65K", "agm84": "AGM-84", "aim54a": "Phoenix", "aim9m": "AIM-9M", "ak100": "AK-100",
     "ak130": "AK-130", "ak176": "AK-176", "ak630": "AK-630", "at1": "AT-1M",
     "fort": "SA-N-6", "harpoon": "Harpoon", "kh22": "Kh-22", "kinzhal": "SA-N-9",
     "mk45": "Mk 45", "mk46": "Mk 46", "mk48": "Mk 48", "mk75": "Mk 75",
@@ -116,6 +116,9 @@ def catalogue():
     radar("aps115", "AN/APS-115 Orion radar", 100, 95)
     radar("aps125", "AN/APS-series Hawkeye radar (period baseline)", 130, 250, 1.1)
     radar("aps116", "AN/APS-116 Viking radar", 85, 70)
+    # The A-6E TRAM's search and attack radar. Ranges are GAMEPLAY_ESTIMATE, set between the
+    # Viking's and the Hawkeye's: an attack radar that finds a cruiser, not an AEW set.
+    radar("apq156", "AN/APQ-156 TRAM attack radar", 80, 40)
     radar("awg9", "AN/AWG-9 Tomcat radar", 50, 130, 1.0)
     radar("fregat", "Fregat / Top Plate search radar", 32, 130)
     radar("mr320", "MR-320 Topaz / Strut Pair radar", 26, 55)
@@ -139,6 +142,11 @@ def catalogue():
 
     weapon("harpoon", "RGM-84 Harpoon Block 1C", "asm", ["surface"], 65, 480, 42,
            salvo_default=4, base_pk=.78, altitude_m=10.0)
+    # Air-launched Harpoon for the A-6E. Published air-launch figures are longer than the ship
+    # round's (no booster to carry); the game keeps the ship round's 65 nm, speed and warhead as
+    # a conservative GAMEPLAY_ESTIMATE, which still outranges Slava's SA-N-6.
+    weapon("agm84", "AGM-84 Harpoon Block 1C (air launch)", "asm", ["surface"], 65, 480, 42,
+           salvo_default=2, base_pk=.78, altitude_m=10.0)
     weapon("sm1mr", "RIM-66E SM-1MR", "sam", ["missile", "air"], 23, 1800, 38, base_pk=.48)
     weapon("sm2mr", "RIM-66 SM-2MR Block II", "sam", ["missile", "air"], 45, 2000, 40,
            vls_pack=1, base_pk=.54)
@@ -162,8 +170,10 @@ def catalogue():
            base_pk=.65, defensive_difficulty=1.55, profile="high", altitude_m=4000.0, salvo_default=4)
     weapon("shtil", "M-22 Uragan / SA-N-7 Gadfly", "sam", ["missile", "air"], 19, 1900, 38,
            base_pk=.49)
+    # The S-300F's 5V55RM engages nothing below 25 m (published envelope; see DATA_SOURCES.md), so
+    # a sea-skimming Harpoon is left to Slava's Osa-M and AK-630 layers.
     weapon("fort", "S-300F Fort / SA-N-6 Grumble", "sam", ["missile", "air"], 45, 2300, 42,
-           base_pk=.52)
+           base_pk=.52, intercept_min_altitude_m=25.0)
     weapon("kinzhal", "3K95 Kinzhal / SA-N-9 Gauntlet", "sam", ["missile", "air"], 7, 1700, 30,
            base_pk=.51, min_range_nm=.6)
     weapon("osa_m", "Osa-M / SA-N-4 Gecko", "sam", ["missile", "air"], 5, 1600, 26,
@@ -208,7 +218,7 @@ def catalogue():
              aircraft_capacity=70, aviation_facility="catobar", launch_spots=4, recovery_spots=1,
              default_air_wing={"f14a":4,"e2c":1,"s3a":2,"sh3h":2},
              torpedo_decoy="AN/SLQ-25 Nixie", towed_torpedo_decoy=True, torpedo_decoy_effectiveness=0.3, role="Fleet air defence / aviation command",
-             service_note="1990 recognition fit: F-14A+, E-2C, S-3A and SH-3H, Sea Sparrow and Phalanx. Nine represented aircraft are a reduced scenario detachment, not the complete historical air wing. Strike squadrons are omitted.")
+             service_note="1990 recognition fit: F-14A+, E-2C, A-6E, S-3A and SH-3H, Sea Sparrow and Phalanx. A custom fleet gets a nine-aircraft default detachment; Carrier Watch fields 28, with a four-aircraft A-6E Harpoon element. Neither is the complete historical air wing: Hornet, Prowler and tanker squadrons are omitted.")
     platform("los_angeles", "Los Angeles-class attack submarine", "SSN Los Angeles", "USA", "nuclear attack submarine",
              ["bqq5"], {"mk48":20}, domain="subsurface", length_m=110.3, displacement_t=6900.0,
              max_speed_kn=30.0, cruise_speed_kn=7.0, health=70.0, signature_factor=.25,
@@ -290,6 +300,13 @@ def catalogue():
                  service_note=("LAMPS III radar, sonobuoys and Mk 46; SH-60B has no dipping sonar. "
                                "Stop over the datum to drop buoys; the aircraft itself cannot listen through a dipping transducer."
                                if key=="sh60b" else "Period dipping-sonar ASW helicopter. Sensor envelopes, buoy count and deck cycle are game estimates."))
+    # The period strike element. A-6E TRAM (AN/AAS-33 turret, AN/APQ-156) was Harpoon-capable from
+    # 1981; see docs/COLD_WAR_1990.md. Speed, endurance and the two-round load are GAMEPLAY_ESTIMATE,
+    # sized for one stand-off attack at Norwegian Sea radius rather than a maximum load.
+    aircraft("a6e","A-6E TRAM Intruder","A-6E","USA","strike aircraft",["apq156","alr45"],{"agm84":2},
+             560,launch_requirement="catobar",length_m=16.7,cruise_altitude_m=6000.0,
+             endurance_s=10800.0,role="Carrier all-weather attack / anti-ship Harpoon",
+             service_note="A-6E TRAM with AN/APQ-156 and two AGM-84 Harpoon. No KA-6D tanking, bombs, HARM or SLAM are represented; the TRAM turret's laser designation is outside the game.")
     aircraft("tu22m3","Tu-22M3 Backfire-C","Tu-22M3","USSR","maritime strike bomber",["pn_a"],{"kh22":1},
              1050,cruise_speed_kn=490.0,signature_factor=1.4,health=40.0,length_m=42.5,
              cruise_altitude_m=10000.0,launch_requirement="runway",role="Long-range anti-carrier strike",
@@ -463,7 +480,20 @@ def validate(cases):
             assert all(w in WEAPONS for w in unit.get("loadout",p["weapon_loadout"]))
             for a in unit.get("air_wing",[]):
                 assert a["platform"] in PLATFORMS and PLATFORMS[a["platform"]]["domain"]=="air"
-        for o in s["objectives"]["victory"]+s["objectives"]["loss"]:
+        # Units that enter by event are period units too, and objectives may name them.
+        arriving=[]
+        for e in s.get("events",[]):
+            for shape in [e]+e.get("variants",[]):
+                arriving.extend(shape.get("reinforcements",[]))
+        for unit in arriving:
+            assert unit["platform"] in PLATFORMS,unit["callsign"]
+        names|={u["callsign"] for u in arriving}
+        added=[]
+        for e in s.get("events",[]):
+            for shape in [e]+e.get("variants",[]):
+                update=shape.get("objectives",{})
+                added.extend(update.get("add",[])+update.get("add_loss",[]))
+        for o in s["objectives"]["victory"]+s["objectives"]["loss"]+added:
             assert all(n in names for n in o.get("callsigns",[]))
     manifest=dict(year=1990,scenario_ids=[s["id"] for s in cases],
         platforms=sorted(PLATFORMS),weapons=sorted(WEAPONS),sensors=sorted(SENSORS),

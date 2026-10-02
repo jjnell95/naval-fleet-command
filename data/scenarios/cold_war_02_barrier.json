@@ -9,15 +9,15 @@
   "duration_minutes": 25,
   "role": "ASW barrier commander",
   "learning": "Passive bearings, sonobuoys, layer depth and firing solutions",
-  "commander_intent": "Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat.",
+  "commander_intent": "Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat, and there may be more than one boat.",
   "first_orders": [
     "Select Dallas to view its local sonar picture. Keep it slow and passive; build a solution before committing a Mk 48.",
     "Launch a Spruance SH-60B toward the suspected passage and drop sonobuoys. It has no dipping sonar.",
     "Use Keflavik's P-3C to extend the search. Protect Spruance and prevent the submarine reaching the southern gate.",
-    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
+    "F1 lists the operation sequence, live task progress and tasking updates. Contact reports go on the plot as wide datums to investigate; they are never firing solutions."
   ],
   "historical_note": "Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
-  "description": "16 September 1990, Iceland-Faroe Ridge. An unidentified Soviet Victor III is attempting an Atlantic breakout. USS Dallas and USS Spruance hold a compact barrier, with a P-3C detachment at Keflavik. A seasonal acoustic layer complicates the search; below-layer listening and deliberate localization matter more than speed. This is a submarine search, not a radar duel. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
+  "description": "16 September 1990, Iceland-Faroe Ridge. An unidentified Soviet Victor III is attempting an Atlantic breakout. USS Dallas and USS Spruance hold a compact barrier, with a P-3C detachment at Keflavik. A seasonal acoustic layer complicates the search; below-layer listening and deliberate localization matter more than speed. This is a submarine search, not a radar duel. This operation reacts to what each side sees: raid timing, enemy readiness, contact reports and tasking change from one engagement to the next. Consult the operation sequence before deployment.",
   "start_time_utc": "1990-09-16T01:10:00",
   "player_faction": "BLUE",
   "neutral_factions": [
@@ -350,34 +350,15 @@
     }
   ],
   "victory_mode": "any",
-  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
   "objectives": {
-    "text": "Hold Dallas on the opening patrol station for five minutes while Spruance deploys its helicopters. Use passive bearings and spaced sonobuoys. A bearing alone is not a torpedo solution. Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat.",
+    "text": "Put Dallas and the helicopters across the likely lanes. A loud Spruance can turn the boat from a transit into an attack. Fixed-array cues arrive as wide datums. Use passive bearings and spaced sonobuoys; a bearing or a cue is not a torpedo solution. Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat, and there may be more than one boat.",
     "victory": [
-      {
-        "id": "establish_screen",
-        "type": "hold_area",
-        "callsigns": [
-          "USS Dallas (SSN 700)"
-        ],
-        "center_nm": [
-          4.6117,
-          4.2
-        ],
-        "radius_nm": 15,
-        "count": 1,
-        "seconds": 300,
-        "phase_only": true,
-        "text": "Keep USS Dallas (SSN 700) within 15 nm of its opening station for five continuous minutes"
-      },
       {
         "id": "watch",
         "type": "time_elapsed",
         "text": "Complete the watch with protected units intact",
-        "seconds": 10800,
-        "after": [
-          "establish_screen"
-        ]
+        "seconds": 10800
       },
       {
         "id": "neutralize",
@@ -385,9 +366,6 @@
         "text": "Neutralize the named opposing combatants",
         "callsigns": [
           "Soviet submarine (Victor III)"
-        ],
-        "after": [
-          "establish_screen"
         ]
       }
     ],
@@ -23176,30 +23154,199 @@
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
   },
-  "operation_revision": 25,
+  "operation_revision": 26,
   "collection": "operations",
   "operation_plan": [
     {
-      "title": "01 / Establish the barrier",
-      "task": "Hold Dallas on the opening patrol station for five minutes while Spruance deploys its helicopters."
+      "title": "01 / Set the barrier",
+      "task": "Put Dallas and the helicopters across the likely lanes. A loud Spruance can turn the boat from a transit into an attack."
     },
     {
       "title": "02 / Localize the submarine",
-      "task": "Use passive bearings and spaced sonobuoys. A bearing alone is not a torpedo solution."
+      "task": "Fixed-array cues arrive as wide datums. Use passive bearings and spaced sonobuoys; a bearing or a cue is not a torpedo solution."
     },
     {
       "title": "03 / Deny the passage",
-      "task": "Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat."
+      "task": "Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat, and there may be more than one boat."
     }
   ],
   "events": [
     {
-      "id": "screen_orders",
-      "after": [
-        "establish_screen"
+      "id": "transit_lane",
+      "side": "RED",
+      "at_s": 0,
+      "variants": [
+        {
+          "id": "direct",
+          "ai": [
+            {
+              "units": [
+                "Soviet submarine (Victor III)"
+              ],
+              "patrol_nm": [
+                [
+                  -2.984,
+                  -8.4
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "western",
+          "ai": [
+            {
+              "units": [
+                "Soviet submarine (Victor III)"
+              ],
+              "patrol_nm": [
+                [
+                  -5.0,
+                  4.0
+                ],
+                [
+                  -2.984,
+                  -8.4
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eastern",
+          "ai": [
+            {
+              "units": [
+                "Soviet submarine (Victor III)"
+              ],
+              "patrol_nm": [
+                [
+                  9.0,
+                  -2.0
+                ],
+                [
+                  -2.984,
+                  -8.4
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "array_cue",
+      "at_s_window": [
+        600,
+        1800
       ],
-      "at_s": 300,
-      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+      "unless": {
+        "type": "track_held",
+        "faction": "BLUE",
+        "callsigns": [
+          "Soviet submarine (Victor III)"
+        ],
+        "min_classification": "UNKNOWN",
+        "allow_stale": true
+      },
+      "intel": [
+        {
+          "target": "Soviet submarine (Victor III)",
+          "error_nm": 12,
+          "source": "Fixed acoustic array"
+        }
+      ],
+      "message": "Fixed acoustic array cue: a submerged contact near {pos}, accuracy about 12 nm. A cue is not a firing solution; localize it with buoys or Dallas before committing a torpedo."
+    },
+    {
+      "id": "boat_turns",
+      "side": "RED",
+      "chance": 0.6,
+      "when": {
+        "type": "track_held",
+        "faction": "RED",
+        "callsigns": [
+          "USS Spruance (DD 963)"
+        ],
+        "min_classification": "UNKNOWN"
+      },
+      "ai": [
+        {
+          "units": [
+            "Soviet submarine (Victor III)"
+          ],
+          "ai_posture": "standard"
+        }
+      ]
+    },
+    {
+      "id": "second_boat",
+      "chance": 0.35,
+      "at_s_window": [
+        3600,
+        6000
+      ],
+      "reinforcements": [
+        {
+          "platform": "cw90_victor3",
+          "callsign": "Soviet submarine 2 (Victor III)",
+          "faction": "RED",
+          "position_nm": [
+            -14.0,
+            16.0
+          ],
+          "heading_deg": 160,
+          "speed_kn": 7,
+          "depth_m": 160,
+          "radar_on": false,
+          "ai_posture": "breakout",
+          "patrol_nm": [
+            [
+              -8.0,
+              2.0
+            ],
+            [
+              -2.984,
+              -8.4
+            ]
+          ]
+        }
+      ],
+      "intel": [
+        {
+          "target": "Soviet submarine 2 (Victor III)",
+          "error_nm": 15,
+          "source": "Fixed acoustic array"
+        }
+      ],
+      "objectives": {
+        "add_loss": [
+          {
+            "id": "breakout_2",
+            "type": "reach_area",
+            "callsigns": [
+              "Soviet submarine 2 (Victor III)"
+            ],
+            "center_nm": [
+              -2.984,
+              -8.4
+            ],
+            "radius_nm": 3,
+            "count": 1,
+            "text": "Second Victor III crossed the southern barrier"
+          }
+        ],
+        "update": {
+          "neutralize": {
+            "callsigns": [
+              "Soviet submarine (Victor III)",
+              "Soviet submarine 2 (Victor III)"
+            ],
+            "text": "Neutralize both Victor IIIs"
+          }
+        }
+      },
+      "message": "TASKING UPDATE: the fixed array holds a second submerged contact near {pos}, accuracy about 15 nm, heading for the same gap. It must not cross the barrier either; neutralizing the boats now means both."
     }
   ]
 }

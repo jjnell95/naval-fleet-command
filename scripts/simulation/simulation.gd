@@ -9,9 +9,14 @@ var sensor_manager: SensorManager
 var weapon_manager: WeaponManager
 ## Fire and flooding aboard a ship: `fire`, `fire_out`, `flooding_controlled`, `lost`.
 signal casualty_event(unit: Unit, event: String)
+## An operation event's message for the player's side (OperationDirector).
 signal operation_message(message: String)
-var operation_events: Array = []
-var completed_events: Dictionary = {}
+## The scenario's events: reinforcements, contact reports, tasking changes, enemy decisions.
+var director: OperationDirector
+## Event id -> sim time it fired. The director's record, under the name the tests and tools use.
+var completed_events: Dictionary:
+	get:
+		return director.fired
 var threat_manager: ThreatManager
 var aviation_manager: AviationManager
 var air_mission_manager: AirMissionManager
@@ -36,6 +41,10 @@ var scenario_path := ""
 var seed_override := -1
 ## The seed this engagement was started with, whether pinned, forced or drawn. Saved games keep it.
 var base_seed := 0
+## The seed the operation's events are drawn from (OperationDirector), or -1 for the engagement's
+## own. A player starting an operation gets a fresh draw each time, so a replay has to be read off
+## the plot; tests, tools and a pinned --seed leave it at -1 and replay one engagement exactly.
+var variation_seed := -1
 var _in_tick := false
 
 
@@ -87,7 +96,17 @@ func _ready() -> void:
 	mission_manager = MissionManager.new()
 	mission_manager.name = "MissionManager"
 	mission_manager.unit_manager = unit_manager
+	mission_manager.track_manager = track_manager
 	add_child(mission_manager)
+	director = OperationDirector.new()
+	director.name = "OperationDirector"
+	director.unit_manager = unit_manager
+	director.track_manager = track_manager
+	director.mission_manager = mission_manager
+	add_child(director)
+	director.message.connect(operation_message.emit)
+	director.reinforced.connect(_build_ai.bind(false))
+	director.retasked.connect(_on_retasked)
 	unit_manager.order_issued.connect(_on_order_issued)
 	SimClock.tick.connect(_on_tick)
 
@@ -103,6 +122,7 @@ func load_scenario(path: String) -> bool:
 	Damage.rng.seed = base_seed ^ 0xDA46
 	ScenarioLoader.populate(unit_manager, scenario)
 	mission_manager.configure(scenario)
+	director.configure(scenario, variation_seed if variation_seed >= 0 else base_seed)
 	_build_ai()
 	SimClock.reset(ScenarioLoader.start_unix_time(scenario))
 	return true
@@ -142,8 +162,7 @@ func _install_scenario(sc: Dictionary, path: String) -> void:
 	air_mission_manager.clear()
 	group_attack_manager.clear()
 	mission_manager.player_faction = player_faction
-	operation_events = scenario.get("events", []).duplicate(true)
-	completed_events.clear()
+	director.install(scenario)
 
 
 ## The running engagement as plain data, between ticks only. See SimSnapshot.
@@ -209,6 +228,14 @@ func _build_ai(reset := true) -> void:
 		c.configure_plans(scenario.get("ai_plans", []))
 		add_child(c)
 		ai_controllers[u.faction] = c
+
+
+## The scenario changed one of a side's standing routes or postures; its commander, if the side has
+## one, starts the new route from the beginning.
+func _on_retasked(u: Unit) -> void:
+	var c: AIController = ai_controllers.get(u.faction)
+	if c != null:
+		c.route_changed(u)
 
 
 func ai_state_for(u: Unit) -> String:
@@ -320,23 +347,8 @@ func _step(dt: float) -> void:
 	mission_manager.tick(SimClock.sim_time)
 
 
-## Authored reinforcements enter once, through the same loader as the opening force.
-## They receive no tracks or target truth. Only the authored command message is public;
-## enemy reinforcements must still be detected by the player's sensors.
+## The operation's events, first in the tick (OperationDirector). Reinforcements enter through
+## the same loader as the opening force with no tracks; only messages for the player's side are
+## sent, so the enemy's reinforcements and decisions still have to be found by the player's sensors.
 func _tick_operation_events(now: float) -> void:
-	if mission_manager.result != MissionManager.Result.RUNNING:
-		return
-	for i in operation_events.size():
-		var event: Dictionary = operation_events[i]
-		var key := str(event.get("id", str(i)))
-		if completed_events.has(key) or now < float(event.get("at_s", 0.0)):
-			continue
-		if not mission_manager.prerequisites_complete(PackedStringArray(event.get("after", []))):
-			continue
-		completed_events[key] = true
-		if not event.get("reinforcements", []).is_empty():
-			ScenarioLoader.populate(unit_manager, {"units": event["reinforcements"]})
-			_build_ai(false)
-		var message := str(event.get("message", ""))
-		if message != "":
-			operation_message.emit(message)
+	director.tick(now)

@@ -420,7 +420,10 @@ static func validate(sc: Dictionary) -> String:
 	for id: String in ids:
 		if _cycle(id, ids, {}):
 			return "Task prerequisites form a cycle"
-	return _plans_problem(sc, names, units)
+	var plans_problem := _plans_problem(sc, names, units)
+	if plans_problem != "":
+		return plans_problem
+	return OperationDirector.event_problem(sc)
 
 
 ## Every opposing-force plan names units that exist and are on its side and has what its kind needs;

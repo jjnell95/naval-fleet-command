@@ -309,6 +309,21 @@ func test_open_bearing_turns_along_a_coast() -> void:
 	assert_true(not Terrain.blocks_path(from, from + Geo.heading_to_vector(away) * 40.0), "the chosen bearing is clear")
 
 
+## The engine's polygon test double-counts where its ray runs through a vertex, which left a
+## hair-thin line of "land" across open water south of Cyprus in the Tartus chart: Mistral's step
+## landed on it and she sat there for hours. The open sea there is sea, and the coast is still land.
+func test_a_chart_sized_polygon_has_no_phantom_land_lines() -> void:
+	Terrain.load_from(ScenarioLoader.load_file("res://data/scenarios/med_01_tartus.json"))
+	var phantom := Vector2(-54.00552, -30.50199)
+	assert_true(not Terrain.is_land(phantom), "open water south of Cyprus")
+	assert_true(Terrain.land_at(phantom) == null)
+	var mistral := Vector2(-54.00676, -30.50188)
+	var step := Geo.heading_to_vector(94.9) * Geo.knots_to_nm_per_s(18.0) * 0.25
+	assert_eq(Terrain.constrain_step(mistral, mistral + step), mistral + step, "a ship steaming east there keeps going")
+	assert_true(Terrain.is_land(Vector2(105.4, 28.2)), "the Tartus battery still stands ashore")
+	Terrain.clear()
+
+
 func test_terrain_state_does_not_leak_into_later_tests() -> void:
 	# The whole suite runs in one process, so a coastline left loaded here would silently change
 	# every sensor result in every file that runs after this one.

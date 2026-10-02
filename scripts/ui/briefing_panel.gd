@@ -296,6 +296,12 @@ func _append_orders(out: PackedStringArray) -> void:
 	else:
 		out.append(_section("OPENING ORDERS"))
 		out.append("01   Select your command ship and review the force.\n02   Set your course, speed and emissions before committing.\n03   Classify contacts and protect the units named below.\n")
+	# Orders received since the operation began, newest first: what changed and when.
+	if not mission_manager.tasking_updates.is_empty():
+		out.append(_section("TASKING UPDATES"))
+		for i in range(mission_manager.tasking_updates.size() - 1, -1, -1):
+			var update: Dictionary = mission_manager.tasking_updates[i]
+			out.append("[color=%s][b]%s[/b][/color]   %s\n" % [UITheme.HEX_INK_AMBER, Geo.format_duration(float(update["time_s"])), _safe(str(update["text"]))])
 	out.append(_section("SUCCESS CONDITIONS  /  " + ("COMPLETE EITHER" if mission_manager.victory_mode == "any" else "COMPLETE ALL")))
 	if mission_manager.victory_objectives.is_empty():
 		out.append("Free command. This operation has no fixed victory conditions.")
@@ -367,7 +373,9 @@ func _line(o: MissionObjective, loss := false) -> String:
 	if loss:
 		mark = "[color=%s]TRIGGERED[/color]" % UITheme.HEX_INK_RED if o.complete else "[color=%s]AVOID[/color]" % UITheme.HEX_INK_FAINT
 	var detail := o.progress(unit_manager, SimClock.sim_time) if unit_manager != null else ""
-	return "[font_size=12][b]%s[/b][/font_size]   %s\n[color=%s][font_size=12]%s[/font_size][/color]" % [mark, _safe(o.text), UITheme.HEX_INK_FAINT, _safe(detail)]
+	# A bonus task is credited when done and never needed for the win; say so beside it.
+	var bonus := "   [color=%s]BONUS[/color]" % UITheme.HEX_INK_BLUE if o.optional and not loss else ""
+	return "[font_size=12][b]%s[/b][/font_size]   %s%s\n[color=%s][font_size=12]%s[/font_size][/color]" % [mark, _safe(o.text), bonus, UITheme.HEX_INK_FAINT, _safe(detail)]
 
 
 func set_mode(pre_mission: bool) -> void:

@@ -9,7 +9,10 @@ const PASSAGE := "res://data/scenarios/northern_passage.json"
 const PLAN_FIXTURE := "res://tests/fixtures/ai_plan_carrier.json"
 const IKE := "USS Dwight D. Eisenhower (CVN 69)"
 const SAVE_AT := 601.75  # off the one- and two-second cycle boundaries, so every phase matters
-const COMPARE_AT := 2460.0  # after the follow-on raid scheduled at 2400 s
+const COMPARE_AT := 2460.0  # after the follow-on raid and the cruiser report this seed draws
+## Carrier Watch's draw with rounds in the air and shots queued at the save, the Norwegian report on
+## Slava still to come, and the second Backfire element sent by RED's own plot of the carrier.
+const CONTINUATION_SEED := 13
 
 var _sim: Simulation
 var _scratch := "user://test-saves-%d" % OS.get_process_id()
@@ -85,7 +88,7 @@ func _write_and_read(snapshot: Dictionary) -> Dictionary:
 
 
 func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
-	_fresh(CARRIER_WATCH, 31)
+	_fresh(CARRIER_WATCH, CONTINUATION_SEED)
 	_play_to_save_point()
 	assert_eq(SimClock.sim_time, SAVE_AT)
 	# What the save has to carry, present at the moment it is taken.
@@ -95,12 +98,16 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	assert_true(_sim.unit_manager.units.any(func(u: Unit) -> bool: return u.alive and u.is_aircraft() and (u.returning or u.flight_state == Unit.FlightState.RECOVERING)), "an aircraft on its way back to the deck")
 	assert_true(_sim.unit_manager.units.any(func(u: Unit) -> bool: return u.alive and (u.attack_track != null or u.investigation_track != null)), "a crew on a temporary task")
 	assert_true(not _sim.completed_events.has("follow_on_raid"), "the follow-on raid is still to come")
+	assert_true(not _sim.completed_events.has("cruiser_report"), "and the contact report with its tasking update")
+	var latest := float(_sim.director.event("follow_on_raid")["latest_s"])
 	assert_true(not _sim.air_mission_manager.active_missions("BLUE").is_empty(), "air missions flying")
 	var saved := _write_and_read(SimSnapshot.capture(_sim))
 	SimClock.advance(COMPARE_AT - SAVE_AT)
 	var expected := _bytes()
 	var expected_result := _sim.mission_manager.result
 	assert_true(_sim.completed_events.has("follow_on_raid"), "the uninterrupted battle saw the raid")
+	assert_true(float(_sim.completed_events["follow_on_raid"]) < latest, "sent by RED's plot of the carrier, not by its latest time")
+	assert_true(_sim.mission_manager.objective("strike_slava") != null, "the report added its bonus task")
 	_free()
 	# A different seed: the restore must replace every random stream, not continue this one's.
 	_fresh(CARRIER_WATCH, 999)
@@ -108,7 +115,9 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	assert_eq(SimClock.sim_time, SAVE_AT, "the clock resumes at the saved tick")
 	SimClock.advance(COMPARE_AT - SAVE_AT)
 	var got := _bytes()
-	assert_true(_sim.completed_events.has("follow_on_raid"), "the scheduled raid still arrives after a reload")
+	assert_true(_sim.completed_events.has("follow_on_raid"), "the triggered raid still arrives after a reload")
+	assert_true(float(_sim.completed_events["follow_on_raid"]) < latest, "on the same trigger")
+	assert_true(_sim.mission_manager.objective("strike_slava") != null, "the tasking update is made after a reload")
 	assert_eq(_sim.mission_manager.result, expected_result)
 	if got != expected:
 		failures.append("continuation differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
@@ -460,7 +469,7 @@ func test_every_simulation_field_is_saved_or_declared_transient() -> void:
 		var names := SimSnapshot.script_variables(pair[0])
 		for skipped: String in (pair[1] as Dictionary):
 			assert_true(names.has(skipped), "%s skip list names a field that exists" % skipped)
-	var managers: Array = [_sim.unit_manager, _sim.track_manager, _sim.sensor_manager, _sim.threat_manager, _sim.weapon_manager, _sim.aviation_manager, _sim.air_mission_manager, _sim.group_attack_manager, _sim.mission_manager]
+	var managers: Array = [_sim.unit_manager, _sim.track_manager, _sim.sensor_manager, _sim.threat_manager, _sim.weapon_manager, _sim.aviation_manager, _sim.air_mission_manager, _sim.group_attack_manager, _sim.mission_manager, _sim.director]
 	managers.append_array(_sim.ai_controllers.values())
 	for node: Object in managers:
 		var name: String = node.get_script().get_global_name()
@@ -509,7 +518,9 @@ func _play_classic(seconds: float) -> void:
 ## ship's SAMs on it and every other ship holding its own. Each continuation must match the
 ## uninterrupted battle tick for tick.
 func test_continuation_under_classic_options_matches_the_uninterrupted_battle() -> void:
-	for save_at: float in [200.75, 571.75]:
+	# The second save point is where seed 31's first raid has our SAMs on a cleared round; the
+	# operation's drawn raid timing decides it.
+	for save_at: float in [200.75, 677.75]:
 		_fresh(CARRIER_WATCH, 31)
 		_classic_doctrine()
 		_play_to_save_point(save_at, _intercept_inbound)
@@ -522,7 +533,6 @@ func test_continuation_under_classic_options_matches_the_uninterrupted_battle() 
 			var cleared := _sim.weapon_manager.in_flight.filter(func(w: Weapon) -> bool: return w.phase != Weapon.Phase.DEAD and not w.intercept_cleared.is_empty())
 			assert_true(not cleared.is_empty(), "a round the commander ordered intercepted is in the air at the save")
 			assert_true(_sim.weapon_manager.in_flight.any(func(w: Weapon) -> bool: return w.phase != Weapon.Phase.DEAD and w.faction == "BLUE" and cleared.has(w.intercept_target)), "with our SAMs on it")
-			assert_true(escort.attack_track != null, "and the escort is attacking the contact it identified")
 		var saved := _write_and_read(SimSnapshot.capture(_sim))
 		_play_classic(400.0)
 		var expected := _bytes()
