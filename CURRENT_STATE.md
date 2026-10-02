@@ -1,4 +1,18 @@
-# Current State: M35 Nine Missions, a Crew and Campaigns
+# Current State: M36 Missions, Saves and an Enemy with a Plan
+
+Aircraft fly **missions** from Air Operations: a combat air patrol, a reconnaissance or ASW search area, or a strike on a held contact, chosen on the chart. The deck launches what it has ready, queues the rest and shows each airframe's state from queued to recovering. A CAP identifies unknown aircraft and intercepts only hostile ones; reconnaissance never fires; relief is opt-in per mission. Every ship and aircraft keeps its **standing station** through investigations, attacks, evasion and refuelling, and **S** sends it back. Two or more ships can share a **group attack** with one round budget and a shared assessment pause. The [M36 note](docs/2026-10-02-m36-missions-saves-and-an-enemy-with-a-plan.md) gives the design, the measurements and what was not verified.
+
+A battle can be **saved and reloaded exactly**: Ctrl+Shift+S, Ctrl+Shift+L, Ctrl+Shift+O for the list (also from the desk), five rotating autosaves, checksummed files, in the browser too. A seeded battle saved and reloaded carries on byte for byte as if never interrupted, in one process and across processes.
+
+The desk's **GAMEPLAY** row chooses **NORMAL** or **CLASSIC** (a 4× time ceiling, missile defence on the commander's orders with **X**, and attacks on contacts an investigation identifies as hostile), shown on a command-bar chip and kept with each save. The 1990 campaign has its own button. Combat the player could not observe no longer drops the clock to 1×.
+
+The seven operations **react to the battle** and vary by seed: events fire on convoy progress, each side's own plot, readiness and damage; reports are datums with an error, never firing solutions; tasking changes arrive with an order. Every operation gives the enemy a **mission plan**: it scouts, holds fire until its own sensors classify what it is after, and attacks it together from several bearings. Carrier Watch adds four A-6E Intruders with Harpoons, so a strike on Slava competes with fighter cover for the deck. Six operations have two scripted openings that win on both tested seeds; Hormuz's two openings each win one seed of two.
+
+The sensor cycle in the largest late battle costs a third of what it did with identical outcomes, and a per-frame time budget brings an order onto the screen in about 65 ms at 60× instead of about 7 s.
+
+Validation is recorded in [validation-m36.json](docs/validation-m36.json).
+
+# Previous: M35 Nine Missions, a Crew and Campaigns
 
 Nine missions ship, down from 23: one 2027 operation in each chart region (North Cape, Taiwan Strait, Hormuz, Tartus), three 1990 operations and two training missions. The cut was made in the generators, which now reproduce `data/` byte for byte after three earlier hand edits were moved into them. Hormuz's neutral-loss condition now counts only the player's fire. The [M35 note](docs/2026-10-01-m35-nine-missions-a-crew-and-campaigns.md) gives the reasoning, the measurements and what was not verified.
 
