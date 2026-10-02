@@ -36,6 +36,8 @@ var _menu: ScenarioMenu
 var _briefing: BriefingPanel
 var _command_palette: CommandPalette
 var _air_operations: AirOperations
+## The Air Operations dialog has handed the chart over to pick a station or a strike target.
+var _air_picking := false
 var _fleet_operations: FleetOperations
 var _weapon_control: WeaponControl
 var _modal_pause_captured := false
@@ -183,6 +185,12 @@ func _ready() -> void:
 			SimClock.drop_to_realtime()
 			radio.flash("Bingo fuel, returning", "warn", a)
 			voice.say("aircraft_rtb", a))
+	simulation.air_mission_manager.mission_report.connect(func(m: AirMission, message: String, good: bool) -> void:
+		if m.faction == simulation.player_faction and not simulation.ai_plays_player:
+			radio.flash(message, "info" if good else "warn", m.base))
+	simulation.air_mission_manager.mission_ended.connect(func(m: AirMission, reason: String) -> void:
+		if m.faction == simulation.player_faction and not simulation.ai_plays_player:
+			radio.flash("%s %d ended: %s" % [m.label(), m.id, reason.to_lower()], "info", m.base))
 	simulation.aviation_manager.aircraft_tanking.connect(func(a: Unit, tanker: Unit) -> void:
 		if a.faction == simulation.player_faction and not simulation.ai_plays_player:
 			radio.flash("Low fuel, joining %s to refuel" % tanker.callsign, "info", a))
@@ -508,6 +516,18 @@ func _build_screens() -> void:
 	_air_operations.simulation = simulation
 	_air_operations.closed.connect(_close_air_operations)
 	_air_operations.order_requested.connect(_issue_air_order)
+	_air_operations.chart_pick_requested.connect(_begin_air_pick)
+	map.point_picked.connect(func(pos: Vector2) -> void:
+		if _air_picking:
+			_air_operations.apply_station(pos)
+			_end_air_pick())
+	map.contact_picked.connect(func(t: Track) -> void:
+		if _air_picking:
+			_air_operations.apply_target(t)
+			_end_air_pick())
+	map.pick_cancelled.connect(func() -> void:
+		if _air_picking:
+			_end_air_pick())
 	_air_operations.aircraft_selected.connect(func(a: Unit) -> void:
 		_close_air_operations(false)
 		map.select_units([a])
@@ -653,6 +673,9 @@ func _restore_modal_pause_if_clear() -> void:
 
 
 func _toggle_air_operations() -> void:
+	if _air_picking:
+		map.cancel_interaction_mode()  # back to the dialog the pick came from
+		return
 	if _air_operations.visible:
 		_close_air_operations(false)
 		return
@@ -693,6 +716,34 @@ func _close_fleet_operations() -> void:
 	_restore_modal_pause_if_clear()
 
 
+## The dialog steps aside while the commander picks on the chart; the clock stays where the dialog
+## left it, and the dialog comes back with the pick (or without, on a right-click or Escape).
+func _begin_air_pick(contact: bool) -> void:
+	var context := _air_operations.pick_context()
+	_air_picking = true
+	_air_operations.hide()
+	_set_background_input_enabled(true)
+	map.set_pick_mode(contact, str(context["prompt"]), context["origin"], float(context["radius_nm"]))
+	map.grab_focus()
+	radio.advise(str(context["prompt"]) + ". Right-click or Escape returns to Air Operations.")
+
+
+func _end_air_pick() -> void:
+	_air_picking = false
+	SimClock.set_paused(true)
+	_set_background_input_enabled(false)
+	_air_operations.show()
+	_air_operations.refresh()
+
+
+## "Air strike..." from a contact's menu: Air Operations, set to strike that contact.
+func _open_air_strike(t: Track) -> void:
+	if _air_operations.visible or _has_visible_modal():
+		return
+	_begin_modal_pause()
+	_air_operations.open_strike(map.selected, t)
+
+
 func _close_air_operations(execute := false) -> void:
 	_air_operations.hide()
 	if execute:
@@ -709,7 +760,13 @@ func _issue_air_order(u: Unit, order: Order) -> void:
 	var before := u.launch_spots_busy()
 	var accepted := simulation.unit_manager.issue_order(u, order)
 	var message := ""
-	if order.type == Order.Type.LAUNCH_AIRCRAFT:
+	if order.type == Order.Type.AIR_MISSION:
+		message = order.receipt if order.receipt != "" else ("Mission assigned" if accepted else "Mission refused")
+		if not accepted:
+			message = "Mission refused: " + message
+	elif order.type == Order.Type.CANCEL_AIR_MISSION:
+		message = "Mission %d cancelled: queued launches struck off, its aircraft returning." % order.mission_id if accepted else "That mission has already ended."
+	elif order.type == Order.Type.LAUNCH_AIRCRAFT:
 		var launched := u.launch_spots_busy() - before
 		var spec := DataDB.platform(order.aircraft_id)
 		message = "%s: launching %d of %d × %s. Resume time to fly the sortie." % [u.callsign, launched, order.aircraft_count, spec.short_name if spec != null else order.aircraft_id] if accepted else simulation.aviation_manager.launch_rejection_reason(u, order.aircraft_id)
@@ -1654,6 +1711,8 @@ func _run_cds_action(action: Dictionary) -> void:
 			_apply_order_to_selection(Order.attack(t, str(action.get("weapon", ""))))
 		"investigate":
 			_apply_order_to_selection(Order.investigate(action["track"]))
+		"air_strike":
+			_open_air_strike(action["track"])
 		"waypoint_delete":
 			_on_waypoint_delete_requested(action["unit"], int(action["index"]))
 		"layer":
@@ -1835,7 +1894,7 @@ static func _order_acknowledgement(order: Order) -> String:
 		Order.Type.RETURN_TO_STATION:
 			return "Returning to station, aye"
 		Order.Type.SET_AUTO_RETURN:
-			return "Auto-return to station %s, aye" % ("on" if order.automatic else "off"
+			return "Auto-return to station %s, aye" % ("on" if order.automatic else "off")
 		Order.Type.INVESTIGATE:
 			return "Investigating track %s" % DataDisplay.track_number_for_track(order.track)
 		Order.Type.ATTACK:

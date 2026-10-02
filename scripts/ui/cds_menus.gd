@@ -344,6 +344,8 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
 		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit this contact."))
 		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))
+		if target.domain in ["surface", "land"] and not target.identity in ["NEUTRAL", "FRIENDLY"]:
+			items.append(item("Air strike...", {"kind": "air_strike", "track": target}, false, "Open Air Operations set to strike this contact from a deck."))
 		if target.classification < Track.Classification.CLASS_KNOWN:
 			var can_investigate := false
 			var reason := ""

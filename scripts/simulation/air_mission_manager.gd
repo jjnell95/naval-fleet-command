@@ -224,6 +224,16 @@ func _strike_target_rejection(base: Unit, target: Track) -> String:
 
 # --- Requests and cancellation -----------------------------------------------------------
 
+## Airframes of the type on this deck that a new mission could have: ready, in turnaround or in
+## reserve, and not already flying for another mission.
+func available_for(base: Unit, platform_id: String) -> int:
+	var n := 0
+	for a in airframes_of(base, platform_id):
+		if a.flight_state in [Unit.FlightState.STOWED, Unit.FlightState.TURNAROUND, Unit.FlightState.RESERVE] and mission_for(a) == null:
+			n += 1
+	return n
+
+
 ## Routed here by Simulation for an AIR_MISSION order on a deck. Accepts what the deck can do and
 ## says what it cannot: fewer airframes than asked for, launches queued behind a busy deck.
 func request(base: Unit, order: Order) -> AirMission:
