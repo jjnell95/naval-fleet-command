@@ -134,7 +134,9 @@ func request(lead: Unit, order: Order) -> GroupAttack:
 	g.id = _next_id
 	_next_id += 1
 	groups.append(g)
-	var log := {"placed": [], "refused": {}, "short": 0}
+	# What this pass placed ([member index, weapon name, rounds] rows), who was refused and why
+	# (member index -> reason), and how far the volleys fell short: the makings of the receipt.
+	var tally := {"placed": [], "refused": {}, "short": 0}
 	for ti in g.targets.size():
 		var rows := _plan_rows(g, order, ti)
 		var size := _volley_size(g, ti)
@@ -142,10 +144,10 @@ func request(lead: Unit, order: Order) -> GroupAttack:
 			size = mini(_rounds_in(rows), size)
 		_open_volley(g, ti, size)
 		if not rows.is_empty():
-			_fire_plan(g, ti, rows, log)
-		_fill(g, ti, log)
-		log["short"] = int(log["short"]) + maxi(g.target_mark[ti] - _spent_at(g, ti), 0)
-	order.receipt = _receipt(g, log)
+			_fire_plan(g, ti, rows, tally)
+		_fill(g, ti, tally)
+		tally["short"] = int(tally["short"]) + maxi(g.target_mark[ti] - _spent_at(g, ti), 0)
+	order.receipt = _receipt(g, tally)
 	if _spent(g) == 0:
 		# Every shooter that looked able was refused at the launcher: nothing to coordinate, and
 		# nothing to report beyond the refusal.
@@ -327,14 +329,14 @@ func _step(g: GroupAttack) -> void:
 	if g.members_in_attack() == 0:
 		_end(g, "No shooters left")
 		return
-	var log := {"placed": [], "refused": {}, "short": 0}
+	var tally := {"placed": [], "refused": {}, "short": 0}
 	for ti in g.targets.size():
 		if g.target_done[ti] == "":
-			_step_target(g, ti, log)
+			_step_target(g, ti, tally)
 		if not g.active:
 			return
-	if not (log["placed"] as Array).is_empty():
-		_report(g, "Group attack %s: %s" % [g.target_label(), _placements_text(g, log)], true)
+	if not (tally["placed"] as Array).is_empty():
+		_report(g, "Group attack %s: %s" % [g.target_label(), _placements_text(g, tally)], true)
 	if g.live_targets().is_empty():
 		_end(g, _targets_done_reason(g))
 		return
@@ -352,7 +354,7 @@ func _step(g: GroupAttack) -> void:
 		_end(g, "Budget fired")
 		return
 	g.stall_s += CYCLE_DT
-	var refused: Dictionary = log["refused"]
+	var refused: Dictionary = tally["refused"]
 	if not refused.is_empty():
 		g.note = "awaiting solution: " + str(refused.values()[0])
 	if _all_out_of_rounds(g):
@@ -363,7 +365,7 @@ func _step(g: GroupAttack) -> void:
 
 ## One contact: drop the queue a shooter can no longer aim, keep the open volley filled, close it
 ## when everything in it has resolved, wait out the shared look, then open the next.
-func _step_target(g: GroupAttack, ti: int, log: Dictionary) -> void:
+func _step_target(g: GroupAttack, ti: int, tally: Dictionary) -> void:
 	var t := g.targets[ti]
 	var key := g.target_keys[ti]
 	if t.status == Track.Status.LOST:
@@ -388,11 +390,11 @@ func _step_target(g: GroupAttack, ti: int, log: Dictionary) -> void:
 			g.target_mark[ti] = -1
 			g.target_volley_fired[ti] = 0
 			if _volley_size(g, ti) <= 0:
-				_close_target(g, ti, "Budget fired" if _budget_left(g) <= 0 else "Share fired")
+				_close_target(g, ti, "Budget fired" if _budget_left(g) <= 0 else "Allocation fired")
 			else:
 				g.target_assess_until[ti] = now_s + ASSESS_S
 			return
-		_fill(g, ti, log)
+		_fill(g, ti, tally)
 		return
 	if g.target_assess_until[ti] >= 0.0:
 		if now_s < g.target_assess_until[ti]:
@@ -400,10 +402,10 @@ func _step_target(g: GroupAttack, ti: int, log: Dictionary) -> void:
 		g.target_assess_until[ti] = -1.0
 	var size := _volley_size(g, ti)
 	if size <= 0:
-		_close_target(g, ti, "Budget fired" if _budget_left(g) <= 0 else "Share fired")
+		_close_target(g, ti, "Budget fired" if _budget_left(g) <= 0 else "Allocation fired")
 		return
 	_open_volley(g, ti, size)
-	_fill(g, ti, log)
+	_fill(g, ti, tally)
 
 
 func _open_volley(g: GroupAttack, ti: int, size: int) -> void:
@@ -450,7 +452,7 @@ func _close_target(g: GroupAttack, ti: int, reason: String) -> void:
 	g.target_share[ti] = g.target_fired[ti]
 	_split(g, unspent, g.live_targets())
 	# The last contact's outcome is the attack's, and the end of the attack says it.
-	if g.live_targets().is_empty() or reason in ["Budget fired", "Share fired"]:
+	if g.live_targets().is_empty() or reason in ["Budget fired", "Allocation fired"]:
 		return
 	_report(g, "Group attack %s: track %s %s%s; its share goes to the others" % [g.target_label(), GroupAttack.track_number(g.target_ids[ti]), reason.to_lower(), " · %d queued round%s returned" % [returned, "" if returned == 1 else "s"] if returned > 0 else ""], reason == "Target destroyed")
 
@@ -593,7 +595,7 @@ static func _place(candidates: Array, want: int) -> Array[int]:
 ## Fills the open volley on contact `ti` up to its mark, within the budget and the contact's share.
 ## A shooter that comes up short (a refusal, a magazine clamp) is passed over and its rounds offered
 ## to the rest straight away.
-func _fill(g: GroupAttack, ti: int, log: Dictionary) -> int:
+func _fill(g: GroupAttack, ti: int, tally: Dictionary) -> int:
 	var placed := 0
 	var passed_over := {}
 	for attempt in 8:
@@ -601,7 +603,7 @@ func _fill(g: GroupAttack, ti: int, log: Dictionary) -> int:
 		if need <= 0:
 			break
 		var found := _candidates(g, ti)
-		var refused: Dictionary = log["refused"]
+		var refused: Dictionary = tally["refused"]
 		for row: Array in found["refused"]:
 			if not refused.has(row[0]):
 				refused[row[0]] = row[1]
@@ -623,7 +625,7 @@ func _fill(g: GroupAttack, ti: int, log: Dictionary) -> int:
 			var got := _spent(g) - before
 			placed += got
 			if got > 0:
-				(log["placed"] as Array).append([c["member"], spec.compact_name(), got])
+				(tally["placed"] as Array).append([c["member"], spec.compact_name(), got])
 			if got < counts[i]:
 				passed_over["%d|%s" % [c["member"], spec.id]] = true
 				if got == 0 and not refused.has(c["member"]):
@@ -635,7 +637,7 @@ func _fill(g: GroupAttack, ti: int, log: Dictionary) -> int:
 
 ## The board's first volley as the commander set it: these platforms, these weapons, these numbers.
 ## A row that cannot be fired in full is made up by the ordinary allocation afterwards.
-func _fire_plan(g: GroupAttack, ti: int, rows: Array, log: Dictionary) -> void:
+func _fire_plan(g: GroupAttack, ti: int, rows: Array, tally: Dictionary) -> void:
 	for row: Array in rows:
 		var mi := g.member_index(row[0])
 		if mi < 0 or not g.member_available(mi, ti):
@@ -647,7 +649,7 @@ func _fire_plan(g: GroupAttack, ti: int, rows: Array, log: Dictionary) -> void:
 			continue
 		var held := held_track(u, g.targets[ti])
 		if held == null:
-			(log["refused"] as Dictionary)[mi] = "contact not held"
+			(tally["refused"] as Dictionary)[mi] = "contact not held"
 			continue
 		var before := _spent(g)
 		var o := Order.engage(held, spec.id, need)
@@ -656,16 +658,16 @@ func _fire_plan(g: GroupAttack, ti: int, rows: Array, log: Dictionary) -> void:
 		unit_manager.issue_order(u, o)
 		var got := _spent(g) - before
 		if got > 0:
-			(log["placed"] as Array).append([mi, spec.compact_name(), got])
-		elif not (log["refused"] as Dictionary).has(mi):
-			(log["refused"] as Dictionary)[mi] = str(weapon_manager.engagement_check(u, spec, held, now_s)["reason"]).to_lower()
+			(tally["placed"] as Array).append([mi, spec.compact_name(), got])
+		elif not (tally["refused"] as Dictionary).has(mi):
+			(tally["refused"] as Dictionary)[mi] = str(weapon_manager.engagement_check(u, spec, held, now_s)["reason"]).to_lower()
 
 
 # --- What the commander reads ------------------------------------------------------------
 
 ## "12-round group attack on track 1077: USS Paul Ignatius 4 × Tomahawk, Nansen refused: out of
 ## range · 4 held for after the assessment".
-func _receipt(g: GroupAttack, log: Dictionary) -> String:
+func _receipt(g: GroupAttack, tally: Dictionary) -> String:
 	var spent := _spent(g)
 	var head := "%d-round group attack on track %s" % [g.budget, g.target_label()]
 	if g.targets.size() > 1:
@@ -673,15 +675,15 @@ func _receipt(g: GroupAttack, log: Dictionary) -> String:
 		for id in g.target_ids:
 			numbers.append(GroupAttack.track_number(id))
 		head = "%d-round group attack on tracks %s" % [g.budget, ", ".join(numbers)]
-	var text := head + ": " + _placements_text(g, log)
-	var short := int(log["short"])
+	var text := head + ": " + _placements_text(g, tally)
+	var short := int(tally["short"])
 	if short > 0:
 		# A shooter that could have taken them but is refused is named above; otherwise every
 		# shooter able to reach has given all it has aboard.
 		var why := "no more rounds aboard in reach"
-		var refused: Dictionary = log["refused"]
+		var refused: Dictionary = tally["refused"]
 		for mi: int in refused:
-			if not _placed_by(log, mi) and refused[mi] != "magazines empty":
+			if not _placed_by(tally, mi) and refused[mi] != "magazines empty":
 				why = "no other shooter can take them"
 		text += " · %d not placed: %s" % [short, why]
 	var held := g.budget - spent - short
@@ -691,12 +693,12 @@ func _receipt(g: GroupAttack, log: Dictionary) -> String:
 
 
 ## "USS Paul Ignatius 4 × Tomahawk + 2 × Mk 45, Nansen refused: out of range".
-func _placements_text(g: GroupAttack, log: Dictionary) -> String:
+func _placements_text(g: GroupAttack, tally: Dictionary) -> String:
 	var parts := PackedStringArray()
 	for mi in g.members.size():
 		var by_weapon := {}
 		var names: Array[String] = []
-		for row: Array in log["placed"]:
+		for row: Array in tally["placed"]:
 			if int(row[0]) != mi:
 				continue
 			if not by_weapon.has(row[1]):
@@ -709,15 +711,15 @@ func _placements_text(g: GroupAttack, log: Dictionary) -> String:
 		for name in names:
 			fired.append("%d × %s" % [by_weapon[name], name])
 		parts.append("%s %s" % [g.members[mi].callsign, " + ".join(fired)])
-	var refused: Dictionary = log["refused"]
+	var refused: Dictionary = tally["refused"]
 	for mi in g.members.size():
-		if refused.has(mi) and not _placed_by(log, mi):
+		if refused.has(mi) and not _placed_by(tally, mi):
 			parts.append("%s refused: %s" % [g.members[mi].callsign, refused[mi]])
 	return ", ".join(parts) if not parts.is_empty() else "nothing placed"
 
 
-static func _placed_by(log: Dictionary, mi: int) -> bool:
-	for row: Array in log["placed"]:
+static func _placed_by(tally: Dictionary, mi: int) -> bool:
+	for row: Array in tally["placed"]:
 		if int(row[0]) == mi:
 			return true
 	return false
@@ -775,7 +777,7 @@ func preview(lead: Unit, order: Order) -> String:
 	var g := _build(lead, order)
 	if g.members.is_empty() or g.targets.is_empty() or g.budget <= 0:
 		return ""
-	var log := {"placed": [], "refused": {}, "short": 0}
+	var tally := {"placed": [], "refused": {}, "short": 0}
 	var budget_left := g.budget
 	for ti in g.targets.size():
 		var size := mini(g.target_share[ti] if g.volley <= 0 else mini(g.volley, g.target_share[ti]), budget_left)
@@ -786,24 +788,24 @@ func preview(lead: Unit, order: Order) -> String:
 			var spec := g.members[mi].get_weapon(str(row[1]))
 			var n := mini(int(row[3]), size - got)
 			if spec != null and n > 0:
-				(log["placed"] as Array).append([mi, spec.compact_name(), n])
+				(tally["placed"] as Array).append([mi, spec.compact_name(), n])
 				got += n
 		if rows.is_empty():
 			var found := _candidates(g, ti)
 			for row: Array in found["refused"]:
-				if not (log["refused"] as Dictionary).has(row[0]):
-					log["refused"][row[0]] = row[1]
+				if not (tally["refused"] as Dictionary).has(row[0]):
+					tally["refused"][row[0]] = row[1]
 			var counts := _place(found["candidates"], size)
 			for i in counts.size():
 				if counts[i] > 0:
 					var c: Dictionary = found["candidates"][i]
-					(log["placed"] as Array).append([c["member"], (c["spec"] as WeaponSpec).compact_name(), counts[i]])
+					(tally["placed"] as Array).append([c["member"], (c["spec"] as WeaponSpec).compact_name(), counts[i]])
 					got += counts[i]
 		budget_left -= got
-		log["short"] = int(log["short"]) + size - got
-	var text := _placements_text(g, log)
-	if int(log["short"]) > 0:
-		text += " · %d not placed" % int(log["short"])
+		tally["short"] = int(tally["short"]) + size - got
+	var text := _placements_text(g, tally)
+	if int(tally["short"]) > 0:
+		text += " · %d not placed" % int(tally["short"])
 	return text
 
 
