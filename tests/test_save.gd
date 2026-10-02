@@ -418,6 +418,13 @@ func test_a_save_damaged_on_disk_never_loads_as_a_different_battle() -> void:
 			accepted_changed += 1
 	assert_eq(accepted_changed, 0, "no damaged file loads as a different battle")
 	assert_true(refused > 0)
+	# Cut short anywhere, including inside the magic and the checksum, or emptied: refused.
+	for keep in [0, 3, 15, 40, raw.size() / 2, raw.size() - 1]:
+		var short := FileAccess.open(path, FileAccess.WRITE)
+		short.store_buffer(raw.slice(0, keep))
+		short.close()
+		assert_true(str(SaveGame.read(path).get("error", "")) != "", "a file cut to %d bytes is refused" % keep)
+		assert_true(SaveGame.read_header(path).is_empty(), "and is not listed")
 	DirAccess.remove_absolute(path)
 	DirAccess.remove_absolute(_scratch)
 	SaveGame.root_override = ""
