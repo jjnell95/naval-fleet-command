@@ -207,6 +207,27 @@ static func weapon_items(w: Weapon, units: Array, controllable: bool, movable: b
 	]
 
 
+## The gameplay options, as a menu: the two presets and the options one at a time. Shared by the
+## command bar's chip and the CDS menu. `state["options"]` is the GameOptions in effect (Main's
+## _cds_state); voice and ambient are checked as heard, like the Sound submenu.
+static func options_items(state: Dictionary) -> Array:
+	var o: GameOptions = state["options"] if state.get("options") is GameOptions else GameOptions.normal(bool(state.get("voice", false)), bool(state.get("ambient", true)))
+	var preset := o.preset()
+	var items: Array = [
+		item("Normal", {"kind": "palette", "id": "preset_normal"}, false, GameOptions.preset_description(GameOptions.NORMAL) + ".", 1 if preset == GameOptions.NORMAL else 0),
+		item("Classic", {"kind": "palette", "id": "preset_classic"}, false, GameOptions.preset_description(GameOptions.CLASSIC) + ".", 1 if preset == GameOptions.CLASSIC else 0),
+		sep(),
+	]
+	for key: String in GameOptions.OPTION_KEYS:
+		if key == "":
+			items.append(sep())
+			continue
+		var sound := key in ["voice", "ambient"]
+		var on := bool(state.get(key, o.option_on(key))) if sound else o.option_on(key)
+		items.append(item(GameOptions.option_text(key), {"kind": "palette", "id": key if sound else "option_" + key}, false, GameOptions.option_tooltip(key), 1 if on else 0))
+	return items
+
+
 ## The orders board's wording for the under-the-layer preset, so the menu and the board agree.
 static func under_layer_reason(under_m: float, floor_m: float) -> String:
 	if under_m >= 0.0:
@@ -430,6 +451,7 @@ static func cds_items(state: Dictionary) -> Array:
 		submenu("Symbol controls", controls),
 		submenu("Map", overlays),
 		submenu("Sound", sound),
+		submenu("Gameplay", options_items(state)),
 		item("Range circle  [B]", {"kind": "palette", "id": "range_circle"}),
 		sep(),
 		item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}),

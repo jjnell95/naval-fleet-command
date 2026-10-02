@@ -9,6 +9,9 @@ signal scenario_chosen(path: String)
 signal dismissed()
 signal editor_requested()
 signal library_requested()
+## The commander chose a preset or changed one option in the GAMEPLAY row; Main applies and saves
+## it, then shows the result back with set_options.
+signal options_requested(options: GameOptions)
 
 const RowList = preload("res://scripts/ui/tactical_row_list.gd")
 ## Difficulty as green stars, the way mission lists showed it.
@@ -44,6 +47,12 @@ var _mast_note: Label
 var _panel: PanelContainer
 var _top: HBoxContainer
 var _intro: Button
+## The options the desk shows: Main's, set by set_options. The desk never saves them itself.
+var _options := GameOptions.normal()
+var _style_buttons: Dictionary = {}  # preset name -> Button
+var _options_menu: MenuButton
+var _options_summary: Label
+var _options_box: VBoxContainer
 
 
 func _ready() -> void:
@@ -72,10 +81,54 @@ func _ready() -> void:
 	brand.add_child(_title)
 	_subtitle = _label("Build the picture. Protect the force. Control the sea.", 14, UITheme.MENU_INK)
 	brand.add_child(_subtitle)
-	_mast_note = _label("Choose an operation and read its orders.\nThe clock waits for you.", 13, UITheme.MENU_INK)
+	# GAMEPLAY: the preset and its options, chosen here once and kept between sessions.
+	_options_box = VBoxContainer.new()
+	_options_box.add_theme_constant_override("separation", 2)
+	_options_box.size_flags_vertical = Control.SIZE_SHRINK_END
+	masthead.add_child(_options_box)
+	_mast_note = _label("Choose an operation and read its orders. The clock waits for you.", 13, UITheme.MENU_INK)
 	_mast_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_mast_note.size_flags_vertical = Control.SIZE_SHRINK_END
-	masthead.add_child(_mast_note)
+	_options_box.add_child(_mast_note)
+	var style_row := HBoxContainer.new()
+	style_row.add_theme_constant_override("separation", 6)
+	style_row.alignment = BoxContainer.ALIGNMENT_END
+	_options_box.add_child(style_row)
+	var style_caption := UITheme.caption("Gameplay")
+	style_caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	style_row.add_child(style_caption)
+	for entry in [[GameOptions.NORMAL, "NORMAL", GameOptions.preset_description(GameOptions.NORMAL)], [GameOptions.CLASSIC, "CLASSIC", "The late-1990s way of playing: " + GameOptions.preset_description(GameOptions.CLASSIC)]]:
+		var preset: String = entry[0]
+		var b := _button(entry[1])
+		b.theme_type_variation = "MenuBigButton"
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(96, 32)
+		b.add_theme_font_size_override("font_size", 15)
+		b.tooltip_text = entry[2]
+		b.pressed.connect(func() -> void: _choose_preset(preset))
+		style_row.add_child(b)
+		_style_buttons[preset] = b
+	_options_menu = MenuButton.new()
+	_options_menu.text = "OPTIONS ▾"
+	_options_menu.flat = false
+	_options_menu.focus_mode = Control.FOCUS_ALL
+	_options_menu.custom_minimum_size = Vector2(0, 32)
+	_options_menu.add_theme_font_size_override("font_size", 15)
+	_options_menu.tooltip_text = "Choose the options one at a time; any change from a preset is CUSTOM"
+	var popup := _options_menu.get_popup()
+	for i in GameOptions.OPTION_KEYS.size():
+		var key: String = GameOptions.OPTION_KEYS[i]
+		if key == "":
+			popup.add_separator()
+		else:
+			popup.add_check_item(GameOptions.option_text(key), i)
+			popup.set_item_tooltip(popup.get_item_index(i), GameOptions.option_tooltip(key))
+	popup.id_pressed.connect(_toggle_option)
+	style_row.add_child(_options_menu)
+	_options_summary = _label("", 12, UITheme.INK_BLUE)
+	_options_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_options_summary.clip_text = true
+	_options_summary.custom_minimum_size.x = 380
+	_options_box.add_child(_options_summary)
 
 	# The shelves, as the big bevelled menu buttons; the open shelf is pressed in.
 	var filter_row := HBoxContainer.new()
@@ -232,6 +285,7 @@ func _apply_layout() -> void:
 	_rail.visible = not compact and _portrait.spec_override != null
 	_subtitle.visible = not compact
 	_mast_note.visible = not compact
+	_options_summary.custom_minimum_size.x = 300.0 if compact else 380.0
 	_layout.add_theme_constant_override("separation", 8 if compact else 12)
 	_intent.max_lines_visible = 2
 	_mission_title.add_theme_font_size_override("font_size", 22 if compact else 26)
@@ -255,6 +309,38 @@ func refresh(current_path := "", played := false) -> void:
 				break
 	_initial_refresh = false
 	_populate(current_path)
+
+
+# --- Gameplay options --------------------------------------------------------------------
+
+## Shows the options Main is playing under: the preset pressed in (none for CUSTOM), each
+## option ticked, and a one-line summary.
+func set_options(o: GameOptions) -> void:
+	_options = o.duplicate_options()
+	if _options_menu == null:
+		return
+	var preset := _options.preset()
+	for key: String in _style_buttons:
+		(_style_buttons[key] as Button).set_pressed_no_signal(key == preset)
+	var popup := _options_menu.get_popup()
+	for i in GameOptions.OPTION_KEYS.size():
+		var key: String = GameOptions.OPTION_KEYS[i]
+		if key != "":
+			popup.set_item_checked(popup.get_item_index(i), _options.option_on(key))
+	# The pressed preset button says which preset it is; with neither pressed, the menu says CUSTOM.
+	_options_menu.text = "OPTIONS ▾" if preset != GameOptions.CUSTOM else "CUSTOM ▾"
+	_options_summary.text = _options.summary()
+	_options_summary.tooltip_text = "\n".join(_options.summary_lines())
+
+
+func _choose_preset(preset: String) -> void:
+	SoundFx.play("click")
+	options_requested.emit(GameOptions.preset_named(preset, _options.voice, _options.ambient))
+
+
+func _toggle_option(index: int) -> void:
+	SoundFx.play("click")
+	options_requested.emit(_options.toggled(str(GameOptions.OPTION_KEYS[index])))
 
 
 ## Opens My Missions on a mission just saved in the editor.

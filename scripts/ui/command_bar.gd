@@ -7,6 +7,10 @@ signal action_requested(id: String)
 
 var map: TacticalMap
 var buttons: Dictionary = {}
+## The gameplay preset on the chip ("NORMAL", "CLASSIC 4×", "CUSTOM 10×") and its options, one per
+## line, for the tooltip. Main sets both whenever the options change.
+var options_label := "NORMAL"
+var options_tooltip := ""
 var _hint: Label
 var _refresh := 0.0
 
@@ -50,6 +54,15 @@ func _ready() -> void:
 	_hint.clip_text = true
 	_hint.add_theme_font_size_override("font_size", 13)
 	row.add_child(_hint)
+	# The active preset, always in view: the rules this watch is being played under.
+	var chip := Button.new()
+	# Sized to its words (at most "CUSTOM 60×"), never clipped: the hint beside it gives way instead.
+	chip.custom_minimum_size.x = 96.0
+	chip.focus_mode = Control.FOCUS_NONE
+	chip.add_theme_font_size_override("font_size", 13)
+	chip.pressed.connect(func() -> void: action_requested.emit("options_menu"))
+	row.add_child(chip)
+	buttons["options_menu"] = chip
 	var speed := Button.new()
 	speed.custom_minimum_size.x = 62.0
 	speed.focus_mode = Control.FOCUS_NONE
@@ -86,6 +99,8 @@ func refresh() -> void:
 	buttons["plot_patrol"].text = "Patrol *" if map.interaction_mode == TacticalMap.InteractionMode.PATROL else "Patrol"
 	buttons["weapon_control"].disabled = map.selected.is_empty()
 	buttons["time_menu"].text = "%d× ▾" % int(SimClock.multiplier())
+	buttons["options_menu"].text = options_label
+	buttons["options_menu"].tooltip_text = "Gameplay options: choose Normal, Classic or single options.\n" + options_tooltip
 	buttons["open_defence"].disabled = map.selected.is_empty()
 	buttons["toggle_pause"].text = "RESUME  ▷" if SimClock.paused else "PAUSE  %d×" % int(SimClock.multiplier())
 	if map.interaction_mode == TacticalMap.InteractionMode.PATROL:

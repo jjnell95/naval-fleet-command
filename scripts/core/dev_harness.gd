@@ -9,6 +9,9 @@ extends RefCounted
 ##   --scenario=res://path       load this scenario instead of the default
 ##   --seed=N                    pin every generator, so runs repeat exactly
 ##   --autopilot                 let the opposing-force AI command the player's side as well
+##   --preset=classic            play under the Classic gameplay options (4× ceiling, manual missile
+##                               defence, engagement after identification); any driven run is Normal
+##                               otherwise, and never reads or saves the player's own options
 ##   --fastforward=S             advance S seconds of simulation immediately
 ##   --autoplay=S                crude stand-in player: engage, advance, repeat, for S seconds
 ##   --combat / --defence        scripted engagement sequences from Milestones 3 and 4

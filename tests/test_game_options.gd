@@ -84,6 +84,29 @@ func test_each_option_toggles_on_its_own_and_the_classic_ladder_is_one_constant(
 	assert_eq(classic.toggled("engage_on_id").toggled("engage_on_id").preset(), GameOptions.CLASSIC)
 
 
+func test_the_menus_show_the_options_in_effect() -> void:
+	var items := CdsMenus.options_items({"options": GameOptions.classic(), "voice": true, "ambient": true})
+	var by_text := {}
+	for entry: Dictionary in items:
+		if entry.has("text"):
+			by_text[str(entry["text"])] = entry
+	assert_eq(int(by_text["Classic"]["checked"]), 1, "the preset in effect is ticked")
+	assert_eq(int(by_text["Normal"]["checked"]), 0)
+	assert_eq(int(by_text[GameOptions.option_text("manual_defence")]["checked"]), 1)
+	assert_eq(str(by_text[GameOptions.option_text("ceiling")]["action"]["id"]), "option_ceiling")
+	assert_eq(str(by_text["Crew voice"]["action"]["id"]), "voice", "sound goes through the same toggles as the Sound menu")
+	var custom := GameOptions.classic().toggled("manual_defence")
+	items = CdsMenus.options_items({"options": custom, "voice": true, "ambient": true})
+	for entry: Dictionary in items:
+		if str(entry.get("text", "")) in ["Normal", "Classic"]:
+			assert_eq(int(entry["checked"]), 0, "a custom set ticks neither preset")
+	var gameplay: Dictionary = {}
+	for entry: Dictionary in CdsMenus.cds_items({"options": GameOptions.normal()}):
+		if str(entry.get("text", "")) == "Gameplay":
+			gameplay = entry
+	assert_true(not gameplay.is_empty() and not bool(gameplay["disabled"]), "the CDS menu has a Gameplay submenu")
+
+
 func test_options_round_trip_and_tolerate_damaged_data() -> void:
 	var classic := GameOptions.classic()
 	var copy := GameOptions.from_dict(classic.to_dict())

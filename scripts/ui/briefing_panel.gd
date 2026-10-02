@@ -10,6 +10,10 @@ signal menu_pressed()
 
 var mission_manager: MissionManager
 var unit_manager: UnitManager
+## The gameplay options the operation is played under, one line each (Main sets it): the preset
+## is part of the orders, since it decides who fires interceptors and how fast the watch may run.
+var options_lines := PackedStringArray()
+var options_label := ""
 var _eyebrow: Label
 var _title: Label
 var _body: RichTextLabel
@@ -247,6 +251,8 @@ func refresh(reset_scroll := false) -> void:
 	_meta.visible = not details.is_empty()
 	_intent.text = _scenario.get("commander_intent", mission_manager.briefing if mission_manager.briefing != "" else "Establish the tactical picture and accomplish the objectives below.")
 	_posture.text = "The clock is paused.\n\nTake Command begins at real time. Press Space whenever you need time to assess contacts or issue orders." if _pre_mission else "The clock is paused.\n\nReview your objectives, then Resume to continue the operation."
+	if options_label != "":
+		_posture.text += "\n\nGAMEPLAY: %s\n%s" % [options_label, "\n".join(options_lines)]
 	for key: String in _tabs:
 		var button: Button = _tabs[key]
 		button.set_pressed_no_signal(key == _active_section)
