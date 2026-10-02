@@ -295,7 +295,7 @@ static func self_noise_factor(observer: Unit, sensor: SensorSpec) -> float:
 static func passive_sonar_range_nm(observer: Unit, sensor: SensorSpec, target: Unit, with_path := true) -> float:
 	if sensor.passive_sensitivity_nm <= 0.0 or target.is_aircraft() or target.spec.domain == "land":
 		return 0.0
-	if sensor.requires_hover and not observer.is_hovering():
+	if sensor.requires_hover and not DippingSonar.listening(observer):
 		return 0.0  # a dipping set has to be in the water
 	var noise := acoustic_noise(target)
 	if noise <= 0.0:
@@ -326,7 +326,7 @@ static func best_active_sonar_nm(observer: Unit) -> float:
 	for s in observer.sensors:
 		if s.kind != "sonar":
 			continue
-		if s.requires_hover and not observer.is_hovering():
+		if s.requires_hover and not DippingSonar.listening(observer):
 			continue
 		best = maxf(best, s.active_range_nm)
 	return best * observer.sensor_efficiency()
@@ -340,7 +340,7 @@ static func active_sonar_reach_nm(observer: Unit, target: Unit) -> float:
 	for s in observer.sensors:
 		if s.kind != "sonar" or s.active_range_nm <= 0.0:
 			continue
-		if s.requires_hover and not observer.is_hovering():
+		if s.requires_hover and not DippingSonar.listening(observer):
 			continue
 		best = maxf(best, s.active_range_nm * Acoustics.active_path_factor(observer, s, target))
 	return best * observer.sensor_efficiency()
@@ -353,7 +353,7 @@ static func active_sonar_sensor_for(observer: Unit, target: Unit) -> SensorSpec:
 	for s in observer.sensors:
 		if s.kind != "sonar" or s.active_range_nm <= 0.0:
 			continue
-		if s.requires_hover and not observer.is_hovering():
+		if s.requires_hover and not DippingSonar.listening(observer):
 			continue
 		var r := s.active_range_nm * Acoustics.active_path_factor(observer, s, target)
 		if r > best:
@@ -367,7 +367,7 @@ static func nominal_passive_ring_nm(observer: Unit) -> float:
 	var best := 0.0
 	for s in observer.sensors:
 		if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0:
-			if s.requires_hover and not observer.is_hovering():
+			if s.requires_hover and not DippingSonar.listening(observer):
 				continue
 			best = maxf(best, s.passive_sensitivity_nm * self_noise_factor(observer, s))
 	return best
@@ -380,7 +380,7 @@ static func active_sonar_detection_nm(listener: Unit, emitter: Unit) -> float:
 	var best := 0.0
 	for s in listener.sensors:
 		if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0:
-			if s.requires_hover and not listener.is_hovering():
+			if s.requires_hover and not DippingSonar.listening(listener):
 				continue  # a dipping set hears nothing until it is in the water
 			best = maxf(best, s.passive_sensitivity_nm * 1.8 * self_noise_factor(listener, s))
 	return best
@@ -400,7 +400,7 @@ static func torpedo_detection_nm(listener: Unit, wspec: WeaponSpec) -> float:
 	var best := 0.0
 	for s in listener.sensors:
 		if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0:
-			if s.requires_hover and not listener.is_hovering():
+			if s.requires_hover and not DippingSonar.listening(listener):
 				continue
 			best = maxf(best, s.passive_sensitivity_nm * sqrt(maxf(wspec.acoustic_signature, 0.01)) * self_noise_factor(listener, s))
 	return best * sonar_environment_factor()

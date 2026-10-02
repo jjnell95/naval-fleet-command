@@ -295,11 +295,11 @@ func _refresh() -> void:
 			for s in u.sensors:
 				if s.kind == "sonar":
 					var where := ""
-					if not u.is_submarine() and s.array_depth_m > 0.0 and (not s.requires_hover or u.is_hovering()):
+					if not u.is_submarine() and s.array_depth_m > 0.0 and (not s.requires_hover or DippingSonar.listening(u)):
 						var d := Acoustics.sensor_depth_m(u, s)
 						var under := Acoustics.layer_present_at(Acoustics.bottom_m(u, true)) and not Acoustics.is_above_layer(d)
 						where = "  [color=%s]%s %d m%s[/color]" % [UITheme.HEX_DIM, "DIPPED" if s.requires_hover else "STREAMED", int(d), " · under layer" if under else ""]
-					lines.append("  %s  [color=%s]%s[/color]%s" % [s.display_name, UITheme.HEX_GREEN if u.active_sonar_on else UITheme.HEX_DIM, "PINGING" if u.active_sonar_on else "PASSIVE", where])
+					lines.append("  %s  [color=%s]%s[/color]%s" % [s.display_name, UITheme.HEX_GREEN if u.active_sonar_on else UITheme.HEX_DIM, DippingSonar.status(u) if s.requires_hover else ("PINGING" if u.active_sonar_on else "PASSIVE"), where])
 			lines.append("  [color=%s]~%.0f nm passive · %.0f nm active · sea state %d[/color]" % [UITheme.HEX_DIM, Detection.nominal_passive_ring_nm(u), Detection.best_active_sonar_nm(u) if u.active_sonar_on else _first_active_range(u), Detection.sea_state])
 		if u.weapons.is_empty():
 			lines.append(_h("MAGAZINES"))

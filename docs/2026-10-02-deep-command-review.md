@@ -59,3 +59,5 @@ Validation details and hashes are recorded in `validation-deep-command-review.js
 Scenario generators were rerun in their documented order. Only Northern Passage's briefing text changed; no platform performance, weapons, dispositions or mission objectives changed. The full scenario balance sweep was not repeated for this presentation/defaults pass.
 
 The browser package is rebuilt locally. Browser execution and browser save/reload still require a browser-capable session; no browser result or live deployment is claimed. Audio playback was not assessed in the cloud's dummy audio environment.
+
+The three remaining priorities above were implemented in the [Air Operations, interface size and sonar follow-up](2026-10-02-command-priorities.md), with native viewport checks and saved-state continuation coverage.

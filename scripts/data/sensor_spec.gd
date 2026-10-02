@@ -18,8 +18,8 @@ extends Resource
 @export var active_range_nm := 0.0  # firm range and bearing, but announces the sender
 @export var bearing_accuracy_deg := 1.5  # passive bearing error, one sigma
 @export var self_noise_tolerance := 0.5  # how well the array works while the ship is moving fast
-## A dipping set only works with the aircraft stopped and low. That is the whole helicopter ASW
-## cycle: fly, stop, listen, move on.
+## A helicopter dipping set only works in DippingSonar.LISTENING, after hover and lowering.
+## Recovery raises the array before transit resumes; simply flying low never deploys it.
 @export var requires_hover := false
 ## How far below the surface the array can be lowered: a variable-depth body on its cable, a
 ## dipping transducer on its wire. Zero is a hull set, fixed a few metres under the keel. What

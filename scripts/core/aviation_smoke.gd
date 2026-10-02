@@ -16,6 +16,7 @@ static func run(main: Main) -> void:
 		return
 	main.map.select_units([carrier])
 	SimClock.set_paused(false)
+	SimClock.set_speed_index(2)
 	main._toggle_air_operations()
 	await main.get_tree().process_frame
 	var panel := main._air_operations
@@ -36,8 +37,8 @@ static func run(main: Main) -> void:
 	if launched.size() != 2:
 		_finish(main, checks)
 		return
-	main._close_air_operations(true)
-	checks["execute resumes at real time"] = not SimClock.paused and SimClock.speed_index == 0 and main.map.keyboard_navigation_enabled
+	main._close_air_operations()
+	checks["Close restores the running clock and selected speed"] = not SimClock.paused and SimClock.speed_index == 2 and main.map.keyboard_navigation_enabled
 	SimClock.advance(180.0)
 	var divert := launched[0]
 	var recover := launched[1]
@@ -55,7 +56,7 @@ static func run(main: Main) -> void:
 	checks["second airframe receives carrier recovery"] = recover.returning and recover.recovery_base == carrier
 	var weapon_id: String = divert.spec.weapon_loadout.keys()[0]
 	divert.magazines[weapon_id] = 0
-	main._close_air_operations(true)
+	main._close_air_operations()
 	SimClock.advance(1500.0)
 	checks["diverted aircraft lands at shore and transfers membership"] = divert.completed_sorties == 1 and divert.home == field and field.embarked.has(divert) and not carrier.embarked.has(divert)
 	checks["other aircraft lands aboard its carrier"] = recover.completed_sorties == 1 and recover.home == carrier
@@ -74,7 +75,7 @@ static func run(main: Main) -> void:
 	panel._count.value = 1
 	panel._launch_selected()
 	checks["recovered type can launch again from shore"] = divert.flight_state == Unit.FlightState.LAUNCHING
-	main._close_air_operations(false)
+	main._close_air_operations()
 	checks["closing planning preserves an existing pause"] = SimClock.paused and main.map.keyboard_navigation_enabled
 	main.start_scenario("res://data/scenarios/carrier_qualification.json")
 	checks["scenario reset clears stale aviation selections"] = panel._aircraft == null and panel._base == null and panel._bases.is_empty() and panel._destinations.is_empty()

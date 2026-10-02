@@ -127,6 +127,12 @@ func _ready() -> void:
 		else:
 			popup.add_check_item(GameOptions.option_text(key), i)
 			popup.set_item_tooltip(popup.get_item_index(i), GameOptions.option_tooltip(key))
+	popup.add_separator("INTERFACE SIZE")
+	for percent: int in InterfaceScale.PERCENTAGES:
+		popup.add_radio_check_item("%d%%" % percent, 1000 + percent)
+	popup.about_to_popup.connect(func() -> void:
+		for percent: int in InterfaceScale.PERCENTAGES:
+			popup.set_item_checked(popup.get_item_index(1000 + percent), InterfaceScale.percent == percent))
 	popup.id_pressed.connect(_toggle_option)
 	style_row.add_child(_options_menu)
 	_options_summary = _label("", 12, UITheme.INK_BLUE)
@@ -404,6 +410,9 @@ func _choose_preset(preset: String) -> void:
 
 
 func _toggle_option(index: int) -> void:
+	if index >= 1000:
+		InterfaceScale.apply(get_window(), index - 1000)
+		return
 	SoundFx.play("click")
 	options_requested.emit(_options.toggled(str(GameOptions.OPTION_KEYS[index])))
 

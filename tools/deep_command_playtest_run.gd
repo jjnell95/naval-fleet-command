@@ -32,12 +32,11 @@ func run(scene_tree: SceneTree) -> void:
 	checks["guide opens the real Air Operations dialog"] = air.visible and SimClock.paused
 	await _settle_guide()
 	checks["guide hides behind a modal"] = not guide.visible
-	if air._leds.is_empty():
+	if air._selection_labels.is_empty():
 		checks["intro aircraft available on flight deck"] = false
 		_finish()
 		return
-	await _click_control(air._leds[0])
-	checks["launch lamp selects one ready aircraft"] = int(air._count.value) == 1 and not air._launch.disabled
+	checks["quantity defaults to one ready aircraft"] = int(air._count.value) == 1 and not air._launch.disabled
 	await _click_control(air._launch)
 	await _click_control(air._back)
 	SimClock.set_paused(true)

@@ -301,7 +301,7 @@ func _dipping_set() -> SensorSpec:
 	return s
 
 
-func test_a_dipping_set_only_works_stopped_and_low() -> void:
+func test_a_dipping_set_only_works_after_deployment() -> void:
 	var helo := _unit(_helo_spec(), "BLUE", Vector2.ZERO)
 	helo.flight_state = Unit.FlightState.AIRBORNE
 	helo.sensors.append(_dipping_set())
@@ -315,7 +315,11 @@ func test_a_dipping_set_only_works_stopped_and_low() -> void:
 
 	helo.speed_kn = 0.0
 	helo.altitude_m = 50.0
-	assert_true(helo.is_hovering(), "stopped and low is what dipping means")
+	assert_true(helo.is_hovering())
+	assert_near(Detection.best_passive_sonar(helo, boat)["range_nm"], 0.0, 1e-6, "hover alone never deploys the array")
+	helo.apply_order(Order.deploy_dipping_sonar())
+	for second in 100:
+		Movement.step(helo, 1.0)
 	assert_true(Detection.best_passive_sonar(helo, boat)["range_nm"] > 3.0, "and then it hears the boat")
 
 

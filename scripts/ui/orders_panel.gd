@@ -225,6 +225,8 @@ func _ready() -> void:
 	_subrow.add_child(_sonar_label)
 	_sonar_buttons.append(_add_button(_subrow, "PING", func() -> void: _emit(Order.active_sonar())))
 	_sonar_buttons.append(_add_button(_subrow, "PASSIVE", func() -> void: _emit(Order.passive_sonar())))
+	for button in _sonar_buttons:
+		button.tooltip_text = "Set sonar posture. A helicopter must first use Orders → Sensors → Deploy dipping sonar."
 
 	_cmdrow = HBoxContainer.new()
 	_cmdrow.add_theme_constant_override("separation", 6)

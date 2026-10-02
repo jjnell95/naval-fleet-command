@@ -36,7 +36,6 @@ const ASW_ALTITUDE_M := 150.0
 ## a while, then moving on along the search circuit. GAMEPLAY_ESTIMATE timings.
 const DIP_S := 180.0
 const DIP_INTERVAL_S := 240.0
-const DIP_ALTITUDE_M := 50.0
 ## A held radar altitude above this marks an unclassified contact as probably airborne.
 const AIRBORNE_ALTITUDE_M := 30.0
 
@@ -654,16 +653,12 @@ func _step_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 	if a.station_mission_id != m.id:
 		_release(m, a)
 		return
-	var dip_until := float(task.get("dip_until", -1.0))
-	if dip_until > now_s:
-		task["state"] = AirMission.ON_STATION  # in the water and listening
-		return
-	if dip_until > 0.0:
-		# The dip is over: the set comes up and the helicopter moves on along the search circuit.
-		task["dip_until"] = -1.0
+	if bool(task.get("dip_cycle", false)):
+		if a.dip_phase != DippingSonar.Phase.STOWED:
+			task["state"] = AirMission.DIPPING
+			return
+		task["dip_cycle"] = false
 		task["next_dip_at"] = now_s + DIP_INTERVAL_S
-		_crew(a, Order.return_to_station())
-		_crew(a, Order.set_altitude(ASW_ALTITUDE_M))
 		return
 	if not a.on_station():
 		# A task ended with auto-return off: the airframe holds until told to go back (S).
@@ -783,10 +778,8 @@ func _asw_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 				_report(m, "%s prosecuting track %s" % [a.callsign, t.id], true)
 				return
 	if _dips(a) and a.position.distance_to(m.station) <= m.radius_nm and now_s >= float(task.get("next_dip_at", 0.0)) and not Terrain.is_land(a.position):
-		# Stop low and lower the dipping set: it hears nothing at transit speed or height.
-		if _crew(a, Order.stop()):
-			_crew(a, Order.set_altitude(DIP_ALTITUDE_M))
-			task["dip_until"] = now_s + DIP_S
+		if _crew(a, Order.deploy_dipping_sonar(DIP_S)):
+			task["dip_cycle"] = true
 			return
 	if a.sonobuoys <= 0 or a.spec.sonobuoy_sensitivity_nm <= 0.0:
 		return

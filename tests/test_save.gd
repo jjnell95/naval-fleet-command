@@ -605,3 +605,47 @@ func _first_difference(a: Variant, b: Variant, path: String) -> String:
 					return d
 			return ""
 	return "" if var_to_bytes(a) == var_to_bytes(b) else "%s: %s vs %s" % [path, a, b]
+
+
+func test_dipping_sonar_saves_continue_exactly_in_each_handling_phase() -> void:
+	for phase: int in [DippingSonar.Phase.LOWERING, DippingSonar.Phase.LISTENING, DippingSonar.Phase.RAISING]:
+		_fresh(PASSAGE, 31)
+		_sim.ai_enabled = false
+		var helo: Unit
+		for u in _sim.unit_manager.units:
+			if u.faction == "BLUE" and DippingSonar.capable(u): helo = u
+		assert_true(helo != null)
+		if helo == null:
+			_free()
+			return
+		assert_true(_sim.unit_manager.issue_order(helo.home, Order.launch_aircraft(helo.spec.id)))
+		SimClock.advance(helo.spec.launch_time_s + 1.0)
+		assert_true(_sim.unit_manager.issue_order(helo, Order.deploy_dipping_sonar(60.0)))
+		for step in 1600:
+			SimClock.advance(0.25)
+			if helo.dip_phase == phase: break
+		assert_eq(helo.dip_phase, phase)
+		SimClock.advance(1.25)
+		var saved := _write_and_read(SimSnapshot.capture(_sim))
+		SimClock.advance(97.75)
+		var expected := _bytes()
+		_free()
+		_fresh(PASSAGE, 999)
+		assert_eq(_sim.restore_snapshot(saved), "")
+		SimClock.advance(97.75)
+		assert_eq(_bytes(), expected, "whole simulation continues identically from sonar phase %d" % phase)
+		_free()
+
+
+func test_older_save_without_dipping_fields_defaults_to_stowed() -> void:
+	_fresh(PASSAGE, 31)
+	var saved := SimSnapshot.capture(_sim)
+	for u: Dictionary in saved["units"]:
+		u.erase("dip_phase")
+		u.erase("dip_timer_s")
+		u.erase("dip_listen_s")
+	assert_eq(_sim.restore_snapshot(saved), "")
+	for u in _sim.unit_manager.units:
+		assert_eq(u.dip_phase, DippingSonar.Phase.STOWED)
+		assert_near(u.dip_timer_s, 0.0)
+	_free()

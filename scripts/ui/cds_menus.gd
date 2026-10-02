@@ -112,6 +112,12 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 	if any_sonar:
 		sensors.append(item("Sonar passive", order_action(Order.passive_sonar())))
 		sensors.append(item("Sonar active", order_action(Order.active_sonar())))
+	var dip_units := units.filter(func(u: Unit) -> bool: return DippingSonar.capable(u))
+	if not dip_units.is_empty():
+		var can_deploy := dip_units.any(func(u: Unit) -> bool: return DippingSonar.rejection(u) == "")
+		var can_recover := dip_units.any(func(u: Unit) -> bool: return UnitManager.can_accept_order(u, Order.recover_dipping_sonar()))
+		sensors.append(item("Deploy dipping sonar", order_action(Order.deploy_dipping_sonar()), not can_deploy, "Hover, lower the array, then listen. New navigation orders raise it first." if can_deploy else DippingSonar.rejection(dip_units[0])))
+		sensors.append(item("Raise dipping sonar", order_action(Order.recover_dipping_sonar()), not can_recover, "Raise the array, then resume the current route or station."))
 	if any_buoys:
 		sensors.append(item("Drop sonobuoy", order_action(Order.deploy_sonobuoy())))
 	if not sensors.is_empty():
@@ -237,6 +243,9 @@ static func options_items(state: Dictionary) -> Array:
 		var sound := key in ["voice", "ambient"]
 		var on := bool(state.get(key, o.option_on(key))) if sound else o.option_on(key)
 		items.append(item(GameOptions.option_text(key), {"kind": "palette", "id": key if sound else "option_" + key}, false, GameOptions.option_tooltip(key), 1 if on else 0))
+	items.append(sep())
+	for percent: int in InterfaceScale.PERCENTAGES:
+		items.append(item("Interface size: %d%%" % percent, {"kind": "palette", "id": "ui_scale_%d" % percent}, false, "Scale text, chart labels and controls together.", 1 if InterfaceScale.percent == percent else 0))
 	return items
 
 

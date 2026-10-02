@@ -88,6 +88,10 @@ var points := 0
 var sensors: Array[SensorSpec] = []  # resolved from spec.sensor_ids at spawn
 var radar_on := true
 var active_sonar_on := false
+## Saved handling phase and simulation-time countdown for a helicopter dipping set.
+var dip_phase := DippingSonar.Phase.STOWED
+var dip_timer_s := 0.0
+var dip_listen_s := 0.0
 ## The standing emissions policy. The AI follows it; the player sets it directly. Radiating is
 ## what gets you found, so this is a real decision rather than a formality.
 var emcon: Emcon = Emcon.FREE
@@ -384,7 +388,12 @@ func has_sonar() -> bool:
 
 
 func active_sonar_emitting() -> bool:
-	return active_sonar_on and has_sonar()
+	if not active_sonar_on or not is_engageable():
+		return false
+	for sensor in sensors:
+		if sensor.kind == "sonar" and sensor.active_range_nm > 0.0 and (not sensor.requires_hover or DippingSonar.listening(self)):
+			return true
+	return false
 
 
 func is_submarine() -> bool:
@@ -418,6 +427,7 @@ const DETACHING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.ST
 
 
 func apply_order(order: Order) -> void:
+	DippingSonar.on_order(self, order)
 	# A second attack order on the contact already under attack keeps the task, its round count
 	# and its assessment pause; only the chosen weapon can change.
 	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:

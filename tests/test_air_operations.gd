@@ -107,7 +107,7 @@ func test_air_operations_exercise_has_mixed_compatible_basing() -> void:
 	um.free()
 
 
-func test_launch_lamps_light_the_airframes_the_deck_will_send() -> void:
+func test_quantity_selects_the_airframes_the_deck_will_send() -> void:
 	var base := _unit("fra_cvn_charles_de_gaulle")
 	var first := _unit("fra_fighter_rafale_m")
 	var cycling := _unit("fra_fighter_rafale_m")
@@ -120,19 +120,13 @@ func test_launch_lamps_light_the_airframes_the_deck_will_send() -> void:
 	base.embarked.assign([first, cycling, helo, second, third, lost])
 	var rows := AirOperations.deck_rows(base, "fra_fighter_rafale_m")
 	assert_eq(rows, [first, cycling, second, third] as Array[Unit], "the type's live airframes in deck order")
-	assert_eq(AirOperations.lit_lamps(rows, 0), [false, false, false, false] as Array[bool], "nothing lit, nothing goes")
-	assert_eq(AirOperations.lit_lamps(rows, 2), [true, false, true, false] as Array[bool], "the first two ready airframes, skipping one in turnaround")
-	# The deck launches the first ready airframes of the type, the same ones the lamps show.
+	assert_eq(AirOperations.selected_rows(rows, 0), [false, false, false, false] as Array[bool], "nothing lit, nothing goes")
+	assert_eq(AirOperations.selected_rows(rows, 2), [true, false, true, false] as Array[bool], "the first two ready airframes, skipping one in turnaround")
+	# The deck launches the first ready airframes of the type, the same ones the indicators show.
 	var ready_in_order: Array[Unit] = []
 	for a in base.stowed_aircraft():
 		if a.spec.id == "fra_fighter_rafale_m":
 			ready_in_order.append(a)
-	assert_eq(ready_in_order.slice(0, 2), [first, second] as Array[Unit], "the lamps match the deck's own choice")
-	assert_eq(AirOperations.count_after_press(rows, 2, 0), 2, "a dark lamp lights every ready airframe up to it")
-	assert_eq(AirOperations.count_after_press(rows, 2, 2), 1, "the last lit lamp goes dark")
-	assert_eq(AirOperations.count_after_press(rows, 0, 2), 1, "an earlier lamp shortens the sortie to it")
-	assert_eq(AirOperations.count_after_press(rows, 1, 2), 2, "a lamp for an airframe in turnaround changes nothing")
-	assert_eq(AirOperations.count_after_press(rows, 3, 1), 3)
-	assert_eq(AirOperations.count_after_press(rows, 9, 1), 1, "out of range changes nothing")
+	assert_eq(ready_in_order.slice(0, 2), [first, second] as Array[Unit], "the indicators match the deck's own choice")
 	assert_eq(AirOperations.deck_rows(null, "fra_fighter_rafale_m"), [] as Array[Unit])
 	base.embarked.clear()

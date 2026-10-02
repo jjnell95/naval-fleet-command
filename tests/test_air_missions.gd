@@ -440,11 +440,11 @@ func test_a_dipping_helicopter_stops_to_listen_and_then_moves_on() -> void:
 		if m.aircraft.is_empty():
 			continue
 		helo = m.aircraft[0]
-		if helo.is_hovering() and hovered_at < 0.0:
+		if DippingSonar.listening(helo) and hovered_at < 0.0:
 			hovered_at = SimClock.sim_time
 		if hovered_at > 0.0 and SimClock.sim_time > hovered_at + AirMissionManager.DIP_S + 30.0:
 			break
-	assert_true(hovered_at > 0.0, "the Sea King came to a hover in the area to dip")
+	assert_true(hovered_at > 0.0, "the Sea King completed lowering and listened in the area")
 	assert_true(helo.on_station() and helo.patrol_active, "and took up its search circuit again afterwards")
 	assert_eq(helo.station_label, "ASW SEARCH", "the station was kept through the dip")
 	_done()

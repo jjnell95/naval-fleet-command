@@ -318,6 +318,7 @@ func _ready() -> void:
 	# driven run (a smoke, a probe, a screenshot), which never saves preferences and never reaches
 	# the operating system's speech.
 	_driven_run = scripted or CrewVoice.automated_run() or not args.is_empty()
+	InterfaceScale.initialize(get_window(), _driven_run, args)
 	if _driven_run:
 		UserSettings.writable = false
 		# Smokes and sweeps play Normal whatever the player chose, so their outcomes never depend on
@@ -824,7 +825,7 @@ func _build_screens() -> void:
 		if _air_picking:
 			_end_air_pick())
 	_air_operations.aircraft_selected.connect(func(a: Unit) -> void:
-		_close_air_operations(false)
+		_close_air_operations()
 		map.select_units([a])
 		map.center_on_selection())
 	add_child(_air_operations)
@@ -994,12 +995,13 @@ func _toggle_air_operations() -> void:
 		map.cancel_interaction_mode()  # back to the dialog the pick came from
 		return
 	if _air_operations.visible:
-		_close_air_operations(false)
+		_close_air_operations()
 		return
 	if _has_visible_modal():
 		return
 	_begin_modal_pause()
 	_air_operations.open_for(map.selected)
+	_air_operations.set_clock_context(_modal_was_paused)
 
 
 func _toggle_weapon_control() -> void:
@@ -1094,13 +1096,11 @@ func _open_air_strike(t: Track) -> void:
 		return
 	_begin_modal_pause()
 	_air_operations.open_strike(map.selected, t)
+	_air_operations.set_clock_context(_modal_was_paused)
 
 
-func _close_air_operations(execute := false) -> void:
+func _close_air_operations() -> void:
 	_air_operations.hide()
-	if execute:
-		_modal_was_paused = false
-		SimClock.set_speed_index(0)
 	_restore_modal_pause_if_clear()
 	call_deferred("_focus_map_if_clear")
 
@@ -1288,6 +1288,8 @@ func _palette_actions() -> Array[Dictionary]:
 	]
 	for key: String in ["ceiling", "manual_defence", "engage_on_id"]:
 		actions.append({"id": "option_" + key, "label": GameOptions.option_text(key), "description": GameOptions.option_tooltip(key), "shortcut": "", "enabled": true, "state": "on" if options.option_on(key) else "off"})
+	for percent: int in InterfaceScale.PERCENTAGES:
+		actions.append({"id": "ui_scale_%d" % percent, "label": "Interface size: %d%%" % percent, "description": "Scale text, chart labels and controls together.", "shortcut": "", "enabled": true, "state": "selected" if InterfaceScale.percent == percent else ""})
 	var ladder := SimClock.speeds()
 	for i in ladder.size():
 		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(ladder[i]), "description": "Set simulation acceleration; time remains paused until resumed." + (" The ceiling." if i == ladder.size() - 1 and ladder.size() < SimClock.SPEEDS.size() else ""), "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
@@ -1328,6 +1330,9 @@ func _state_name(state: int, off_name: String, on_name: String) -> String:
 
 
 func _run_palette_action(id: String) -> void:
+	if id.begins_with("ui_scale_"):
+		InterfaceScale.apply(get_window(), int(id.trim_prefix("ui_scale_")))
+		return
 	match id:
 		"guide_aircraft":
 			var aircraft := _command_guide.aircraft(simulation.unit_manager)
@@ -1550,7 +1555,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if _air_operations.visible:
 		if k.keycode in [KEY_F3, KEY_ESCAPE]:
-			_close_air_operations(false)
+			_close_air_operations()
 			get_viewport().set_input_as_handled()
 		return
 	if _library.visible:

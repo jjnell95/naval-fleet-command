@@ -1,19 +1,19 @@
 class_name AirOperations
 extends PanelContainer
 ## Own-force air plan, drawn as the grey in-mission launch dialog. Choose a host and an aircraft
-## type, light the LAUNCH lamps of the airframes to send, then Ok to launch them and resume.
+## type and quantity, then explicitly launch or assign a mission. Closing preserves the clock.
 ## Below, choose an airborne airframe and where it should land. Commands always go through Main
 ## and UnitManager.
-signal closed(execute: bool)
+signal closed()
 signal order_requested(unit: Unit, order: Order)
 signal aircraft_selected(aircraft: Unit)
 ## Hand the chart to the commander to pick a station or search area (false) or a strike target.
 signal chart_pick_requested(contact: bool)
 
 const DIALOG_SIZE := Vector2(880.0, 690.0)
-const DECK_COLUMNS := ["AIRFRAME", "LAUNCH", "TIME", "STATE", "FUEL"]
-## The mission picker's rows: "launch only", then AirMission.Kind in order.
-const MISSION_CHOICES := ["None — launch only", "Combat air patrol", "Reconnaissance / identification", "ASW search", "Strike"]
+const DECK_COLUMNS := ["AIRFRAME", "SELECTED", "TIME", "STATE", "FUEL"]
+## Mission planner choices, in AirMission.Kind order.
+const MISSION_CHOICES := ["Combat air patrol", "Reconnaissance / identification", "ASW search", "Strike"]
 
 var simulation: Simulation
 var _base_picker: OptionButton
@@ -26,7 +26,7 @@ var _launch_hint: Label
 var _deck: GridContainer
 var _deck_rows: Array[Unit] = []
 var _deck_key := ""
-var _leds: Array[Button] = []
+var _selection_labels: Array[Label] = []
 var _roster: Tree
 var _aircraft_detail: Label
 var _destination: OptionButton
@@ -35,7 +35,8 @@ var _focus: Button
 var _receipt: Label
 var _summary: Label
 var _back: Button
-var _ok: Button
+var _plan_tabs: TabContainer
+var _clock_hint: Label
 var _bases: Array[Unit] = []
 var _destinations: Array[Unit] = []
 var _type_ids: Array[String] = []
@@ -76,17 +77,28 @@ func _ready() -> void:
 	dialog.custom_minimum_size = DIALOG_SIZE
 	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
 	center.add_child(dialog)
+	var frame := VBoxContainer.new()
+	dialog.add_child(frame)
+	var body_scroll := ScrollContainer.new()
+	body_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body_scroll.follow_focus = true
+	body_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	frame.add_child(body_scroll)
 	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation", 7)
-	dialog.add_child(page)
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.add_theme_constant_override("separation", 6)
+	body_scroll.add_child(page)
 
 	var header := HBoxContainer.new()
 	page.add_child(header)
 	var title := _label("AIR OPERATIONS", 14)
 	title.add_theme_font_override("font", UITheme.data_font())
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	header.add_child(title)
 	_summary = _label("", 11, UITheme.INK_DIM)
+	_summary.clip_text = true
+	_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_summary.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	header.add_child(_summary)
 
@@ -102,8 +114,9 @@ func _ready() -> void:
 	_base_picker.item_selected.connect(func(i: int) -> void:
 		_base = _bases[i] if i >= 0 and i < _bases.size() else null
 		_type_id = ""
-		_count.set_value_no_signal(0)
-		_refresh_types())
+		_count.set_value_no_signal(1)
+		_refresh_types()
+		_count.value = mini(1, int(_count.max_value)))
 	pickers.add_child(_base_picker)
 	_type_picker = OptionButton.new()
 	_type_picker.custom_minimum_size = Vector2(290, 28)
@@ -114,8 +127,9 @@ func _ready() -> void:
 	_type_picker.item_selected.connect(func(i: int) -> void:
 		if i >= 0 and i < _type_ids.size():
 			_type_id = _type_ids[i]
-			_count.set_value_no_signal(0)
-			_refresh_launch())
+			_count.set_value_no_signal(1)
+			_refresh_launch()
+			_count.value = mini(1, int(_count.max_value)))
 	pickers.add_child(_type_picker)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -129,10 +143,22 @@ func _ready() -> void:
 	_type_detail.clip_text = true
 	page.add_child(_type_detail)
 
-	# The mission: what the sortie is for, where, and whether the deck keeps it manned.
+	_plan_tabs = TabContainer.new()
+	_plan_tabs.use_hidden_tabs_for_min_size = false
+	page.add_child(_plan_tabs)
+	var launch_page := VBoxContainer.new()
+	launch_page.name = "LAUNCH"
+	_plan_tabs.add_child(launch_page)
+	launch_page.add_child(_label("Choose a quantity below. Ready aircraft launch in deck order; assign orders after takeoff.", 13, UITheme.INK_DIM))
+	var mission_page := VBoxContainer.new()
+	mission_page.name = "MISSION PLAN"
+	_plan_tabs.add_child(mission_page)
+	_plan_tabs.tab_changed.connect(func(i: int) -> void:
+		set_mission_kind(-1 if i == 0 else _default_mission_kind()))
+	# Mission planning shares the quantity and explicit primary action with a simple launch.
 	var mission_row := HBoxContainer.new()
 	mission_row.add_theme_constant_override("separation", 10)
-	page.add_child(mission_row)
+	mission_page.add_child(mission_row)
 	mission_row.add_child(_label("MISSION", 12))
 	_mission_picker = OptionButton.new()
 	_mission_picker.custom_minimum_size = Vector2(250, 28)
@@ -141,12 +167,14 @@ func _ready() -> void:
 	_mission_picker.tooltip_text = "Launch to a mission: the deck keeps the airframes tasked, queues what it cannot launch yet, and brings them home on fuel."
 	for choice: String in MISSION_CHOICES:
 		_mission_picker.add_item(choice)
-	_mission_picker.item_selected.connect(func(i: int) -> void: set_mission_kind(i - 1))
+	_mission_picker.item_selected.connect(func(i: int) -> void: set_mission_kind(i))
 	mission_row.add_child(_mission_picker)
 	_station_button = _button("PICK ON CHART", func() -> void: chart_pick_requested.emit(_mission_kind == AirMission.Kind.STRIKE))
 	_station_button.tooltip_text = "Close this dialog and click the station or search area on the chart; a strike picks a held contact"
 	mission_row.add_child(_station_button)
-	mission_row.add_child(_label("RADIUS", 12))
+	var mission_options := HBoxContainer.new()
+	mission_page.add_child(mission_options)
+	mission_options.add_child(_label("RADIUS", 12))
 	_radius = SpinBox.new()
 	_radius.min_value = AirMissionManager.MIN_RADIUS_NM
 	_radius.max_value = AirMissionManager.MAX_RADIUS_NM
@@ -155,25 +183,25 @@ func _ready() -> void:
 	_radius.custom_minimum_size = Vector2(82, 28)
 	_radius.accessibility_name = "Station or search radius"
 	_radius.value_changed.connect(func(_v: float) -> void: _refresh_launch())
-	mission_row.add_child(_radius)
+	mission_options.add_child(_radius)
 	_relief = CheckBox.new()
 	_relief.text = "Relief"
 	_relief.tooltip_text = "Launch a ready reserve airframe in time to take over as each one on station turns for home"
 	_relief.toggled.connect(func(_on: bool) -> void: _refresh_launch())
-	mission_row.add_child(_relief)
+	mission_options.add_child(_relief)
 	_auto_return = CheckBox.new()
 	_auto_return.text = "Back to station"
 	_auto_return.button_pressed = true
 	_auto_return.tooltip_text = "After identifying or intercepting a contact, return to the station without being told"
-	mission_row.add_child(_auto_return)
+	mission_options.add_child(_auto_return)
 	_station_label = _label("", 12, UITheme.INK_DIM)
 	_station_label.clip_text = true
-	page.add_child(_station_label)
+	mission_page.add_child(_station_label)
 
 	# The deck: one row per airframe of the chosen type aboard the host, in the order the deck
-	# will send them, each with its LAUNCH lamp.
+	# will send them, with a read-only selection indicator.
 	var deck_frame := ScrollContainer.new()
-	deck_frame.custom_minimum_size.y = 132
+	deck_frame.custom_minimum_size.y = 65
 	deck_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	deck_frame.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	page.add_child(deck_frame)
@@ -194,7 +222,7 @@ func _ready() -> void:
 	_count.value = 0
 	_count.custom_minimum_size = Vector2(72, 28)
 	_count.accessibility_name = "Number of aircraft to launch"
-	_count.tooltip_text = "How many of the ready airframes to launch; the lamps follow"
+	_count.tooltip_text = "How many aircraft to send; the table previews the ready airframes in deck order"
 	_count.value_changed.connect(func(_v: float) -> void: _refresh_launch())
 	launch_row.add_child(_count)
 	_launch = _button("LAUNCH NOW", _launch_selected)
@@ -226,7 +254,7 @@ func _ready() -> void:
 	_roster.column_titles_visible = true
 	_roster.select_mode = Tree.SELECT_ROW
 	_roster.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_roster.custom_minimum_size.y = 150
+	_roster.custom_minimum_size.y = 100
 	_roster.accessibility_name = "Friendly aircraft status roster"
 	var columns := ["AIRFRAME / TYPE", "STATE", "FUEL", "BASE", "CYCLE", "MISSION"]
 	for i in columns.size():
@@ -244,7 +272,7 @@ func _ready() -> void:
 		_refresh_recovery())
 	airborne_page.add_child(_roster)
 	_aircraft_detail = _label("Select an airframe to see fuel, ordnance and landing options.", 12, UITheme.INK_DIM)
-	_aircraft_detail.custom_minimum_size.y = 34
+	_aircraft_detail.custom_minimum_size.y = 26
 	_aircraft_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	airborne_page.add_child(_aircraft_detail)
 	var recovery_row := HBoxContainer.new()
@@ -277,7 +305,7 @@ func _ready() -> void:
 	_missions.column_titles_visible = true
 	_missions.select_mode = Tree.SELECT_ROW
 	_missions.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_missions.custom_minimum_size.y = 150
+	_missions.custom_minimum_size.y = 100
 	_missions.accessibility_name = "Air missions and the state of each airframe"
 	var mission_columns := ["MISSION / AIRFRAME", "STATE", "FUEL", "DECK"]
 	for i in mission_columns.size():
@@ -294,7 +322,7 @@ func _ready() -> void:
 		_refresh_mission_detail())
 	missions_page.add_child(_missions)
 	_mission_detail = _label("Assign a mission above; its airframes and what each is doing appear here.", 12, UITheme.INK_DIM)
-	_mission_detail.custom_minimum_size.y = 34
+	_mission_detail.custom_minimum_size.y = 26
 	_mission_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	missions_page.add_child(_mission_detail)
 	var mission_buttons := HBoxContainer.new()
@@ -303,25 +331,23 @@ func _ready() -> void:
 	_cancel_mission = _button("CANCEL MISSION", _cancel_selected_mission)
 	_cancel_mission.tooltip_text = "Strike off queued launches and bring the mission's airborne aircraft home"
 	mission_buttons.add_child(_cancel_mission)
-	_receipt = _label("Light the LAUNCH lamps of the airframes to send, then Ok. Recovered aircraft refuel and rearm before another sortie.", 12, UITheme.INK)
-	_receipt.custom_minimum_size.y = 32
+	_receipt = _label("Choose a quantity, then Launch or Assign mission. Closing this window sends no orders.", 12, UITheme.INK)
+	_receipt.custom_minimum_size.y = 26
 	_receipt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(_receipt)
 
-	# Ok and Cancel, each a caption over an empty bevel button.
 	var footer := HBoxContainer.new()
-	page.add_child(footer)
-	_ok = Button.new()
-	_ok.tooltip_text = "Launch the lit airframes and resume at 1×"
-	_ok.pressed.connect(_on_ok)
-	footer.add_child(_captioned(_ok, "Ok"))
-	var footer_gap := Control.new()
-	footer_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(footer_gap)
-	_back = Button.new()
-	_back.tooltip_text = "Close without launching; the clock keeps its previous pause state  [F3 / Esc]"
-	_back.pressed.connect(func() -> void: closed.emit(false))
-	footer.add_child(_captioned(_back, "Cancel"))
+	frame.add_child(footer)
+	_clock_hint = _label("Paused while Air Operations is open.", 13, UITheme.INK_DIM)
+	_clock_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(_clock_hint)
+	_back = _button("CLOSE", func() -> void: closed.emit())
+	_back.tooltip_text = "Close without sending orders; preserve the previous clock state  [F3 / Esc]"
+	footer.add_child(_back)
+
+
+func set_clock_context(was_paused: bool) -> void:
+	_clock_hint.text = "Paused · Resume from the command bar" if was_paused else "Paused here · Close resumes %s×" % str(SimClock.multiplier())
 
 
 func _button(text: String, action: Callable) -> Button:
@@ -331,20 +357,6 @@ func _button(text: String, action: Callable) -> Button:
 	b.focus_mode = Control.FOCUS_ALL
 	b.pressed.connect(action)
 	return b
-
-
-## A dialog button as the originals drew it: the word above an empty bevel button.
-func _captioned(button: Button, caption: String) -> VBoxContainer:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	var label := _label(caption, 13)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(label)
-	button.custom_minimum_size = Vector2(64, 30)
-	button.focus_mode = Control.FOCUS_ALL
-	button.accessibility_name = caption
-	box.add_child(button)
-	return box
 
 
 func _label(text: String, font_size: int, color := UITheme.INK) -> Label:
@@ -360,7 +372,7 @@ func open_for(selection: Array) -> void:
 	_aircraft = null
 	_destination_aircraft = null
 	_type_id = ""
-	_count.set_value_no_signal(0)
+	_count.set_value_no_signal(1)
 	_station = Vector2.INF
 	_target = null
 	set_mission_kind(-1)
@@ -377,6 +389,8 @@ func open_for(selection: Array) -> void:
 			break
 	show()
 	refresh()
+	_count.value = mini(1, int(_count.max_value))
+	_refresh_launch()
 	_base_picker.call_deferred("grab_focus")
 
 
@@ -400,12 +414,23 @@ func open_strike(selection: Array, target: Track) -> void:
 	_refresh_types()
 
 
-## -1 launches with no mission; otherwise an AirMission.Kind. A section of two is the default.
+func _default_mission_kind() -> int:
+	var spec := DataDB.platform(_type_id) if _type_id != "" else null
+	for kind: int in [_mission_picker.selected, AirMission.Kind.ASW, AirMission.Kind.CAP, AirMission.Kind.RECON, AirMission.Kind.STRIKE]:
+		if kind >= 0 and spec != null and AirMissionManager.type_suits(spec, kind): return kind
+	return AirMission.Kind.CAP
+
+
+## -1 launches with no mission; otherwise an AirMission.Kind. Quantity remains explicit.
 func set_mission_kind(kind: int) -> void:
 	_mission_kind = kind
 	if _mission_picker == null:
 		return
-	_mission_picker.select(kind + 1)
+	_plan_tabs.set_block_signals(true)
+	_plan_tabs.set_current_tab(0 if kind < 0 else 1)
+	_plan_tabs.set_block_signals(false)
+	if kind >= 0:
+		_mission_picker.select(kind)
 	_station_button.disabled = kind < 0
 	_radius.editable = kind >= 0 and kind != AirMission.Kind.STRIKE
 	_relief.disabled = kind < 0 or kind == AirMission.Kind.STRIKE
@@ -416,7 +441,7 @@ func set_mission_kind(kind: int) -> void:
 	if kind < 0:
 		_relief.set_pressed_no_signal(false)
 	elif int(_count.value) == 0:
-		_count.set_value_no_signal(2 if kind != AirMission.Kind.STRIKE else 2)
+		_count.set_value_no_signal(1)
 	_refresh_launch()
 
 
@@ -547,29 +572,17 @@ static func deck_rows(base: Unit, type_id: String) -> Array[Unit]:
 	return out
 
 
-## Which LAUNCH lamps are lit when `count` aircraft will go: the first `count` ready airframes in
+## Which ready airframes are selected when `count` aircraft will go: the first `count` ready airframes in
 ## deck order, which are exactly the ones the deck launches. Pure, so the rule is pinned by tests.
-static func lit_lamps(rows: Array[Unit], count: int) -> Array[bool]:
+static func selected_rows(rows: Array[Unit], count: int) -> Array[bool]:
 	var out: Array[bool] = []
-	var lit := 0
+	var selected_count := 0
 	for a in rows:
-		var on := a.ready_to_launch() and lit < count
+		var on := a.ready_to_launch() and selected_count < count
 		if on:
-			lit += 1
+			selected_count += 1
 		out.append(on)
 	return out
-
-
-## The sortie size after pressing the lamp of `row`: a dark lamp lights every ready airframe up to
-## and including it; the last lit lamp goes dark. Unready airframes change nothing.
-static func count_after_press(rows: Array[Unit], row: int, count: int) -> int:
-	if row < 0 or row >= rows.size() or not rows[row].ready_to_launch():
-		return count
-	var position := 0
-	for i in row:
-		if rows[i].ready_to_launch():
-			position += 1
-	return position if count == position + 1 else position + 1
 
 
 func _refresh_launch() -> void:
@@ -604,16 +617,16 @@ func _refresh_launch() -> void:
 		_refresh_mission_plan(spec, ready, spots, reason)
 		_rebuild_deck(deck_rows(_base, _type_id))
 		return
-	_launch.text = "LAUNCH NOW"
 	_station_label.text = "Choose a mission to have the deck keep a station, search an area or strike a held contact."
 	_count.max_value = maximum
 	_count.editable = maximum > 0
 	var count := int(_count.value)
+	_launch.text = "LAUNCH %d × %s" % [count, spec.short_name]
 	_launch.disabled = maximum <= 0 or count <= 0
 	if reason != "":
 		_launch_hint.text = reason.capitalize()
 	elif count <= 0:
-		_launch_hint.text = "%d ready  ·  %d deck spot%s free. Light a LAUNCH lamp to choose the sortie." % [ready, spots, "" if spots == 1 else "s"]
+		_launch_hint.text = "%d ready  ·  %d deck spot%s free. Set the aircraft quantity." % [ready, spots, "" if spots == 1 else "s"]
 	else:
 		_launch_hint.text = "Launch %d × %s; airborne about %.0f s after resuming." % [count, spec.short_name, spec.launch_time_s]
 	_launch.tooltip_text = _launch_hint.text
@@ -621,15 +634,15 @@ func _refresh_launch() -> void:
 
 
 ## A mission may ask for more airframes than are ready: the deck queues the rest, launching each as
-## a catapult frees and an airframe comes out of turnaround or reserve. The lamps show the ones that
+## a catapult frees and an airframe comes out of turnaround or reserve. The selection indicators show the ones that
 ## go now.
 func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reason: String) -> void:
 	var amm := simulation.air_mission_manager
-	_launch.text = "ASSIGN MISSION"
 	var available := amm.available_for(_base, _type_id, _mission_kind, _target)
 	_count.max_value = available
 	_count.editable = available > 0
 	var count := mini(int(_count.value), available)
+	_launch.text = "ASSIGN %s · %d" % [AirMission.KIND_LABELS[_mission_kind].to_upper(), count]
 	var why := amm.mission_rejection(_base, _mission_kind, _type_id, _station, _target)
 	var now := mini(count, ready if deck_reason == "" else 0)
 	now = mini(now, spots)
@@ -657,8 +670,7 @@ func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reas
 	_count.set_value_no_signal(count)
 
 
-## Builds the deck table when its rows change, and otherwise only updates lamps and readings, so
-## a focused lamp keeps its focus through the half-second refresh.
+## The deck previews the launch queue; quantity is the only selection control.
 func _rebuild_deck(rows: Array[Unit]) -> void:
 	var ids := PackedStringArray()
 	for a in rows:
@@ -667,7 +679,7 @@ func _rebuild_deck(rows: Array[Unit]) -> void:
 	if key != _deck_key or _deck.get_child_count() == 0:
 		_deck_key = key
 		_deck_rows = rows
-		_leds.clear()
+		_selection_labels.clear()
 		for child in _deck.get_children():
 			_deck.remove_child(child)
 			child.queue_free()
@@ -681,21 +693,13 @@ func _rebuild_deck(rows: Array[Unit]) -> void:
 		for i in rows.size():
 			var a := rows[i]
 			var name_label := _label("%s  (%s)" % [a.callsign, a.spec.short_name], 13)
+			name_label.clip_text = true
 			name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			_deck.add_child(name_label)
-			var led := Button.new()
-			led.theme_type_variation = "LedToggle"
-			led.toggle_mode = true
-			led.focus_mode = Control.FOCUS_ALL
-			led.custom_minimum_size = Vector2(44, 22)
-			led.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-			led.accessibility_name = "Launch %s" % a.callsign
-			var row := i
-			led.pressed.connect(func() -> void:
-				_count.value = count_after_press(_deck_rows, row, int(_count.value))
-				_refresh_launch())
-			_deck.add_child(led)
-			_leds.append(led)
+			var selected_label := _label("—", 13)
+			selected_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_deck.add_child(selected_label)
+			_selection_labels.append(selected_label)
 			for _j in 3:
 				var cell := _label("", 13)
 				cell.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -703,23 +707,12 @@ func _rebuild_deck(rows: Array[Unit]) -> void:
 				_deck.add_child(cell)
 		if rows.is_empty():
 			_deck.add_child(_label("No airframes of this type aboard.", 12, UITheme.INK_DIM))
-	var lit := lit_lamps(_deck_rows, int(_count.value))
-	var launchable := int(_count.max_value)
-	var ready_seen := 0
+	var selected := selected_rows(_deck_rows, int(_count.value))
 	for i in _deck_rows.size():
 		var a := _deck_rows[i]
-		var led := _leds[i]
-		led.set_pressed_no_signal(lit[i])
 		var ready := a.ready_to_launch()
-		led.disabled = not ready or ready_seen >= launchable
-		if ready:
-			ready_seen += 1
-		if not ready:
-			led.tooltip_text = "%s is not ready: %s" % [a.callsign, status_text(a).to_lower()]
-		elif led.disabled:
-			led.tooltip_text = "No free deck spot for another launch"
-		else:
-			led.tooltip_text = "Launch %s" % a.callsign
+		_selection_labels[i].text = "NEXT" if selected[i] else "—"
+		_selection_labels[i].add_theme_color_override("font_color", UITheme.INK_GREEN if selected[i] else UITheme.INK_DIM)
 		var base_cell := DECK_COLUMNS.size() * (i + 1)
 		var time_s := a.spec.launch_time_s if ready else a.state_timer_s
 		(_deck.get_child(base_cell + 2) as Label).text = "%02d:%02d" % [int(time_s) / 60, int(time_s) % 60] if time_s > 0.0 else "--:--"
@@ -744,7 +737,7 @@ func _launch_selected() -> void:
 		return
 	if _mission_kind >= 0:
 		order_requested.emit(_base, Order.air_mission(_mission_kind, _type_id, int(_count.value), _station, float(_radius.value), _target, _relief.button_pressed, _auto_return.button_pressed))
-		# As a launch does: the lamps go dark, so Ok afterwards resumes rather than assigning again.
+		# Clear quantity after submission to prevent an accidental duplicate assignment.
 		_count.set_value_no_signal(0)
 		_lower_tabs.current_tab = 1
 		refresh()
@@ -752,13 +745,6 @@ func _launch_selected() -> void:
 	order_requested.emit(_base, Order.launch_flight(_type_id, int(_count.value)))
 	_count.set_value_no_signal(0)
 	refresh()
-
-
-## Ok: launch whatever is lit, then close and resume, as the original dialog did.
-func _on_ok() -> void:
-	if int(_count.value) > 0 and not _launch.disabled:
-		_launch_selected()
-	closed.emit(true)
 
 
 static func status_text(a: Unit) -> String:

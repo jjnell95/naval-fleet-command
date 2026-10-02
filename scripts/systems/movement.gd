@@ -16,6 +16,8 @@ static func step(u: Unit, dt: float) -> void:
 		u.speed_kn = 0.0
 		u.altitude_m = 0.0
 		return
+	if DippingSonar.step_motion(u, dt):
+		return
 	var evading := u.evasion_remaining_s > 0.0
 	var desired := u.evasion_course_deg if evading else u.ordered_heading_deg
 	if u.needs_sea_room():

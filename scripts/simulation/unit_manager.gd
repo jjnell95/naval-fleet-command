@@ -116,6 +116,10 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return _steerable(u)
 		Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR:
 			return u.is_engageable() and u.has_radar()
+		Order.Type.DEPLOY_DIPPING_SONAR:
+			return DippingSonar.rejection(u) == ""
+		Order.Type.RECOVER_DIPPING_SONAR:
+			return DippingSonar.capable(u) and u.dip_phase not in [DippingSonar.Phase.STOWED, DippingSonar.Phase.RAISING]
 		Order.Type.ACTIVE_SONAR, Order.Type.PASSIVE_SONAR:
 			return u.is_engageable() and u.has_sonar()
 		Order.Type.CANCEL_FIRE:
@@ -261,6 +265,10 @@ func _step_investigation(u: Unit, dt: float) -> void:
 	var arrive := maxf(Movement.ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
 	if u.position.distance_to(track.position) <= arrive:
 		_hold_investigation_position(u)
+		if track.domain == "subsurface" and DippingSonar.rejection(u) == "":
+			var dip := Order.deploy_dipping_sonar(180.0)
+			dip.origin = "crew"
+			issue_order(u, dip)
 	else:
 		u.waypoints.assign([track.position])
 		u.ordered_speed_kn = u.investigation_speed_kn

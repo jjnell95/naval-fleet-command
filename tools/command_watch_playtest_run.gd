@@ -98,7 +98,7 @@ func run(scene_tree: SceneTree) -> void:
 	await _click_control(main._world_view._swap_button)
 	await _click_control(main.command_bar.buttons["air_operations"])
 	checks["air key opens flight deck"] = main._air_operations.visible and SimClock.paused
-	main._close_air_operations(false)
+	main._close_air_operations()
 	await _click_control(main.command_bar.buttons["weapon_control"])
 	checks["weapons key opens weapon control"] = main._weapon_control.visible and SimClock.paused
 	main._close_weapon_control()
