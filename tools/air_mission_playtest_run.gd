@@ -26,6 +26,9 @@ func run(scene_tree: SceneTree) -> void:
 			output_dir = argument.trim_prefix("--output-dir=").trim_suffix("/")
 	DirAccess.make_dir_recursive_absolute(output_dir)
 	CommanderLog.path_override = output_dir.path_join("commander_log.json")  # never the developer's own record
+	SaveGame.root_override = output_dir.path_join("saves")  # nor their saved engagements
+	for leftover in SaveGame.list_saves():
+		DirAccess.remove_absolute(str(leftover["path"]))
 	errors = load("res://tests/test_error_log.gd").new()
 	OS.add_logger(errors)
 	main = load("res://scenes/main/Main.tscn").instantiate()
@@ -38,8 +41,7 @@ func run(scene_tree: SceneTree) -> void:
 
 func _combat_air_patrol() -> void:
 	main.start_scenario(CARRIER_WATCH)
-	main._hide_screens()
-	SimClock.set_paused(true)
+	await _take_command()
 	Debug.log_events = false
 	var carrier := _find("USS Dwight D. Eisenhower (CVN 69)")
 	if carrier == null:
@@ -111,12 +113,45 @@ func _combat_air_patrol() -> void:
 	await _shot("cap-board")
 	await _key(KEY_ESCAPE)
 	checks["Escape closes Air Operations"] = not panel.visible
+	await _save_and_reload(m)
+
+
+## Ctrl+Shift+S, carry on, Ctrl+Shift+L: the battle, the air mission, the journal and the chart's
+## own track numbers come back as they were at the save, and the saved engagements list shows it.
+func _save_and_reload(m: AirMission) -> void:
+	var saved_at := SimClock.sim_time
+	var journal := main.radio.journal.size()
+	var summary := m.summary()
+	var tomcat: Unit = m.aircraft[0]
+	var tomcat_at := tomcat.position
+	var number := main.map.track_number_text(tomcat)
+	await _key(KEY_S, true, true)
+	checks["Ctrl+Shift+S writes the quicksave"] = FileAccess.file_exists(SaveGame.slot_path(SaveGame.QUICKSAVE))
+	SimClock.advance(180.0)
+	checks["the battle moved on after the save"] = SimClock.sim_time > saved_at and tomcat.position != tomcat_at
+	await _key(KEY_L, true, true)
+	var missions := main.simulation.air_mission_manager.active_missions("BLUE")
+	var restored: AirMission = missions[0] if not missions.is_empty() else null
+	checks["Ctrl+Shift+L returns to the saved tick"] = SimClock.sim_time == saved_at and SimClock.paused
+	checks["the CAP comes back with its airframes"] = restored != null and restored.summary() == summary
+	var tomcat_back: Unit = null
+	for u in main.simulation.unit_manager.units:
+		if u.id == tomcat.id:
+			tomcat_back = u
+	checks["an airframe is where it was at the save"] = tomcat_back != null and tomcat_back.position == tomcat_at and restored != null and restored.aircraft.has(tomcat_back)
+	checks["the observed journal is the one at the save"] = main.radio.journal.size() == journal
+	checks["own track numbers are kept"] = tomcat_back != null and main.map.track_number_text(tomcat_back) == number
+	await _shot("after-quickload")
+	await _key(KEY_O, true, true)
+	checks["Ctrl+Shift+O lists the saved engagements"] = main._saves.visible and main._saves._list.get_root().get_child_count() >= 1
+	await _shot("saved-engagements")
+	await _key(KEY_ESCAPE)
+	checks["Escape closes the list"] = not main._saves.visible
 
 
 func _escort_returns_to_station() -> void:
 	main.start_scenario(PASSAGE)
-	main._hide_screens()
-	SimClock.set_paused(true)
+	await _take_command()
 	var frigate: Unit
 	for u: Unit in main.simulation.unit_manager.get_faction_units("BLUE"):
 		if u.spec.id == "rnon_ffg_fridtjof_nansen":
@@ -160,6 +195,17 @@ func _escort_returns_to_station() -> void:
 	checks["the escort steers back toward its station"] = frigate.position.distance_to(Formation.station_for(frigate)) < 12.0
 
 
+## Take Command on the operation's briefing with the mouse, as a player does, and hold the clock
+## on the same press so frame time cannot move the opening picture.
+func _take_command() -> void:
+	main._show_briefing()
+	await _frames()
+	main._briefing._start.pressed.connect(func() -> void: SimClock.set_paused(true), CONNECT_ONE_SHOT)
+	await _click_control(main._briefing._start)
+	SimClock.set_paused(true)
+	checks["Take Command through the briefing (%s)" % main.simulation.scenario_name] = main._command_taken and not main._briefing.visible
+
+
 func _find(callsign: String) -> Unit:
 	for u in main.simulation.unit_manager.units:
 		if u.callsign == callsign:
@@ -172,11 +218,12 @@ func _frames() -> void:
 	await tree.process_frame
 
 
-func _key(code: Key, shift := false) -> void:
+func _key(code: Key, shift := false, ctrl := false) -> void:
 	for pressed: bool in [true, false]:
 		var event := InputEventKey.new()
 		event.keycode = code
 		event.shift_pressed = shift
+		event.ctrl_pressed = ctrl
 		event.pressed = pressed
 		main.get_viewport().push_input(event, true)
 		await tree.process_frame
