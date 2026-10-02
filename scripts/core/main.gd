@@ -1551,7 +1551,8 @@ func _on_round_fired(shooter: Unit, spec: WeaponSpec, _track: Track) -> void:
 
 
 func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
-	SimClock.drop_to_realtime()
+	if _combat_observed(shooter, shooter.faction == simulation.player_faction):
+		SimClock.drop_to_realtime()
 	if shooter.faction == simulation.player_faction:
 		radio.flash("%d x %s committed to track %s; %d queued" % [rounds, spec.display_name, DataDisplay.track_number_for_track(t), simulation.weapon_manager.committed_rounds(shooter, spec, t, true)], "good", shooter)
 	Debug.event("[Combat] %s commits %d x %s at %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, t.id, shooter.position.distance_to(t.position)])
@@ -1680,10 +1681,14 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 		_world_view.add_effect(target.position, "miss", false, -1.0, target)
 		Debug.event("[Combat] %s miss on %s" % [spec.display_name, target.callsign])
 		return
-	SimClock.drop_to_realtime()
+	# The chart and the 3D view show only a hit someone could witness; the clock and the speaker
+	# keep to the same rule.
+	var observed := _combat_observed(target, own_target or faction == simulation.player_faction)
+	if observed:
+		SimClock.drop_to_realtime()
+		SoundFx.play("impact", 0.2)
 	map.add_effect(target.position, "hit", own_target, target)
 	_world_view.add_effect(target.position, "hit", own_target, -1.0, target)
-	SoundFx.play("impact", 0.2)
 	if own_target:
 		var casualties := ""
 		if target.fire > 0.0:
@@ -1703,10 +1708,11 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 
 
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
-	SimClock.drop_to_realtime()
+	if _combat_observed(u, u.faction == simulation.player_faction or killer_faction == simulation.player_faction):
+		SimClock.drop_to_realtime()
+		SoundFx.play("impact", 0.0)
 	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, u)
 	_world_view.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, -1.0, u)
-	SoundFx.play("impact", 0.0)
 	if u.faction == simulation.player_faction:
 		_losses.append(u.callsign)
 		radio.flash("%s %s" % [u.callsign, "LOST TO FIRE AND FLOODING" if _foundered.has(u) else "DESTROYED"], "alert")
@@ -1729,6 +1735,15 @@ func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 		elif killer_faction == simulation.player_faction and not neutral:
 			radio.flash("Target destroyed", "good")
 	Debug.event("[Combat] %s destroyed by %s" % [u.callsign, killer_faction])
+
+
+## Combat hands the watch back at real time, and sounds, only for what the player's side could
+## know: its own shot, hit or loss, or one a lookout could see or the plot holds (the 3D view's own
+## witness rule). An enemy salvo nobody has detected must not announce itself by slowing the clock;
+## when its rounds are detected, _on_threat_detected drops it then.
+func _combat_observed(subject: Unit, own_involved: bool) -> bool:
+	var own := simulation.unit_manager.get_faction_units(simulation.player_faction)
+	return WorldPresentation.combat_observed(subject, own_involved, own, simulation.track_manager.get_tracks(simulation.player_faction), Detection.environment)
 
 
 ## The player's own track on another side's unit, if the plot holds it (association is the one

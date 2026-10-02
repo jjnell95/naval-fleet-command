@@ -653,3 +653,24 @@ func _air_contact() -> Track:
 	t.altitude_m = 6000.0
 	t.classification = Track.Classification.UNKNOWN
 	return t
+
+
+# --- What may drop the watch to real time --------------------------------------------------
+
+func test_only_combat_the_player_could_see_drops_the_clock() -> void:
+	var own := _ship("BLUE", Vector2.ZERO, [])
+	var enemy := _ship("RED", Vector2(150, 0), [])
+	var env := {"visibility_nm": 10.0}
+	assert_true(not WorldPresentation.combat_observed(enemy, false, [own], [], env), "an unseen enemy salvo stays unseen")
+	assert_true(WorldPresentation.combat_observed(enemy, true, [own], [], env), "a round of ours, or a hit on one of ours, is always known")
+	var held := Track.new()
+	held.owner_faction = "BLUE"
+	held.truth = enemy
+	held.position = enemy.position
+	held.status = Track.Status.ACTIVE
+	assert_true(WorldPresentation.combat_observed(enemy, false, [own], [held], env), "a contact the plot holds")
+	held.status = Track.Status.LOST
+	assert_true(not WorldPresentation.combat_observed(enemy, false, [own], [held], env), "a lost track holds nothing")
+	var close := _ship("RED", Vector2(3, 0), [])
+	assert_true(WorldPresentation.combat_observed(close, false, [own], [], env), "within sight of a lookout")
+	assert_true(not WorldPresentation.combat_observed(null, false, [own], [], env))
