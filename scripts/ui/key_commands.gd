@@ -22,6 +22,7 @@ const COMMANDS := [
 		["Home / C / F", "Fit force / centre / follow"],
 		["W", "Plot a route; Shift chains waypoints"],
 		["Shift+W", "Patrol area: click two opposite corners"],
+		["S", "Return to station after a task or refuelling"],
 		["N / Shift+N", "Next / previous priority contact"],
 		[".", "Hook the next own platform"],
 		["B", "Range circle from the hooked platform"],

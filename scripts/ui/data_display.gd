@@ -280,11 +280,11 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 			if queued > 0:
 				return "Engage (%d × %s queued)" % [queued, spec.compact_name()]
 	if u.investigation_track != null:
-		return "Investigate track %s" % track_number_for_track(u.investigation_track)
+		return "Investigate track %s%s" % [track_number_for_track(u.investigation_track), " · then station" if u.auto_return and u.has_station() else ""]
 	if u.investigation_result != "":
-		return "Track %s: %s" % [MapSymbols.track_number(u.investigation_track_id), u.investigation_result]
+		return "Track %s: %s%s" % [MapSymbols.track_number(u.investigation_track_id), u.investigation_result, _off_station_hint(u)]
 	if u.attack_result != "":
-		return "Track %s: %s" % [MapSymbols.track_number(u.attack_track_id), u.attack_result]
+		return "Track %s: %s%s" % [MapSymbols.track_number(u.attack_track_id), u.attack_result, _off_station_hint(u)]
 	if u.is_aircraft():
 		match u.flight_state:
 			Unit.FlightState.STOWED:
@@ -302,7 +302,11 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 		if u.tanking_on != null:
 			return "Tanking on %s" % u.tanking_on.callsign
 		if u.patrol_active:
+			if u.station_kind == "patrol" and u.station_label not in ["", "PATROL"]:
+				return "%s (%d legs flown)" % [u.station_label.capitalize(), u.patrol_legs_completed]
 			return "Patrol circuit (%d legs flown)" % u.patrol_legs_completed
+		if u.has_station():
+			return "Off station" + _off_station_hint(u)
 		return "Transit" if not u.waypoints.is_empty() else "On station"
 	if u.in_formation():
 		return "Station on %s" % u.formation_leader.callsign
@@ -310,11 +314,24 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 		return "Patrol circuit (%d legs sailed)" % u.patrol_legs_completed
 	if not u.waypoints.is_empty():
 		return "Transit (%d wpt%s)" % [u.waypoints.size(), "" if u.waypoints.size() == 1 else "s"]
+	if u.has_station():
+		return "Off station" + _off_station_hint(u)
+	if u.station_note != "":
+		return u.station_note
 	if u.ordered_speed_kn <= 0.1 and u.spec.max_speed_kn > 0.0:
 		return "Hold position"
 	if u.spec.max_speed_kn <= 0.0:
 		return "Weapons %s" % ["hold", "tight", "free"][u.roe]
 	return "Steady on %03d" % (int(round(u.ordered_heading_deg)) % 360)
+
+
+## A platform away from a standing assignment it still holds says how to get back to it.
+static func _off_station_hint(u: Unit) -> String:
+	if u.station_note != "" and not u.on_station():
+		return " · " + u.station_note.to_lower()
+	if not u.has_station() or u.on_station():
+		return ""
+	return " · S returns to %s" % (u.station_label.to_lower() if u.station_label != "" else "station")
 
 
 static func sensors_text(u: Unit) -> String:

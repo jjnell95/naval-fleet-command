@@ -351,3 +351,41 @@ func test_auto_return_order_is_routine_and_reported() -> void:
 	assert_eq(Order.set_auto_return(false).describe(), "AUTO RETURN TO STATION OFF")
 	assert_eq(Order.return_to_station().describe(), "RETURN TO STATION")
 	um.free()
+
+
+# --- What the commander sees -------------------------------------------------------------
+
+func _find(items: Array, text: String) -> Dictionary:
+	for entry: Dictionary in items:
+		if str(entry.get("text", "")).begins_with(text):
+			return entry
+		var found := _find(entry.get("children", []), text)
+		if not found.is_empty():
+			return found
+	return {}
+
+
+func test_the_orders_line_and_menu_offer_the_way_back_to_station() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var pair := _screen(um)
+	var escort: Unit = pair[1]
+	assert_eq(DataDisplay.orders_text(escort), "Station on Guide")
+	var t := _track(Vector2(12.0, 14.0))
+	um.issue_order(escort, Order.investigate(t))
+	assert_true(DataDisplay.orders_text(escort).begins_with("Investigate track"))
+	t.classification = Track.Classification.CLASS_KNOWN
+	_run(um, DT)
+	assert_true(DataDisplay.orders_text(escort).ends_with("S returns to screen station"), DataDisplay.orders_text(escort))
+	var back := _find(CdsMenus.orders_items([escort], null, true, true), "Return to station")
+	assert_true(not back.is_empty(), "the own-platform menu offers the return")
+	assert_true(not bool(back["disabled"]))
+	assert_eq((back["action"]["order"] as Order).type, Order.Type.RETURN_TO_STATION)
+	var auto := _find(CdsMenus.orders_items([escort], null, true, true), "On")
+	assert_eq((auto["action"]["order"] as Order).type, Order.Type.SET_AUTO_RETURN)
+	pair[0].alive = false
+	_run(um, DT)
+	back = _find(CdsMenus.orders_items([escort], null, true, true), "Return to station")
+	assert_true(back.is_empty(), "with the guide gone the escort guides the group and has no station")
+	assert_eq(DataDisplay.orders_text(escort).contains("guiding the group"), true, DataDisplay.orders_text(escort))
+	um.free()

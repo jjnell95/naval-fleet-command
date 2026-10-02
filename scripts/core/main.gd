@@ -213,6 +213,14 @@ func _ready() -> void:
 		if reason == "Contact classified":
 			report += " — " + t.description()
 		radio.flash(report, "good" if reason == "Contact classified" else "warn", u))
+	simulation.unit_manager.station_resumed.connect(func(u: Unit, reason: String) -> void:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player:
+			return
+		radio.flash("%s: %s — resuming %s" % [u.callsign, reason, u.station_label.to_lower() if u.station_label != "" else "station"], "good", u))
+	simulation.unit_manager.station_unavailable.connect(func(u: Unit, reason: String) -> void:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player:
+			return
+		radio.flash("%s cannot return to station: %s" % [u.callsign, reason.to_lower()], "warn", u))
 	simulation.unit_manager.attack_ended.connect(func(u: Unit, t: Track, reason: String) -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player:
 			return
@@ -819,6 +827,8 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "camera_detached", "label": "Detached camera", "description": "Stop the camera where it is and watch the platform move away.", "shortcut": "F8", "enabled": true},
 		{"id": "status_boards", "label": "Status boards", "description": "Orders, task group, track file and comms boards over the chart.", "shortcut": "A", "enabled": true, "state": "open" if status_boards.visible else "closed"},
 		{"id": "plot_move", "label": "Plot route", "description": "Arm a left-click route; Shift chains waypoints. Right-click water moves the hooked platform at once.", "shortcut": "W", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Hook a deployed mobile platform first."},
+		{"id": "return_to_station", "label": "Return to station", "description": "Resume the patrol, screen or air station that an investigation, attack or refuelling interrupted.", "shortcut": "S", "enabled": movable and map.selected.any(func(u: Unit) -> bool: return u.has_station()), "reason": "The hooked platforms hold no station."},
+		{"id": "auto_return", "label": "Auto-return to station", "description": "Go back to station by itself once an identification, interception or attack ends. A newer order always stands.", "shortcut": "", "enabled": movable, "state": _auto_return_state(), "reason": "Hook a deployed mobile platform first."},
 		{"id": "plot_patrol", "label": "Assign patrol area", "description": "Click two opposite corners of a repeating patrol circuit. Fuel and recovery still apply.", "shortcut": "Shift+W", "enabled": movable, "reason": "Hook a deployed mobile platform first."},
 		{"id": "weapon_control", "label": "Weapon control", "description": "Commit mixed weapons, inspect target quality and cancel queued rounds.", "shortcut": "Shift+E", "enabled": controllable},
 		{"id": "open_defence", "label": "Defence commands", "description": "Countermeasures, evasion and interceptor policy for the hooked platforms.", "shortcut": "", "enabled": controllable},
@@ -861,6 +871,18 @@ func _palette_actions() -> Array[Dictionary]:
 	for i in SimClock.SPEEDS.size():
 		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(SimClock.SPEEDS[i]), "description": "Set simulation acceleration; time remains paused until resumed.", "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
 	return actions
+
+
+## "on", "off" or "mixed" across the hooked own platforms.
+func _auto_return_state() -> String:
+	var on := 0
+	var total := 0
+	for u: Unit in map.selected:
+		if u.faction == simulation.player_faction and u.alive:
+			total += 1
+			if u.auto_return:
+				on += 1
+	return "off" if on == 0 else "on" if on == total else "mixed"
 
 
 static func _on_off(state: Dictionary, key: String) -> String:
@@ -922,6 +944,10 @@ func _run_palette_action(id: String) -> void:
 		"plot_patrol":
 			map.set_patrol_mode(map.interaction_mode != TacticalMap.InteractionMode.PATROL)
 			map.grab_focus()
+		"return_to_station":
+			_apply_order_to_selection(Order.return_to_station())
+		"auto_return":
+			_apply_order_to_selection(Order.set_auto_return(_auto_return_state() != "on"))
 		"weapon_control":
 			_toggle_weapon_control()
 		"open_engagement":
@@ -1218,6 +1244,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			map.set_follow_selection(not map.follow_selection)
 		KEY_N:
 			_cycle_priority_track(1)
+		KEY_S:
+			_run_palette_action("return_to_station")
 		KEY_F1:
 			_show_briefing()
 		KEY_HOME:
@@ -1766,6 +1794,9 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 		if order.type == Order.Type.PATROL and not map.selected.is_empty():
 			radio.advise(UnitManager.patrol_rejection(map.selected[0], order.route))
 			return
+		if order.type == Order.Type.RETURN_TO_STATION and not map.selected.is_empty():
+			radio.advise("Cannot return to station: " + UnitManager.station_rejection(map.selected[0]).to_lower())
+			return
 		radio.advise("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else ""])
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
@@ -1798,6 +1829,10 @@ static func _order_acknowledgement(order: Order) -> String:
 			return "Waypoint added, aye" if order.append else "Making for the ordered position, aye"
 		Order.Type.PATROL:
 			return "Establishing patrol, aye"
+		Order.Type.RETURN_TO_STATION:
+			return "Returning to station, aye"
+		Order.Type.SET_AUTO_RETURN:
+			return "Auto-return to station %s, aye" % ("on" if order.automatic else "off"
 		Order.Type.INVESTIGATE:
 			return "Investigating track %s" % DataDisplay.track_number_for_track(order.track)
 		Order.Type.ATTACK:

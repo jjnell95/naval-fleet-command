@@ -137,6 +137,16 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 	if movable:
 		items.append(item("Plot route  [W]", {"kind": "palette", "id": "plot_move"}))
 		items.append(item("Assign patrol area  [Shift+W]", {"kind": "palette", "id": "plot_patrol"}, false, "Click two corners; repeat the circuit until retasked or returning for fuel."))
+	var stationed := units.filter(func(u: Unit) -> bool: return u.has_station())
+	if movable and not stationed.is_empty():
+		var can_return := stationed.filter(func(u: Unit) -> bool: return UnitManager.station_rejection(u) == "")
+		var reason := "" if not can_return.is_empty() else UnitManager.station_rejection(stationed[0])
+		items.append(item("Return to station  [S]", order_action(Order.return_to_station()), can_return.is_empty(), reason if reason != "" else "Resume the patrol, screen or air station an investigation, attack or refuelling interrupted."))
+	if movable:
+		items.append(submenu("Auto-return to station", [
+			item("On", order_action(Order.set_auto_return(true)), false, "Go back to station once an identification, interception or attack ends. A newer order always stands.", _all(units, func(u: Unit) -> bool: return u.auto_return)),
+			item("Off", order_action(Order.set_auto_return(false)), false, "Hold where the task ends until ordered back with S.", _all(units, func(u: Unit) -> bool: return not u.auto_return)),
+		], not controllable, why))
 	if any_route:
 		items.append(item("Clear route", order_action(Order.clear_waypoints()), not controllable, why))
 	items.append(item("Follow  [F]", {"kind": "palette", "id": "follow_selection"}))
