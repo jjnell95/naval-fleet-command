@@ -556,6 +556,20 @@ func held_track(u: Unit, target: Track) -> Track:
 	return null
 
 
+## Why a member may not be given rounds on its held plot of a contact now, or "": the standing
+## attack's own checks (ROE, identity, a plot it holds), and automation never fires at a stale plot.
+## The weapon checks come after, per weapon.
+static func _posture_rejection(u: Unit, held: Track) -> String:
+	if held == null:
+		return "contact not held"
+	var why := UnitManager.attack_rejection(u, held)
+	if why != "":
+		return why.to_lower()
+	if held.status != Track.Status.ACTIVE:
+		return "contact stale"
+	return ""
+
+
 ## Who can fire at contact `ti` now, and with what: one entry per member and weapon that holds a
 ## solution on the member's own picture, plus the reason for each member that has none.
 func _candidates(g: GroupAttack, ti: int) -> Dictionary:
@@ -566,15 +580,9 @@ func _candidates(g: GroupAttack, ti: int) -> Dictionary:
 			continue
 		var u := g.members[mi]
 		var held := held_track(u, g.targets[ti])
-		if held == null:
-			refused.append([mi, "contact not held"])
-			continue
-		var why := UnitManager.attack_rejection(u, held)
+		var why := _posture_rejection(u, held)
 		if why != "":
-			refused.append([mi, why.to_lower()])
-			continue
-		if held.status != Track.Status.ACTIVE:
-			refused.append([mi, "contact stale"])
+			refused.append([mi, why])
 			continue
 		var first_reason := ""
 		var able := false
@@ -669,7 +677,9 @@ func _fill(g: GroupAttack, ti: int, tally: Dictionary) -> int:
 
 
 ## The board's first volley as the commander set it: these platforms, these weapons, these numbers.
-## A row that cannot be fired in full is made up by the ordinary allocation afterwards.
+## A row that cannot be fired in full is made up by the ordinary allocation afterwards. A row is
+## held to the same posture checks as the allocation's own choices: the group fires it, not the
+## commander's own ENGAGE, so a plot gone stale on that platform's picture is not fired at.
 func _fire_plan(g: GroupAttack, ti: int, rows: Array, tally: Dictionary) -> void:
 	for row: Array in rows:
 		var mi := g.member_index(row[0])
@@ -681,8 +691,10 @@ func _fire_plan(g: GroupAttack, ti: int, rows: Array, tally: Dictionary) -> void
 		if spec == null or need <= 0:
 			continue
 		var held := held_track(u, g.targets[ti])
-		if held == null:
-			(tally["refused"] as Dictionary)[mi] = "contact not held"
+		var why := _posture_rejection(u, held)
+		if why != "":
+			if not (tally["refused"] as Dictionary).has(mi):
+				(tally["refused"] as Dictionary)[mi] = why
 			continue
 		var before := _spent(g)
 		var o := Order.engage(held, spec.id, need)
@@ -820,9 +832,15 @@ func preview(lead: Unit, order: Order) -> String:
 			var mi := g.member_index(row[0])
 			var spec := g.members[mi].get_weapon(str(row[1]))
 			var n := mini(int(row[3]), size - got)
-			if spec != null and n > 0:
-				(tally["placed"] as Array).append([mi, spec.compact_name(), n])
-				got += n
+			if spec == null or n <= 0:
+				continue
+			var why := _posture_rejection(g.members[mi], held_track(g.members[mi], g.targets[ti]))
+			if why != "":
+				if not (tally["refused"] as Dictionary).has(mi):
+					tally["refused"][mi] = why
+				continue
+			(tally["placed"] as Array).append([mi, spec.compact_name(), n])
+			got += n
 		if rows.is_empty():
 			var found := _candidates(g, ti)
 			for row: Array in found["refused"]:

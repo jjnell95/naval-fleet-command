@@ -690,3 +690,37 @@ func test_cancelling_every_platform_on_one_contact_closes_it_without_moving_its_
 	assert_eq(g.target_fired[1], 4)
 	assert_true(ignatius.magazine_count(TOMAHAWK) + roosevelt.magazine_count(TOMAHAWK) > 0, "rounds are still aboard; they were not asked for")
 	_done()
+
+
+func test_the_boards_first_volley_is_not_fired_at_a_stale_plot() -> void:
+	_setup()
+	var astute := _ship("rn_ssn_astute", "HMS Astute", Vector2(0, 22))
+	astute.depth_m = 120.0
+	astute.ordered_depth_m = 120.0
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(4, 10))
+	var t := _plot("T1077", Vector2(0, 40))
+	# The boat, deep and off the link, last heard the contact over a minute ago.
+	var local := Track.new()
+	local.id = "T1077"
+	local.owner_faction = "BLUE"
+	local.identity = "HOSTILE"
+	local.domain = "surface"
+	local.classification = Track.Classification.SURFACE
+	local.position = Vector2(0, 40.5)
+	local.networked = false
+	local.contributors[astute] = SimClock.sim_time
+	local.last_seen_time = SimClock.sim_time - Track.STALE_AFTER_S - 5.0
+	local.status = Track.Status.STALE
+	_sim.track_manager._local_keys[astute] = "local:astute"
+	_sim.track_manager._tracks["local:astute"] = [local]
+	var plan := [[astute, "spearfish", 0, 2], [nansen, NSM, 0, 2]]
+	var o := Order.group_attack([nansen, astute], [t], 4, 4, [], plan)
+	assert_eq(_sim.group_attack_manager.preview(nansen, o), "Fridtjof Nansen 2 × NSM, HMS Astute refused: contact stale · 2 not placed", "the preview says so before the commit")
+	assert_true(_sim.unit_manager.issue_order(nansen, o), o.receipt)
+	var g := _group()
+	assert_true(o.receipt.contains("HMS Astute refused: contact stale"), o.receipt)
+	assert_eq(_committed_by(g, astute), 0, "the plan's row for the boat is not fired")
+	for w in _sim.weapon_manager.in_flight:
+		assert_true(w.target_track != local, "no round at the stale plot")
+	assert_eq(_committed_by(g, nansen), 4, "the frigate makes up the volley")
+	_done()
