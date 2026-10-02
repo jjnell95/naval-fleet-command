@@ -95,6 +95,12 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return u.is_engageable() and u.spec.max_speed_kn > 0 and (not u.is_aircraft() or u.airborne())
 		Order.Type.RESUME_PLAN, Order.Type.SET_AUTO_COUNTERMEASURES:
 			return u.is_engageable()
+		Order.Type.SET_AIR_DEFENCE_MODE:
+			# Doctrine, not a task: an airframe in the hangar takes it too, so it holds once aloft.
+			return u.alive
+		Order.Type.INTERCEPT:
+			# The round itself is checked by Simulation, which holds the threat picture.
+			return AirDefence.intercept_rejection(u) == ""
 		Order.Type.SET_DEFENCE_POLICY:
 			return u.is_engageable() and order.defence_policy in ["balanced", "conserve", "saturation"]
 		Order.Type.SET_SPEED:

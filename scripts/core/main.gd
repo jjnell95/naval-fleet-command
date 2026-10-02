@@ -139,6 +139,7 @@ func _ready() -> void:
 	map.patrol_order_requested.connect(_apply_order_to_selection)
 	map.engage_requested.connect(_on_engage_requested)
 	map.attack_requested.connect(func(t: Track) -> void: _apply_order_to_selection(Order.attack(t)))
+	map.intercept_requested.connect(func(w: Weapon) -> void: _apply_order_to_selection(Order.intercept(w)))
 	map.investigate_requested.connect(func(t: Track) -> void: _apply_order_to_selection(Order.investigate(t)))
 	map.waypoint_delete_requested.connect(_on_waypoint_delete_requested)
 	map.interaction_mode_changed.connect(orders_panel.set_move_mode)
@@ -927,6 +928,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "sound", "label": "Sound on or off", "description": "Mute or restore the game's sounds.", "shortcut": "Ctrl+M", "enabled": true, "state": "on" if SoundFx.enabled else "off"},
 		{"id": "voice", "label": "Crew voice", "description": "Spoken crew reports through the system's text-to-speech.", "shortcut": "", "enabled": true, "state": "on" if voice.enabled else "off"},
 		{"id": "ambient", "label": "Ambient sea and machinery", "description": "Sea wash by sea state and the hooked platform's engine or rotor.", "shortcut": "", "enabled": true, "state": "on" if SoundFx.ambient_enabled else "off"},
+		{"id": "intercept_inbound", "label": "Engage inbound weapons", "description": "Fire interceptors from the hooked ships at the inbound rounds they hold. With manual missile defence the SAMs fire only on this order; close-in guns answer by themselves.", "shortcut": "X", "enabled": controllable, "reason": "Hook your ships first."},
 	]
 	var ladder := SimClock.speeds()
 	for i in ladder.size():
@@ -973,6 +975,8 @@ func _run_palette_action(id: String) -> void:
 			var items := CommandBar.chart_items(map) if id == "chart_menu" else CommandBar.time_items()
 			_cds_menus.open(items, button.get_global_rect().position + Vector2(0, button.size.y))
 			map.menu_open = true
+		"intercept_inbound":
+			_apply_order_to_selection(Order.intercept())
 		"chart_zoom_in", "chart_zoom_out":
 			map._zoom_at(map.size * 0.5, TacticalMap.ZOOM_STEP if id == "chart_zoom_in" else 1.0 / TacticalMap.ZOOM_STEP)
 		"fleet_operations":
@@ -1307,6 +1311,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_cycle_priority_track(1)
 		KEY_S:
 			_run_palette_action("return_to_station")
+		KEY_X:
+			_run_palette_action("intercept_inbound")
 		KEY_F1:
 			_show_briefing()
 		KEY_HOME:
@@ -1678,6 +1684,11 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			if u != null and not map.selected.has(u):
 				map.select_units([u])
 			items = CdsMenus.orders_items(map.selected, map.selected_track, _all_controllable(map.selected), _all_movable(map.selected), simulation.weapon_manager)
+		"weapon":
+			var w: Weapon = context.get("weapon")
+			if w == null:
+				return
+			items = CdsMenus.weapon_items(w, map.selected, _all_controllable(map.selected), _all_movable(map.selected))
 		"track":
 			var t: Track = context.get("track")
 			if t == null:
@@ -1777,18 +1788,29 @@ func _apply_order_to_selection(order: Order) -> void:
 	var accepted := 0
 	var refused := 0
 	var rounds_committed := 0
+	var interceptors_before := int(_stats.get("launched", 0))
+	var refusal := ""
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
 			var before := _committed_for_order(u, order)
+			if order.type == Order.Type.INTERCEPT:
+				order.receipt = ""  # each ship's refusal, if it has one
 			if simulation.unit_manager.issue_order(u, order):
 				accepted += 1
 				if order.type == Order.Type.ENGAGE:
 					rounds_committed += maxi(_committed_for_order(u, order) - before, 0)
 			else:
 				refused += 1
+				if order.type == Order.Type.INTERCEPT and refusal == "":
+					refusal = order.receipt if order.receipt != "" else AirDefence.intercept_rejection(u)
 	var receipt := _order_acknowledgement(Order.engage(order.track, order.weapon_id, rounds_committed)) if order.type == Order.Type.ENGAGE and accepted > 0 else ""
 	if receipt != "":
 		receipt += " · %d rounds committed" % rounds_committed
+	if order.type == Order.Type.INTERCEPT:
+		order.receipt = refusal
+		if accepted > 0:
+			var away := int(_stats.get("launched", 0)) - interceptors_before
+			receipt = _order_acknowledgement(order) + (" · %d interceptor%s away" % [away, "" if away == 1 else "s"] if away > 0 else " · cleared to fire as it closes")
 	_report_orders(order, accepted, refused, receipt)
 
 
@@ -1871,6 +1893,9 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 		if order.type == Order.Type.RETURN_TO_STATION and not map.selected.is_empty():
 			radio.advise("Cannot return to station: " + UnitManager.station_rejection(map.selected[0]).to_lower())
 			return
+		if order.type == Order.Type.INTERCEPT:
+			radio.advise("Cannot intercept: " + (order.receipt if order.receipt != "" else "no hooked ship can engage").to_lower())
+			return
 		radio.advise("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else ""])
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
@@ -1919,6 +1944,8 @@ static func _order_acknowledgement(order: Order) -> String:
 			return "All stop, aye"
 		Order.Type.RETURN_TO_BASE:
 			return "Returning to %s" % (order.recovery_base.callsign if order.recovery_base != null else "base")
+		Order.Type.INTERCEPT:
+			return "Engaging inbound #%d" % order.threat.id if order.threat != null else "Engaging inbound weapons"
 	return order.describe().capitalize() + ", aye"
 
 

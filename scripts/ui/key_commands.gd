@@ -16,7 +16,7 @@ const COMMANDS := [
 	]],
 	["CHART", [
 		["Left-click", "Hook a platform or contact; Shift adds"],
-		["Right-click", "Water: transit there. Own platform: orders. Hostile: attack. Unknown: investigate"],
+		["Right-click", "Water: transit there. Own platform: orders. Hostile: attack. Unknown: investigate. Inbound weapon: intercept"],
 		["Shift+right-click", "Contact menu: weapons, salvos, investigate, cancel fire"],
 		["Right-drag, arrows", "Pan"],
 		["Wheel, + / -", "Zoom"],
@@ -41,6 +41,7 @@ const COMMANDS := [
 	["COMMAND", [
 		["J", "Fleet Operations: task groups and fleet orders"],
 		["D / V", "Radar countermeasures / evasive maneuver"],
+		["X", "Engage inbound weapons with interceptors (manual missile defence)"],
 		["Ctrl+1..9 / Alt+1..9", "Save / recall a fleet selection group"],
 		["Shift+E / Shift+R", "Weapon control / weapon ranges by role"],
 		["R / P / E", "Radar / active sonar / emission control"],

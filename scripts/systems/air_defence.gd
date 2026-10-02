@@ -2,6 +2,14 @@ class_name AirDefence
 ## Automatic layered self-defence. Ships defend themselves without player orders: the player
 ## decides emissions, position and magazines, not individual interception shots.
 ##
+## A ship on manual missile defence (`Unit.auto_air_defence` off, the Classic option) keeps its
+## area and point SAMs for the rounds the commander orders intercepted (`order_intercept`, which
+## marks them in `Weapon.intercept_cleared`); once cleared, a round is engaged by the same layers,
+## budgets and fire-control channels as automatic defence would use. What stays automatic: the
+## close-in guns, the last-ditch layer a crew fires at whatever leaks through (weapons hold still
+## silences them), and chaff and flares, which follow `auto_countermeasures` as before. Torpedo
+## defence is not affected: the option is about missiles.
+##
 ## Layering falls out of the data. `Unit.defensive_weapons()` returns interceptors longest-reach
 ## first, so the outermost layer that can shoot takes the shot, and shorter-ranged layers get
 ## their chance only as the round closes.
@@ -150,7 +158,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 					continue
 				var already: int = committed.get(w.id, 0)
 				var limit := guided_budget(u, float(entry["time_s"]))
-				var guided_allowed := already < limit
+				var guided_allowed := already < limit and engages_guided(u, w)
 				var before := w.guided_interceptors_committed
 				var fired := _engage_threat(u, w, weapon_manager, guided_allowed, now, fits[u])
 				if fired > 0:
@@ -160,6 +168,86 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 					launched += fired
 	weapon_manager.end_channel_batch()
 	return launched
+
+
+## Whether this ship's area and point SAMs may engage this round now: always on automatic
+## defence; on manual only once the commander has ordered it intercepted.
+static func engages_guided(u: Unit, w: Weapon) -> bool:
+	return u.auto_air_defence or w.intercept_cleared.has(u.id)
+
+
+## Why this unit cannot be ordered to intercept, or "": its own state, before any round is named.
+static func intercept_rejection(u: Unit) -> String:
+	if u == null or not u.is_engageable():
+		return "Select a deployed platform"
+	if u.roe == Unit.Roe.HOLD:
+		return "Weapons hold"
+	var aboard := false
+	for spec: WeaponSpec in u.weapons:
+		if spec.is_interceptor() and (spec.target_types.has("missile") or spec.target_types.has("ballistic")):
+			aboard = true
+	if not aboard:
+		return "No anti-missile weapons aboard"
+	var loaded := false
+	for spec: WeaponSpec in u.defensive_weapons():
+		if spec.target_types.has("missile") or spec.target_types.has("ballistic"):
+			loaded = true
+	if not loaded:
+		return "Interceptor magazines empty"
+	if not u.can_fire():
+		return "Launchers damaged"
+	return ""
+
+
+## Why this unit cannot be ordered to intercept this round, or "". Only rounds the unit's own
+## picture holds can be named, and only ones its interceptors are built for.
+static func threat_rejection(u: Unit, w: Weapon, threat_manager: ThreatManager) -> String:
+	if w == null or w.phase == Weapon.Phase.DEAD:
+		return "That weapon is gone"
+	if w.faction == u.faction or w.is_interceptor():
+		return "Not an inbound weapon"
+	if threat_manager == null or not threat_manager.visible_to(u, w):
+		return "That weapon is not held on this unit's picture"
+	for spec: WeaponSpec in u.defensive_weapons():
+		if _can_intercept(spec, w):
+			return ""
+	return "No interceptor aboard can engage a %s" % ("torpedo" if w.spec.is_torpedo() else w.threat_class() + " at that height")
+
+
+## The commander's intercept order for one unit: clears it to engage `threat`, or with none named
+## every inbound round its picture holds against the force, and takes the first shot now when a
+## layer has the round in reach and a channel free. Later shots come from the defence cycle, with
+## the usual layering and budgets. Returns {cleared, fired, reason}: how many rounds were cleared,
+## how many interceptors left now, and why nothing was cleared.
+static func order_intercept(u: Unit, threat: Weapon, unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> Dictionary:
+	var why := intercept_rejection(u)
+	if why != "":
+		return {"cleared": 0, "fired": 0, "reason": why}
+	var targets: Array[Weapon] = []
+	if threat != null:
+		why = threat_rejection(u, threat, threat_manager)
+		if why != "":
+			return {"cleared": 0, "fired": 0, "reason": why}
+		targets.append(threat)
+	else:
+		for entry: Dictionary in inbound_threats(unit_manager, threat_manager, u.faction, u):
+			var w: Weapon = entry["weapon"]
+			if threat_rejection(u, w, threat_manager) == "":
+				targets.append(w)
+		if targets.is_empty():
+			return {"cleared": 0, "fired": 0, "reason": "No inbound weapon this unit can engage is held"}
+	var fired := 0
+	var committed := _count_committed(weapon_manager)
+	for w: Weapon in targets:
+		if not w.intercept_cleared.has(u.id):
+			w.intercept_cleared.append(u.id)
+		var guided_allowed := int(committed.get(w.id, 0)) < guided_budget(u, w.time_to_reach_s(u.position))
+		var before := w.guided_interceptors_committed
+		var shot := _engage_threat(u, w, weapon_manager, guided_allowed, now)
+		if shot > 0:
+			committed[w.id] = int(committed.get(w.id, 0)) + w.guided_interceptors_committed - before
+			fired += shot
+	return {"cleared": targets.size(), "fired": fired, "reason": ""}
 
 
 static func guided_budget(u: Unit, tti_s: float) -> int:

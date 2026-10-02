@@ -180,7 +180,31 @@ static func defence_items(units: Array, movable: bool) -> Array:
 		item("Automatic", order_action(Order.set_auto_countermeasures(true)), false, "", _all(units, func(u: Unit) -> bool: return u.auto_countermeasures)),
 		item("Manual", order_action(Order.set_auto_countermeasures(false)), false, "", _all(units, func(u: Unit) -> bool: return not u.auto_countermeasures)),
 	]))
+	var why := ""
+	for u: Unit in units:
+		why = AirDefence.intercept_rejection(u)
+		if why == "":
+			break
+	items.append(item("Engage inbound weapons  [X]", order_action(Order.intercept()), why != "",
+		why if why != "" else "Fire interceptors at every inbound round the hooked ships hold. With manual missile defence, the SAMs fire only on this order."))
 	return items
+
+
+## A detected inbound weapon under the cursor: intercept it with the hooked ships, or turn away.
+static func weapon_items(w: Weapon, units: Array, controllable: bool, movable: bool) -> Array:
+	var why := "Hook your ships first" if not controllable else ""
+	if why == "":
+		why = "No hooked ship can engage it"
+		for u: Unit in units:
+			if AirDefence.intercept_rejection(u) == "":
+				why = ""
+				break
+	return [
+		{"text": "Inbound #%d  %s" % [w.id, w.spec.display_name], "disabled": true},
+		item("Engage with interceptors  [X]", order_action(Order.intercept(w)), why != "", why if why != "" else "Fire interceptors at this round from the hooked ships, within their channels and magazines."),
+		item("Evade  [V]", order_action(Order.evade()), not movable, "Turn the hooked ships to open the round's approach; the route resumes after."),
+		item("Defence commands", {"kind": "palette", "id": "open_defence"}, not controllable),
+	]
 
 
 ## The orders board's wording for the under-the-layer preset, so the menu and the board agree.

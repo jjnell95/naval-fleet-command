@@ -28,6 +28,8 @@ signal engage_requested(track: Track)
 ## The classic display's default verbs: a bare right-click on a hostile contact attacks it with
 ## the hooked platforms, on an unidentified one investigates it. Main issues the orders.
 signal attack_requested(track: Track)
+## A bare right-click on a detected inbound weapon with own ships hooked: intercept it.
+signal intercept_requested(weapon: Weapon)
 signal investigate_requested(track: Track)
 ## Emitted by the shell's "Delete leg" menu item via request_waypoint_delete(); the chart no longer
 ## deletes a leg on a bare right-click.
@@ -922,6 +924,10 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 func _right_click(e: InputEventMouseButton) -> void:
 	var ctx := context_at(e.position)
 	match String(ctx["kind"]):
+		"weapon":
+			if not e.shift_pressed and _has_controllable_selection():
+				intercept_requested.emit(ctx["weapon"])
+				return
 		"track":
 			var t: Track = ctx["track"]
 			if e.ctrl_pressed or e.meta_pressed:
@@ -972,6 +978,8 @@ func hover_cursor_shape(screen_pos: Vector2) -> Control.CursorShape:
 		return Control.CURSOR_CROSS
 	if not _has_controllable_selection() or _unit_at(screen_pos) != null:
 		return Control.CURSOR_ARROW
+	if str(context_at(screen_pos)["kind"]) == "weapon":
+		return Control.CURSOR_CROSS  # a right-click intercepts it
 	match default_contact_verb(_track_at(screen_pos)):
 		"attack":
 			return Control.CURSOR_CROSS
@@ -981,16 +989,22 @@ func hover_cursor_shape(screen_pos: Vector2) -> Control.CursorShape:
 
 
 ## What a right-click at this chart pixel is on, for the shell's menus: kind is "own_unit",
-## "track", "waypoint", "water" (open water) or "empty" (land the chart shows); the matching
-## fields are filled and the rest are null / -1. Own units win over contacts, and both over a
-## waypoint, as they do for a left-click.
+## "weapon" (a detected inbound round), "track", "waypoint", "water" (open water) or "empty" (land
+## the chart shows); the matching fields are filled and the rest are null / -1. Own units win over
+## an inbound round, the round over contacts, and all of them over a waypoint.
 func context_at(screen_pos: Vector2) -> Dictionary:
 	var world := screen_to_world(screen_pos)
-	var ctx := {"kind": "water", "unit": null, "track": null, "waypoint_unit": null, "waypoint_index": -1, "world_pos": world}
+	var ctx := {"kind": "water", "unit": null, "weapon": null, "track": null, "waypoint_unit": null, "waypoint_index": -1, "world_pos": world}
 	var u := _unit_at(screen_pos)
 	if u != null:
 		ctx["kind"] = "own_unit"
 		ctx["unit"] = u
+		return ctx
+	# Only a round this picture holds (_weapon_at asks the threat picture), and never one of ours.
+	var w := _weapon_at(screen_pos)
+	if w != null and w.faction != player_faction and not w.is_interceptor():
+		ctx["kind"] = "weapon"
+		ctx["weapon"] = w
 		return ctx
 	var t := _track_at(screen_pos)
 	if t != null:

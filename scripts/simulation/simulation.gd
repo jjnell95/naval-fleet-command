@@ -208,6 +208,10 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			air_mission_manager.request(u, o)
 		Order.Type.CANCEL_AIR_MISSION:
 			o.execution_accepted = air_mission_manager.cancel(o.mission_id, u)
+		Order.Type.INTERCEPT:
+			var result := AirDefence.order_intercept(u, o.threat, unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
+			o.execution_accepted = int(result["cleared"]) > 0
+			o.receipt = str(result["reason"])
 
 
 func _on_tick(dt: float) -> void:

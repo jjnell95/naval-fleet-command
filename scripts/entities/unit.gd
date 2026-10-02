@@ -110,6 +110,10 @@ var aviation_stores: Dictionary = {}  # host reload rounds, separate from its ow
 var aviation_buoys := 0
 var decoys := 0
 var auto_countermeasures := true
+## Area and point SAMs engage inbound missiles by themselves. Off (manual missile defence), they
+## fire only at rounds the commander has ordered intercepted (Weapon.intercept_cleared); the
+## close-in guns, chaff and flares keep their own rules either way.
+var auto_air_defence := true
 var defence_policy := "balanced"  # balanced | conserve | saturation
 var defence_priority := 0
 var countermeasure_kind := ""
@@ -516,6 +520,10 @@ func apply_order(order: Order) -> void:
 			defence_policy = order.defence_policy
 		Order.Type.SET_AUTO_COUNTERMEASURES:
 			auto_countermeasures = order.automatic
+		Order.Type.SET_AIR_DEFENCE_MODE:
+			auto_air_defence = order.automatic
+		Order.Type.INTERCEPT:
+			pass  # Simulation clears the rounds with the threat picture it owns.
 		Order.Type.RESUME_PLAN:
 			evasion_remaining_s = 0.0
 		Order.Type.CANCEL_FIRE:
