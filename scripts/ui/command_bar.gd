@@ -125,9 +125,12 @@ static func chart_items(chart: TacticalMap) -> Array:
 	]
 
 
+## The time ladder in use, so a 4× ceiling offers 1×, 2× and 4× and nothing faster.
 static func time_items() -> Array:
 	var items: Array = []
-	for i in SimClock.SPEEDS.size():
-		items.append(CdsMenus.item("%d×%s" % [int(SimClock.SPEEDS[i]), "  Real time" if i == 0 else ""],
+	var ladder := SimClock.speeds()
+	for i in ladder.size():
+		var note := "  Real time" if i == 0 else ("  Ceiling" if i == ladder.size() - 1 and ladder.size() < SimClock.SPEEDS.size() else "")
+		items.append(CdsMenus.item("%d×%s  [%d]" % [int(ladder[i]), note, i + 1],
 			{"kind": "palette", "id": "speed_%d" % i}, false, "Choosing a speed leaves a paused watch paused.", 1 if SimClock.speed_index == i else 0))
 	return items

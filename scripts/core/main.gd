@@ -98,7 +98,7 @@ func _ready() -> void:
 	data_display.map = map
 	data_display.simulation = simulation
 	data_display.pause_requested.connect(SimClock.toggle_pause)
-	data_display.scale_step_requested.connect(func(step: int) -> void: SimClock.set_speed_index(SimClock.speed_index + step))
+	data_display.scale_step_requested.connect(func(step: int) -> void: _set_time_scale(SimClock.speed_index + step))
 	data_display.messages_requested.connect(_on_message_lamp)
 	status_boards.comms_shown.connect(func() -> void: data_display.unread_alerts = 0)
 	data_display.threat_requested.connect(_focus_urgent_threat)
@@ -928,8 +928,9 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "voice", "label": "Crew voice", "description": "Spoken crew reports through the system's text-to-speech.", "shortcut": "", "enabled": true, "state": "on" if voice.enabled else "off"},
 		{"id": "ambient", "label": "Ambient sea and machinery", "description": "Sea wash by sea state and the hooked platform's engine or rotor.", "shortcut": "", "enabled": true, "state": "on" if SoundFx.ambient_enabled else "off"},
 	]
-	for i in SimClock.SPEEDS.size():
-		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(SimClock.SPEEDS[i]), "description": "Set simulation acceleration; time remains paused until resumed.", "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
+	var ladder := SimClock.speeds()
+	for i in ladder.size():
+		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(ladder[i]), "description": "Set simulation acceleration; time remains paused until resumed." + (" The ceiling." if i == ladder.size() - 1 and ladder.size() < SimClock.SPEEDS.size() else ""), "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
 	return actions
 
 
@@ -1091,7 +1092,7 @@ func _run_palette_action(id: String) -> void:
 			_toggle_command_palette()
 		_:
 			if id.begins_with("speed_"):
-				SimClock.set_speed_index(int(id.trim_prefix("speed_")))
+				_set_time_scale(int(id.trim_prefix("speed_")))
 
 
 ## Space is the pause key on the command deck. It is taken here, before the GUI sees it, because a
@@ -1285,7 +1286,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			elif not map.cancel_interaction_mode():
 				map.clear_selection()
 		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
-			SimClock.set_speed_index(k.keycode - KEY_1)
+			_set_time_scale(k.keycode - KEY_1)
 		KEY_F2:
 			map.toggle_layer("key")
 		KEY_F4:
@@ -1315,6 +1316,17 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+
+## A time scale by its step on the ladder in use (the number keys, SCALE, the time menu). A step
+## past the ceiling is refused with advice rather than quietly taken as the ceiling, so the keys
+## never seem to do something they did not.
+func _set_time_scale(index: int) -> void:
+	var ladder := SimClock.speeds()
+	if index >= ladder.size():
+		radio.advise("%d× is the ceiling: %s" % [int(SimClock.ceiling()), "keys 1 to %d set the time scale" % ladder.size() if ladder.size() > 1 else "time runs at real time only"])
+		return
+	SimClock.set_speed_index(maxi(index, 0))
 
 
 ## Hooks the next platform of the task group, in roster order ("." in the old games).

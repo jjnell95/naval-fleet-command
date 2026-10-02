@@ -346,7 +346,7 @@ func _append_controls(out: PackedStringArray) -> void:
 	out.append(_section("BOARDS, AIR OPERATIONS AND SCREENS"))
 	out.append("[b]A[/b] opens the status boards: orders, task group, track file and comms. [b]F3[/b] opens the launch dialog: light the LAUNCH lamps, then Ok; select an airborne airframe to return it to a carrier or airfield. [b]F7[/b] reference. [b]M[/b] missions, [b]Ctrl-E[/b] editor, [b]Ctrl-F10[/b] twice restarts.\n")
 	out.append(_section("TIME & DISPLAY"))
-	out.append("[b]Space[/b] pauses, or click TIME on the data display. [b]1–6[/b] sets acceleration, or click SCALE. Use real time when contacts close; accelerate when the force is on station.\n[b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] relief shading · [b]Ctrl-L / S / W[/b] lat-long, scale, radar coverage · [b]Ctrl-M[/b] sound.\n[b]H[/b] lists every key command. [b]Command-K / Control-K[/b] opens the searchable Actions palette.")
+	out.append("[b]Space[/b] pauses, or click TIME on the data display. [b]%s[/b] sets acceleration up to %d×, or click SCALE. Use real time when contacts close; accelerate when the force is on station.\n[b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] relief shading · [b]Ctrl-L / S / W[/b] lat-long, scale, radar coverage · [b]Ctrl-M[/b] sound.\n[b]H[/b] lists every key command. [b]Command-K / Control-K[/b] opens the searchable Actions palette." % ["1–%d" % SimClock.speeds().size() if SimClock.speeds().size() > 1 else "1", int(SimClock.ceiling())])
 
 
 func _line(o: MissionObjective, loss := false) -> String:
