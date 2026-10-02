@@ -430,6 +430,8 @@ func test_continuation_under_classic_options_matches_the_uninterrupted_battle() 
 		if got != expected:
 			failures.append("Classic continuation from %.2f s differs: %s" % [save_at, _first_difference(bytes_to_var(expected), bytes_to_var(got), "")])
 		_free()
+	DirAccess.remove_absolute(_scratch)
+	SaveGame.root_override = ""
 
 
 ## The options an engagement is fought under travel in its save, with its header naming them.
@@ -445,6 +447,7 @@ func test_a_save_carries_the_gameplay_options_it_was_played_under() -> void:
 	var restored := GameOptions.from_dict(back["payload"]["presentation"]["options"])
 	assert_true(restored.equals(classic), "a Classic save restores Classic")
 	assert_eq(Array(restored.time_scales), Array(GameOptions.CLASSIC_SCALES))
+	DirAccess.remove_absolute(_scratch)
 	SaveGame.root_override = ""
 
 
