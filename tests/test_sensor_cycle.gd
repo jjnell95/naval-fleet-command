@@ -170,6 +170,105 @@ func test_indexed_cycle_matches_the_reference_on_a_mixed_chart() -> void:
 	assert_true(int(reference["added"]) > 4)
 
 
+## Seeded random worlds for what one scripted chart cannot cover: every platform in the catalogue,
+## any sea state, low, high and flat land, aircraft launching, recovering and stowed at any
+## height, and between cycles units that change side, die, switch sets or join the battle. The
+## cycle's per-side lists are rebuilt from scratch every cycle, so none of that may make them
+## differ from the pair-by-pair scan.
+func test_indexed_cycle_matches_the_reference_in_random_worlds() -> void:
+	var tracks := 0
+	for world in 12:
+		var reference := _random_run(500 + world, true, 60)
+		var indexed := _random_run(500 + world, false, 60)
+		assert_eq(_first_difference(reference, indexed, ""), "", "random world %d" % world)
+		for key: String in reference["pictures"]:
+			tracks += (reference["pictures"][key] as Array).size()
+	assert_true(tracks > 1000, "the worlds hold %d tracks" % tracks)
+
+
+func _random_run(seed_value: int, reference: bool, cycles: int) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var land := []
+	for i in rng.randi_range(0, 4):
+		var c := Vector2(rng.randf_range(-60, 60), rng.randf_range(-60, 60))
+		var r := rng.randf_range(2, 15)
+		land.append({"id": "l%d" % i, "name": "L%d" % i, "elevation_m": [0.0, 5.0, 120.0, 300.0, 1200.0, 2500.0][rng.randi() % 6], "points_nm": [[c.x - r, c.y - r], [c.x + r, c.y - r * 0.5], [c.x + r * 0.7, c.y + r], [c.x - r, c.y + r * 0.8]]})
+	Terrain.load_from({"terrain": {"land": land}})
+	Detection.set_environment({"sea_state": rng.randi_range(0, 6), "layer_depth_m": rng.randf_range(0, 120), "layer_strength": rng.randf(), "cz_range_nm": 30.0 if rng.randf() < 0.5 else 0.0})
+	var platforms: Array = DataDB.all_platforms()
+	var um := UnitManager.new()
+	var flights := [Unit.FlightState.STOWED, Unit.FlightState.LAUNCHING, Unit.FlightState.AIRBORNE, Unit.FlightState.AIRBORNE, Unit.FlightState.RECOVERING]
+	for i in 40:
+		_add_random(um, rng, platforms, ["BLUE", "RED", "NEUTRAL"][rng.randi() % 3], flights[rng.randi() % flights.size()])
+	var tm := TrackManager.new()
+	tm.neutral_factions = PackedStringArray(["NEUTRAL"])
+	var sm := SensorManager.new()
+	sm.unit_manager = um
+	sm.track_manager = tm
+	sm.rng.seed = seed_value
+	sm.reference_path = reference
+	Terrain.height_shortcut = not reference
+	for cycle in cycles:
+		sm.run_cycle(float(cycle + 1))
+		for u: Unit in um.units:
+			if not u.alive:
+				continue
+			if rng.randf() < 0.1:
+				u.heading_deg = fposmod(u.heading_deg + rng.randf_range(-20, 20), 360.0)
+			u.position += Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn) * SensorManager.SENSOR_DT
+			if rng.randf() < 0.03:
+				u.radar_on = not u.radar_on
+			if rng.randf() < 0.02:
+				u.active_sonar_on = not u.active_sonar_on
+			if u.is_aircraft() and rng.randf() < 0.03:
+				u.flight_state = flights[rng.randi() % flights.size()]
+			if u.is_submarine() and rng.randf() < 0.05:
+				u.depth_m = [10.0, 15.0, 120.0][rng.randi() % 3]
+			if rng.randf() < 0.01:
+				u.components["sensors"] = rng.randf()
+			if rng.randf() < 0.003:
+				u.alive = false
+			if rng.randf() < 0.004:
+				u.faction = ["BLUE", "RED", "NEUTRAL"][rng.randi() % 3]
+		if cycle % 13 == 5:
+			_add_random(um, rng, platforms, ["BLUE", "RED"][rng.randi() % 2], Unit.FlightState.AIRBORNE)
+	var out := {"pictures": _pictures(tm), "rng": sm.rng.state, "next": tm._next_number.duplicate()}
+	sm.free()
+	tm.free()
+	um.free()
+	Terrain.clear()
+	Terrain.height_shortcut = true
+	Detection.set_environment({})
+	return out
+
+
+func _add_random(um: UnitManager, rng: RandomNumberGenerator, platforms: Array, faction: String, flight: Unit.FlightState) -> void:
+	var spec: PlatformSpec = platforms[rng.randi() % platforms.size()]
+	# Built by hand rather than by the scenario loader, which warns about every hull a random
+	# chart puts ashore: the sensors do not care.
+	var u := Unit.new()
+	u.spec = spec
+	u.callsign = "%s %d" % [spec.short_name, um.units.size()]
+	u.faction = faction
+	for id in spec.sensor_ids:
+		if DataDB.sensor(id) != null:
+			u.sensors.append(DataDB.sensor(id))
+	u.health = spec.health
+	u.position = Vector2(rng.randf_range(-90, 90), rng.randf_range(-90, 90))
+	u.heading_deg = rng.randf_range(0, 360)
+	u.speed_kn = rng.randf_range(0, spec.max_speed_kn)
+	u.radar_on = rng.randf() < 0.75
+	u.depth_m = minf([0.0, 10.0, 15.0, 40.0, 150.0][rng.randi() % 5], spec.max_depth_m)
+	um.add_unit(u)
+	if u.is_aircraft():
+		u.flight_state = flight
+		u.altitude_m = [0.0, 30.0, 60.0, 300.0, 3000.0, 10000.0][rng.randi() % 6]
+	if rng.randf() < 0.3:
+		u.components["sensors"] = rng.randf()
+	u.active_sonar_on = rng.randf() < 0.2
+
+
 ## A terrain walk shared between a radar plot and an ESM bearing must give the same answer as
 ## walking it twice: the island screens the battery from the destroyer at sea level.
 func test_a_shared_sight_line_still_masks() -> void:
