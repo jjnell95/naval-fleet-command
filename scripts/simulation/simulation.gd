@@ -164,6 +164,9 @@ func _build_ai(reset := true) -> void:
 		c.threat_manager = threat_manager
 		c.weapon_manager = weapon_manager
 		c.air_mission_manager = air_mission_manager
+		# The scenario's mission plans for this side, if it has any (AIPlan). Units that arrive
+		# later tagged for one of them join it then.
+		c.configure_plans(scenario.get("ai_plans", []))
 		add_child(c)
 		ai_controllers[u.faction] = c
 

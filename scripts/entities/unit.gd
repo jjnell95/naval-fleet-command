@@ -126,6 +126,10 @@ var patrol_route: Array[Vector2] = []  # standing orders from the scenario, used
 ## "breakout" has somewhere to be: it presses on down its patrol route, shooting as it goes, and
 ## does not break off because its magazines are empty.
 var ai_posture := "standard"
+## The scenario's opposing-force plan this unit belongs to (AIPlan.id), and the part it plays in it
+## when not the plan's default. Authored, so a reinforcement wave can join a plan already running.
+var ai_plan_id := ""
+var ai_role := ""
 
 ## Aviation. An aircraft exists from scenario load but sits in its hangar until launched, so the
 ## player can see what is available without those airframes being on the board.
