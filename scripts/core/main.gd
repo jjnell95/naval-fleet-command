@@ -176,6 +176,13 @@ func _ready() -> void:
 	simulation.operation_message.connect(func(message: String) -> void:
 		radio.flash(message, "info")
 		Debug.event("[Operation] %s" % message))
+	# New tasking: the order itself is the event's message above. Time drops to real time so it is
+	# read, and the objective line and an open briefing read the objectives again.
+	simulation.mission_manager.objectives_changed.connect(func() -> void:
+		SimClock.drop_to_realtime()
+		radio.set_objective_text(_objective_summary())
+		if _briefing != null and _briefing.visible:
+			_briefing.refresh())
 	simulation.threat_manager.threat_detected.connect(_on_threat_detected)
 	simulation.aviation_manager.aircraft_launched.connect(func(a: Unit, parent: Unit) -> void:
 		if a.faction == simulation.player_faction:

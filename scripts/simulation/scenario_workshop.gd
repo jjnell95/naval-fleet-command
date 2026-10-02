@@ -410,7 +410,7 @@ static func validate(sc: Dictionary) -> String:
 	for id: String in ids:
 		if _cycle(id, ids, {}):
 			return "Task prerequisites form a cycle"
-	return ""
+	return OperationDirector.event_problem(sc)
 
 
 static func _cycle(id: String, ids: Dictionary, visited: Dictionary) -> bool:

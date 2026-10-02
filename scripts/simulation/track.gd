@@ -33,6 +33,10 @@ var source := "radar"  # sensor that last held it
 var source_platform := ""
 var source_sensor := ""
 var source_sensor_id := ""
+## True while the plot rests only on a contact report from outside the force (a shore array, an
+## allied patrol aircraft): a datum to go and look at, never a firing solution. The first plot
+## from the side's own sensors replaces it and clears this.
+var reported := false
 ## Battle damage assessment, 0..100: what this side's own hits on the contact suggest, and 100
 ## once the plot sees it destroyed. Never a read of the target's true condition; see
 ## TrackManager.record_hit.

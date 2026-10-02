@@ -260,7 +260,7 @@ func test_every_simulation_field_is_saved_or_declared_transient() -> void:
 		var names := SimSnapshot.script_variables(pair[0])
 		for skipped: String in (pair[1] as Dictionary):
 			assert_true(names.has(skipped), "%s skip list names a field that exists" % skipped)
-	var managers: Array = [_sim.unit_manager, _sim.track_manager, _sim.sensor_manager, _sim.threat_manager, _sim.weapon_manager, _sim.aviation_manager, _sim.air_mission_manager, _sim.mission_manager]
+	var managers: Array = [_sim.unit_manager, _sim.track_manager, _sim.sensor_manager, _sim.threat_manager, _sim.weapon_manager, _sim.aviation_manager, _sim.air_mission_manager, _sim.mission_manager, _sim.director]
 	managers.append_array(_sim.ai_controllers.values())
 	for node: Object in managers:
 		var name: String = node.get_script().get_global_name()

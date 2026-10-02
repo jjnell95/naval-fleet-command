@@ -208,7 +208,7 @@ func show_report(result: String, summary: String, stats: Dictionary, objectives:
 	lines.append(UITheme.section_bb("Objectives", true))
 	for o in objectives:
 		var mo: MissionObjective = o
-		lines.append("%s   %s" % ["[color=%s][font_size=12]DONE[/font_size][/color]" % UITheme.HEX_INK_GREEN if mo.complete else "[color=%s][font_size=12]OPEN[/font_size][/color]" % UITheme.HEX_INK_AMBER, _safe(mo.text)])
+		lines.append("%s   %s%s" % ["[color=%s][font_size=12]DONE[/font_size][/color]" % UITheme.HEX_INK_GREEN if mo.complete else "[color=%s][font_size=12]OPEN[/font_size][/color]" % UITheme.HEX_INK_AMBER, _safe(mo.text), "  (bonus)" if mo.optional else ""])
 	for mo: MissionObjective in loss_objectives:
 		lines.append("[color=%s]%s[/color]   %s" % [UITheme.HEX_INK_RED if mo.complete else UITheme.HEX_INK_DIM, "FAILED" if mo.complete else "AVOIDED", _safe(mo.text)])
 	lines.append("\n" + UITheme.section_bb("Civilian incidents", true))

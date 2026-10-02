@@ -19,9 +19,15 @@ extends RefCounted
 ##
 ## Scenario-editor files are mission definitions; this is a running engagement, and embeds the
 ## scenario it was started from, so an edited or deleted mission file cannot break a continuation.
+##
+## The operation's events are saved as this engagement drew them (OperationDirector): the resolved
+## events, which have fired and when, which never will, the draws, the director's own random stream
+## and the progress of every trigger. The tasking changes fired events made are made again on
+## restore, in order, before the objectives' saved progress is put back.
 
 const FORMAT := "naval-fleet-command.engagement"
-const VERSION := 1
+## 2: the operation director's state (version 1 kept only the ids of the events that had fired).
+const VERSION := 2
 
 ## Variables kept out of the reflective copy, by class.
 const UNIT_SKIP := {
@@ -42,7 +48,8 @@ const MANAGER_FIELDS := {
 	"WeaponManager": ["in_flight", "_next_id", "_launcher_ready_at", "now_s", "_pending", "_pending_dirty"],
 	"AviationManager": ["_accum", "_next_buoy_id"],
 	"AirMissionManager": ["now_s", "_next_id", "_accum"],
-	"MissionManager": ["result"],
+	"MissionManager": ["result", "tasking_updates"],
+	"OperationDirector": ["events", "fired", "skipped", "variant"],
 	"AIController": ["enabled", "_bb"],
 }
 ## Manager variables that are deliberately not saved, and why.
@@ -54,11 +61,17 @@ const MANAGER_TRANSIENT := {
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
 	"AviationManager": ["unit_manager", "sonobuoys", "map_center", "map_extent_nm"],
 	"AirMissionManager": ["unit_manager", "aviation_manager", "track_manager", "missions"],
-	"MissionManager": ["unit_manager", "player_faction", "briefing", "situation", "victory_objectives", "loss_objectives", "victory_mode", "neutral_factions"],
+	# The objectives and the briefing are rebuilt from the scenario and the fired events' updates;
+	# their progress is saved under "objectives".
+	"MissionManager": ["unit_manager", "track_manager", "player_faction", "briefing", "situation", "victory_objectives", "loss_objectives", "victory_mode", "neutral_factions"],
+	# The side and the chart come from the scenario; the stream is saved as [seed, state] under
+	# "rng"; the triggers are rebuilt from the saved events and their progress saved under "objectives".
+	"OperationDirector": ["unit_manager", "track_manager", "mission_manager", "player_faction", "anchor", "rng", "_conditions", "_vetoes"],
 	"AIController": ["faction", "unit_manager", "track_manager", "threat_manager", "weapon_manager", "air_mission_manager", "_cycle_inbound", "_cycle_committed", "_cycle_torpedoes", "_in_decision_cycle"],
 }
-## A mission objective's progress; the rest of it is rebuilt from the embedded scenario.
-const OBJECTIVE_FIELDS := ["complete", "unlocked", "held_since", "held_seconds"]
+## A mission objective's progress (MissionObjective.progress_state, which adds the parts of an
+## any/all condition); the rest of it is rebuilt from the embedded scenario.
+const OBJECTIVE_FIELDS := MissionObjective.PROGRESS_FIELDS
 
 
 ## Converts object references to markers on the way out and back on the way in.
@@ -193,7 +206,7 @@ static func capture(sim: Simulation) -> Dictionary:
 		d["bottom_cache_valid"] = u.bottom_generation == Bathymetry.generation
 		units.append(d)
 	var managers := {}
-	for node: Node in [um, sim.track_manager, sim.sensor_manager, sim.threat_manager, sim.weapon_manager, sim.aviation_manager, sim.air_mission_manager, sim.mission_manager]:
+	for node: Node in _managers(sim):
 		managers[_manager_name(node)] = manager_fields(node, refs)
 	var ai := []
 	for faction: String in sim.ai_controllers:
@@ -204,7 +217,8 @@ static func capture(sim: Simulation) -> Dictionary:
 	var buoys := []
 	for b in sim.aviation_manager.sonobuoys:
 		buoys.append(fields_of(b, BUOY_SKIP, refs))
-	var objectives := {"victory": _objective_state(sim.mission_manager.victory_objectives), "loss": _objective_state(sim.mission_manager.loss_objectives)}
+	var objectives := {"victory": _objective_state(sim.mission_manager.victory_objectives), "loss": _objective_state(sim.mission_manager.loss_objectives),
+		"events": sim.director.condition_progress()}
 	# Weapons may name other weapons (an interceptor's target that has already left the plot), and
 	# tracks are found wherever they are referenced; both lists grow while they are written.
 	var weapons := []
@@ -229,11 +243,11 @@ static func capture(sim: Simulation) -> Dictionary:
 			"sensor": [sim.sensor_manager.rng.seed, sim.sensor_manager.rng.state],
 			"weapon": [sim.weapon_manager.rng.seed, sim.weapon_manager.rng.state],
 			"damage": [Damage.rng.seed, Damage.rng.state],
+			"director": [sim.director.rng.seed, sim.director.rng.state],
 		},
 		"simulation": {
 			"defence_accum": sim._defence_accum,
 			"ai_accum": sim._ai_accum,
-			"completed_events": sim.completed_events.keys(),
 			"ai_enabled": sim.ai_enabled,
 			"ai_plays_player": sim.ai_plays_player,
 		},
@@ -274,6 +288,11 @@ static func script_variables(obj: Object) -> PackedStringArray:
 	return out
 
 
+## Every manager whose fields are saved by name, in a fixed order.
+static func _managers(sim: Simulation) -> Array[Node]:
+	return [sim.unit_manager, sim.track_manager, sim.sensor_manager, sim.threat_manager, sim.weapon_manager, sim.aviation_manager, sim.air_mission_manager, sim.mission_manager, sim.director]
+
+
 static func _manager_name(node: Object) -> String:
 	var script: Script = node.get_script()
 	return script.get_global_name() if script != null else node.get_class()
@@ -282,10 +301,7 @@ static func _manager_name(node: Object) -> String:
 static func _objective_state(list: Array) -> Array:
 	var out := []
 	for o: MissionObjective in list:
-		var d := {}
-		for name: String in OBJECTIVE_FIELDS:
-			d[name] = o.get(name)
-		out.append(d)
+		out.append(o.progress_state())
 	return out
 
 
@@ -359,7 +375,9 @@ static func _missing_catalogue(v: Variant) -> String:
 
 
 ## Older formats are upgraded here, one version at a time, only where the meaning is certain.
-## Version 1 is the first.
+## Version 1 kept only the ids of the events that had fired. Its events had no draws and no
+## triggers, so drawing them again from the scenario and marking those ids fired is exact; restore
+## does that when the director's state is missing.
 static func migrate(snap: Dictionary) -> Dictionary:
 	return snap
 
@@ -404,8 +422,19 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 		_fill(b, d, refs)
 		sim.aviation_manager.sonobuoys.append(b)
 	var managers: Dictionary = snap["managers"]
-	for node: Node in [um, sim.track_manager, sim.sensor_manager, sim.threat_manager, sim.weapon_manager, sim.aviation_manager, sim.air_mission_manager, sim.mission_manager]:
+	for node: Node in _managers(sim):
 		_fill_manager(node, managers.get(_manager_name(node), {}), refs)
+	# The operation's events, then the tasking changes they made, then every objective's progress:
+	# the changes have to be in place before the saved progress can line up with the objectives.
+	var director := sim.director
+	if managers.has("OperationDirector"):
+		director.rebuild()
+	else:
+		director.configure(sim.scenario, int(snap.get("base_seed", 0)))
+		for key in snap["simulation"].get("completed_events", []):
+			director.fired[str(key)] = float(director.event(str(key)).get("at_s", 0.0))
+	director.replay_updates()
+	director.restore_condition_progress(snap["objectives"].get("events", {}))
 	_restore_objectives(sim.mission_manager.victory_objectives, snap["objectives"].get("victory", []))
 	_restore_objectives(sim.mission_manager.loss_objectives, snap["objectives"].get("loss", []))
 	# The AI: one controller per saved faction, in the saved order, which is the order they think.
@@ -429,9 +458,6 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 	sim.ai_controllers = ordered
 	sim._defence_accum = float(s["defence_accum"])
 	sim._ai_accum = float(s["ai_accum"])
-	sim.completed_events.clear()
-	for key in s.get("completed_events", []):
-		sim.completed_events[key] = true
 	sim.base_seed = int(snap.get("base_seed", 0))
 	# Seed first: setting a seed resets the state.
 	var rng: Dictionary = snap["rng"]
@@ -441,6 +467,9 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 	sim.weapon_manager.rng.state = int(rng["weapon"][1])
 	Damage.rng.seed = int(rng["damage"][0])
 	Damage.rng.state = int(rng["damage"][1])
+	if rng.has("director"):
+		director.rng.seed = int(rng["director"][0])
+		director.rng.state = int(rng["director"][1])
 	Detection.refresh_jammers(um.units)
 	sim.weapon_manager.revision += 1
 	sim.threat_manager.revision += 1
@@ -472,5 +501,4 @@ static func _assign(obj: Object, name: String, value: Variant) -> void:
 
 static func _restore_objectives(list: Array, saved: Array) -> void:
 	for i in mini(list.size(), saved.size()):
-		for name in saved[i]:
-			list[i].set(name, saved[i][name])
+		(list[i] as MissionObjective).restore_progress(saved[i])
