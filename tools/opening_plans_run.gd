@@ -52,6 +52,8 @@ const DUNCAN := "HMS Duncan (D 37)"
 const LANGUEDOC := "FS Languedoc (D 653)"
 const AL_DHAFRA := "Al Dhafra Air Base"
 const HORMUZ_LANE: Array[Vector2] = [Vector2(-13.4, 12.0), Vector2(13.4, -3.0), Vector2(48.4, -45.0)]
+## Where the Poseidon lays buoys: the Gulf of Oman approaches the convoy has to cross last.
+const HORMUZ_EXIT_ASW := Vector2(32.0, -28.0)
 const MISTRAL := "FS Mistral (L 9013)"
 const DE_GAULLE := "FS Charles de Gaulle (R 91)"
 const DORIA := "ITS Andrea Doria (D 553)"
@@ -199,13 +201,14 @@ func _open() -> void:
 			_air(KADENA, AirMission.Kind.RECON, "usn_mpa_p8a", 1, Vector2(140.0, 170.0), 40.0)
 			_air(KADENA, AirMission.Kind.CAP, "usaf_fighter_f16c", 4, Vector2(130.0, 60.0), 20.0, null, true)
 		"gulf_01_hormuz/close_convoy":
-			# The tankers in column down the lane with the escorts around the lead.
+			# The tankers in column down the lane with the escorts around the lead, the Poseidon
+			# laying buoys over the approaches the convoy crosses last.
 			_convoy_lane(15.0)
 			var lead := _u(TANKERS[0])
 			_order(_u(IGNATIUS), Order.form_up(lead, Vector2(0.0, 4.0)))
 			_order(_u(DUNCAN), Order.form_up(lead, Vector2(-3.0, 0.0)))
 			_order(_u(LANGUEDOC), Order.form_up(lead, Vector2(0.0, -6.0)))
-			_air(AL_DHAFRA, AirMission.Kind.RECON, "usn_mpa_p8a", 1, Vector2(0.0, 10.0), 20.0)
+			_air(AL_DHAFRA, AirMission.Kind.ASW, "usn_mpa_p8a", 1, HORMUZ_EXIT_ASW, 15.0)
 		"gulf_01_hormuz/sweep_ahead":
 			# The destroyers run ahead to Larak, where the swarm comes out, and hold the lane there;
 			# the tankers wait a quarter of an hour with Languedoc, then follow at best speed.
@@ -216,7 +219,7 @@ func _open() -> void:
 			for name: String in TANKERS:
 				_order(_u(name), Order.set_speed(0.0))
 			_order(_u(LANGUEDOC), Order.form_up(_u(TANKERS[0]), Vector2(0.0, -2.0)))
-			_air(AL_DHAFRA, AirMission.Kind.RECON, "usn_mpa_p8a", 1, Vector2(-10.0, 20.0), 20.0)
+			_air(AL_DHAFRA, AirMission.Kind.ASW, "usn_mpa_p8a", 1, HORMUZ_EXIT_ASW, 15.0)
 		"med_01_tartus/direct_transit":
 			# Mistral goes at once behind Andrea Doria, under the carrier's and Akrotiri's fighters.
 			_tartus_transit()
@@ -277,8 +280,9 @@ func _step() -> void:
 				_strike(REAGAN, "usn_fighter_fa18e", 4, func(t: Track) -> bool: return t.domain == "surface" and t.known_category != "replenishment ship")
 			_engage(TAIWAN_SHIPS, "surface", 100.0)
 		"gulf_01_hormuz/close_convoy":
+			_hunt_reported_submarine()
 			_relead()
-			_engage([IGNATIUS, DUNCAN, LANGUEDOC], "surface", 8.0)
+			_engage([IGNATIUS, DUNCAN, LANGUEDOC], "surface", 5.0, Callable(), true)
 			_engage([LANGUEDOC, IGNATIUS], "subsurface", 6.0)
 		"gulf_01_hormuz/sweep_ahead":
 			if now >= 900.0 and _once("convoy_sails"):
@@ -288,7 +292,8 @@ func _step() -> void:
 				_order(_u(DUNCAN), Order.form_up(lead, Vector2(-4.0, 0.0)))
 			if _done.has("convoy_sails"):
 				_relead()
-			_engage([IGNATIUS, DUNCAN, LANGUEDOC], "surface", 8.0)
+			_hunt_reported_submarine()
+			_engage([IGNATIUS, DUNCAN, LANGUEDOC], "surface", 5.0, Callable(), true)
 			_engage([LANGUEDOC, IGNATIUS], "subsurface", 6.0)
 		"med_01_tartus/direct_transit":
 			_follow_box("holding_box", [MISTRAL])
@@ -335,6 +340,14 @@ func _relead() -> void:
 		return
 
 
+## The dhow's periscope report puts the destroyer's Seahawks and the frigate's NH90 over the datum.
+func _hunt_reported_submarine() -> void:
+	for t in _reports():
+		if _once("hunt:" + t.id):
+			_air(IGNATIUS, AirMission.Kind.ASW, "usn_helo_mh60r", 2, t.position, 6.0, null, true)
+			_air(LANGUEDOC, AirMission.Kind.ASW, "nato_helo_nh90_nfh", 1, t.position, 6.0)
+
+
 func _tartus_transit() -> void:
 	var mistral := _u(MISTRAL)
 	_order(mistral, Order.move(Vector2(-60.0, -34.0)))
@@ -367,22 +380,31 @@ func _follow_box(objective_id: String, ships: Array) -> void:
 
 
 ## Each named shooter not already on an attack takes the nearest contact its picture calls hostile
-## in the domain, within reach, that it may attack.
-func _engage(shooters: Array, domain: String, reach_nm: float, accept := Callable()) -> void:
+## in the domain, within reach, that it may attack. With `guns_only` it shoots with its gun or not
+## at all: in a strait full of dhows a missile that loses its boat finds another.
+func _engage(shooters: Array, domain: String, reach_nm: float, accept := Callable(), guns_only := false) -> void:
 	for name: String in shooters:
 		var u := _u(name)
 		if u == null or not u.alive or u.attack_track != null:
 			continue
+		var weapon := ""
+		if guns_only:
+			for spec: WeaponSpec in u.weapons:
+				if spec.is_gun() and spec.target_types.has(domain) and u.magazine_count(spec.id) > 0:
+					weapon = spec.id
+					break
+			if weapon == "":
+				continue
 		var best: Track = null
 		var best_d := reach_nm
 		for t in _hostiles(domain, u):
 			if accept.is_valid() and not accept.call(t):
 				continue
 			var d := u.position.distance_to(t.position)
-			if d <= best_d and UnitManager.attack_rejection(u, t) == "":
+			if d <= best_d and UnitManager.attack_rejection(u, t, weapon) == "":
 				best = t
 				best_d = d
-		if best != null and _order(u, Order.attack(best)):
+		if best != null and _order(u, Order.attack(best, weapon)):
 			_note("%.0f %s attacks %s" % [clock.sim_time, name, best.label()])
 
 
