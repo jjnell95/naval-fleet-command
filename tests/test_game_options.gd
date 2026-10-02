@@ -429,3 +429,170 @@ func test_a_held_inbound_round_on_the_chart_is_intercepted_by_a_right_click() ->
 	map.track_manager.free()
 	map.free()
 	_cleanup(h)
+
+
+# --- Engagement after hostile identification ----------------------------------------------
+
+func _frigate() -> Unit:
+	var u := Unit.new()
+	u.spec = DataDB.platform("rnon_ffg_fridtjof_nansen")
+	for sid in u.spec.sensor_ids:
+		u.sensors.append(DataDB.sensor(sid))
+	for wid: String in u.spec.weapon_loadout:
+		u.weapons.append(DataDB.weapon(wid))
+		u.magazines[wid] = int(u.spec.weapon_loadout[wid])
+	u.faction = "BLUE"
+	u.callsign = "Test Frigate"
+	u.health = u.spec.health
+	return u
+
+
+func _contact(holder: Unit) -> Track:
+	var t := Track.new()
+	t.id = "0301"
+	t.owner_faction = "BLUE"
+	t.position = Vector2(0, 12)
+	t.networked = false
+	t.contributors[holder] = true
+	return t
+
+
+## Investigates, then the plot classifies the contact with `identity`; returns the unit.
+func _identify(identity: String, engage: bool, roe := Unit.Roe.FREE, identify_only := false) -> Dictionary:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var u := _frigate()
+	um.add_unit(u)
+	um.set_engage_on_hostile_id("BLUE", engage)
+	um.issue_order(u, Order.set_roe(roe))
+	var t := _contact(u)
+	assert_true(um.issue_order(u, Order.investigate(t, identify_only)))
+	um.tick(0.25)
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.domain = "surface"
+	t.identity = identity
+	t.known_class = "Test class"
+	um.tick(0.25)
+	return {"um": um, "unit": u, "track": t}
+
+
+func test_a_hostile_identification_becomes_the_crews_attack_when_chosen() -> void:
+	var r := _identify("HOSTILE", true)
+	var u: Unit = r["unit"]
+	assert_eq(u.investigation_track, null, "the investigation is over")
+	assert_eq(u.attack_track, r["track"], "the ship attacks what it found to be hostile")
+	assert_eq(u.order_generation, 2, "a new task")
+	assert_eq(u.player_order_generation, 1, "as the crew's order, not a new one from the commander")
+	r["um"].free()
+	var tight := _identify("HOSTILE", true, Unit.Roe.TIGHT)
+	assert_eq(tight["unit"].attack_track, tight["track"], "weapons tight permits a hostile")
+	tight["um"].free()
+
+
+func test_engagement_after_identification_never_fires_where_it_should_not() -> void:
+	var cases := {
+		"neutral": _identify("NEUTRAL", true),
+		"unknown allegiance": _identify("UNKNOWN", true),
+		"weapons hold": _identify("HOSTILE", true, Unit.Roe.HOLD),
+		"option off (Normal)": _identify("HOSTILE", false),
+		"identify-only look": _identify("HOSTILE", true, Unit.Roe.FREE, true),
+	}
+	for key: String in cases:
+		var r: Dictionary = cases[key]
+		assert_eq(r["unit"].attack_track, null, key)
+		assert_eq(r["unit"].investigation_result, "Contact classified", key)
+		r["um"].free()
+
+
+func test_a_newer_order_outranks_engagement_after_identification() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var u := _frigate()
+	um.add_unit(u)
+	um.set_engage_on_hostile_id("BLUE", true)
+	var t := _contact(u)
+	um.issue_order(u, Order.investigate(t))
+	um.tick(0.25)
+	# The commander redirects the ship; the investigation's late end must not override that.
+	u.order_generation += 1
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.domain = "surface"
+	t.identity = "HOSTILE"
+	um.tick(0.25)
+	assert_eq(u.attack_track, null)
+	um.free()
+
+
+func test_a_reconnaissance_airframe_never_attacks_what_it_identifies() -> void:
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	sim.seed_override = 7
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario(CARRIER_QUAL))
+	sim.ai_enabled = false
+	sim.unit_manager.set_engage_on_hostile_id("BLUE", true)
+	var deck: Unit = null
+	for u in sim.unit_manager.units:
+		if u.callsign == "Charles de Gaulle (R 91)":
+			deck = u
+	var station := deck.position + Vector2(-20, 0)
+	assert_true(sim.unit_manager.issue_order(deck, Order.air_mission(AirMission.Kind.RECON, "fra_fighter_rafale_m", 1, station, 10.0)))
+	var m: AirMission = sim.air_mission_manager.active_missions("BLUE")[0]
+	SimClock.advance(400.0)
+	var a: Unit = m.aircraft[0]
+	var probe := _air_contact()
+	probe.domain = "air"
+	assert_true(not a.weapons_for_track(probe).is_empty(), "an armed fighter flies this reconnaissance")
+	var bogey := _air_contact()
+	bogey.position = station + Vector2(3, 3)
+	bogey.last_seen_time = SimClock.sim_time
+	sim.track_manager._tracks["BLUE"] = sim.track_manager._tracks.get("BLUE", [])
+	sim.track_manager._tracks["BLUE"].append(bogey)
+	var held := func(_dt: float) -> void:
+		bogey.last_seen_time = SimClock.sim_time
+		bogey.status = Track.Status.ACTIVE
+	SimClock.tick.connect(held)
+	SimClock.advance(3.0)
+	assert_eq(a.investigation_track, bogey, "the reconnaissance goes to look")
+	assert_true(a.investigation_identify_only, "its look is identify-only")
+	bogey.classification = Track.Classification.CLASS_KNOWN
+	bogey.domain = "air"
+	bogey.identity = "HOSTILE"
+	SimClock.advance(6.0)
+	assert_eq(a.investigation_track, null, "identified")
+	assert_eq(a.attack_track, null, "reconnaissance never fires, whatever the option")
+	# Nor when the commander sends the reconnaissance airframe to look at something itself.
+	assert_true(a.station_identify_only, "it holds a reconnaissance station")
+	var second := _air_contact()
+	second.id = "0303"
+	second.position = a.position + Vector2(4, 0)
+	second.last_seen_time = SimClock.sim_time
+	sim.track_manager._tracks["BLUE"].append(second)
+	var held_second := func(_dt: float) -> void:
+		second.last_seen_time = SimClock.sim_time
+		second.status = Track.Status.ACTIVE
+	SimClock.tick.connect(held_second)
+	assert_true(sim.unit_manager.issue_order(a, Order.investigate(second)), "the commander's own look")
+	assert_true(not a.investigation_identify_only)
+	SimClock.advance(1.0)
+	second.classification = Track.Classification.CLASS_KNOWN
+	second.domain = "air"
+	second.identity = "HOSTILE"
+	SimClock.advance(3.0)
+	assert_eq(a.investigation_track, null, "identified")
+	assert_eq(a.attack_track, null, "a reconnaissance airframe leaves the attack to the commander")
+	assert_true(sim.air_mission_manager.mission_for(a) == m, "and stays on its mission")
+	SimClock.tick.disconnect(held_second)
+	SimClock.tick.disconnect(held)
+	sim.unit_manager.clear()
+	sim.queue_free()
+	sim.free()
+
+
+func _air_contact() -> Track:
+	var t := Track.new()
+	t.id = "0302"
+	t.owner_faction = "BLUE"
+	t.altitude_m = 6000.0
+	t.classification = Track.Classification.UNKNOWN
+	return t

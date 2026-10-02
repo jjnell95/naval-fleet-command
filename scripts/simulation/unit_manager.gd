@@ -37,6 +37,11 @@ var weapon_manager: WeaponManager:
 			weapon_manager.unit_destroyed.connect(_on_unit_destroyed)
 ## Simulation time as of the last tick, for the attack task's firing checks and salvo pacing.
 var now_s := 0.0
+## Sides whose platforms attack a contact their own investigation has just identified as hostile,
+## within the rules of engagement (the Classic option): faction -> true. Plain data the shell
+## sets; a side not listed only reports what it found. Not cleared with the units: it is how the
+## commander plays, not part of the scenario.
+var engage_on_hostile_id: Dictionary = {}
 var _next_id := 1
 
 
@@ -234,10 +239,13 @@ func _step_investigation(u: Unit, dt: float) -> void:
 	var reason := investigation_rejection(u, track)
 	if reason != "":
 		var started := u.task_generation
+		var identify_only := u.investigation_identify_only
 		u.investigation_track = null
 		u.investigation_result = reason
 		_hold_investigation_position(u)
 		investigation_ended.emit(u, track, reason)
+		if reason == "Contact classified" and not identify_only and _engage_identified(u, track, started):
+			return  # the attack's own end hands back to the station
 		_return_after_task(u, started, reason)
 		return
 	if u.evasion_remaining_s > 0.0:
@@ -250,6 +258,32 @@ func _step_investigation(u: Unit, dt: float) -> void:
 	else:
 		u.waypoints.assign([track.position])
 		u.ordered_speed_kn = u.investigation_speed_kn
+
+
+func set_engage_on_hostile_id(faction: String, on: bool) -> void:
+	if on:
+		engage_on_hostile_id[faction] = true
+	else:
+		engage_on_hostile_id.erase(faction)
+
+
+## Engagement after identification: when the side has chosen it, a platform whose investigation
+## has just classified its contact as hostile attacks it, as the crew's own order. Only a contact
+## the plot calls HOSTILE, never an unknown or a neutral; only when the rules of engagement and a
+## suitable weapon allow it (attack_rejection, the same test a commander's attack order meets);
+## never over an order that arrived while the investigation ran. An identify-only look (an air
+## mission's) never gets here, and an airframe on a reconnaissance station never fires this way,
+## even after a look the commander ordered.
+func _engage_identified(u: Unit, track: Track, started: int) -> bool:
+	if not bool(engage_on_hostile_id.get(u.faction, false)) or u.station_identify_only:
+		return false
+	if track.identity != "HOSTILE" or u.order_generation != started:
+		return false
+	if attack_rejection(u, track) != "":
+		return false
+	var order := Order.attack(track)
+	order.origin = "crew"
+	return issue_order(u, order)
 
 
 static func _hold_investigation_position(u: Unit) -> void:

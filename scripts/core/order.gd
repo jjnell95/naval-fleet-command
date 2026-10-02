@@ -52,6 +52,10 @@ var receipt := ""
 var stopped_attack := false
 ## INTERCEPT: the inbound weapon to engage, or null for every inbound round the unit holds.
 var threat: Weapon
+## INVESTIGATE: identify only, never chain into an attack (an air mission's look, whose mission
+## decides itself what to attack, if anything). PATROL: the station is a reconnaissance one, where
+## nothing identified is attacked without the commander's own order.
+var identify_only := false
 
 
 static func cancel_fire(target: Track = null) -> Order:
@@ -130,10 +134,12 @@ static func patrol(points: Array[Vector2]) -> Order:
 
 
 ## Follow the faction's reported plot until classification or contact loss ends the task.
-static func investigate(target: Track) -> Order:
+## `identify_only` keeps the task from turning into an attack when the contact proves hostile.
+static func investigate(target: Track, only_identify := false) -> Order:
 	var o := Order.new()
 	o.type = Type.INVESTIGATE
 	o.track = target
+	o.identify_only = only_identify
 	return o
 
 
