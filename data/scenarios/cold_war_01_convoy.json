@@ -9,15 +9,15 @@
   "duration_minutes": 20,
   "role": "Convoy escort commander",
   "learning": "Radar picture, identification, coordinated Harpoon salvos",
-  "commander_intent": "Escort North Star into the destination box, then hold her there for five minutes.",
+  "commander_intent": "Escort North Star into the handover box, then hold her there for five minutes. Watch for a change of box.",
   "first_orders": [
     "Select Elrod and inspect the track list; keep its air-search radar radiating.",
     "Keep Nicholas between the convoy and the eastern threat axis; identify contacts before a Harpoon salvo.",
     "MV North Star already steers for the handover box at 14 kn. Keep it alive; use time compression between contacts.",
-    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
+    "F1 lists the operation sequence, live task progress and tasking updates. Contact reports go on the plot as wide datums to investigate; they are never firing solutions."
   ],
   "historical_note": "Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
-  "description": "14 September 1990, northern North Sea. A Soviet missile corvette has slipped past the outer screen. Two long-hull Perry frigates cover one final reinforcement ship on the leg toward Norway. A neutral merchant crosses the operating area. The corvette has six heavy anti-ship missiles; your Mk 13 launchers share their magazines between Standard and Harpoon. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
+  "description": "14 September 1990, northern North Sea. A Soviet missile corvette has slipped past the outer screen. Two long-hull Perry frigates cover one final reinforcement ship on the leg toward Norway. A neutral merchant crosses the operating area. The corvette has six heavy anti-ship missiles; your Mk 13 launchers share their magazines between Standard and Harpoon. This operation reacts to what each side sees: raid timing, enemy readiness, contact reports and tasking change from one engagement to the next. Consult the operation sequence before deployment.",
   "start_time_utc": "1990-09-14T05:30:00",
   "player_faction": "BLUE",
   "neutral_factions": [
@@ -327,26 +327,10 @@
     }
   ],
   "victory_mode": "all",
-  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
   "objectives": {
-    "text": "Keep the two frigates with North Star while the convoy forms. Classify the coastal contacts. Keep the shared Mk 13 magazines available for missile defence. Escort North Star into the destination box, then hold her there for five minutes.",
+    "text": "Decide where the frigates go: both close around North Star, or Elrod and its Seahawk ahead to find the corvette while Nicholas stays with the cargo. Classify every surface contact before firing. Coastal radar reports arrive as wide datums, not solutions, and not every contact on this route is hostile. Keep the shared Mk 13 magazines for missile defence. Escort North Star into the handover box, then hold her there for five minutes. Watch for a change of box.",
     "victory": [
-      {
-        "id": "establish_screen",
-        "type": "hold_area",
-        "callsigns": [
-          "USS Elrod (FFG 55)"
-        ],
-        "center_nm": [
-          -2.8951,
-          -1.2
-        ],
-        "radius_nm": 15,
-        "count": 1,
-        "seconds": 300,
-        "phase_only": true,
-        "text": "Keep USS Elrod (FFG 55) within 15 nm of its opening station for five continuous minutes"
-      },
       {
         "id": "handover",
         "type": "reach_area",
@@ -360,9 +344,6 @@
         ],
         "radius_nm": 3,
         "count": 1,
-        "after": [
-          "establish_screen"
-        ],
         "phase_only": true
       },
       {
@@ -378,11 +359,11 @@
         ],
         "radius_nm": 3,
         "count": 1,
+        "phase_only": false,
+        "seconds": 300,
         "after": [
           "handover"
-        ],
-        "phase_only": false,
-        "seconds": 300
+        ]
       }
     ],
     "loss": [
@@ -10124,30 +10105,261 @@
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
   },
-  "operation_revision": 25,
+  "operation_revision": 27,
   "collection": "operations",
   "operation_plan": [
     {
       "title": "01 / Form the escort",
-      "task": "Keep the two frigates with North Star while the convoy forms."
+      "task": "Decide where the frigates go: both close around North Star, or Elrod and its Seahawk ahead to find the corvette while Nicholas stays with the cargo."
     },
     {
       "title": "02 / Clear the approaches",
-      "task": "Classify the coastal contacts. Keep the shared Mk 13 magazines available for missile defence."
+      "task": "Classify every surface contact before firing. Coastal radar reports arrive as wide datums, not solutions, and not every contact on this route is hostile. Keep the shared Mk 13 magazines for missile defence."
     },
     {
       "title": "03 / Deliver the convoy",
-      "task": "Escort North Star into the destination box, then hold her there for five minutes."
+      "task": "Escort North Star into the handover box, then hold her there for five minutes. Watch for a change of box."
     }
   ],
   "events": [
     {
-      "id": "screen_orders",
-      "after": [
-        "establish_screen"
+      "id": "corvette_station",
+      "side": "RED",
+      "at_s": 0,
+      "variants": [
+        {
+          "id": "across_the_route",
+          "ai": [
+            {
+              "units": [
+                "Soviet missile corvette (Nanuchka III)"
+              ],
+              "patrol_nm": [
+                [
+                  0.0,
+                  -3.0
+                ],
+                [
+                  17.4,
+                  21.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "at_the_box",
+          "ai": [
+            {
+              "units": [
+                "Soviet missile corvette (Nanuchka III)"
+              ],
+              "patrol_nm": [
+                [
+                  14.0,
+                  20.0
+                ],
+                [
+                  6.0,
+                  22.0
+                ],
+                [
+                  14.0,
+                  12.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eastern_flank",
+          "ai": [
+            {
+              "units": [
+                "Soviet missile corvette (Nanuchka III)"
+              ],
+              "patrol_nm": [
+                [
+                  22.0,
+                  6.0
+                ],
+                [
+                  8.0,
+                  -4.0
+                ],
+                [
+                  22.0,
+                  6.0
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "coastal_report",
+      "at_s_window": [
+        600,
+        1500
       ],
-      "at_s": 300,
-      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+      "unless": {
+        "type": "track_held",
+        "faction": "BLUE",
+        "callsigns": [
+          "Soviet missile corvette (Nanuchka III)"
+        ],
+        "min_classification": "UNKNOWN",
+        "allow_stale": true
+      },
+      "intel": [
+        {
+          "target": "Soviet missile corvette (Nanuchka III)",
+          "error_nm": 8,
+          "source": "Norwegian coastal radar"
+        }
+      ],
+      "message": "Norwegian coastal radar reports a fast surface contact near {pos}, accuracy about 8 nm. Identify it before you shoot: the coasters on this route are neutral."
+    },
+    {
+      "id": "second_contact",
+      "when": {
+        "type": "reach_area",
+        "callsigns": [
+          "MV North Star"
+        ],
+        "center_nm": [
+          1.6,
+          3.6
+        ],
+        "radius_nm": 6,
+        "count": 1
+      },
+      "latest_s": 5400,
+      "variants": [
+        {
+          "id": "second_corvette",
+          "weight": 2,
+          "intel": [
+            {
+              "target": "Soviet missile corvette 2 (Nanuchka III)",
+              "error_nm": 6,
+              "source": "Norwegian coastal radar"
+            }
+          ],
+          "reinforcements": [
+            {
+              "platform": "cw90_nanuchka",
+              "callsign": "Soviet missile corvette 2 (Nanuchka III)",
+              "faction": "RED",
+              "position_nm": [
+                24.0,
+                26.0
+              ],
+              "heading_deg": 225,
+              "speed_kn": 18,
+              "patrol_nm": [
+                [
+                  12.0,
+                  18.0
+                ],
+                [
+                  4.0,
+                  10.0
+                ]
+              ],
+              "ai_plan": "convoy_strike"
+            }
+          ]
+        },
+        {
+          "id": "neutral_coaster",
+          "weight": 3,
+          "intel": [
+            {
+              "target": "MV Bergen Coaster",
+              "error_nm": 6,
+              "source": "Norwegian coastal radar"
+            }
+          ],
+          "reinforcements": [
+            {
+              "platform": "cw90_merchant",
+              "callsign": "MV Bergen Coaster",
+              "faction": "NEUTRAL",
+              "position_nm": [
+                24.0,
+                26.0
+              ],
+              "heading_deg": 225,
+              "speed_kn": 12,
+              "radar_on": true,
+              "patrol_nm": [
+                [
+                  -10.0,
+                  -14.0
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "message": "Coastal radar: a second surface contact near {pos}, accuracy about 6 nm, closing the convoy route from the north-east. Classify it before engaging."
+    },
+    {
+      "id": "handover_moved",
+      "chance": 0.5,
+      "when": {
+        "type": "reach_area",
+        "callsigns": [
+          "MV North Star"
+        ],
+        "center_nm": [
+          -1.2,
+          -0.8
+        ],
+        "radius_nm": 5,
+        "count": 1
+      },
+      "objectives": {
+        "update": {
+          "handover": {
+            "center_nm": [
+              4.5,
+              22.5
+            ],
+            "text": "North Star reached the new handover box"
+          },
+          "handover_handover": {
+            "center_nm": [
+              4.5,
+              22.5
+            ]
+          }
+        }
+      },
+      "message": "TASKING UPDATE: the Norwegian escort group is delayed. The handover box moves about 8 nm north-west, to 61°31.5′N 01°45.3′E. Steer North Star for the new box; the deadline is unchanged."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "convoy_strike",
+      "faction": "RED",
+      "kind": "attack_shipping",
+      "units": [
+        "Soviet missile corvette (Nanuchka III)"
+      ],
+      "priorities": [
+        "merchant"
+      ],
+      "objective_nm": [
+        1.6,
+        3.6
+      ],
+      "area_radius_nm": 25,
+      "threat_nm": 60,
+      "budget": 6,
+      "assess_s": 300
     }
   ]
 }

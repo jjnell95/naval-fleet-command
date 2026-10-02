@@ -9,6 +9,12 @@ signal investigation_ended(unit: Unit, track: Track, reason: String)
 ## "Weapons hold", "Launchers damaged" or an availability reason. Replacing it with another order
 ## is silent, as it is for an investigation.
 signal attack_ended(unit: Unit, track: Track, reason: String)
+## The platform went back to its standing assignment by itself: after a task ("Contact classified",
+## "Target destroyed") or after refuelling. A return the commander ordered is an ordinary order.
+signal station_resumed(unit: Unit, reason: String)
+## A return to station could not be made: the guide was lost, the circuit is blocked, the airframe
+## is committed to recovery. The platform keeps its present orders.
+signal station_unavailable(unit: Unit, reason: String)
 
 ## How far inside a weapon's reach an attacking platform settles: on the edge of the envelope a
 ## target that opens a few knots is out of range again before the salvo is away. GAMEPLAY.
@@ -31,6 +37,11 @@ var weapon_manager: WeaponManager:
 			weapon_manager.unit_destroyed.connect(_on_unit_destroyed)
 ## Simulation time as of the last tick, for the attack task's firing checks and salvo pacing.
 var now_s := 0.0
+## Sides whose platforms attack a contact their own investigation has just identified as hostile,
+## within the rules of engagement (the Classic option): faction -> true. Plain data the shell
+## sets; a side not listed only reports what it found. Not cleared with the units: it is how the
+## commander plays, not part of the scenario.
+var engage_on_hostile_id: Dictionary = {}
 var _next_id := 1
 
 
@@ -79,20 +90,30 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return attack_rejection(u, order.track, order.weapon_id) == ""
 		Order.Type.PATROL:
 			return patrol_rejection(u, order.route) == ""
+		Order.Type.RETURN_TO_STATION:
+			return station_rejection(u) == ""
+		Order.Type.SET_AUTO_RETURN:
+			return u.is_engageable() and u.spec.max_speed_kn > 0.0
 		Order.Type.DEPLOY_COUNTERMEASURES:
 			return DefensiveResponse.can_deploy(u, order.countermeasure_kind)
 		Order.Type.EVADE:
 			return u.is_engageable() and u.spec.max_speed_kn > 0 and (not u.is_aircraft() or u.airborne())
 		Order.Type.RESUME_PLAN, Order.Type.SET_AUTO_COUNTERMEASURES:
 			return u.is_engageable()
+		Order.Type.SET_AIR_DEFENCE_MODE:
+			# Doctrine, not a task: an airframe in the hangar takes it too, so it holds once aloft.
+			return u.alive
+		Order.Type.INTERCEPT:
+			# The round itself is checked by Simulation, which holds the threat picture.
+			return AirDefence.intercept_rejection(u) == ""
 		Order.Type.SET_DEFENCE_POLICY:
 			return u.is_engageable() and order.defence_policy in ["balanced", "conserve", "saturation"]
 		Order.Type.SET_SPEED:
 			if u.patrol_active and patrol_rejection(u, u.waypoints, order.speed_kn) != "":
 				return false
-			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0
+			return _steerable(u)
 		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS:
-			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0
+			return _steerable(u)
 		Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR:
 			return u.is_engageable() and u.has_radar()
 		Order.Type.ACTIVE_SONAR, Order.Type.PASSIVE_SONAR:
@@ -108,8 +129,21 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return u.airborne() and u.spec.max_altitude_m > 0.0
 		Order.Type.LAUNCH_AIRCRAFT:
 			return not u.stowed_aircraft().is_empty()
+		Order.Type.AIR_MISSION:
+			# The deck's own checks, and the reasons, are AirMissionManager's.
+			return u.is_engageable() and u.spec.aircraft_capacity > 0
+		Order.Type.CANCEL_AIR_MISSION:
+			return u.alive
+		Order.Type.GROUP_ATTACK:
+			# Given to one member, the lead. The shooters' own checks, and the reasons, are
+			# GroupAttackManager's.
+			return u.is_engageable() and order.group_members.has(u) and not order.group_targets.is_empty()
+		Order.Type.CANCEL_GROUP_ATTACK:
+			return u.alive
 		Order.Type.RETURN_TO_BASE:
-			return u.airborne()
+			# Checked here, before the order is applied, so a landing that cannot be made leaves the
+			# station and the order generation as they were.
+			return u.airborne() and (order.recovery_base == null or AviationManager.recovery_rejection_reason(u, order.recovery_base) == "")
 		Order.Type.DEPLOY_SONOBUOY:
 			return u.airborne() and u.sonobuoys > 0 and u.spec.sonobuoy_sensitivity_nm > 0.0 and not Terrain.is_land(u.position)
 		Order.Type.SET_EMCON:
@@ -119,6 +153,61 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
 	return false
+
+
+## Steering a platform can take now. An aircraft on its way to the deck or the tanker is the aviation
+## layer's: a course or speed given to it would be overwritten within the second, so it is refused.
+static func _steerable(u: Unit) -> bool:
+	if not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		return false
+	return not u.is_aircraft() or (u.airborne() and not u.returning and u.tanking_on == null)
+
+
+## Why this platform cannot go back to its standing assignment now, or "" when it can. The circuit
+## is checked again from where the platform is now; a formation station needs a guide still afloat.
+static func station_rejection(u: Unit) -> String:
+	if u == null or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		return "Select a deployed mobile platform"
+	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
+		return "Aircraft committed to fuel or recovery"
+	match u.station_kind:
+		"patrol":
+			var reason := patrol_rejection(u, u.station_circuit_from_here(), u.station_speed())
+			return "" if reason == "" else "Station unavailable: " + reason.to_lower()
+		"formation":
+			if u.station_leader == null or not u.station_leader.alive:
+				return "Formation guide lost"
+			if not Formation.can_join(u, u.station_leader):
+				return "Formation guide not available"
+			return ""
+	return "No station assigned"
+
+
+## Hands a platform back to its standing assignment as the crew's own order, so the receipt, the
+## log and the specialist managers see it like any other. False, with the reason reported, when the
+## station cannot be taken up; the platform then keeps what it was doing.
+func resume_station(u: Unit, reason: String) -> bool:
+	var why := station_rejection(u)
+	if why != "":
+		u.station_note = why
+		station_unavailable.emit(u, why)
+		return false
+	var order := Order.return_to_station()
+	order.origin = "crew"
+	if not issue_order(u, order):
+		return false
+	station_resumed.emit(u, reason)
+	return true
+
+
+## After a task ends on its own: back to station when the platform is told to, and only when no
+## newer order arrived while the task ran. `started` is the generation the task began under.
+func _return_after_task(u: Unit, started: int, reason: String) -> void:
+	if not u.alive or not u.auto_return or not u.has_station() or u.on_station():
+		return
+	if u.order_generation != started:
+		return
+	resume_station(u, reason)
 
 
 ## Uses only information held by this unit's faction, including datalink visibility. An
@@ -155,10 +244,15 @@ func _step_investigation(u: Unit, dt: float) -> void:
 		return
 	var reason := investigation_rejection(u, track)
 	if reason != "":
+		var started := u.task_generation
+		var identify_only := u.investigation_identify_only
 		u.investigation_track = null
 		u.investigation_result = reason
 		_hold_investigation_position(u)
 		investigation_ended.emit(u, track, reason)
+		if reason == "Contact classified" and not identify_only and _engage_identified(u, track, started):
+			return  # the attack's own end hands back to the station
+		_return_after_task(u, started, reason)
 		return
 	if u.evasion_remaining_s > 0.0:
 		return
@@ -170,6 +264,32 @@ func _step_investigation(u: Unit, dt: float) -> void:
 	else:
 		u.waypoints.assign([track.position])
 		u.ordered_speed_kn = u.investigation_speed_kn
+
+
+func set_engage_on_hostile_id(faction: String, on: bool) -> void:
+	if on:
+		engage_on_hostile_id[faction] = true
+	else:
+		engage_on_hostile_id.erase(faction)
+
+
+## Engagement after identification: when the side has chosen it, a platform whose investigation
+## has just classified its contact as hostile attacks it, as the crew's own order. Only a contact
+## the plot calls HOSTILE, never an unknown or a neutral; only when the rules of engagement and a
+## suitable weapon allow it (attack_rejection, the same test a commander's attack order meets);
+## never over an order that arrived while the investigation ran. An identify-only look (an air
+## mission's) never gets here, and an airframe on a reconnaissance station never fires this way,
+## even after a look the commander ordered.
+func _engage_identified(u: Unit, track: Track, started: int) -> bool:
+	if not bool(engage_on_hostile_id.get(u.faction, false)) or u.station_identify_only:
+		return false
+	if track.identity != "HOSTILE" or u.order_generation != started:
+		return false
+	if attack_rejection(u, track) != "":
+		return false
+	var order := Order.attack(track)
+	order.origin = "crew"
+	return issue_order(u, order)
 
 
 static func _hold_investigation_position(u: Unit) -> void:
@@ -401,6 +521,7 @@ func _steer_attack(u: Unit, track: Track, standoff_nm: float, dt: float, opening
 
 
 func _end_attack(u: Unit, track: Track, reason: String) -> void:
+	var started := u.task_generation
 	u.attack_track = null
 	u.attack_phase = ""
 	u.attack_result = reason
@@ -410,6 +531,7 @@ func _end_attack(u: Unit, track: Track, reason: String) -> void:
 	if u.is_aircraft() and not u.spec.can_hover:
 		u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn)
 	attack_ended.emit(u, track, reason)
+	_return_after_task(u, started, reason)
 
 
 ## The plot does not expire a track just because the ship under it sank, so the attack is ended
@@ -483,6 +605,7 @@ func clear() -> void:
 		u.embarked.clear()
 		u.inbound_aircraft.clear()
 		u.formation_leader = null
+		u.station_leader = null
 		u.tanking_on = null
 		Detection.jammers.erase(u)
 	units.clear()

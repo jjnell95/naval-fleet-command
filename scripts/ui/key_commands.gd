@@ -7,7 +7,8 @@ extends Control
 
 signal closed
 
-## [section, [[keys, what it does], ...]]
+## [section, [[keys, what it does], ...]]. The number-key row of TIME is written from the time
+## ladder in use when the board opens (commands()), so a 4x ceiling is what the board says.
 const COMMANDS := [
 	["TIME", [
 		["Space", "Pause or resume"],
@@ -15,13 +16,14 @@ const COMMANDS := [
 	]],
 	["CHART", [
 		["Left-click", "Hook a platform or contact; Shift adds"],
-		["Right-click", "Water: transit there. Own platform: orders. Hostile: attack. Unknown: investigate"],
+		["Right-click", "Water: transit there. Own platform: orders. Hostile: attack. Unknown: investigate. Inbound weapon: intercept"],
 		["Shift+right-click", "Contact menu: weapons, salvos, investigate, cancel fire"],
 		["Right-drag, arrows", "Pan"],
 		["Wheel, + / -", "Zoom"],
 		["Home / C / F", "Fit force / centre / follow"],
 		["W", "Plot a route; Shift chains waypoints"],
 		["Shift+W", "Patrol area: click two opposite corners"],
+		["S", "Return to station after a task or refuelling"],
 		["N / Shift+N", "Next / previous priority contact"],
 		[".", "Hook the next own platform"],
 		["B", "Range circle from the hooked platform"],
@@ -39,6 +41,7 @@ const COMMANDS := [
 	["COMMAND", [
 		["J", "Fleet Operations: task groups and fleet orders"],
 		["D / V", "Radar countermeasures / evasive maneuver"],
+		["X", "Engage inbound weapons with interceptors (manual missile defence)"],
 		["Ctrl+1..9 / Alt+1..9", "Save / recall a fleet selection group"],
 		["Shift+E / Shift+R", "Weapon control / weapon ranges by role"],
 		["R / P / E", "Radar / active sonar / emission control"],
@@ -49,12 +52,16 @@ const COMMANDS := [
 		["Ctrl+K", "Actions"],
 		["M / Ctrl+E", "Missions / scenario editor"],
 		["Ctrl+F10 twice", "Restart the mission"],
+		["Ctrl+Shift+S / L", "Quicksave / quickload"],
+		["Ctrl+Shift+O", "Saved engagements and autosaves"],
 		["Ctrl+M", "Sound on or off"],
 		["H", "This board"],
 	]],
 ]
 
 var _panel: PanelContainer
+var _left: VBoxContainer
+var _right: VBoxContainer
 
 
 func _ready() -> void:
@@ -83,17 +90,45 @@ func _ready() -> void:
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 28)
 	box.add_child(columns)
-	var left := VBoxContainer.new()
-	var right := VBoxContainer.new()
-	columns.add_child(left)
-	columns.add_child(right)
-	for i in COMMANDS.size():
-		_add_section(left if i == 1 else right, COMMANDS[i])
+	_left = VBoxContainer.new()
+	_right = VBoxContainer.new()
+	columns.add_child(_left)
+	columns.add_child(_right)
+	_fill()
 	var hint := Label.new()
 	hint.text = "Any key or click to close"
 	hint.theme_type_variation = "DimLabel"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
+
+
+func _fill() -> void:
+	for column: VBoxContainer in [_left, _right]:
+		for child in column.get_children():
+			column.remove_child(child)
+			child.queue_free()
+	var sections := commands()
+	for i in sections.size():
+		_add_section(_left if i == 1 else _right, sections[i])
+
+
+## The board's rows with the number keys written for the time ladder in use.
+static func commands() -> Array:
+	var out: Array = COMMANDS.duplicate(true)
+	var time_rows: Array = out[0][1]
+	time_rows[1] = time_row(SimClock.speeds())
+	return out
+
+
+## "1 - 3", "Time scale 1x, 2x, 4x (the ceiling)" for a short ladder; the Normal ladder as before.
+static func time_row(ladder: Array) -> Array:
+	var scales := PackedStringArray()
+	for v in ladder:
+		scales.append("%dx" % int(v))
+	var text := "Time scale " + ", ".join(scales)
+	if ladder.size() < SimClock.SPEEDS.size():
+		text += " (the ceiling)"
+	return ["1 - %d" % ladder.size() if ladder.size() > 1 else "1", text]
 
 
 func _add_section(parent: VBoxContainer, section: Array) -> void:
@@ -120,6 +155,8 @@ func _add_section(parent: VBoxContainer, section: Array) -> void:
 
 
 func open() -> void:
+	if _left != null:
+		_fill()
 	show()
 	grab_focus()
 
@@ -141,7 +178,7 @@ func _gui_input(event: InputEvent) -> void:
 ## Every key (and only once) is listed somewhere on the board.
 static func all_keys() -> PackedStringArray:
 	var out := PackedStringArray()
-	for section: Array in COMMANDS:
+	for section: Array in commands():
 		for row: Array in section[1]:
 			out.append(str(row[0]))
 	return out
@@ -150,7 +187,7 @@ static func all_keys() -> PackedStringArray:
 ## Every row as "keys: what it does", for tests of the board's wording.
 static func all_rows() -> PackedStringArray:
 	var out := PackedStringArray()
-	for section: Array in COMMANDS:
+	for section: Array in commands():
 		for row: Array in section[1]:
 			out.append("%s: %s" % [row[0], row[1]])
 	return out

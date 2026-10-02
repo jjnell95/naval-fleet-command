@@ -9,11 +9,18 @@ var sensor_manager: SensorManager
 var weapon_manager: WeaponManager
 ## Fire and flooding aboard a ship: `fire`, `fire_out`, `flooding_controlled`, `lost`.
 signal casualty_event(unit: Unit, event: String)
+## An operation event's message for the player's side (OperationDirector).
 signal operation_message(message: String)
-var operation_events: Array = []
-var completed_events: Dictionary = {}
+## The scenario's events: reinforcements, contact reports, tasking changes, enemy decisions.
+var director: OperationDirector
+## Event id -> sim time it fired. The director's record, under the name the tests and tools use.
+var completed_events: Dictionary:
+	get:
+		return director.fired
 var threat_manager: ThreatManager
 var aviation_manager: AviationManager
+var air_mission_manager: AirMissionManager
+var group_attack_manager: GroupAttackManager
 var mission_manager: MissionManager
 var scenario: Dictionary = {}
 var scenario_name := ""
@@ -32,6 +39,13 @@ var ai_enabled := true
 var ai_plays_player := false
 var scenario_path := ""
 var seed_override := -1
+## The seed this engagement was started with, whether pinned, forced or drawn. Saved games keep it.
+var base_seed := 0
+## The seed the operation's events are drawn from (OperationDirector), or -1 for the engagement's
+## own. A player starting an operation gets a fresh draw each time, so a replay has to be read off
+## the plot; tests, tools and a pinned --seed leave it at -1 and replay one engagement exactly.
+var variation_seed := -1
+var _in_tick := false
 
 
 func _ready() -> void:
@@ -67,18 +81,58 @@ func _ready() -> void:
 	aviation_manager.unit_manager = unit_manager
 	add_child(aviation_manager)
 	sensor_manager.aviation_manager = aviation_manager
+	air_mission_manager = AirMissionManager.new()
+	air_mission_manager.name = "AirMissionManager"
+	air_mission_manager.unit_manager = unit_manager
+	air_mission_manager.aviation_manager = aviation_manager
+	air_mission_manager.track_manager = track_manager
+	add_child(air_mission_manager)
+	group_attack_manager = GroupAttackManager.new()
+	group_attack_manager.name = "GroupAttackManager"
+	group_attack_manager.unit_manager = unit_manager
+	group_attack_manager.track_manager = track_manager
+	group_attack_manager.weapon_manager = weapon_manager
+	add_child(group_attack_manager)
 	mission_manager = MissionManager.new()
 	mission_manager.name = "MissionManager"
 	mission_manager.unit_manager = unit_manager
+	mission_manager.track_manager = track_manager
 	add_child(mission_manager)
+	director = OperationDirector.new()
+	director.name = "OperationDirector"
+	director.unit_manager = unit_manager
+	director.track_manager = track_manager
+	director.mission_manager = mission_manager
+	add_child(director)
+	director.message.connect(operation_message.emit)
+	director.reinforced.connect(_build_ai.bind(false))
+	director.retasked.connect(_on_retasked)
 	unit_manager.order_issued.connect(_on_order_issued)
 	SimClock.tick.connect(_on_tick)
 
 
 func load_scenario(path: String) -> bool:
-	scenario = ScenarioLoader.load_file(path)
-	if scenario.is_empty():
+	var loaded := ScenarioLoader.load_file(path)
+	if loaded.is_empty():
 		return false
+	_install_scenario(loaded, path)
+	base_seed = _resolve_seed(scenario)
+	sensor_manager.rng.seed = base_seed
+	weapon_manager.rng.seed = base_seed ^ 0x5EED
+	Damage.rng.seed = base_seed ^ 0xDA46
+	ScenarioLoader.populate(unit_manager, scenario)
+	mission_manager.configure(scenario)
+	director.configure(scenario, variation_seed if variation_seed >= 0 else base_seed)
+	_build_ai()
+	SimClock.reset(ScenarioLoader.start_unix_time(scenario))
+	return true
+
+
+## The world an engagement is fought in, from a scenario: chart, environment, the managers emptied,
+## the objectives and the timed events. A new mission and a restored one both start from this; a
+## new one then populates its forces, a restored one puts back the ones it saved.
+func _install_scenario(sc: Dictionary, path: String) -> void:
+	scenario = sc
 	# Keep full-rate sensors, defence and AI on different fixed ticks instead of one burst.
 	_defence_accum = 0.5
 	_ai_accum = 0.25
@@ -105,19 +159,32 @@ func load_scenario(path: String) -> bool:
 	threat_manager.clear()
 	weapon_manager.clear()
 	aviation_manager.clear()
-	var base_seed := _resolve_seed(scenario)
-	sensor_manager.rng.seed = base_seed
-	weapon_manager.rng.seed = base_seed ^ 0x5EED
-	Damage.rng.seed = base_seed ^ 0xDA46
-	ScenarioLoader.populate(unit_manager, scenario)
+	air_mission_manager.clear()
+	group_attack_manager.clear()
 	mission_manager.player_faction = player_faction
-	mission_manager.configure(scenario)
-	operation_events = scenario.get("events", []).duplicate(true)
-	completed_events.clear()
-	_build_ai()
-	SimClock.reset(ScenarioLoader.start_unix_time(scenario))
-	return true
+	director.install(scenario)
 
+
+## The running engagement as plain data, between ticks only. See SimSnapshot.
+func capture_snapshot() -> Dictionary:
+	if _in_tick:
+		return {}
+	return SimSnapshot.capture(self)
+
+
+## Replaces the running engagement with a saved one. Returns "" or the reason it was refused; a
+## refused snapshot leaves the running engagement as it was.
+func restore_snapshot(snap: Variant) -> String:
+	if _in_tick:
+		return "Cannot load while the simulation is stepping"
+	var why := SimSnapshot.validate(snap)
+	if why != "":
+		return why
+	var data: Dictionary = SimSnapshot.migrate(snap)
+	SimClock.set_paused(true)
+	_install_scenario(data["scenario"].duplicate(true), str(data.get("scenario_path", "")))
+	mission_manager.configure(scenario)
+	return SimSnapshot.restore(self, data)
 
 ## Scenarios stay reproducible when they pin a seed or the session forces one; otherwise every
 ## run of the same scenario plays out differently.
@@ -155,8 +222,20 @@ func _build_ai(reset := true) -> void:
 		c.track_manager = track_manager
 		c.threat_manager = threat_manager
 		c.weapon_manager = weapon_manager
+		c.air_mission_manager = air_mission_manager
+		# The scenario's mission plans for this side, if it has any (AIPlan). Units that arrive
+		# later tagged for one of them join it then.
+		c.configure_plans(scenario.get("ai_plans", []))
 		add_child(c)
 		ai_controllers[u.faction] = c
+
+
+## The scenario changed one of a side's standing routes or postures; its commander, if the side has
+## one, starts the new route from the beginning.
+func _on_retasked(u: Unit) -> void:
+	var c: AIController = ai_controllers.get(u.faction)
+	if c != null:
+		c.route_changed(u)
 
 
 func ai_state_for(u: Unit) -> String:
@@ -176,10 +255,16 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			if u.roe == Unit.Roe.HOLD:
 				weapon_manager.cancel_salvo(u)
 		Order.Type.CANCEL_FIRE:
-			o.execution_accepted = weapon_manager.cancel_salvo(u, o.track) > 0 or o.stopped_attack
+			# A member of a group attack leaves it first, so the group hears why its rounds came
+			# back; the cancel then refunds whatever else the platform has queued.
+			var withdrew := group_attack_manager.withdraw(u, o.track)
+			o.execution_accepted = weapon_manager.cancel_salvo(u, o.track) > 0 or o.stopped_attack or withdrew
 		Order.Type.ENGAGE:
 			var spec := u.get_weapon(o.weapon_id)
-			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time)
+			# Only the group manager's own crew orders spend from a group's budget; an ENGAGE from
+			# the commander or the AI is always the platform's own fire.
+			var group := o.group_id if o.origin == "crew" else -1
+			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time, group)
 		Order.Type.LAUNCH_AIRCRAFT:
 			if o.aircraft_count > 1:
 				# A section flies one type. The lead names it, so a mixed hangar does not put a
@@ -194,9 +279,29 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			o.execution_accepted = aviation_manager.request_return(u, o.recovery_base)
 		Order.Type.DEPLOY_SONOBUOY:
 			o.execution_accepted = aviation_manager.deploy_sonobuoy(u, SimClock.sim_time) != null
+		Order.Type.AIR_MISSION:
+			air_mission_manager.now_s = SimClock.sim_time
+			air_mission_manager.request(u, o)
+		Order.Type.CANCEL_AIR_MISSION:
+			o.execution_accepted = air_mission_manager.cancel(o.mission_id, u)
+		Order.Type.GROUP_ATTACK:
+			group_attack_manager.now_s = SimClock.sim_time
+			group_attack_manager.request(u, o)
+		Order.Type.CANCEL_GROUP_ATTACK:
+			o.execution_accepted = group_attack_manager.cancel(o.group_id, u, o)
+		Order.Type.INTERCEPT:
+			var result := AirDefence.order_intercept(u, o.threat, unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
+			o.execution_accepted = int(result["cleared"]) > 0
+			o.receipt = str(result["reason"])
 
 
 func _on_tick(dt: float) -> void:
+	_in_tick = true
+	_step(dt)
+	_in_tick = false
+
+
+func _step(dt: float) -> void:
 	var profile_at := Time.get_ticks_usec()
 	_tick_operation_events(SimClock.sim_time)
 	unit_manager.tick(dt, SimClock.sim_time)
@@ -216,7 +321,11 @@ func _on_tick(dt: float) -> void:
 	Debug.time_add("sim/weapons", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()
 	aviation_manager.tick(dt, SimClock.sim_time)
+	air_mission_manager.tick(dt, SimClock.sim_time)
 	Debug.time_add("sim/aviation", Time.get_ticks_usec() - profile_at)
+	# After the weapons have fired and resolved this tick, so a volley that has just arrived is
+	# seen as arrived.
+	group_attack_manager.tick(dt, SimClock.sim_time)
 	profile_at = Time.get_ticks_usec()
 	_defence_accum += dt
 	while _defence_accum >= DEFENCE_DT - 1e-6:
@@ -238,23 +347,8 @@ func _on_tick(dt: float) -> void:
 	mission_manager.tick(SimClock.sim_time)
 
 
-## Authored reinforcements enter once, through the same loader as the opening force.
-## They receive no tracks or target truth. Only the authored command message is public;
-## enemy reinforcements must still be detected by the player's sensors.
+## The operation's events, first in the tick (OperationDirector). Reinforcements enter through
+## the same loader as the opening force with no tracks; only messages for the player's side are
+## sent, so the enemy's reinforcements and decisions still have to be found by the player's sensors.
 func _tick_operation_events(now: float) -> void:
-	if mission_manager.result != MissionManager.Result.RUNNING:
-		return
-	for i in operation_events.size():
-		var event: Dictionary = operation_events[i]
-		var key := str(event.get("id", str(i)))
-		if completed_events.has(key) or now < float(event.get("at_s", 0.0)):
-			continue
-		if not mission_manager.prerequisites_complete(PackedStringArray(event.get("after", []))):
-			continue
-		completed_events[key] = true
-		if not event.get("reinforcements", []).is_empty():
-			ScenarioLoader.populate(unit_manager, {"units": event["reinforcements"]})
-			_build_ai(false)
-		var message := str(event.get("message", ""))
-		if message != "":
-			operation_message.emit(message)
+	director.tick(now)

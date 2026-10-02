@@ -13575,6 +13575,7 @@
     }
   ],
   "order": 11,
+  "seed": 31,
   "theatre": "Norwegian Sea",
   "year": 2027,
   "difficulty": "Introductory",
@@ -13621,6 +13622,6 @@
   },
   "forces": "Allied exercise: CATOBAR carrier, STOVL assault ship, Horizon destroyer and friendly runway; mixed fighter, AEW, ASW and patrol detachments. No opposing force.",
   "force_note": "Fictional 2027 deployment; established platform fits. Reduced air detachments; no claim of actual readiness or deployment.",
-  "operation_revision": 25,
+  "operation_revision": 27,
   "collection": "exercises"
 }

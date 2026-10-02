@@ -28,6 +28,8 @@ signal engage_requested(track: Track)
 ## The classic display's default verbs: a bare right-click on a hostile contact attacks it with
 ## the hooked platforms, on an unidentified one investigates it. Main issues the orders.
 signal attack_requested(track: Track)
+## A bare right-click on a detected inbound weapon with own ships hooked: intercept it.
+signal intercept_requested(weapon: Weapon)
 signal investigate_requested(track: Track)
 ## Emitted by the shell's "Delete leg" menu item via request_waypoint_delete(); the chart no longer
 ## deletes a leg on a bare right-click.
@@ -36,9 +38,14 @@ signal waypoint_delete_requested(unit: Unit, index: int)
 ## (as world_to_screen); `context` is context_at(screen_pos) plus "viewport_pos" for placing a popup.
 signal context_menu_requested(screen_pos: Vector2, context: Dictionary)
 signal interaction_mode_changed(active: bool)
+## Air Operations asked for a point (a CAP station, a search area) or a held contact (a strike
+## target) on the chart. Exactly one of these three follows each pick.
+signal point_picked(world_pos: Vector2)
+signal contact_picked(track: Track)
+signal pick_cancelled
 
 enum DragMode { NONE, PAN, BOX }
-enum InteractionMode { SELECT, MOVE, PATROL }
+enum InteractionMode { SELECT, MOVE, PATROL, PICK }
 ## NTDS frames, or the platforms' plan views at three sizes (JFC's graphic symbols).
 enum SymbolMode { NTDS, SMALL, MEDIUM, LARGE }
 ## The quick range circle: off, following the cursor, fixed.
@@ -186,6 +193,10 @@ var _last_click_ms: int = -1000000
 var _last_click_pos := Vector2.ZERO
 var follow_selection := false
 var interaction_mode := InteractionMode.SELECT
+var _pick_contact := false
+var _pick_prompt := ""
+var _pick_origin := Vector2.INF
+var _pick_radius_nm := 0.0
 var _patrol_corner := Vector2.ZERO
 var _patrol_started := false
 var keyboard_navigation_enabled := true
@@ -367,7 +378,10 @@ func set_move_mode(enabled: bool) -> void:
 	var next := InteractionMode.MOVE if enabled and _has_controllable_selection() else InteractionMode.SELECT
 	if interaction_mode == next:
 		return
+	var was_picking := interaction_mode == InteractionMode.PICK
 	interaction_mode = next
+	if was_picking:
+		pick_cancelled.emit()
 	_patrol_started = false
 	# A pan or box drag in progress would otherwise never see its release, which the move tool
 	# swallows, and stay latched to the pointer.
@@ -384,6 +398,25 @@ func set_patrol_mode(enabled: bool) -> void:
 		_patrol_started = false
 		mouse_default_cursor_shape = Control.CURSOR_CROSS
 		interaction_mode_changed.emit(false)
+
+
+## Pick a point, or a held contact, for Air Operations. `origin` and `radius_nm` draw the range
+## from the deck and the size of the station under the cursor.
+func set_pick_mode(contact: bool, prompt: String, origin := Vector2.INF, radius_nm := 0.0) -> void:
+	set_move_mode(false)
+	interaction_mode = InteractionMode.PICK
+	_pick_contact = contact
+	_pick_prompt = prompt
+	_pick_origin = origin
+	_pick_radius_nm = radius_nm
+	mouse_default_cursor_shape = Control.CURSOR_CROSS
+	interaction_mode_changed.emit(false)
+
+
+func _finish_pick() -> void:
+	interaction_mode = InteractionMode.SELECT
+	mouse_default_cursor_shape = Control.CURSOR_ARROW
+	interaction_mode_changed.emit(false)
 
 
 func cancel_interaction_mode() -> bool:
@@ -403,7 +436,7 @@ func _has_controllable_selection() -> bool:
 
 
 func _normalize_interaction_state() -> void:
-	if interaction_mode != InteractionMode.SELECT and not _has_controllable_selection():
+	if interaction_mode not in [InteractionMode.SELECT, InteractionMode.PICK] and not _has_controllable_selection():
 		interaction_mode = InteractionMode.SELECT
 		_patrol_started = false
 		mouse_default_cursor_shape = Control.CURSOR_ARROW
@@ -773,7 +806,9 @@ func _get_tooltip(at: Vector2) -> String:
 	return "\n".join(lines)
 
 
-func _weapon_at(screen_pos: Vector2) -> Weapon:
+## The plotted round nearest the cursor. `inbound_only` skips our own rounds and every
+## interceptor, so an own SAM closing on a round never stands in front of it for a right-click.
+func _weapon_at(screen_pos: Vector2, inbound_only := false) -> Weapon:
 	if weapon_manager == null or not _chart_accepts_point(screen_pos):
 		return null
 	var observer := reference_unit()
@@ -781,6 +816,8 @@ func _weapon_at(screen_pos: Vector2) -> Weapon:
 	var distance_sq := 12.0 * 12.0
 	for w: Weapon in weapon_manager.in_flight:
 		if w.phase == Weapon.Phase.DEAD:
+			continue
+		if inbound_only and (w.faction == player_faction or w.is_interceptor()):
 			continue
 		if w.faction != player_faction and (observer == null or threat_manager == null or not threat_manager.visible_to(observer, w)):
 			continue
@@ -808,6 +845,20 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 				return
 			if not e.pressed and _drag_button == MOUSE_BUTTON_LEFT and _drag_mode == DragMode.PAN:
 				_end_drag()
+				return
+			if interaction_mode == InteractionMode.PICK:
+				if e.pressed:
+					grab_focus()
+					if _pick_contact:
+						var picked := _track_at(e.position)
+						if picked == null:
+							add_effect(screen_to_world(e.position), "refused")
+						else:
+							_finish_pick()
+							contact_picked.emit(picked)
+					else:
+						_finish_pick()
+						point_picked.emit(screen_to_world(e.position))
 				return
 			if interaction_mode == InteractionMode.PATROL:
 				if e.pressed:
@@ -877,6 +928,10 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 func _right_click(e: InputEventMouseButton) -> void:
 	var ctx := context_at(e.position)
 	match String(ctx["kind"]):
+		"weapon":
+			if not e.shift_pressed and _has_controllable_selection():
+				intercept_requested.emit(ctx["weapon"])
+				return
 		"track":
 			var t: Track = ctx["track"]
 			if e.ctrl_pressed or e.meta_pressed:
@@ -927,6 +982,8 @@ func hover_cursor_shape(screen_pos: Vector2) -> Control.CursorShape:
 		return Control.CURSOR_CROSS
 	if not _has_controllable_selection() or _unit_at(screen_pos) != null:
 		return Control.CURSOR_ARROW
+	if str(context_at(screen_pos)["kind"]) == "weapon":
+		return Control.CURSOR_CROSS  # a right-click intercepts it
 	match default_contact_verb(_track_at(screen_pos)):
 		"attack":
 			return Control.CURSOR_CROSS
@@ -936,16 +993,22 @@ func hover_cursor_shape(screen_pos: Vector2) -> Control.CursorShape:
 
 
 ## What a right-click at this chart pixel is on, for the shell's menus: kind is "own_unit",
-## "track", "waypoint", "water" (open water) or "empty" (land the chart shows); the matching
-## fields are filled and the rest are null / -1. Own units win over contacts, and both over a
-## waypoint, as they do for a left-click.
+## "weapon" (a detected inbound round), "track", "waypoint", "water" (open water) or "empty" (land
+## the chart shows); the matching fields are filled and the rest are null / -1. Own units win over
+## an inbound round, the round over contacts, and all of them over a waypoint.
 func context_at(screen_pos: Vector2) -> Dictionary:
 	var world := screen_to_world(screen_pos)
-	var ctx := {"kind": "water", "unit": null, "track": null, "waypoint_unit": null, "waypoint_index": -1, "world_pos": world}
+	var ctx := {"kind": "water", "unit": null, "weapon": null, "track": null, "waypoint_unit": null, "waypoint_index": -1, "world_pos": world}
 	var u := _unit_at(screen_pos)
 	if u != null:
 		ctx["kind"] = "own_unit"
 		ctx["unit"] = u
+		return ctx
+	# Only a round this picture holds (_weapon_at asks the threat picture), and never one of ours.
+	var w := _weapon_at(screen_pos, true)
+	if w != null:
+		ctx["kind"] = "weapon"
+		ctx["weapon"] = w
 		return ctx
 	var t := _track_at(screen_pos)
 	if t != null:
@@ -1313,6 +1376,7 @@ func _draw() -> void:
 	var t2 := Time.get_ticks_usec()
 	_draw_chart_labels()
 	_draw_objectives()
+	_draw_air_missions()
 	_draw_move_preview()
 	var t3 := Time.get_ticks_usec()
 	if unit_manager != null:
@@ -1374,6 +1438,9 @@ func _draw_move_preview() -> void:
 	if interaction_mode == InteractionMode.PATROL:
 		_draw_patrol_preview()
 		return
+	if interaction_mode == InteractionMode.PICK:
+		_draw_pick_preview()
+		return
 	if interaction_mode != InteractionMode.MOVE or not _mouse_inside or not _chart_accepts_point(_mouse):
 		return
 	if _unit_at(_mouse) != null or _track_at(_mouse) != null:
@@ -1402,6 +1469,30 @@ func _draw_move_preview() -> void:
 		draw_line(m + d * 10.0, m + d * 15.0, col, 1.0)
 	var label := "Land - pick water" if accepted == 0 else ("%d of %d can move here" % [accepted, total] if accepted < total else ("Add waypoint" if append else "Set course"))
 	_shadow_text(_mouse + Vector2(17, -10), label, 11, COL_RADIO_ALERT if accepted == 0 else COL_READOUT)
+
+
+## Air Operations' pick: the station's size under the cursor, its range and bearing from the deck,
+## and what a click will do. A strike pick names the contact under the cursor.
+func _draw_pick_preview() -> void:
+	if not _mouse_inside or not _chart_accepts_point(_mouse):
+		return
+	var at := screen_to_world(_mouse)
+	var col := COL_ROUTE
+	var label := _pick_prompt
+	if _pick_contact:
+		var t := _track_at(_mouse)
+		col = COL_HOSTILE if t == null else COL_ROUTE
+		label = "%s — %s" % [_pick_prompt, "track %s" % t.id if t != null else "point at a held contact"]
+	elif _pick_radius_nm > 0.0:
+		var r := world_to_screen(at + Vector2(_pick_radius_nm, 0)).x - _mouse.x
+		draw_arc(_mouse, absf(r), 0.0, TAU, 48, Color(col, 0.8), 1.0, true)
+	if _pick_origin.is_finite():
+		draw_dashed_line(world_to_screen(_pick_origin), _mouse, Color(col, 0.7), 1.0, 6.0)
+		label += "  ·  %.0f nm %s from the deck" % [_pick_origin.distance_to(at), Geo.format_bearing(Geo.bearing_deg(_pick_origin, at))]
+	var m := _mouse.round() + Vector2(0.5, 0.5)
+	for d: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		draw_line(m + d * 6.0, m + d * 13.0, col, 1.0)
+	_shadow_text(_mouse + Vector2(17, -10), label + "  (right-click cancels)", 12, col)
 
 
 func _draw_patrol_preview() -> void:
@@ -1735,6 +1826,27 @@ func _draw_graticule() -> void:
 
 
 ## Mission objective areas: a thin white circle with its name over it, no plate.
+## Own air missions: a station or search area as a ring with its name, or a line from the deck to
+## a strike's held target. Only the player's own missions are drawn.
+func _draw_air_missions() -> void:
+	if simulation == null or simulation.air_mission_manager == null:
+		return
+	var col := Color(COL_FRIENDLY, 0.7)
+	for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
+		if m.kind == AirMission.Kind.STRIKE:
+			if m.target == null or m.base == null or not m.base.alive:
+				continue
+			var tp := world_to_screen(m.target.position)
+			draw_dashed_line(world_to_screen(m.base.position), tp, col, 1.0, 8.0)
+			_centred_text(tp + Vector2(0.0, -18.0), "STRIKE %d" % m.id, 11)
+			continue
+		var sp := world_to_screen(m.station)
+		var r := m.radius_nm * ppn
+		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), col, 1.0, true)
+		_draw_plus(sp, 4.0, col)
+		_centred_text(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), "%s %d" % [m.kind_name(), m.id], 11)
+
+
 func _draw_objectives() -> void:
 	if simulation == null:
 		return
@@ -2150,7 +2262,7 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 		prev_world = wp
 	if u.patrol_active and u.waypoints.size() >= 3:
 		draw_dashed_line(prev, first, COL_ROUTE, 1.0, 5.0)
-		_shadow_text(first + Vector2(8, -8), "PATROL", 11, COL_ROUTE)
+		_shadow_text(first + Vector2(8, -8), u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL", 11, COL_ROUTE)
 
 
 ## A 2 px dot for trails and plot history: a filled square, which costs a fraction of an

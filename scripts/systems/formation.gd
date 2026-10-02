@@ -102,6 +102,8 @@ static func can_join(u: Unit, leader: Unit) -> bool:
 ## in reserve to regain station. Dead flagships pass command to a surviving group member.
 static func update_speed_caps(units: Array) -> void:
 	var orphan_groups: Dictionary = {}
+	# Consorts away on a task keep their station on the lost guide; they follow the succession too.
+	var absent_members: Dictionary = {}
 	for u: Unit in units:
 		u.formation_speed_cap_kn = INF
 		if u.alive and u.formation_leader != null and not u.formation_leader.alive:
@@ -109,11 +111,17 @@ static func update_speed_caps(units: Array) -> void:
 			if not orphan_groups.has(old):
 				orphan_groups[old] = []
 			orphan_groups[old].append(u)
+		elif u.alive and u.station_kind == "formation" and u.station_leader != null and not u.station_leader.alive:
+			if not absent_members.has(u.station_leader):
+				absent_members[u.station_leader] = []
+			absent_members[u.station_leader].append(u)
 	for old: Unit in orphan_groups:
 		var survivors: Array = orphan_groups[old]
 		survivors.sort_custom(func(a: Unit, b: Unit) -> bool: return a.id < b.id)
 		var successor: Unit = survivors[0]
 		successor.formation_leader = null
+		_take_guide(successor, old)
+		_inherit_plan(successor, old)
 		var ahead := Geo.heading_to_vector(successor.heading_deg)
 		var right := Geo.heading_to_vector(successor.heading_deg + 90.0)
 		for i in range(1, survivors.size()):
@@ -121,6 +129,24 @@ static func update_speed_caps(units: Array) -> void:
 			var relative := member.position - successor.position
 			member.formation_leader = successor
 			member.formation_offset = Vector2(relative.dot(right), relative.dot(ahead))
+			if member.station_kind == "formation" and member.station_leader == old:
+				member.station_leader = successor
+				member.station_offset = member.formation_offset
+		for member: Unit in absent_members.get(old, []):
+			member.station_leader = successor  # the same offset, on the new guide
+		absent_members.erase(old)
+	# Nobody was on station when the guide was lost: the lowest-numbered absent consort guides.
+	for old: Unit in absent_members:
+		var group: Array = absent_members[old]
+		group.sort_custom(func(a: Unit, b: Unit) -> bool: return a.id < b.id)
+		var guide: Unit = group[0]
+		_take_guide(guide, old)
+		if old.station_kind == "patrol" and not guide.has_station():
+			guide.set_station("patrol", old.station_label)
+			guide.station_route.assign(old.station_route)
+			guide.station_speed_kn = old.station_speed_kn
+		for i in range(1, group.size()):
+			(group[i] as Unit).station_leader = guide
 	for u: Unit in units:
 		if u.alive and u.in_formation() and u.evasion_remaining_s <= 0:
 			var leader := u.formation_leader
@@ -129,3 +155,27 @@ static func update_speed_caps(units: Array) -> void:
 				seen[leader] = true
 				leader.formation_speed_cap_kn = minf(leader.formation_speed_cap_kn, u.effective_max_speed())
 				leader = leader.formation_leader
+
+
+## The new guide carries on where the old one was going: its route, or its patrol circuit. A
+## convoy whose lead ship is sunk keeps steaming for the gate instead of stopping where it was hit.
+static func _inherit_plan(successor: Unit, old: Unit) -> void:
+	if successor.attack_track != null or successor.investigation_track != null:
+		return
+	successor.waypoints.assign(old.waypoints)
+	successor.patrol_active = old.patrol_active
+	successor.patrol_legs_completed = 0
+	if old.station_kind == "patrol" and not successor.has_station():
+		successor.set_station("patrol", old.station_label)
+		successor.station_route.assign(old.station_route)
+		successor.station_speed_kn = old.station_speed_kn
+	if not old.waypoints.is_empty() or old.ordered_speed_kn > 0.0:
+		successor.ordered_speed_kn = minf(old.ordered_speed_kn, successor.effective_max_speed())
+		successor.ordered_heading_deg = old.ordered_heading_deg
+
+
+## A consort that inherits the guide has no station of its own any longer: the group forms on it.
+static func _take_guide(successor: Unit, old: Unit) -> void:
+	if successor.station_kind == "formation" and successor.station_leader == old:
+		successor.clear_station()
+		successor.station_note = "Formation guide lost: now guiding the group"

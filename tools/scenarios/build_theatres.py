@@ -217,7 +217,9 @@ def tartus_line():
                       "patrol_nm": [s.xy(34.7, 34.4), s.xy(34.3, 33.6)]},
                      {"platform": "rfn_mpa_il38n", "count": 1, "squadron": "Aviation group", "callsign": "May", "first_modex": 51,
                       "patrol_nm": [s.xy(34.4, 34.0), s.xy(33.9, 32.8), s.xy(34.8, 33.4)]}])
-    s.site("rfn_battery_bastion", "Tartus coastal battery", "RED", 34.87, 35.93)
+    # The battery starts silent and listens on its ESM until its side's picture gives it a target;
+    # Akrotiri's ELINT report (operation_design's bastion_located) waits for its radar to come on.
+    s.site("rfn_battery_bastion", "Tartus coastal battery", "RED", 34.87, 35.93, radar_on=False)
     s.site("rfn_sam_s400_site", "Khmeimim SAM site", "RED", 35.38, 35.98)
     s.afloat("civ_merchant_bulk", "MV Piraeus Voyager", "NEUTRAL", 34.0, 32.6, 100, 13, patrol=[s.xy(34.4, 35.4), s.xy(33.6, 30.6)])
     s.afloat("civ_merchant_bulk", "MV Port Said Trader", "NEUTRAL", 33.6, 33.4, 320, 12, patrol=[s.xy(34.7, 34.7), s.xy(32.2, 31.8)])

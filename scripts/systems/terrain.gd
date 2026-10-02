@@ -42,6 +42,11 @@ static var _rows := 0
 static var _cell_nm := CELL_NM
 static var _origin := Vector2.ZERO
 static var _grid_rect := Rect2()
+## The tallest landmass on the raster: no cell a sight line samples can be higher.
+static var _grid_top := 0.0
+## Whether a sight line that clears the tallest ground on the chart all along its land span is
+## answered without walking it. Off only in the test that proves the answer is the same.
+static var height_shortcut := true
 
 ## Landmasses by area, so a sight line or a sound path looks only at the coast near it rather
 ## than every island on the chart (406 in the Taiwan Strait). Each landmass is listed in every
@@ -65,6 +70,7 @@ static func clear() -> void:
 	generation += 1
 	bounds = Rect2()
 	_grid = PackedFloat32Array()
+	_grid_top = 0.0
 	_cols = 0
 	_rows = 0
 	_origin = Vector2.ZERO
@@ -185,6 +191,8 @@ static func masks_line_of_sight(from: Vector2, from_h_m: float, to: Vector2, to_
 	var span := _land_span(from, to)
 	if span.x > span.y:
 		return false
+	if height_shortcut and _clears_every_hill(d, span, from_h_m, to_h_m):
+		return false
 	# The grid lookup is written out rather than calling elevation_at, because this loop is the
 	# single hottest piece of terrain code in the game: the sensor cycle walks it thousands of
 	# times a second at full time compression.
@@ -241,6 +249,19 @@ static func blocks_path(a: Vector2, b: Vector2) -> bool:
 		p += dp
 		t += dt
 	return false
+
+
+## True when the sight line, less the earth's bulge, stays above the tallest ground on the chart
+## over the whole stretch the walk below would sample, so no sample could mask it. Along the line
+## that height is a parabola opening upward in the fraction travelled, so its lowest point on the
+## stretch is the vertex clamped into it, and one evaluation there settles every sample. Late in
+## the Taiwan Strait air battle that settles six in seven of the lines that reach land. The metre
+## of margin is many orders of magnitude more than the rounding in the walk's own sums, so the
+## answer is always the walk's answer.
+static func _clears_every_hill(d: float, span: Vector2, from_h_m: float, to_h_m: float) -> bool:
+	var bulge_k := d * d / Geo.EARTH_BULGE_K2
+	var t := clampf(0.5 - (to_h_m - from_h_m) / (2.0 * bulge_k), span.x, span.y)
+	return _grid_top < lerpf(from_h_m, to_h_m, t) - Geo.earth_bulge_m(t * d, (1.0 - t) * d) - 1.0
 
 
 static func _steps_for(length_nm: float) -> int:
@@ -475,6 +496,7 @@ static func nearest_water(p: Vector2, approach_from := Vector2.INF) -> Vector2:
 ## scenario editor, which is what lets a coastline drawn by hand mask radar immediately.
 static func _build_grid() -> void:
 	_grid = PackedFloat32Array()
+	_grid_top = 0.0
 	_cols = 0
 	_rows = 0
 	_grid_rect = Rect2()
@@ -496,6 +518,7 @@ static func _rasterise(l: Landmass) -> void:
 	var n := l.points.size()
 	if n < 3:
 		return
+	_grid_top = maxf(_grid_top, l.elevation_m)
 	var first_row := clampi(int(floorf((l.bounds.position.y - _origin.y) / _cell_nm)), 0, _rows - 1)
 	var last_row := clampi(int(ceilf((l.bounds.end.y - _origin.y) / _cell_nm)), 0, _rows - 1)
 	for row in range(first_row, last_row + 1):

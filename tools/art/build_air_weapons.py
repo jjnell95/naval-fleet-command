@@ -112,6 +112,34 @@ def build_h6j(m, spec):
     aircraft_finish(m, L, radome_from=.44, start=start)
 
 
+def build_a6e(m, spec):
+    """A-6E TRAM Intruder: bulbous side-by-side cockpit nose with the refuelling probe ahead of the
+    canopy and the TRAM turret under the chin, a mid-mounted moderately swept wing, J52 nacelles
+    along the lower fuselage sides, a tall swept fin and two Harpoons on the inboard pylons."""
+    start = m.mark()
+    L = spec["length_m"]
+    half = 8.08
+    r = L * .052
+    m.fuselage(L, r, nose=.30, tail=.42, taper=.32, segs=18)
+    for s in (-1, 1):
+        x_le, x_te = L * .10, -L * .14
+        tip_le = x_le - half * .47
+        m.plate([(x_le, s * r), (x_te, s * r), (tip_le - 1.5, s * half), (tip_le, s * half)], -.16, .16, "wing")
+        m.plate([(-L * .37, s * .5), (-L * .48, s * .5), (-L * .48, s * L * .19), (-L * .41, s * L * .19)], -.10, .10, "stab")
+        m.engine_pod(-L * .24, L * .17, s * (r + .25), -r * .55, r * .42)
+        for k, frac in enumerate((.30, .58)):
+            yy = s * half * frac
+            xc = x_le - half * frac * .47 - .9
+            m.cbox(xc, yy, -.55, 1.4, .25, .6, "pylon")
+            if k == 0:
+                m.cylinder(yy, -1.15, xc - 2.0, xc + 2.0, .17, 10, "missile", "x", m="missile_body")
+    m.fin(-L * .30, L * .21, L * .08, L * .25, L * .12)
+    m.canopy(L * .25, 0, r * .85, L * .17, r * 1.75, r * .72)
+    m.cylinder(0, r * 1.25, L * .33, L * .47, .07, 8, "refuel_probe", "x", m="titanium")
+    m.ellipsoid(L * .40, 0, -r * .80, .42, .40, .34, 10, 5, "tram_turret", "glazing")
+    aircraft_finish(m, L, radome_from=.40, start=start)
+
+
 def turboprop_transport(m, L, span, rotodome=False, mad=False, chin=False):
     """The Y-8/Y-9 family: fat fuselage, high straight wing, four turboprops, big fin."""
     start = m.mark()
@@ -313,6 +341,7 @@ def build_z18f(m, spec):
 
 
 BUILDERS = {
+    "cw90_a6e": build_a6e,
     "pla_bomber_h6j": build_h6j,
     "pla_fighter_j15": build_j15,
     "pla_fighter_j16": build_j16,

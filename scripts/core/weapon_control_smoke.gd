@@ -109,6 +109,30 @@ static func run(main: Main) -> void:
 	own[1].magazines[gun.id] = 3
 	main._apply_unit_orders([[own[0], Order.engage(track, gun.id, 1)], [own[1], Order.engage(track, gun.id, 3)]])
 	checks["group attack receipt totals actual committed rounds"] = main.radio.journal[-1].contains("4 rounds committed") and main.radio.journal[-1].contains("2 orders accepted")
+	# A coordinated attack: the contact menu offers the two hulls one shared budget, the board
+	# opens with it, and the commit reaches the simulation as a single group.
+	main.map.select_track(track)
+	var group_item := {}
+	for entry: Dictionary in CdsMenus.engage_items(own, track, true, wm):
+		if str(entry.get("text", "")).begins_with("Group attack ("):
+			group_item = entry
+	checks["contact menu offers a group attack for two hooked hulls"] = not group_item.is_empty() and not bool(group_item["disabled"])
+	if not group_item.is_empty():
+		main._run_cds_action(group_item["action"])
+	await main.get_tree().process_frame
+	checks["group attack opens the firing board with its budget"] = board.visible and board._group_row.visible and not group_item.is_empty() and int(board._budget.value) == int(group_item["action"]["budget"])
+	checks["board with the group controls fits the viewport"] = board.get_minimum_size().x <= main.get_viewport_rect().size.x and board.get_minimum_size().y <= main.get_viewport_rect().size.y
+	checks["group row reads before committing"] = board._group_status.size.y > 0 and board._group_status.text.begins_with("First volley: ")
+	await _shot(main, "weapon-control-group")
+	board._group_commit.pressed.emit()
+	var gam := main.simulation.group_attack_manager
+	var groups := gam.active_groups("BLUE")
+	checks["group attack commits one shared budget"] = groups.size() == 1 and board._receipt.text.contains("-round group attack on track")
+	checks["group receipt reaches the radio"] = main.radio.journal[-1].ends_with(board._receipt.text)
+	checks["orders line shows the group's budget"] = DataDisplay.orders_text(own[0], wm, gam).begins_with("Group attack ")
+	board._group_cancel.pressed.emit()
+	checks["cancel group ends it and refunds its queue"] = not groups.is_empty() and not groups[0].active and wm.group_rounds(groups[0].id, "", true) == 0
+	main._close_weapon_control()
 	var failures := 0
 	for name: String in checks:
 		print("%s weapon-control: %s" % ["PASS" if checks[name] else "FAIL", name])

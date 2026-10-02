@@ -11,7 +11,7 @@ extends Node
 ##
 ## Item: {text, action?, children?, disabled?, tooltip?, checked? (-1 none, 0 off, 1 on), separator?}
 ## Action kinds: order, unit_orders, formation, engage, attack, investigate, palette, hook,
-## waypoint_delete, layer, symbols, board, inspect.
+## waypoint_delete, layer, symbols, board, inspect, group_attack.
 
 signal action_chosen(action: Dictionary)
 ## The menu went away, chosen from or dismissed.
@@ -92,12 +92,12 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		var under := -1.0
 		var floor_m := -1.0
 		for u: Unit in diving:
-			var d := Acoustics.below_layer_depth_m(u)
+			var d := Acoustics.below_layer_depth_m(u, true)
 			if d > under:
 				under = d
-				floor_m = Acoustics.bottom_m(u)
+				floor_m = Acoustics.bottom_m(u, true)
 			elif floor_m < 0.0:
-				floor_m = Acoustics.bottom_m(u)
+				floor_m = Acoustics.bottom_m(u, true)
 		for d in DEPTHS:
 			var blocked: bool = d[1] == -2.0 and under < 0.0
 			depths.append(item(d[0], {"kind": "depth", "metres": d[1]}, blocked, under_layer_reason(under, floor_m) if d[1] == -2.0 else ""))
@@ -137,6 +137,16 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 	if movable:
 		items.append(item("Plot route  [W]", {"kind": "palette", "id": "plot_move"}))
 		items.append(item("Assign patrol area  [Shift+W]", {"kind": "palette", "id": "plot_patrol"}, false, "Click two corners; repeat the circuit until retasked or returning for fuel."))
+	var stationed := units.filter(func(u: Unit) -> bool: return u.has_station())
+	if movable and not stationed.is_empty():
+		var can_return := stationed.filter(func(u: Unit) -> bool: return UnitManager.station_rejection(u) == "")
+		var reason := "" if not can_return.is_empty() else UnitManager.station_rejection(stationed[0])
+		items.append(item("Return to station  [S]", order_action(Order.return_to_station()), can_return.is_empty(), reason if reason != "" else "Resume the patrol, screen or air station an investigation, attack or refuelling interrupted."))
+	if movable:
+		items.append(submenu("Auto-return to station", [
+			item("On", order_action(Order.set_auto_return(true)), false, "Go back to station once an identification, interception or attack ends. A newer order always stands.", _all(units, func(u: Unit) -> bool: return u.auto_return)),
+			item("Off", order_action(Order.set_auto_return(false)), false, "Hold where the task ends until ordered back with S.", _all(units, func(u: Unit) -> bool: return not u.auto_return)),
+		], not controllable, why))
 	if any_route:
 		items.append(item("Clear route", order_action(Order.clear_waypoints()), not controllable, why))
 	items.append(item("Follow  [F]", {"kind": "palette", "id": "follow_selection"}))
@@ -170,6 +180,51 @@ static func defence_items(units: Array, movable: bool) -> Array:
 		item("Automatic", order_action(Order.set_auto_countermeasures(true)), false, "", _all(units, func(u: Unit) -> bool: return u.auto_countermeasures)),
 		item("Manual", order_action(Order.set_auto_countermeasures(false)), false, "", _all(units, func(u: Unit) -> bool: return not u.auto_countermeasures)),
 	]))
+	var why := ""
+	for u: Unit in units:
+		why = AirDefence.intercept_rejection(u)
+		if why == "":
+			break
+	items.append(item("Engage inbound weapons  [X]", order_action(Order.intercept()), why != "",
+		why if why != "" else "Fire interceptors at every inbound round the hooked ships hold. With manual missile defence, the SAMs fire only on this order."))
+	return items
+
+
+## A detected inbound weapon under the cursor: intercept it with the hooked ships, or turn away.
+static func weapon_items(w: Weapon, units: Array, controllable: bool, movable: bool) -> Array:
+	var why := "Hook your ships first" if not controllable else ""
+	if why == "":
+		why = "No hooked ship can engage it"
+		for u: Unit in units:
+			if AirDefence.intercept_rejection(u) == "":
+				why = ""
+				break
+	return [
+		{"text": "Inbound #%d  %s" % [w.id, w.spec.display_name], "disabled": true},
+		item("Engage with interceptors  [X]", order_action(Order.intercept(w)), why != "", why if why != "" else "Fire interceptors at this round from the hooked ships, within their channels and magazines."),
+		item("Evade  [V]", order_action(Order.evade()), not movable, "Turn the hooked ships to open the round's approach; the route resumes after."),
+		item("Defence commands", {"kind": "palette", "id": "open_defence"}, not controllable),
+	]
+
+
+## The gameplay options, as a menu: the two presets and the options one at a time. Shared by the
+## command bar's chip and the CDS menu. `state["options"]` is the GameOptions in effect (Main's
+## _cds_state); voice and ambient are checked as heard, like the Sound submenu.
+static func options_items(state: Dictionary) -> Array:
+	var o: GameOptions = state["options"] if state.get("options") is GameOptions else GameOptions.normal(bool(state.get("voice", false)), bool(state.get("ambient", true)))
+	var preset := o.preset()
+	var items: Array = [
+		item("Normal", {"kind": "palette", "id": "preset_normal"}, false, GameOptions.preset_description(GameOptions.NORMAL) + ".", 1 if preset == GameOptions.NORMAL else 0),
+		item("Classic", {"kind": "palette", "id": "preset_classic"}, false, GameOptions.preset_description(GameOptions.CLASSIC) + ".", 1 if preset == GameOptions.CLASSIC else 0),
+		sep(),
+	]
+	for key: String in GameOptions.OPTION_KEYS:
+		if key == "":
+			items.append(sep())
+			continue
+		var sound := key in ["voice", "ambient"]
+		var on := bool(state.get(key, o.option_on(key))) if sound else o.option_on(key)
+		items.append(item(GameOptions.option_text(key), {"kind": "palette", "id": key if sound else "option_" + key}, false, GameOptions.option_tooltip(key), 1 if on else 0))
 	return items
 
 
@@ -278,6 +333,20 @@ static func quick_engage_item(units: Array, target: Track, weapon_manager: Weapo
 	return item("Cannot engage: " + reason, {}, true, reason)
 
 
+## Several armed platforms hooked: one round budget they share on this contact. It opens the firing
+## board set for the group, so the allocation can be read before it is committed. N is one ordinary
+## salvo from each platform that can fire now. Empty with fewer than two armed platforms hooked.
+static func group_attack_item(units: Array, target: Track, weapon_manager: WeaponManager = null) -> Dictionary:
+	var shooters := units.filter(func(u: Unit) -> bool: return u.is_engageable() and not u.weapons.is_empty())
+	if shooters.size() < 2 or target == null:
+		return {}
+	var rounds := GroupAttackManager.default_budget(shooters, target, weapon_manager)
+	if rounds <= 0:
+		return item("Group attack...", {}, true, "No hooked platform holds a solution on track %s" % DataDisplay.track_number_for_track(target))
+	return item("Group attack (%d rounds)..." % rounds, {"kind": "group_attack", "track": target, "budget": rounds}, false,
+		"Share %d rounds between the %d hooked platforms: each goes to the shooter that can put it on track %s first, and the group assesses each volley before it spends more." % [rounds, shooters.size(), DataDisplay.track_number_for_track(target)])
+
+
 ## The standing attack, the classic display's one-click engagement: the hooked platforms close
 ## to range, choose the weapon and keep firing. Greyed with the reason when none of them can.
 static func attack_item(units: Array, target: Track) -> Dictionary:
@@ -331,9 +400,14 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 		if not with_weapons.is_empty():
 			items.append(submenu("Attack with", with_weapons, false, "The standing attack, holding a chosen weapon's envelope."))
 		items.append(quick_engage_item(units, target, weapon_manager))
+		var group := group_attack_item(units, target, weapon_manager)
+		if not group.is_empty():
+			items.append(group)
 		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
 		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit this contact."))
 		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))
+		if target.domain in ["surface", "land"] and not target.identity in ["NEUTRAL", "FRIENDLY"]:
+			items.append(item("Air strike...", {"kind": "air_strike", "track": target}, false, "Open Air Operations set to strike this contact from a deck."))
 		if target.classification < Track.Classification.CLASS_KNOWN:
 			var can_investigate := false
 			var reason := ""
@@ -394,6 +468,7 @@ static func cds_items(state: Dictionary) -> Array:
 		submenu("Symbol controls", controls),
 		submenu("Map", overlays),
 		submenu("Sound", sound),
+		submenu("Gameplay", options_items(state)),
 		item("Range circle  [B]", {"kind": "palette", "id": "range_circle"}),
 		sep(),
 		item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}),

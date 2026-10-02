@@ -16,6 +16,13 @@ signal weapon_resolved(weapon: Weapon)
 signal weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit)
 ## Expendable decoys used, chaff or acoustic, whether or not they worked. A towed decoy is not one.
 signal decoys_spent(unit: Unit, count: int)
+## An offensive round left its launcher, with its group tag. A group attack counts what it has
+## spent from this; rounds that later resolve are gone from in_flight but stay spent.
+signal weapon_fired(weapon: Weapon)
+## A reserved round left the launcher queue without firing: cancelled by the commander, a hold
+## order, or a solution that failed while it waited. `refunded` is false when the shooter was lost
+## with it aboard. A group attack returns the round to its pool.
+signal queued_round_dropped(shooter: Unit, spec: WeaponSpec, track: Track, group_id: int, refunded: bool, reason: String)
 
 const IMPACT_MIN_NM := 0.05
 ## Decoys do not delete a missile; they move it. A seduced seeker flies on through the cloud and
@@ -37,11 +44,12 @@ var _channel_cache: Dictionary = {}
 var _next_id := 1
 var _launcher_ready_at: Dictionary = {}  # shooter -> launcher group -> next launch time
 var now_s := 0.0
-var _pending: Array = []  # queued salvo rounds: {shooter, spec, track, time}
+var _pending: Array = []  # queued salvo rounds: {shooter, spec, track, time, group}
 var _pending_dirty := false
 
 
-func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: float) -> bool:
+## `group_id` tags every round of the salvo, queued or fired, for a coordinated group attack.
+func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: float, group_id := -1) -> bool:
 	now_s = now
 	var check := engagement_check(shooter, spec, track, now)
 	if not check["ok"]:
@@ -52,10 +60,10 @@ func launch(shooter: Unit, spec: WeaponSpec, track: Track, salvo: int, now: floa
 	var launch_at := now + ready_in_s(shooter, spec, now)
 	for i in rounds:
 		if i == 0 and launch_at <= now:
-			_fire_round(shooter, spec, track)
+			_fire_round(shooter, spec, track, group_id)
 			_mark_launched(shooter, spec, now)
 		else:
-			_pending.append({"shooter": shooter, "spec": spec, "track": track, "time": launch_at})
+			_pending.append({"shooter": shooter, "spec": spec, "track": track, "time": launch_at, "group": group_id})
 			_pending_dirty = true
 		launch_at += launch_spacing(shooter, spec)
 	if _channel_batch and spec.requires_fire_control_channel() and track.domain == "air":
@@ -117,6 +125,23 @@ func committed_rounds(shooter: Unit, spec: WeaponSpec, track: Track = null, queu
 	return count
 
 
+## Rounds one side has on the way to each of its contacts, keyed by track id: those flying and those
+## still queued on a launcher behind the first round of a salvo. A queued round is as committed as a
+## flying one; leaving it out let a group spend four times its intended weight on one target. Keyed
+## by id because a boat off the link holds its own Track object for the same contact.
+func rounds_committed_by_track_id(faction: String) -> Dictionary:
+	var out := {}
+	for w in in_flight:
+		if w.faction == faction and w.target_track != null and w.phase != Weapon.Phase.DEAD:
+			out[w.target_track.id] = int(out.get(w.target_track.id, 0)) + 1
+	for p: Dictionary in _pending:
+		var shooter: Unit = p.shooter
+		var track: Track = p.track
+		if shooter.faction == faction and track != null:
+			out[track.id] = int(out.get(track.id, 0)) + 1
+	return out
+
+
 func engagement_check(shooter: Unit, spec: WeaponSpec, track: Track, now: float, reserved_round := false) -> Dictionary:
 	var check := Combat.check_engagement(shooter, spec, track, reserved_round)
 	if not check.ok:
@@ -136,22 +161,82 @@ func engagement_check(shooter: Unit, spec: WeaponSpec, track: Track, now: float,
 func cancel_salvo(shooter: Unit, track: Track = null) -> int:
 	var count := 0
 	var retained: Array = []
+	var dropped: Array = []
 	for p: Dictionary in _pending:
 		if p.shooter == shooter and (track == null or p.track == track):
 			if shooter.alive:
 				shooter.magazines[p.spec.id] = shooter.magazine_count(p.spec.id) + 1
 			count += 1
+			dropped.append(p)
 		else:
 			retained.append(p)
 	_pending = retained
 	if count > 0:
 		revision += 1
+	for p: Dictionary in dropped:
+		queued_round_dropped.emit(p.shooter, p.spec, p.track, int(p.get("group", -1)), shooter.alive, "CANCELLED")
+	return count
+
+
+## One contact as a faction holds it. A platform off the link keeps its own copy of a track under
+## the same number, so commitments are counted by owner and number, never by the Track object.
+static func contact_key(t: Track) -> String:
+	return "" if t == null else "%s|%s" % [t.owner_faction, t.id]
+
+
+## A group attack's rounds: queued, plus (unless `queued_only`) in flight and not yet resolved.
+## Narrowed to one contact (`key`, from contact_key) and to one shooter when given.
+func group_rounds(group_id: int, key := "", queued_only := false, shooter: Unit = null) -> int:
+	var count := 0
+	for p: Dictionary in _pending:
+		if int(p.get("group", -1)) == group_id and (shooter == null or p.shooter == shooter) and (key == "" or contact_key(p.track) == key):
+			count += 1
+	if not queued_only:
+		for w in in_flight:
+			if w.group_id == group_id and w.phase != Weapon.Phase.DEAD and (shooter == null or w.shooter == shooter) and (key == "" or contact_key(w.target_track) == key):
+				count += 1
+	return count
+
+
+## Withdraws a group attack's queued rounds: all of them, one shooter's, or those at one contact.
+## Refunds follow cancel_salvo: a round goes back aboard only if its shooter is still afloat.
+func cancel_group(group_id: int, shooter: Unit = null, key := "", reason := "CANCELLED") -> int:
+	var retained: Array = []
+	var dropped: Array = []
+	for p: Dictionary in _pending:
+		if int(p.get("group", -1)) == group_id and (shooter == null or p.shooter == shooter) and (key == "" or contact_key(p.track) == key):
+			if p.shooter.alive:
+				p.shooter.magazines[p.spec.id] = p.shooter.magazine_count(p.spec.id) + 1
+			dropped.append(p)
+		else:
+			retained.append(p)
+	_pending = retained
+	if not dropped.is_empty():
+		revision += 1
+	for p: Dictionary in dropped:
+		queued_round_dropped.emit(p.shooter, p.spec, p.track, group_id, p.shooter.alive, reason)
+	return dropped.size()
+
+
+## Every offensive round a faction has queued or flying at one contact, whoever fired it and on
+## whatever picture: what the side as a whole already has committed there.
+func faction_commitment(faction: String, track: Track, queued_only := false) -> int:
+	var key := contact_key(track)
+	var count := 0
+	for p: Dictionary in _pending:
+		if p.shooter.faction == faction and contact_key(p.track) == key:
+			count += 1
+	if not queued_only:
+		for w in in_flight:
+			if w.faction == faction and w.phase != Weapon.Phase.DEAD and w.intercept_target == null and contact_key(w.target_track) == key:
+				count += 1
 	return count
 
 
 
-## Fires interceptors at a weapon already in flight. Used by the automatic air-defence system,
-## never by a direct player order. Returns the number of rounds launched.
+## Fires interceptors at a weapon already in flight. Used by the air-defence system: by itself on
+## automatic defence, or for the rounds a commander's intercept order cleared (AirDefence
+## order_intercept), through the same layers and checks either way. Returns the rounds launched.
 func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int, now: float) -> int:
 	if not shooter.alive or not shooter.can_fire() or shooter.roe == Unit.Roe.HOLD or threat.phase == Weapon.Phase.DEAD:
 		return 0
@@ -226,9 +311,10 @@ func tick(dt: float, now: float) -> void:
 			if p.shooter.alive:
 				p.shooter.magazines[p.spec.id] = p.shooter.magazine_count(p.spec.id) + 1
 			engagement_rejected.emit(p.shooter, p.spec, "QUEUED ROUND CANCELLED: " + str(check.reason))
+			queued_round_dropped.emit(p.shooter, p.spec, p.track, int(p.get("group", -1)), p.shooter.alive, str(check.reason))
 		elif now >= float(p.time) and now >= _ready_time(p.shooter, p.spec):
 			_pending.erase(p)
-			_fire_round(p.shooter, p.spec, p.track)
+			_fire_round(p.shooter, p.spec, p.track, int(p.get("group", -1)))
 			_mark_launched(p.shooter, p.spec, now)
 	for i in range(in_flight.size() - 1, -1, -1):
 		_step(in_flight[i], dt)
@@ -250,7 +336,7 @@ func clear() -> void:
 	revision += 1
 
 
-func _fire_round(shooter: Unit, spec: WeaponSpec, track: Track) -> void:
+func _fire_round(shooter: Unit, spec: WeaponSpec, track: Track, group_id := -1) -> void:
 	var w := Weapon.new()
 	w.id = _next_id
 	_next_id += 1
@@ -258,6 +344,7 @@ func _fire_round(shooter: Unit, spec: WeaponSpec, track: Track) -> void:
 	w.faction = shooter.faction
 	w.shooter = shooter
 	w.target_track = track
+	w.group_id = group_id
 	w.position = shooter.position
 	w.launch_altitude_m = shooter.altitude_m if shooter.in_flight() else spec.altitude_m
 	w.launched_ashore = shooter.spec.domain == "land"
@@ -267,6 +354,7 @@ func _fire_round(shooter: Unit, spec: WeaponSpec, track: Track) -> void:
 	in_flight.append(w)
 	revision += 1
 	round_fired.emit(shooter, spec, track)
+	weapon_fired.emit(w)
 
 
 func _aim_for(w: Weapon) -> Vector2:

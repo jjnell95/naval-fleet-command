@@ -15,6 +15,9 @@ var spec: WeaponSpec
 var faction := ""
 var shooter: Unit
 var target_track: Track
+## The coordinated group attack this round was fired for (GroupAttack.id), or -1 for a round fired
+## on a platform's own order. The group counts its expenditure by this tag, never by shooter.
+var group_id := -1
 var launch_altitude_m := -1.0
 var launch_range_nm := 0.0
 var delivery_spec: WeaponSpec  # launcher identity retained after a torpedo enters the water
@@ -32,6 +35,9 @@ var guided_interceptors_committed := 0  # SAMs ever fired at this round
 var defence_commitments: Dictionary = {}  # defensive layer -> reserved shots
 var close_in_commitments: Dictionary = {}  # defending unit id -> bursts
 var close_in_bursts_committed := 0  # close-in engagements; a round is only in that envelope briefly
+## Ids of the units the commander has ordered to intercept this round (Order.intercept). A ship
+## on manual missile defence engages only rounds it is cleared for; one on automatic needs none.
+var intercept_cleared: Array[int] = []
 var position := Vector2.ZERO
 var heading_deg := 0.0
 var aim_point := Vector2.ZERO

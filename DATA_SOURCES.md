@@ -401,6 +401,17 @@ pins the fits above.
 
 The dated platform identities, historical references, period loadout exclusions and simulation limits for the 1990 operations are recorded in [the Cold War source ledger](docs/COLD_WAR_1990.md). The missions are alternate history. Combat performance and aircraft detachments remain explicitly identified game estimates.
 
+### 1990 strike element, 2 October 2026
+
+| Resource | Source | Game values |
+|---|---|---|
+| `cw90_a6e` A-6E TRAM Intruder | The ledger's NHHC VA-34 history and squadron table record TRAM as Harpoon-capable and combat Harpoon use in March 1986; the 1990–91 deployment roster lists A-6E ([docs/COLD_WAR_1990.md](docs/COLD_WAR_1990.md)). An A-6E of VA-85 sank a Libyan Nanuchka with Harpoon on 25 March 1986 ([VA-85](https://en.wikipedia.org/wiki/Second_VA-85_(U.S._Navy))). From 1979 the TRAM turret (AN/AAS-33) was paired with the Norden AN/APQ-156 radar ([Grumman A-6 Intruder](https://en.wikipedia.org/wiki/Grumman_A-6_Intruder)) | Speed, endurance, signature and the two-round Harpoon load are GAMEPLAY_ESTIMATE, sized for one stand-off attack. The laser designator, bombs, HARM, SLAM and KA-6D tanking are not represented |
+| `cw90_agm84` AGM-84 Harpoon, air launch | AGM-84A is the air-launched member of the Harpoon family, carried by the A-6 ([CSIS Missile Threat, Harpoon](https://missilethreat.csis.org/missile/harpoon/)) | Range, speed, warhead and hit chance copy the period ship round `cw90_harpoon` (65 nm, 480 kn, sea-skimming at 10 m): a conservative GAMEPLAY_ESTIMATE, since published air-launch ranges are longer |
+| `cw90_apq156` AN/APQ-156 | Designation as above | Search ranges GAMEPLAY_ESTIMATE, between the Viking's and the Hawkeye's |
+| `cw90_fort` S-300F Fort / SA-N-6 | The naval 5V55RM's engagement envelope starts at 25 m ([S-300 missile system](https://en.wikipedia.org/wiki/S-300_missile_system)) | `intercept_min_altitude_m` 25: a sea-skimming Harpoon is engaged only by Slava's Osa-M and AK-630. Measured in the game against an alert, radiating Slava over eight seeds: eight Harpoons (four aircraft) hit in two trials without the floor and in four with it; four Harpoons never hit |
+
+Carrier Watch's detachment is 28 aircraft (12 F-14A+, 4 E-2C, 4 A-6E, 4 S-3A, 4 SH-3H) and a custom fleet's 1990 Nimitz keeps its nine-aircraft default; neither is a complete historical air wing (no Hornet, Prowler or tanker squadrons).
+
 
 ## Fleet workshop and defensive responses (29 September 2026)
 

@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M36 Missions, saves and an enemy with a plan
+
+Aircraft fly CAP, reconnaissance, ASW search and strike missions with a launch queue and opt-in relief; ships and aircraft keep standing stations and return to them with S; battles save and reload exactly (quicksave, autosaves, the browser included); ships share group attacks under one round budget; the enemy can pursue a mission objective, and every operation now gives it one; a Classic preset offers the 1999 game's 4× ceiling, manual missile defence and engagement after identification; the operations react to the battle and vary by seed, with a 1990 strike element in Carrier Watch; and the largest late battle's sensor cycle costs a third of what it did, with orders reaching the screen in about 65 ms at 60×. See [the M36 note](docs/2026-10-02-m36-missions-saves-and-an-enemy-with-a-plan.md).
+
+Next: Hormuz is the one operation where neither tested opening wins on both seeds; review light-torpedo effectiveness against a decoying diesel submarine, or move the Kilo, and validate over more seeds. Decide whether the area-defence allowance per incoming round (two shots across the force, three on Saturation) should leave an inner layer for ballistic rounds. Then the M36 note's ranked gaps: rally points and launch alert states, a tutorial, debrief replay, and the AI using group attacks.
+
 ## M35 Nine missions, a crew and campaigns
 
 The mission list cut from 23 to nine, one distinct command problem each, through the generators (which now reproduce `data/` byte for byte). The seven operations also run as two campaigns gated on the commander's log. The crew speaks, an ambient bed plays, contacts read out with source and estimated damage, and the Action camera follows a strike to its impact anywhere the plot witnessed it. A landmass index cuts the heaviest chart's sight-line cost. See [the M35 note](docs/2026-10-01-m35-nine-missions-a-crew-and-campaigns.md).
