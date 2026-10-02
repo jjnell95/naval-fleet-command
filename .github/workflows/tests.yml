@@ -47,6 +47,9 @@ jobs:
       - name: Northern Passage outcomes and deterministic replay
         run: python3 tools/verify_northern_passage.py ~/godot/godot
 
+      - name: Saved engagements continue identically in a new process
+        run: python3 tools/verify_save_continuation.py ~/godot/godot work/save-continuation --quick
+
       - name: Northern Passage graphical checks (1280 x 720)
         run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --path . --resolution 1280x720 --script tools/passage_playtest.gd -- --policy=escort --seed=31 --capture
 
