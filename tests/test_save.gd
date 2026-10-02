@@ -8,10 +8,13 @@ const CARRIER_WATCH := "res://data/scenarios/cold_war_03_carrier.json"
 const PASSAGE := "res://data/scenarios/northern_passage.json"
 const PLAN_FIXTURE := "res://tests/fixtures/ai_plan_carrier.json"
 const IKE := "USS Dwight D. Eisenhower (CVN 69)"
-const SAVE_AT := 601.75  # off the one- and two-second cycle boundaries, so every phase matters
-const COMPARE_AT := 2460.0  # after the follow-on raid and the cruiser report this seed draws
-## Carrier Watch's draw with rounds in the air and shots queued at the save, the Norwegian report on
-## Slava still to come, and the second Backfire element sent by RED's own plot of the carrier.
+const SAVE_AT := 989.75  # off the one- and two-second cycle boundaries, so every phase matters
+const COMPARE_AT := 2460.0  # after the follow-on raid this seed draws
+## Carrier Watch's draw saved inside the Soviet force's first volley at the carrier (its mission
+## plan holds fire until its own picture classifies her): rounds in the air and Slava's salvo still
+## queued, the Norwegian report on Slava and its bonus task already received (the restore makes
+## that tasking change again), and the second Backfire element still to come, sent by RED's own
+## plot of the carrier.
 const CONTINUATION_SEED := 13
 
 var _sim: Simulation
@@ -47,10 +50,11 @@ func _bytes() -> PackedByteArray:
 
 
 ## The commander's orders before the save, the same in both runs: a CAP with relief and an ASW
-## search off the carrier, an escort sent to look at the first contact, and one Tomcat recalled so
-## that it is on its way back to the deck when the save is taken. `each_tick` is the commander's
-## standing rule, if any, applied after every step.
-func _play_to_save_point(save_at := SAVE_AT, each_tick := Callable()) -> void:
+## search off the carrier, an escort sent to look at the first contact (with `keep_looking`, at the
+## next one each time a look ends), and one Tomcat recalled at `recall_at` so that it is on its way
+## back to the deck when the save is taken. `each_tick` is the commander's standing rule, if any,
+## applied after every step.
+func _play_to_save_point(save_at := SAVE_AT, each_tick := Callable(), recall_at := 540.0, keep_looking := false) -> void:
 	var cv := _unit(IKE)
 	var escort := _unit("USS Spruance (DD 963)")
 	_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 2, cv.position + Vector2(20, 60), 12.0, null, true))
@@ -61,12 +65,12 @@ func _play_to_save_point(save_at := SAVE_AT, each_tick := Callable()) -> void:
 		SimClock.advance(0.25)
 		if each_tick.is_valid():
 			each_tick.call()
-		if not investigated:
+		if not investigated or (keep_looking and escort.investigation_track == null and escort.attack_track == null):
 			for t: Track in _sim.track_manager.tracks_for(escort):
 				if UnitManager.investigation_rejection(escort, t) == "":
 					investigated = _sim.unit_manager.issue_order(escort, Order.investigate(t))
 					break
-		if not recalled and SimClock.sim_time >= 540.0:
+		if not recalled and SimClock.sim_time >= recall_at:
 			var m: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
 			for a in m.aircraft:
 				if a.airborne() and not a.returning:
@@ -89,7 +93,7 @@ func _write_and_read(snapshot: Dictionary) -> Dictionary:
 
 func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	_fresh(CARRIER_WATCH, CONTINUATION_SEED)
-	_play_to_save_point()
+	_play_to_save_point(SAVE_AT, Callable(), SAVE_AT - 61.75, true)
 	assert_eq(SimClock.sim_time, SAVE_AT)
 	# What the save has to carry, present at the moment it is taken.
 	var wm := _sim.weapon_manager
@@ -98,7 +102,8 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	assert_true(_sim.unit_manager.units.any(func(u: Unit) -> bool: return u.alive and u.is_aircraft() and (u.returning or u.flight_state == Unit.FlightState.RECOVERING)), "an aircraft on its way back to the deck")
 	assert_true(_sim.unit_manager.units.any(func(u: Unit) -> bool: return u.alive and (u.attack_track != null or u.investigation_track != null)), "a crew on a temporary task")
 	assert_true(not _sim.completed_events.has("follow_on_raid"), "the follow-on raid is still to come")
-	assert_true(not _sim.completed_events.has("cruiser_report"), "and the contact report with its tasking update")
+	assert_true(_sim.completed_events.has("cruiser_report") and _sim.mission_manager.objective("strike_slava") != null, "the contact report's tasking update is already in")
+	assert_true(_sim.weapon_manager.in_flight.any(func(w: Weapon) -> bool: return w.phase != Weapon.Phase.DEAD and w.faction == "RED" and w.target_track != null and w.target_track.truth == _unit(IKE)), "the enemy's volley at the carrier is in the air")
 	var latest := float(_sim.director.event("follow_on_raid")["latest_s"])
 	assert_true(not _sim.air_mission_manager.active_missions("BLUE").is_empty(), "air missions flying")
 	var saved := _write_and_read(SimSnapshot.capture(_sim))
@@ -113,6 +118,7 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	_fresh(CARRIER_WATCH, 999)
 	assert_eq(_sim.restore_snapshot(saved), "")
 	assert_eq(SimClock.sim_time, SAVE_AT, "the clock resumes at the saved tick")
+	assert_true(_sim.mission_manager.objective("strike_slava") != null, "the tasking change received before the save is made again on restore")
 	SimClock.advance(COMPARE_AT - SAVE_AT)
 	var got := _bytes()
 	assert_true(_sim.completed_events.has("follow_on_raid"), "the triggered raid still arrives after a reload")
@@ -518,9 +524,9 @@ func _play_classic(seconds: float) -> void:
 ## ship's SAMs on it and every other ship holding its own. Each continuation must match the
 ## uninterrupted battle tick for tick.
 func test_continuation_under_classic_options_matches_the_uninterrupted_battle() -> void:
-	# The second save point is where seed 31's first raid has our SAMs on a cleared round; the
-	# operation's drawn raid timing decides it.
-	for save_at: float in [200.75, 677.75]:
+	# The second save point is where seed 31's first volley at the carrier has our SAMs on a
+	# cleared round; the operation's drawn timing and the enemy plan's weapons-free decide it.
+	for save_at: float in [200.75, 1251.75]:
 		_fresh(CARRIER_WATCH, 31)
 		_classic_doctrine()
 		_play_to_save_point(save_at, _intercept_inbound)
