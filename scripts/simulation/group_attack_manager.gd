@@ -383,7 +383,8 @@ func _step_target(g: GroupAttack, ti: int, tally: Dictionary) -> void:
 			if held == null or held.status != Track.Status.ACTIVE:
 				weapon_manager.cancel_group(g.id, u, key, "CONTACT STALE" if held != null else "TRACK NOT HELD")
 	if g.target_mark[ti] >= 0:
-		if weapon_manager.group_rounds(g.id, key) == 0 and g.target_volley_fired[ti] > 0:
+		var live := weapon_manager.group_rounds(g.id, key)
+		if live == 0 and g.target_volley_fired[ti] > 0:
 			# The volley has arrived. Read the plot before anyone spends more on it, unless there
 			# is nothing more to spend. Checked before the volley is topped up: a round it is still
 			# short of, fired now, would be more expenditure without a look.
@@ -393,6 +394,12 @@ func _step_target(g: GroupAttack, ti: int, tally: Dictionary) -> void:
 				_close_target(g, ti, "Budget fired" if _budget_left(g) <= 0 else "Allocation fired")
 			else:
 				g.target_assess_until[ti] = now_s + ASSESS_S
+			return
+		# Part of the volley has already arrived and the rest is still on its way. A round the
+		# volley is short of (a shooter late into range, a share handed back) waits for the shared
+		# look too, rather than going on top of rounds whose result is not yet read.
+		var away := live - weapon_manager.group_rounds(g.id, key, true)
+		if g.target_volley_fired[ti] > away:
 			return
 		_fill(g, ti, tally)
 		return

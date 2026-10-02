@@ -605,3 +605,34 @@ func test_a_commander_allocation_caps_each_contact_within_the_budget() -> void:
 	assert_eq(_sim.weapon_manager.group_rounds(g.id, g.target_keys[1]), 2)
 	assert_eq(_spent(g), 10)
 	_done()
+
+
+func test_a_round_short_of_a_part_landed_volley_waits_for_the_shared_look() -> void:
+	_setup()
+	# The Oniks pair lands while the Kalibr pair is still flying; then a third ship comes into
+	# range. What has landed is not yet read, so the rounds the volley was short of wait for the look.
+	var gorshkov := _ship("rfn_ffg_admiral_gorshkov", "Admiral Gorshkov", Vector2(0, 0), "RED")
+	var essen := _ship("rfn_ffg_admiral_grigorovich", "Admiral Essen", Vector2(3, 0), "RED")
+	var makarov := _ship("rfn_ffg_admiral_grigorovich", "Admiral Makarov", Vector2(0, -200), "RED")
+	gorshkov.magazines["p800_oniks"] = 2
+	essen.magazines["kalibr_asm"] = 2
+	var t := _plot("T1077", Vector2(0, 40), "RED")
+	var wm := _sim.weapon_manager
+	var o := _order(gorshkov, [gorshkov, essen, makarov], [t], 10)
+	var g := _group()
+	assert_true(o.receipt.contains("Admiral Makarov refused: out of range"), o.receipt)
+	assert_eq(_spent(g), 4)
+	assert_true(_until(func() -> bool: return _in_flight_of("p800_oniks") == 0 and g.member_fired[0] == 2, 400.0), "the Oniks pair arrives first")
+	assert_true(_in_flight_of("kalibr_asm") > 0, "the Kalibr pair is still on its way")
+	makarov.position = Vector2(3, 2)
+	SimClock.advance(2.0)
+	assert_eq(_spent(g), 4, "nothing goes on top of a volley that has partly landed")
+	assert_eq(_committed_by(g, makarov), 0)
+	assert_true(_until(func() -> bool: return wm.group_rounds(g.id) == 0, 600.0), "the Kalibr pair resolves")
+	SimClock.advance(1.0)
+	assert_true(_sim.group_attack_manager.phase(g).begins_with("assessing"), _sim.group_attack_manager.phase(g))
+	SimClock.advance(GroupAttackManager.ASSESS_S + 1.0)
+	assert_eq(_spent(g), 10, "after the shared look the late ship takes the rest")
+	assert_eq(_committed_by(g, makarov), 6)
+	assert_true(int(_peak.get(g.id, 0)) <= 10)
+	_done()
