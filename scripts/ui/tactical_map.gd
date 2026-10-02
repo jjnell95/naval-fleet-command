@@ -806,7 +806,9 @@ func _get_tooltip(at: Vector2) -> String:
 	return "\n".join(lines)
 
 
-func _weapon_at(screen_pos: Vector2) -> Weapon:
+## The plotted round nearest the cursor. `inbound_only` skips our own rounds and every
+## interceptor, so an own SAM closing on a round never stands in front of it for a right-click.
+func _weapon_at(screen_pos: Vector2, inbound_only := false) -> Weapon:
 	if weapon_manager == null or not _chart_accepts_point(screen_pos):
 		return null
 	var observer := reference_unit()
@@ -814,6 +816,8 @@ func _weapon_at(screen_pos: Vector2) -> Weapon:
 	var distance_sq := 12.0 * 12.0
 	for w: Weapon in weapon_manager.in_flight:
 		if w.phase == Weapon.Phase.DEAD:
+			continue
+		if inbound_only and (w.faction == player_faction or w.is_interceptor()):
 			continue
 		if w.faction != player_faction and (observer == null or threat_manager == null or not threat_manager.visible_to(observer, w)):
 			continue
@@ -1001,8 +1005,8 @@ func context_at(screen_pos: Vector2) -> Dictionary:
 		ctx["unit"] = u
 		return ctx
 	# Only a round this picture holds (_weapon_at asks the threat picture), and never one of ours.
-	var w := _weapon_at(screen_pos)
-	if w != null and w.faction != player_faction and not w.is_interceptor():
+	var w := _weapon_at(screen_pos, true)
+	if w != null:
 		ctx["kind"] = "weapon"
 		ctx["weapon"] = w
 		return ctx

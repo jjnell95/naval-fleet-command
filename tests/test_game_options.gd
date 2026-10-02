@@ -457,6 +457,12 @@ func test_a_held_inbound_round_on_the_chart_is_intercepted_by_a_right_click() ->
 	var ctx := map.context_at(at)
 	assert_eq(ctx["kind"], "weapon")
 	assert_true(ctx["weapon"] == w)
+	# One of our own rounds right beside it (an interceptor closing) never takes the click.
+	var mine := _incoming(h[2], "BLUE", w.position + Vector2(0.4, 0), ship, 950)
+	var beside := map.context_at(at + Vector2(1.0, 0))
+	assert_eq(beside["kind"], "weapon", "our own round is not the inbound one")
+	assert_true(beside["weapon"] == w)
+	h[2].in_flight.erase(mine)
 	var asked: Array = []
 	var menus: Array = []
 	map.intercept_requested.connect(func(x: Weapon) -> void: asked.append(x))
