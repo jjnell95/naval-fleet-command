@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT, DEPLOY_DIPPING_SONAR, RECOVER_DIPPING_SONAR }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -16,6 +16,7 @@ var weapon_id := ""
 var salvo := 1
 var depth_m := 0.0
 var altitude_m := 0.0
+var listen_s := 0.0
 var aircraft_id := ""
 var aircraft_count := 1
 var recovery_base: Unit
@@ -306,6 +307,19 @@ static func active_sonar() -> Order:
 	return o
 
 
+static func deploy_dipping_sonar(duration_s := 0.0) -> Order:
+	var o := Order.new()
+	o.type = Type.DEPLOY_DIPPING_SONAR
+	o.listen_s = maxf(duration_s, 0.0)
+	return o
+
+
+static func recover_dipping_sonar() -> Order:
+	var o := Order.new()
+	o.type = Type.RECOVER_DIPPING_SONAR
+	return o
+
+
 static func passive_sonar() -> Order:
 	var o := Order.new()
 	o.type = Type.PASSIVE_SONAR
@@ -421,6 +435,10 @@ func describe() -> String:
 			return "ENGAGE %s with %d x %s" % [track.id if track != null else "?", salvo, weapon_id]
 		Type.SET_DEPTH:
 			return "DEPTH %.0f m" % depth_m
+		Type.DEPLOY_DIPPING_SONAR:
+			return "DEPLOY DIPPING SONAR"
+		Type.RECOVER_DIPPING_SONAR:
+			return "RAISE DIPPING SONAR"
 		Type.ACTIVE_SONAR:
 			return "SONAR ACTIVE"
 		Type.PASSIVE_SONAR:

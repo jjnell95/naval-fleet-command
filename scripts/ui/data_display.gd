@@ -366,7 +366,7 @@ static func sensors_text(u: Unit) -> String:
 	if u.has_radar():
 		parts.append("Radar %s" % ("on" if u.radar_emitting() else "off"))
 	if u.has_sonar():
-		parts.append("Sonar %s" % ("active" if u.active_sonar_on else "passive"))
+		parts.append(DippingSonar.status(u) if DippingSonar.capable(u) else "Sonar %s" % ("active" if u.active_sonar_on else "passive"))
 	if u.emcon == Unit.Emcon.SILENT:
 		parts.append("EMCON silent")
 	if u.jamming():

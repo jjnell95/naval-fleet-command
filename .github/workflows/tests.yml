@@ -83,6 +83,12 @@ jobs:
       - name: Air missions and stations, mouse and keyboard (1920 x 1080)
         run: timeout 600 xvfb-run -a -s "-screen 0 1920x1080x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1920x1080 --script tools/air_mission_playtest.gd -- --output-dir=res://work/ci-air-1920
 
+      - name: Launch, interface scaling and sonar controls (1280 x 720)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/command_priorities_playtest.gd -- --seed=31 --capture --output-dir=res://work/ci-priorities-720
+
+      - name: Launch, interface scaling and sonar controls (1920 x 1080)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1920x1080x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1920x1080 --script tools/command_priorities_playtest.gd -- --seed=31 --capture --output-dir=res://work/ci-priorities-1080
+
       - name: Air operations checks
         run: timeout 600 xvfb-run -a -s "-screen 0 1600x1000x24" ~/godot/godot --path . --resolution 1600x1000 -- --aviation-smoke
 

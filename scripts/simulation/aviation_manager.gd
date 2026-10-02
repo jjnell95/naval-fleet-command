@@ -187,6 +187,7 @@ func request_return(a: Unit, destination: Unit = null) -> bool:
 	if destination != null and recovery_rejection_reason(a, destination) != "":
 		return false
 	var base := destination if destination != null else _preferred_base(a)
+	DippingSonar.recover(a)
 	a.returning = true
 	a.patrol_active = false
 	a.clear_investigation()
@@ -319,6 +320,7 @@ func _step_airborne(a: Unit, dt: float) -> void:
 	if not a.returning and a.tanking_on == null and a.fuel_s <= return_fuel_required(a, _preferred_base(a)):
 		var tanker := _find_tanker(a)
 		if tanker != null:
+			DippingSonar.recover(a)
 			a.tanking_on = tanker
 			a.patrol_active = false
 			a.clear_investigation()
@@ -339,6 +341,8 @@ func _step_airborne(a: Unit, dt: float) -> void:
 		_step_off_map_return(a)
 		return
 	_steer_return(a, base)
+	if a.dip_phase != DippingSonar.Phase.STOWED:
+		return
 	if a.position.distance_to(base.position) <= RECOVERY_RANGE_NM:
 		if base.recovery_spots_busy() >= base.spec.recovery_capacity():
 			return
@@ -527,7 +531,7 @@ func _step_off_map_return(a: Unit) -> void:
 		return  # no chart: it will fly until the tanks run dry, as before
 	var half := map_extent_nm * 0.5
 	var local := a.position - map_center
-	if absf(local.x) > half + OFF_MAP_MARGIN_NM or absf(local.y) > half + OFF_MAP_MARGIN_NM:
+	if a.dip_phase == DippingSonar.Phase.STOWED and (absf(local.x) > half + OFF_MAP_MARGIN_NM or absf(local.y) > half + OFF_MAP_MARGIN_NM):
 		a.alive = false
 		a.departed = true
 		a.flight_state = Unit.FlightState.STOWED

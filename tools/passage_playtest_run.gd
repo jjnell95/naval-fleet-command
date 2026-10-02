@@ -9,7 +9,7 @@ var main: Main
 var clock: Node
 var checks: Dictionary = {}
 var commands: Array = []
-var facts := {"first_blue_shot_s": -1.0, "first_red_shot_s": -1.0, "blue_rounds": 0, "red_rounds": 0, "defensive_rounds": 0, "helicopter_observations": false, "unknown_seen": false, "classified_seen": false}
+var facts := {"first_blue_shot_s": -1.0, "first_defensive_shot_s": -1.0, "held_fire_for_civilians": false, "first_red_shot_s": -1.0, "blue_rounds": 0, "red_rounds": 0, "defensive_rounds": 0, "helicopter_observations": false, "unknown_seen": false, "classified_seen": false}
 var policy := "escort"
 var capture := false
 var host: Unit
@@ -79,7 +79,9 @@ func _run() -> void:
 		if facts["first_" + side + "_shot_s"] < 0:
 			facts["first_" + side + "_shot_s"] = clock.sim_time)
 	wm.interceptor_launched.connect(func(u: Unit, _spec: WeaponSpec, _w: Weapon, rounds: int) -> void:
-		if u.faction == "BLUE": facts.defensive_rounds += rounds)
+		if u.faction == "BLUE":
+			facts.defensive_rounds += rounds
+			if facts.first_defensive_shot_s < 0: facts.first_defensive_shot_s = clock.sim_time)
 	main.simulation.track_manager.track_added.connect(func(faction: String, t: Track) -> void:
 		if faction == "BLUE" and t.identity == "UNKNOWN": facts.unknown_seen = true)
 	main.simulation.track_manager.track_classified.connect(func(faction: String, t: Track) -> void:
@@ -115,7 +117,8 @@ func _run() -> void:
 		for t: Track in main.simulation.track_manager.get_tracks("BLUE"):
 			if t.contributors.has(helo): facts.helicopter_observations = true
 			if t.known_callsign != "": observed_names[t.known_callsign] = true
-		if capture and not shot_taken and float(facts.first_blue_shot_s) >= 0 and clock.sim_time >= float(facts.first_blue_shot_s) + 20 and not wm.in_flight.is_empty():
+		var engagement_at := float(facts.first_blue_shot_s) if facts.first_blue_shot_s >= 0 else float(facts.first_defensive_shot_s)
+		if capture and not shot_taken and engagement_at >= 0 and clock.sim_time >= engagement_at + 5 and not wm.in_flight.is_empty():
 			main.map.select_units([frigate])
 			await _shot("engagement")
 			shot_taken = true
@@ -137,7 +140,8 @@ func _run() -> void:
 	checks["debrief includes civilians and observed timeline"] = main._report._body.text.contains("CIVILIAN INCIDENTS") and main._report._body.text.contains("OBSERVED EVENT TIMELINE")
 	if policy == "escort":
 		checks["investigation precedes incoming fire"] = facts.first_red_shot_s > 120
-		checks["real player and opposing weapons fired"] = facts.blue_rounds > 0 and facts.red_rounds > 0
+		checks["real defensive exchange occurred"] = facts.defensive_rounds > 0 and facts.red_rounds > 0
+		checks["escort withheld unsafe shots near held civilians"] = facts.held_fire_for_civilians
 		checks["reconnaissance updated the shared picture"] = facts.helicopter_observations
 		checks["reconnaissance airframe returned alive"] = helo.alive and helo.completed_sorties == 1
 		checks["detection and classification both occurred"] = facts.unknown_seen and facts.classified_seen
@@ -172,9 +176,24 @@ func _drive_orders() -> void:
 		for w: WeaponSpec in frigate.weapons:
 			if w.type != "asm" or not Combat.check_engagement(frigate, w, t).ok:
 				continue
+			if policy == "escort" and not _clear_civilian_corridor(t, w):
+				facts.held_fire_for_civilians = true
+				continue
 			if _order(frigate, Order.engage(t, w.id, mini(4, frigate.magazine_count(w.id)))):
 				fired_at[t.id] = clock.sim_time
 				return
+
+## A protective escort does not fire a searching missile through charted civilian traffic.
+## Use held reports and their error bounds only; a hostile label is not a precise range fix.
+## The separate civilian policy deliberately ignores this precaution and must still lose.
+func _clear_civilian_corridor(target: Track, weapon: WeaponSpec) -> bool:
+	var aim := Combat.intercept_point(frigate.position, weapon.speed_kn, target.position, target.course_deg, target.speed_kn, target.has_kinematics)
+	for held: Track in main.simulation.track_manager.tracks_for(frigate):
+		if held.identity != "NEUTRAL" or held.status == Track.Status.LOST: continue
+		var closest := Geometry2D.get_closest_point_to_segment(held.position, frigate.position, aim)
+		var margin := weapon.acquisition_radius_nm() + target.position_error_nm + held.position_error_nm
+		if held.position.distance_to(closest) <= margin: return false
+	return true
 
 func _order(u: Unit, order: Order) -> bool:
 	var accepted := main.simulation.unit_manager.issue_order(u, order)

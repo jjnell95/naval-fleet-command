@@ -558,6 +558,8 @@ func _asw_aircraft(can_hover := false, dipping_sonar := false) -> Unit:
 	a.spec.cruise_speed_kn = 150.0
 	a.spec.cruise_altitude_m = 400.0
 	a.spec.max_altitude_m = 6000.0
+	a.spec.altitude_rate_m_s = 8.0
+	a.spec.accel_kn_s = 2.0
 	a.spec.can_hover = can_hover
 	a.spec.sonobuoy_count = 16
 	a.spec.sonobuoy_sensitivity_nm = 15.0
@@ -644,10 +646,14 @@ func test_dipping_search_resumes_its_next_leg_after_listening() -> void:
 	a.waypoints.clear()
 	h.ai.tick(200.0)
 	h.ai.tick(201.0)
-	assert_near(a.ordered_speed_kn, 0.0, 0.01, "a helicopter with a dipping set stops to listen at the station")
-	assert_true(a.ordered_altitude_m <= Unit.HOVER_ALTITUDE_M, "the transducer can be lowered only from low hover")
-	var after_dip := 202.0 + AIController.DIP_DURATION_S
-	h.ai.tick(after_dip)
+	assert_true(a.dip_phase != DippingSonar.Phase.STOWED, "the crew explicitly starts a deployment cycle")
+	assert_true(not DippingSonar.listening(a), "positioning does not hear instantly")
+	var after_dip := 201.0
+	for second in 700:
+		Movement.step(a, 1.0)
+		after_dip += 1.0
+		h.ai.tick(after_dip)
+		if a.dip_phase == DippingSonar.Phase.STOWED and not a.waypoints.is_empty(): break
 	assert_true(not a.waypoints.is_empty(), "dip completion restores the next search leg")
 	if not a.waypoints.is_empty():
 		var next_station := a.waypoints[0]

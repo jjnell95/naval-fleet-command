@@ -16,6 +16,7 @@ const QUEUED := "QUEUED"
 const LAUNCHING := "LAUNCHING"
 const TRANSITING := "TRANSITING"
 const ON_STATION := "ON STATION"
+const DIPPING := "SONAR CYCLE"
 const INVESTIGATING := "INVESTIGATING"
 const ENGAGING := "ENGAGING"
 const REFUELLING := "REFUELLING"
@@ -102,7 +103,7 @@ func summary() -> String:
 	if not active:
 		return "%s · %s" % [kind_name(), ended_reason.to_lower()]
 	var parts := PackedStringArray()
-	for state in [ON_STATION, TRANSITING, INVESTIGATING, ENGAGING, LAUNCHING, REFUELLING, HOLDING, RETURNING, RECOVERING, QUEUED]:
+	for state in [ON_STATION, DIPPING, TRANSITING, INVESTIGATING, ENGAGING, LAUNCHING, REFUELLING, HOLDING, RETURNING, RECOVERING, QUEUED]:
 		var n := count_in(state)
 		if n > 0:
 			parts.append("%d %s" % [n, state.to_lower()])

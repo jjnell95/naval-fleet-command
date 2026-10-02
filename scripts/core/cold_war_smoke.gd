@@ -157,7 +157,7 @@ static func run(main: Main) -> void:
 	main._run_palette_action("air_operations")
 	await main.get_tree().process_frame
 	checks["air operations opens launch controls"] = main._air_operations.visible and SimClock.paused
-	main._close_air_operations(false)
+	main._close_air_operations()
 	checks["air operations closes without unpausing"] = not main._air_operations.visible and SimClock.paused
 	main._unhandled_key_input(_key(KEY_H))
 	checks["H shows the key commands and pauses"] = main._key_help.visible and SimClock.paused

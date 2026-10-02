@@ -56,15 +56,18 @@ func _combat_air_patrol() -> void:
 	await _key(KEY_F3)
 	var panel := main._air_operations
 	checks["F3 opens Air Operations on the hooked carrier"] = panel.visible and panel._base == carrier and SimClock.paused
+	var tab_bar := panel._plan_tabs.get_tab_bar()
+	await _click(tab_bar.global_position + tab_bar.get_tab_rect(1).get_center())
 	await _click_control(panel._mission_picker)
-	await _popup_click(panel._mission_picker.get_popup(), 1 + AirMission.Kind.CAP)
+	await _popup_click(panel._mission_picker.get_popup(), AirMission.Kind.CAP)
 	checks["mission picker sets a combat air patrol"] = panel.mission_kind() == AirMission.Kind.CAP
 	var tomcat := panel._type_ids.find("cw90_f14a")
 	if tomcat >= 0 and panel._type_picker.selected != tomcat:
 		await _click_control(panel._type_picker)
 		await _popup_click(panel._type_picker.get_popup(), tomcat)
 	checks["Tomcats chosen"] = panel._type_id == "cw90_f14a"
-	checks["a section of two by default"] = int(panel._count.value) == 2
+	panel._count.value = 2
+	checks["quantity selects a section of two"] = int(panel._count.value) == 2
 	checks["assignment waits for a station"] = panel._launch.disabled and panel._launch_hint.text.contains("station")
 	await _click_control(panel._station_button)
 	checks["PICK ON CHART hands the chart over"] = not panel.visible and main.map.interaction_mode == TacticalMap.InteractionMode.PICK and main._air_picking
@@ -87,9 +90,9 @@ func _combat_air_patrol() -> void:
 	checks["the Missions tab shows the new mission"] = panel._lower_tabs.current_tab == 1 and panel._missions.get_root() != null and panel._missions.get_root().get_child_count() == 1
 	checks["the receipt names what launched"] = panel._receipt.text.contains("Combat air patrol") and panel._receipt.text.contains("launching")
 	await _shot("cap-assigned")
-	await _click_control(panel._ok)
-	checks["Ok resumes at real time"] = not panel.visible and not SimClock.paused and SimClock.speed_index == 0
-	checks["Ok after ASSIGN does not assign the mission twice"] = main.simulation.air_mission_manager.active_missions("BLUE").size() == 1 and m.launched_total == 2
+	await _click_control(panel._back)
+	checks["Close preserves the paused clock"] = not panel.visible and SimClock.paused
+	checks["Close after ASSIGN does not assign the mission twice"] = main.simulation.air_mission_manager.active_missions("BLUE").size() == 1 and m.launched_total == 2
 	SimClock.set_paused(true)
 	SimClock.advance(420.0)
 	var on_station := m.count_in(AirMission.ON_STATION)

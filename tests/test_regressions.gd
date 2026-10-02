@@ -190,7 +190,11 @@ func test_dipping_sonar_hears_nothing_in_cruise_flight() -> void:
 	assert_near(Detection.torpedo_detection_nm(helo, torpedo), 0.0, 0.001, "no torpedo heard in cruise")
 	helo.altitude_m = 20.0
 	helo.speed_kn = 0.0
-	assert_true(helo.is_hovering(), "now in the dip")
+	assert_true(helo.is_hovering(), "hover alone does not deploy sonar")
+	assert_near(Detection.active_sonar_detection_nm(helo, red), 0.0, 0.001)
+	helo.apply_order(Order.deploy_dipping_sonar())
+	Movement.step(helo, 1.0)
+	Movement.step(helo, DippingSonar.LOWER_S)
 	assert_true(Detection.active_sonar_detection_nm(helo, red) > 0.0, "the dipping set hears the ping once in the water")
 	assert_true(Detection.torpedo_detection_nm(helo, torpedo) > 0.0, "and a torpedo")
 	Detection.set_environment({})

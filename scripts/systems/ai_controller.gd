@@ -536,6 +536,8 @@ func _is_asw_airframe(u: Unit) -> bool:
 ## Aircraft climb for reach and drop down to work. A dipping set has to be in the water, so the
 ## helicopter comes down and stops.
 func _manage_altitude(u: Unit, working: bool) -> void:
+	if u.dip_phase != DippingSonar.Phase.STOWED:
+		return
 	if not u.airborne():
 		return
 	var wanted := u.spec.cruise_altitude_m
@@ -699,9 +701,7 @@ func _do_air_search(u: Unit, b: Dictionary, now: float) -> void:
 	var has_datum := anchor != Vector2.INF
 	if not has_datum:
 		anchor = u.home.position if u.home != null else u.position
-	if now < float(b.get("dip_until", -1.0)):
-		_manage_altitude(u, true)
-		_command(u, b, u.heading_deg, 0.0, now)
+	if u.dip_phase != DippingSonar.Phase.STOWED:
 		return
 	# Resume the next leg once, after the dip. Issuing it before stopping cleared the
 	# waypoint again on the following tick and trapped helicopters at their first station.
@@ -719,11 +719,8 @@ func _do_air_search(u: Unit, b: Dictionary, now: float) -> void:
 	var leg := anchor + Geo.heading_to_vector(bearing) * _search_radius(u, has_datum)
 	if index > 0:
 		_lay_search_buoy(u, b, now)
-	if u.spec.can_hover and u.has_sonar() and index > 0 and not Terrain.is_land(u.position):
-		b["dip_until"] = now + DIP_DURATION_S
+	if index > 0 and unit_manager.issue_order(u, Order.deploy_dipping_sonar(DIP_DURATION_S)):
 		b["after_dip"] = leg
-		_manage_altitude(u, true)
-		_command(u, b, u.heading_deg, 0.0, now)
 		return
 	_manage_altitude(u, false)
 	_move_to(u, b, leg, now)
@@ -749,9 +746,9 @@ func _prosecute(u: Unit, b: Dictionary, t: Track, range_nm: float, now: float) -
 	if over_water and u.sonobuoys > 0 and range_nm <= BUOY_DROP_RANGE_NM and now - float(b.get("last_buoy", -10000.0)) > BUOY_INTERVAL_S:
 		b["last_buoy"] = now
 		unit_manager.issue_order(u, Order.deploy_sonobuoy())
-	if over_water and u.spec.can_hover and u.has_sonar() and range_nm <= DIP_STANDOFF_NM:
-		_manage_altitude(u, true)
-		_command(u, b, u.heading_deg, 0.0, now)  # stop and listen
+	if over_water and DippingSonar.capable(u) and range_nm <= DIP_STANDOFF_NM:
+		if u.dip_phase == DippingSonar.Phase.STOWED:
+			unit_manager.issue_order(u, Order.deploy_dipping_sonar(DIP_DURATION_S))
 		return
 	_manage_altitude(u, false)
 	_move_to(u, b, t.position, now)
