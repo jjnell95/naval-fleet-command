@@ -1,7 +1,7 @@
 {
   "id": "med_01_tartus",
   "name": "EASTERN MEDITERRANEAN: THE TARTUS LINE",
-  "description": "Mistral must reach a holding box south of Cyprus with the Charles de Gaulle group screening her, on a sea lane full of neutral traffic. The Russian Mediterranean squadron is at sea between you and the Syrian coast: the frigate Admiral Grigorovich with Kalibr, a Buyan-M, the Kilo Krasnodar, Su-34s and Su-35s at Khmeimim under an S-400 umbrella, and a Bastion battery above Tartus. Typhoons and a Poseidon fly from Akrotiri. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
+  "description": "Mistral must reach a holding box south of Cyprus with the Charles de Gaulle group screening her, on a sea lane full of neutral traffic. The Russian Mediterranean squadron is at sea between you and the Syrian coast: the frigate Admiral Grigorovich with Kalibr, a Buyan-M, the Kilo Krasnodar, Su-34s and Su-35s at Khmeimim under an S-400 umbrella, and a Bastion battery above Tartus. Typhoons and a Poseidon fly from Akrotiri. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This operation reacts to what each side sees: raid timing, enemy readiness, contact reports and tasking change from one engagement to the next. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-10-06T04:10:00",
   "player_faction": "BLUE",
   "map": {
@@ -6570,7 +6570,7 @@
               -24.0
             ]
           ],
-          "ready_after_s": 2400
+          "ready_after_s": 5400
         },
         {
           "platform": "rfn_fighter_su35s",
@@ -6605,7 +6605,7 @@
               -6.0
             ]
           ],
-          "ready_after_s": 2400
+          "ready_after_s": 5400
         },
         {
           "platform": "rfn_mpa_il38n",
@@ -6641,6 +6641,7 @@
       ],
       "heading_deg": 0,
       "speed_kn": 0,
+      "radar_on": false,
       "aviation_reload_cycles": 2
     },
     {
@@ -6739,28 +6740,12 @@
     "Suffren goes east first, to find Krasnodar before Krasnodar finds Mistral.",
     "The Bastion battery reaches 130 miles when it has a track. Stay outside its radar, or make sure nothing else is giving it one.",
     "Provence and Suffren carry MdCN. Once the battery shows itself on the plot it can be struck from far outside its reach, through the S-400.",
-    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
+    "F1 lists the operation sequence, live task progress and tasking updates. Contact reports go on the plot as wide datums to investigate; they are never firing solutions."
   ],
   "setting_note": "A fictional October 2027 crisis. Real geography, real class and unit names; the deployment and the engagement are invented.",
   "objectives": {
-    "text": "Hold Andrea Doria on station while AEW and fighter cover go up. Keep Mistral behind the screen. Strike aircraft become ready in separate elements. Use the finite Exocet and fighter stocks deliberately. Keep Mistral in the holding box for five minutes after arrival. Civilian losses remain unacceptable.",
+    "text": "Get AEW and fighter cover up and keep Mistral behind the screen. Her progress east is what Khmeimim is watching. Strike aircraft come in separate elements and not always from the same side of Cyprus. If the Bastion battery shows itself, the holding box can move. Keep Mistral in the holding box for five minutes after arrival. Civilian losses remain unacceptable.",
     "victory": [
-      {
-        "id": "establish_screen",
-        "type": "hold_area",
-        "callsigns": [
-          "ITS Andrea Doria (D 553)"
-        ],
-        "center_nm": [
-          -81.6862,
-          3.0
-        ],
-        "radius_nm": 15,
-        "count": 1,
-        "seconds": 300,
-        "phase_only": true,
-        "text": "Keep ITS Andrea Doria (D 553) within 15 nm of its opening station for five continuous minutes"
-      },
       {
         "id": "holding_box",
         "type": "reach_area",
@@ -6773,9 +6758,6 @@
         ],
         "radius_nm": 8,
         "text": "Mistral reached the holding box",
-        "after": [
-          "establish_screen"
-        ],
         "phase_only": true
       },
       {
@@ -6790,11 +6772,11 @@
         ],
         "radius_nm": 8,
         "text": "Hold the required vessels in the destination box for five continuous minutes",
+        "phase_only": false,
+        "seconds": 300,
         "after": [
           "holding_box"
-        ],
-        "phase_only": false,
-        "seconds": 300
+        ]
       }
     ],
     "loss": [
@@ -6813,17 +6795,17 @@
     ]
   },
   "forces": "France/Italy/UK: 1 carrier (air group det), 1 amphibious ship, 1 destroyer, 1 frigate, 1 submarine, Akrotiri det  ·  Russia: 1 frigate, 1 missile corvette, 1 submarine, Khmeimim strike and patrol det, coastal battery and SAM site  ·  Neutral traffic",
-  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
-  "operation_revision": 25,
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 26,
   "collection": "operations",
   "operation_plan": [
     {
       "title": "01 / Cover the amphibious group",
-      "task": "Hold Andrea Doria on station while AEW and fighter cover go up. Keep Mistral behind the screen."
+      "task": "Get AEW and fighter cover up and keep Mistral behind the screen. Her progress east is what Khmeimim is watching."
     },
     {
       "title": "02 / Cross the threat axis",
-      "task": "Strike aircraft become ready in separate elements. Use the finite Exocet and fighter stocks deliberately."
+      "task": "Strike aircraft come in separate elements and not always from the same side of Cyprus. If the Bastion battery shows itself, the holding box can move."
     },
     {
       "title": "03 / Secure the holding area",
@@ -6832,12 +6814,180 @@
   ],
   "events": [
     {
-      "id": "screen_orders",
-      "after": [
-        "establish_screen"
+      "id": "strike_axis",
+      "side": "RED",
+      "at_s": 0,
+      "variants": [
+        {
+          "id": "direct",
+          "ai": [
+            {
+              "units": [
+                "Fullback 21",
+                "Fullback 22",
+                "Fullback 23",
+                "Fullback 24"
+              ],
+              "patrol_nm": [
+                [
+                  39.6,
+                  12.0
+                ],
+                [
+                  -19.8,
+                  -24.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "north_of_cyprus",
+          "ai": [
+            {
+              "units": [
+                "Fullback 21",
+                "Fullback 22",
+                "Fullback 23",
+                "Fullback 24"
+              ],
+              "patrol_nm": [
+                [
+                  30.0,
+                  90.0
+                ],
+                [
+                  -60.0,
+                  80.0
+                ],
+                [
+                  -50.0,
+                  -10.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "from_the_south",
+          "ai": [
+            {
+              "units": [
+                "Fullback 21",
+                "Fullback 22",
+                "Fullback 23",
+                "Fullback 24"
+              ],
+              "patrol_nm": [
+                [
+                  40.0,
+                  -40.0
+                ],
+                [
+                  -20.0,
+                  -45.0
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "khmeimim_surge",
+      "side": "RED",
+      "at_s": 0,
+      "when": {
+        "type": "reach_area",
+        "callsigns": [
+          "FS Mistral (L 9013)"
+        ],
+        "center_nm": [
+          -40.0,
+          -28.0
+        ],
+        "radius_nm": 12,
+        "count": 1
+      },
+      "latest_s_window": [
+        2400,
+        4200
       ],
-      "at_s": 300,
-      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+      "ready": [
+        {
+          "host": "Khmeimim Air Base",
+          "platform": "su34",
+          "ready_after_s": 300
+        },
+        {
+          "host": "Khmeimim Air Base",
+          "platform": "su35s",
+          "ready_after_s": 300
+        }
+      ]
+    },
+    {
+      "id": "surge_intercept",
+      "chance": 0.7,
+      "after": [
+        "khmeimim_surge"
+      ],
+      "message": "Akrotiri intercepts: Khmeimim is arming its second strike element."
+    },
+    {
+      "id": "bastion_located",
+      "when": {
+        "type": "emitting",
+        "callsigns": [
+          "Tartus coastal battery"
+        ]
+      },
+      "intel": [
+        {
+          "target": "Tartus coastal battery",
+          "error_nm": 4,
+          "source": "Akrotiri ELINT"
+        }
+      ],
+      "objectives": {
+        "update": {
+          "holding_box": {
+            "center_nm": [
+              -24.9014,
+              -33.0
+            ],
+            "text": "Mistral reached the moved holding box"
+          },
+          "holding_box_handover": {
+            "center_nm": [
+              -24.9014,
+              -33.0
+            ]
+          }
+        }
+      },
+      "message": "TASKING UPDATE: ELINT has the Bastion battery radiating near {pos}, accuracy about 4 nm. Mistral's holding box moves 15 nm west, to 33°51.0′N 33°17.8′E, outside its reach. The five-minute hold counts in the new box."
+    },
+    {
+      "id": "kilo_report",
+      "at_s_window": [
+        900,
+        2400
+      ],
+      "unless": {
+        "type": "all_units_lost",
+        "callsigns": [
+          "Krasnodar (B-265)"
+        ]
+      },
+      "intel": [
+        {
+          "target": "Krasnodar (B-265)",
+          "error_nm": 6,
+          "source": "RAF Poseidon"
+        }
+      ],
+      "message": "An RAF Poseidon reports a possible snorkel near {pos}, accuracy about 6 nm, on Mistral's side of the lane."
     }
   ]
 }

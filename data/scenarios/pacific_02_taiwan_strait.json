@@ -1,7 +1,7 @@
 {
   "id": "pacific_02_taiwan_strait",
   "name": "TAIWAN STRAIT: THE PICKET LINE",
-  "description": "Ronald Reagan, Robert Smalls, the Flight III destroyer Jack H. Lucas and Rafael Peralta hold a picket east of Taiwan while a PLAN surface group led by the Type 055 Nanchang works south along the Ryukyu chain. Two Japanese destroyers extend the line to the north-east. A bomber raid is already airborne from the mainland, a KJ-500 is directing it, a coastal battery on the Fujian shore covers the strait itself, and a ballistic-missile battery inland will fire at anything the network classifies. Five hours of watch; the carrier and the cruiser must survive them. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
+  "description": "Ronald Reagan, Robert Smalls, the Flight III destroyer Jack H. Lucas and Rafael Peralta hold a picket east of Taiwan while a PLAN surface group led by the Type 055 Nanchang works south along the Ryukyu chain. Two Japanese destroyers extend the line to the north-east. A bomber raid is already airborne from the mainland, a KJ-500 is directing it, a coastal battery on the Fujian shore covers the strait itself, and a ballistic-missile battery inland will fire at anything the network classifies. Five hours of watch; the carrier and the cruiser must survive them. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This operation reacts to what each side sees: raid timing, enemy readiness, contact reports and tasking change from one engagement to the next. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-04-07T21:30:00",
   "player_faction": "BLUE",
   "map": {
@@ -33499,7 +33499,7 @@
               0.0
             ]
           ],
-          "ready_after_s": 2400
+          "ready_after_s": 5400
         },
         {
           "platform": "pla_aew_kj500",
@@ -33610,46 +33610,24 @@
     "Launch a Hawkeye and a Lightning section early; the picture is worth more than the missiles.",
     "Keep the Aegis ships between the group and the north-east, where the H-6Js and the Type 055 both are. Robert Smalls and Maya carry the SM-3s; Jack H. Lucas the SM-6s. That is the ballistic-missile defence.",
     "Everything west of Taiwan is inside the Pingtan battery's reach. The carrier does not go there.",
-    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
+    "F1 lists the operation sequence, live task progress and tasking updates. Contact reports go on the plot as wide datums to investigate; they are never firing solutions."
   ],
   "setting_note": "A fictional April 2027 crisis in the Western Pacific. Real geography, real class names; the deployment and the engagement are invented.",
   "victory_mode": "all",
   "objectives": {
-    "text": "Hold Robert Smalls on station while Hawkeye, CAP and the electronic-attack section build the picture. Bomber elements arrive in separate waves. Protect the eastern pickets while the carrier cycles its larger air wing. Complete the five-hour watch and recover at least one aircraft. A surface kill alone does not cancel the air threat.",
+    "text": "Put Hawkeye, CAP and the electronic-attack section up early; the KJ-500 holding the carrier is what brings the next raid and the next fighters. Bomber elements arrive in separate waves and not always on the same axis. Protect the eastern pickets while the carrier cycles its larger air wing. Complete the five-hour watch and recover at least one aircraft. A surface kill alone does not cancel the air threat.",
     "victory": [
-      {
-        "id": "establish_screen",
-        "type": "hold_area",
-        "callsigns": [
-          "USS Robert Smalls (CG 62)"
-        ],
-        "center_nm": [
-          101.4035,
-          -27.0
-        ],
-        "radius_nm": 15,
-        "count": 1,
-        "seconds": 300,
-        "phase_only": true,
-        "text": "Keep USS Robert Smalls (CG 62) within 15 nm of its opening station for five continuous minutes"
-      },
       {
         "id": "hold_watch",
         "type": "time_elapsed",
         "seconds": 18000,
-        "text": "Complete the 5-hour watch",
-        "after": [
-          "establish_screen"
-        ]
+        "text": "Complete the 5-hour watch"
       },
       {
         "id": "recover_air_plan",
         "type": "aircraft_recovered",
         "faction": "BLUE",
         "count": 1,
-        "after": [
-          "establish_screen"
-        ],
         "text": "Recover at least one aircraft after a sortie"
       }
     ],
@@ -33668,17 +33646,17 @@
     ]
   },
   "forces": "US/Japan: 1 carrier (fictional 59-aircraft wing), 1 cruiser, 1 Flight III and 1 Flight IIA destroyer, 2 JMSDF destroyers, 1 submarine, Kadena det  ·  PLAN: 1 Type 055, 1 Type 052D, 1 Type 054A, 1 replenishment ship, 1 submarine, 4 H-6J in two raid elements, Huian fighter and early-warning det, 2 coastal batteries  ·  Neutral shipping",
-  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
-  "operation_revision": 25,
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 26,
   "collection": "operations",
   "operation_plan": [
     {
       "title": "01 / Establish the picket",
-      "task": "Hold Robert Smalls on station while Hawkeye, CAP and the electronic-attack section build the picture."
+      "task": "Put Hawkeye, CAP and the electronic-attack section up early; the KJ-500 holding the carrier is what brings the next raid and the next fighters."
     },
     {
       "title": "02 / Meet the follow-on strike",
-      "task": "Bomber elements arrive in separate waves. Protect the eastern pickets while the carrier cycles its larger air wing."
+      "task": "Bomber elements arrive in separate waves and not always on the same axis. Protect the eastern pickets while the carrier cycles its larger air wing."
     },
     {
       "title": "03 / Recover the air plan",
@@ -33687,64 +33665,188 @@
   ],
   "events": [
     {
-      "id": "screen_orders",
-      "after": [
-        "establish_screen"
-      ],
-      "at_s": 300,
-      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
-    },
-    {
       "id": "follow_on_raid",
-      "at_s": 2400,
-      "reinforcements": [
+      "side": "RED",
+      "at_s_window": [
+        1200,
+        2400
+      ],
+      "when": {
+        "type": "track_held",
+        "faction": "RED",
+        "callsigns": [
+          "USS Ronald Reagan (CVN 76)"
+        ],
+        "min_classification": "CLASS_KNOWN"
+      },
+      "latest_s_window": [
+        3000,
+        4500
+      ],
+      "variants": [
         {
-          "platform": "pla_bomber_h6j",
-          "callsign": "Badger 3",
-          "faction": "RED",
-          "position_nm": [
-            -389.1704,
-            351.6
-          ],
-          "heading_deg": 135,
-          "speed_kn": 430,
-          "patrol_nm": [
-            [
-              120.588,
-              24.0
-            ],
-            [
-              109.6255,
-              -24.0
-            ]
-          ],
-          "ai_posture": "breakout",
-          "aviation_reload_cycles": 2
+          "id": "northern_axis",
+          "reinforcements": [
+            {
+              "platform": "pla_bomber_h6j",
+              "callsign": "Badger 3",
+              "faction": "RED",
+              "position_nm": [
+                -389.1704,
+                351.6
+              ],
+              "heading_deg": 135,
+              "speed_kn": 430,
+              "patrol_nm": [
+                [
+                  120.588,
+                  24.0
+                ],
+                [
+                  109.6255,
+                  -24.0
+                ]
+              ],
+              "ai_posture": "breakout",
+              "aviation_reload_cycles": 2
+            },
+            {
+              "platform": "pla_bomber_h6j",
+              "callsign": "Badger 4",
+              "faction": "RED",
+              "position_nm": [
+                -380.9485,
+                356.4
+              ],
+              "heading_deg": 135,
+              "speed_kn": 430,
+              "patrol_nm": [
+                [
+                  120.588,
+                  24.0
+                ],
+                [
+                  109.6255,
+                  -24.0
+                ]
+              ],
+              "ai_posture": "breakout",
+              "aviation_reload_cycles": 2
+            }
+          ]
         },
         {
-          "platform": "pla_bomber_h6j",
-          "callsign": "Badger 4",
-          "faction": "RED",
-          "position_nm": [
-            -380.9485,
-            356.4
-          ],
-          "heading_deg": 135,
-          "speed_kn": 430,
-          "patrol_nm": [
-            [
-              120.588,
-              24.0
-            ],
-            [
-              109.6255,
-              -24.0
-            ]
-          ],
-          "ai_posture": "breakout",
-          "aviation_reload_cycles": 2
+          "id": "southern_axis",
+          "reinforcements": [
+            {
+              "platform": "pla_bomber_h6j",
+              "callsign": "Badger 3",
+              "faction": "RED",
+              "position_nm": [
+                -369.1704,
+                -120.0
+              ],
+              "heading_deg": 135,
+              "speed_kn": 430,
+              "patrol_nm": [
+                [
+                  0.0,
+                  -60.0
+                ],
+                [
+                  109.6,
+                  -24.0
+                ]
+              ],
+              "ai_posture": "breakout",
+              "aviation_reload_cycles": 2
+            },
+            {
+              "platform": "pla_bomber_h6j",
+              "callsign": "Badger 4",
+              "faction": "RED",
+              "position_nm": [
+                -360.9485,
+                -128.0
+              ],
+              "heading_deg": 135,
+              "speed_kn": 430,
+              "patrol_nm": [
+                [
+                  0.0,
+                  -60.0
+                ],
+                [
+                  109.6,
+                  -24.0
+                ]
+              ],
+              "ai_posture": "breakout",
+              "aviation_reload_cycles": 2
+            }
+          ]
         }
       ]
+    },
+    {
+      "id": "huian_second_element",
+      "side": "RED",
+      "at_s": 0,
+      "when": {
+        "type": "track_held",
+        "faction": "RED",
+        "callsigns": [
+          "USS Ronald Reagan (CVN 76)"
+        ],
+        "min_classification": "CLASS_KNOWN"
+      },
+      "latest_s_window": [
+        2400,
+        4200
+      ],
+      "ready": [
+        {
+          "host": "Huian Air Base",
+          "platform": "j16",
+          "ready_after_s": 600
+        }
+      ]
+    },
+    {
+      "id": "group_report",
+      "at_s_window": [
+        900,
+        2100
+      ],
+      "unless": {
+        "type": "all_units_lost",
+        "callsigns": [
+          "Nanchang (101)",
+          "Xi'an (153)"
+        ]
+      },
+      "intel": [
+        {
+          "target": "Nanchang (101)",
+          "error_nm": 20,
+          "source": "Kadena P-8"
+        }
+      ],
+      "objectives": {
+        "add": [
+          {
+            "id": "surface_group",
+            "type": "all_units_lost",
+            "callsigns": [
+              "Nanchang (101)",
+              "Xi'an (153)"
+            ],
+            "optional": true,
+            "text": "Neutralize Nanchang and Xi'an"
+          }
+        ]
+      },
+      "message": "TASKING UPDATE: Kadena's P-8 reports the PLAN surface group near {pos}, accuracy about 20 nm, working south. Neutralizing Nanchang and Xi'an is a bonus task; the five-hour watch is still the mission."
     }
   ]
 }

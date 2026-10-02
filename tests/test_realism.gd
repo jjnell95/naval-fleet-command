@@ -47,7 +47,7 @@ func test_hormuz_needs_two_tankers_through_and_only_own_fire_on_neutrals_fails_i
 	var h := _mission("gulf_01_hormuz")
 	h[1].tick(0)
 	h[1].tick(300)
-	var transit: MissionObjective = h[1].victory_objectives[1]
+	var transit: MissionObjective = h[1].objective("transit")
 	_find(h[0], "MT Gulf Horizon").position = transit.center
 	h[1].tick(301)
 	assert_true(not transit.complete, "one tanker is not the convoy")

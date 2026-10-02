@@ -13,11 +13,11 @@
   "first_orders": [
     "Launch the E-2C Hawkeye, then a pair of F-14A+ Tomcats from Eisenhower.",
     "Send the Hawkeye and fighters northeast of the group; keep Bunker Hill's radar on.",
-    "Reserve SM-2 for leakers and recall aircraft before fuel exhaustion. No task requires chasing the cruiser into its missile envelope.",
-    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
+    "Reserve SM-2 for leakers and recall aircraft before fuel exhaustion. The Intruders can strike Slava from outside her SA-N-6 once she is located and classified; that is a bonus, not the task.",
+    "F1 lists the operation sequence, live task progress and tasking updates. Contact reports go on the plot as wide datums to investigate; they are never firing solutions."
   ],
   "historical_note": "Alternate history, 1990. Real geography and period platform families; the conflict, deployments and named civilian traffic are fictional. See the period notes in the platform library.",
-  "description": "18 September 1990, Norwegian Sea. A fictional crisis has brought Eisenhower north and a Soviet cruiser into the Norwegian Sea. Two Backfire-C aircraft approach in separate raid elements from the northeast with conventional Kh-22 missiles. The carrier has a small playable detachment of Tomcats, Hawkeye, Vikings and Sea Kings. Airborne radar buys warning time; the screen must stop any missiles that get through the fighter patrol. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
+  "description": "18 September 1990, Norwegian Sea. A fictional crisis has brought Eisenhower north and a Soviet cruiser into the Norwegian Sea. Backfire-C aircraft approach in separate raid elements from the northeast with conventional Kh-22 missiles. The carrier has a small playable detachment of Tomcats, Hawkeyes, Vikings, Sea Kings and four Harpoon-armed Intruders. Airborne radar buys warning time; the screen must stop any missiles that get through the fighter patrol. This operation reacts to what each side sees: raid timing, enemy readiness, contact reports and tasking change from one engagement to the next. Consult the operation sequence before deployment.",
   "start_time_utc": "1990-09-18T04:45:00",
   "player_faction": "BLUE",
   "neutral_factions": [
@@ -292,6 +292,20 @@
           "ready_after_s": 1200
         },
         {
+          "platform": "cw90_a6e",
+          "count": 2,
+          "callsign": "Intruder",
+          "first_modex": 501,
+          "ready_after_s": 0
+        },
+        {
+          "platform": "cw90_a6e",
+          "count": 2,
+          "callsign": "Intruder",
+          "first_modex": 503,
+          "ready_after_s": 2400
+        },
+        {
           "platform": "cw90_s3a",
           "count": 4,
           "callsign": "Viking",
@@ -375,43 +389,21 @@
     }
   ],
   "victory_mode": "all",
-  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
   "objectives": {
-    "text": "Keep Bunker Hill on the opening station while launching Hawkeye and a Tomcat section. A second Backfire element may follow the first. Keep reserve fighters and the point-defence layer available. Complete the two-hour watch and recover at least one aircraft. A carrier or cruiser loss still ends the operation.",
+    "text": "Get the Hawkeye and a Tomcat section up toward the threat axis. The raids keep no timetable: a second element follows once the enemy holds the group, or when it is provoked. The four Intruders can put Harpoons into Slava from outside her SA-N-6 once she is located and classified. Alert, she shoots down most of a small salvo, so strike with all four; a hit brings the next raid at once, and every catapult and recovery slot the strike uses is one the Tomcats cannot. Complete the two-hour watch and recover at least one aircraft. A carrier or cruiser loss still ends the operation.",
     "victory": [
-      {
-        "id": "establish_screen",
-        "type": "hold_area",
-        "callsigns": [
-          "USS Bunker Hill (CG 52)"
-        ],
-        "center_nm": [
-          -7.8327,
-          -5.4
-        ],
-        "radius_nm": 15,
-        "count": 1,
-        "seconds": 300,
-        "phase_only": true,
-        "text": "Keep USS Bunker Hill (CG 52) within 15 nm of its opening station for five continuous minutes"
-      },
       {
         "id": "watch",
         "type": "time_elapsed",
         "text": "Complete the watch with protected units intact",
-        "seconds": 7200,
-        "after": [
-          "establish_screen"
-        ]
+        "seconds": 7200
       },
       {
         "id": "recover_air_plan",
         "type": "aircraft_recovered",
         "faction": "BLUE",
         "count": 1,
-        "after": [
-          "establish_screen"
-        ],
         "text": "Recover at least one aircraft after a sortie"
       }
     ],
@@ -427,7 +419,7 @@
       }
     ]
   },
-  "forces": "NATO: Eisenhower, Bunker Hill, Spruance; F-14A+, E-2C, S-3A, SH-3H and SH-60B / USSR: Slava, 2 Backfire-C",
+  "forces": "NATO: Eisenhower, Bunker Hill, Spruance; F-14A+, E-2C, A-6E, S-3A, SH-3H and SH-60B / USSR: Slava, Backfire-C raid elements",
   "terrain": {
     "land": [
       {
@@ -25925,16 +25917,16 @@
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
   },
-  "operation_revision": 25,
+  "operation_revision": 26,
   "collection": "operations",
   "operation_plan": [
     {
       "title": "01 / Build the air picture",
-      "task": "Keep Bunker Hill on the opening station while launching Hawkeye and a Tomcat section."
+      "task": "Get the Hawkeye and a Tomcat section up toward the threat axis. The raids keep no timetable: a second element follows once the enemy holds the group, or when it is provoked."
     },
     {
-      "title": "02 / Fight successive raids",
-      "task": "A second Backfire element may follow the first. Keep reserve fighters and the point-defence layer available."
+      "title": "02 / Fight the raids or strike the cruiser",
+      "task": "The four Intruders can put Harpoons into Slava from outside her SA-N-6 once she is located and classified. Alert, she shoots down most of a small salvo, so strike with all four; a hit brings the next raid at once, and every catapult and recovery slot the strike uses is one the Tomcats cannot."
     },
     {
       "title": "03 / Recover and reset",
@@ -25943,37 +25935,304 @@
   ],
   "events": [
     {
-      "id": "screen_orders",
-      "after": [
-        "establish_screen"
-      ],
-      "at_s": 300,
-      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+      "id": "slava_station",
+      "side": "RED",
+      "at_s": 0,
+      "variants": [
+        {
+          "id": "inshore",
+          "ai": [
+            {
+              "units": [
+                "Slava"
+              ],
+              "patrol_nm": [
+                [
+                  47.0,
+                  24.0
+                ],
+                [
+                  94.0,
+                  66.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "northern",
+          "ai": [
+            {
+              "units": [
+                "Slava"
+              ],
+              "patrol_nm": [
+                [
+                  60.0,
+                  70.0
+                ],
+                [
+                  100.0,
+                  90.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eastern",
+          "ai": [
+            {
+              "units": [
+                "Slava"
+              ],
+              "patrol_nm": [
+                [
+                  70.0,
+                  0.0
+                ],
+                [
+                  110.0,
+                  30.0
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "raid_ingress",
+      "side": "RED",
+      "at_s": 0,
+      "variants": [
+        {
+          "id": "direct",
+          "ai": [
+            {
+              "units": [
+                "Backfire raid 1"
+              ],
+              "patrol_nm": [
+                [
+                  4.5,
+                  3.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "from_the_north",
+          "ai": [
+            {
+              "units": [
+                "Backfire raid 1"
+              ],
+              "patrol_nm": [
+                [
+                  40.0,
+                  150.0
+                ],
+                [
+                  4.5,
+                  3.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "from_the_east",
+          "ai": [
+            {
+              "units": [
+                "Backfire raid 1"
+              ],
+              "patrol_nm": [
+                [
+                  150.0,
+                  90.0
+                ],
+                [
+                  4.5,
+                  3.0
+                ]
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "follow_on_raid",
-      "at_s": 2400,
-      "reinforcements": [
+      "side": "RED",
+      "at_s_window": [
+        900,
+        1800
+      ],
+      "when": {
+        "type": "any",
+        "of": [
+          {
+            "type": "track_held",
+            "faction": "RED",
+            "callsigns": [
+              "USS Dwight D. Eisenhower (CVN 69)"
+            ],
+            "min_classification": "CLASS_KNOWN"
+          },
+          {
+            "type": "unit_damaged",
+            "callsigns": [
+              "Slava"
+            ],
+            "health_below": 0.95
+          }
+        ]
+      },
+      "latest_s_window": [
+        2700,
+        3600
+      ],
+      "variants": [
         {
-          "platform": "cw90_tu22m3",
-          "callsign": "Backfire raid 2",
-          "faction": "RED",
-          "position_nm": [
-            114.1343,
-            202.8
-          ],
-          "heading_deg": 215,
-          "speed_kn": 490,
-          "patrol_nm": [
-            [
-              4.4759,
-              3.0
-            ]
-          ],
-          "ai_posture": "breakout",
-          "aviation_reload_cycles": 2
+          "id": "north_single",
+          "weight": 2,
+          "reinforcements": [
+            {
+              "platform": "cw90_tu22m3",
+              "callsign": "Backfire raid 2",
+              "faction": "RED",
+              "position_nm": [
+                114.1343,
+                202.8
+              ],
+              "heading_deg": 215,
+              "speed_kn": 490,
+              "patrol_nm": [
+                [
+                  4.4759,
+                  3.0
+                ]
+              ],
+              "ai_posture": "breakout",
+              "aviation_reload_cycles": 2
+            }
+          ]
+        },
+        {
+          "id": "north_pair",
+          "weight": 1,
+          "reinforcements": [
+            {
+              "platform": "cw90_tu22m3",
+              "callsign": "Backfire raid 2",
+              "faction": "RED",
+              "position_nm": [
+                114.1343,
+                202.8
+              ],
+              "heading_deg": 215,
+              "speed_kn": 490,
+              "patrol_nm": [
+                [
+                  4.4759,
+                  3.0
+                ]
+              ],
+              "ai_posture": "breakout",
+              "aviation_reload_cycles": 2
+            },
+            {
+              "platform": "cw90_tu22m3",
+              "callsign": "Backfire raid 3",
+              "faction": "RED",
+              "position_nm": [
+                118.0,
+                206.0
+              ],
+              "heading_deg": 215,
+              "speed_kn": 490,
+              "patrol_nm": [
+                [
+                  4.5,
+                  3.0
+                ]
+              ],
+              "ai_posture": "breakout",
+              "aviation_reload_cycles": 2
+            }
+          ]
+        },
+        {
+          "id": "east_single",
+          "weight": 2,
+          "reinforcements": [
+            {
+              "platform": "cw90_tu22m3",
+              "callsign": "Backfire raid 2",
+              "faction": "RED",
+              "position_nm": [
+                230.0,
+                60.0
+              ],
+              "heading_deg": 215,
+              "speed_kn": 490,
+              "patrol_nm": [
+                [
+                  4.5,
+                  3.0
+                ]
+              ],
+              "ai_posture": "breakout",
+              "aviation_reload_cycles": 2
+            }
+          ]
         }
       ]
+    },
+    {
+      "id": "cruiser_report",
+      "at_s_window": [
+        300,
+        900
+      ],
+      "unless": {
+        "type": "all_units_lost",
+        "callsigns": [
+          "Slava"
+        ]
+      },
+      "intel": [
+        {
+          "target": "Slava",
+          "error_nm": 15,
+          "source": "Norwegian P-3 Orion"
+        }
+      ],
+      "ready": [
+        {
+          "host": "USS Dwight D. Eisenhower (CVN 69)",
+          "platform": "cw90_a6e",
+          "ready_after_s": 600
+        }
+      ],
+      "objectives": {
+        "add": [
+          {
+            "id": "strike_slava",
+            "type": "unit_damaged",
+            "callsigns": [
+              "Slava"
+            ],
+            "optional": true,
+            "text": "Put a Harpoon into Slava",
+            "health_below": 0.85
+          }
+        ]
+      },
+      "message": "TASKING UPDATE: a Norwegian Orion reports a Soviet cruiser, probably Slava, near {pos}, accuracy about 15 nm. She carries sixteen Bazalts. The reserve Intruders are being readied: a Harpoon hit on her is a bonus task, and the air-defence watch is still the mission."
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "id": "aegis_bastion",
   "name": "NORTH CAPE — BALLISTIC MISSILE DEFENCE",
-  "description": "A fictional mixed missile raid threatens the carrier and replenishment ship north of the North Cape. A Flight III destroyer and a legacy BMD cruiser provide the principal defensive layers. Preserve the protected ships for four hours. Interception and flight profiles are game abstractions; interceptor suitability still matters. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This expanded operation has staged tasks, finite aviation reload stocks and reserve readiness. Consult the operation sequence before deployment.",
+  "description": "A fictional mixed missile raid threatens the carrier and replenishment ship north of the North Cape. A Flight III destroyer and a legacy BMD cruiser provide the principal defensive layers. Preserve the protected ships for four hours. Interception and flight profiles are game abstractions; interceptor suitability still matters. Real geography and real platform families; the conflict, the deployment and the tactical situation are fiction. This operation reacts to what each side sees: raid timing, enemy readiness, contact reports and tasking change from one engagement to the next. Consult the operation sequence before deployment.",
   "start_time_utc": "2027-03-19T11:05:00",
   "player_faction": "BLUE",
   "map": {
@@ -22000,7 +22000,7 @@
               42.0
             ]
           ],
-          "ready_after_s": 2400
+          "ready_after_s": 5400
         },
         {
           "platform": "rfn_fighter_su35s",
@@ -22015,7 +22015,7 @@
           "squadron": "Scenario air detachment",
           "callsign": "Flanker",
           "first_modex": 43,
-          "ready_after_s": 2400
+          "ready_after_s": 5400
         },
         {
           "platform": "rfn_uav_orlan10",
@@ -22068,6 +22068,7 @@
   "neutral_factions": [
     "NEUTRAL"
   ],
+  "seed": 27,
   "theatre": "Barents Sea",
   "year": 2027,
   "difficulty": "Advanced",
@@ -22079,44 +22080,22 @@
     "Jack H. Lucas and Gettysburg are the ballistic-missile defence layer. Station them between the group and the Kola.",
     "Launch the Hawkeyes early so the Kinzhal carriers are seen before they release.",
     "The Kilo is inside the screen. The Seahawks hunt her while the Aegis ships look up.",
-    "Hold the named opening station for five minutes; F1 lists the operation sequence and live task progress."
+    "F1 lists the operation sequence, live task progress and tasking updates. Contact reports go on the plot as wide datums to investigate; they are never firing solutions."
   ],
   "objectives": {
-    "text": "Hold Jack H. Lucas on the opening station. Keep the carrier farther back and build airborne warning. Ballistic and low-altitude threats require different interceptors. The point-defence layer keeps its own allowance. Complete the four-hour watch and recover an aircraft. Launch reserve sections as the ready deck empties.",
+    "text": "Put Jack H. Lucas and Gettysburg between the group and the Kola and get airborne warning up. Keep the carrier and Maud farther back. Ballistic and low-altitude threats require different interceptors. The second Kinzhal element comes when Monchegorsk is ready, sooner if its ships are hit or its picture finds the carrier. Complete the four-hour watch and recover an aircraft. Launch reserve sections as the ready deck empties.",
     "victory": [
-      {
-        "id": "establish_screen",
-        "type": "hold_area",
-        "callsigns": [
-          "USS Jack H. Lucas (DDG 125)"
-        ],
-        "center_nm": [
-          58.6023,
-          18.0
-        ],
-        "radius_nm": 15,
-        "count": 1,
-        "seconds": 300,
-        "phase_only": true,
-        "text": "Keep USS Jack H. Lucas (DDG 125) within 15 nm of its opening station for five continuous minutes"
-      },
       {
         "id": "hold_watch",
         "type": "time_elapsed",
         "seconds": 14400,
-        "text": "Complete the 4-hour watch",
-        "after": [
-          "establish_screen"
-        ]
+        "text": "Complete the 4-hour watch"
       },
       {
         "id": "recover_air_plan",
         "type": "aircraft_recovered",
         "faction": "BLUE",
         "count": 1,
-        "after": [
-          "establish_screen"
-        ],
         "text": "Recover at least one aircraft after a sortie"
       }
     ],
@@ -22134,17 +22113,17 @@
     ]
   },
   "forces": "NATO: 1 carrier (fictional 59-aircraft wing), 1 BMD cruiser, 2 destroyers, 1 frigate, 1 replenishment ship, 1 submarine  ·  Russia: 1 frigate, 1 corvette, 1 submarine, Monchegorsk fighter regiment",
-  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 24-aircraft fleet-defence detachment, not a complete historical strike wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
-  "operation_revision": 25,
+  "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
+  "operation_revision": 26,
   "collection": "operations",
   "operation_plan": [
     {
-      "title": "01 / Establish the radar picket",
-      "task": "Hold Jack H. Lucas on the opening station. Keep the carrier farther back and build airborne warning."
+      "title": "01 / Build the picket",
+      "task": "Put Jack H. Lucas and Gettysburg between the group and the Kola and get airborne warning up. Keep the carrier and Maud farther back."
     },
     {
       "title": "02 / Defend the force",
-      "task": "Ballistic and low-altitude threats require different interceptors. The point-defence layer keeps its own allowance."
+      "task": "Ballistic and low-altitude threats require different interceptors. The second Kinzhal element comes when Monchegorsk is ready, sooner if its ships are hit or its picture finds the carrier."
     },
     {
       "title": "03 / Reset for another strike",
@@ -22153,12 +22132,165 @@
   ],
   "events": [
     {
-      "id": "screen_orders",
-      "after": [
-        "establish_screen"
+      "id": "surface_group_axis",
+      "side": "RED",
+      "at_s": 0,
+      "variants": [
+        {
+          "id": "coastal",
+          "ai": [
+            {
+              "units": [
+                "Admiral Kasatonov (461)"
+              ],
+              "patrol_nm": [
+                [
+                  70.3,
+                  12.0
+                ],
+                [
+                  156.3,
+                  -42.0
+                ]
+              ]
+            },
+            {
+              "units": [
+                "Soobrazitelny (531)"
+              ],
+              "patrol_nm": [
+                [
+                  86.0,
+                  0.0
+                ],
+                [
+                  168.0,
+                  -54.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "northern",
+          "ai": [
+            {
+              "units": [
+                "Admiral Kasatonov (461)"
+              ],
+              "patrol_nm": [
+                [
+                  90.0,
+                  50.0
+                ],
+                [
+                  150.0,
+                  10.0
+                ]
+              ]
+            },
+            {
+              "units": [
+                "Soobrazitelny (531)"
+              ],
+              "patrol_nm": [
+                [
+                  100.0,
+                  45.0
+                ],
+                [
+                  160.0,
+                  0.0
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kinzhal_second_element",
+      "side": "RED",
+      "at_s": 0,
+      "latest_s_window": [
+        1800,
+        3300
       ],
-      "at_s": 300,
-      "message": "Screen established. Continue the operation sequence in F1; maintain coverage while aircraft cycle."
+      "when": {
+        "type": "any",
+        "of": [
+          {
+            "type": "unit_damaged",
+            "callsigns": [
+              "Admiral Kasatonov (461)",
+              "Soobrazitelny (531)"
+            ],
+            "health_below": 0.9
+          },
+          {
+            "type": "track_held",
+            "faction": "RED",
+            "callsigns": [
+              "USS Dwight D. Eisenhower (CVN 69)"
+            ],
+            "min_classification": "CLASS_KNOWN"
+          }
+        ]
+      },
+      "ready": [
+        {
+          "host": "Monchegorsk Air Base",
+          "platform": "mig31k",
+          "ready_after_s": 300
+        },
+        {
+          "host": "Monchegorsk Air Base",
+          "platform": "su35s",
+          "ready_after_s": 300
+        }
+      ]
+    },
+    {
+      "id": "kinzhal_intercept",
+      "chance": 0.7,
+      "after": [
+        "kinzhal_second_element"
+      ],
+      "message": "Intercept: Monchegorsk is arming a second Kinzhal element and its escort. Expect ballistic rounds within the next half hour."
+    },
+    {
+      "id": "kilo_report",
+      "at_s_window": [
+        600,
+        2100
+      ],
+      "unless": {
+        "type": "all_units_lost",
+        "callsigns": [
+          "Kaluga (B-800)"
+        ]
+      },
+      "intel": [
+        {
+          "target": "Kaluga (B-800)",
+          "error_nm": 8,
+          "source": "Norwegian P-3C"
+        }
+      ],
+      "objectives": {
+        "add": [
+          {
+            "id": "sink_kaluga",
+            "type": "all_units_lost",
+            "callsigns": [
+              "Kaluga (B-800)"
+            ],
+            "optional": true,
+            "text": "Sink the Kilo inside the screen"
+          }
+        ]
+      },
+      "message": "TASKING UPDATE: a Norwegian P-3C reports a snorkelling submarine, probably the Kilo, near {pos}, accuracy about 8 nm, inside the screen. Sinking her is a bonus task; Maud and the carrier are still the mission."
     }
   ]
 }

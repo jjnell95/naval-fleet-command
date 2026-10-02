@@ -275,7 +275,7 @@ def red_air_regiment(bombers=0, foxhounds=0, flankers=0, mpa=0, orion=0, orlan=0
 def bmd_picket():
     s = Scenario("aegis_bastion", "NORTH CAPE — BALLISTIC MISSILE DEFENCE", 71.0, 26.0, 340, 7,
                  sea_state=3, wind_kn=15, visibility_nm=9, start="2027-03-19T11:05:00",
-                 neutral_factions=["NEUTRAL"],
+                 neutral_factions=["NEUTRAL"], seed=27,
                  description=('A fictional mixed missile raid threatens the carrier and replenishment ship north of the North Cape. A Flight III destroyer and a legacy BMD cruiser provide the principal defensive layers. Preserve the protected ships for four hours. Interception and flight profiles are game abstractions; interceptor suitability still matters.'))
     s.meta("Barents Sea", "Advanced", 30, "Air and missile defence commander",
            "Layered defence of a carrier and an auxiliary against ballistic and cruise missiles, interceptor suitability and finite magazines",
@@ -317,7 +317,7 @@ def bmd_picket():
 
 def carrier_qualification():
     s = Scenario("carrier_qualification", "CARRIER QUALIFICATION / AIR OPERATIONS", 67.2, 12.4, 150, 11,
-                 sea_state=2, wind_kn=8, visibility_nm=16, start="2027-03-14T09:00:00",
+                 sea_state=2, wind_kn=8, visibility_nm=16, start="2027-03-14T09:00:00", seed=31,
                  description=("A fictional allied aviation exercise off Bodo with no opposing force. "
                               "Open AIR F3, choose a carrier or airfield, select an aircraft type and launch count, "
                               "then Execute & Resume. Once airborne, reopen Air Operations, choose an airframe "

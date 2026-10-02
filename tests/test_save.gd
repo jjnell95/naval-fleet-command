@@ -8,7 +8,10 @@ const CARRIER_WATCH := "res://data/scenarios/cold_war_03_carrier.json"
 const PASSAGE := "res://data/scenarios/northern_passage.json"
 const IKE := "USS Dwight D. Eisenhower (CVN 69)"
 const SAVE_AT := 601.75  # off the one- and two-second cycle boundaries, so every phase matters
-const COMPARE_AT := 2460.0  # after the follow-on raid scheduled at 2400 s
+const COMPARE_AT := 2460.0  # after the follow-on raid and the cruiser report this seed draws
+## Carrier Watch's draw with rounds in the air and shots queued at the save, the Norwegian report on
+## Slava still to come, and the second Backfire element sent by RED's own plot of the carrier.
+const CONTINUATION_SEED := 13
 
 var _sim: Simulation
 var _scratch := "user://test-saves-%d" % OS.get_process_id()
@@ -79,7 +82,7 @@ func _write_and_read(snapshot: Dictionary) -> Dictionary:
 
 
 func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
-	_fresh(CARRIER_WATCH, 31)
+	_fresh(CARRIER_WATCH, CONTINUATION_SEED)
 	_play_to_save_point()
 	assert_eq(SimClock.sim_time, SAVE_AT)
 	# What the save has to carry, present at the moment it is taken.
@@ -89,12 +92,16 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	assert_true(_sim.unit_manager.units.any(func(u: Unit) -> bool: return u.alive and u.is_aircraft() and (u.returning or u.flight_state == Unit.FlightState.RECOVERING)), "an aircraft on its way back to the deck")
 	assert_true(_sim.unit_manager.units.any(func(u: Unit) -> bool: return u.alive and (u.attack_track != null or u.investigation_track != null)), "a crew on a temporary task")
 	assert_true(not _sim.completed_events.has("follow_on_raid"), "the follow-on raid is still to come")
+	assert_true(not _sim.completed_events.has("cruiser_report"), "and the contact report with its tasking update")
+	var latest := float(_sim.director.event("follow_on_raid")["latest_s"])
 	assert_true(not _sim.air_mission_manager.active_missions("BLUE").is_empty(), "air missions flying")
 	var saved := _write_and_read(SimSnapshot.capture(_sim))
 	SimClock.advance(COMPARE_AT - SAVE_AT)
 	var expected := _bytes()
 	var expected_result := _sim.mission_manager.result
 	assert_true(_sim.completed_events.has("follow_on_raid"), "the uninterrupted battle saw the raid")
+	assert_true(float(_sim.completed_events["follow_on_raid"]) < latest, "sent by RED's plot of the carrier, not by its latest time")
+	assert_true(_sim.mission_manager.objective("strike_slava") != null, "the report added its bonus task")
 	_free()
 	# A different seed: the restore must replace every random stream, not continue this one's.
 	_fresh(CARRIER_WATCH, 999)
@@ -102,7 +109,9 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	assert_eq(SimClock.sim_time, SAVE_AT, "the clock resumes at the saved tick")
 	SimClock.advance(COMPARE_AT - SAVE_AT)
 	var got := _bytes()
-	assert_true(_sim.completed_events.has("follow_on_raid"), "the scheduled raid still arrives after a reload")
+	assert_true(_sim.completed_events.has("follow_on_raid"), "the triggered raid still arrives after a reload")
+	assert_true(float(_sim.completed_events["follow_on_raid"]) < latest, "on the same trigger")
+	assert_true(_sim.mission_manager.objective("strike_slava") != null, "the tasking update is made after a reload")
 	assert_eq(_sim.mission_manager.result, expected_result)
 	if got != expected:
 		failures.append("continuation differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
