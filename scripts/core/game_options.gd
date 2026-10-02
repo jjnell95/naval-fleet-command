@@ -27,8 +27,9 @@ const SECTION := "gameplay"
 const AUDIO_SECTION := "audio"
 const NORMAL_SCALES: Array[float] = [1.0, 2.0, 5.0, 10.0, 30.0, 60.0]  # SimClock.SPEEDS
 ## The Classic time ladder, slowest first; its last step is the ceiling, and every menu, key board
-## and description reads it from here, so another ceiling (an earlier brief also proposed 8×) is
-## the one-line change [1.0, 2.0, 4.0, 8.0].
+## and description reads it from here. The 1999 manual's top setting was labelled 4x but ran at
+## "eight times real time" (its 3x ran at four); this follows the brief's 4× of real time, and the
+## original's rate is the one-line change [1.0, 2.0, 4.0, 8.0].
 const CLASSIC_SCALES: Array[float] = [1.0, 2.0, 4.0]
 const CLASSIC_CEILING: float = CLASSIC_SCALES[-1]
 ## The single options, in menu order; "" is a separator. Shared by the desk's OPTIONS menu, the
