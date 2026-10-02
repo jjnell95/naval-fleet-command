@@ -12,10 +12,11 @@ extends RefCounted
 ## quietly break them. Restore writes fields directly and emits no signals: nothing is "detected",
 ## "launched" or "added" a second time, and the observed journal is not replayed.
 ##
-## Units, tracks, weapons, air missions and buoys are saved by reflection over their script
-## variables, less the few each class lists below with the reason. tests/test_save.gd fails when a
-## class gains a variable that is neither saved nor listed, so new state cannot silently fall out
-## of a save. Managers list the fields they save explicitly, under the same test.
+## Units, tracks, weapons, air missions, buoys and the opposing force's mission plans are saved by
+## reflection over their script variables, less the few each class lists below with the reason.
+## tests/test_save.gd fails when a class gains a variable that is neither saved nor listed, so new
+## state cannot silently fall out of a save. Managers list the fields they save explicitly, under
+## the same test.
 ##
 ## Scenario-editor files are mission definitions; this is a running engagement, and embeds the
 ## scenario it was started from, so an edited or deleted mission file cannot break a continuation.
@@ -31,6 +32,8 @@ const TRACK_SKIP := {}
 const WEAPON_SKIP := {}
 const MISSION_SKIP := {}
 const BUOY_SKIP := {}
+## An AI mission plan (AIPlan), saved whole: what the author wrote and how far its commander has got.
+const PLAN_SKIP := {}
 
 ## Manager state saved by name. Anything else a manager holds is wiring (manager references set
 ## once in Simulation._ready), catalogue data, or recomputed within a single tick.
@@ -43,7 +46,7 @@ const MANAGER_FIELDS := {
 	"AviationManager": ["_accum", "_next_buoy_id"],
 	"AirMissionManager": ["now_s", "_next_id", "_accum"],
 	"MissionManager": ["result"],
-	"AIController": ["enabled", "_bb"],
+	"AIController": ["enabled", "_bb", "_plan_checked"],
 }
 ## Manager variables that are deliberately not saved, and why.
 const MANAGER_TRANSIENT := {
@@ -55,7 +58,9 @@ const MANAGER_TRANSIENT := {
 	"AviationManager": ["unit_manager", "sonobuoys", "map_center", "map_extent_nm"],
 	"AirMissionManager": ["unit_manager", "aviation_manager", "track_manager", "missions"],
 	"MissionManager": ["unit_manager", "player_faction", "briefing", "situation", "victory_objectives", "loss_objectives", "victory_mode", "neutral_factions"],
-	"AIController": ["faction", "unit_manager", "track_manager", "threat_manager", "weapon_manager", "air_mission_manager", "_cycle_inbound", "_cycle_committed", "_cycle_torpedoes", "_in_decision_cycle"],
+	# `plans` is rebuilt from the embedded scenario when the controller is, then each plan is filled
+	# from its saved record (capture, restore): plans are records, not plain manager data.
+	"AIController": ["faction", "unit_manager", "track_manager", "threat_manager", "weapon_manager", "air_mission_manager", "plans", "_cycle_inbound", "_cycle_committed", "_cycle_torpedoes", "_in_decision_cycle"],
 }
 ## A mission objective's progress; the rest of it is rebuilt from the embedded scenario.
 const OBJECTIVE_FIELDS := ["complete", "unlocked", "held_since", "held_seconds"]
@@ -206,7 +211,11 @@ static func capture(sim: Simulation) -> Dictionary:
 		managers[_manager_name(node)] = manager_fields(node, refs)
 	var ai := []
 	for faction: String in sim.ai_controllers:
-		ai.append([faction, manager_fields(sim.ai_controllers[faction], refs)])
+		var c: AIController = sim.ai_controllers[faction]
+		var plans := []
+		for p in c.plans:
+			plans.append(fields_of(p, PLAN_SKIP, refs))
+		ai.append([faction, manager_fields(c, refs), plans])
 	var missions := []
 	for m in sim.air_mission_manager.missions:
 		missions.append(fields_of(m, MISSION_SKIP, refs))
@@ -431,6 +440,7 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 			refs.errors.append("no AI for %s" % faction)
 			continue
 		_fill_manager(c, entry[1], refs)
+		_restore_plans(c, entry[2] if entry.size() > 2 else [], refs)
 		ordered[faction] = c
 	for faction: String in sim.ai_controllers:
 		if not ordered.has(faction):
@@ -457,6 +467,22 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 	SimClock.reset(int(clock["start_unix_time"]))
 	SimClock.sim_time = float(clock["sim_time"])
 	return "" if refs.errors.is_empty() else "Saved engagement could not be restored: " + ", ".join(refs.errors)
+
+
+## A controller's plans were just rebuilt from the embedded scenario (allocation); each is filled
+## from the record saved under its id. A save written before plans were saved has no records and
+## leaves them as the scenario sets them up.
+static func _restore_plans(c: AIController, saved: Array, refs: Refs) -> void:
+	for d: Dictionary in saved:
+		var plan: AIPlan = null
+		for p in c.plans:
+			if p.id == str(d.get("id", "")):
+				plan = p
+				break
+		if plan == null:
+			refs.errors.append("no AI plan %s for %s" % [d.get("id", "?"), c.faction])
+			continue
+		_fill(plan, d, refs)
 
 
 static func _fill(obj: Object, data: Dictionary, refs: Refs) -> void:

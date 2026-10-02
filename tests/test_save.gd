@@ -6,6 +6,7 @@ extends TestCase
 
 const CARRIER_WATCH := "res://data/scenarios/cold_war_03_carrier.json"
 const PASSAGE := "res://data/scenarios/northern_passage.json"
+const PLAN_FIXTURE := "res://tests/fixtures/ai_plan_carrier.json"
 const IKE := "USS Dwight D. Eisenhower (CVN 69)"
 const SAVE_AT := 601.75  # off the one- and two-second cycle boundaries, so every phase matters
 const COMPARE_AT := 2460.0  # after the follow-on raid scheduled at 2400 s
@@ -131,6 +132,55 @@ func test_continuation_after_damage_matches_the_uninterrupted_battle() -> void:
 	var got := _bytes()
 	if got != expected:
 		failures.append("continuation differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
+	_free()
+
+
+## An opposing force pursuing a mission plan (tests/fixtures/ai_plan_carrier.json), saved twice:
+## while its scout is still looking, so the reload crosses the moment the carrier is classified and
+## the strike's weapons-free window; and in the first volley, with rounds flying and queued, so it
+## crosses the shared assessment that holds every striker. Each must carry on as if never saved.
+func test_continuation_of_an_enemy_mission_plan_matches_the_uninterrupted_battle() -> void:
+	_fresh(PLAN_FIXTURE, 11)
+	var plan: AIPlan = _sim.ai_controllers["RED"].plans[0]
+	SimClock.advance(150.75)
+	assert_eq(plan.phase, AIPlan.Phase.RECON, "the scout is looking at the first save")
+	assert_true(_unit("Backfire Scout").airborne())
+	var searching := _write_and_read(SimSnapshot.capture(_sim))
+	SimClock.advance(900.0 - 150.75)
+	var expected_found := _bytes()
+	assert_eq(plan.phase, AIPlan.Phase.ATTACK, "the carrier was found and the window has run")
+	assert_true(plan.weapons_free)
+	while plan.salvos == 0 and SimClock.sim_time < 3000.0:
+		SimClock.advance(0.25)
+	SimClock.advance(2.75)  # off the one- and two-second cycle boundaries
+	var at := SimClock.sim_time
+	assert_true(plan.salvos > 0, "the strike has fired by the second save")
+	assert_true(at < float(plan.volley_until.get(plan.target_track_id, -1.0)), "the volley is still open")
+	assert_true(not _sim.weapon_manager._pending.is_empty() or not _sim.weapon_manager.in_flight.is_empty(), "rounds on the way")
+	var striking := SimSnapshot.capture(_sim)
+	SimClock.advance(500.0)
+	var expected_struck := _bytes()
+	_free()
+	_fresh(PLAN_FIXTURE, 999)
+	assert_eq(_sim.restore_snapshot(searching), "")
+	plan = _sim.ai_controllers["RED"].plans[0]
+	assert_eq(plan.phase, AIPlan.Phase.RECON)
+	assert_true(plan.members.has(_unit("Otlichny")) and plan.members.has(_unit("Backfire Scout")), "members come back as the units in the list")
+	SimClock.advance(900.0 - 150.75)
+	var got := _bytes()
+	if got != expected_found:
+		failures.append("continuation from the search differs: %s" % _first_difference(bytes_to_var(expected_found), bytes_to_var(got), ""))
+	_free()
+	_fresh(PLAN_FIXTURE, 5)
+	assert_eq(_sim.restore_snapshot(striking), "")
+	plan = _sim.ai_controllers["RED"].plans[0]
+	assert_true(_sim.track_manager.get_tracks("RED").has(plan.target), "the plan's target is the track in its side's own picture")
+	assert_true(plan.weapons_free and plan.salvos > 0, "the strike's progress comes back")
+	assert_true(not plan.assessing(plan.target_track_id, at) and plan.assessing(plan.target_track_id, at + AIPlan.VOLLEY_S + 1.0), "the open volley, and the shared assessment after it")
+	SimClock.advance(500.0)
+	got = _bytes()
+	if got != expected_struck:
+		failures.append("continuation from the volley differs: %s" % _first_difference(bytes_to_var(expected_struck), bytes_to_var(got), ""))
 	_free()
 
 
@@ -271,7 +321,7 @@ func test_save_files_reject_garbage_and_stay_in_their_own_storage() -> void:
 ## reason, so state added later cannot silently fall out of a save.
 func test_every_simulation_field_is_saved_or_declared_transient() -> void:
 	_fresh(CARRIER_WATCH, 31)
-	for pair: Array in [[Unit.new(), SimSnapshot.UNIT_SKIP], [Track.new(), SimSnapshot.TRACK_SKIP], [Weapon.new(), SimSnapshot.WEAPON_SKIP], [AirMission.new(), SimSnapshot.MISSION_SKIP], [Sonobuoy.new(), SimSnapshot.BUOY_SKIP]]:
+	for pair: Array in [[Unit.new(), SimSnapshot.UNIT_SKIP], [Track.new(), SimSnapshot.TRACK_SKIP], [Weapon.new(), SimSnapshot.WEAPON_SKIP], [AirMission.new(), SimSnapshot.MISSION_SKIP], [Sonobuoy.new(), SimSnapshot.BUOY_SKIP], [AIPlan.new(), SimSnapshot.PLAN_SKIP]]:
 		# Reflective classes: everything is saved except what the skip list names, and the skip
 		# list names only real fields.
 		var names := SimSnapshot.script_variables(pair[0])
