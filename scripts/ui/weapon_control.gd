@@ -311,12 +311,18 @@ func _planned_rounds() -> int:
 	return rounds
 
 
-## The platform a group order is given to: the first hooked one still able to fight.
+## The platform a group order is given to: the first hooked one still able to fight, an armed one
+## if there is one, since the lead answers for the group on the net.
 func _group_lead() -> Unit:
+	var first: Unit = null
 	for u: Unit in units:
-		if u.alive and u.is_engageable():
+		if not u.alive or not u.is_engageable():
+			continue
+		if not u.weapons.is_empty():
 			return u
-	return null
+		if first == null:
+			first = u
+	return first
 
 
 ## The board's plan as the group's first volley: [platform, weapon, contact index, rounds] rows.

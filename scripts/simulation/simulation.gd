@@ -199,7 +199,10 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			o.execution_accepted = weapon_manager.cancel_salvo(u, o.track) > 0 or o.stopped_attack or withdrew
 		Order.Type.ENGAGE:
 			var spec := u.get_weapon(o.weapon_id)
-			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time, o.group_id)
+			# Only the group manager's own crew orders spend from a group's budget; an ENGAGE from
+			# the commander or the AI is always the platform's own fire.
+			var group := o.group_id if o.origin == "crew" else -1
+			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time, group)
 		Order.Type.LAUNCH_AIRCRAFT:
 			if o.aircraft_count > 1:
 				# A section flies one type. The lead names it, so a mixed hangar does not put a

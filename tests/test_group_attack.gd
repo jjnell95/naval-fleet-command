@@ -344,6 +344,10 @@ func test_individual_fire_still_works_beside_a_group() -> void:
 	assert_true(_sim.unit_manager.issue_order(nansen, Order.engage(t, NSM, 2)), "even at the group's own contact")
 	assert_eq(_spent(g), 4, "its own rounds are not the group's")
 	assert_eq(wm.faction_commitment("BLUE", t), 6, "but the side counts every round at the contact")
+	var tagged := Order.engage(t, NSM, 1)
+	tagged.group_id = g.id
+	assert_true(_sim.unit_manager.issue_order(nansen, tagged))
+	assert_eq(_spent(g), 4, "only the group's own crew orders spend from its budget")
 	var own_queued := wm.committed_rounds(ignatius, tomahawk, other, true)
 	var nansen_own_queued := wm.committed_rounds(nansen, nsm, t, true) - wm.group_rounds(g.id, "", true, nansen)
 	assert_true(_sim.unit_manager.issue_order(ignatius, Order.cancel_group_attack(g.id)))
