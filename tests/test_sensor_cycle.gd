@@ -9,6 +9,7 @@ extends TestCase
 
 const HORMUZ := "res://data/scenarios/gulf_01_hormuz.json"
 const TARTUS := "res://data/scenarios/med_01_tartus.json"
+const PLAN_FIXTURE := "res://tests/fixtures/ai_plan_carrier.json"
 const ISLAND := {"id": "isle", "name": "Isle", "elevation_m": 300.0, "points_nm": [[8, -6], [16, -6], [16, 6], [8, 6]]}
 
 
@@ -295,7 +296,10 @@ func test_a_shared_sight_line_still_masks() -> void:
 	Detection.set_environment({})
 
 
-func _battle(path: String, seed_value: int, warm_s: float, compare_s: float) -> void:
+## `group_side`, when given, orders that side's ships into one group attack on two of its hostile
+## surface contacts the moment each run starts, so the group's shared budget and look are decided
+## inside the tick on the plot each path builds.
+func _battle(path: String, seed_value: int, warm_s: float, compare_s: float, group_side := "") -> void:
 	SimClock.set_paused(true)
 	var sim := Simulation.new()
 	sim.seed_override = seed_value
@@ -304,29 +308,60 @@ func _battle(path: String, seed_value: int, warm_s: float, compare_s: float) -> 
 	sim.ai_plays_player = true
 	sim._build_ai()
 	SimClock.advance(warm_s)
-	# Restored from bytes each time: a restore takes over the snapshot's arrays, so a snapshot
-	# restored once is no longer the moment it was taken.
-	var start := var_to_bytes(sim.capture_snapshot())
-	assert_eq(sim.restore_snapshot(bytes_to_var(start)), "")
+	# Restored twice from one snapshot held in memory: a restore copies what it takes, so the
+	# snapshot is still the moment it was taken.
+	var start := sim.capture_snapshot()
+	assert_eq(sim.restore_snapshot(start), "")
 	# The reference walks every sight line too, as the sensor cycle did before either shortcut.
 	sim.sensor_manager.reference_path = true
 	Terrain.height_shortcut = false
+	_order_group_attack(sim, group_side)
 	SimClock.advance(compare_s)
 	var reference := SimSnapshot.capture(sim)
-	assert_eq(sim.restore_snapshot(bytes_to_var(start)), "")
+	var group_rounds := _group_rounds(sim)
+	assert_eq(sim.restore_snapshot(start), "")
 	sim.sensor_manager.reference_path = false
 	Terrain.height_shortcut = true
+	_order_group_attack(sim, group_side)
 	SimClock.advance(compare_s * 0.5)
 	var middle := var_to_bytes(sim.capture_snapshot())
 	assert_eq(sim.restore_snapshot(bytes_to_var(middle)), "")
 	SimClock.advance(compare_s * 0.5)
 	var indexed := SimSnapshot.capture(sim)
 	assert_eq(_first_difference(reference, indexed, ""), "", "%s: the whole engagement identical" % path.get_file())
-	print("    %s: %d tracks, %d units" % [path.get_file(), (reference["tracks"] as Array).size(), (reference["units"] as Array).size()])
+	print("    %s: %d tracks, %d units, %d group rounds" % [path.get_file(), (reference["tracks"] as Array).size(), (reference["units"] as Array).size(), group_rounds])
 	assert_true((reference["tracks"] as Array).size() > 0, "the battle holds tracks")
+	if group_side != "":
+		assert_true(group_rounds > 0, "the group attack fired")
 	sim.unit_manager.clear()
 	sim.get_parent().remove_child(sim)
 	sim.free()
+
+
+func _order_group_attack(sim: Simulation, side: String) -> void:
+	if side == "":
+		return
+	var members: Array = []
+	for u: Unit in sim.unit_manager.get_faction_units(side):
+		if u.is_engageable() and not u.is_aircraft() and not u.weapons.is_empty():
+			members.append(u)
+	var targets: Array = []
+	for t: Track in sim.track_manager.get_tracks(side):
+		if t.domain == "surface" and t.identity == "HOSTILE" and t.status == Track.Status.ACTIVE and targets.size() < 2:
+			targets.append(t)
+	assert_true(members.size() >= 2 and not targets.is_empty(), "%d ships for a group attack on %d contacts" % [members.size(), targets.size()])
+	if members.is_empty() or targets.is_empty():
+		return
+	var order := Order.group_attack(members, targets, 6)
+	sim.unit_manager.issue_order(members[0], order)
+	assert_true(order.execution_accepted, "the group attack was accepted")
+
+
+func _group_rounds(sim: Simulation) -> int:
+	var fired := 0
+	for g: GroupAttack in sim.group_attack_manager.groups:
+		fired += g.fired_total
+	return fired
 
 
 ## Twenty-six units in a narrow strait: small craft, shore sites, a shallow layer and a coast.
@@ -337,3 +372,15 @@ func test_indexed_cycle_matches_the_reference_in_a_seeded_hormuz_battle() -> voi
 ## Fifteen units with aircraft, a convergence zone and a coast.
 func test_indexed_cycle_matches_the_reference_in_a_seeded_tartus_battle() -> void:
 	_battle(TARTUS, 7, 600.0, 300.0)
+
+
+## The opposing force's mission plan and the carrier raid it sends, deciding inside the tick on
+## the plot each path builds: the raid gets its missiles away at the carrier within the hour.
+func test_indexed_cycle_matches_the_reference_under_an_enemy_mission_plan() -> void:
+	_battle(PLAN_FIXTURE, 11, 900.0, 2400.0)
+
+
+## A coordinated group attack sharing one budget across two contacts, its look and its volleys
+## timed on each path's plot, saved and restored half way like the rest of the engagement.
+func test_indexed_cycle_matches_the_reference_through_a_group_attack() -> void:
+	_battle(HORMUZ, 45, 900.0, 600.0, "RED")
