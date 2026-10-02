@@ -47,6 +47,9 @@ var tasks: Dictionary = {}
 var launched_total := 0
 var completed_sorties := 0
 var active := true
+## Cancelled while airframes were still on the catapults: the mission stays open only to send them
+## home once they are in the air.
+var cancelled := false
 var ended_reason := ""
 ## The last thing worth telling the commander about this mission: a refusal, a partial launch,
 ## a queued deck, a target lost.

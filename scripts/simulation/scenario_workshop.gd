@@ -200,7 +200,7 @@ static func structural_problem(sc: Dictionary) -> String:
 			return "Every unit must be an object"
 		if unit.has("follow_route") and typeof(unit["follow_route"]) != TYPE_BOOL:
 			return "Unit follow_route must be true or false"
-		for key: String in ["callsign", "platform", "faction", "home", "formation_leader", "defence_policy"]:
+		for key: String in ["callsign", "platform", "faction", "home", "formation_leader", "defence_policy", "ai_plan", "ai_role"]:
 			if unit.has(key) and typeof(unit[key]) != TYPE_STRING:
 				return "Unit %s must be text" % key
 		for key: String in ["heading_deg", "speed_kn", "depth_m", "editor_arrival_s", "decoys", "torpedo_decoys"]:
@@ -225,7 +225,7 @@ static func structural_problem(sc: Dictionary) -> String:
 				return "An air-wing entry needs a platform and numeric count"
 			if typeof(wing.get("platform", "")) != TYPE_STRING or float(wing.get("count", 0)) < 0 or float(wing.get("count", 0)) != floor(float(wing.get("count", 0))):
 				return "An air-wing entry needs a platform and whole non-negative count"
-			var problem := structural_problem({"units": [{"callsign": "Air wing", "loadout": wing.get("loadout", {}), "patrol_nm": wing.get("patrol_nm", [])}]})
+			var problem := structural_problem({"units": [{"callsign": "Air wing", "loadout": wing.get("loadout", {}), "patrol_nm": wing.get("patrol_nm", []), "ai_plan": wing.get("ai_plan", ""), "ai_role": wing.get("ai_role", "")}]})
 			if problem != "":
 				return problem
 		if typeof(unit.get("patrol_nm", [])) != TYPE_ARRAY:
@@ -243,6 +243,16 @@ static func structural_problem(sc: Dictionary) -> String:
 		if not _valid_number(event.get("at_s", 0)) or float(event.get("at_s", 0)) < 0:
 			return "A reinforcement wave needs a non-negative arrival time"
 		var problem := structural_problem({"units": event.get("reinforcements", [])})
+		if problem != "":
+			return problem
+	# Opposing-force mission plans (AIPlan). The loader skips a malformed one with a warning; the
+	# editor refuses it, so an author finds out before the plan silently does nothing.
+	if typeof(sc.get("ai_plans", [])) != TYPE_ARRAY:
+		return "ai_plans must be an array"
+	for plan in sc.get("ai_plans", []):
+		if typeof(plan) != TYPE_DICTIONARY:
+			return "Every AI plan must be an object"
+		var problem := AIPlan.definition_problem(plan)
 		if problem != "":
 			return problem
 	if typeof(sc.get("terrain", {}).get("land", [])) != TYPE_ARRAY:
@@ -410,6 +420,59 @@ static func validate(sc: Dictionary) -> String:
 	for id: String in ids:
 		if _cycle(id, ids, {}):
 			return "Task prerequisites form a cycle"
+	return _plans_problem(sc, names, units)
+
+
+## Every opposing-force plan names units that exist and are on its side and has what its kind needs;
+## every unit or air-wing entry tagged for a plan names one that exists for its own side. Plan
+## callsigns are scenario units and reinforcements: an embarked aircraft joins a plan with its deck,
+## or by a tag on its air-wing entry.
+static func _plans_problem(sc: Dictionary, names: Dictionary, units: Array) -> String:
+	var plans: Dictionary = {}
+	for plan: Dictionary in sc.get("ai_plans", []):
+		var pid := str(plan["id"])
+		if plans.has(pid):
+			return "AI plan IDs must be unique: %s" % pid
+		plans[pid] = plan
+		var side := str(plan["faction"])
+		if sc.get("neutral_factions", []).has(side):
+			return "AI plan %s cannot belong to a neutral side" % pid
+		var named: Array = []
+		named.append_array(plan.get("units", []))
+		named.append_array(plan.get("protect", []))
+		for entry in plan.get("recon", []):
+			if typeof(entry) == TYPE_STRING:
+				named.append(entry)
+				continue
+			named.append(entry["base"])
+			if DataDB.platform(str(entry["platform"])) == null:
+				return "AI plan %s asks for reconnaissance by unknown aircraft %s" % [pid, entry["platform"]]
+			if not plan.has("objective_nm"):
+				return "AI plan %s needs an objective for its air reconnaissance" % pid
+		for callsign in named:
+			if not names.has(callsign):
+				return "AI plan %s names missing unit %s" % [pid, callsign]
+			if str(names[callsign].get("faction", "BLUE")) != side:
+				return "AI plan %s names %s, which is not on its side" % [pid, callsign]
+		match str(plan["kind"]):
+			"protect_breakout":
+				if plan.get("protect", []).is_empty():
+					return "AI plan %s needs the units it protects" % pid
+			"defend_installation":
+				if not plan.has("objective_nm") and plan.get("protect", []).is_empty():
+					return "AI plan %s needs an objective or an installation to defend" % pid
+	for u: Dictionary in units:
+		var tagged: Array = [u]
+		for entry in u.get("air_wing", []):
+			if typeof(entry) == TYPE_DICTIONARY:
+				tagged.append(entry)
+		for entry: Dictionary in tagged:
+			var pid := str(entry.get("ai_plan", ""))
+			if pid != "" and (not plans.has(pid) or str(plans[pid]["faction"]) != str(u.get("faction", "BLUE"))):
+				return "%s is tagged for missing AI plan %s" % [u.get("callsign", "A unit"), pid]
+			var role := str(entry.get("ai_role", ""))
+			if role != "" and not AIPlan.ROLES.has(role):
+				return "%s has unknown AI role %s" % [u.get("callsign", "A unit"), role]
 	return ""
 
 

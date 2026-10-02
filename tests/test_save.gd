@@ -6,6 +6,7 @@ extends TestCase
 
 const CARRIER_WATCH := "res://data/scenarios/cold_war_03_carrier.json"
 const PASSAGE := "res://data/scenarios/northern_passage.json"
+const PLAN_FIXTURE := "res://tests/fixtures/ai_plan_carrier.json"
 const IKE := "USS Dwight D. Eisenhower (CVN 69)"
 const SAVE_AT := 601.75  # off the one- and two-second cycle boundaries, so every phase matters
 const COMPARE_AT := 2460.0  # after the follow-on raid scheduled at 2400 s
@@ -134,12 +135,132 @@ func test_continuation_after_damage_matches_the_uninterrupted_battle() -> void:
 	_free()
 
 
+## An opposing force pursuing a mission plan (tests/fixtures/ai_plan_carrier.json), saved twice:
+## while its scout is still looking, so the reload crosses the moment the carrier is classified and
+## the strike's weapons-free window; and in the first volley, with rounds flying and queued, so it
+## crosses the shared assessment that holds every striker. Each must carry on as if never saved.
+func test_continuation_of_an_enemy_mission_plan_matches_the_uninterrupted_battle() -> void:
+	_fresh(PLAN_FIXTURE, 11)
+	var plan: AIPlan = _sim.ai_controllers["RED"].plans[0]
+	SimClock.advance(150.75)
+	assert_eq(plan.phase, AIPlan.Phase.RECON, "the scout is looking at the first save")
+	assert_true(_unit("Backfire Scout").airborne())
+	var searching := _write_and_read(SimSnapshot.capture(_sim))
+	SimClock.advance(900.0 - 150.75)
+	var expected_found := _bytes()
+	assert_eq(plan.phase, AIPlan.Phase.ATTACK, "the carrier was found and the window has run")
+	assert_true(plan.weapons_free)
+	while plan.salvos == 0 and SimClock.sim_time < 3000.0:
+		SimClock.advance(0.25)
+	SimClock.advance(2.75)  # off the one- and two-second cycle boundaries
+	var at := SimClock.sim_time
+	assert_true(plan.salvos > 0, "the strike has fired by the second save")
+	assert_true(at < float(plan.volley_until.get(plan.target_track_id, -1.0)), "the volley is still open")
+	assert_true(not _sim.weapon_manager._pending.is_empty() or not _sim.weapon_manager.in_flight.is_empty(), "rounds on the way")
+	var striking := SimSnapshot.capture(_sim)
+	SimClock.advance(500.0)
+	var expected_struck := _bytes()
+	_free()
+	_fresh(PLAN_FIXTURE, 999)
+	assert_eq(_sim.restore_snapshot(searching), "")
+	plan = _sim.ai_controllers["RED"].plans[0]
+	assert_eq(plan.phase, AIPlan.Phase.RECON)
+	assert_true(plan.members.has(_unit("Otlichny")) and plan.members.has(_unit("Backfire Scout")), "members come back as the units in the list")
+	SimClock.advance(900.0 - 150.75)
+	var got := _bytes()
+	if got != expected_found:
+		failures.append("continuation from the search differs: %s" % _first_difference(bytes_to_var(expected_found), bytes_to_var(got), ""))
+	_free()
+	_fresh(PLAN_FIXTURE, 5)
+	assert_eq(_sim.restore_snapshot(striking), "")
+	plan = _sim.ai_controllers["RED"].plans[0]
+	assert_true(_sim.track_manager.get_tracks("RED").has(plan.target), "the plan's target is the track in its side's own picture")
+	assert_true(plan.weapons_free and plan.salvos > 0, "the strike's progress comes back")
+	assert_true(not plan.assessing(plan.target_track_id, at) and plan.assessing(plan.target_track_id, at + AIPlan.VOLLEY_S + 1.0), "the open volley, and the shared assessment after it")
+	SimClock.advance(500.0)
+	got = _bytes()
+	if got != expected_struck:
+		failures.append("continuation from the volley differs: %s" % _first_difference(bytes_to_var(expected_struck), bytes_to_var(got), ""))
+	_free()
+
+
+## Two coordinated attacks by Northern Passage's escorts, saved while the first waits out its shared
+## look between volleys and the second has rounds queued on the launcher and rounds in the air. The
+## reloaded battle must spend, wait and end each attack exactly as the uninterrupted one does.
+func test_continuation_through_group_attacks_matches_the_uninterrupted_battle() -> void:
+	_fresh(PASSAGE, 31)
+	var truxtun := _unit("USS Truxtun (DDG 103)")
+	var amundsen := _unit("HNoMS Roald Amundsen (F 311)")
+	var gam := _sim.group_attack_manager
+	var wm := _sim.weapon_manager
+	var contacts: Array[Track] = []
+	while contacts.size() < 2 and SimClock.sim_time < 1500.0:
+		SimClock.advance(0.25)
+		contacts.assign(_sim.track_manager.tracks_for(truxtun).filter(func(t: Track) -> bool:
+			return t.domain == "surface" and t.identity == "HOSTILE" and t.status == Track.Status.ACTIVE and UnitManager.attack_rejection(truxtun, t) == "" and UnitManager.attack_rejection(amundsen, t) == ""))
+	assert_eq(contacts.size(), 2, "both opposing warships held as hostile")
+	var first := Order.group_attack([truxtun, amundsen], [contacts[0]], 4, 2)
+	assert_true(_sim.unit_manager.issue_order(truxtun, first), first.receipt)
+	var looking: GroupAttack = gam.groups[-1]
+	while looking.target_assess_until[0] < 0.0 and looking.active and SimClock.sim_time < 1800.0:
+		SimClock.advance(0.25)
+	SimClock.advance(3.0)
+	var second := Order.group_attack([truxtun, amundsen], [contacts[1]], 6)
+	assert_true(_sim.unit_manager.issue_order(amundsen, second), second.receipt)
+	var rippling: GroupAttack = gam.groups[-1]
+	SimClock.advance(1.75)
+	# What the save has to carry, present at the moment it is taken, off the group cycle's boundary.
+	assert_true(gam._accum > 0.0, "the group cycle is part way through")
+	assert_true(looking.active and looking.target_assess_until[0] > SimClock.sim_time, "a shared look pending")
+	assert_true(wm.group_rounds(rippling.id, "", true) > 0, "group rounds queued on a launcher")
+	assert_true(wm.group_rounds(rippling.id) > wm.group_rounds(rippling.id, "", true), "group rounds in the air")
+	var looked_after := looking.fired_total
+	var saved := _write_and_read(SimSnapshot.capture(_sim))
+	var save_at := SimClock.sim_time
+	SimClock.advance(400.0)
+	assert_true(looking.fired_total > looked_after, "the first attack fired again after its look")
+	var expected := _bytes()
+	_free()
+	_fresh(PASSAGE, 5)
+	assert_eq(_sim.restore_snapshot(saved), "")
+	assert_eq(SimClock.sim_time, save_at)
+	gam = _sim.group_attack_manager
+	assert_eq(gam.groups.size(), 2, "both attacks come back")
+	if gam.groups.size() == 2:
+		assert_true(gam.groups[0].target_assess_until[0] > SimClock.sim_time, "still looking")
+		assert_true(_sim.weapon_manager.group_rounds(gam.groups[1].id, "", true) > 0, "still rippling")
+		assert_true(gam.groups[0].members[0] == _unit("USS Truxtun (DDG 103)"), "members are the restored units themselves")
+		assert_true(gam.overlapping("BLUE", [_unit("USS Truxtun (DDG 103)")], [gam.groups[1].targets[0]]) == gam.groups[1], "a restored attack still holds its platforms and contact")
+	SimClock.advance(400.0)
+	var got := _bytes()
+	if got != expected:
+		failures.append("continuation differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
+	_free()
+
+
 func test_restore_into_the_same_simulation_is_an_identity() -> void:
 	_fresh(PASSAGE, 31)
 	SimClock.advance(612.75)  # off the one- and two-second cycle boundaries
 	var first := SimSnapshot.capture(_sim)
 	assert_eq(_sim.restore_snapshot(first), "")
 	assert_true(var_to_bytes(SimSnapshot.capture(_sim)) == var_to_bytes(first), "captured again, nothing changed")
+	_free()
+
+
+## A snapshot kept in memory (never written out) stays what it was when it was taken. A track's
+## observation window is a packed array, which a Variant shares rather than copies; held by
+## reference, the snapshot went on changing with the battle, and a restored battle wrote back
+## into it, so loading it a second time gave a different engagement.
+func test_a_snapshot_held_in_memory_does_not_change_with_the_battle() -> void:
+	_fresh(PASSAGE, 31)
+	SimClock.advance(120.0)
+	var snapshot := SimSnapshot.capture(_sim)
+	var taken := var_to_bytes(snapshot)
+	SimClock.advance(30.0)
+	assert_true(var_to_bytes(snapshot) == taken, "unchanged by the battle going on")
+	assert_eq(_sim.restore_snapshot(snapshot), "")
+	SimClock.advance(30.0)
+	assert_true(var_to_bytes(snapshot) == taken, "unchanged by the restored battle going on")
 	_free()
 
 
@@ -217,6 +338,22 @@ func test_damaged_foreign_and_newer_saves_are_refused_and_the_battle_is_untouche
 	var incomplete := good.duplicate(true)
 	incomplete.erase("weapons")
 	cases["incomplete"] = [incomplete, "Saved engagement is incomplete"]
+	# Structural damage that passed earlier checks and stopped a restore half-way.
+	var garbage := good.duplicate(true)
+	garbage["units"][3] = "garbage"
+	cases["garbage record"] = [garbage, "Saved engagement is damaged (a record in units)"]
+	var dangling := good.duplicate(true)
+	dangling["units"][0]["formation_leader"] = {"$u": 999}
+	cases["dangling unit"] = [dangling, "Saved engagement is damaged (unit 999 missing)"]
+	var lost_track := good.duplicate(true)
+	lost_track["managers"]["TrackManager"]["_tracks"]["BLUE"] = [{"$t": 100000}]
+	cases["dangling track"] = [lost_track, "Saved engagement is damaged (track 100000 missing)"]
+	var twin := good.duplicate(true)
+	twin["units"][1]["id"] = twin["units"][0]["id"]
+	cases["duplicate id"] = [twin, "Saved engagement is damaged (two units"]
+	var bad_stream := good.duplicate(true)
+	bad_stream["rng"]["damage"] = ["x"]
+	cases["random stream"] = [bad_stream, "Saved engagement is damaged (random stream damage)"]
 	for name: String in cases:
 		var why := _sim.restore_snapshot(cases[name][0])
 		assert_true(why.begins_with(str(cases[name][1])), "%s: %s" % [name, why])
@@ -250,17 +387,68 @@ func test_save_files_reject_garbage_and_stay_in_their_own_storage() -> void:
 	SaveGame.root_override = ""
 
 
+## Bytes changed on disk inside a well-formed compressed stream must not load as a different
+## battle: the header carries a checksum of the engagement.
+func test_a_save_damaged_on_disk_never_loads_as_a_different_battle() -> void:
+	_fresh(PASSAGE, 31)
+	SimClock.advance(120.0)
+	SaveGame.root_override = _scratch
+	var path := SaveGame.slot_path("flipped")
+	assert_eq(SaveGame.write(path, {"label": "test"}, {"simulation": SimSnapshot.capture(_sim)}), "")
+	var original := var_to_bytes(SaveGame.read(path)["payload"])
+	var raw := FileAccess.get_file_as_bytes(path)
+	var accepted_changed := 0
+	var refused := 0
+	for i in 60:
+		var damaged := raw.duplicate()
+		var at := 8 + int(float(i) / 60.0 * float(raw.size() - 9))
+		damaged[at] = damaged[at] ^ 0x5A
+		var copy := FileAccess.open(path, FileAccess.WRITE)
+		copy.store_buffer(damaged)
+		copy.close()
+		var back := SaveGame.read(path)
+		if str(back.get("error", "")) != "":
+			refused += 1
+		elif var_to_bytes(back["payload"]) != original:
+			accepted_changed += 1
+	assert_eq(accepted_changed, 0, "no damaged file loads as a different battle")
+	assert_true(refused > 0)
+	DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute(_scratch)
+	SaveGame.root_override = ""
+	_free()
+
+
+## Loading from the list can happen over any operation, or none: the save brings its own world.
+func test_a_save_restores_over_a_different_operation() -> void:
+	_fresh(PASSAGE, 31)
+	SimClock.advance(300.75)
+	var saved := _write_and_read(SimSnapshot.capture(_sim))
+	SimClock.advance(120.0)
+	var expected := _bytes()
+	_free()
+	_fresh(CARRIER_WATCH, 7)
+	SimClock.advance(50.0)
+	assert_eq(_sim.restore_snapshot(saved), "")
+	assert_eq(_sim.scenario_name, str(saved["scenario"].get("name", "")))
+	SimClock.advance(120.0)
+	var got := _bytes()
+	if got != expected:
+		failures.append("restored over another operation, the battle differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
+	_free()
+
+
 ## Every script variable on the saved classes is either saved or listed as transient with a
 ## reason, so state added later cannot silently fall out of a save.
 func test_every_simulation_field_is_saved_or_declared_transient() -> void:
 	_fresh(CARRIER_WATCH, 31)
-	for pair: Array in [[Unit.new(), SimSnapshot.UNIT_SKIP], [Track.new(), SimSnapshot.TRACK_SKIP], [Weapon.new(), SimSnapshot.WEAPON_SKIP], [AirMission.new(), SimSnapshot.MISSION_SKIP], [Sonobuoy.new(), SimSnapshot.BUOY_SKIP]]:
+	for pair: Array in [[Unit.new(), SimSnapshot.UNIT_SKIP], [Track.new(), SimSnapshot.TRACK_SKIP], [Weapon.new(), SimSnapshot.WEAPON_SKIP], [AirMission.new(), SimSnapshot.MISSION_SKIP], [Sonobuoy.new(), SimSnapshot.BUOY_SKIP], [AIPlan.new(), SimSnapshot.PLAN_SKIP], [GroupAttack.new(), SimSnapshot.GROUP_SKIP]]:
 		# Reflective classes: everything is saved except what the skip list names, and the skip
 		# list names only real fields.
 		var names := SimSnapshot.script_variables(pair[0])
 		for skipped: String in (pair[1] as Dictionary):
 			assert_true(names.has(skipped), "%s skip list names a field that exists" % skipped)
-	var managers: Array = [_sim.unit_manager, _sim.track_manager, _sim.sensor_manager, _sim.threat_manager, _sim.weapon_manager, _sim.aviation_manager, _sim.air_mission_manager, _sim.mission_manager]
+	var managers: Array = [_sim.unit_manager, _sim.track_manager, _sim.sensor_manager, _sim.threat_manager, _sim.weapon_manager, _sim.aviation_manager, _sim.air_mission_manager, _sim.group_attack_manager, _sim.mission_manager]
 	managers.append_array(_sim.ai_controllers.values())
 	for node: Object in managers:
 		var name: String = node.get_script().get_global_name()

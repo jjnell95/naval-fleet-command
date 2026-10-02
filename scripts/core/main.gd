@@ -197,6 +197,13 @@ func _ready() -> void:
 	simulation.air_mission_manager.mission_ended.connect(func(m: AirMission, reason: String) -> void:
 		if m.faction == simulation.player_faction and not simulation.ai_plays_player:
 			radio.flash("%s %d ended: %s" % [m.label(), m.id, reason.to_lower()], "info", m.base))
+	simulation.group_attack_manager.group_report.connect(func(g: GroupAttack, message: String, good: bool) -> void:
+		if g.faction == simulation.player_faction and not simulation.ai_plays_player:
+			radio.flash(message, "info" if good else "warn", g.lead if g.lead != null and g.lead.alive else null))
+	simulation.group_attack_manager.group_ended.connect(func(g: GroupAttack, reason: String) -> void:
+		if g.faction == simulation.player_faction and not simulation.ai_plays_player:
+			radio.flash(g.note, "good" if reason in ["Target destroyed", "Targets destroyed"] else "info", g.lead if g.lead != null and g.lead.alive else null)
+		Debug.event("[Combat] group attack %d on %s ended: %s, %d of %d rounds fired" % [g.id, g.target_label(), reason, g.fired_total, g.budget]))
 	simulation.aviation_manager.aircraft_tanking.connect(func(a: Unit, tanker: Unit) -> void:
 		if a.faction == simulation.player_faction and not simulation.ai_plays_player:
 			radio.flash("Low fuel, joining %s to refuel" % tanker.callsign, "info", a))
@@ -345,7 +352,10 @@ func _close_engagement_dialogs() -> void:
 	if _air_operations != null:
 		_air_operations.hide()
 		_air_operations.clear_selection()
-	_air_picking = false
+	if _air_picking:
+		# Cleared first, so the map's cancellation does not reopen Air Operations.
+		_air_picking = false
+		map.cancel_interaction_mode()
 
 
 ## The command screen as a fresh engagement finds it: panels closed and empty, the chart fitted, the
@@ -462,13 +472,27 @@ func load_engagement(path: String) -> String:
 	var validation := SimSnapshot.validate(payload.get("simulation"))
 	if validation != "":
 		return validation
+	# Validation checks the save's shape and every reference before anything changes, but the
+	# restore still replaces the running engagement before it finishes. Keep a copy to put back.
+	var kept := {}
+	if save_refusal() == "":
+		kept = {"simulation": simulation.capture_snapshot(), "presentation": _capture_presentation()}
+	var why := _install_engagement(payload)
+	if why == "":
+		radio.advise("Engagement restored at %s, paused. Space resumes." % SimClock.datetime_string())
+		return ""
+	if not kept.is_empty() and _install_engagement(kept) == "":
+		return why + ". The running engagement was kept"
+	# Nothing to go back to: start the operation over rather than leave a half-built one.
+	start_scenario(simulation.scenario_path)
+	return why
+
+
+func _install_engagement(payload: Dictionary) -> String:
 	_close_engagement_dialogs()
 	_hide_screens()
 	var why := simulation.restore_snapshot(payload["simulation"])
 	if why != "":
-		# Validated but not restorable: the old engagement is gone. Start the operation over rather
-		# than leave a half-built one on the screen.
-		start_scenario(simulation.scenario_path)
 		return why
 	_reset_command_screen()
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
@@ -478,7 +502,6 @@ func load_engagement(path: String) -> String:
 	_modal_pause_captured = false
 	_set_background_input_enabled(true)
 	SimClock.set_paused(true)
-	radio.advise("Engagement restored at %s, paused. Space resumes." % SimClock.datetime_string())
 	return ""
 
 
@@ -746,6 +769,7 @@ func _build_screens() -> void:
 	_weapon_control.simulation = simulation
 	_weapon_control.closed.connect(_close_weapon_control)
 	_weapon_control.unit_orders_requested.connect(_apply_unit_orders)
+	_weapon_control.group_order_requested.connect(_issue_group_order)
 	_weapon_control.target_selected.connect(func(t: Track) -> void: map.select_track(t))
 	_weapon_control.weapon_selected.connect(func(spec: WeaponSpec) -> void: orders_panel.select_weapon(spec))
 	_weapon_control.range_role_selected.connect(func(role: String) -> void: map.weapon_range_role = role; map.show_weapon_ranges = true)
@@ -764,7 +788,7 @@ func _build_screens() -> void:
 		_saves.refresh()
 		_saves.show_message("Saved." if why == "" else "Cannot save: " + why, why == ""))
 	_saves.delete_requested.connect(func(path: String) -> void:
-		DirAccess.remove_absolute(path)
+		SaveGame.remove(path)
 		_saves.refresh())
 	_saves.load_requested.connect(func(path: String) -> void:
 		var why := load_engagement(path)
@@ -866,7 +890,8 @@ func _set_background_input_enabled(enabled: bool) -> void:
 
 
 func _has_visible_modal() -> bool:
-	return (_menu != null and _menu.visible) \
+	return _air_picking \
+		or (_menu != null and _menu.visible) \
 		or (_briefing != null and _briefing.visible) \
 		or (_editor != null and _editor.visible) \
 		or (_library != null and _library.visible) \
@@ -914,6 +939,36 @@ func _toggle_weapon_control() -> void:
 func _close_weapon_control() -> void:
 	_weapon_control.hide()
 	_restore_modal_pause_if_clear()
+
+
+## "Group attack (N rounds)..." from a contact's menu: the firing board on that contact, with the
+## group budget set, so the allocation can be read before it is committed.
+func _open_group_attack(t: Track, budget: int) -> void:
+	if _weapon_control.visible or _has_visible_modal():
+		return
+	if map.selected_track != t:
+		map.select_track(t)
+	_begin_modal_pause()
+	_weapon_control.open_for(map.selected, t, budget)
+
+
+## A group attack, or its cancellation, goes to one member: one order makes one group, where the
+## same order given to each hooked platform would make one group apiece. The receipt is the
+## group manager's, which says who fires what and who cannot.
+func _issue_group_order(lead: Unit, order: Order) -> void:
+	if lead == null or not lead.alive or lead.faction != simulation.player_faction or not simulation.unit_manager.units.has(lead):
+		order.receipt = "Hook your own platforms first."
+		radio.advise(order.receipt)
+		return
+	var accepted := simulation.unit_manager.issue_order(lead, order)
+	if order.receipt == "":
+		order.receipt = "Group attack refused" if order.type == Order.Type.GROUP_ATTACK else "That group attack has already ended."
+	elif not accepted and order.type == Order.Type.GROUP_ATTACK:
+		order.receipt = "Group attack refused: " + order.receipt
+	radio.flash(order.receipt, "good" if accepted else "warn", lead)
+	if accepted:
+		SoundFx.play("click", 0.05)
+	voice.say(("attack_ack" if order.type == Order.Type.GROUP_ATTACK else "order_ack") if accepted else "order_refused", lead, {"track": order.track})
 	call_deferred("_focus_map_if_clear")
 
 
@@ -946,6 +1001,11 @@ func _begin_air_pick(contact: bool) -> void:
 
 func _end_air_pick() -> void:
 	_air_picking = false
+	if not _modal_pause_captured:
+		# Nothing should have released Air Operations' pause while the chart was picking, but if
+		# it was, closing the dialog must still hand back the keyboard and a paused clock.
+		_modal_pause_captured = true
+		_modal_was_paused = true
 	SimClock.set_paused(true)
 	_set_background_input_enabled(false)
 	_air_operations.show()
@@ -1404,6 +1464,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif k.keycode == KEY_E and (k.ctrl_pressed or k.meta_pressed):
 			_show_editor()
+			get_viewport().set_input_as_handled()
+		elif (k.ctrl_pressed or k.meta_pressed) and k.shift_pressed and k.keycode in [KEY_L, KEY_O]:
+			# The desk is where a reloaded browser tab or a fresh start lands, so the saves open
+			# from here too. The radio is hidden behind the desk: with no quicksave to load, show
+			# the list, which says so.
+			if k.keycode == KEY_L and FileAccess.file_exists(SaveGame.slot_path(SaveGame.QUICKSAVE)):
+				quickload()
+			else:
+				_toggle_saved_engagements()
 			get_viewport().set_input_as_handled()
 		return
 	if _briefing.visible:
@@ -1952,6 +2021,8 @@ func _run_cds_action(action: Dictionary) -> void:
 			_apply_order_to_selection(Order.investigate(action["track"]))
 		"air_strike":
 			_open_air_strike(action["track"])
+		"group_attack":
+			_open_group_attack(action["track"], int(action.get("budget", 0)))
 		"waypoint_delete":
 			_on_waypoint_delete_requested(action["unit"], int(action["index"]))
 		"layer":

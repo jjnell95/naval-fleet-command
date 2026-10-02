@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -50,6 +50,19 @@ var receipt := ""
 ## Set by Unit.apply_order when a CANCEL_FIRE also ended the unit's standing attack, so the
 ## receipt counts it as carried out even when no queued round was left to refund.
 var stopped_attack := false
+## GROUP_ATTACK, issued to its lead: the platforms that share the attack, the contacts in priority
+## order, the most rounds the whole group may fire, and the rounds per contact in one volley before
+## the shared assessment (0: the contact's whole share at once). `group_allocation` optionally caps
+## each contact's share; `group_plan` optionally fixes the first volley as rows of
+## [Unit, weapon id, target index, rounds] from the firing board.
+var group_members: Array[Unit] = []
+var group_targets: Array[Track] = []
+var group_allocation: Array[int] = []
+var group_plan: Array = []
+var salvo_budget := 0
+var volley := 0
+## The group attack a crew ENGAGE fires for, or the one CANCEL_GROUP_ATTACK ends; -1 for none.
+var group_id := -1
 
 
 static func cancel_fire(target: Track = null) -> Order:
@@ -163,6 +176,31 @@ static func cancel_air_mission(id: int) -> Order:
 	var o := Order.new()
 	o.type = Type.CANCEL_AIR_MISSION
 	o.mission_id = id
+	return o
+
+
+## A coordinated attack by several platforms on held contacts with one shared round budget. The
+## group allocates the rounds to the shooters that hold a firing solution, fires them as tagged
+## ENGAGE orders, and waits for a volley to resolve before it spends more. Issue it to one member.
+static func group_attack(members: Array, targets: Array, budget: int, volley_rounds := 0, allocation: Array = [], plan: Array = []) -> Order:
+	var o := Order.new()
+	o.type = Type.GROUP_ATTACK
+	o.group_members.assign(members)
+	o.group_targets.assign(targets)
+	o.salvo_budget = maxi(budget, 0)
+	o.volley = maxi(volley_rounds, 0)
+	o.group_allocation.assign(allocation)
+	o.group_plan = plan.duplicate()
+	if not targets.is_empty():
+		o.track = targets[0]
+	return o
+
+
+## Ends a group attack: its queued rounds return to the magazines; rounds already away fly on.
+static func cancel_group_attack(id: int) -> Order:
+	var o := Order.new()
+	o.type = Type.CANCEL_GROUP_ATTACK
+	o.group_id = id
 	return o
 
 
@@ -318,6 +356,10 @@ func describe() -> String:
 			return "AIR MISSION %s: %d x %s" % [AirMission.KIND_NAMES[clampi(mission_kind, 0, 3)], aircraft_count, aircraft_id]
 		Type.CANCEL_AIR_MISSION:
 			return "CANCEL AIR MISSION %d" % mission_id
+		Type.GROUP_ATTACK:
+			return "GROUP ATTACK %s: %d rounds, %d platforms" % [track.id if track != null else "?", salvo_budget, group_members.size()]
+		Type.CANCEL_GROUP_ATTACK:
+			return "CANCEL GROUP ATTACK %d" % group_id
 		Type.RETURN_TO_STATION:
 			return "RETURN TO STATION"
 		Type.SET_AUTO_RETURN:

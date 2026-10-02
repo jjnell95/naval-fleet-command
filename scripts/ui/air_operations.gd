@@ -626,7 +626,7 @@ func _refresh_launch() -> void:
 func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reason: String) -> void:
 	var amm := simulation.air_mission_manager
 	_launch.text = "ASSIGN MISSION"
-	var available := amm.available_for(_base, _type_id)
+	var available := amm.available_for(_base, _type_id, _mission_kind, _target)
 	_count.max_value = available
 	_count.editable = available > 0
 	var count := mini(int(_count.value), available)

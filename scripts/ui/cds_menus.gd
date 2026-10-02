@@ -11,7 +11,7 @@ extends Node
 ##
 ## Item: {text, action?, children?, disabled?, tooltip?, checked? (-1 none, 0 off, 1 on), separator?}
 ## Action kinds: order, unit_orders, formation, engage, attack, investigate, palette, hook,
-## waypoint_delete, layer, symbols, board, inspect.
+## waypoint_delete, layer, symbols, board, inspect, group_attack.
 
 signal action_chosen(action: Dictionary)
 ## The menu went away, chosen from or dismissed.
@@ -288,6 +288,20 @@ static func quick_engage_item(units: Array, target: Track, weapon_manager: Weapo
 	return item("Cannot engage: " + reason, {}, true, reason)
 
 
+## Several armed platforms hooked: one round budget they share on this contact. It opens the firing
+## board set for the group, so the allocation can be read before it is committed. N is one ordinary
+## salvo from each platform that can fire now. Empty with fewer than two armed platforms hooked.
+static func group_attack_item(units: Array, target: Track, weapon_manager: WeaponManager = null) -> Dictionary:
+	var shooters := units.filter(func(u: Unit) -> bool: return u.is_engageable() and not u.weapons.is_empty())
+	if shooters.size() < 2 or target == null:
+		return {}
+	var rounds := GroupAttackManager.default_budget(shooters, target, weapon_manager)
+	if rounds <= 0:
+		return item("Group attack...", {}, true, "No hooked platform holds a solution on track %s" % DataDisplay.track_number_for_track(target))
+	return item("Group attack (%d rounds)..." % rounds, {"kind": "group_attack", "track": target, "budget": rounds}, false,
+		"Share %d rounds between the %d hooked platforms: each goes to the shooter that can put it on track %s first, and the group assesses each volley before it spends more." % [rounds, shooters.size(), DataDisplay.track_number_for_track(target)])
+
+
 ## The standing attack, the classic display's one-click engagement: the hooked platforms close
 ## to range, choose the weapon and keep firing. Greyed with the reason when none of them can.
 static func attack_item(units: Array, target: Track) -> Dictionary:
@@ -341,6 +355,9 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 		if not with_weapons.is_empty():
 			items.append(submenu("Attack with", with_weapons, false, "The standing attack, holding a chosen weapon's envelope."))
 		items.append(quick_engage_item(units, target, weapon_manager))
+		var group := group_attack_item(units, target, weapon_manager)
+		if not group.is_empty():
+			items.append(group)
 		items.append(item("Weapon control...  [Shift+E]", {"kind": "palette", "id": "weapon_control"}))
 		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit this contact."))
 		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))

@@ -1,0 +1,39 @@
+{
+  "id": "test_ai_plan_carrier",
+  "name": "AI plan fixture: carrier raid",
+  "description": "Test fixture for tests/test_ai_plans.gd. A RED surface group with a scouting bomber is told to threaten a carrier; a BLUE frigate sits nearer to it than the carrier does.",
+  "seed": 11,
+  "year": 1990,
+  "start_time_utc": "1990-06-01T06:00:00",
+  "player_faction": "BLUE",
+  "environment": {"sea_state": 2},
+  "map": {"center_nm": [0, 40], "extent_nm": 240, "open_water": true, "labels": []},
+  "terrain": {"land": []},
+  "victory_mode": "all",
+  "objectives": {
+    "text": "Fixture",
+    "victory": [{"id": "hold", "type": "time_elapsed", "seconds": 999999, "text": "Hold"}],
+    "loss": []
+  },
+  "units": [
+    {"platform": "cw90_nimitz", "callsign": "Carrier", "faction": "BLUE", "position_nm": [15, 85], "heading_deg": 90, "speed_kn": 0, "air_wing": []},
+    {"platform": "cw90_perry", "callsign": "Picket", "faction": "BLUE", "position_nm": [-25, 25], "heading_deg": 90, "speed_kn": 0, "air_wing": []},
+    {"platform": "cw90_sovremenny", "callsign": "Otlichny", "faction": "RED", "position_nm": [-3, 20], "heading_deg": 0, "speed_kn": 10, "air_wing": []},
+    {"platform": "cw90_sovremenny", "callsign": "Bezuprechny", "faction": "RED", "position_nm": [3, 20], "heading_deg": 0, "speed_kn": 10, "air_wing": [], "ai_plan": "raid"},
+    {"platform": "cw90_tu22m3", "callsign": "Backfire Scout", "faction": "RED", "position_nm": [0, 0], "heading_deg": 0, "speed_kn": 490}
+  ],
+  "ai_plans": [
+    {
+      "id": "raid",
+      "faction": "RED",
+      "kind": "threaten_carrier",
+      "units": ["Otlichny"],
+      "recon": ["Backfire Scout"],
+      "priorities": ["carrier"],
+      "objective_nm": [15, 75],
+      "area_radius_nm": 30,
+      "threat_nm": 12,
+      "assembly_window_s": 600
+    }
+  ]
+}

@@ -128,6 +128,34 @@ static func airframe_fit(a: Unit, kind: int, target: Track = null) -> bool:
 	return true
 
 
+## Fit now, or still on the deck's cycle with the deck's stores able to make up its fit when the
+## turnaround finishes. A ready airframe is armed as it stands: it launches with what it carries.
+static func _rearmable(a: Unit, kind: int, target: Track = null) -> bool:
+	if airframe_fit(a, kind, target):
+		return true
+	if a.flight_state == Unit.FlightState.STOWED or a.home == null:
+		return false
+	if kind == AirMission.Kind.ASW and a.spec.sonobuoy_count > 0 and a.home.aviation_buoys > 0:
+		return true
+	for wid: String in a.sortie_loadout:
+		if int(a.home.aviation_stores.get(wid, 0)) <= 0:
+			continue
+		var w := DataDB.weapon(wid)
+		if w == null:
+			continue
+		match kind:
+			AirMission.Kind.CAP:
+				if w.target_types.has("air"):
+					return true
+			AirMission.Kind.ASW:
+				if w.target_types.has("subsurface"):
+					return true
+			AirMission.Kind.STRIKE:
+				if (target == null and w.target_types.has("surface")) or (target != null and Combat.suits_track(w, target)):
+					return true
+	return false
+
+
 static func _rounds_for(a: Unit, domain: String) -> int:
 	var n := 0
 	for spec: WeaponSpec in a.weapons:
@@ -212,6 +240,8 @@ func _strike_target_rejection(base: Unit, target: Track) -> String:
 		return "Contact is not held by this force"
 	if target.status == Track.Status.LOST:
 		return "Contact lost"
+	if target.damage_estimate >= 100.0:
+		return "Contact already destroyed"
 	if target.identity in ["NEUTRAL", "FRIENDLY"]:
 		return "Protected identity"
 	if target.is_bearing_only() or not target.position.is_finite():
@@ -230,13 +260,18 @@ func _strike_target_rejection(base: Unit, target: Track) -> String:
 # --- Requests and cancellation -----------------------------------------------------------
 
 ## Airframes of the type on this deck that a new mission could have: ready, in turnaround or in
-## reserve, and not already flying for another mission.
-func available_for(base: Unit, platform_id: String) -> int:
+## reserve, not already flying for another mission and not owed to another mission's queued
+## launches, and able to carry what this kind of mission needs.
+func available_for(base: Unit, platform_id: String, kind: int = -1, target: Track = null) -> int:
 	var n := 0
 	for a in airframes_of(base, platform_id):
 		if a.flight_state in [Unit.FlightState.STOWED, Unit.FlightState.TURNAROUND, Unit.FlightState.RESERVE] and mission_for(a) == null:
-			n += 1
-	return n
+			if kind < 0 or _rearmable(a, kind, target):
+				n += 1
+	for m in missions:
+		if m.active and not m.cancelled and m.base == base and m.platform_id == platform_id:
+			n -= m.pending_launches
+	return maxi(n, 0)
 
 
 ## Routed here by Simulation for an AIR_MISSION order on a deck. Accepts what the deck can do and
@@ -249,17 +284,14 @@ func request(base: Unit, order: Order) -> AirMission:
 		order.receipt = why
 		return null
 	var spec := DataDB.platform(order.aircraft_id)
-	var owned := airframes_of(base, order.aircraft_id)
-	var available := 0
-	for a in owned:
-		# Airframes already flying on another task are not this mission's to take.
-		if a.flight_state in [Unit.FlightState.STOWED, Unit.FlightState.TURNAROUND, Unit.FlightState.RESERVE] and mission_for(a) == null:
-			available += 1
+	# Airframes already flying on another task, or owed to another mission's queue, are not this
+	# mission's to take; nor is a ready airframe whose stores cannot be made up for this mission.
+	var available := available_for(base, order.aircraft_id, kind, order.track)
 	var wanted := maxi(order.aircraft_count, 1)
 	var accepted := mini(wanted, available)
 	if accepted <= 0:
 		order.execution_accepted = false
-		order.receipt = "Every %s is already flying" % spec.short_name
+		order.receipt = _unavailable_reason(base, spec, kind, order.track)
 		return null
 	var m := AirMission.new()
 	m.id = _next_id
@@ -300,6 +332,23 @@ func request(base: Unit, order: Order) -> AirMission:
 	return m
 
 
+## Why a deck has no airframe of the type for a new mission.
+func _unavailable_reason(base: Unit, spec: PlatformSpec, kind: int, target: Track) -> String:
+	var unfit := 0
+	var booked := 0
+	for a in airframes_of(base, spec.id):
+		if a.flight_state in [Unit.FlightState.STOWED, Unit.FlightState.TURNAROUND, Unit.FlightState.RESERVE] and mission_for(a) == null and not _rearmable(a, kind, target):
+			unfit += 1
+	for m in missions:
+		if m.active and not m.cancelled and m.base == base and m.platform_id == spec.id:
+			booked += m.pending_launches
+	if booked > 0:
+		return "Every free %s is already queued for another mission" % spec.short_name
+	if unfit > 0:
+		return "No %s can be armed for this mission: stores exhausted" % spec.short_name
+	return "Every %s is already flying" % spec.short_name
+
+
 static func default_radius(kind: int) -> float:
 	match kind:
 		AirMission.Kind.CAP:
@@ -311,16 +360,32 @@ static func default_radius(kind: int) -> float:
 	return 0.0
 
 
-## Ends a mission: queued launches are struck off and its airborne airframes come home.
+## Ends a mission: queued launches are struck off and its airborne airframes come home. Airframes
+## still on the catapults cannot be stopped; the mission waits for them to get airborne and sends
+## them straight back, rather than leave them flying with no orders.
 func cancel(mission_id: int, base: Unit) -> bool:
 	var m := mission_by_id(mission_id)
 	if m == null or not m.active or (base != null and m.base != base):
 		return false
-	for a in m.aircraft.duplicate():
-		if a.alive and a.airborne() and not a.returning:
-			_crew(a, Order.return_to_base())
-	_end(m, "Cancelled")
+	if m.cancelled:
+		return true
+	m.cancelled = true
+	m.pending_launches = 0
+	m.note = "Cancelled"
+	_step_cancelled(m)
 	return true
+
+
+func _step_cancelled(m: AirMission) -> void:
+	for a in m.aircraft.duplicate():
+		if not a.alive or a.departed or a.flight_state in [Unit.FlightState.TURNAROUND, Unit.FlightState.STOWED, Unit.FlightState.RECOVERING]:
+			_drop(m, a, "")
+		elif a.flight_state != Unit.FlightState.LAUNCHING and a.airborne():
+			if not a.returning:
+				_crew(a, Order.return_to_base())
+			_drop(m, a, "")
+	if m.aircraft.is_empty():
+		_end(m, "Cancelled")
 
 
 func _end(m: AirMission, reason: String) -> void:
@@ -350,6 +415,9 @@ func tick(dt: float, now: float) -> void:
 
 
 func _step(m: AirMission) -> void:
+	if m.cancelled:
+		_step_cancelled(m)
+		return
 	if m.base == null or not m.base.alive:
 		_end(m, "Base lost")
 		return
@@ -389,11 +457,23 @@ func _launch_owed(m: AirMission) -> int:
 			break
 		m.pending_launches -= 1
 		m.launched_total += 1
+		a.roe = _mission_roe(m)
 		m.aircraft.append(a)
 		a.auto_return = m.auto_return
 		m.tasks[a] = {"state": AirMission.LAUNCHING, "assigned": false, "generation": a.order_generation, "player_generation": a.player_order_generation, "relieved": false, "buoy_at": -INF, "attacked": false}
 		launched += 1
 	return launched
+
+
+## The rules an airframe launches under: the deck's, or, if the commander has since tightened the
+## rules on an airframe already flying the mission, the tightest of those, so a relief never comes
+## up freer than the airframe it relieves.
+func _mission_roe(m: AirMission) -> Unit.Roe:
+	var roe := m.base.roe
+	for other in m.aircraft:
+		if other.alive and other.roe < roe:
+			roe = other.roe
+	return roe
 
 
 ## Ready airframes of the type, fit for this mission, in deck order.
@@ -470,7 +550,13 @@ func _track_airframe(m: AirMission, a: Unit) -> void:
 		return
 	if a.tanking_on != null:
 		task["state"] = AirMission.REFUELLING
+		if bool(task["relieved"]):
+			task["tanked_after_relief"] = true
 		return
+	if bool(task.get("tanked_after_relief", false)):
+		task["tanked_after_relief"] = false
+		if _hand_over_after_tanking(m, a, task):
+			return
 	if m.kind != AirMission.Kind.STRIKE:
 		_relief_due(m, a, task)
 	if a.attack_track != null:
@@ -503,20 +589,47 @@ func _release(m: AirMission, a: Unit) -> void:
 	_report(m, "%s: %s released by your order" % [m.label(), a.callsign], true)
 
 
+## An airframe whose relief was called topped up from a tanker instead of going home, and the
+## refuelling sent it back to the station. Two would then hold a one-airframe station: strike the
+## relief off if it is still queued, otherwise send this one home. Returns true when it goes home.
+func _hand_over_after_tanking(m: AirMission, a: Unit, task: Dictionary) -> bool:
+	if m.pending_launches > 0:
+		m.pending_launches -= 1
+		task["relieved"] = false
+		_report(m, "%s: %s refuelled and kept the station; relief stood down" % [m.label(), a.callsign], true)
+		return false
+	var holding := 0
+	for other in m.aircraft:
+		if other != a and not bool(m.tasks[other]["relieved"]):
+			holding += 1
+	if holding < m.requested:
+		task["relieved"] = false  # the relief never came: it keeps the station
+		return false
+	task["state"] = AirMission.RETURNING
+	_report(m, "%s: %s refuelled, relief on station, returning" % [m.label(), a.callsign], true)
+	_crew(a, Order.return_to_base())
+	return true
+
+
 ## With relief on, launch a ready reserve airframe early enough to reach the station as this one
 ## turns for home: its own launch time plus the transit out, ahead of the fuel it needs to get back.
 func _relief_due(m: AirMission, a: Unit, task: Dictionary) -> void:
-	if not m.relief or bool(task["relieved"]) or not bool(task["assigned"]):
+	if bool(task["relieved"]) or not bool(task["assigned"]):
+		return
+	# Out of the rounds the mission needs it for: home, with a relief when relief is on.
+	if m.kind == AirMission.Kind.CAP and _rounds_for(a, "air") <= 0:
+		var message := "%s out of air-to-air rounds, returning" % a.callsign
+		if not m.relief:
+			_report(m, "%s: %s" % [m.label(), message], false)
+		_call_relief(m, a, task, message)
+		_crew(a, Order.return_to_base())
+		return
+	if not m.relief:
 		return
 	var cruise := Geo.knots_to_nm_per_s(maxf(a.spec.cruise_speed_kn, 1.0))
 	var lead_s := a.spec.launch_time_s + m.base.position.distance_to(m.station) / cruise
 	if a.fuel_s - aviation_manager.return_fuel_required(a, m.base) <= lead_s:
 		_call_relief(m, a, task, "relief launching for %s" % a.callsign)
-		return
-	# Out of the rounds the mission needs it for: home, with a relief.
-	if m.kind == AirMission.Kind.CAP and _rounds_for(a, "air") <= 0:
-		_call_relief(m, a, task, "%s out of air-to-air rounds, returning" % a.callsign)
-		_crew(a, Order.return_to_base())
 
 
 func _call_relief(m: AirMission, a: Unit, task: Dictionary, message: String) -> void:

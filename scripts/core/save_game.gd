@@ -3,7 +3,7 @@ extends RefCounted
 ## Saved engagements on disk: a quicksave, a short history of autosaves and the files' headers for
 ## the list. Each file is a small header (for listing without reading the whole engagement) and a
 ## SimSnapshot plus the screen's own record (the observed journal, the after-action counters),
-## written with store_var into a zstd-compressed file. user:// is the player's storage on the
+## encoded with var_to_bytes, checksummed in the header, and written into a zstd-compressed file. user:// is the player's storage on the
 ## desktop and the browser's persistent storage on the web; nothing here is a mission definition,
 ## and nothing is written into the custom-mission library, which would list it as a mission.
 
@@ -40,13 +40,18 @@ static func slot_path(slot: String) -> String:
 ## so a save interrupted part-way never destroys the previous one. Returns "" or the reason.
 static func write(path: String, header: Dictionary, payload: Dictionary) -> String:
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	# The engagement is checksummed so that a file damaged on disk is refused, not half loaded: the
+	# compression catches a broken stream but not every changed byte inside a valid one.
+	var bytes := var_to_bytes(payload)
+	var stamped := header.duplicate()
+	stamped["payload_sha256"] = sha256(bytes)
 	var temporary := path + ".tmp"
 	var file := FileAccess.open_compressed(temporary, FileAccess.WRITE, FileAccess.COMPRESSION_ZSTD)
 	if file == null:
 		return "Cannot write the save (%s)" % error_string(FileAccess.get_open_error())
 	file.store_pascal_string(MAGIC)
-	file.store_var(header, false)
-	file.store_var(payload, false)
+	file.store_var(stamped, false)
+	file.store_var(bytes, false)
 	file.close()  # on the web this is what commits the file to persistent storage
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
@@ -74,10 +79,35 @@ static func read(path: String) -> Dictionary:
 	if file.get_length() < MAGIC.length() or file.get_pascal_string() != MAGIC:
 		return {"error": "Not a saved engagement"}
 	var header: Variant = file.get_var(false)
-	var payload: Variant = file.get_var(false)
-	if typeof(header) != TYPE_DICTIONARY or typeof(payload) != TYPE_DICTIONARY or not (payload as Dictionary).has("simulation"):
+	var bytes: Variant = file.get_var(false)
+	if typeof(header) != TYPE_DICTIONARY or typeof(bytes) != TYPE_PACKED_BYTE_ARRAY:
+		return {"error": "The save file is damaged (incomplete)"}
+	if not (header as Dictionary).has("payload_sha256"):
+		return {"error": "The save file is from an earlier test build and cannot be checked"}
+	if sha256(bytes) != str(header["payload_sha256"]):
+		return {"error": "The save file is damaged (checksum does not match)"}
+	var payload: Variant = bytes_to_var(bytes)
+	if typeof(payload) != TYPE_DICTIONARY or not (payload as Dictionary).has("simulation"):
 		return {"error": "The save file is damaged (incomplete)"}
 	return {"header": header, "payload": payload, "error": ""}
+
+
+static func sha256(bytes: PackedByteArray) -> String:
+	var hashing := HashingContext.new()
+	hashing.start(HashingContext.HASH_SHA256)
+	hashing.update(bytes)
+	return hashing.finish().hex_encode()
+
+
+## Deletes a save. On the web a deletion alone never reaches the browser's storage: the engine
+## writes its file system back only after a file opened for writing closes, so one is written.
+static func remove(path: String) -> void:
+	DirAccess.remove_absolute(path)
+	if OS.has_feature("web"):
+		var marker := FileAccess.open(root().path_join(".sync"), FileAccess.WRITE)
+		if marker != null:
+			marker.store_8(0)
+			marker.close()
 
 
 ## Every readable save, newest first, as headers with their "path" added.
@@ -117,7 +147,7 @@ static func prune_autosaves() -> void:
 	autos.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return int(str(a["slot"]).trim_prefix(AUTOSAVE_PREFIX)) > int(str(b["slot"]).trim_prefix(AUTOSAVE_PREFIX)))
 	for i in range(AUTOSAVE_KEEP, autos.size()):
-		DirAccess.remove_absolute(str(autos[i]["path"]))
+		remove(str(autos[i]["path"]))
 
 
 ## A number that orders saves newest first across sessions: wall-clock seconds, then a counter
