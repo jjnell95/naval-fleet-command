@@ -2,7 +2,8 @@
 // page and console errors, whether the engine started, and screenshots of the operations desk
 // and of a running operation. It then plays the save path a browser player relies on: open the
 // selected operation with the keyboard, take command, quicksave, reload the page, find the save
-// still in the browser's storage (IndexedDB behind user://), and load it from Saved Engagements.
+// still in the browser's storage (IndexedDB behind user://), load it from Saved Engagements, then
+// delete it and reload again to see the deletion kept.
 // Usage (from the repository root):
 //   NODE_PATH=/opt/node-tools/node_modules node tools/web/browser_check.cjs [docs] [out-dir]
 // Serves docs/ as GitHub Pages does (the page fetches its fonts from ../fonts) on a free local port
@@ -60,24 +61,24 @@ fs.writeFileSync(path.join(out, 'browser-check.json'), JSON.stringify(report, nu
 console.log(JSON.stringify(report, null, 2));
 await browser.close();
 server.close();
-const saved = report.save && report.save.after_reload.length > 0 && report.save.loaded;
+const saved = report.save && report.save.after_reload.length > 0 && report.save.loaded && Array.isArray(report.save.after_delete) && report.save.after_delete.length === 0;
 process.exit(report.started && saved && report.errors.length === 0 ? 0 : 1);
 })();
 
 // Godot's web build keeps user:// in Emscripten's IDBFS: an IndexedDB database named after the
 // mount point, one record per file keyed by its full path.
-async function savedFiles(page) {
-  return page.evaluate(() => new Promise(resolve => {
+async function savedFiles(page, all = false) {
+  return page.evaluate((all) => new Promise(resolve => {
     const open = indexedDB.open('/userfs');
     open.onerror = () => resolve([]);
     open.onsuccess = () => {
       const db = open.result;
       if (!db.objectStoreNames.contains('FILE_DATA')) { resolve([]); return; }
       const keys = db.transaction('FILE_DATA').objectStore('FILE_DATA').getAllKeys();
-      keys.onsuccess = () => resolve(keys.result.map(String).filter(k => k.endsWith('.nfcsave')));
+      keys.onsuccess = () => resolve(keys.result.map(String).filter(k => all ? k.includes('/saves') : k.endsWith('.nfcsave')));
       keys.onerror = () => resolve([]);
     };
-  }));
+  }), all);
 }
 
 async function shot(page, report, out, name) {
@@ -130,4 +131,21 @@ async function playAndSave(page, report, out) {
   // The restored command screen replaces the dialog over the desk; an unchanged frame means the
   // load never happened.
   report.save.loaded = Buffer.compare(before, after) !== 0;
+  // Delete it from the list and reload: a deletion has to reach the browser's storage too.
+  await page.keyboard.press('Control+Shift+O');
+  await page.waitForTimeout(2500);
+  // The dialog is a fixed 760 x 470 panel centred in the 1600 x 900 page; DELETE is its third button.
+  await page.mouse.click(728, 655);
+  // The engine writes its file system back to IndexedDB a few seconds after a change, not at once.
+  await page.waitForTimeout(10000);
+  await shot(page, report, out, 'browser-deleted.png');
+  report.save.storage_after_delete = await savedFiles(page, true);
+  await page.reload();
+  try {
+    await waitForEngine(page);
+  } catch (e) {
+    report.errors.push('engine did not restart after the second reload');
+    return;
+  }
+  report.save.after_delete = await savedFiles(page);
 }
