@@ -131,11 +131,17 @@ func set_ambient(active: bool, sea_state: int, hum: String) -> void:
 
 
 func toggle_ambient() -> bool:
-	ambient_enabled = not ambient_enabled
-	UserSettings.set_value("audio", AMBIENT_SETTINGS_KEY, ambient_enabled)
+	set_ambient_enabled(not ambient_enabled)
+	return ambient_enabled
+
+
+## `persist` saves the choice; a saved engagement's sound is played without becoming the preference.
+func set_ambient_enabled(on: bool, persist := true) -> void:
+	ambient_enabled = on
+	if persist:
+		UserSettings.set_value("audio", AMBIENT_SETTINGS_KEY, ambient_enabled)
 	if not ambient_enabled:
 		_stop_ambient()
-	return ambient_enabled
 
 
 ## The hum for a hooked platform, from what the player already sees of their own unit.

@@ -152,10 +152,11 @@ func configure_from_settings() -> String:
 	return blocker
 
 
-## The Actions palette and the CDS menu toggle. Returns the line for the radio's advice.
-func toggle() -> String:
+## The Actions palette and the CDS menu toggle. Returns the line for the radio's advice. `persist`
+## saves the choice; a saved engagement's sound is played without becoming the preference.
+func toggle(persist := true) -> String:
 	if enabled:
-		set_enabled(false)
+		set_enabled(false, persist)
 		return "Crew voice off"
 	if not sink.is_valid():
 		var blocker := os_speech_blocker(true)
@@ -163,7 +164,7 @@ func toggle() -> String:
 			use_os_speech()
 		elif not automated_run():
 			return blocker
-	set_enabled(true)
+	set_enabled(true, persist)
 	return "Crew voice on"
 
 
