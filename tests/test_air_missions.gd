@@ -47,7 +47,7 @@ func _unit(callsign: String) -> Unit:
 	return null
 
 
-func _plot(pos: Vector2, id: String, altitude := 6000.0) -> Track:
+func _plot(pos: Vector2, id: String, altitude := 6000.0, hold := true) -> Track:
 	var t := Track.new()
 	t.id = id
 	t.owner_faction = "BLUE"
@@ -57,7 +57,8 @@ func _plot(pos: Vector2, id: String, altitude := 6000.0) -> Track:
 	if not _sim.track_manager._tracks.has("BLUE"):
 		_sim.track_manager._tracks["BLUE"] = []
 	_sim.track_manager._tracks["BLUE"].append(t)
-	_held.append(t)
+	if hold:
+		_held.append(t)
 	return t
 
 
@@ -414,4 +415,166 @@ func test_a_dipping_helicopter_stops_to_listen_and_then_moves_on() -> void:
 	assert_true(hovered_at > 0.0, "the Sea King came to a hover in the area to dip")
 	assert_true(helo.on_station() and helo.patrol_active, "and took up its search circuit again afterwards")
 	assert_eq(helo.station_label, "ASW SEARCH", "the station was kept through the dip")
+	_done()
+
+
+# --- Found by review -----------------------------------------------------------------------
+
+func test_cancelling_while_the_catapults_are_busy_still_brings_every_airframe_home() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 4, cv.position + Vector2(0, 40), 10.0)))
+	var m := _mission()
+	var flying: Array[Unit] = m.aircraft.duplicate()
+	assert_true(not flying.is_empty())
+	for a in flying:
+		assert_eq(a.flight_state, Unit.FlightState.LAUNCHING, "still on the catapult")
+	assert_true(_sim.unit_manager.issue_order(cv, Order.cancel_air_mission(m.id)))
+	assert_eq(m.pending_launches, 0, "the queue is struck off at once")
+	_advance(300.0)
+	assert_true(not m.active, "the mission closes once its launches are airborne and turned for home")
+	for a in flying:
+		assert_true(a.returning or a.flight_state != Unit.FlightState.AIRBORNE, "%s comes home after its mission was cancelled" % a.callsign)
+	_done()
+
+
+func test_relief_and_a_tanker_never_leave_two_airframes_on_a_one_airframe_cap() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var station := cv.position + Vector2(0, 40)
+	var tanker := ScenarioLoader._spawn_aircraft(DataDB.platform("usn_uav_mq25"), cv, "Texaco 1", "VX")
+	_sim.unit_manager.add_unit(tanker)
+	assert_true(_sim.aviation_manager.launch(cv, "Texaco 1") != null)
+	_advance(70.0)
+	assert_true(_sim.unit_manager.issue_order(tanker, Order.patrol_box(station - Vector2(6, 6), station + Vector2(6, 6))))
+	var o := Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, station, 10.0, null, true)
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	var m := _mission()
+	_advance(300.0)
+	var first: Unit = m.aircraft[0]
+	first.fuel_s = _sim.aviation_manager.return_fuel_required(first, cv) + 30.0
+	var most := 0
+	var tanked := false
+	for i in 3000:
+		_advance(1.0)
+		if first.tanking_on != null:
+			tanked = true
+		var working := 0
+		for a in m.aircraft:
+			if not a.returning and a.flight_state == Unit.FlightState.AIRBORNE and a.tanking_on == null and m.state_of(a) in [AirMission.ON_STATION, AirMission.TRANSITING, AirMission.INVESTIGATING, AirMission.ENGAGING]:
+				working += 1
+		most = maxi(most, working)
+	assert_true(tanked, "the first airframe took the tanker's basket")
+	assert_true(most <= 1, "a one-airframe CAP never keeps two working (%d)" % most)
+	_done()
+
+
+func test_a_cap_fighter_out_of_rounds_goes_home_without_relief() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, cv.position + Vector2(0, 40), 10.0)))
+	var m := _mission()
+	_advance(300.0)
+	var a: Unit = m.aircraft[0]
+	for wid in a.magazines.keys():
+		a.magazines[wid] = 0
+	_advance(60.0)
+	assert_true(a.returning, "an empty fighter goes home rather than holding a CAP it cannot fight")
+	_done()
+
+
+func test_two_missions_never_book_the_same_reserve_airframes() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var owned := AirMissionManager.airframes_of(cv, "cw90_f14a").size()
+	var a := Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 6, cv.position + Vector2(0, 40), 10.0)
+	assert_true(_sim.unit_manager.issue_order(cv, a), a.receipt)
+	var b := Order.air_mission(AirMission.Kind.RECON, "cw90_f14a", owned, cv.position + Vector2(40, 0), 20.0)
+	_sim.unit_manager.issue_order(cv, b)
+	var total := 0
+	for m in _sim.air_mission_manager.active_missions("BLUE"):
+		total += m.requested
+	assert_true(total <= owned, "accepted %d of %d airframes" % [total, owned])
+	assert_eq(_sim.air_mission_manager.available_for(cv, "cw90_f14a"), 0)
+	var c := Order.air_mission(AirMission.Kind.RECON, "cw90_f14a", 1, cv.position + Vector2(-40, 0), 20.0)
+	assert_true(not _sim.unit_manager.issue_order(cv, c))
+	assert_true(c.receipt.contains("queued for another mission") or c.receipt.contains("already flying"), c.receipt)
+	_done()
+
+
+func test_a_mission_no_airframe_can_be_armed_for_is_refused_with_the_reason() -> void:
+	_load(CARRIER_QUAL)
+	var cdg := _unit("Charles de Gaulle (R 91)")
+	for a in AirMissionManager.airframes_of(cdg, "fra_fighter_rafale_m"):
+		a.magazines["mica_em"] = 0
+	cdg.aviation_stores["mica_em"] = 0
+	var o := Order.air_mission(AirMission.Kind.CAP, "fra_fighter_rafale_m", 2, cdg.position + Vector2(20, 0), 10.0)
+	assert_true(not _sim.unit_manager.issue_order(cdg, o), "accepted: " + o.receipt)
+	assert_true(o.receipt.contains("armed"), o.receipt)
+	_done()
+
+
+func test_no_strike_is_flown_at_a_contact_the_plot_scores_destroyed() -> void:
+	_load(CARRIER_QUAL)
+	var cdg := _unit("Charles de Gaulle (R 91)")
+	var ship := Unit.new()
+	ship.spec = DataDB.platform("cw90_slava")
+	ship.faction = "RED"
+	ship.callsign = "Target"
+	ship.position = cdg.position + Vector2(60, 0)
+	ship.health = ship.spec.health
+	_sim.unit_manager.add_unit(ship)
+	var t := _plot(ship.position, "0301", 0.0, false)
+	t.truth = ship
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.domain = "surface"
+	t.identity = "HOSTILE"
+	_sim.track_manager._by_target["BLUE"] = {ship: t}
+	var o := Order.air_mission(AirMission.Kind.STRIKE, "fra_fighter_rafale_m", 4, Vector2.INF, 0.0, t)
+	assert_true(_sim.unit_manager.issue_order(cdg, o), o.receipt)
+	var m := _mission()
+	_advance(20.0)
+	var launched := m.launched_total
+	assert_true(launched < 4, "some of the strike is still queued")
+	t.damage_estimate = 100.0  # the plot scores it destroyed
+	_advance(600.0)
+	assert_eq(m.launched_total, launched, "no strike launches against a contact the plot scores destroyed")
+	for a in AirMissionManager.airframes_of(cdg, "fra_fighter_rafale_m"):
+		assert_true(a.attack_track != t, "%s is not attacking a destroyed contact" % a.callsign)
+	var again := Order.air_mission(AirMission.Kind.STRIKE, "fra_fighter_rafale_m", 1, Vector2.INF, 0.0, t)
+	assert_true(not _sim.unit_manager.issue_order(cdg, again))
+	assert_eq(again.receipt, "Contact already destroyed")
+	_done()
+
+
+func test_mission_airframes_launch_under_the_tightest_rules_on_the_station() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var station := cv.position + Vector2(0, 40)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, station, 10.0, null, true)))
+	var m := _mission()
+	_advance(300.0)
+	var first: Unit = m.aircraft[0]
+	assert_true(_sim.unit_manager.issue_order(first, Order.set_roe(Unit.Roe.HOLD)))
+	first.fuel_s = _sim.aviation_manager.return_fuel_required(first, cv) + 200.0
+	_advance(3.0)
+	assert_eq(m.launched_total, 2)
+	var relief: Unit = m.aircraft[1]
+	assert_eq(relief.roe, Unit.Roe.HOLD, "the relief keeps the hold the commander put on the station")
+	_done()
+	# A deck at weapons hold launches its CAP at weapons hold: it identifies but does not fire.
+	_load(CARRIER_WATCH)
+	cv = _unit(IKE)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.set_roe(Unit.Roe.HOLD)))
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, station, 10.0)))
+	m = _mission()
+	_advance(300.0)
+	var a: Unit = m.aircraft[0]
+	assert_eq(a.roe, Unit.Roe.HOLD)
+	var raid := _plot(station + Vector2(5, 5), "0203")
+	raid.classification = Track.Classification.CLASS_KNOWN
+	raid.domain = "air"
+	raid.identity = "HOSTILE"
+	_advance(4.0)
+	assert_true(a.attack_track != raid, "no intercept under the deck's weapons hold")
 	_done()
