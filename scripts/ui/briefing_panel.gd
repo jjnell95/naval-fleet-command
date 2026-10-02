@@ -247,7 +247,12 @@ func refresh(reset_scroll := false) -> void:
 	var duration := int(_scenario.get("duration_minutes", 0))
 	if duration > 0:
 		details.append("About %d min play" % duration)
+	# The preset rides on the meta line too: the posture rail that spells it out is hidden on a
+	# compact screen, and the rules of play belong in the orders at every size.
+	if options_label != "":
+		details.append("Gameplay " + options_label)
 	_meta.text = "  ·  ".join(details).to_upper()
+	_meta.tooltip_text = "\n".join(options_lines)
 	_meta.visible = not details.is_empty()
 	_intent.text = _scenario.get("commander_intent", mission_manager.briefing if mission_manager.briefing != "" else "Establish the tactical picture and accomplish the objectives below.")
 	_posture.text = "The clock is paused.\n\nTake Command begins at real time. Press Space whenever you need time to assess contacts or issue orders." if _pre_mission else "The clock is paused.\n\nReview your objectives, then Resume to continue the operation."

@@ -680,3 +680,20 @@ func test_only_combat_the_player_could_see_drops_the_clock() -> void:
 	var close := _ship("RED", Vector2(3, 0), [])
 	assert_true(WorldPresentation.combat_observed(close, false, [own], [], env), "within sight of a lookout")
 	assert_true(not WorldPresentation.combat_observed(null, false, [own], [], env))
+
+
+func test_the_briefing_names_the_preset_at_every_screen_size() -> void:
+	var missions := MissionManager.new()
+	var panel := BriefingPanel.new()
+	panel.mission_manager = missions
+	panel.options_label = GameOptions.classic().label()
+	panel.options_lines = GameOptions.classic().summary_lines()
+	(Engine.get_main_loop() as SceneTree).root.add_child(panel)
+	panel.configure("Test Operation", "", "", {}, {})
+	# The posture rail that spells the options out is hidden on a compact screen; the meta line
+	# above the orders is not.
+	assert_true(panel._meta.visible and panel._meta.text.contains("GAMEPLAY CLASSIC 4×"), panel._meta.text)
+	assert_true(panel._meta.tooltip_text.contains("Missile defence: manual"), panel._meta.tooltip_text)
+	assert_true(panel._posture.text.contains("GAMEPLAY: CLASSIC 4×"))
+	panel.free()
+	missions.free()
