@@ -713,7 +713,6 @@ func _fire_plan(g: GroupAttack, ti: int, rows: Array, tally: Dictionary) -> void
 ## "12-round group attack on track 1077: USS Paul Ignatius 4 × Tomahawk, Nansen refused: out of
 ## range · 4 held for after the assessment".
 func _receipt(g: GroupAttack, tally: Dictionary) -> String:
-	var spent := _spent(g)
 	var head := "%d-round group attack on track %s" % [g.budget, g.target_label()]
 	if g.targets.size() > 1:
 		var numbers := PackedStringArray()
@@ -731,7 +730,11 @@ func _receipt(g: GroupAttack, tally: Dictionary) -> String:
 			if not _placed_by(tally, mi) and refused[mi] != "magazines empty":
 				why = "no other shooter can take them"
 		text += " · %d not placed: %s" % [short, why]
-	var held := g.budget - spent - short
+	# What the contacts' shares leave for later volleys. A commander's allocation may share out less
+	# than the budget; the rest is never spent, so it is not "held".
+	var held := 0
+	for ti in g.live_targets():
+		held += maxi(g.target_share[ti] - maxi(g.target_mark[ti], _spent_at(g, ti)), 0)
 	if held > 0:
 		text += " · %d held for after the assessment" % held
 	return text

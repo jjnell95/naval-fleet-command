@@ -751,3 +751,20 @@ func test_the_board_shows_and_cancels_only_the_group_its_platforms_are_in() -> v
 	assert_true(board._group_cancel.disabled, "nothing of the hooked pair's is left to cancel")
 	board.free()
 	_done()
+
+
+func test_a_receipt_holds_back_only_what_a_contacts_share_will_spend() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var roosevelt := _ship("usn_ddg_arleigh_burke_iia", "USS Roosevelt", Vector2(-4, 0))
+	var first := _plot("T1077", Vector2(0, 40))
+	var second := _plot("T1078", Vector2(10, 40))
+	# The commander shares out four of ten rounds: the other six are never to be spent.
+	var o := Order.group_attack([ignatius, roosevelt], [first, second], 10, 0, [2, 2])
+	assert_true(_sim.unit_manager.issue_order(ignatius, o), o.receipt)
+	assert_eq(_spent(_group()), 4)
+	assert_true(not o.receipt.contains("held for after the assessment"), o.receipt)
+	var paced := Order.group_attack([ignatius, roosevelt], [_plot("T1079", Vector2(-10, 40))], 6, 2)
+	assert_true(_sim.unit_manager.issue_order(roosevelt, paced), paced.receipt)
+	assert_true(paced.receipt.ends_with("· 4 held for after the assessment"), paced.receipt)
+	_done()
