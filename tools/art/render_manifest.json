@@ -5,6 +5,13 @@
  "aim9x_air": {
   "kind": "weapon"
  },
+ "cw90_a6e": {
+  "kind": "platform",
+  "domain": "air"
+ },
+ "cw90_agm84": {
+  "kind": "weapon"
+ },
  "cw90_nimitz": {
   "kind": "platform",
   "domain": "surface",
