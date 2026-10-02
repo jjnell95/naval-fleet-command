@@ -843,6 +843,7 @@ func _step_plan(p: AIPlan, now: float) -> void:
 	if now < p.start_s:
 		p.set_phase(AIPlan.Phase.WAITING, now)
 		return
+	var was := "%s %s %s" % [p.phase_name(), p.target_track_id, p.weapons_free]
 	_launch_scouts(p, now)
 	match p.kind:
 		AIPlan.Kind.PROTECT_BREAKOUT:
@@ -854,6 +855,8 @@ func _step_plan(p: AIPlan, now: float) -> void:
 		_:
 			_step_strike_plan(p, now)
 	_request_air_recon(p, now)
+	if was != "%s %s %s" % [p.phase_name(), p.target_track_id, p.weapons_free]:
+		Debug.event("[AI plan] %s %s: %s%s%s" % [faction, p.id, p.phase_name(), " on " + p.target_track_id if p.target_track_id != "" else "", ", weapons free" if p.weapons_free else ""])
 
 
 ## Reconnaissance, assembly, attack. Until a contact the plan wants is classified the strikers hold
