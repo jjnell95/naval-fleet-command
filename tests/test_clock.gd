@@ -75,3 +75,39 @@ func test_wall_clock_pause_and_os_suspension_do_not_replay_old_time() -> void:
 	clock._process_wall_frame(0.15, 80000000)
 	assert_near(clock.sim_time, 1, 0.001, "OS suspension catch-up is capped to one second")
 	clock.free()
+
+
+func test_a_slow_frame_stops_at_the_wall_time_budget_and_drops_its_backlog() -> void:
+	var clock := ClockScript.new()
+	clock.set_speed_index(5)
+	clock.set_paused(false)
+	var ticks := [0]
+	# A late-battle tick at its slowest: 60x owes 240 of them a second, 2.4 s of stepping.
+	clock.tick.connect(func(_dt: float) -> void:
+		ticks[0] += 1
+		OS.delay_usec(10000))
+	clock._process(1.0)
+	assert_true(ticks[0] >= 1, "a frame always steps at least once")
+	assert_true(ticks[0] <= clock.frame_budget_usec / 10000 + 1, "%d ticks of 10 ms in a %d ms budget" % [ticks[0], clock.frame_budget_usec / 1000])
+	assert_near(clock.sim_time, ticks[0] * ClockScript.TICK_DT, 0.001, "time moved only by the ticks that ran")
+	var stepped: int = ticks[0]
+	clock._process(0.0)
+	assert_eq(ticks[0], stepped, "the dropped backlog is not replayed by the next frame")
+	# A tick slower than the whole budget still runs: the clock slows down, it never stops.
+	clock.set_speed_index(0)
+	clock.frame_budget_usec = 1
+	clock._process(0.6)
+	assert_eq(ticks[0], stepped + 1, "one tick a frame however slow")
+	clock.free()
+
+
+func test_a_fast_simulation_still_reaches_the_full_multiplier() -> void:
+	var clock := ClockScript.new()
+	clock.set_speed_index(5)
+	clock.set_paused(false)
+	var ticks := [0]
+	clock.tick.connect(func(_dt: float) -> void: ticks[0] += 1)
+	clock._process(1.0)
+	assert_eq(ticks[0], 240, "a light battle steps everything 60x asks for in one frame")
+	assert_near(clock.sim_time, 60.0, 0.001)
+	clock.free()

@@ -9,6 +9,9 @@ extends RefCounted
 ##   --from=S               simulated second the measurement starts at (default 2400)
 ##   --span=S               simulated seconds stepped tick by tick (default 600)
 ##   --clock-span=S         simulated seconds run on the real frame clock at 60x (default 240, 0 skips)
+##   --budget=both|on|off   the 60x clock with SimClock's per-frame wall-time budget, without it
+##                          (frame_budget_usec 0: every frame steps up to MAX_TICKS_PER_FRAME), or
+##                          both one after the other (default both)
 ##   --repeats=N            default 3; paths are interleaved so machine load falls on each alike
 ##   --paths=a,b            "current" (the code as it stands), or "reference" and "optimized" for
 ##                          a before/after pair: "reference" switches SensorManager.reference_path
@@ -29,7 +32,10 @@ extends RefCounted
 ## acceleration the clock actually achieves and, for an order batch issued at the start of a frame,
 ## the wall time until the next frame begins: the order applied and the ticks that frame ran, which
 ## is what a player waits before the chart can show the order taking effect. A window adds its own
-## render time on top.
+## render time on top. With --budget=both each path runs the clock twice, without and with the
+## frame budget, so its effect on acceleration and latency is read off one run. In the first repeat
+## each clocked run is then stepped again tick by tick with its order batches at the same simulated
+## moments, and the two final states must match: frame pacing never changes the battle.
 
 const TICK := 0.25
 const ORDER_EVERY_S := 120.0
@@ -51,18 +57,28 @@ func run(tree: SceneTree) -> int:
 	var clock_span := float(_args.get("clock-span", "240"))
 	var repeats := int(_args.get("repeats", "3"))
 	var paths := str(_args.get("paths", "current")).split(",")
+	var budgets: Array[String] = []
+	match str(_args.get("budget", "both")):
+		"on":
+			budgets = ["budget"]
+		"off":
+			budgets = ["no budget"]
+		_:
+			budgets = ["no budget", "budget"]
 	var save := "res://work/measure/%s-s%d-t%d.nfcsave" % [scenario.get_file().get_basename(), seed_value, int(from)]
 	if _args.has("fresh") or not FileAccess.file_exists(save):
 		var why := _build_save(tree, scenario, seed_value, from, save)
 		if why != "":
 			print("[measure] FAIL " + why)
 			return 1
-	print("[measure] %s seed %d from %.0f s: %.0f s stepped, %.0f s on the 60x clock, %d repeats, paths %s" % [scenario.get_file(), seed_value, from, span, clock_span, repeats, ",".join(paths)])
+	print("[measure] %s seed %d from %.0f s: %.0f s stepped, %.0f s on the 60x clock (%s; budget %.0f ms), %d repeats, paths %s" % [scenario.get_file(), seed_value, from, span, clock_span, " and ".join(PackedStringArray(budgets)), SimClock.FRAME_BUDGET_USEC / 1000.0, repeats, ",".join(paths)])
 	var stepped: Dictionary = {}
 	var clocked: Dictionary = {}
+	var replays_differ := 0
 	for path in paths:
 		stepped[path] = []
-		clocked[path] = []
+		for budget in budgets:
+			clocked[path + "/" + budget] = []
 	for r in repeats:
 		for path in paths:
 			var sim := _restore(tree, scenario, save, path)
@@ -74,12 +90,21 @@ func run(tree: SceneTree) -> int:
 			print("[measure] run %d %-9s stepped: sensor cycle mean %.2f ms p95 %.2f ms; tick mean %.2f ms p95 %.2f ms; %.1f s wall per %.0f s (%.1fx); orders %.2f ms, their tick %.2f ms; state %s" % [r + 1, path, result["cycle_mean"], result["cycle_p95"], result["tick_mean"], result["tick_p95"], result["wall_s"], span, result["accel"], result["order_ms"], result["order_tick_ms"], result["digest"]])
 			stepped[path].append(result)
 			_free(sim)
-			if clock_span > 0.0:
+			if clock_span <= 0.0:
+				continue
+			for budget in budgets:
 				sim = _restore(tree, scenario, save, path)
+				SimClock.frame_budget_usec = SimClock.FRAME_BUDGET_USEC if budget == "budget" else 0
 				var c: Dictionary = await _clocked(tree, sim, clock_span)
-				print("[measure] run %d %-9s 60x clock: %.1fx achieved, frame mean %.0f ms p95 %.0f ms, %.0f ticks per frame; order to next frame mean %.0f ms max %.0f ms (%d batches)" % [r + 1, path, c["accel"], c["frame_mean"], c["frame_p95"], c["ticks_per_frame"], c["latency_mean"], c["latency_max"], c["batches"]])
-				clocked[path].append(c)
+				SimClock.frame_budget_usec = SimClock.FRAME_BUDGET_USEC
+				print("[measure] run %d %-9s 60x clock, %-9s: %.1fx achieved, frame mean %.0f ms p95 %.0f ms, %.1f ticks per frame; order to next frame mean %.0f ms max %.0f ms (%d batches)" % [r + 1, path, budget, c["accel"], c["frame_mean"], c["frame_p95"], c["ticks_per_frame"], c["latency_mean"], c["latency_max"], c["batches"]])
+				clocked[path + "/" + budget].append(c)
 				_free(sim)
+				if r == 0:
+					var replayed := _replay(tree, scenario, save, path, c)
+					print("[measure] run %d %-9s 60x clock, %-9s: stepped again tick by tick with the same orders, the state is %s (%s)" % [r + 1, path, budget, "identical" if replayed == c["digest"] else "DIFFERENT", c["digest"]])
+					if replayed != c["digest"]:
+						replays_differ += 1
 	print("[measure] ---- min / median over %d runs ----" % repeats)
 	for path in paths:
 		var s: Array = stepped[path]
@@ -97,16 +122,23 @@ func run(tree: SceneTree) -> int:
 		print("[measure] %-9s order batch apply ms   %s" % [path, _min_median(s, "order_ms")])
 		print("[measure] %-9s tick carrying orders ms %s" % [path, _min_median(s, "order_tick_ms")])
 		print("[measure] %-9s final state            %s" % [path, ", ".join(PackedStringArray(s.map(func(x: Dictionary) -> String: return x["digest"])))])
-		var c: Array = clocked[path]
-		if not c.is_empty():
-			print("[measure] %-9s 60x clock acceleration %s" % [path, _min_median(c, "accel", "%.1fx")])
-			print("[measure] %-9s 60x frame mean ms      %s" % [path, _min_median(c, "frame_mean", "%.0f")])
-			print("[measure] %-9s 60x order to frame ms  %s (mean); max %s" % [path, _min_median(c, "latency_mean", "%.0f"), _min_median(c, "latency_max", "%.0f")])
+		for budget in budgets:
+			var c: Array = clocked[path + "/" + budget]
+			if c.is_empty():
+				continue
+			var label := "%s, %s" % [path, budget]
+			print("[measure] %-20s 60x clock acceleration %s" % [label, _min_median(c, "accel", "%.1fx")])
+			print("[measure] %-20s 60x frame mean ms      %s" % [label, _min_median(c, "frame_mean", "%.0f")])
+			print("[measure] %-20s 60x ticks per frame    %s" % [label, _min_median(c, "ticks_per_frame", "%.1f")])
+			print("[measure] %-20s 60x order to frame ms  %s (mean); max %s" % [label, _min_median(c, "latency_mean", "%.0f"), _min_median(c, "latency_max", "%.0f")])
 	var digests := {}
 	for path in paths:
 		for x: Dictionary in stepped[path]:
 			digests[x["digest"]] = true
 	print("[measure] every run ended in the same state: %s" % ("yes" if digests.size() == 1 else "NO (%d different)" % digests.size()))
+	if replays_differ > 0:
+		print("[measure] %d clock runs did NOT match their tick-by-tick replay" % replays_differ)
+		return 3
 	return 0 if digests.size() == 1 else 2
 
 
@@ -251,6 +283,7 @@ func _clocked(tree: SceneTree, sim: Simulation, clock_span: float) -> Dictionary
 	await tree.process_frame
 	var frames := PackedFloat64Array()
 	var latencies := PackedFloat64Array()
+	var issue_ticks := PackedInt32Array()
 	var tick_count := 0
 	var started := Time.get_ticks_usec()
 	var frame_start := started
@@ -260,6 +293,7 @@ func _clocked(tree: SceneTree, sim: Simulation, clock_span: float) -> Dictionary
 		if n % 2 == 1:
 			issued = Time.get_ticks_usec()
 			_issue_batch(sim)
+			issue_ticks.append(roundi(SimClock.sim_time / TICK))
 		var before := SimClock.sim_time
 		await tree.process_frame
 		var now := Time.get_ticks_usec()
@@ -276,7 +310,30 @@ func _clocked(tree: SceneTree, sim: Simulation, clock_span: float) -> Dictionary
 		"accel": advanced / maxf(wall, 1e-6), "frame_mean": _mean(frames), "frame_p95": _p95(frames),
 		"ticks_per_frame": float(tick_count) / maxf(frames.size(), 1),
 		"latency_mean": _mean(latencies), "latency_max": _max(latencies), "batches": latencies.size(),
+		"issue_ticks": issue_ticks, "end_tick": roundi(SimClock.sim_time / TICK), "digest": _digest(sim),
 	}
+
+
+## The clocked run again, stepped one tick at a time with the same order batches at the same
+## simulated moments. However the frames were paced, with the budget or without, the battle must
+## come out the same.
+func _replay(tree: SceneTree, scenario: String, save: String, path: String, clocked: Dictionary) -> String:
+	var sim := _restore(tree, scenario, save, path)
+	if sim == null:
+		return "no replay"
+	var batches: PackedInt32Array = clocked["issue_ticks"]
+	var k := 0
+	while true:
+		var now_tick := roundi(SimClock.sim_time / TICK)
+		while k < batches.size() and batches[k] == now_tick:
+			_issue_batch(sim)
+			k += 1
+		if now_tick >= int(clocked["end_tick"]):
+			break
+		SimClock.advance(TICK)
+	var digest := _digest(sim)
+	_free(sim)
+	return digest
 
 
 ## A player's typical batch: every ship of the player's side told to steer five miles ahead.

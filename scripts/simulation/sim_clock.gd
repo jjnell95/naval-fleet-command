@@ -9,11 +9,23 @@ signal paused_changed(paused: bool)
 const SPEEDS: Array[float] = [1.0, 2.0, 5.0, 10.0, 30.0, 60.0]
 const TICK_DT := 0.25
 const MAX_TICKS_PER_FRAME := 480
+## GAMEPLAY_ESTIMATE: the wall time one frame may spend stepping the simulation before it lets the
+## chart draw. When the battle is too heavy for the chosen speed, a frame stops here and drops the
+## rest of its backlog, so the clock runs slower than asked instead of the screen freezing: late in
+## the Taiwan Strait a 60x frame otherwise steps up to 240 ticks of about 15 ms each and holds the
+## screen, and every order, for three seconds and more. 50 ms plus a frame's drawing keeps the
+## chart at roughly 12-20 frames a second and an order on screen in about a tenth of a second, the
+## usual limit for a response to feel immediate. It costs only the drawing time of the extra
+## frames (about a sixth of the throughput with 10 ms frames) and only while the simulation cannot
+## keep up; a light battle does not reach it. At least one tick always runs, however slow.
+const FRAME_BUDGET_USEC := 50000
 
 var sim_time := 0.0  # seconds since scenario start
 var start_unix_time := 0
 var speed_index := 0
 var paused := true
+## The budget in force; 0 turns it off (tests and tools/measure_sensor_cycle.gd compare the two).
+var frame_budget_usec := FRAME_BUDGET_USEC
 var _accum := 0.0
 var _last_wall_usec := 0
 
@@ -39,12 +51,16 @@ func _advance_frame(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	_accum += delta * multiplier()
 	var n := 0
+	var over_budget := false
 	while not paused and _accum >= TICK_DT - 1e-9 and n < MAX_TICKS_PER_FRAME:
+		if n > 0 and frame_budget_usec > 0 and Time.get_ticks_usec() - t0 >= frame_budget_usec:
+			over_budget = true
+			break
 		_accum -= TICK_DT
 		sim_time += TICK_DT
 		n += 1
 		tick.emit(TICK_DT)
-	if n >= MAX_TICKS_PER_FRAME:
+	if n >= MAX_TICKS_PER_FRAME or over_budget:
 		_accum = 0.0  # drop backlog instead of spiralling
 	Debug.time_add("sim", Time.get_ticks_usec() - t0)
 

@@ -8,8 +8,10 @@ extends SceneTree
 ##   godot --headless --path . --script tools/measure_sensor_cycle.gd -- --paths=reference,optimized --repeats=3
 ##
 ## The first run plays the opening 2400 s once (several minutes) and keeps it under work/measure/.
-## Add --profile for every profiler path per tick and per cycle; --span=120 --clock-span=0 for a
-## quick look.
+## The 60x clock runs twice for each path, without and with SimClock's per-frame wall-time budget
+## (--budget=on or --budget=off for one), and the first repeat replays each clocked run tick by
+## tick to show frame pacing leaves the battle unchanged. Add --profile for every profiler path per
+## tick and per cycle; --span=120 --clock-span=0 for a quick look.
 
 func _initialize() -> void:
 	call_deferred("_run")
