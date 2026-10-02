@@ -15,6 +15,9 @@ var spec: WeaponSpec
 var faction := ""
 var shooter: Unit
 var target_track: Track
+## The coordinated group attack this round was fired for (GroupAttack.id), or -1 for a round fired
+## on a platform's own order. The group counts its expenditure by this tag, never by shooter.
+var group_id := -1
 var launch_altitude_m := -1.0
 var launch_range_nm := 0.0
 var delivery_spec: WeaponSpec  # launcher identity retained after a torpedo enters the water

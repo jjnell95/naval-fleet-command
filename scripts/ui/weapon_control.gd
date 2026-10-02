@@ -2,9 +2,16 @@ class_name WeaponControl
 extends Control
 ## A CDS-style firing board. Keeps a separate salvo quantity for each platform and weapon.
 ## Enemy information comes exclusively from observer-held tracks. Commands return through Main.
+##
+## With several platforms hooked it also commits a group attack: one round budget the platforms
+## share, allocated by the simulation to the shooters that hold a solution. A SALVO plan, when
+## there is one, is the group's first volley and sets its volley size. COMMIT SALVO stays the
+## individual control: one independent order per platform and weapon.
 
 signal closed()
 signal unit_orders_requested(pairs: Array)
+## A group attack or its cancellation, for one member (the lead) rather than for each platform.
+signal group_order_requested(lead: Unit, order: Order)
 signal target_selected(track: Track)
 signal weapon_selected(spec: WeaponSpec)
 signal range_role_selected(role: String)
@@ -24,6 +31,13 @@ var _plan_summary: Label
 var _plan: Dictionary = {}
 var _items: Array = []
 var _building := false
+var _group_row: HBoxContainer
+var _budget: SpinBox
+var _group_commit: Button
+var _group_cancel: Button
+var _group_status: Label
+## The commander has set the budget by hand; until then it follows the plan or one salvo each.
+var _budget_set := false
 
 
 func _ready() -> void:
@@ -91,6 +105,28 @@ func _ready() -> void:
 	_button(actions, "CANCEL QUEUED FOR CONTACT", _cancel_pending)
 	_plan_summary = _wrapped_label(actions, "")
 	_plan_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_group_row = HBoxContainer.new()
+	box.add_child(_group_row)
+	_label(_group_row, "GROUP BUDGET")
+	_budget = SpinBox.new()
+	_budget.min_value = 1
+	_budget.max_value = 999
+	_budget.step = 1.0
+	_budget.suffix = "rds"
+	_budget.custom_minimum_size = Vector2(92, 28)
+	_budget.accessibility_name = "Rounds the group attack may fire in all"
+	_budget.tooltip_text = "Rounds the hooked platforms may fire between them, queued rounds included."
+	_budget.value_changed.connect(func(_v: float) -> void:
+		if not _building:
+			_budget_set = true
+			_update_group_status())
+	_group_row.add_child(_budget)
+	_group_commit = _button(_group_row, "GROUP ATTACK", _commit_group)
+	_group_commit.tooltip_text = "One shared budget: the rounds go to the platforms that hold a solution, and the group assesses each volley before spending more. A SALVO plan is the first volley."
+	_group_cancel = _button(_group_row, "CANCEL GROUP", _cancel_group)
+	_group_cancel.tooltip_text = "End the group attack on this contact: queued group rounds return to the magazines; rounds already away fly on."
+	_group_status = _wrapped_label(_group_row, "")
+	_group_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_wrapped_label(box, "LEFT excludes reserved rounds. AWAY includes payloads already delivered. TOF is flight time; queued launches add delay. Automatic missile defence remains active after you return to the chart.")
 	_receipt = _wrapped_label(box, "")
 
@@ -120,11 +156,18 @@ func _button(parent: Node, text: String, action: Callable) -> Button:
 	return button
 
 
-func open_for(selection: Array, contact: Track) -> void:
+## `group_budget` opens the board ready for a group attack of that many rounds, as the contact
+## menu's Group attack item does.
+func open_for(selection: Array, contact: Track, group_budget := 0) -> void:
 	units = selection.filter(func(u: Unit) -> bool: return u.faction == simulation.player_faction and u.is_engageable())
 	target = contact
 	_plan.clear()
 	_receipt.text = ""
+	_budget_set = group_budget > 0
+	if group_budget > 0:
+		_building = true
+		_budget.value = group_budget
+		_building = false
 	_targets.clear()
 	_target_option.clear()
 	_target_option.add_item("No contact hooked")
@@ -141,7 +184,10 @@ func open_for(selection: Array, contact: Track) -> void:
 		target = null
 	refresh()
 	show()
-	_tree.grab_focus()
+	if group_budget > 0 and not _group_commit.disabled:
+		_group_commit.grab_focus()
+	else:
+		_tree.grab_focus()
 
 
 func _choose_target(index: int) -> void:
@@ -255,6 +301,89 @@ func _update_plan_summary() -> void:
 	_plan_summary.text = "%d rounds planned across %d systems" % [rounds, _plan.size()]
 	if hidden_systems > 0:
 		_plan_summary.text += " (%d systems hidden by filter)" % hidden_systems
+	_update_group_status()
+
+
+func _planned_rounds() -> int:
+	var rounds := 0
+	for count: int in _plan.values():
+		rounds += count
+	return rounds
+
+
+## The platform a group order is given to: the first hooked one still able to fight, an armed one
+## if there is one, since the lead answers for the group on the net.
+func _group_lead() -> Unit:
+	var first: Unit = null
+	for u: Unit in units:
+		if not u.alive or not u.is_engageable():
+			continue
+		if not u.weapons.is_empty():
+			return u
+		if first == null:
+			first = u
+	return first
+
+
+## The board's plan as the group's first volley: [platform, weapon, contact index, rounds] rows.
+func _group_plan() -> Array:
+	var rows: Array = []
+	for u: Unit in units:
+		for spec: WeaponSpec in u.weapons:
+			var count := int(_plan.get(plan_key(u, spec), 0))
+			if count > 0:
+				rows.append([u, spec.id, 0, count])
+	return rows
+
+
+func _group_order() -> Order:
+	var planned := _planned_rounds()
+	return Order.group_attack(units, [target], int(_budget.value), planned, [], _group_plan())
+
+
+## The running group attacks on the contact that a hooked platform fires in. Another group on the
+## same contact, made of other platforms, is not this board's to show or to cancel.
+func _hooked_groups() -> Array[GroupAttack]:
+	var out: Array[GroupAttack] = []
+	if target == null:
+		return out
+	for g: GroupAttack in simulation.group_attack_manager.groups_on(simulation.player_faction, target):
+		for u: Unit in units:
+			if g.member_index(u) >= 0:
+				out.append(g)
+				break
+	return out
+
+
+## The group row shows the attack already running on this contact, or what one would do now.
+func _update_group_status() -> void:
+	if _group_row == null:
+		return
+	_group_row.visible = units.size() >= 2
+	if not _group_row.visible:
+		return
+	var manager := simulation.group_attack_manager
+	var running := _hooked_groups()
+	_group_cancel.disabled = running.is_empty()
+	if not _budget_set:
+		var was_building := _building
+		_building = true
+		var suggested := _planned_rounds()
+		if suggested <= 0 and target != null:
+			suggested = GroupAttackManager.default_budget(units, target, simulation.weapon_manager)
+		_budget.value = maxi(suggested, 1)
+		_building = was_building
+	var lead := _group_lead()
+	# One attack at a time for the same platforms on a contact; the running one is cancelled first.
+	_group_commit.disabled = target == null or lead == null or manager.overlapping(simulation.player_faction, units, [target]) != null
+	if not running.is_empty():
+		_group_status.text = manager.summary(running[0])
+	elif target == null:
+		_group_status.text = "Hook a contact for a group attack."
+	else:
+		var preview := manager.preview(lead, _group_order()) if lead != null else ""
+		_group_status.text = ("First volley: " + preview) if preview != "" else "No hooked platform holds a solution."
+	_group_status.tooltip_text = _group_status.text
 
 
 func _select_weapon() -> void:
@@ -298,6 +427,43 @@ func _commit_plan() -> void:
 	_plan.clear()
 	refresh()
 	_receipt.text = "%d rounds committed across %d systems; %d orders refused. Return to the chart to advance time." % [rounds, accepted, pairs.size() - accepted]
+
+
+func _commit_group() -> void:
+	var lead := _group_lead()
+	if target == null or lead == null:
+		return
+	_validate_plan()
+	var order := _group_order()
+	order.execution_accepted = false
+	group_order_requested.emit(lead, order)
+	if order.execution_accepted:
+		_plan.clear()
+		_budget_set = false
+	refresh()
+	_receipt.text = order.receipt if order.receipt != "" else "Group attack refused."
+
+
+func _cancel_group() -> void:
+	if target == null:
+		return
+	var receipts := PackedStringArray()
+	for g: GroupAttack in _hooked_groups():
+		# Given to a hooked member of that group, the platform the commander has in hand.
+		var by: Unit = null
+		for u: Unit in units:
+			if u.alive and g.member_index(u) >= 0:
+				by = u
+				break
+		if by == null:
+			continue
+		var order := Order.cancel_group_attack(g.id)
+		order.execution_accepted = false
+		group_order_requested.emit(by, order)
+		receipts.append(order.receipt)
+	if not receipts.is_empty():
+		_receipt.text = " ".join(receipts)
+	refresh()
 
 
 func _cancel_pending() -> void:

@@ -15,6 +15,7 @@ var completed_events: Dictionary = {}
 var threat_manager: ThreatManager
 var aviation_manager: AviationManager
 var air_mission_manager: AirMissionManager
+var group_attack_manager: GroupAttackManager
 var mission_manager: MissionManager
 var scenario: Dictionary = {}
 var scenario_name := ""
@@ -77,6 +78,12 @@ func _ready() -> void:
 	air_mission_manager.aviation_manager = aviation_manager
 	air_mission_manager.track_manager = track_manager
 	add_child(air_mission_manager)
+	group_attack_manager = GroupAttackManager.new()
+	group_attack_manager.name = "GroupAttackManager"
+	group_attack_manager.unit_manager = unit_manager
+	group_attack_manager.track_manager = track_manager
+	group_attack_manager.weapon_manager = weapon_manager
+	add_child(group_attack_manager)
 	mission_manager = MissionManager.new()
 	mission_manager.name = "MissionManager"
 	mission_manager.unit_manager = unit_manager
@@ -133,6 +140,7 @@ func _install_scenario(sc: Dictionary, path: String) -> void:
 	weapon_manager.clear()
 	aviation_manager.clear()
 	air_mission_manager.clear()
+	group_attack_manager.clear()
 	mission_manager.player_faction = player_faction
 	operation_events = scenario.get("events", []).duplicate(true)
 	completed_events.clear()
@@ -220,10 +228,16 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			if u.roe == Unit.Roe.HOLD:
 				weapon_manager.cancel_salvo(u)
 		Order.Type.CANCEL_FIRE:
-			o.execution_accepted = weapon_manager.cancel_salvo(u, o.track) > 0 or o.stopped_attack
+			# A member of a group attack leaves it first, so the group hears why its rounds came
+			# back; the cancel then refunds whatever else the platform has queued.
+			var withdrew := group_attack_manager.withdraw(u, o.track)
+			o.execution_accepted = weapon_manager.cancel_salvo(u, o.track) > 0 or o.stopped_attack or withdrew
 		Order.Type.ENGAGE:
 			var spec := u.get_weapon(o.weapon_id)
-			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time)
+			# Only the group manager's own crew orders spend from a group's budget; an ENGAGE from
+			# the commander or the AI is always the platform's own fire.
+			var group := o.group_id if o.origin == "crew" else -1
+			o.execution_accepted = spec != null and weapon_manager.launch(u, spec, o.track, o.salvo, SimClock.sim_time, group)
 		Order.Type.LAUNCH_AIRCRAFT:
 			if o.aircraft_count > 1:
 				# A section flies one type. The lead names it, so a mixed hangar does not put a
@@ -243,6 +257,11 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			air_mission_manager.request(u, o)
 		Order.Type.CANCEL_AIR_MISSION:
 			o.execution_accepted = air_mission_manager.cancel(o.mission_id, u)
+		Order.Type.GROUP_ATTACK:
+			group_attack_manager.now_s = SimClock.sim_time
+			group_attack_manager.request(u, o)
+		Order.Type.CANCEL_GROUP_ATTACK:
+			o.execution_accepted = group_attack_manager.cancel(o.group_id, u, o)
 
 
 func _on_tick(dt: float) -> void:
@@ -273,6 +292,9 @@ func _step(dt: float) -> void:
 	aviation_manager.tick(dt, SimClock.sim_time)
 	air_mission_manager.tick(dt, SimClock.sim_time)
 	Debug.time_add("sim/aviation", Time.get_ticks_usec() - profile_at)
+	# After the weapons have fired and resolved this tick, so a volley that has just arrived is
+	# seen as arrived.
+	group_attack_manager.tick(dt, SimClock.sim_time)
 	profile_at = Time.get_ticks_usec()
 	_defence_accum += dt
 	while _defence_accum >= DEFENCE_DT - 1e-6:

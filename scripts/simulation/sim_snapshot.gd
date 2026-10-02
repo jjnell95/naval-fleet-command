@@ -12,11 +12,11 @@ extends RefCounted
 ## quietly break them. Restore writes fields directly and emits no signals: nothing is "detected",
 ## "launched" or "added" a second time, and the observed journal is not replayed.
 ##
-## Units, tracks, weapons, air missions, buoys and the opposing force's mission plans are saved by
-## reflection over their script variables, less the few each class lists below with the reason.
-## tests/test_save.gd fails when a class gains a variable that is neither saved nor listed, so new
-## state cannot silently fall out of a save. Managers list the fields they save explicitly, under
-## the same test.
+## Units, tracks, weapons, air missions, buoys, group attacks and the opposing force's mission
+## plans are saved by reflection over their script variables, less the few each class lists below
+## with the reason. tests/test_save.gd fails when a class gains a variable that is neither saved nor
+## listed, so new state cannot silently fall out of a save. Managers list the fields they save
+## explicitly, under the same test.
 ##
 ## Scenario-editor files are mission definitions; this is a running engagement, and embeds the
 ## scenario it was started from, so an edited or deleted mission file cannot break a continuation.
@@ -34,6 +34,7 @@ const MISSION_SKIP := {}
 const BUOY_SKIP := {}
 ## An AI mission plan (AIPlan), saved whole: what the author wrote and how far its commander has got.
 const PLAN_SKIP := {}
+const GROUP_SKIP := {}
 
 ## Manager state saved by name. Anything else a manager holds is wiring (manager references set
 ## once in Simulation._ready), catalogue data, or recomputed within a single tick.
@@ -45,6 +46,7 @@ const MANAGER_FIELDS := {
 	"WeaponManager": ["in_flight", "_next_id", "_launcher_ready_at", "now_s", "_pending", "_pending_dirty"],
 	"AviationManager": ["_accum", "_next_buoy_id"],
 	"AirMissionManager": ["now_s", "_next_id", "_accum"],
+	"GroupAttackManager": ["now_s", "_next_id", "_accum"],
 	"MissionManager": ["result"],
 	"AIController": ["enabled", "_bb", "_plan_checked"],
 }
@@ -57,6 +59,9 @@ const MANAGER_TRANSIENT := {
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
 	"AviationManager": ["unit_manager", "sonobuoys", "map_center", "map_extent_nm"],
 	"AirMissionManager": ["unit_manager", "aviation_manager", "track_manager", "missions"],
+	# The group attack records are saved on their own, below; their rounds' tags are on the
+	# queued shots and the weapons themselves.
+	"GroupAttackManager": ["unit_manager", "track_manager", "weapon_manager", "groups"],
 	"MissionManager": ["unit_manager", "player_faction", "briefing", "situation", "victory_objectives", "loss_objectives", "victory_mode", "neutral_factions"],
 	# `plans` is rebuilt from the embedded scenario when the controller is, then each plan is filled
 	# from its saved record (capture, restore): plans are records, not plain manager data.
@@ -205,7 +210,7 @@ static func capture(sim: Simulation) -> Dictionary:
 		d["bottom_cache_valid"] = u.bottom_generation == Bathymetry.generation
 		units.append(d)
 	var managers := {}
-	for node: Node in [um, sim.track_manager, sim.sensor_manager, sim.threat_manager, sim.weapon_manager, sim.aviation_manager, sim.air_mission_manager, sim.mission_manager]:
+	for node: Node in [um, sim.track_manager, sim.sensor_manager, sim.threat_manager, sim.weapon_manager, sim.aviation_manager, sim.air_mission_manager, sim.group_attack_manager, sim.mission_manager]:
 		managers[_manager_name(node)] = manager_fields(node, refs)
 	var ai := []
 	for faction: String in sim.ai_controllers:
@@ -220,6 +225,13 @@ static func capture(sim: Simulation) -> Dictionary:
 	var buoys := []
 	for b in sim.aviation_manager.sonobuoys:
 		buoys.append(fields_of(b, BUOY_SKIP, refs))
+	# Group attacks, ended ones too, in the order they were ordered: members by unit id, contacts as
+	# track references (a contact already lost from every picture is saved with them). What each
+	# has queued and in the air is not stored here; it is counted from the tags on the saved queue
+	# and weapons.
+	var groups := []
+	for g in sim.group_attack_manager.groups:
+		groups.append(fields_of(g, GROUP_SKIP, refs))
 	var objectives := {"victory": _objective_state(sim.mission_manager.victory_objectives), "loss": _objective_state(sim.mission_manager.loss_objectives)}
 	# Weapons may name other weapons (an interceptor's target that has already left the plot), and
 	# tracks are found wherever they are referenced; both lists grow while they are written.
@@ -258,6 +270,7 @@ static func capture(sim: Simulation) -> Dictionary:
 		"weapons": weapons,
 		"air_missions": missions,
 		"sonobuoys": buoys,
+		"group_attacks": groups,
 		"managers": managers,
 		"ai": ai,
 		"objectives": objectives,
@@ -355,7 +368,7 @@ static func _shape_problem(snap: Dictionary) -> String:
 	for key in ["units", "tracks", "weapons"]:
 		if typeof(snap[key]) != TYPE_ARRAY:
 			return "%s" % key
-	for key in ["air_missions", "sonobuoys", "ai"]:
+	for key in ["air_missions", "sonobuoys", "group_attacks", "ai"]:
 		if snap.has(key) and typeof(snap[key]) != TYPE_ARRAY:
 			return "%s" % key
 	for key in ["clock", "rng", "simulation", "managers", "objectives"]:
@@ -369,7 +382,7 @@ static func _shape_problem(snap: Dictionary) -> String:
 			if ids[pair[1]].has(d["id"]):
 				return "two %s with id %d" % [pair[0], d["id"]]
 			ids[pair[1]][d["id"]] = true
-	for key in ["tracks", "sonobuoys"]:
+	for key in ["tracks", "sonobuoys", "group_attacks"]:
 		for d in snap.get(key, []):
 			if typeof(d) != TYPE_DICTIONARY:
 				return "a record in %s" % key
@@ -524,8 +537,12 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 		var b := Sonobuoy.new()
 		_fill(b, d, refs)
 		sim.aviation_manager.sonobuoys.append(b)
+	for d: Dictionary in snap.get("group_attacks", []):
+		var g := GroupAttack.new()
+		_fill(g, d, refs)
+		sim.group_attack_manager.groups.append(g)
 	var managers: Dictionary = snap["managers"]
-	for node: Node in [um, sim.track_manager, sim.sensor_manager, sim.threat_manager, sim.weapon_manager, sim.aviation_manager, sim.air_mission_manager, sim.mission_manager]:
+	for node: Node in [um, sim.track_manager, sim.sensor_manager, sim.threat_manager, sim.weapon_manager, sim.aviation_manager, sim.air_mission_manager, sim.group_attack_manager, sim.mission_manager]:
 		_fill_manager(node, managers.get(_manager_name(node), {}), refs)
 	_restore_objectives(sim.mission_manager.victory_objectives, snap["objectives"].get("victory", []))
 	_restore_objectives(sim.mission_manager.loss_objectives, snap["objectives"].get("loss", []))

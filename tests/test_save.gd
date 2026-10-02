@@ -184,6 +184,60 @@ func test_continuation_of_an_enemy_mission_plan_matches_the_uninterrupted_battle
 	_free()
 
 
+## Two coordinated attacks by Northern Passage's escorts, saved while the first waits out its shared
+## look between volleys and the second has rounds queued on the launcher and rounds in the air. The
+## reloaded battle must spend, wait and end each attack exactly as the uninterrupted one does.
+func test_continuation_through_group_attacks_matches_the_uninterrupted_battle() -> void:
+	_fresh(PASSAGE, 31)
+	var truxtun := _unit("USS Truxtun (DDG 103)")
+	var amundsen := _unit("HNoMS Roald Amundsen (F 311)")
+	var gam := _sim.group_attack_manager
+	var wm := _sim.weapon_manager
+	var contacts: Array[Track] = []
+	while contacts.size() < 2 and SimClock.sim_time < 1500.0:
+		SimClock.advance(0.25)
+		contacts.assign(_sim.track_manager.tracks_for(truxtun).filter(func(t: Track) -> bool:
+			return t.domain == "surface" and t.identity == "HOSTILE" and t.status == Track.Status.ACTIVE and UnitManager.attack_rejection(truxtun, t) == "" and UnitManager.attack_rejection(amundsen, t) == ""))
+	assert_eq(contacts.size(), 2, "both opposing warships held as hostile")
+	var first := Order.group_attack([truxtun, amundsen], [contacts[0]], 4, 2)
+	assert_true(_sim.unit_manager.issue_order(truxtun, first), first.receipt)
+	var looking: GroupAttack = gam.groups[-1]
+	while looking.target_assess_until[0] < 0.0 and looking.active and SimClock.sim_time < 1800.0:
+		SimClock.advance(0.25)
+	SimClock.advance(3.0)
+	var second := Order.group_attack([truxtun, amundsen], [contacts[1]], 6)
+	assert_true(_sim.unit_manager.issue_order(amundsen, second), second.receipt)
+	var rippling: GroupAttack = gam.groups[-1]
+	SimClock.advance(1.75)
+	# What the save has to carry, present at the moment it is taken, off the group cycle's boundary.
+	assert_true(gam._accum > 0.0, "the group cycle is part way through")
+	assert_true(looking.active and looking.target_assess_until[0] > SimClock.sim_time, "a shared look pending")
+	assert_true(wm.group_rounds(rippling.id, "", true) > 0, "group rounds queued on a launcher")
+	assert_true(wm.group_rounds(rippling.id) > wm.group_rounds(rippling.id, "", true), "group rounds in the air")
+	var looked_after := looking.fired_total
+	var saved := _write_and_read(SimSnapshot.capture(_sim))
+	var save_at := SimClock.sim_time
+	SimClock.advance(400.0)
+	assert_true(looking.fired_total > looked_after, "the first attack fired again after its look")
+	var expected := _bytes()
+	_free()
+	_fresh(PASSAGE, 5)
+	assert_eq(_sim.restore_snapshot(saved), "")
+	assert_eq(SimClock.sim_time, save_at)
+	gam = _sim.group_attack_manager
+	assert_eq(gam.groups.size(), 2, "both attacks come back")
+	if gam.groups.size() == 2:
+		assert_true(gam.groups[0].target_assess_until[0] > SimClock.sim_time, "still looking")
+		assert_true(_sim.weapon_manager.group_rounds(gam.groups[1].id, "", true) > 0, "still rippling")
+		assert_true(gam.groups[0].members[0] == _unit("USS Truxtun (DDG 103)"), "members are the restored units themselves")
+		assert_true(gam.overlapping("BLUE", [_unit("USS Truxtun (DDG 103)")], [gam.groups[1].targets[0]]) == gam.groups[1], "a restored attack still holds its platforms and contact")
+	SimClock.advance(400.0)
+	var got := _bytes()
+	if got != expected:
+		failures.append("continuation differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
+	_free()
+
+
 func test_restore_into_the_same_simulation_is_an_identity() -> void:
 	_fresh(PASSAGE, 31)
 	SimClock.advance(612.75)  # off the one- and two-second cycle boundaries
@@ -388,13 +442,13 @@ func test_a_save_restores_over_a_different_operation() -> void:
 ## reason, so state added later cannot silently fall out of a save.
 func test_every_simulation_field_is_saved_or_declared_transient() -> void:
 	_fresh(CARRIER_WATCH, 31)
-	for pair: Array in [[Unit.new(), SimSnapshot.UNIT_SKIP], [Track.new(), SimSnapshot.TRACK_SKIP], [Weapon.new(), SimSnapshot.WEAPON_SKIP], [AirMission.new(), SimSnapshot.MISSION_SKIP], [Sonobuoy.new(), SimSnapshot.BUOY_SKIP], [AIPlan.new(), SimSnapshot.PLAN_SKIP]]:
+	for pair: Array in [[Unit.new(), SimSnapshot.UNIT_SKIP], [Track.new(), SimSnapshot.TRACK_SKIP], [Weapon.new(), SimSnapshot.WEAPON_SKIP], [AirMission.new(), SimSnapshot.MISSION_SKIP], [Sonobuoy.new(), SimSnapshot.BUOY_SKIP], [AIPlan.new(), SimSnapshot.PLAN_SKIP], [GroupAttack.new(), SimSnapshot.GROUP_SKIP]]:
 		# Reflective classes: everything is saved except what the skip list names, and the skip
 		# list names only real fields.
 		var names := SimSnapshot.script_variables(pair[0])
 		for skipped: String in (pair[1] as Dictionary):
 			assert_true(names.has(skipped), "%s skip list names a field that exists" % skipped)
-	var managers: Array = [_sim.unit_manager, _sim.track_manager, _sim.sensor_manager, _sim.threat_manager, _sim.weapon_manager, _sim.aviation_manager, _sim.air_mission_manager, _sim.mission_manager]
+	var managers: Array = [_sim.unit_manager, _sim.track_manager, _sim.sensor_manager, _sim.threat_manager, _sim.weapon_manager, _sim.aviation_manager, _sim.air_mission_manager, _sim.group_attack_manager, _sim.mission_manager]
 	managers.append_array(_sim.ai_controllers.values())
 	for node: Object in managers:
 		var name: String = node.get_script().get_global_name()
