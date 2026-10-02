@@ -42,13 +42,13 @@ Every operation carries a commander's intent, numbered first orders, a difficult
 
 ## The forces
 
-**139 platforms, 148 weapons and 164 sensors** across four catalogues, each with recognition art and an inspectable model:
+**140 platforms, 149 weapons and 165 sensors** across four catalogues, each with recognition art and an inspectable model:
 
 - **Modern NATO and Russia**: Burke IIA and III, Ticonderoga, Constellation, Nimitz and Ford, Queen Elizabeth, Type 45 and Type 26, FREMM, Horizon, Charles de Gaulle, Mistral, Juan Carlos I, Nansen, Iver Huitfeldt, Sachsen, Braunschweig, Visby, Virginia, Astute, Suffren, Gotland; Gorshkov, Grigorovich, Slava, Udaloy, Steregushchiy, Buyan-M, Yasen-M, Kilo; carrier and land-based aviation on both sides.
 - **PLAN**: Type 055, Type 052D, Type 054A, Type 056A, Type 022, the carrier Shandong with J-15s, Type 093B and Type 039A submarines, H-6J, J-16, KJ-500, Y-8Q, four helicopter types, a replenishment ship, YJ-12B and DF-21D batteries and an HQ-9B site.
 - **Japan**: Maya, Akizuki, Mogami, the Izumo after her F-35B conversion, Taigei, P-1, SH-60K, F-35B and F-2, and a Type 12 coastal battery.
 - **Iran**: Moudge and Alvand frigates, an export Kilo, Ghadir midget submarines, Peykaap III and Houdong craft, Mohajer-6, Qader and Khalij Fars batteries, a drone launch site and a Bavar-373 site.
-- **1990**: Perry, Spruance, Ticonderoga, Nimitz, Los Angeles, Victor III, Sovremennyy, Udaloy, Slava, Nanuchka, F-14A+, E-2C, P-3C, S-3A and period helicopters, with their own weapons and sensors so nothing modern leaks in.
+- **1990**: Perry, Spruance, Ticonderoga, Nimitz, Los Angeles, Victor III, Sovremennyy, Udaloy, Slava, Nanuchka, F-14A+, E-2C, A-6E TRAM with Harpoon, P-3C, S-3A and period helicopters, with their own weapons and sensors so nothing modern leaks in.
 
 Public identities and broad fits are documented in the [2027 theatres ledger](docs/THEATRES_2027.md), the [1990 ledger](docs/COLD_WAR_1990.md) and [DATA_SOURCES.md](DATA_SOURCES.md). Performance values, signatures, magazines, detachments and hit probabilities are game estimates.
 
