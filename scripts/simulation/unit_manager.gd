@@ -118,6 +118,11 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return u.airborne() and u.spec.max_altitude_m > 0.0
 		Order.Type.LAUNCH_AIRCRAFT:
 			return not u.stowed_aircraft().is_empty()
+		Order.Type.AIR_MISSION:
+			# The deck's own checks, and the reasons, are AirMissionManager's.
+			return u.is_engageable() and u.spec.aircraft_capacity > 0
+		Order.Type.CANCEL_AIR_MISSION:
+			return u.alive
 		Order.Type.RETURN_TO_BASE:
 			return u.airborne()
 		Order.Type.DEPLOY_SONOBUOY:

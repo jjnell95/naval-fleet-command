@@ -14,6 +14,7 @@ var operation_events: Array = []
 var completed_events: Dictionary = {}
 var threat_manager: ThreatManager
 var aviation_manager: AviationManager
+var air_mission_manager: AirMissionManager
 var mission_manager: MissionManager
 var scenario: Dictionary = {}
 var scenario_name := ""
@@ -67,6 +68,12 @@ func _ready() -> void:
 	aviation_manager.unit_manager = unit_manager
 	add_child(aviation_manager)
 	sensor_manager.aviation_manager = aviation_manager
+	air_mission_manager = AirMissionManager.new()
+	air_mission_manager.name = "AirMissionManager"
+	air_mission_manager.unit_manager = unit_manager
+	air_mission_manager.aviation_manager = aviation_manager
+	air_mission_manager.track_manager = track_manager
+	add_child(air_mission_manager)
 	mission_manager = MissionManager.new()
 	mission_manager.name = "MissionManager"
 	mission_manager.unit_manager = unit_manager
@@ -105,6 +112,7 @@ func load_scenario(path: String) -> bool:
 	threat_manager.clear()
 	weapon_manager.clear()
 	aviation_manager.clear()
+	air_mission_manager.clear()
 	var base_seed := _resolve_seed(scenario)
 	sensor_manager.rng.seed = base_seed
 	weapon_manager.rng.seed = base_seed ^ 0x5EED
@@ -194,6 +202,11 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			o.execution_accepted = aviation_manager.request_return(u, o.recovery_base)
 		Order.Type.DEPLOY_SONOBUOY:
 			o.execution_accepted = aviation_manager.deploy_sonobuoy(u, SimClock.sim_time) != null
+		Order.Type.AIR_MISSION:
+			air_mission_manager.now_s = SimClock.sim_time
+			air_mission_manager.request(u, o)
+		Order.Type.CANCEL_AIR_MISSION:
+			o.execution_accepted = air_mission_manager.cancel(o.mission_id, u)
 
 
 func _on_tick(dt: float) -> void:
@@ -216,6 +229,7 @@ func _on_tick(dt: float) -> void:
 	Debug.time_add("sim/weapons", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()
 	aviation_manager.tick(dt, SimClock.sim_time)
+	air_mission_manager.tick(dt, SimClock.sim_time)
 	Debug.time_add("sim/aviation", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()
 	_defence_accum += dt

@@ -68,6 +68,9 @@ var auto_return := false
 ## a task that completes late can never overwrite a newer order.
 var order_generation := 0
 var task_generation := -1
+## The same count for the commander's orders alone: a crew order (an air mission's) does not move
+## it, so a mission can tell when the commander has taken an airframe in hand.
+var player_order_generation := 0
 var alive := true
 ## Left the chart for a base off the map. Not alive for the simulation, but not lost either.
 var departed := false
@@ -403,6 +406,8 @@ func apply_order(order: Order) -> void:
 		return
 	if order.type in NAVIGATION_ORDERS:
 		order_generation += 1
+		if order.origin != "crew":
+			player_order_generation += 1
 		station_note = ""
 	if order.origin != "crew" and order.type in STATION_REPLACING_ORDERS:
 		clear_station()
@@ -527,6 +532,8 @@ func apply_order(order: Order) -> void:
 			ordered_altitude_m = clampf(order.altitude_m, 0.0, spec.max_altitude_m)
 		Order.Type.LAUNCH_AIRCRAFT, Order.Type.RETURN_TO_BASE, Order.Type.DEPLOY_SONOBUOY:
 			pass  # routed to AviationManager by Simulation
+		Order.Type.AIR_MISSION, Order.Type.CANCEL_AIR_MISSION:
+			pass  # routed to AirMissionManager by Simulation
 
 
 func _set_station(kind: String, label: String) -> void:

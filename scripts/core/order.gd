@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -37,8 +37,16 @@ var execution_accepted := true
 var origin := "player"
 ## How a PATROL or FORM_UP names the standing assignment it sets ("CAP STATION", "SCREEN STATION").
 var station_label := ""
-## The air mission a crew PATROL belongs to, or -1.
+## The air mission a crew PATROL belongs to, or -1. CANCEL_AIR_MISSION names the mission to end.
 var mission_id := -1
+## AIR_MISSION: AirMission.Kind, the station or search area (target_pos, radius_nm) or the strike
+## target (track), the type and number (aircraft_id, aircraft_count), relief from ready reserve,
+## and auto-return after identification or interception (`automatic`).
+var mission_kind := 0
+var radius_nm := 0.0
+var relief := false
+## What a specialist manager accepted, refused or queued, in words, for the receipt.
+var receipt := ""
 ## Set by Unit.apply_order when a CANCEL_FIRE also ended the unit's standing attack, so the
 ## receipt counts it as carried out even when no queued round was left to refund.
 var stopped_attack := false
@@ -133,6 +141,28 @@ static func set_auto_return(enabled: bool) -> Order:
 	var o := Order.new()
 	o.type = Type.SET_AUTO_RETURN
 	o.automatic = enabled
+	return o
+
+
+## Ask a deck to fly a mission: a CAP or search over `station`, or a strike on `target`.
+static func air_mission(kind: int, aircraft_type: String, count: int, station := Vector2.INF, radius := 0.0, target: Track = null, with_relief := false, return_after_task := true) -> Order:
+	var o := Order.new()
+	o.type = Type.AIR_MISSION
+	o.mission_kind = kind
+	o.aircraft_id = aircraft_type
+	o.aircraft_count = maxi(count, 1)
+	o.target_pos = station
+	o.radius_nm = radius
+	o.track = target
+	o.relief = with_relief
+	o.automatic = return_after_task
+	return o
+
+
+static func cancel_air_mission(id: int) -> Order:
+	var o := Order.new()
+	o.type = Type.CANCEL_AIR_MISSION
+	o.mission_id = id
 	return o
 
 
@@ -284,6 +314,10 @@ func describe() -> String:
 			return "DEFENCE %s" % defence_policy.to_upper()
 		Type.SET_AUTO_COUNTERMEASURES:
 			return "COUNTERMEASURES %s" % ("AUTO" if automatic else "MANUAL")
+		Type.AIR_MISSION:
+			return "AIR MISSION %s: %d x %s" % [AirMission.KIND_NAMES[clampi(mission_kind, 0, 3)], aircraft_count, aircraft_id]
+		Type.CANCEL_AIR_MISSION:
+			return "CANCEL AIR MISSION %d" % mission_id
 		Type.RETURN_TO_STATION:
 			return "RETURN TO STATION"
 		Type.SET_AUTO_RETURN:
