@@ -6,6 +6,7 @@
     "cold_war_03_carrier"
   ],
   "platforms": [
+    "cw90_a6e",
     "cw90_airfield",
     "cw90_e2c",
     "cw90_f14a",
@@ -29,6 +30,7 @@
   ],
   "weapons": [
     "cw90_53_65",
+    "cw90_agm84",
     "cw90_aim54a",
     "cw90_aim9m",
     "cw90_ak100",
@@ -59,6 +61,7 @@
   ],
   "sensors": [
     "cw90_alr45",
+    "cw90_apq156",
     "cw90_aps115",
     "cw90_aps116",
     "cw90_aps124",
