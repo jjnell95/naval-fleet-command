@@ -191,6 +191,13 @@ func _ready() -> void:
 	simulation.air_mission_manager.mission_ended.connect(func(m: AirMission, reason: String) -> void:
 		if m.faction == simulation.player_faction and not simulation.ai_plays_player:
 			radio.flash("%s %d ended: %s" % [m.label(), m.id, reason.to_lower()], "info", m.base))
+	simulation.group_attack_manager.group_report.connect(func(g: GroupAttack, message: String, good: bool) -> void:
+		if g.faction == simulation.player_faction and not simulation.ai_plays_player:
+			radio.flash(message, "info" if good else "warn", g.lead if g.lead != null and g.lead.alive else null))
+	simulation.group_attack_manager.group_ended.connect(func(g: GroupAttack, reason: String) -> void:
+		if g.faction == simulation.player_faction and not simulation.ai_plays_player:
+			radio.flash(g.note, "good" if reason in ["Target destroyed", "Targets destroyed"] else "info", g.lead if g.lead != null and g.lead.alive else null)
+		Debug.event("[Combat] group attack %d on %s ended: %s, %d of %d rounds fired" % [g.id, g.target_label(), reason, g.fired_total, g.budget]))
 	simulation.aviation_manager.aircraft_tanking.connect(func(a: Unit, tanker: Unit) -> void:
 		if a.faction == simulation.player_faction and not simulation.ai_plays_player:
 			radio.flash("Low fuel, joining %s to refuel" % tanker.callsign, "info", a))
@@ -549,6 +556,7 @@ func _build_screens() -> void:
 	_weapon_control.simulation = simulation
 	_weapon_control.closed.connect(_close_weapon_control)
 	_weapon_control.unit_orders_requested.connect(_apply_unit_orders)
+	_weapon_control.group_order_requested.connect(_issue_group_order)
 	_weapon_control.target_selected.connect(func(t: Track) -> void: map.select_track(t))
 	_weapon_control.weapon_selected.connect(func(spec: WeaponSpec) -> void: orders_panel.select_weapon(spec))
 	_weapon_control.range_role_selected.connect(func(role: String) -> void: map.weapon_range_role = role; map.show_weapon_ranges = true)
@@ -698,6 +706,36 @@ func _toggle_weapon_control() -> void:
 func _close_weapon_control() -> void:
 	_weapon_control.hide()
 	_restore_modal_pause_if_clear()
+
+
+## "Group attack (N rounds)..." from a contact's menu: the firing board on that contact, with the
+## group budget set, so the allocation can be read before it is committed.
+func _open_group_attack(t: Track, budget: int) -> void:
+	if _weapon_control.visible or _has_visible_modal():
+		return
+	if map.selected_track != t:
+		map.select_track(t)
+	_begin_modal_pause()
+	_weapon_control.open_for(map.selected, t, budget)
+
+
+## A group attack, or its cancellation, goes to one member: one order makes one group, where the
+## same order given to each hooked platform would make one group apiece. The receipt is the
+## group manager's, which says who fires what and who cannot.
+func _issue_group_order(lead: Unit, order: Order) -> void:
+	if lead == null or not lead.alive or lead.faction != simulation.player_faction or not simulation.unit_manager.units.has(lead):
+		order.receipt = "Hook your own platforms first."
+		radio.advise(order.receipt)
+		return
+	var accepted := simulation.unit_manager.issue_order(lead, order)
+	if order.receipt == "":
+		order.receipt = "Group attack refused" if order.type == Order.Type.GROUP_ATTACK else "That group attack has already ended."
+	elif not accepted and order.type == Order.Type.GROUP_ATTACK:
+		order.receipt = "Group attack refused: " + order.receipt
+	radio.flash(order.receipt, "good" if accepted else "warn", lead)
+	if accepted:
+		SoundFx.play("click", 0.05)
+	voice.say(("attack_ack" if order.type == Order.Type.GROUP_ATTACK else "order_ack") if accepted else "order_refused", lead, {"track": order.track})
 	call_deferred("_focus_map_if_clear")
 
 
@@ -1713,6 +1751,8 @@ func _run_cds_action(action: Dictionary) -> void:
 			_apply_order_to_selection(Order.investigate(action["track"]))
 		"air_strike":
 			_open_air_strike(action["track"])
+		"group_attack":
+			_open_group_attack(action["track"], int(action.get("budget", 0)))
 		"waypoint_delete":
 			_on_waypoint_delete_requested(action["unit"], int(action["index"]))
 		"layer":

@@ -415,3 +415,92 @@ func test_two_contacts_split_the_budget_by_priority_and_a_destroyed_one_hands_on
 	assert_true(g.fired_total <= 7)
 	assert_true(int(_peak.get(g.id, 0)) <= 7)
 	_done()
+
+
+func test_the_orders_line_and_the_group_rows_show_the_shared_budget() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(4, 10))
+	var t := _plot("T1077", Vector2(0, 40))
+	_order(ignatius, [ignatius, nansen], [t], 12, 4)
+	var g := _group()
+	var wm := _sim.weapon_manager
+	var gam := _sim.group_attack_manager
+	var line := DataDisplay.orders_text(ignatius, wm, gam)
+	assert_true(line.begins_with("Group attack 1077 · 4 of 12 rounds · "), line)
+	assert_true(line.contains("queued") and line.contains("away"), line)
+	assert_eq(DataDisplay.orders_text(nansen, wm, gam), line, "every member reads the same shared state")
+	var rows := DataDisplay.group_rows([ignatius, nansen], gam)
+	var text := ""
+	for row: Array in rows:
+		for span: Array in row:
+			text += str(span[0])
+		text += "\n"
+	assert_true(text.contains("GROUP ATTACK 1077: 4 of 12 rds · "), text)
+	assert_true(_until(func() -> bool: return g.target_assess_until[0] >= 0.0, 600.0))
+	line = DataDisplay.orders_text(ignatius, wm, gam)
+	assert_true(line.begins_with("Group attack 1077 · 4 of 12 rounds · assessing"), line)
+	assert_true(not DataDisplay.orders_text(ignatius, wm).begins_with("Group attack"), "without the group manager the line is the platform's own")
+	_done()
+
+
+func test_the_contact_menu_offers_a_group_attack_only_with_two_armed_platforms_hooked() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(4, 10))
+	var t := _plot("T1077", Vector2(0, 40))
+	var wm := _sim.weapon_manager
+	var found := {}
+	for entry: Dictionary in CdsMenus.engage_items([ignatius, nansen], t, true, wm):
+		if str(entry.get("text", "")).begins_with("Group attack"):
+			found = entry
+	var expected := mini(DataDB.weapon(TOMAHAWK).salvo_default, 8) + mini(DataDB.weapon(NSM).salvo_default, 8)
+	assert_eq(str(found.get("text", "")), "Group attack (%d rounds)..." % expected, "one ordinary salvo from each")
+	assert_true(not bool(found.get("disabled", true)))
+	assert_eq(str(found["action"]["kind"]), "group_attack")
+	assert_eq(int(found["action"]["budget"]), expected)
+	for entry: Dictionary in CdsMenus.engage_items([ignatius], t, true, wm):
+		assert_true(not str(entry.get("text", "")).begins_with("Group attack"), "not with one platform")
+	ignatius.roe = Unit.Roe.HOLD
+	nansen.roe = Unit.Roe.HOLD
+	for entry: Dictionary in CdsMenus.engage_items([ignatius, nansen], t, true, wm):
+		if str(entry.get("text", "")).begins_with("Group attack"):
+			assert_true(bool(entry["disabled"]), "greyed when no one can fire")
+	_done()
+
+
+func test_the_firing_board_commits_a_group_attack_with_its_budget_and_cancels_it() -> void:
+	_setup()
+	var ignatius := _ship("usn_ddg_arleigh_burke_iia", "USS Paul Ignatius", Vector2(0, 0))
+	var nansen := _ship("rnon_ffg_fridtjof_nansen", "Fridtjof Nansen", Vector2(4, 10))
+	var t := _plot("T1077", Vector2(0, 40))
+	var board := WeaponControl.new()
+	board.simulation = _sim
+	(Engine.get_main_loop() as SceneTree).root.add_child(board)
+	board.group_order_requested.connect(func(lead: Unit, order: Order) -> void:
+		_sim.unit_manager.issue_order(lead, order))
+	board.open_for([ignatius], t)
+	assert_true(not board._group_row.visible, "one platform has no group to attack with")
+	board.open_for([ignatius, nansen], t, 6)
+	assert_true(board._group_row.visible)
+	assert_eq(int(board._budget.value), 6, "the menu's budget is kept")
+	assert_true(board._group_status.text.begins_with("First volley: "), board._group_status.text)
+	# The plan is the first volley: two NSM from the frigate, then volleys of two.
+	board.set_salvo(nansen, nansen.get_weapon(NSM), 2)
+	board._group_commit.pressed.emit()
+	var g := _group()
+	assert_true(g != null and g.active)
+	assert_eq(g.budget, 6)
+	assert_eq(g.volley, 2)
+	assert_true(board._receipt.text.begins_with("6-round group attack on track 1077: Fridtjof Nansen 2 × NSM"), board._receipt.text)
+	assert_true(board._receipt.text.contains("4 held for after the assessment"), board._receipt.text)
+	assert_eq(_committed_by(g, nansen), 2)
+	assert_true(board._plan.is_empty(), "the plan went with the order")
+	assert_true(board._group_status.text.begins_with("Group %d on 1077 · budget 6 · fired " % g.id), board._group_status.text)
+	assert_true(not board._group_cancel.disabled)
+	board._group_cancel.pressed.emit()
+	assert_true(not g.active)
+	assert_true(board._receipt.text.contains("cancelled"), board._receipt.text)
+	assert_true(board._group_cancel.disabled)
+	board.free()
+	_done()

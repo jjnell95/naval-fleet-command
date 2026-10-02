@@ -111,9 +111,9 @@ func build_rows() -> Array:
 	if map.selected.size() == 1:
 		var u: Unit = map.selected[0]
 		if u != null and is_instance_valid_unit(u):
-			return unit_rows(u, simulation.weapon_manager, map.track_number_text(u))
+			return unit_rows(u, simulation.weapon_manager, map.track_number_text(u), simulation.group_attack_manager)
 	if map.selected.size() > 1:
-		return group_rows(map.selected)
+		return group_rows(map.selected, simulation.group_attack_manager)
 	if map.selected_track != null:
 		return track_rows(map.selected_track, ref, SimClock.sim_time)
 	# Nothing hooked: a contact under the cursor reads out here until the cursor moves off it.
@@ -143,7 +143,7 @@ static func _kv(label: String, value: String, value_key := VALUE) -> Array:
 
 
 ## `number` is the unit's own track number as the chart shows it (TacticalMap.track_number_text).
-static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "") -> Array:
+static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "", group_attacks: GroupAttackManager = null) -> Array:
 	var rows: Array = []
 	rows.append([[u.callsign, TITLE]])
 	rows.append(_kv("CLASS", u.spec.display_name.to_upper()))
@@ -168,7 +168,7 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 	if u.is_aircraft():
 		var fuel := int(round(u.fuel_fraction() * 100.0))
 		rows.append(_kv("%FUEL", str(fuel), ALERT if fuel <= 20 else VALUE))
-	rows.append(_kv("ORDERS", orders_text(u, weapon_manager)))
+	rows.append(_kv("ORDERS", orders_text(u, weapon_manager, group_attacks)))
 	var response := DefensiveResponse.status(u)
 	if response != "":
 		rows.append(_kv("DEFENCE", response, ALERT))
@@ -240,9 +240,19 @@ static func grid_fit(count: int, columns: int, lines: int) -> Dictionary:
 	return {"shown": slots - 1, "more": count - slots + 1, "lines": lines}
 
 
-static func group_rows(units: Array) -> Array:
+## Several hooked platforms. A group attack any of them is firing in leads the list, with its budget
+## and what it has fired, queued and in the air, so the commander reads the shared state at once.
+static func group_rows(units: Array, group_attacks: GroupAttackManager = null) -> Array:
 	var rows: Array = []
 	rows.append([["%d units hooked" % units.size(), TITLE]])
+	if group_attacks != null:
+		var shown: Array[GroupAttack] = []
+		for u: Unit in units:
+			var g := group_attacks.group_for(u) if u != null else null
+			if g != null and not shown.has(g):
+				shown.append(g)
+				var s := group_attacks.status(g)
+				rows.append(_kv("GROUP ATTACK %s" % g.target_label(), "%d of %d rds · %d fired · %d queued · %d away · %s" % [int(s["spent"]), g.budget, int(s["fired"]), int(s["queued"]), int(s["airborne"]), str(s["phase"])]))
 	for u: Unit in units:
 		if u == null or u.spec == null:
 			continue
@@ -257,7 +267,7 @@ static func damage_percent(u: Unit) -> int:
 
 
 ## Plain words for what the unit is doing, the way an operator would report it.
-static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String:
+static func orders_text(u: Unit, weapon_manager: WeaponManager = null, group_attacks: GroupAttackManager = null) -> String:
 	if u.evasion_remaining_s > 0:
 		return "Evade %03d (%ds), then resume plan" % [int(u.evasion_course_deg), int(ceil(u.evasion_remaining_s))]
 	if u.attack_track != null:
@@ -271,6 +281,12 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null) -> String
 		if u.attack_phase.begins_with("Attack track"):
 			return "Attack track %s%s" % [number, u.attack_phase.trim_prefix("Attack track")]
 		return "Attack track %s · %s" % [number, u.attack_phase.to_lower()]
+	# A platform firing in a group attack reports the group's state: the shared budget, what has
+	# gone, and the shared assessment, rather than only its own rounds.
+	if group_attacks != null:
+		var group_line := group_attacks.orders_line(u)
+		if group_line != "":
+			return group_line
 	if weapon_manager != null:
 		for w in weapon_manager.in_flight:
 			if w.phase != Weapon.Phase.DEAD and w.shooter == u and w.target_track != null and not w.is_interceptor():
