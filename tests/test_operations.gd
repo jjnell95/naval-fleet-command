@@ -234,6 +234,29 @@ func test_each_operation_draws_its_shape_from_the_engagement_seed() -> void:
 	assert_eq(operations, 7)
 
 
+## A player's start of an operation draws its events from a fresh variation seed; the engagement's
+## own streams (sensors, weapons, damage) keep the scenario seed, and a save keeps the variation.
+func test_a_fresh_variation_changes_the_draw_and_nothing_else() -> void:
+	var path := "res://data/scenarios/cold_war_03_carrier.json"
+	var sc := ScenarioLoader.load_file(path)
+	var expected := OperationDirector.new()
+	expected.configure(sc, 5)
+	var sim := Simulation.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	sim.variation_seed = 5
+	assert_true(sim.load_scenario(path))
+	assert_eq(sim.base_seed, int(sc.seed), "the engagement keeps the scenario's seed")
+	assert_eq(sim.sensor_manager.rng.seed, int(sc.seed), "and its sensor stream")
+	assert_eq(sim.director.variant, expected.variant, "the events are drawn from the variation")
+	var snap := SimSnapshot.capture(sim)
+	sim.variation_seed = -1
+	assert_eq(sim.restore_snapshot(snap), "")
+	assert_eq(sim.variation_seed, 5, "a saved engagement keeps its variation for a restart")
+	expected.free()
+	sim.unit_manager.clear()
+	sim.free()
+
+
 ## The second Backfire element keeps no timetable: its window and its latest moment are drawn per
 ## engagement, and it goes sooner only when RED's own plot holds the carrier (or Slava is hit). It
 ## arrives once, on nobody's plot, and a reload draws the same operation again.

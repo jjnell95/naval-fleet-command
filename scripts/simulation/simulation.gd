@@ -40,6 +40,10 @@ var scenario_path := ""
 var seed_override := -1
 ## The seed this engagement was started with, whether pinned, forced or drawn. Saved games keep it.
 var base_seed := 0
+## The seed the operation's events are drawn from (OperationDirector), or -1 for the engagement's
+## own. A player starting an operation gets a fresh draw each time, so a replay has to be read off
+## the plot; tests, tools and a pinned --seed leave it at -1 and replay one engagement exactly.
+var variation_seed := -1
 var _in_tick := false
 
 
@@ -111,7 +115,7 @@ func load_scenario(path: String) -> bool:
 	Damage.rng.seed = base_seed ^ 0xDA46
 	ScenarioLoader.populate(unit_manager, scenario)
 	mission_manager.configure(scenario)
-	director.configure(scenario, base_seed)
+	director.configure(scenario, variation_seed if variation_seed >= 0 else base_seed)
 	_build_ai()
 	SimClock.reset(ScenarioLoader.start_unix_time(scenario))
 	return true

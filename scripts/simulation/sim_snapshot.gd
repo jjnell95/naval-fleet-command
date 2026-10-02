@@ -250,6 +250,7 @@ static func capture(sim: Simulation) -> Dictionary:
 			"ai_accum": sim._ai_accum,
 			"ai_enabled": sim.ai_enabled,
 			"ai_plays_player": sim.ai_plays_player,
+			"variation_seed": sim.variation_seed,
 		},
 		"units": units,
 		"tracks": tracks,
@@ -459,6 +460,7 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 	sim._defence_accum = float(s["defence_accum"])
 	sim._ai_accum = float(s["ai_accum"])
 	sim.base_seed = int(snap.get("base_seed", 0))
+	sim.variation_seed = int(s.get("variation_seed", -1))
 	# Seed first: setting a seed resets the state.
 	var rng: Dictionary = snap["rng"]
 	sim.sensor_manager.rng.seed = int(rng["sensor"][0])

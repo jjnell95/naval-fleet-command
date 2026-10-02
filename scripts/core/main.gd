@@ -60,6 +60,9 @@ var _cds_menus: CdsMenus
 var _key_help: KeyCommands
 var _command_taken := false  # the player has taken command of the loaded operation
 var _scripted_session := false  # a dev-harness run: graded on the debrief, never logged
+## A player's session (no command-line arguments): each start of an operation draws its events
+## afresh. A driven run or a pinned --seed keeps the scenario's own draw, so it repeats exactly.
+var _fresh_draws := false
 var _restart_armed_ms := -100000
 const RESTART_CONFIRM_MS := 4000
 var _world_view: WorldView
@@ -284,6 +287,7 @@ func _ready() -> void:
 	if scripted or CrewVoice.automated_run() or not args.is_empty():
 		UserSettings.writable = false
 	else:
+		_fresh_draws = true
 		var silent := voice.configure_from_settings()
 		if silent != "" and voice.enabled:
 			Debug.event("[Voice] %s" % silent)
@@ -333,6 +337,8 @@ func _objective_summary() -> String:
 
 func start_scenario(path: String) -> void:
 	_close_engagement_dialogs()
+	if _fresh_draws and simulation.seed_override < 0:
+		simulation.variation_seed = randi() % 1000000
 	if not simulation.load_scenario(path):
 		push_error("Main: failed to load scenario %s" % path)
 		return
