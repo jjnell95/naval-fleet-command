@@ -227,7 +227,7 @@ func _ready() -> void:
 	simulation.unit_manager.station_resumed.connect(func(u: Unit, reason: String) -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player:
 			return
-		radio.flash("%s: %s — resuming %s" % [u.callsign, reason, u.station_label.to_lower() if u.station_label != "" else "station"], "good", u))
+		radio.flash("%s: %s — resuming %s" % [u.callsign, reason, DataDisplay.station_name(u.station_label, false) if u.station_label != "" else "station"], "good", u))
 	simulation.unit_manager.station_unavailable.connect(func(u: Unit, reason: String) -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player:
 			return
