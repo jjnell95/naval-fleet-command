@@ -10105,7 +10105,7 @@
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
   },
-  "operation_revision": 26,
+  "operation_revision": 27,
   "collection": "operations",
   "operation_plan": [
     {
@@ -10267,7 +10267,8 @@
                   4.0,
                   10.0
                 ]
-              ]
+              ],
+              "ai_plan": "convoy_strike"
             }
           ]
         },
@@ -10338,6 +10339,28 @@
         }
       },
       "message": "TASKING UPDATE: the Norwegian escort group is delayed. The handover box moves about 8 nm north-west, to 61°31.5′N 01°45.3′E. Steer North Star for the new box; the deadline is unchanged."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "convoy_strike",
+      "faction": "RED",
+      "kind": "attack_shipping",
+      "units": [
+        "Soviet missile corvette (Nanuchka III)"
+      ],
+      "priorities": [
+        "merchant"
+      ],
+      "objective_nm": [
+        1.6,
+        3.6
+      ],
+      "area_radius_nm": 25,
+      "threat_nm": 10,
+      "salvo": 2,
+      "budget": 4,
+      "assess_s": 420
     }
   ]
 }

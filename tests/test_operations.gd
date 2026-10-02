@@ -234,6 +234,51 @@ func test_each_operation_draws_its_shape_from_the_engagement_seed() -> void:
 	assert_eq(operations, 7)
 
 
+## Every operation gives the opposing force a mission of its own (an AIPlan) instead of leaving it to
+## shoot at the nearest contact: the plan's members are the enemy's own units and the wing elements
+## tagged for it, a raid or swarm that enters later is tagged to join on arrival, and nothing in a
+## plan names a unit of the player's side. Plans act only on the enemy's own picture (test_ai_plans).
+func test_each_operation_gives_the_enemy_a_mission_plan() -> void:
+	SimClock.set_paused(true)
+	var operations := 0
+	for entry: Dictionary in ScenarioIndex.list_all():
+		if entry.custom or entry.collection != "operations":
+			continue
+		operations += 1
+		var sc := ScenarioLoader.load_file(entry.path)
+		var defs: Array = sc.get("ai_plans", [])
+		assert_true(not defs.is_empty(), "%s gives the enemy a plan" % entry.id)
+		assert_eq(ScenarioWorkshop.validate(sc), "", entry.id)
+		var player_units := {}
+		for u: Dictionary in sc["units"]:
+			if u["faction"] == sc.get("player_faction", "BLUE"):
+				player_units[u["callsign"]] = true
+		for d: Dictionary in defs:
+			for key: String in ["units", "protect", "recon"]:
+				for name in d.get(key, []):
+					assert_true(typeof(name) != TYPE_STRING or not player_units.has(name), "%s: a plan never names %s" % [entry.id, name])
+		var sim := Simulation.new()
+		sim.seed_override = 2
+		(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+		assert_true(sim.load_scenario(entry.path))
+		SimClock.advance(2.0)  # the first decision cycle adopts the members
+		var c: AIController = sim.ai_controllers.get("RED")
+		assert_true(c != null and c.plans.size() == defs.size(), entry.id)
+		for p: AIPlan in c.plans:
+			assert_true(not p.members.is_empty(), "%s: plan %s has members from the start" % [entry.id, p.id])
+			for m: Unit in p.members:
+				assert_eq(m.faction, "RED", "%s: %s" % [p.id, m.callsign])
+		# Units that enter later join the plan their tag names.
+		for e: Dictionary in sc.get("events", []):
+			for shape: Dictionary in [e] + e.get("variants", []):
+				for r: Dictionary in shape.get("reinforcements", []):
+					if r.has("ai_plan"):
+						assert_true(defs.any(func(d: Dictionary) -> bool: return d["id"] == r["ai_plan"]), "%s: %s joins a plan that exists" % [entry.id, r["callsign"]])
+		sim.unit_manager.clear()
+		sim.free()
+	assert_eq(operations, 7)
+
+
 ## A player's start of an operation draws its events from a fresh variation seed; the engagement's
 ## own streams (sensors, weapons, damage) keep the scenario seed, and a save keeps the variation.
 func test_a_fresh_variation_changes_the_draw_and_nothing_else() -> void:

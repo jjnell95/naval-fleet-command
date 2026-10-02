@@ -21982,7 +21982,8 @@
               -29.3011,
               42.0
             ]
-          ]
+          ],
+          "ai_plan": "carrier_strike"
         },
         {
           "platform": "rfn_strike_mig31k",
@@ -22000,7 +22001,8 @@
               42.0
             ]
           ],
-          "ready_after_s": 12600
+          "ready_after_s": 12600,
+          "ai_plan": "carrier_strike"
         },
         {
           "platform": "rfn_fighter_su35s",
@@ -22036,7 +22038,9 @@
               39.0682,
               -12.0
             ]
-          ]
+          ],
+          "ai_plan": "carrier_strike",
+          "ai_role": "recon"
         }
       ],
       "aviation_reload_cycles": 2
@@ -22114,7 +22118,7 @@
   },
   "forces": "NATO: 1 carrier (fictional 59-aircraft wing), 1 BMD cruiser, 2 destroyers, 1 frigate, 1 replenishment ship, 1 submarine  ·  Russia: 1 frigate, 1 corvette, 1 submarine, Monchegorsk fighter regiment",
   "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
-  "operation_revision": 26,
+  "operation_revision": 27,
   "collection": "operations",
   "operation_plan": [
     {
@@ -22291,6 +22295,26 @@
         ]
       },
       "message": "TASKING UPDATE: a Norwegian P-3C reports a snorkelling submarine, probably the Kilo, near {pos}, accuracy about 8 nm, inside the screen. Sinking her is a bonus task; Maud and the carrier are still the mission."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "carrier_strike",
+      "faction": "RED",
+      "kind": "threaten_carrier",
+      "units": [
+        "Admiral Kasatonov (461)",
+        "Soobrazitelny (531)"
+      ],
+      "objective_nm": [
+        -30.0,
+        36.0
+      ],
+      "area_radius_nm": 60,
+      "spread_deg": 80,
+      "budget": 8,
+      "assess_s": 480,
+      "threat_nm": 25
     }
   ]
 }

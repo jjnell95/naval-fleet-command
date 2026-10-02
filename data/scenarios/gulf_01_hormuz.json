@@ -5545,7 +5545,7 @@
   },
   "forces": "US/UK/France: 1 destroyer, 1 air-defence destroyer, 1 frigate, 3 tankers, Al Dhafra patrol det  ·  Iran: 6 fast attack craft, 2 missile boats, 1 midget submarine, 1 Kilo, 2 frigates, 2 UAVs, coastal, ballistic, drone and SAM sites  ·  Neutral traffic",
   "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
-  "operation_revision": 26,
+  "operation_revision": 27,
   "collection": "operations",
   "operation_plan": [
     {
@@ -5567,18 +5567,19 @@
       "side": "RED",
       "chance": 0.6,
       "when": {
-        "type": "reach_area",
+        "type": "track_held",
+        "faction": "RED",
         "callsigns": [
           "MT Gulf Horizon",
           "MT Ras Laffan Pride",
           "MT Aegean Dawn"
         ],
+        "min_classification": "UNKNOWN",
         "center_nm": [
           -13.4,
           12.0
         ],
-        "radius_nm": 6,
-        "count": 1
+        "radius_nm": 8
       },
       "variants": [
         {
@@ -5605,7 +5606,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "tanker_war"
             },
             {
               "platform": "irn_fac_peykaap3",
@@ -5628,7 +5630,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "tanker_war"
             },
             {
               "platform": "irn_fac_peykaap3",
@@ -5651,7 +5654,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "tanker_war"
             },
             {
               "platform": "irn_fac_peykaap3",
@@ -5674,7 +5678,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "tanker_war"
             }
           ]
         },
@@ -5706,7 +5711,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "tanker_war"
             },
             {
               "platform": "irn_fac_peykaap3",
@@ -5733,7 +5739,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "tanker_war"
             },
             {
               "platform": "irn_fac_peykaap3",
@@ -5760,7 +5767,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "tanker_war"
             },
             {
               "platform": "irn_fac_peykaap3",
@@ -5787,7 +5795,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "tanker_war"
             }
           ]
         }
@@ -5846,6 +5855,13 @@
         ],
         "min_classification": "CLASS_KNOWN"
       },
+      "unless": {
+        "type": "all_units_lost",
+        "callsigns": [
+          "Mohajer 81",
+          "Mohajer 82"
+        ]
+      },
       "objectives": {
         "add": [
           {
@@ -5861,6 +5877,34 @@
         ]
       },
       "message": "TASKING UPDATE: intercepts show a Mohajer passing a tanker's position to the Khalij Fars battery. Expect ballistic fire on the convoy. Shooting down both drones is a bonus task."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "tanker_war",
+      "faction": "RED",
+      "kind": "attack_shipping",
+      "units": [
+        "Peykaap 1",
+        "Peykaap 2",
+        "Peykaap 3",
+        "Peykaap 4",
+        "Peykaap 5",
+        "Peykaap 6"
+      ],
+      "priorities": [
+        "tanker",
+        "merchant"
+      ],
+      "objective_nm": [
+        13.4,
+        -3.0
+      ],
+      "area_radius_nm": 45,
+      "threat_nm": 6,
+      "salvo": 2,
+      "budget": 6,
+      "assess_s": 300
     }
   ]
 }

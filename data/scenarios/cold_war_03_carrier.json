@@ -25917,7 +25917,7 @@
     "source": "Natural Earth 1:10m land 5.1.1; public domain",
     "generalization_nm": 0.2
   },
-  "operation_revision": 26,
+  "operation_revision": 27,
   "collection": "operations",
   "operation_plan": [
     {
@@ -26117,7 +26117,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "carrier_strike"
             }
           ]
         },
@@ -26142,7 +26143,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "carrier_strike"
             },
             {
               "platform": "cw90_tu22m3",
@@ -26161,7 +26163,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "carrier_strike"
             }
           ]
         },
@@ -26186,7 +26189,8 @@
                 ]
               ],
               "ai_posture": "breakout",
-              "aviation_reload_cycles": 2
+              "aviation_reload_cycles": 2,
+              "ai_plan": "carrier_strike"
             }
           ]
         }
@@ -26233,6 +26237,32 @@
         ]
       },
       "message": "TASKING UPDATE: a Norwegian Orion reports a Soviet cruiser, probably Slava, near {pos}, accuracy about 15 nm. She carries sixteen Bazalts. The reserve Intruders are being readied: a Harpoon hit on her is a bonus task, and the air-defence watch is still the mission."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "carrier_strike",
+      "faction": "RED",
+      "kind": "threaten_carrier",
+      "units": [
+        "Slava",
+        "Backfire raid 1"
+      ],
+      "objective_nm": [
+        4.5,
+        3.0
+      ],
+      "area_radius_nm": 60,
+      "package": 2,
+      "assembly_window_s": 600,
+      "axes_deg": [
+        -35,
+        35,
+        0
+      ],
+      "budget": 8,
+      "assess_s": 420,
+      "threat_nm": 20
     }
   ]
 }
