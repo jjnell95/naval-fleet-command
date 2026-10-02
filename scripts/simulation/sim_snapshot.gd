@@ -64,6 +64,7 @@ const OBJECTIVE_FIELDS := ["complete", "unlocked", "held_since", "held_seconds"]
 ## Converts object references to markers on the way out and back on the way in.
 class Refs:
 	extends RefCounted
+	const PACKED_TYPES := [TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY]
 	var errors: PackedStringArray = []
 	var tracks: Array = []  # capture: index is the ref
 	var track_index: Dictionary = {}
@@ -127,7 +128,7 @@ class Refs:
 				for k in v:
 					d[k] = enc(v[k])
 				return d
-		return v
+		return _copied(v)
 
 	func dec(v: Variant) -> Variant:
 		match typeof(v):
@@ -145,6 +146,14 @@ class Refs:
 				for k in v:
 					d[k] = dec(v[k])
 				return d
+		return _copied(v)
+
+	## A packed array in a Variant is shared, not copied: without this a snapshot held in memory
+	## would keep changing with the track it was taken from (and a restored track would write
+	## back into the snapshot), so a save was only a save once it had been written to disk.
+	static func _copied(v: Variant) -> Variant:
+		if typeof(v) in PACKED_TYPES:
+			return v.duplicate()
 		return v
 
 	func _marker(kind: String, value: Variant) -> Variant:

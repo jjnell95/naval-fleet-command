@@ -143,6 +143,23 @@ func test_restore_into_the_same_simulation_is_an_identity() -> void:
 	_free()
 
 
+## A snapshot kept in memory (never written out) stays what it was when it was taken. A track's
+## observation window is a packed array, which a Variant shares rather than copies; held by
+## reference, the snapshot went on changing with the battle, and a restored battle wrote back
+## into it, so loading it a second time gave a different engagement.
+func test_a_snapshot_held_in_memory_does_not_change_with_the_battle() -> void:
+	_fresh(PASSAGE, 31)
+	SimClock.advance(120.0)
+	var snapshot := SimSnapshot.capture(_sim)
+	var taken := var_to_bytes(snapshot)
+	SimClock.advance(30.0)
+	assert_true(var_to_bytes(snapshot) == taken, "unchanged by the battle going on")
+	assert_eq(_sim.restore_snapshot(snapshot), "")
+	SimClock.advance(30.0)
+	assert_true(var_to_bytes(snapshot) == taken, "unchanged by the restored battle going on")
+	_free()
+
+
 func test_restore_emits_no_simulation_events() -> void:
 	_fresh(CARRIER_WATCH, 31)
 	SimClock.advance(400.0)
