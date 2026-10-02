@@ -1083,6 +1083,15 @@ func _request_air_recon(p: AIPlan, now: float) -> void:
 		unit_manager.issue_order(base, Order.air_mission(AirMission.Kind.RECON, str(entry["platform"]), int(entry["count"]), p.objective, p.area_radius_nm, null, true))
 
 
+## An airframe of a type the plan has asked its deck to fly a reconnaissance mission with. Sent up
+## as a scout as well, it would fly the same search twice and leave the mission short of a relief.
+static func _flown_by_recon_mission(p: AIPlan, a: Unit) -> bool:
+	for entry: Dictionary in p.recon_air:
+		if a.home != null and str(entry["base"]) == a.home.callsign and str(entry["platform"]) == a.spec.id:
+			return true
+	return false
+
+
 func _recon_aloft(entry: Dictionary) -> bool:
 	if air_mission_manager == null:
 		return true  # nobody to ask; do not keep re-ordering
@@ -1117,6 +1126,8 @@ func _plan_task(u: Unit) -> Dictionary:
 		if not p.running():
 			return {}
 		var role := p.role_of(u)
+		if role == "strike" and not p.is_strike_kind():
+			return {}  # a screen or a defence has no strike to join: it fights on its own judgement
 		if role == "escort" and p.guard() == null:
 			return {}  # nothing left to screen: the escort fights as it would on its own
 		if role == "defender" and not p.anchor.is_finite():

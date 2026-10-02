@@ -461,6 +461,27 @@ func test_a_plan_deck_sends_its_scout_first_and_its_strike_only_at_the_target() 
 	h.free_all()
 
 
+func test_plan_scouts_leave_the_recon_missions_airframes_to_it() -> void:
+	var field := Unit.new()
+	field.spec = PlatformSpec.new()
+	field.spec.short_name = "Airfield"
+	field.spec.domain = "land"
+	field.spec.max_speed_kn = 0.0
+	field.spec.aircraft_capacity = 8
+	field.spec.health = 300.0
+	field.faction = "RED"
+	field.callsign = "Field"
+	field.health = 300.0
+	var eyes := _airframe("Eyes 1", field)
+	eyes.spec.id = "test_mpa"
+	var h := _harness([field, eyes], [_plan("threaten_carrier", {"units": ["Field"], "recon": [{"base": "Field", "platform": "test_mpa", "count": 1}], "objective_nm": [0, 150]})])
+	h.ai.tick(100.0)
+	assert_eq(h.ai.plans[0].role_of(eyes), "recon")
+	assert_eq(_orders_of(h, Order.Type.AIR_MISSION, field).size(), 1, "the reconnaissance mission is asked for")
+	assert_true(_orders_of(h, Order.Type.LAUNCH_AIRCRAFT, field).is_empty(), "and its airframe is not also sent up as a scout")
+	h.free_all()
+
+
 func test_attack_axes_differ_between_shooters() -> void:
 	var units := [_ship("S1", Vector2(-4, 0), _asm(20.0)), _ship("S2", Vector2(0, 0), _asm(20.0)), _ship("S3", Vector2(4, 0), _asm(20.0))]
 	var h := _harness(units, [_plan("threaten_carrier", {"units": ["S1", "S2", "S3"]})])
