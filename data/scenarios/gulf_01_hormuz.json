@@ -5831,6 +5831,11 @@
     },
     {
       "id": "fire_mission",
+      "chance": 0.7,
+      "at_s_window": [
+        600,
+        1800
+      ],
       "when": {
         "type": "track_held",
         "faction": "RED",

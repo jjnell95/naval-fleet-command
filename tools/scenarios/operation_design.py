@@ -38,13 +38,14 @@ PLANS = {
 }
 RECOVER = {'cold_war_03_carrier', 'pacific_02_taiwan_strait', 'aegis_bastion'}
 # Later shore elements whose readiness an event decides. The authored time is only the fallback,
-# beyond the latest moment the event can fire, so it never pre-empts the decision.
+# beyond the latest moment the event can fire (Tartus: 10800 s plus its 300 s), so it never
+# pre-empts the decision.
 EVENT_READINESS = {
  'aegis_bastion': ('mig31k', 'su35s'),
  'pacific_02_taiwan_strait': ('j16',),
  'med_01_tartus': ('su34', 'su35s'),
 }
-READINESS_FALLBACK_S = 5400
+READINESS_FALLBACK_S = 12600
 
 
 def _modern_wing(host):
@@ -321,7 +322,7 @@ def _hormuz(d):
         dict(id='periscope_report', at_s_window=[900, 2700], unless=lost(['Ghadir']),
              intel=[report('Ghadir', 3, 'UKMTO relay from a dhow')],
              message="UKMTO relays a dhow's sighting of a periscope in the outbound lane near {pos}, accuracy about 3 nm."),
-        dict(id='fire_mission', when=held('RED', tankers, 'CLASS_KNOWN'),
+        dict(id='fire_mission', chance=0.7, at_s_window=[600, 1800], when=held('RED', tankers, 'CLASS_KNOWN'),
              objectives=dict(add=[bonus('drones_down', ['Mohajer 81', 'Mohajer 82'], 'Shoot down both Mohajer drones')]),
              message='TASKING UPDATE: intercepts show a Mohajer passing a tanker\'s position to the Khalij Fars battery. Expect '
                      'ballistic fire on the convoy. Shooting down both drones is a bonus task.'),
@@ -338,12 +339,14 @@ def _tartus(d):
             dict(id='direct', ai=[dict(units=strikers, patrol_nm=[[39.6, 12.0], [-19.8, -24.0]])]),
             dict(id='north_of_cyprus', ai=[dict(units=strikers, patrol_nm=[[30.0, 90.0], [-60.0, 80.0], [-50.0, -10.0]])]),
             dict(id='from_the_south', ai=[dict(units=strikers, patrol_nm=[[40.0, -40.0], [-20.0, -45.0]])])]),
-        # Mistral crossing 33 degrees east is what Khmeimim waits for.
-        dict(id='khmeimim_surge', side='RED', at_s=0, when=reach([mistral], [-40.0, -28.0], 12), latest_s_window=[2400, 4200],
+        # Mistral getting well under way east (past about 32°20'E) is what Khmeimim waits for; a
+        # transit held back for the picture leaves it to its own time.
+        dict(id='khmeimim_surge', side='RED', at_s=0, when=reach([mistral], [-75.0, -26.0], 15), latest_s_window=[7200, 10800],
              ready=[ready(base, 'su34', 300), ready(base, 'su35s', 300)]),
         dict(id='surge_intercept', chance=0.7, after=['khmeimim_surge'],
              message='Akrotiri intercepts: Khmeimim is arming its second strike element.'),
-        dict(id='bastion_located', when=dict(type='emitting', callsigns=[battery]),
+        # Whether and when Akrotiri fixes the battery is drawn; it needs the battery to have radiated.
+        dict(id='bastion_located', chance=0.65, at_s_window=[600, 2400], when=dict(type='emitting', callsigns=[battery]),
              intel=[report(battery, 4, 'Akrotiri ELINT')],
              objectives=dict(update={'holding_box': dict(center_nm=moved, text='Mistral reached the moved holding box'),
                                      'holding_box_handover': dict(center_nm=moved)}),

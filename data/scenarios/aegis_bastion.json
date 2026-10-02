@@ -22000,7 +22000,7 @@
               42.0
             ]
           ],
-          "ready_after_s": 5400
+          "ready_after_s": 12600
         },
         {
           "platform": "rfn_fighter_su35s",
@@ -22015,7 +22015,7 @@
           "squadron": "Scenario air detachment",
           "callsign": "Flanker",
           "first_modex": 43,
-          "ready_after_s": 5400
+          "ready_after_s": 12600
         },
         {
           "platform": "rfn_uav_orlan10",

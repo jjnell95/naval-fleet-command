@@ -6570,7 +6570,7 @@
               -24.0
             ]
           ],
-          "ready_after_s": 5400
+          "ready_after_s": 12600
         },
         {
           "platform": "rfn_fighter_su35s",
@@ -6605,7 +6605,7 @@
               -6.0
             ]
           ],
-          "ready_after_s": 5400
+          "ready_after_s": 12600
         },
         {
           "platform": "rfn_mpa_il38n",
@@ -6903,15 +6903,15 @@
           "FS Mistral (L 9013)"
         ],
         "center_nm": [
-          -40.0,
-          -28.0
+          -75.0,
+          -26.0
         ],
-        "radius_nm": 12,
+        "radius_nm": 15,
         "count": 1
       },
       "latest_s_window": [
-        2400,
-        4200
+        7200,
+        10800
       ],
       "ready": [
         {
@@ -6936,6 +6936,11 @@
     },
     {
       "id": "bastion_located",
+      "chance": 0.65,
+      "at_s_window": [
+        600,
+        2400
+      ],
       "when": {
         "type": "emitting",
         "callsigns": [
