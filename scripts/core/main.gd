@@ -69,6 +69,9 @@ var _stats := {}
 var _losses: PackedStringArray = []
 var _kills: PackedStringArray = []
 var _civilian_incidents: PackedStringArray = []
+## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
+## a consort off the link). Each is announced once, when it reaches the picture.
+var _unannounced: Array[Weapon] = []
 var _foundered: Dictionary = {}  # Unit -> true, lost to fire or flooding rather than outright
 ## The gameplay options in effect (time ladder, missile defence, engagement after identification,
 ## voice and ambient). Usually the player's stored preference; a restored engagement plays under
@@ -330,6 +333,7 @@ func _process(delta: float) -> void:
 	SoundFx.set_ambient(_command_taken and not _menu.visible and not _editor.visible and not _report.visible, Detection.sea_state, SoundFx.hum_for(hooked))
 	radio.set_objective_text(_objective_summary())
 	_autosave_if_due()
+	_announce_unannounced_threats()
 	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, map.reference_unit())
 	if threats.is_empty():
 		radio.set_alert("")
@@ -430,6 +434,7 @@ func _reset_command_screen() -> void:
 	_kills = PackedStringArray()
 	_civilian_incidents = PackedStringArray()
 	_foundered.clear()
+	_unannounced.clear()
 	_report.hide()
 	_autosaved_at = SimClock.sim_time
 
@@ -1796,12 +1801,6 @@ func apply_engagement_options(d: Dictionary, announce := true) -> bool:
 	return _options_from_engagement
 
 
-## The player's own options again, as at the start of a new operation.
-func restore_preferred_options() -> void:
-	_options_from_engagement = false
-	_apply_options(_preferred, false, not _driven_run)
-
-
 ## Hooks the next platform of the task group, in roster order ("." in the old games).
 func _hook_next_platform() -> void:
 	var own: Array = map._own_units()
@@ -1889,8 +1888,27 @@ func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int)
 func _on_threat_detected(faction: String, w: Weapon) -> void:
 	if w.is_interceptor():
 		return  # the other side's SAM or anti-torpedo round, after one of ours: not inbound on us
-	if faction != simulation.player_faction or (map.reference_unit() != null and not simulation.threat_manager.visible_to(map.reference_unit(), w)):
+	if faction != simulation.player_faction:
 		return
+	if map.reference_unit() != null and not simulation.threat_manager.visible_to(map.reference_unit(), w):
+		# The side's first sight of it came from a platform the commander does not hear from. Detection
+		# fires once, so remember it and announce it when it reaches the commander's own picture.
+		if not _unannounced.has(w):
+			_unannounced.append(w)
+		return
+	_announce_threat(w)
+
+
+func _announce_unannounced_threats() -> void:
+	for w in _unannounced.duplicate():
+		if w.phase == Weapon.Phase.DEAD:
+			_unannounced.erase(w)
+		elif map.reference_unit() == null or simulation.threat_manager.visible_to(map.reference_unit(), w):
+			_unannounced.erase(w)
+			_announce_threat(w)
+
+
+func _announce_threat(w: Weapon) -> void:
 	SimClock.drop_to_realtime()
 	_stats["hostile_rounds"] += 1
 	var seconds := int(w.time_to_reach_s(_nearest_own_unit_pos(w)))
