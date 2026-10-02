@@ -561,8 +561,8 @@ func _refresh_layer_button() -> void:
 	var floor_m := -1.0
 	for u: Unit in _units:
 		if u.spec.max_depth_m > 0.0:
-			under = Acoustics.below_layer_depth_m(u)
-			floor_m = Acoustics.bottom_m(u)
+			under = Acoustics.below_layer_depth_m(u, true)
+			floor_m = Acoustics.bottom_m(u, true)
 			break
 	_layer_btn.disabled = not _controllable or under < 0.0
 	if under >= 0.0:
@@ -643,7 +643,7 @@ func _emit_depth(metres: float) -> void:
 		if u.spec.max_depth_m > 0.0:
 			var wanted := u.spec.patrol_depth_m if metres < 0.0 else metres
 			if metres == -2.0:
-				wanted = Acoustics.below_layer_depth_m(u)
+				wanted = Acoustics.below_layer_depth_m(u, true)
 				if wanted < 0.0:
 					continue
 			pairs.append([u, Order.set_depth(clampf(wanted, 0.0, u.spec.max_depth_m))])

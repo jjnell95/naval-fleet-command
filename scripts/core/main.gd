@@ -38,6 +38,12 @@ var _command_palette: CommandPalette
 var _air_operations: AirOperations
 ## The Air Operations dialog has handed the chart over to pick a station or a strike target.
 var _air_picking := false
+var _saves: SavedEngagements
+## Simulated time of the last autosave in this engagement.
+var _autosaved_at := 0.0
+## Autosave in play only. Any run with command-line arguments (the test suites, the validation
+## tools, the dev harness) leaves the player's saves alone, as it does their settings.
+var _autosave_enabled := OS.get_cmdline_user_args().is_empty()
 var _fleet_operations: FleetOperations
 var _weapon_control: WeaponControl
 var _modal_pause_captured := false
@@ -227,7 +233,7 @@ func _ready() -> void:
 	simulation.unit_manager.station_resumed.connect(func(u: Unit, reason: String) -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player:
 			return
-		radio.flash("%s: %s — resuming %s" % [u.callsign, reason, u.station_label.to_lower() if u.station_label != "" else "station"], "good", u))
+		radio.flash("%s: %s — resuming %s" % [u.callsign, reason, DataDisplay.station_name(u.station_label, false) if u.station_label != "" else "station"], "good", u))
 	simulation.unit_manager.station_unavailable.connect(func(u: Unit, reason: String) -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player:
 			return
@@ -295,6 +301,7 @@ func _process(delta: float) -> void:
 	var hooked: Unit = map.selected[0] if not map.selected.is_empty() else null
 	SoundFx.set_ambient(_command_taken and not _menu.visible and not _editor.visible and not _report.visible, Detection.sea_state, SoundFx.hum_for(hooked))
 	radio.set_objective_text(_objective_summary())
+	_autosave_if_due()
 	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, map.reference_unit())
 	if threats.is_empty():
 		radio.set_alert("")
@@ -318,6 +325,18 @@ func _objective_summary() -> String:
 # --- Scenario lifecycle -------------------------------------------------------------------
 
 func start_scenario(path: String) -> void:
+	_close_engagement_dialogs()
+	if not simulation.load_scenario(path):
+		push_error("Main: failed to load scenario %s" % path)
+		return
+	_reset_command_screen()
+	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
+	_briefing.set_mode(true)
+	var coast := "" if Terrain.is_empty() else ", %d landmass%s charted" % [Terrain.landmasses.size(), "" if Terrain.landmasses.size() == 1 else "es"]
+	radio.flash("%s loaded — sea state %d, %s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), coast])
+
+
+func _close_engagement_dialogs() -> void:
 	_control_groups.clear()
 	if _weapon_control != null:
 		_weapon_control.hide()
@@ -326,9 +345,12 @@ func start_scenario(path: String) -> void:
 	if _air_operations != null:
 		_air_operations.hide()
 		_air_operations.clear_selection()
-	if not simulation.load_scenario(path):
-		push_error("Main: failed to load scenario %s" % path)
-		return
+	_air_picking = false
+
+
+## The command screen as a fresh engagement finds it: panels closed and empty, the chart fitted, the
+## radio and the after-action counters cleared. A new mission and a loaded one both start here.
+func _reset_command_screen() -> void:
 	SimClock.set_paused(true)
 	SimClock.set_speed_index(0)
 	_command_taken = false
@@ -370,10 +392,185 @@ func start_scenario(path: String) -> void:
 	_civilian_incidents = PackedStringArray()
 	_foundered.clear()
 	_report.hide()
+	_autosaved_at = SimClock.sim_time
+
+
+# --- Saved engagements -----------------------------------------------------------------------
+
+## Whether the running engagement can be saved now, or the reason it cannot.
+func save_refusal() -> String:
+	if not _command_taken:
+		return "Take command of an operation first"
+	if simulation.mission_manager.result != MissionManager.Result.RUNNING:
+		return "The engagement has ended"
+	if simulation._in_tick:
+		return "Wait for the simulation step to finish"
+	return ""
+
+
+## Writes the running engagement to a slot. `kind` is quick, auto or manual. Returns "" or why not.
+func save_engagement(slot: String, kind: String, label: String) -> String:
+	var why := save_refusal()
+	if why != "":
+		return why
+	var snapshot := simulation.capture_snapshot()
+	if snapshot.is_empty() or not (snapshot.get("errors", []) as Array).is_empty():
+		return "The engagement could not be captured: %s" % ", ".join(snapshot.get("errors", ["mid-step"]))
+	var header := {
+		"serial": SaveGame.next_serial(),
+		"label": label,
+		"kind": kind,
+		"scenario_name": simulation.scenario_name,
+		"scenario_id": str(simulation.scenario.get("id", "")),
+		"sim_time": SimClock.sim_time,
+		"clock_text": SimClock.datetime_string(),
+		"elapsed_text": Geo.format_duration(SimClock.sim_time),
+		"created_unix": int(Time.get_unix_time_from_system()),
+		"version": SimSnapshot.VERSION,
+		"build": BUILD_MILESTONE,
+		"note": _objective_summary(),
+	}
+	return SaveGame.write(SaveGame.slot_path(slot), header, {"simulation": snapshot, "presentation": _capture_presentation()})
+
+
+func quicksave() -> void:
+	var why := save_engagement(SaveGame.QUICKSAVE, "quick", "Quicksave")
+	if why == "":
+		radio.advise("Quicksaved at %s. Ctrl+Shift+L returns here." % SimClock.datetime_string())
+	else:
+		radio.advise("Cannot save: " + why)
+
+
+func quickload() -> void:
+	var path := SaveGame.slot_path(SaveGame.QUICKSAVE)
+	if not FileAccess.file_exists(path):
+		radio.advise("No quicksave yet. Ctrl+Shift+S saves the engagement.")
+		return
+	var why := load_engagement(path)
+	if why != "":
+		radio.advise("Cannot load: " + why)
+
+
+## Replaces the running engagement with a saved one. The simulation refuses a damaged, foreign or
+## newer save before anything changes; the screen then takes up the saved record: the journal,
+## the after-action counters, the track numbers, the hooked platforms and the view.
+func load_engagement(path: String) -> String:
+	var file := SaveGame.read(path)
+	if str(file.get("error", "")) != "":
+		return str(file["error"])
+	var payload: Dictionary = file["payload"]
+	var validation := SimSnapshot.validate(payload.get("simulation"))
+	if validation != "":
+		return validation
+	_close_engagement_dialogs()
+	_hide_screens()
+	var why := simulation.restore_snapshot(payload["simulation"])
+	if why != "":
+		# Validated but not restorable: the old engagement is gone. Start the operation over rather
+		# than leave a half-built one on the screen.
+		start_scenario(simulation.scenario_path)
+		return why
+	_reset_command_screen()
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
-	_briefing.set_mode(true)
-	var coast := "" if Terrain.is_empty() else ", %d landmass%s charted" % [Terrain.landmasses.size(), "" if Terrain.landmasses.size() == 1 else "es"]
-	radio.flash("%s loaded — sea state %d, %s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), coast])
+	_briefing.set_mode(false)
+	_restore_presentation(payload.get("presentation", {}))
+	_command_taken = true
+	_modal_pause_captured = false
+	_set_background_input_enabled(true)
+	SimClock.set_paused(true)
+	radio.advise("Engagement restored at %s, paused. Space resumes." % SimClock.datetime_string())
+	return ""
+
+
+func _autosave_if_due() -> void:
+	if not _autosave_enabled or _scripted_session or SimClock.paused or SimClock.sim_time - _autosaved_at < SaveGame.AUTOSAVE_INTERVAL_S:
+		return
+	if save_refusal() != "":
+		return
+	_autosaved_at = SimClock.sim_time
+	var slot := SaveGame.next_autosave_slot()
+	if save_engagement(slot, "auto", "Autosave %s" % Geo.format_duration(SimClock.sim_time)) == "":
+		SaveGame.prune_autosaves()
+
+
+## What the screen itself has recorded that the simulation does not hold: the observed journal and
+## comms, the after-action counters, the commander's groups, own track numbers and the view.
+func _capture_presentation() -> Dictionary:
+	var numbers := []
+	for u: Unit in map._own_numbers:
+		numbers.append([u.id, map._own_numbers[u]])
+	var foundered := []
+	for u: Unit in _foundered:
+		foundered.append(u.id)
+	var selected := []
+	for u: Unit in map.selected:
+		selected.append(u.id)
+	return {
+		"journal": radio.journal.duplicate(),
+		"journal_omitted": radio.journal_omitted,
+		"history": radio.history.duplicate(),
+		"board_messages": status_boards._messages.duplicate(),
+		"stats": _stats.duplicate(),
+		"losses": _losses,
+		"kills": _kills,
+		"civilian_incidents": _civilian_incidents,
+		"foundered": foundered,
+		"control_groups": _control_groups.duplicate(true),
+		"own_numbers": numbers,
+		"selected": selected,
+		"view": {"center": map.center_nm, "ppn": map.ppn},
+		"autosaved_at": _autosaved_at,
+	}
+
+
+func _restore_presentation(d: Dictionary) -> void:
+	var by_id := {}
+	for u in simulation.unit_manager.units:
+		by_id[u.id] = u
+	radio.journal.assign(d.get("journal", []))
+	radio.journal_omitted = int(d.get("journal_omitted", 0))
+	radio.history.assign(d.get("history", []))
+	status_boards._messages.assign(d.get("board_messages", []))
+	_stats = d.get("stats", _stats).duplicate()
+	_losses = PackedStringArray(d.get("losses", []))
+	_kills = PackedStringArray(d.get("kills", []))
+	_civilian_incidents = PackedStringArray(d.get("civilian_incidents", []))
+	_foundered.clear()
+	for id in d.get("foundered", []):
+		if by_id.has(int(id)):
+			_foundered[by_id[int(id)]] = true
+	_control_groups = d.get("control_groups", {}).duplicate(true)
+	map._own_numbers.clear()
+	for pair: Array in d.get("own_numbers", []):
+		if by_id.has(int(pair[0])):
+			map._own_numbers[by_id[int(pair[0])]] = int(pair[1])
+	var selected: Array = []
+	for id in d.get("selected", []):
+		if by_id.has(int(id)) and (by_id[int(id)] as Unit).alive:
+			selected.append(by_id[int(id)])
+	map.select_units(selected)
+	var view: Dictionary = d.get("view", {})
+	if view.has("center"):
+		map.center_nm = view["center"]
+		map.ppn = float(view.get("ppn", map.ppn))
+		map.queue_redraw()
+	_autosaved_at = float(d.get("autosaved_at", SimClock.sim_time))
+
+
+func _toggle_saved_engagements() -> void:
+	if _saves.visible:
+		_close_saved_engagements()
+		return
+	if _has_visible_modal() and not _menu.visible:
+		return
+	_begin_modal_pause()
+	_saves.open(save_refusal() == "")
+
+
+func _close_saved_engagements() -> void:
+	_saves.hide()
+	_restore_modal_pause_if_clear()
+	call_deferred("_focus_map_if_clear")
 
 
 ## Restarting throws away the whole mission, so from the command deck it takes a second press.
@@ -559,6 +756,24 @@ func _build_screens() -> void:
 	_key_help.closed.connect(_restore_modal_pause_if_clear)
 	add_child(_key_help)
 	_key_help.hide()
+	_saves = SavedEngagements.new()
+	_saves.name = "SavedEngagements"
+	_saves.closed.connect(_close_saved_engagements)
+	_saves.save_requested.connect(func() -> void:
+		var why := save_engagement("save-%d" % SaveGame.next_serial(), "manual", "Saved %s" % SimClock.datetime_string())
+		_saves.refresh()
+		_saves.show_message("Saved." if why == "" else "Cannot save: " + why, why == ""))
+	_saves.delete_requested.connect(func(path: String) -> void:
+		DirAccess.remove_absolute(path)
+		_saves.refresh())
+	_saves.load_requested.connect(func(path: String) -> void:
+		var why := load_engagement(path)
+		if why != "":
+			_saves.show_message("Cannot load: " + why, false)
+		else:
+			_saves.hide())
+	add_child(_saves)
+	_saves.hide()
 
 
 func _show_editor() -> void:
@@ -660,6 +875,7 @@ func _has_visible_modal() -> bool:
 		or (_weapon_control != null and _weapon_control.visible) \
 		or (_fleet_operations != null and _fleet_operations.visible) \
 		or (_key_help != null and _key_help.visible) \
+		or (_saves != null and _saves.visible) \
 		or (_report != null and _report.visible)
 
 
@@ -920,6 +1136,9 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "briefing", "label": "Orders and briefing", "description": "Objectives, failure conditions, environment and controls.", "shortcut": "F1", "enabled": true},
 		{"id": "library", "label": "Reference", "description": "Platforms and weapons, with models; opens on a hooked contact's class once it is classified.", "shortcut": "F7", "enabled": true},
 		{"id": "air_operations", "label": "Air operations: launch and recover", "description": "Select aircraft types, manage sorties, and choose a carrier or airfield for landing.", "shortcut": "F3", "enabled": true},
+		{"id": "quicksave", "label": "Quicksave", "description": "Save the engagement to the quicksave slot.", "shortcut": "Ctrl+Shift+S", "enabled": save_refusal() == "", "reason": save_refusal()},
+		{"id": "quickload", "label": "Quickload", "description": "Return to the quicksave.", "shortcut": "Ctrl+Shift+L", "enabled": FileAccess.file_exists(SaveGame.slot_path(SaveGame.QUICKSAVE)), "reason": "No quicksave yet."},
+		{"id": "saved_engagements", "label": "Saved engagements", "description": "Save, load or delete engagements, including the autosave history.", "shortcut": "Ctrl+Shift+O", "enabled": true},
 		{"id": "key_commands", "label": "Key commands", "description": "Every keyboard command on one board.", "shortcut": "H", "enabled": true},
 		{"id": "missions", "label": "Missions", "description": "The operations desk.", "shortcut": "M", "enabled": true},
 		{"id": "editor", "label": "Scenario editor", "description": "Build or change an operation.", "shortcut": "Ctrl+E", "enabled": true},
@@ -1006,6 +1225,12 @@ func _run_palette_action(id: String) -> void:
 			map.grab_focus()
 		"return_to_station":
 			_apply_order_to_selection(Order.return_to_station())
+		"quicksave":
+			quicksave()
+		"quickload":
+			quickload()
+		"saved_engagements":
+			_toggle_saved_engagements()
 		"auto_return":
 			_apply_order_to_selection(Order.set_auto_return(_auto_return_state() != "on"))
 		"weapon_control":
@@ -1143,6 +1368,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_key_help.close()
 		get_viewport().set_input_as_handled()
 		return
+	if _saves.visible:
+		if k.keycode == KEY_ESCAPE or (k.keycode == KEY_O and k.shift_pressed and (k.ctrl_pressed or k.meta_pressed)):
+			_close_saved_engagements()
+			get_viewport().set_input_as_handled()
+		return
 	if _weapon_control.visible:
 		if k.keycode == KEY_ESCAPE or (k.keycode == KEY_E and k.shift_pressed):
 			_close_weapon_control()
@@ -1192,6 +1422,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			return
 		get_viewport().set_input_as_handled()
 		return
+	if (k.ctrl_pressed or k.meta_pressed) and k.shift_pressed and k.keycode in [KEY_S, KEY_L, KEY_O]:
+		# Checked before the Ctrl table: Ctrl+S alone is the scale bar, Ctrl+L the lat-long readout.
+		if not (_menu.visible or _editor.visible or _briefing.visible or _report.visible):
+			match k.keycode:
+				KEY_S: quicksave()
+				KEY_L: quickload()
+				KEY_O: _toggle_saved_engagements()
+			get_viewport().set_input_as_handled()
+			return
 	if k.ctrl_pressed or k.meta_pressed:
 		if k.keycode >= KEY_1 and k.keycode <= KEY_9:
 			_store_control_group(k.keycode - KEY_0)
@@ -1752,7 +1991,7 @@ func _depth_orders(metres: float) -> Array:
 			continue
 		var wanted := u.spec.patrol_depth_m if metres < 0.0 else metres
 		if metres == -2.0:
-			wanted = Acoustics.below_layer_depth_m(u)
+			wanted = Acoustics.below_layer_depth_m(u, true)
 			if wanted < 0.0:
 				continue
 		pairs.append([u, Order.set_depth(clampf(wanted, 0.0, u.spec.max_depth_m))])

@@ -72,10 +72,17 @@ func observe(faction: String, target: Unit, observed_pos: Vector2, quality: floa
 func observe_contact(faction: String, c: SensorContact, now: float, dt: float) -> void:
 	if c.observer != null:
 		if not _local_keys.has(c.observer):
-			_local_keys[c.observer] = "local:%s" % c.observer.get_instance_id()
+			_local_keys[c.observer] = "local:%s" % _unit_key(c.observer)
 		_observe_picture(_local_keys[c.observer], faction, c, now, dt, false)
 	if c.observer == null or c.observer.datalink_connected():
 		_observe_picture(faction, faction, c, now, dt, true)
+
+
+## Picture and track-number keys use the unit's id, which a saved engagement restores; an instance
+## id differs from one session to the next. A unit never added to a UnitManager (a test's) has no
+## id yet and keeps the instance id, so two such units never share a picture.
+static func _unit_key(u: Unit) -> String:
+	return str(u.id) if u.id >= 0 else "i%d" % u.get_instance_id()
 
 
 func _observe_picture(key: String, faction: String, c: SensorContact, now: float, dt: float, shared: bool) -> void:
@@ -86,7 +93,7 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t = Track.new()
 		t.owner_faction = faction
 		t.truth = target
-		var identity_key := "%s:%s" % [faction, target.get_instance_id()]
+		var identity_key := "%s:%s" % [faction, _unit_key(target)]
 		if not _track_ids.has(identity_key):
 			_track_ids[identity_key] = "T%d" % _next_id(faction)
 		t.id = _track_ids[identity_key]
