@@ -210,6 +210,32 @@ func test_a_warship_that_closes_on_the_raid_is_engaged_as_a_threat() -> void:
 	h.free_all()
 
 
+func test_before_its_start_a_plan_leaves_its_members_to_their_own_judgement() -> void:
+	var red := _ship("RED-1", Vector2.ZERO, _asm(60.0))
+	var h := _harness([red], [_plan("threaten_carrier", {"units": ["RED-1"], "start_s": 500, "threat_nm": 10, "assembly_window_s": 0})])
+	_plot(h, "T2001", Vector2(0, 15), "frigate", "FFG Perry")
+	_plot(h, "T2002", Vector2(0, 45), "carrier", "CVN Nimitz")
+	h.ai.tick(100.0)
+	assert_eq(h.ai.plans[0].phase, AIPlan.Phase.WAITING)
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_eq(shots.size(), 1)
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].track.id, "T2001", "not yet the plan's: the nearest shot, as ever")
+	h.free_all()
+
+
+func test_a_routed_striker_keeps_to_its_route_while_the_plan_searches() -> void:
+	var red := _ship("RED-1", Vector2.ZERO, _asm(60.0))
+	red.patrol_route = [Vector2(0, 40), Vector2(40, 40)]
+	var h := _harness([red], [_plan("threaten_carrier", {"units": ["RED-1"], "threat_nm": 10})])
+	_plot(h, "T2001", Vector2(20, 10), "frigate", "FFG Perry")
+	h.ai.tick(100.0)
+	assert_eq(h.ai.state_name(red), "HOLD")
+	assert_eq(_goal(h, red), Vector2(0, 40), "its authored route, not the frigate")
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty())
+	h.free_all()
+
+
 # --- Kinds that hold ground ------------------------------------------------------------------
 
 func test_protect_breakout_escort_stays_with_the_breakout_unit() -> void:
