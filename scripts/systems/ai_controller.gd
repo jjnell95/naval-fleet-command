@@ -146,8 +146,8 @@ func _board(u: Unit) -> Dictionary:
 func _update_unit(u: Unit, now: float) -> void:
 	if u.is_aircraft() and not u.airborne():
 		return  # in the hangar or on the deck cycle; the aviation layer owns it
-	if u.is_aircraft() and u.returning:
-		return  # heading home on its own; leave it alone
+	if u.is_aircraft() and (u.returning or u.tanking_on != null):
+		return  # heading home or to the tanker on its own; leave it alone
 	var b := _board(u)
 	var hostiles_scan: Array = []
 	var hostiles: Array = hostiles_scan
@@ -743,6 +743,8 @@ func _nearest(u: Unit, tracks: Array) -> Track:
 ## Issues a MOVE only when the destination has meaningfully changed, so the order log stays
 ## readable and units are not re-tasked every cycle.
 func _move_to(u: Unit, b: Dictionary, wanted: Vector2, now: float) -> void:
+	if u.in_formation():
+		return  # a consort keeps its station; a steering order would take it out of the formation
 	var goal := _sea_room(u, wanted)
 	var previous: Vector2 = b["goal"]
 	# Re-task only when the destination has actually moved, or when the ship has arrived and is
@@ -782,6 +784,8 @@ func _open_bearing(u: Unit, wanted_deg: float) -> float:
 
 
 func _command(u: Unit, b: Dictionary, course_deg: float, speed_kn: float, now: float) -> void:
+	if u.in_formation():
+		return  # as _move_to: the formation steers a consort
 	var course_changed := float(b["course"]) < 0.0 or absf(Geo.heading_delta(float(b["course"]), course_deg)) > COURSE_TOLERANCE_DEG
 	var speed_changed := absf(float(b["speed"]) - speed_kn) > SPEED_TOLERANCE_KN
 	if not course_changed and not speed_changed and now - float(b["cmd_time"]) < ORDER_REFRESH_S:

@@ -183,6 +183,9 @@ func _ready() -> void:
 			SimClock.drop_to_realtime()
 			radio.flash("Bingo fuel, returning", "warn", a)
 			voice.say("aircraft_rtb", a))
+	simulation.aviation_manager.aircraft_tanking.connect(func(a: Unit, tanker: Unit) -> void:
+		if a.faction == simulation.player_faction and not simulation.ai_plays_player:
+			radio.flash("Low fuel, joining %s to refuel" % tanker.callsign, "info", a))
 	simulation.aviation_manager.aircraft_lost.connect(func(a: Unit, reason: String) -> void:
 		if a.faction == simulation.player_faction:
 			SimClock.drop_to_realtime()
@@ -1871,7 +1874,8 @@ func _apply_formation(pattern: String) -> void:
 	if own.size() < 2:
 		radio.advise("Select a leader and at least one consort to form up")
 		return
-	simulation.unit_manager.issue_order(own[0], Order.break_formation())
+	if own[0].in_formation():
+		simulation.unit_manager.issue_order(own[0], Order.break_formation())
 	var accepted := 0
 	for entry: Dictionary in Formation.assign(own, pattern):
 		accepted += int(simulation.unit_manager.issue_order(entry["unit"], entry["order"]))

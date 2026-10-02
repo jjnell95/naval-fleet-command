@@ -359,3 +359,21 @@ func test_asw_search_lays_a_sonobuoy_pattern_in_its_area() -> void:
 	assert_eq(a.station_label, "ASW SEARCH")
 	assert_true(a.ordered_altitude_m <= AirMissionManager.ASW_ALTITUDE_M + 1.0, "down low to work the buoys")
 	_done()
+
+
+func test_queued_launches_wait_for_an_aircraft_landing_on_the_deck() -> void:
+	_load(CARRIER_QUAL)
+	var cdg := _unit("Charles de Gaulle (R 91)")
+	assert_true(_sim.unit_manager.issue_order(cdg, Order.air_mission(AirMission.Kind.CAP, "fra_fighter_rafale_m", 1, cdg.position + Vector2(20, 0), 10.0)))
+	var m := _mission()
+	_advance(300.0)
+	var first: Unit = m.aircraft[0]
+	# A second Rafale comes home and is overhead waiting for the deck when the next CAP is asked for.
+	assert_true(_sim.unit_manager.issue_order(first, Order.return_to_base(cdg)))
+	first.position = cdg.position + Vector2(0.5, 0.5)
+	cdg.embarked.erase(first)
+	cdg.embarked.push_front(first)
+	var o := Order.air_mission(AirMission.Kind.RECON, "fra_fighter_rafale_m", 1, cdg.position + Vector2(-20, 0), 10.0)
+	assert_true(_sim.unit_manager.issue_order(cdg, o))
+	assert_true(o.receipt.contains("queued: deck recovering"), o.receipt)
+	_done()

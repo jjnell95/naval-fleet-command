@@ -356,9 +356,13 @@ func _step(m: AirMission) -> void:
 		_end(m, "No aircraft left")
 
 
-## Launches as many of the owed airframes as the deck will take this second.
+## Launches as many of the owed airframes as the deck will take this second. A deck holding an
+## aircraft overhead for recovery lands it first: a queue that kept the catapults busy would leave
+## it circling the ship on its last fuel.
 func _launch_owed(m: AirMission) -> int:
 	var launched := 0
+	if _recovery_waiting(m.base):
+		return 0
 	while m.pending_launches > 0:
 		var candidates := _launch_candidates(m)
 		if candidates.is_empty():
@@ -395,7 +399,22 @@ func _any_coming_ready(m: AirMission) -> bool:
 	return false
 
 
+## An airframe back over this deck and waiting for it to stop launching.
+static func _recovery_waiting(base: Unit) -> bool:
+	if base.spec.flight_facility() == "airfield":
+		return false  # a field launches and recovers on separate runways
+	for a in base.inbound_aircraft:
+		if a.alive and a.airborne() and a.returning and a.position.distance_to(base.position) <= AviationManager.RECOVERY_RANGE_NM + 1.0:
+			return true
+	for a in base.embarked:
+		if a.alive and a.airborne() and a.returning and (a.recovery_base == null or a.recovery_base == base) and a.position.distance_to(base.position) <= AviationManager.RECOVERY_RANGE_NM + 1.0:
+			return true
+	return false
+
+
 func _queue_reason(m: AirMission) -> String:
+	if _recovery_waiting(m.base):
+		return "deck recovering"
 	if _launch_candidates(m).is_empty():
 		return "awaiting ready aircraft"
 	var why := aviation_manager.launch_rejection_reason(m.base, m.platform_id)

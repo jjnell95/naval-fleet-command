@@ -389,3 +389,170 @@ func test_the_orders_line_and_menu_offer_the_way_back_to_station() -> void:
 	assert_true(back.is_empty(), "with the guide gone the escort guides the group and has no station")
 	assert_eq(DataDisplay.orders_text(escort).contains("guiding the group"), true, DataDisplay.orders_text(escort))
 	um.free()
+
+
+# --- Defects found by probing the first cut ------------------------------------------------
+
+func test_a_refused_landing_order_keeps_the_station_and_the_generation() -> void:
+	Terrain.clear()
+	var ship := _carrier()
+	var jet := _airborne(_air_spec(), ship, Vector2(0, 30), "Fighter")
+	var enemy := _carrier()
+	enemy.faction = "RED"
+	var um := UnitManager.new()
+	for u in [ship, jet, enemy]:
+		um.add_unit(u)
+	um.issue_order(jet, Order.patrol_box(Vector2(-15, 25), Vector2(15, 45)))
+	var before := jet.order_generation
+	assert_true(not um.issue_order(jet, Order.return_to_base(enemy)), "a hostile deck is no place to land")
+	assert_eq(jet.station_kind, "patrol", "the refusal leaves the station alone")
+	assert_eq(jet.order_generation, before)
+	um.free()
+
+
+func test_steering_a_returning_or_tanking_aircraft_is_refused_not_overwritten() -> void:
+	Terrain.clear()
+	var ship := _carrier()
+	var jet := _airborne(_air_spec(), ship, Vector2(0, 30), "Fighter")
+	var um := UnitManager.new()
+	um.add_unit(ship)
+	um.add_unit(jet)
+	jet.returning = true
+	for o: Order in [Order.move(Vector2(40, 40)), Order.set_course(90), Order.set_speed(200), Order.stop()]:
+		assert_true(not um.issue_order(jet, o), o.describe())
+	jet.returning = false
+	jet.tanking_on = ship
+	assert_true(not um.issue_order(jet, Order.move(Vector2(40, 40))), "the tanker join is the aviation layer's")
+	jet.tanking_on = null
+	um.free()
+
+
+func test_steering_a_consort_takes_it_out_of_formation_and_ends_the_station() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var pair := _screen(um)
+	var escort: Unit = pair[1]
+	assert_true(um.issue_order(escort, Order.clear_waypoints()))
+	assert_true(escort.on_station(), "clearing a route a consort does not have changes nothing")
+	assert_true(um.issue_order(escort, Order.move(Vector2(-20, -20))))
+	_run(um, DT)
+	assert_eq(escort.formation_leader, null, "the consort leaves the formation to go where it was sent")
+	assert_eq(escort.station_kind, "", "an explicit order replaces the station")
+	assert_true(not escort.waypoints.is_empty(), "and the formation no longer clears its route")
+	um.free()
+
+
+func test_break_formation_keeps_a_patrol_station_for_a_later_return() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var picket := _ship(Vector2.ZERO, "Picket")
+	um.add_unit(picket)
+	um.issue_order(picket, Order.patrol_box(Vector2(-10, -10), Vector2(10, 10)))
+	um.issue_order(picket, Order.break_formation())
+	assert_eq(picket.station_kind, "patrol", "breaking a formation is not a new plan for a patrolling ship")
+	assert_true(um.issue_order(picket, Order.return_to_station()))
+	assert_true(picket.patrol_active)
+	um.free()
+
+
+func test_landing_and_launch_clear_old_task_results() -> void:
+	Terrain.clear()
+	var ship := _carrier()
+	var jet := _airborne(_air_spec(), ship, Vector2(0, 1), "Fighter")
+	var um := UnitManager.new()
+	um.add_unit(ship)
+	um.add_unit(jet)
+	var av := AviationManager.new()
+	av.unit_manager = um
+	jet.attack_result = "Magazines empty"
+	jet.attack_track_id = "0107"
+	av.request_return(jet, ship)
+	_run(um, 400.0, av)
+	assert_true(jet.flight_state in [Unit.FlightState.TURNAROUND, Unit.FlightState.STOWED])
+	assert_eq(jet.attack_result, "", "a landed airframe does not still report its last engagement")
+	assert_eq(DataDisplay.orders_text(jet), "Refuel and rearm" if jet.flight_state == Unit.FlightState.TURNAROUND else "Ready on deck")
+	av.free()
+	um.free()
+
+
+func test_return_after_a_flank_speed_intercept_resumes_at_station_speed() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var picket := _ship(Vector2.ZERO, "Picket")
+	um.add_unit(picket)
+	picket.ordered_speed_kn = 15.0
+	um.issue_order(picket, Order.patrol_box(Vector2(-3, -3), Vector2(3, 3)))
+	var t := _track(Vector2(30, 0))
+	um.issue_order(picket, Order.investigate(t))
+	um.issue_order(picket, Order.set_speed(30.0))
+	assert_eq(UnitManager.station_rejection(picket), "", "the circuit is judged at its own speed")
+	assert_true(um.issue_order(picket, Order.return_to_station()))
+	assert_eq(picket.ordered_speed_kn, 15.0, "back at the circuit's speed, not the intercept's")
+	um.free()
+
+
+func test_a_crew_return_lets_an_evasion_run_its_course() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var pair := _screen(um)
+	var escort: Unit = pair[1]
+	escort.auto_return = true
+	var t := _track(Vector2(12.0, 14.0))
+	um.issue_order(escort, Order.investigate(t))
+	escort.evasion_remaining_s = 40.0
+	escort.evasion_course_deg = 200.0
+	t.classification = Track.Classification.CLASS_KNOWN
+	_run(um, DT)
+	assert_eq(escort.formation_leader, pair[0], "the station is taken up")
+	assert_true(escort.evasion_remaining_s > 30.0, "but the turn-away is not cut short")
+	assert_true(um.issue_order(escort, Order.return_to_station()))
+	assert_eq(escort.evasion_remaining_s, 0.0, "the commander's own return does end it")
+	um.free()
+
+
+func test_a_new_guide_carries_on_with_the_lost_guides_route() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var guide := _ship(Vector2.ZERO, "Guide")
+	var escort := _ship(Vector2(4, 6), "Escort")
+	um.add_unit(guide)
+	um.add_unit(escort)
+	um.issue_order(guide, Order.move(Vector2(0, 60)))
+	um.issue_order(guide, Order.set_speed(14.0))
+	um.issue_order(escort, Order.form_up(guide, Vector2(4, 6)))
+	guide.alive = false
+	_run(um, DT)
+	assert_eq(escort.formation_leader, null)
+	assert_eq(escort.waypoints, [Vector2(0, 60)], "the convoy keeps steaming for the gate")
+	assert_eq(escort.ordered_speed_kn, 14.0)
+	um.free()
+
+
+func test_ai_consorts_keep_their_formation() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var tm := TrackManager.new()
+	var guide := _ship(Vector2.ZERO, "Guide")
+	var consort := _ship(Vector2(4, 6), "Consort")
+	guide.faction = "RED"
+	consort.faction = "RED"
+	um.add_unit(guide)
+	um.add_unit(consort)
+	um.issue_order(consort, Order.form_up(guide, Vector2(4, 6)))
+	var ai := AIController.new()
+	ai.faction = "RED"
+	ai.unit_manager = um
+	ai.track_manager = tm
+	ai.threat_manager = ThreatManager.new()
+	ai.weapon_manager = WeaponManager.new()
+	ai.weapon_manager.unit_manager = um
+	ai.weapon_manager.track_manager = tm
+	for i in 5:
+		ai.tick(i * 2.0)
+	assert_eq(consort.formation_leader, guide, "the AI does not steer a consort out of its station")
+	assert_eq(consort.station_kind, "formation")
+	ai.weapon_manager.free()
+	ai.threat_manager.free()
+	ai.free()
+	tm.free()
+	um.free()

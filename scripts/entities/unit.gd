@@ -57,6 +57,7 @@ var station_route: Array[Vector2] = []  # the circuit as ordered
 var station_leader: Unit  # the guide a formation station is kept on
 var station_offset := Vector2.ZERO  # in the guide's frame, as formation_offset
 var station_label := ""  # how the orders line names it: "PATROL", "SCREEN STATION", "CAP STATION"
+var station_speed_kn := 0.0  # the speed the circuit was ordered at; a return resumes it
 var station_note := ""  # why the last return to station could not be made, until the next order
 ## The air mission that owns this airframe's station, or -1. Cleared with the station, so an order
 ## from the commander that replaces the station also releases the airframe from the mission.
@@ -394,8 +395,11 @@ func at_periscope_depth() -> bool:
 ## Orders that change where the platform is going. Each advances order_generation.
 const NAVIGATION_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION, Order.Type.RETURN_TO_BASE]
 ## Orders from the commander that end the standing assignment rather than interrupt it. PATROL and
-## FORM_UP end it too, by setting a new one.
-const STATION_REPLACING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.BREAK_FORMATION, Order.Type.RETURN_TO_BASE]
+## FORM_UP end it too, by setting a new one; BREAK_FORMATION ends only a formation station. A
+## RETURN_TO_BASE reaches here only once UnitManager has checked the landing can be made.
+const STATION_REPLACING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.RETURN_TO_BASE]
+## Steering orders that take a consort out of its formation: it cannot keep station and go there.
+const DETACHING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP]
 
 
 func apply_order(order: Order) -> void:
@@ -409,9 +413,20 @@ func apply_order(order: Order) -> void:
 		if order.origin != "crew":
 			player_order_generation += 1
 		station_note = ""
-	if order.origin != "crew" and order.type in STATION_REPLACING_ORDERS:
-		clear_station()
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
+	var keeping_station := in_formation()
+	if order.type in DETACHING_ORDERS:
+		formation_leader = null
+	if order.origin != "crew":
+		# Clearing the route of a consort that is keeping station changes nothing; it has none.
+		if order.type in STATION_REPLACING_ORDERS and not (order.type == Order.Type.CLEAR_WAYPOINTS and keeping_station):
+			clear_station()
+		elif order.type == Order.Type.BREAK_FORMATION and station_kind == "formation":
+			clear_station()
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK]:
+		evasion_remaining_s = 0.0
+	# The commander's return ends an evasion; the crew's own return lets the turn-away run its
+	# course and takes up the station after it, as RESUME PLAN would.
+	if order.type == Order.Type.RETURN_TO_STATION and order.origin != "crew":
 		evasion_remaining_s = 0.0
 	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
 		patrol_active = false
@@ -452,8 +467,9 @@ func apply_order(order: Order) -> void:
 			waypoints.assign(order.route)
 			if ordered_speed_kn <= 0.0:
 				ordered_speed_kn = spec.cruise_speed_kn
-			_set_station("patrol", order.station_label if order.station_label != "" else "PATROL")
+			set_station("patrol", order.station_label if order.station_label != "" else "PATROL")
 			station_route.assign(order.route)
+			station_speed_kn = ordered_speed_kn
 			station_mission_id = order.mission_id
 		Order.Type.RETURN_TO_STATION:
 			_resume_station()
@@ -470,6 +486,8 @@ func apply_order(order: Order) -> void:
 			ordered_heading_deg = fposmod(order.heading_deg, 360.0)
 		Order.Type.SET_SPEED:
 			ordered_speed_kn = clampf(order.speed_kn, 0.0, effective_max_speed())
+			if patrol_active and station_kind == "patrol":
+				station_speed_kn = ordered_speed_kn  # the circuit's speed, not an intercept's
 			if investigation_track != null:
 				investigation_speed_kn = ordered_speed_kn
 			if attack_track != null:
@@ -515,7 +533,7 @@ func apply_order(order: Order) -> void:
 			formation_leader = order.leader
 			formation_offset = order.offset_nm
 			waypoints.clear()
-			_set_station("formation", order.station_label if order.station_label != "" else "FORMATION STATION")
+			set_station("formation", order.station_label if order.station_label != "" else "FORMATION STATION")
 			station_leader = order.leader
 			station_offset = order.offset_nm
 		Order.Type.BREAK_FORMATION:
@@ -536,7 +554,7 @@ func apply_order(order: Order) -> void:
 			pass  # routed to AirMissionManager by Simulation
 
 
-func _set_station(kind: String, label: String) -> void:
+func set_station(kind: String, label: String) -> void:
 	clear_station()
 	station_kind = kind
 	station_label = label
@@ -549,6 +567,7 @@ func clear_station() -> void:
 	station_leader = null
 	station_offset = Vector2.ZERO
 	station_label = ""
+	station_speed_kn = 0.0
 	station_mission_id = -1
 
 
@@ -583,6 +602,11 @@ func station_point() -> Vector2:
 	return Vector2.INF
 
 
+## The speed the station was taken at: an intercept at flank does not carry over to the circuit.
+func station_speed() -> float:
+	return station_speed_kn if station_speed_kn > 0.0 else spec.cruise_speed_kn
+
+
 func nearest_station_corner() -> int:
 	var best := 0
 	var best_d := INF
@@ -613,8 +637,7 @@ func _resume_station() -> void:
 			patrol_active = true
 			patrol_legs_completed = 0
 			waypoints.assign(station_circuit_from_here())
-			if ordered_speed_kn <= 0.0:
-				ordered_speed_kn = spec.cruise_speed_kn
+			ordered_speed_kn = station_speed() if not is_aircraft() else maxf(station_speed(), spec.cruise_speed_kn)
 		"formation":
 			formation_leader = station_leader
 			formation_offset = station_offset

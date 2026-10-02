@@ -121,6 +121,7 @@ static func update_speed_caps(units: Array) -> void:
 		var successor: Unit = survivors[0]
 		successor.formation_leader = null
 		_take_guide(successor, old)
+		_inherit_plan(successor, old)
 		var ahead := Geo.heading_to_vector(successor.heading_deg)
 		var right := Geo.heading_to_vector(successor.heading_deg + 90.0)
 		for i in range(1, survivors.size()):
@@ -140,6 +141,10 @@ static func update_speed_caps(units: Array) -> void:
 		group.sort_custom(func(a: Unit, b: Unit) -> bool: return a.id < b.id)
 		var guide: Unit = group[0]
 		_take_guide(guide, old)
+		if old.station_kind == "patrol" and not guide.has_station():
+			guide.set_station("patrol", old.station_label)
+			guide.station_route.assign(old.station_route)
+			guide.station_speed_kn = old.station_speed_kn
 		for i in range(1, group.size()):
 			(group[i] as Unit).station_leader = guide
 	for u: Unit in units:
@@ -150,6 +155,23 @@ static func update_speed_caps(units: Array) -> void:
 				seen[leader] = true
 				leader.formation_speed_cap_kn = minf(leader.formation_speed_cap_kn, u.effective_max_speed())
 				leader = leader.formation_leader
+
+
+## The new guide carries on where the old one was going: its route, or its patrol circuit. A
+## convoy whose lead ship is sunk keeps steaming for the gate instead of stopping where it was hit.
+static func _inherit_plan(successor: Unit, old: Unit) -> void:
+	if successor.attack_track != null or successor.investigation_track != null:
+		return
+	successor.waypoints.assign(old.waypoints)
+	successor.patrol_active = old.patrol_active
+	successor.patrol_legs_completed = 0
+	if old.station_kind == "patrol" and not successor.has_station():
+		successor.set_station("patrol", old.station_label)
+		successor.station_route.assign(old.station_route)
+		successor.station_speed_kn = old.station_speed_kn
+	if not old.waypoints.is_empty() or old.ordered_speed_kn > 0.0:
+		successor.ordered_speed_kn = minf(old.ordered_speed_kn, successor.effective_max_speed())
+		successor.ordered_heading_deg = old.ordered_heading_deg
 
 
 ## A consort that inherits the guide has no station of its own any longer: the group forms on it.

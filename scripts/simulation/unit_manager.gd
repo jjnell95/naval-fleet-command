@@ -100,9 +100,9 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.SET_SPEED:
 			if u.patrol_active and patrol_rejection(u, u.waypoints, order.speed_kn) != "":
 				return false
-			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0
+			return _steerable(u)
 		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS:
-			return (not u.is_aircraft() or u.airborne()) and u.is_engageable() and u.spec.max_speed_kn > 0.0
+			return _steerable(u)
 		Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR:
 			return u.is_engageable() and u.has_radar()
 		Order.Type.ACTIVE_SONAR, Order.Type.PASSIVE_SONAR:
@@ -124,7 +124,9 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.CANCEL_AIR_MISSION:
 			return u.alive
 		Order.Type.RETURN_TO_BASE:
-			return u.airborne()
+			# Checked here, before the order is applied, so a landing that cannot be made leaves the
+			# station and the order generation as they were.
+			return u.airborne() and (order.recovery_base == null or AviationManager.recovery_rejection_reason(u, order.recovery_base) == "")
 		Order.Type.DEPLOY_SONOBUOY:
 			return u.airborne() and u.sonobuoys > 0 and u.spec.sonobuoy_sensitivity_nm > 0.0 and not Terrain.is_land(u.position)
 		Order.Type.SET_EMCON:
@@ -136,6 +138,14 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 	return false
 
 
+## Steering a platform can take now. An aircraft on its way to the deck or the tanker is the aviation
+## layer's: a course or speed given to it would be overwritten within the second, so it is refused.
+static func _steerable(u: Unit) -> bool:
+	if not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
+		return false
+	return not u.is_aircraft() or (u.airborne() and not u.returning and u.tanking_on == null)
+
+
 ## Why this platform cannot go back to its standing assignment now, or "" when it can. The circuit
 ## is checked again from where the platform is now; a formation station needs a guide still afloat.
 static func station_rejection(u: Unit) -> String:
@@ -145,7 +155,7 @@ static func station_rejection(u: Unit) -> String:
 		return "Aircraft committed to fuel or recovery"
 	match u.station_kind:
 		"patrol":
-			var reason := patrol_rejection(u, u.station_circuit_from_here())
+			var reason := patrol_rejection(u, u.station_circuit_from_here(), u.station_speed())
 			return "" if reason == "" else "Station unavailable: " + reason.to_lower()
 		"formation":
 			if u.station_leader == null or not u.station_leader.alive:

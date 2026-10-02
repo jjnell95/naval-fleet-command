@@ -110,6 +110,7 @@ func launch(parent: Unit, which := "") -> Unit:
 	chosen.patrol_active = false
 	chosen.clear_station()  # a new sortie starts with no station until it is given one
 	chosen.clear_investigation()
+	chosen.clear_attack()  # and no result left over from the last one
 	_set_recovery_base(chosen, null)
 	chosen.tanking_on = null
 	chosen.formation_leader = null
@@ -133,6 +134,9 @@ func launch_flight(parent: Unit, count: int, platform_id := "") -> Array[Unit]:
 					break
 			if not match_found:
 				break
+		# Out of spots part-way through a section is a partial launch, not a refusal to report.
+		if not out.is_empty() and launch_rejection_reason(parent, pick) != "":
+			break
 		var a2 := launch(parent, pick)
 		if a2 == null:
 			break
@@ -142,7 +146,7 @@ func launch_flight(parent: Unit, count: int, platform_id := "") -> Array[Unit]:
 
 ## A destination accepts compatible friendly aircraft and reserves a parking spot immediately.
 ## Occupancy includes airframes still assigned here and accepted diversions from other bases.
-func recovery_rejection_reason(a: Unit, base: Unit) -> String:
+static func recovery_rejection_reason(a: Unit, base: Unit) -> String:
 	if a == null or not a.alive or not a.is_aircraft():
 		return "AIRCRAFT UNAVAILABLE"
 	if base == null or not base.alive:
@@ -396,6 +400,8 @@ func _step_recovery(a: Unit, dt: float) -> void:
 	a.returning = false
 	a.tanking_on = null
 	a.clear_station()  # the sortie is over; any relief is the air mission's to send
+	a.clear_investigation()
+	a.clear_attack()
 	a.altitude_m = 0.0
 	a.speed_kn = 0.0
 	a.ordered_speed_kn = 0.0
