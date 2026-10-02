@@ -1,6 +1,9 @@
 // Boots the browser build in headless Chromium and records what a player's browser would show:
 // page and console errors, whether the engine started, and screenshots of the operations desk
-// and of a running operation. Usage (from the repository root):
+// and of a running operation. It then plays the save path a browser player relies on: open the
+// selected operation with the keyboard, take command, quicksave, reload the page, find the save
+// still in the browser's storage (IndexedDB behind user://), and load it from Saved Engagements.
+// Usage (from the repository root):
 //   NODE_PATH=/opt/node-tools/node_modules node tools/web/browser_check.cjs [docs] [out-dir]
 // Serves docs/ as GitHub Pages does (the page fetches its fonts from ../fonts) on a free local port
 // and opens /play/index.html; needs Playwright and a Chromium.
@@ -50,14 +53,81 @@ await page.waitForTimeout(8000);
 const desk = path.join(out, 'browser-desk.png');
 await page.screenshot({ path: desk });
 report.screenshots.push(desk);
-// Start the introductory operation the way a player does: the big start button on the desk.
-const canvas = await page.$('canvas');
-if (canvas) {
-  await canvas.click({ position: { x: 800, y: 450 } }).catch(() => {});
+if (report.started) {
+  await playAndSave(page, report, out);
 }
 fs.writeFileSync(path.join(out, 'browser-check.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2));
 await browser.close();
 server.close();
-process.exit(report.started && report.errors.length === 0 ? 0 : 1);
+const saved = report.save && report.save.after_reload.length > 0 && report.save.loaded;
+process.exit(report.started && saved && report.errors.length === 0 ? 0 : 1);
 })();
+
+// Godot's web build keeps user:// in Emscripten's IDBFS: an IndexedDB database named after the
+// mount point, one record per file keyed by its full path.
+async function savedFiles(page) {
+  return page.evaluate(() => new Promise(resolve => {
+    const open = indexedDB.open('/userfs');
+    open.onerror = () => resolve([]);
+    open.onsuccess = () => {
+      const db = open.result;
+      if (!db.objectStoreNames.contains('FILE_DATA')) { resolve([]); return; }
+      const keys = db.transaction('FILE_DATA').objectStore('FILE_DATA').getAllKeys();
+      keys.onsuccess = () => resolve(keys.result.map(String).filter(k => k.endsWith('.nfcsave')));
+      keys.onerror = () => resolve([]);
+    };
+  }));
+}
+
+async function shot(page, report, out, name) {
+  const file = path.join(out, name);
+  await page.screenshot({ path: file });
+  report.screenshots.push(file);
+}
+
+async function waitForEngine(page) {
+  await page.waitForFunction(() => document.getElementById('status') === null, null, { timeout: 180000 });
+  await page.waitForTimeout(8000);
+}
+
+async function playAndSave(page, report, out) {
+  report.save = { before: await savedFiles(page), after_save: [], after_reload: [], loaded: false };
+  await page.click('canvas', { position: { x: 5, y: 5 } }).catch(() => {});
+  // The desk's operation list has focus with its first operation selected; Enter opens its
+  // briefing, whose TAKE COMMAND button then has focus.
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(4000);
+  await shot(page, report, out, 'browser-briefing.png');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(6000);
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(5000);
+  await page.keyboard.press('Space');
+  await shot(page, report, out, 'browser-command.png');
+  await page.keyboard.press('Control+Shift+S');
+  // The engine syncs IDBFS shortly after a file closes.
+  await page.waitForTimeout(4000);
+  report.save.after_save = await savedFiles(page);
+  await page.reload();
+  try {
+    await waitForEngine(page);
+  } catch (e) {
+    report.errors.push('engine did not restart after the reload');
+    return;
+  }
+  report.save.after_reload = await savedFiles(page);
+  await page.click('canvas', { position: { x: 5, y: 5 } }).catch(() => {});
+  await page.keyboard.press('Control+Shift+O');
+  await page.waitForTimeout(2500);
+  await shot(page, report, out, 'browser-saved-engagements.png');
+  // The newest save is selected; Enter loads it.
+  const before = await page.screenshot();
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(6000);
+  await shot(page, report, out, 'browser-restored.png');
+  const after = await page.screenshot();
+  // The restored command screen replaces the dialog over the desk; an unchanged frame means the
+  // load never happened.
+  report.save.loaded = Buffer.compare(before, after) !== 0;
+}

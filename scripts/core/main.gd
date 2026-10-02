@@ -1405,6 +1405,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		elif k.keycode == KEY_E and (k.ctrl_pressed or k.meta_pressed):
 			_show_editor()
 			get_viewport().set_input_as_handled()
+		elif (k.ctrl_pressed or k.meta_pressed) and k.shift_pressed and k.keycode in [KEY_L, KEY_O]:
+			# The desk is where a reloaded browser tab or a fresh start lands, so the saves open
+			# from here too. The radio is hidden behind the desk: with no quicksave to load, show
+			# the list, which says so.
+			if k.keycode == KEY_L and FileAccess.file_exists(SaveGame.slot_path(SaveGame.QUICKSAVE)):
+				quickload()
+			else:
+				_toggle_saved_engagements()
+			get_viewport().set_input_as_handled()
 		return
 	if _briefing.visible:
 		if k.keycode in [KEY_F1, KEY_ESCAPE]:
