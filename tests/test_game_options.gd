@@ -269,6 +269,10 @@ func _ship(faction: String, pos: Vector2, defensive: Array, rounds := 32) -> Uni
 
 
 func _harness(units: Array) -> Array:
+	# Open water and a neutral sea: a scenario loaded by an earlier test leaves its coast and weather
+	# behind, and a coastline between a ship and an inbound round would decide these tests instead.
+	Terrain.clear()
+	Detection.set_environment({})
 	var um := UnitManager.new()
 	for u: Unit in units:
 		um.add_unit(u)

@@ -30,6 +30,84 @@ var rng := RandomNumberGenerator.new()
 var _accum := 0.0
 var _last_heading: Dictionary = {}  # Unit -> float
 var _manoeuvre: Dictionary = {}  # Unit -> 0..1
+## Development switch: run the original pair-by-pair cycle instead of the one that works out each
+## unit's figures once per cycle. Both make the same reports in the same order with the same
+## random draws, so the tracks come out identical (tests/test_sensor_cycle.gd checks it), and
+## tools/measure_sensor_cycle.gd times one against the other. Never set in play.
+var reference_path := false
+
+
+## What every unit presents to the radar and ESM passes this cycle, worked out once instead of once
+## per observer-target pair. Nothing moves, switches a set or takes damage inside a sensor cycle,
+## so each figure is exactly what the Detection function it replaces returns for that pair.
+class CycleFacts:
+	extends RefCounted
+	var units: Array[Unit] = []
+	var others: Dictionary = {}  # faction -> engageable units of every other side, in unit order
+	var position := PackedVector2Array()
+	var mast := PackedFloat64Array()  # Detection.mast_or_altitude_m, both ends of a sight line
+	var mast_root := PackedFloat64Array()  # its square root, the target's share of a radar horizon
+	var signature := PackedFloat64Array()  # Detection.radar_signature_of
+	var in_flight := PackedByteArray()
+	var clutter := PackedFloat64Array()  # Detection.clutter_factor, for a target on the surface
+	var emitting := PackedByteArray()  # Unit.radar_emitting
+	var power := PackedFloat64Array()  # Detection.emitted_radar_power
+	var emitter_root := PackedFloat64Array()  # square root of Detection.emitter_height_m
+	## Sight lines already walked this cycle, observer-major: 0 not yet, 1 clear, 2 masked. A
+	## radar plot and an ESM bearing from the same unit on the same contact share one walk.
+	var masks := PackedByteArray()
+	var terrain := false
+
+	func _init(list: Array[Unit]) -> void:
+		units = list
+		var n := list.size()
+		position.resize(n)
+		mast.resize(n)
+		mast_root.resize(n)
+		signature.resize(n)
+		in_flight.resize(n)
+		clutter.resize(n)
+		emitting.resize(n)
+		power.resize(n)
+		emitter_root.resize(n)
+		masks.resize(n * n)
+		masks.fill(0)
+		terrain = not Terrain.is_empty()
+		var engageable := PackedInt32Array()
+		var factions: Dictionary = {}
+		for i in n:
+			var u := list[i]
+			if not u.is_engageable():
+				continue
+			engageable.append(i)
+			factions[u.faction] = true
+			position[i] = u.position
+			mast[i] = Detection.mast_or_altitude_m(u)
+			mast_root[i] = sqrt(maxf(mast[i], 0.0))
+			signature[i] = Detection.radar_signature_of(u)
+			in_flight[i] = 1 if u.in_flight() else 0
+			clutter[i] = Detection.clutter_factor(signature[i])
+			emitting[i] = 1 if u.radar_emitting() else 0
+			if emitting[i]:
+				power[i] = Detection.emitted_radar_power(u)
+				emitter_root[i] = sqrt(maxf(Detection.emitter_height_m(u), 0.0))
+		for faction in factions:
+			var list_for := PackedInt32Array()
+			for i in engageable:
+				if list[i].faction != faction:
+					list_for.append(i)
+			others[faction] = list_for
+
+	## Detection.terrain_masks for this ordered pair, walked at most once a cycle.
+	func masked(observer: int, target: int) -> bool:
+		if not terrain:
+			return false
+		var k := observer * units.size() + target
+		var known := masks[k]
+		if known == 0:
+			known = 2 if Terrain.masks_line_of_sight(position[observer], mast[observer], position[target], mast[target]) else 1
+			masks[k] = known
+		return known == 2
 
 
 func tick(dt: float) -> void:
@@ -46,15 +124,29 @@ func run_cycle(now: float) -> void:
 	var radar_us := 0
 	var sonar_us := 0
 	var esm_us := 0
-	for observer in unit_manager.units:
+	var facts: CycleFacts = null if reference_path else CycleFacts.new(unit_manager.units)
+	var cz_outer := _cz_outer_nm()
+	for i in unit_manager.units.size():
+		var observer := unit_manager.units[i]
 		if not observer.is_engageable():
 			continue
+		# One observer at a time, radar then sonar then ESM, whichever path runs: that order is
+		# the order of the random draws, and so of every seeded outcome.
 		var at := Time.get_ticks_usec()
-		_radar_pass(observer, now)
+		if facts == null:
+			_radar_pass(observer, now)
+		else:
+			_radar_pass_indexed(facts, i, now)
 		var mid := Time.get_ticks_usec()
-		_sonar_pass(observer, now)
+		if facts == null:
+			_sonar_pass(observer, now)
+		else:
+			_sonar_pass_indexed(facts, i, cz_outer, now)
 		var late := Time.get_ticks_usec()
-		_esm_pass(observer, now)
+		if facts == null:
+			_esm_pass(observer, now)
+		else:
+			_esm_pass_indexed(facts, i, now)
 		radar_us += mid - at
 		sonar_us += late - mid
 		esm_us += Time.get_ticks_usec() - late
@@ -99,6 +191,62 @@ func _radar_pass(observer: Unit, now: float) -> void:
 		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
+## The radar pass on the cycle's figures. The same arithmetic as Detection.radar_quality and
+## radar_sensor_for, in the same order, so every range, quality and credited set is bit for bit
+## what the reference computes. A pair is let go as soon as it is out of unjammed reach, because a
+## jammer only ever shortens it.
+func _radar_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
+	var observer := facts.units[oi]
+	if not facts.emitting[oi]:
+		return
+	var rate := Detection.classify_rate(observer)
+	var efficiency := observer.sensor_efficiency()
+	var sets: Array[SensorSpec] = []
+	var air_reach := PackedFloat64Array()
+	var surface_reach := PackedFloat64Array()
+	var height_root := PackedFloat64Array()
+	for s in observer.sensors:
+		if s.kind == "radar":
+			sets.append(s)
+			air_reach.append(s.range_air_nm)
+			surface_reach.append(s.range_surface_nm)
+			# The radar range functions take a height below zero to mean the antenna's own.
+			var height := Detection.observer_height_m(observer, s)
+			height_root.append(sqrt(maxf(height if height >= 0.0 else s.antenna_height_m, 0.0)))
+	var from := facts.position[oi]
+	for ti: int in facts.others[observer.faction]:
+		var signature := facts.signature[ti]
+		if signature <= 0.0:
+			continue
+		var target_root := facts.mast_root[ti]
+		var airborne := facts.in_flight[ti] == 1
+		var reach := air_reach if airborne else surface_reach
+		var best := 0.0
+		var sensor: SensorSpec = null
+		for k in sets.size():
+			var r := minf(reach[k] * signature, Detection.HORIZON_K * (height_root[k] + target_root))
+			if r > best:
+				best = r
+				sensor = sets[k]
+		var r := best * efficiency if airborne else best * efficiency * facts.clutter[ti]
+		var d := from.distance_to(facts.position[ti])
+		if r <= 0.0 or d > r:
+			continue
+		r *= Detection.jam_penalty(observer, facts.position[ti])
+		if r <= 0.0 or d > r:
+			continue
+		if facts.masked(oi, ti):
+			continue  # in range, but there is a hill in the way
+		var q := clampf(1.0 - d / r, 0.0, 1.0)
+		if q <= 0.0:
+			continue
+		var target := facts.units[ti]
+		var sigma := OBS_SIGMA_BASE_NM + OBS_SIGMA_PER_NM * d
+		var obs := target.position + Vector2(rng.randfn(0.0, sigma), rng.randfn(0.0, sigma))
+		var c := SensorContact.make(target, obs, TrackManager.BASE_ERROR_NM + TrackManager.ERROR_PER_NM * d, q, rate, d, "radar", observer, sensor)
+		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
+
+
 func _sonar_pass(observer: Unit, now: float) -> void:
 	if not observer.has_sonar():
 		return
@@ -126,6 +274,58 @@ func _sonar_pass(observer: Unit, now: float) -> void:
 			continue  # out of every reach: what lies between does not matter, and the land walk is the dear part
 		if Detection.acoustic_path_blocked(observer, target):
 			continue  # sound does not go through rock, pinging or listening
+		if d <= active_reach:
+			_report_active(observer, target, d, active_reach, rate, now)
+			continue
+		if in_passive_reach:
+			_report_passive(observer, target, d, reach, sensor, rate, now)
+		elif d <= cz_outer:
+			_try_convergence_zone(observer, target, d, rate, now)
+
+
+## The outer edge of the last convergence zone, 0 with none.
+func _cz_outer_nm() -> float:
+	var cz_outer := 0.0
+	for z: Dictionary in Acoustics.zones():
+		cz_outer = maxf(cz_outer, float(z["range_nm"]) + float(z["half_width_nm"]))
+	return cz_outer
+
+
+## The sonar pass over the cycle's list of other sides' units. The water is left to the same
+## Detection and Acoustics calls, in the same order, as the reference: the sea-floor sample under
+## a unit is taken by whichever of them first asks for it in a cycle.
+func _sonar_pass_indexed(facts: CycleFacts, oi: int, cz_outer: float, now: float) -> void:
+	var observer := facts.units[oi]
+	if not observer.has_sonar():
+		return
+	var rate := Detection.sonar_classify_rate(observer)
+	var active_ceiling := Detection.best_active_sonar_nm(observer)
+	for ti: int in facts.others[observer.faction]:
+		var target := facts.units[ti]
+		if target.is_aircraft():
+			continue
+		var d := observer.position.distance_to(target.position)
+		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling else 0.0
+		# Detection.best_passive_sonar, without a dictionary for every pair.
+		var reach := 0.0
+		var sensor: SensorSpec = null
+		for s in observer.sensors:
+			if s.kind != "sonar":
+				continue
+			var r := Detection.passive_sonar_range_nm(observer, s, target)
+			if r > reach:
+				reach = r
+				sensor = s
+		var emission := Detection.active_sonar_detection_nm(observer, target)
+		if emission > reach:
+			reach = emission
+			if sensor == null:
+				sensor = _first_sonar(observer)
+		var in_passive_reach := sensor != null and reach > 0.0 and d <= reach
+		if d > active_reach and not in_passive_reach and d > cz_outer:
+			continue
+		if Detection.acoustic_path_blocked(observer, target):
+			continue
 		if d <= active_reach:
 			_report_active(observer, target, d, active_reach, rate, now)
 			continue
@@ -244,6 +444,46 @@ func _esm_pass(observer: Unit, now: float) -> void:
 		if Detection.terrain_masks(observer, emitter):
 			continue  # the horizon this set already respects is not the only thing in the way
 		_report_esm(observer, emitter, d, reach, sensor, now)
+
+
+## The ESM pass on the cycle's figures: Detection.best_esm's arithmetic in its order, with each
+## emitter's power and antenna height taken once a cycle instead of once per listener.
+func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
+	var observer := facts.units[oi]
+	var sets: Array[SensorSpec] = []
+	var gains := PackedFloat64Array()
+	var height_root := PackedFloat64Array()
+	for s in observer.sensors:
+		if s.kind == "esm":
+			sets.append(s)
+			gains.append(s.esm_gain)
+			height_root.append(sqrt(maxf(Detection.observer_height_m(observer, s), 0.0)))
+	if sets.is_empty():
+		return
+	var efficiency := observer.sensor_efficiency()
+	var from := facts.position[oi]
+	for ti: int in facts.others[observer.faction]:
+		if facts.emitting[ti] == 0:
+			continue
+		var power := facts.power[ti]
+		var reach := 0.0
+		var sensor: SensorSpec = null
+		for k in sets.size():
+			var r := 0.0
+			if power > 0.0:
+				r = minf(power * gains[k], Detection.HORIZON_K * (height_root[k] + facts.emitter_root[ti]))
+			r *= efficiency
+			if r > reach:
+				reach = r
+				sensor = sets[k]
+		if sensor == null or reach <= 0.0:
+			continue
+		var d := from.distance_to(facts.position[ti])
+		if d > reach:
+			continue
+		if facts.masked(oi, ti):
+			continue  # the horizon this set already respects is not the only thing in the way
+		_report_esm(observer, facts.units[ti], d, reach, sensor, now)
 
 
 func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: SensorSpec, now: float) -> void:

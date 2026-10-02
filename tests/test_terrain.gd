@@ -343,3 +343,49 @@ func test_the_landmass_index_finds_exactly_what_the_exhaustive_search_finds() ->
 	assert_eq(indexed, 3, "only the three large charts build it on their own")
 	Terrain.clear()
 	assert_eq(Terrain._index_cols, 0, "and clearing the chart drops it")
+
+
+func test_the_height_shortcut_never_changes_a_sight_line() -> void:
+	# A sight line that clears the tallest ground on the chart is answered without walking it.
+	# The answer must always be the walk's: random lines on every shipped chart, short and long,
+	# from the wave tops to high altitude at either end, asked with and without the shortcut.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 23
+	var heights: Array[float] = [0.0, 4.0, 25.0, 60.0, 219.0, 221.0, 449.0, 451.0, 452.0, 900.0, 3000.0, 9000.0]
+	var charts := 0
+	var lines := 0
+	var masked := 0
+	var settled := 0
+	for file in DirAccess.get_files_at("res://data/scenarios"):
+		if not file.ends_with(".json"):
+			continue
+		Terrain.load_from(ScenarioLoader.load_file("res://data/scenarios/" + file))
+		if Terrain.landmasses.is_empty():
+			continue
+		charts += 1
+		var area := Terrain.bounds.grow(60.0)
+		var mismatches := 0
+		for i in 1500:
+			var a := Vector2(rng.randf_range(area.position.x, area.end.x), rng.randf_range(area.position.y, area.end.y))
+			var reach: float = [3.0, 25.0, 80.0, 250.0][i % 4]
+			var b: Vector2 = a + Vector2.from_angle(rng.randf() * TAU) * reach * rng.randf()
+			var ha: float = heights[rng.randi() % heights.size()] if rng.randf() < 0.7 else rng.randf_range(0.0, 12000.0)
+			var hb: float = heights[rng.randi() % heights.size()] if rng.randf() < 0.7 else rng.randf_range(0.0, 12000.0)
+			Terrain.height_shortcut = false
+			var walked := Terrain.masks_line_of_sight(a, ha, b, hb)
+			Terrain.height_shortcut = true
+			if Terrain.masks_line_of_sight(a, ha, b, hb) != walked:
+				mismatches += 1
+			lines += 1
+			masked += 1 if walked else 0
+			var span := Terrain._land_span(a, b)
+			if span.x <= span.y and Terrain._clears_every_hill(a.distance_to(b), span, ha, hb):
+				settled += 1
+		assert_eq(mismatches, 0, "%s: the shortcut gives the walk's answer" % file)
+	Terrain.height_shortcut = true
+	Terrain.clear()
+	assert_true(charts >= 5, "every chart with a coast is tried")
+	print("    %d charts, %d lines: %d masked, %d settled without a walk" % [charts, lines, masked, settled])
+	# Both outcomes must be common, or the comparison proves little.
+	assert_true(masked > lines / 20, "%d of %d lines are masked" % [masked, lines])
+	assert_true(settled > lines / 10, "%d of %d lines are settled without a walk" % [settled, lines])
