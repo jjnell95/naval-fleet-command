@@ -143,6 +143,9 @@ func _refresh_detail() -> void:
 		_detail.text = "No saved engagements yet." if _headers.is_empty() else "Select a save."
 		return
 	_detail.text = "%s, %s into the battle (%s). %s" % [h.get("scenario_name", ""), h.get("elapsed_text", ""), h.get("clock_text", ""), h.get("note", "")]
+	# The rules it was fought under come back with it, whatever the player's own choice is now.
+	if str(h.get("gameplay", "")) != "":
+		_detail.text += "\nGameplay %s: it continues under these options." % h["gameplay"]
 
 
 func _load_selected() -> void:

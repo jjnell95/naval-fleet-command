@@ -461,6 +461,7 @@ func save_engagement(slot: String, kind: String, label: String) -> String:
 		"version": SimSnapshot.VERSION,
 		"build": BUILD_MILESTONE,
 		"note": _objective_summary(),
+		"gameplay": options.label(),
 	}
 	return SaveGame.write(SaveGame.slot_path(slot), header, {"simulation": snapshot, "presentation": _capture_presentation()})
 
@@ -501,7 +502,8 @@ func load_engagement(path: String) -> String:
 		kept = {"simulation": simulation.capture_snapshot(), "presentation": _capture_presentation()}
 	var why := _install_engagement(payload)
 	if why == "":
-		radio.advise("Engagement restored at %s, paused. Space resumes." % SimClock.datetime_string())
+		var own_rules := " under its own gameplay options, %s," % options.label() if _options_from_engagement else ""
+		radio.advise("Engagement restored at %s,%s paused. Space resumes." % [SimClock.datetime_string(), own_rules])
 		return ""
 	if not kept.is_empty() and _install_engagement(kept) == "":
 		return why + ". The running engagement was kept"
@@ -516,6 +518,12 @@ func _install_engagement(payload: Dictionary) -> String:
 	var why := simulation.restore_snapshot(payload["simulation"])
 	if why != "":
 		return why
+	# The engagement goes on under the gameplay options it was saved with, put in place before the
+	# screen is reset: the doctrine the simulation restored already agrees with them, so the reset
+	# issues no order, and the clock, chip and menus show the saved ladder from the first frame.
+	var presentation: Variant = payload.get("presentation", {})
+	var saved_options: Variant = presentation.get("options", {}) if typeof(presentation) == TYPE_DICTIONARY else {}
+	apply_engagement_options(saved_options if typeof(saved_options) == TYPE_DICTIONARY else {}, false)
 	_reset_command_screen()
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
 	_briefing.set_mode(false)
@@ -565,6 +573,8 @@ func _capture_presentation() -> Dictionary:
 		"selected": selected,
 		"view": {"center": map.center_nm, "ppn": map.ppn},
 		"autosaved_at": _autosaved_at,
+		# The rules the engagement is fought under; a load continues under them (_install_engagement).
+		"options": engagement_options(),
 	}
 
 
@@ -1729,13 +1739,21 @@ func engagement_options() -> Dictionary:
 
 ## A restored engagement continues under the options it was saved with (its time ladder, missile
 ## defence and engagement rules, its sound) without overwriting the player's preference; the next
-## operation started goes back to the preference.
-func apply_engagement_options(d: Dictionary) -> void:
-	var o := GameOptions.from_dict(d)
+## operation started goes back to the preference. A save from before there were options was played
+## under Normal's rules, and leaves the sound as the player has it. Returns whether the engagement
+## brought options of its own, different from the preference.
+func apply_engagement_options(d: Dictionary, announce := true) -> bool:
+	var saved := d.duplicate()
+	if not saved.has("voice"):
+		saved["voice"] = voice.enabled
+	if not saved.has("ambient"):
+		saved["ambient"] = SoundFx.ambient_enabled
+	var o := GameOptions.from_dict(saved)
 	_options_from_engagement = not o.equals(_preferred)
 	_apply_options(o, false, not _driven_run)
-	if _options_from_engagement:
+	if _options_from_engagement and announce:
 		radio.advise("This engagement continues under its own gameplay options: %s" % options.label())
+	return _options_from_engagement
 
 
 ## The player's own options again, as at the start of a new operation.
