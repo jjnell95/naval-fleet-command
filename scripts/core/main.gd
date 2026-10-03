@@ -2421,7 +2421,13 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			# Air tasking does not need a shooter hooked: the nearest deck that can fly it is named.
 			var air := CdsMenus.air_contact_items(simulation.air_mission_manager, simulation.player_faction, t)
 			if not air.is_empty():
-				items = items.slice(0, 1) + air + items.slice(1)
+				# After the hooked platforms' own verbs, before the view and follow items.
+				var at := items.size()
+				for i in items.size():
+					if bool((items[i] as Dictionary).get("separator", false)):
+						at = i
+						break
+				items = items.slice(0, at) + air + items.slice(at)
 		"waypoint":
 			var owner: Unit = context.get("waypoint_unit")
 			if owner == null or owner.faction != simulation.player_faction:
