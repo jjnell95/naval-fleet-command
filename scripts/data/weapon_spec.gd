@@ -20,6 +20,12 @@ extends Resource
 @export var speed_kn := 480.0
 @export var turn_rate_deg_s := 15.0
 @export var seeker_range_nm := 8.0  # terminal acquisition radius; <=0 means unguided (gun)
+## Terminal search is forward-looking, including the segment crossed between simulation ticks.
+## Numeric angles are gameplay estimates, not real seeker field-of-view specifications.
+@export var seeker_half_angle_deg := 35.0
+## Only authored update-capable weapons receive a new held-track aim point after launch.
+## Command/semi-active radar guidance also follows its supported fire-control solution.
+@export var midcourse_updates := false
 @export var damage := 40.0
 @export var base_pk := 0.8  # hit probability once terminal acquisition succeeds
 @export var salvo_default := 2
@@ -59,7 +65,11 @@ func defensive_layer() -> String:
 
 
 func requires_radar_support() -> bool:
-	return type == "sam" and guidance in ["fire_control_directed", "semi_active_radar", "semi_active_radar_homing"]
+	return type in ["sam", "aam"] and guidance in ["fire_control_directed", "semi_active_radar", "semi_active_radar_homing", "semi_active_abstract", "track_via_missile"]
+
+
+func supports_midcourse_updates() -> bool:
+	return midcourse_updates or requires_radar_support()
 
 
 func requires_fire_control_channel() -> bool:

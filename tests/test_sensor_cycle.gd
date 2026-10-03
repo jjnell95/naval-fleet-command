@@ -307,7 +307,17 @@ func _battle(path: String, seed_value: int, warm_s: float, compare_s: float, gro
 	assert_true(sim.load_scenario(path), path)
 	sim.ai_plays_player = true
 	sim._build_ai()
-	SimClock.advance(warm_s)
+	if group_side == "":
+		SimClock.advance(warm_s)
+	else:
+		# Identification now follows actual evidence; by a fixed late timestamp the enemy can
+		# already have gone stale. Exercise a real held firing opportunity, then compare both
+		# sensor paths from exactly that same saved state.
+		while SimClock.sim_time < warm_s:
+			SimClock.advance(1.0)
+			var contacts := sim.track_manager.get_tracks(group_side)
+			if contacts.any(func(t: Track) -> bool: return t.domain == "surface" and t.identity == "HOSTILE" and t.status == Track.Status.ACTIVE and not t.is_bearing_only()):
+				break
 	# Restored twice from one snapshot held in memory: a restore copies what it takes, so the
 	# snapshot is still the moment it was taken.
 	var start := sim.capture_snapshot()

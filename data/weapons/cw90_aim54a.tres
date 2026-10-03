@@ -23,3 +23,5 @@ seeker_range_nm = 5.0
 turn_rate_deg_s = 60.0
 altitude_m = 10000.0
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."
+
+midcourse_updates = true

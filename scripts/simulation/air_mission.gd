@@ -34,6 +34,12 @@ var platform_id := ""
 var requested := 1
 var station := Vector2.INF
 var radius_nm := 15.0
+## CAP intent; legacy saves hold their existing area. Protect follows an own-force anchor.
+var cap_intent := "hold"
+var protected_unit: Unit
+var anchor_offset := Vector2.ZERO
+## Maximum pursuit beyond the station radius, in nautical miles.
+var pursuit_nm := 25.0
 var target: Track
 var target_id := ""
 ## Launch ready reserve airframes to relieve any that leave station for fuel, ammunition or loss.
@@ -56,6 +62,7 @@ var ended_reason := ""
 ## a queued deck, a target lost.
 var note := ""
 var created_at_s := 0.0
+var note_at_s := -1.0
 
 
 func kind_name() -> String:
@@ -108,3 +115,16 @@ func summary() -> String:
 		if n > 0:
 			parts.append("%d %s" % [n, state.to_lower()])
 	return "%s · %s" % [kind_name(), ", ".join(parts) if not parts.is_empty() else "no aircraft assigned"]
+
+
+func intent_label() -> String:
+	if kind != Kind.CAP:
+		return label()
+	return "Protect %s" % protected_unit.callsign if cap_intent == "protect" and protected_unit != null else "Hold area"
+
+
+func last_report() -> String:
+	if note_at_s < 0.0:
+		return "Earlier report · " + note
+	var at := int(note_at_s)
+	return "%02d:%02d:%02d · %s" % [at / 3600, (at / 60) % 60, at % 60, note]

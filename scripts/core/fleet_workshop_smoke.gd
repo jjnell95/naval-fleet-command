@@ -9,7 +9,9 @@ static func run(main: Main) -> void:
 	checks["authored operations are the default front door"] = main._menu._era == "operations"
 	checks["operations shelf holds only authored operations, newest era first"] = main._menu._entries.size() == 7 and main._menu._entries.all(func(e: Dictionary) -> bool: return not e["custom"]) and int(main._menu._entries[0]["year"]) == 2027 and int(main._menu._entries[-1]["year"]) == 1990
 	main._menu._set_era("training")
-	checks["training shelf holds the carrier exercise and Northern Passage"] = main._menu._entries.size() == 2 and main._menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
+	var training_ids := main._menu._entries.map(func(e: Dictionary) -> String: return str(e["id"]))
+	training_ids.sort()
+	checks["training shelf holds both exercises and both command drills"] = training_ids == ["carrier_qualification", "northern_passage", "training_asw", "training_missile_defence"]
 	# The campaign checks write a scratch log, never the player's: this smoke can run without
 	# --scenario-storage, and then CommanderLog.path() is the player's own record.
 	CommanderLog.path_override = "res://work/workshop-smoke-campaign-log.json"

@@ -17,8 +17,9 @@ const PATTERNS := {
 ## Where this unit should be, given where its leader is and which way the leader is pointing.
 static func station_for(u: Unit) -> Vector2:
 	var leader := u.formation_leader
-	var ahead := Geo.heading_to_vector(leader.heading_deg)
-	var starboard := Geo.heading_to_vector(leader.heading_deg + 90.0)
+	var axis := leader.heading_deg if u.formation_axis_deg < 0.0 else u.formation_axis_deg
+	var ahead := Geo.heading_to_vector(axis)
+	var starboard := Geo.heading_to_vector(axis + 90.0)
 	var station := leader.position + ahead * u.formation_offset.y + starboard * u.formation_offset.x
 	if not u.needs_sea_room():
 		return station
@@ -44,28 +45,61 @@ static func step(u: Unit) -> void:
 	u.ordered_speed_kn = clampf(leader.speed_kn + gap * CATCHUP_GAIN, 1.0, u.effective_max_speed())
 
 
-## Assigns a named pattern to a selection. The first unit leads; the rest take stations in order.
+## The first unit remains the commander's guide. Role screens rank eligible consorts by fitted
+## weapons and sensors; geometric patterns retain selection order. A supplied threat bearing is
+## held in world coordinates, so a course alteration does not turn the screen away from danger.
 ## Returns the orders to issue, so the caller still goes through the normal command path.
-static func assign(units: Array, pattern: String, spacing := 1.0) -> Array:
+static func assign(units: Array, pattern: String, spacing := 1.0, threat_axis_deg := -1.0) -> Array:
 	var out: Array = []
 	if units.size() < 2:
 		return out
 	var leader: Unit = units[0]
-	var station_index := 0
+	var consorts: Array = []
 	for i in range(1, units.size()):
-		var u: Unit = units[i]
-		if not can_join(u, leader):
-			continue
+		if can_join(units[i], leader): consorts.append(units[i])
+	if pattern in ["aaw_screen", "asw_screen"]:
+		consorts.sort_custom(func(a: Unit, b: Unit) -> bool:
+			var sa := role_score(a, pattern)
+			var sb := role_score(b, pattern)
+			return a.id < b.id if is_equal_approx(sa, sb) else sa > sb)
+	var station_index := 0
+	for u: Unit in consorts:
 		var offset := offset_for(station_index, pattern) * clampf(spacing, 0.5, 3.0)
-		out.append({"unit": units[i], "order": Order.form_up(leader, offset)})
+		var order := Order.form_up(leader, offset)
+		if pattern in ["aaw_screen", "asw_screen"]:
+			order.formation_axis_deg = fposmod(threat_axis_deg, 360.0) if threat_axis_deg >= 0.0 else -1.0
+		out.append({"unit": u, "order": order})
 		station_index += 1
 	return out
+
+
+static func role_score(u: Unit, pattern: String) -> float:
+	var sensor_score := 0.0
+	for sensor: SensorSpec in u.sensors:
+		if pattern == "aaw_screen" and sensor.kind == "radar":
+			sensor_score = maxf(sensor_score, sensor.range_air_nm * 0.1)
+		elif pattern == "asw_screen" and sensor.kind == "sonar":
+			sensor_score = maxf(sensor_score, 2.0 * (sensor.passive_sensitivity_nm + sensor.active_range_nm))
+	var weapon_score := 0.0
+	for id in u.spec.weapon_loadout:
+		if int(u.magazines.get(id, 0)) <= 0: continue
+		var weapon := DataDB.weapon(id)
+		if weapon == null: continue
+		if (pattern == "aaw_screen" and weapon.target_types.has("air")) or (pattern == "asw_screen" and weapon.target_types.has("subsurface")):
+			weapon_score = maxf(weapon_score, weapon.max_range_nm)
+	return sensor_score + weapon_score + (float(u.spec.fire_control_channels) if pattern == "aaw_screen" else float(u.spec.aircraft_capacity) * 2.0)
 
 
 ## Stations grow with the force. Modulo-five reuse put the sixth escort on the first escort.
 static func offset_for(i: int, pattern: String) -> Vector2:
 	match pattern:
-		"column":
+		"aaw_screen":
+			# Best area-defence unit covers the threat axis; subsequent ships overlap the flanks.
+			return Vector2(0, 8) if i == 0 else Vector2((1 if i % 2 == 1 else -1) * (4.0 + floori((i - 1) / 2.0) * 3.0), 4.0)
+		"asw_screen":
+			# Best listening platform leads ahead; the rest cover both shoulders of the formation.
+			return Vector2(0, 6) if i == 0 else Vector2((1 if i % 2 == 1 else -1) * (3.0 + floori((i - 1) / 2.0) * 3.0), 2.0)
+		"transit", "column":
 			return Vector2(0, -1.5 * (i + 1))
 		"abreast":
 			return Vector2((1 if i % 2 == 0 else -1) * 2.5 * (floori(i / 2.0) + 1), 0)
@@ -127,6 +161,12 @@ static func update_speed_caps(units: Array) -> void:
 		for i in range(1, survivors.size()):
 			var member: Unit = survivors[i]
 			var relative := member.position - successor.position
+			if member.formation_axis_deg >= 0.0:
+				ahead = Geo.heading_to_vector(member.formation_axis_deg)
+				right = Geo.heading_to_vector(member.formation_axis_deg + 90.0)
+			else:
+				ahead = Geo.heading_to_vector(successor.heading_deg)
+				right = Geo.heading_to_vector(successor.heading_deg + 90.0)
 			member.formation_leader = successor
 			member.formation_offset = Vector2(relative.dot(right), relative.dot(ahead))
 			if member.station_kind == "formation" and member.station_leader == old:
@@ -153,7 +193,7 @@ static func update_speed_caps(units: Array) -> void:
 			var seen: Dictionary = {}
 			while leader != null and leader.alive and not seen.has(leader):
 				seen[leader] = true
-				leader.formation_speed_cap_kn = minf(leader.formation_speed_cap_kn, u.effective_max_speed())
+				leader.formation_speed_cap_kn = minf(leader.formation_speed_cap_kn, minf(u.effective_max_speed(), TowedArray.speed_limit(u)))
 				leader = leader.formation_leader
 
 

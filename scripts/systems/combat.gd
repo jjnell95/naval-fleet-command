@@ -117,9 +117,41 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if crosses_land(shooter, spec, track):
 		out["reason"] = "NO LINE OF FIRE"
 		return out
+	var arc := firing_arc_check(shooter, spec, aim)
+	if not arc.ok:
+		out["reason"] = "MOUNT MASKED / ATTACK TO UNMASK"
+		out["unmask_heading_deg"] = arc.heading_deg
+		return out
 	out["ok"] = true
 	out["reason"] = "IN ENVELOPE"
 	return out
+
+
+## Each authored mount contributes a relative center bearing and a half-width. Multiple mounts
+## form a union of arcs; unlisted weapons are unrestricted. A real VLS fit never needs hull
+## unmasking. Mechanical launcher arcs are platform data, not a restriction on every SAM.
+static func firing_arc_check(shooter: Unit, spec: WeaponSpec, aim: Vector2) -> Dictionary:
+	var result := {"ok": true, "heading_deg": shooter.heading_deg}
+	if spec.vls_pack > 0 and shooter.spec.vls_cells > 0:
+		return result
+	var arcs: Array = shooter.spec.weapon_mount_arcs.get(spec.id, [])
+	if arcs.is_empty():
+		return result
+	var bearing := Geo.bearing_deg(shooter.position, aim)
+	var relative := Geo.heading_delta(shooter.heading_deg, bearing)
+	var best_turn := INF
+	for arc: Vector2 in arcs:
+		var offset := Geo.heading_delta(arc.x, relative)
+		if absf(offset) <= arc.y:
+			return result
+		# Aim a few degrees inside the nearest edge so motion between rounds does not chatter.
+		var safe_half := maxf(arc.y - 5.0, 0.0)
+		var turn := offset - clampf(offset, -safe_half, safe_half)
+		if absf(turn) < absf(best_turn):
+			best_turn = turn
+	result.ok = false
+	result.heading_deg = fposmod(shooter.heading_deg + best_turn, 360.0)
+	return result
 
 
 ## A point on the shooter's side of the target at the standoff distance, swung round the target in

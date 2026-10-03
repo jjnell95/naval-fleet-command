@@ -243,8 +243,8 @@ func _ready() -> void:
 	_add_button(_cmdrow, "FREE", func() -> void: _emit_raw(Order.set_roe(Unit.Roe.FREE)))
 	_cmdrow.add_child(_spacer(14))
 	_cmdrow.add_child(_label("FORM"))
-	for pattern in ["screen", "column", "abreast", "dispersed"]:
-		_add_button(_cmdrow, pattern.to_upper(), func() -> void: formation_requested.emit(pattern))
+	for pattern in ["aaw_screen", "asw_screen", "transit"]:
+		_add_button(_cmdrow, pattern.replace("_screen", "").to_upper(), func() -> void: formation_requested.emit(pattern))
 	_add_button(_cmdrow, "BREAK", func() -> void: _emit_raw(Order.break_formation()))
 
 	var defence := VBoxContainer.new()

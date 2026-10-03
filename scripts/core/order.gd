@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT, DEPLOY_DIPPING_SONAR, RECOVER_DIPPING_SONAR }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT, DEPLOY_DIPPING_SONAR, RECOVER_DIPPING_SONAR, SET_SUB_COMMS_INTERVAL, REQUEST_SUB_CHECKIN, ASW_SEARCH, RECOVER_TOWED_ARRAY }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -46,6 +46,11 @@ var mission_id := -1
 var mission_kind := 0
 var radius_nm := 0.0
 var relief := false
+var cap_intent := "hold"
+var protected_unit: Unit
+var pursuit_nm := 25.0
+var formation_axis_deg := -1.0
+var comms_interval_s := 7200.0
 ## What a specialist manager accepted, refused or queued, in words, for the receipt.
 var receipt := ""
 ## Set by Unit.apply_order when a CANCEL_FIRE also ended the unit's standing attack, so the
@@ -197,6 +202,41 @@ static func air_mission(kind: int, aircraft_type: String, count: int, station :=
 	o.track = target
 	o.relief = with_relief
 	o.automatic = return_after_task
+	return o
+
+
+## Revise a standing assignment while keeping its aircraft and mission identity.
+static func revise_air_mission(mission: AirMission, station: Vector2, radius: float, count: int, with_relief: bool, return_after_task: bool, intent := "hold", anchor: Unit = null, pursuit := 25.0) -> Order:
+	var o := air_mission(mission.kind, mission.platform_id, count, station, radius, mission.target, with_relief, return_after_task)
+	o.mission_id = mission.id
+	o.cap_intent = intent
+	o.protected_unit = anchor
+	o.pursuit_nm = pursuit
+	return o
+
+
+static func set_sub_comms_interval(seconds: float) -> Order:
+	var o := Order.new()
+	o.type = Type.SET_SUB_COMMS_INTERVAL
+	o.comms_interval_s = seconds
+	return o
+
+
+static func request_sub_checkin() -> Order:
+	var o := Order.new()
+	o.type = Type.REQUEST_SUB_CHECKIN
+	return o
+
+
+static func asw_search() -> Order:
+	var o := Order.new()
+	o.type = Type.ASW_SEARCH
+	return o
+
+
+static func recover_towed_array() -> Order:
+	var o := Order.new()
+	o.type = Type.RECOVER_TOWED_ARRAY
 	return o
 
 
@@ -367,11 +407,12 @@ static func set_roe(level: int) -> Order:
 	return o
 
 
-static func form_up(on: Unit, offset: Vector2) -> Order:
+static func form_up(on: Unit, offset: Vector2, axis_deg := -1.0) -> Order:
 	var o := Order.new()
 	o.type = Type.FORM_UP
 	o.leader = on
 	o.offset_nm = offset
+	o.formation_axis_deg = axis_deg
 	return o
 
 
@@ -383,6 +424,14 @@ static func break_formation() -> Order:
 
 func describe() -> String:
 	match type:
+		Type.SET_SUB_COMMS_INTERVAL:
+			return "SUB CHECK-IN %s" % ("ON DEMAND" if comms_interval_s <= 0.0 else "EVERY %dh" % int(comms_interval_s / 3600.0))
+		Type.REQUEST_SUB_CHECKIN:
+			return "REQUEST SUB CHECK-IN"
+		Type.ASW_SEARCH:
+			return "ASW SEARCH"
+		Type.RECOVER_TOWED_ARRAY:
+			return "RECOVER TOWED ARRAY"
 		Type.DEPLOY_COUNTERMEASURES:
 			return "DEPLOY %s COUNTERMEASURES" % countermeasure_kind.to_upper()
 		Type.EVADE:

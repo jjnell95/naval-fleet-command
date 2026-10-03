@@ -13,14 +13,18 @@ static func run(main: Main) -> void:
 	checks["period portrait uses the historical catalogue"] = menu._portrait.spec_override != null and menu._portrait.spec_override.id.begins_with("cw90_")
 	checks["mission desk exposes first orders and date"] = menu._detail.text.contains("YOUR FIRST ORDERS") and menu._mission_meta.text.contains("1990")
 	menu._set_era("exercises")
-	checks["the carrier exercise and Northern Passage remain available"] = menu._entries.size() == 2 and menu._entries.any(func(e: Dictionary) -> bool: return e["id"] == "northern_passage")
+	var exercise_ids := menu._entries.map(func(e: Dictionary) -> String: return str(e["id"]))
+	exercise_ids.sort()
+	checks["carrier qualification, Northern Passage and both command drills remain available"] = exercise_ids == ["carrier_qualification", "northern_passage", "training_asw", "training_missile_defence"]
 	menu._set_era("atlantic")
 	checks["Atlantic shelf holds one 2027 operation"] = menu._entries.size() == 1
 	checks["operation desk displays the authored sequence"] = menu._detail.text.contains("OPERATION SEQUENCE")
 	menu._set_era("modern")
-	checks["modern operations and exercises remain available"] = menu._entries.size() == 6 and menu._entries.all(func(e: Dictionary) -> bool: return int(e["year"]) != 1990)
+	var modern_ids := menu._entries.map(func(e: Dictionary) -> String: return str(e["id"]))
+	modern_ids.sort()
+	checks["modern operations and exercises remain available"] = modern_ids == ["aegis_bastion", "carrier_qualification", "gulf_01_hormuz", "med_01_tartus", "northern_passage", "pacific_02_taiwan_strait", "training_asw", "training_missile_defence"] and menu._entries.all(func(e: Dictionary) -> bool: return int(e["year"]) != 1990)
 	menu._set_era("all")
-	checks["all operations includes both eras"] = menu._entries.size() >= 9
+	checks["all operations includes both eras"] = menu._entries.size() >= 11
 	menu._set_era("cold_war")
 	menu._play.pressed.emit()
 	await main.get_tree().process_frame

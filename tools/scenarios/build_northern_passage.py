@@ -56,12 +56,20 @@ def build():
            formation_leader=cargo, formation_offset_nm=[1, 1], air_wing=[])
     s.unit("civ_merchant_bulk", cargo, "BLUE", [0, 0], 90, 15,
            patrol=route, follow_route=True, air_wing=[])
-    s.unit("rfn_ffg_admiral_gorshkov", "Admiral Gorshkov", "RED", [30, 4], 270, 16,
-           radar_on=True, ai_posture="breakout", patrol=[[10, 4], [10, -4]], air_wing=[])
+    # The interceptor must actually close for visual convoy identification before the exit.
+    # Its former30nm stagingpoint never brought a silent unescorted merchant into sight.
+    s.unit("rfn_ffg_admiral_gorshkov", "Admiral Gorshkov", "RED", [15, 4], 270, 16,
+           radar_on=True, ai_posture="breakout", patrol=[[3, 4], [3, -4]], air_wing=[])
     s.unit("rfn_fsg_steregushchiy", "Stoikiy", "RED", [36, -4], 270, 16,
            radar_on=False, patrol=[[25, -4], [15, -2]], air_wing=[])
     s.unit("civ_merchant_bulk", "MV Skerry Trader", "NEUTRAL", [5, -3], 0, 14, air_wing=[])
     s.unit("civ_merchant_bulk", "MV Coastal Star", "NEUTRAL", [13, 6], 270, 12, air_wing=[])
+    # The opposing commander must identify the convoy in the lane, hold a measured salvo
+    # and assess it; a nearby neutral merchant is never an authorised substitute.
+    s.d["ai_plans"] = [{"id": "intercept_convoy", "faction": "RED", "kind": "attack_shipping",
+        "units": ["Admiral Gorshkov", "Stoikiy"], "priorities": ["merchant"], "objective_nm": [3, 2],
+        "area_radius_nm": 8, "start_s": 0, "search_window_s": 150,
+        "assembly_window_s": 30, "salvo": 4, "budget": 8, "assess_s": 360, "threat_nm": 4}]
     s.objectives("Deliver Northern Light before 08:45Z without sinking a neutral vessel.",
                  [{"id": "deliver_freighter", "type": "reach_area", "callsigns": [cargo],
                    "center_nm": route[-1], "radius_nm": 0.35, "count": 1,

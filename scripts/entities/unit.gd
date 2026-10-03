@@ -92,6 +92,21 @@ var active_sonar_on := false
 var dip_phase := DippingSonar.Phase.STOWED
 var dip_timer_s := 0.0
 var dip_listen_s := 0.0
+## Saved handling state for a ship's streamed array; crew search orders own the cycle.
+var array_phase: int = 0
+var array_timer_s := 0.0
+var array_search_active := false
+## Optional submarine communications. Pending orders are plain dictionaries for save continuity.
+var comms_enabled := false
+var comms_interval_s := 7200.0
+var comms_next_check_s := -1.0
+var comms_last_report_s := -1.0
+var comms_window_until_s := -1.0
+var comms_return_depth_m := -1.0
+var comms_phase := "submerged"
+var comms_pending: Array[Dictionary] = []
+var comms_report: Dictionary = {}
+var comms_note := ""
 ## The standing emissions policy. The AI follows it; the player sets it directly. Radiating is
 ## what gets you found, so this is a real decision rather than a formality.
 var emcon: Emcon = Emcon.FREE
@@ -107,6 +122,8 @@ var dc_fortune := 1.0  # how this particular fight is going: drawn per hit, see 
 var last_attacker := ""  # faction credited if fire or flooding finishes the ship
 var formation_leader: Unit
 var formation_offset := Vector2.ZERO  # x starboard, y ahead, in nm, in the leader's frame
+var formation_axis_deg := -1.0  # negative follows the guide's heading; otherwise a fixed threat axis
+var station_axis_deg := -1.0
 var depth_m := 0.0
 var ordered_depth_m := 0.0
 ## Water under the hull, cached by Acoustics.bottom_m() until the unit moves or the chart changes.
@@ -377,6 +394,8 @@ func has_esm() -> bool:
 ## A submerged boat has no aerial out of the water, so it is off the network and knows only what
 ## it hears for itself.
 func datalink_connected() -> bool:
+	if is_submarine() and comms_enabled:
+		return alive and spec.has_datalink and SubmarineComms.connected(self)
 	return alive and spec.has_datalink and not submerged() and not (is_aircraft() and not in_flight())
 
 
@@ -391,7 +410,7 @@ func active_sonar_emitting() -> bool:
 	if not active_sonar_on or not is_engageable():
 		return false
 	for sensor in sensors:
-		if sensor.kind == "sonar" and sensor.active_range_nm > 0.0 and (not sensor.requires_hover or DippingSonar.listening(self)):
+		if sensor.kind == "sonar" and sensor.active_range_nm > 0.0 and (not sensor.requires_hover or DippingSonar.listening(self)) and TowedArray.sensor_ready(self, sensor):
 			return true
 	return false
 
@@ -428,6 +447,7 @@ const DETACHING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.ST
 
 func apply_order(order: Order) -> void:
 	DippingSonar.on_order(self, order)
+	TowedArray.on_order(self, order)
 	# A second attack order on the contact already under attack keeps the task, its round count
 	# and its assessment pause; only the chosen weapon can change.
 	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
@@ -563,10 +583,12 @@ func apply_order(order: Order) -> void:
 		Order.Type.FORM_UP:
 			formation_leader = order.leader
 			formation_offset = order.offset_nm
+			formation_axis_deg = order.formation_axis_deg
 			waypoints.clear()
 			set_station("formation", order.station_label if order.station_label != "" else "FORMATION STATION")
 			station_leader = order.leader
 			station_offset = order.offset_nm
+			station_axis_deg = order.formation_axis_deg
 		Order.Type.BREAK_FORMATION:
 			formation_leader = null
 			waypoints.clear()
@@ -599,6 +621,7 @@ func clear_station() -> void:
 	station_route.clear()
 	station_leader = null
 	station_offset = Vector2.ZERO
+	station_axis_deg = -1.0
 	station_label = ""
 	station_speed_kn = 0.0
 	station_mission_id = -1
@@ -630,8 +653,9 @@ func station_point() -> Vector2:
 		"formation":
 			if station_leader == null or not station_leader.alive:
 				return Vector2.INF
-			var ahead := Geo.heading_to_vector(station_leader.heading_deg)
-			var starboard := Geo.heading_to_vector(station_leader.heading_deg + 90.0)
+			var axis := station_axis_deg if station_axis_deg >= 0.0 else station_leader.heading_deg
+			var ahead := Geo.heading_to_vector(axis)
+			var starboard := Geo.heading_to_vector(axis + 90.0)
 			return station_leader.position + ahead * station_offset.y + starboard * station_offset.x
 	return Vector2.INF
 
@@ -671,10 +695,11 @@ func _resume_station() -> void:
 			patrol_active = true
 			patrol_legs_completed = 0
 			waypoints.assign(station_circuit_from_here())
-			ordered_speed_kn = station_speed() if not is_aircraft() else maxf(station_speed(), spec.cruise_speed_kn)
+			ordered_speed_kn = station_speed()
 		"formation":
 			formation_leader = station_leader
 			formation_offset = station_offset
+			formation_axis_deg = station_axis_deg
 			waypoints.clear()
 
 

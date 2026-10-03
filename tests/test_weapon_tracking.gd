@@ -163,7 +163,7 @@ func test_acquisition_cannot_retroactively_hit_a_ship_already_passed() -> void:
 	w.aim_point = Vector2(0, 1.8)
 	var wm := _manager(target, w)
 	wm.tick(1.0, 1.0)
-	assert_true(w.acquired == target, "a ship astern can still be in the enabled seeker basket")
+	assert_true(w.acquired == null, "a ship already astern when search enables is outside the forward seeker cone")
 	assert_near(target.health, 100.0, 0.001, "lock at y=1.6 cannot claim an earlier pass at y=1.5")
 	_cleanup(wm)
 

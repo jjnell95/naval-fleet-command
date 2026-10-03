@@ -25,6 +25,9 @@ var _role_option: OptionButton
 var _tree: Tree
 var _quality: Label
 var _detail: Label
+var _traffic: Label
+var _inspected_unit: Unit
+var _inspected_spec: WeaponSpec
 var _receipt: Label
 var _commit: Button
 var _plan_summary: Label
@@ -80,6 +83,9 @@ func _ready() -> void:
 		refresh())
 	selectors.add_child(_role_option)
 	_quality = _wrapped_label(box, "")
+	_traffic = _wrapped_label(box, "")
+	_traffic.add_theme_color_override("font_color", Color("b85b18"))
+	_traffic.hide()
 	_tree = Tree.new()
 	_tree.columns = 9
 	_tree.hide_root = true
@@ -172,7 +178,7 @@ func open_for(selection: Array, contact: Track, group_budget := 0) -> void:
 	_target_option.clear()
 	_target_option.add_item("No contact hooked")
 	for u: Unit in units:
-		for t: Track in simulation.track_manager.tracks_for(u):
+		for t: Track in _commander_tracks(u):
 			if not _targets.has(t) and t.status != Track.Status.LOST:
 				_targets.append(t)
 	for i in _targets.size():
@@ -212,7 +218,8 @@ func refresh() -> void:
 	for u: Unit in units:
 		var parent := _tree.create_item(root)
 		parent.set_text(0, u.callsign)
-		parent.set_text(7, "F/C %d / %d" % [wm.channel_targets(u).size(), u.spec.fire_control_channels])
+		var disconnected := not SubmarineComms.connected(u)
+		parent.set_text(7, "AWAITING CHECK-IN" if disconnected else "F/C %d / %d" % [wm.channel_targets(u).size(), u.spec.fire_control_channels])
 		parent.set_tooltip_text(0, u.spec.display_name)
 		for spec in u.weapons:
 			if not WeaponPresentation.matches(spec, role):
@@ -220,14 +227,14 @@ func refresh() -> void:
 			var item := _tree.create_item(parent)
 			item.set_metadata(0, [u, spec])
 			_items.append(item)
-			var check := wm.engagement_check(u, spec, target, SimClock.sim_time)
-			var queued := wm.committed_rounds(u, spec, target, true)
+			var check := {"ok": false, "reason": "AWAITING SUBMARINE CHECK-IN"} if disconnected else wm.engagement_check(u, spec, target, SimClock.sim_time)
+			var queued := 0 if disconnected else wm.committed_rounds(u, spec, target, true)
 			item.set_text(0, spec.compact_name())
 			item.set_tooltip_text(0, spec.display_name + "\n" + spec.source_status)
 			item.set_text(1, WeaponPresentation.role_name(spec))
-			item.set_text(2, str(u.magazine_count(spec.id)))
-			item.set_text(3, str(queued))
-			item.set_text(4, str(wm.committed_rounds(u, spec, target) - queued))
+			item.set_text(2, "--" if disconnected else str(u.magazine_count(spec.id)))
+			item.set_text(3, "--" if disconnected else str(queued))
+			item.set_text(4, "--" if disconnected else str(wm.committed_rounds(u, spec, target) - queued))
 			item.set_text(5, "%.1f - %s" % [spec.min_range_nm, Geo.format_nm(Combat.effective_range_nm(u, spec))])
 			item.set_text(6, "%ds" % int(check.get("flight_time_s", 0.0)) if check.has("flight_time_s") else "--")
 			var state: String = str(check.reason)
@@ -235,10 +242,10 @@ func refresh() -> void:
 				var delay := wm.ready_in_s(u, spec, SimClock.sim_time)
 				state = "READY" if delay <= 0.0 else "QUEUE +%ds" % int(ceil(delay))
 			item.set_text(7, state)
-			item.set_tooltip_text(7, state + "\n" + WeaponPresentation.track_quality(target, SimClock.sim_time, spec))
+			item.set_tooltip_text(7, state + "\n" + WeaponPresentation.track_quality(target, SimClock.sim_time, spec, u, _commander_tracks(u)))
 			item.set_custom_color(7, Color("245a36") if check.ok else Color("8e3434"))
 			item.set_cell_mode(8, TreeItem.CELL_MODE_RANGE)
-			item.set_range_config(8, 0, u.magazine_count(spec.id), 1)
+			item.set_range_config(8, 0, 0 if disconnected else u.magazine_count(spec.id), 1)
 			item.set_editable(8, check.ok)
 			var key := plan_key(u, spec)
 			item.set_range(8, int(_plan.get(key, 0)))
@@ -258,7 +265,7 @@ func _edit_quantity() -> void:
 
 
 func set_salvo(u: Unit, spec: WeaponSpec, count: int) -> void:
-	if not units.has(u) or u.get_weapon(spec.id) == null or not simulation.weapon_manager.engagement_check(u, spec, target, SimClock.sim_time).ok:
+	if not units.has(u) or not SubmarineComms.connected(u) or u.get_weapon(spec.id) == null or not simulation.weapon_manager.engagement_check(u, spec, target, SimClock.sim_time).ok:
 		return
 	var key := plan_key(u, spec)
 	count = clampi(count, 0, u.magazine_count(spec.id))
@@ -274,7 +281,7 @@ func set_salvo(u: Unit, spec: WeaponSpec, count: int) -> void:
 func _validate_plan() -> void:
 	var valid := {}
 	for u: Unit in units:
-		if not u.is_engageable():
+		if not u.is_engageable() or not SubmarineComms.connected(u):
 			continue
 		for spec: WeaponSpec in u.weapons:
 			var key := plan_key(u, spec)
@@ -302,6 +309,7 @@ func _update_plan_summary() -> void:
 	if hidden_systems > 0:
 		_plan_summary.text += " (%d systems hidden by filter)" % hidden_systems
 	_update_group_status()
+	_refresh_traffic()
 
 
 func _planned_rounds() -> int:
@@ -362,6 +370,12 @@ func _update_group_status() -> void:
 	_group_row.visible = units.size() >= 2
 	if not _group_row.visible:
 		return
+	if units.any(func(u: Unit) -> bool: return not SubmarineComms.connected(u)):
+		_group_commit.disabled = true
+		_group_cancel.disabled = true
+		_group_status.text = "Submarine check-in required to confirm the shared firing plan."
+		_group_status.tooltip_text = _group_status.text
+		return
 	var manager := simulation.group_attack_manager
 	var running := _hooked_groups()
 	_group_cancel.disabled = running.is_empty()
@@ -393,8 +407,34 @@ func _select_weapon() -> void:
 	var data: Array = item.get_metadata(0)
 	var u: Unit = data[0]
 	var spec: WeaponSpec = data[1]
+	_inspected_unit = u
+	_inspected_spec = spec
+	_refresh_traffic()
 	weapon_selected.emit(spec)
-	_detail.text = "%s / %s | %s | %s\n%s" % [u.callsign, spec.display_name, spec.guidance.replace("_", " "), spec.profile.replace("_", " "), WeaponPresentation.track_quality(target, SimClock.sim_time, spec)]
+	_detail.text = "%s / %s | %s | %s\n%s" % [u.callsign, spec.display_name, spec.guidance.replace("_", " "), spec.profile.replace("_", " "), WeaponPresentation.track_quality(target, SimClock.sim_time, spec, u, _commander_tracks(u))]
+
+
+## The commander sees shared reports while a Classic boat is out of contact. Its crew may
+## continue to hold a private picture; that cannot appear in a shore-side firing board.
+func _commander_tracks(u: Unit) -> Array:
+	return simulation.track_manager.get_tracks(simulation.player_faction) if not SubmarineComms.connected(u) else simulation.track_manager.tracks_for(u)
+
+
+## Keep a safety-relevant advisory outside the two-line system detail, where long guidance
+## descriptions could clip it. Any planned system can contribute risk, including filtered rows.
+func _refresh_traffic() -> void:
+	var ids: PackedStringArray = []
+	for u: Unit in units:
+		if not SubmarineComms.connected(u): continue
+		for spec: WeaponSpec in u.weapons:
+			if not _plan.has(plan_key(u, spec)) and not (_plan.is_empty() and u == _inspected_unit and spec == _inspected_spec):
+				continue
+			for contact: Track in WeaponPresentation.protected_contacts_at_risk(u, spec, target, _commander_tracks(u)):
+				if not ids.has(contact.id):
+					ids.append(contact.id)
+	_traffic.visible = not ids.is_empty()
+	_traffic.text = "TRAFFIC RISK · %s: protected reports overlap the terminal search area. Confirm geometry before firing." % ", ".join(ids)
+	_traffic.tooltip_text = _traffic.text
 
 
 func _commit_plan() -> void:
@@ -474,7 +514,7 @@ func _cancel_pending() -> void:
 	var queued_before := 0
 	for u: Unit in units:
 		for spec: WeaponSpec in u.weapons:
-			queued_before += simulation.weapon_manager.committed_rounds(u, spec, target, true)
+			if SubmarineComms.connected(u): queued_before += simulation.weapon_manager.committed_rounds(u, spec, target, true)
 		var order := Order.cancel_fire(target)
 		order.execution_accepted = false
 		pairs.append([u, order])
@@ -482,6 +522,8 @@ func _cancel_pending() -> void:
 	var queued_after := 0
 	for u: Unit in units:
 		for spec: WeaponSpec in u.weapons:
-			queued_after += simulation.weapon_manager.committed_rounds(u, spec, target, true)
+			if SubmarineComms.connected(u): queued_after += simulation.weapon_manager.committed_rounds(u, spec, target, true)
 	refresh()
 	_receipt.text = "%d unfired rounds for %s returned to the magazines; %d remain queued. Weapons already away continue their engagement." % [maxi(queued_before - queued_after, 0), target.id, queued_after]
+	if units.any(func(u: Unit) -> bool: return not SubmarineComms.connected(u)):
+		_receipt.text += " Submarine cancellation awaits check-in; its current expenditure is unconfirmed."

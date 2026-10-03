@@ -177,10 +177,10 @@ static func airframes_of(base: Unit, platform_id: String) -> Array[Unit]:
 ## Seconds an airframe of this type could spend on a station `distance_nm` from its deck, after
 ## the transit out and the fuel the trip home will need. Negative means it cannot get there.
 static func station_time_s(spec: PlatformSpec, distance_nm: float) -> float:
-	var cruise := Geo.knots_to_nm_per_s(maxf(spec.cruise_speed_kn, 1.0))
+	var cruise := Geo.knots_to_nm_per_s(maxf(spec.flight_speed("transit"), 1.0))
 	var transit := distance_nm / cruise
 	var home_reserve := maxf(spec.endurance_s * AviationManager.BINGO_FRACTION, transit + spec.recovery_time_s + spec.endurance_s * AviationManager.LANDING_RESERVE_FRACTION)
-	return spec.endurance_s - transit - home_reserve
+	return (spec.endurance_s - transit - home_reserve) / spec.fuel_burn_rate(spec.flight_speed("patrol"))
 
 
 ## Why a deck cannot fly this mission, or "" when it can (perhaps only in part; see request()).
@@ -276,6 +276,13 @@ func available_for(base: Unit, platform_id: String, kind: int = -1, target: Trac
 ## Routed here by Simulation for an AIR_MISSION order on a deck. Accepts what the deck can do and
 ## says what it cannot: fewer airframes than asked for, launches queued behind a busy deck.
 func request(base: Unit, order: Order) -> AirMission:
+	if order.mission_id >= 0:
+		return revise(base, order)
+	var intent_why := _intent_rejection(base, order)
+	if intent_why != "":
+		order.execution_accepted = false
+		order.receipt = intent_why
+		return null
 	var kind := order.mission_kind
 	var why := mission_rejection(base, kind, order.aircraft_id, order.target_pos, order.track)
 	if why != "":
@@ -305,6 +312,10 @@ func request(base: Unit, order: Order) -> AirMission:
 	m.relief = order.relief
 	m.auto_return = order.automatic
 	m.created_at_s = now_s
+	m.note_at_s = now_s
+	m.cap_intent = order.cap_intent
+	m.protected_unit = order.protected_unit if order.cap_intent == "protect" else null
+	m.pursuit_nm = clampf(order.pursuit_nm, 0.0, MAX_RADIUS_NM)
 	if kind == AirMission.Kind.STRIKE:
 		m.target = order.track
 		m.target_id = order.track.id
@@ -313,6 +324,8 @@ func request(base: Unit, order: Order) -> AirMission:
 	else:
 		m.station = order.target_pos
 		m.radius_nm = clampf(order.radius_nm if order.radius_nm > 0.0 else default_radius(kind), MIN_RADIUS_NM, MAX_RADIUS_NM)
+	if m.protected_unit != null:
+		m.anchor_offset = m.station - m.protected_unit.position
 	missions.append(m)
 	var launched := _launch_owed(m)
 	var parts := PackedStringArray()
@@ -329,6 +342,119 @@ func request(base: Unit, order: Order) -> AirMission:
 	order.execution_accepted = true
 	m.note = order.receipt
 	return m
+
+
+func _intent_rejection(base: Unit, order: Order) -> String:
+	if order.cap_intent not in ["hold", "protect"]:
+		return "Choose Hold area or Protect group"
+	if order.cap_intent == "protect":
+		if order.mission_kind != AirMission.Kind.CAP:
+			return "Only combat air patrols protect a group"
+		if base == null or order.protected_unit == null or not order.protected_unit.alive or order.protected_unit.faction != base.faction:
+			return "Choose a surviving friendly group to protect"
+	return ""
+
+
+## The same validation drives the editor and order execution. Retasking aircraft does not
+## require a serviceable flight deck; additional launches still wait for deck recovery.
+func revision_rejection(base: Unit, order: Order) -> String:
+	var m := mission_by_id(order.mission_id)
+	if m == null or not m.active or m.cancelled or m.base != base:
+		return "That mission is no longer available to this deck"
+	if base == null or not base.alive:
+		return "Base lost"
+	if m.kind == AirMission.Kind.STRIKE:
+		return "Strike targets cannot be changed after assignment"
+	if order.mission_kind != m.kind or order.aircraft_id != m.platform_id:
+		return "Keep the mission and aircraft type when editing"
+	if not order.target_pos.is_finite():
+		return "Choose a station on the chart"
+	var spec := DataDB.platform(m.platform_id)
+	var distance := base.position.distance_to(order.target_pos)
+	if station_time_s(spec, distance) <= 0.0:
+		return "Beyond the %s's radius (%.0f nm)" % [spec.short_name, distance]
+	var why := _intent_rejection(base, order)
+	if why != "":
+		return why
+	if order.aircraft_count < 1:
+		return "Keep at least one aircraft, or cancel the mission"
+	var maximum := working_aircraft(m).size() + m.pending_launches + available_for(base, m.platform_id, m.kind, m.target)
+	if order.aircraft_count > maximum:
+		return "Only %d aircraft available to this mission" % maximum
+	return ""
+
+
+static func working_aircraft(m: AirMission) -> Array[Unit]:
+	var working: Array[Unit] = []
+	for a in m.aircraft:
+		if a.alive and not a.returning and not bool(m.tasks[a].get("relieved", false)):
+			working.append(a)
+	return working
+
+
+## Edit the standing task in place. Existing aircraft, stores, sorties and task identity survive.
+## An unachievable increase is refused atomically; the old task continues unchanged.
+func revise(base: Unit, order: Order) -> AirMission:
+	var why := revision_rejection(base, order)
+	if why != "":
+		order.execution_accepted = false
+		order.receipt = why
+		return null
+	var m := mission_by_id(order.mission_id)
+	var working := working_aircraft(m)
+	m.station = order.target_pos
+	m.radius_nm = clampf(order.radius_nm, MIN_RADIUS_NM, MAX_RADIUS_NM)
+	m.requested = order.aircraft_count
+	m.relief = order.relief
+	m.auto_return = order.automatic
+	m.cap_intent = order.cap_intent
+	m.protected_unit = order.protected_unit if order.cap_intent == "protect" else null
+	m.anchor_offset = m.station - m.protected_unit.position if m.protected_unit != null else Vector2.ZERO
+	m.pursuit_nm = clampf(order.pursuit_nm, 0.0, MAX_RADIUS_NM)
+	# Reductions strike off the queue first. Retain the first working section; excess aircraft
+	# already airborne return, and excess launches return as soon as they clear the deck.
+	m.pending_launches = maxi(m.requested - working.size(), 0)
+	for i in working.size():
+		var a := working[i]
+		a.auto_return = m.auto_return
+		if i >= m.requested:
+			m.tasks[a]["retire"] = true
+			m.tasks[a]["relieved"] = true
+		elif bool(m.tasks[a].get("assigned", false)):
+			_relocate_airframe(m, a, m.tasks[a])
+	order.execution_accepted = true
+	order.receipt = "%s %d updated · %d aircraft · %.0f nm radius · %s" % [m.kind_name(), m.id, m.requested, m.radius_nm, m.intent_label()]
+	_report(m, order.receipt, true)
+	return m
+
+
+func _relocate_airframe(m: AirMission, a: Unit, task: Dictionary) -> void:
+	var half := maxf(station_half_nm(m.kind, m.radius_nm), (UnitManager.patrol_min_leg_nm(a) + 0.2) * 0.5)
+	task["half"] = half
+	var circuit := Order.patrol_box(m.station - Vector2(half, half), m.station + Vector2(half, half))
+	if a.on_station() and a.attack_track == null and a.investigation_track == null and a.tanking_on == null and a.evasion_remaining_s <= 0.0:
+		_assign_station(m, a, task)
+	else:
+		# Update the return destination without ending an interception, investigation or recovery.
+		a.station_route.assign(circuit.route)
+
+
+func _follow_anchor(m: AirMission) -> void:
+	if m.kind != AirMission.Kind.CAP or m.cap_intent != "protect":
+		return
+	if m.protected_unit == null or not m.protected_unit.alive:
+		m.cap_intent = "hold"
+		m.protected_unit = null
+		_report(m, "%s %d: protected group lost; holding last area" % [m.kind_name(), m.id], false)
+		return
+	var next_station := m.protected_unit.position + m.anchor_offset
+	# A two-mile movement is enough to move the circuit; do not reset its leg every second.
+	if next_station.distance_to(m.station) < 2.0:
+		return
+	m.station = next_station
+	for a in m.aircraft:
+		if bool(m.tasks[a].get("assigned", false)) and not a.returning:
+			_relocate_airframe(m, a, m.tasks[a])
 
 
 ## Why a deck has no airframe of the type for a new mission.
@@ -371,6 +497,7 @@ func cancel(mission_id: int, base: Unit) -> bool:
 	m.cancelled = true
 	m.pending_launches = 0
 	m.note = "Cancelled"
+	m.note_at_s = now_s
 	_step_cancelled(m)
 	return true
 
@@ -420,6 +547,7 @@ func _step(m: AirMission) -> void:
 	if m.base == null or not m.base.alive:
 		_end(m, "Base lost")
 		return
+	_follow_anchor(m)
 	for a in m.aircraft.duplicate():
 		_track_airframe(m, a)
 	if not m.active:
@@ -542,6 +670,13 @@ func _track_airframe(m: AirMission, a: Unit) -> void:
 		Unit.FlightState.RECOVERING:
 			task["state"] = AirMission.RECOVERING
 			return
+	if bool(task.get("retire", false)):
+		if a.airborne() and not a.returning:
+			_crew(a, Order.return_to_base())
+		task["state"] = AirMission.RETURNING
+		return
+	if m.kind == AirMission.Kind.CAP:
+		_enforce_cap_boundary(m, a, task)
 	if a.returning:
 		if task["state"] != AirMission.RETURNING:
 			task["state"] = AirMission.RETURNING
@@ -677,6 +812,10 @@ func _step_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var half := float(task.get("half", m.radius_nm)) + STATION_ARRIVAL_MARGIN_NM
 	var offset := a.position - m.station
 	task["state"] = AirMission.ON_STATION if absf(offset.x) <= half and absf(offset.y) <= half else AirMission.TRANSITING
+	var flight_speed := a.spec.flight_speed("patrol" if task["state"] == AirMission.ON_STATION else "transit")
+	if absf(a.ordered_speed_kn - flight_speed) > 0.1:
+		_crew(a, Order.set_speed(flight_speed))
+	a.station_speed_kn = a.spec.flight_speed("patrol")
 	match m.kind:
 		AirMission.Kind.CAP:
 			_cap_look(m, a, task)
@@ -720,10 +859,10 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var best: Track = null
 	var best_d := INF
 	var attack := false
-	for t: Track in _nearby(m, a, m.radius_nm + COMMIT_MARGIN_NM):
+	for t: Track in _nearby(m, a, m.radius_nm + m.pursuit_nm):
 		if not _probably_air(t):
 			continue
-		var d := a.position.distance_squared_to(t.position)
+		var d := _cap_priority(m, a, t)
 		if t.identity == "HOSTILE":
 			if _committed(m.faction, t, true) >= INTERCEPTORS_PER_TRACK:
 				continue
@@ -745,10 +884,44 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 		if _crew(a, Order.attack(best)):
 			task["state"] = AirMission.ENGAGING
 			task["attacked"] = true
+			task["cap_target"] = best
+			task["cap_player_generation"] = a.player_order_generation
 			_report(m, "%s intercepting track %s" % [a.callsign, best.id], true)
 	elif _crew(a, Order.investigate(best, true)):
 		task["state"] = AirMission.INVESTIGATING
+		task["cap_target"] = best
+		task["cap_player_generation"] = a.player_order_generation
 		_report(m, "%s identifying track %s" % [a.callsign, best.id], true)
+
+
+## Held course/speed only: a closing raid outranks a nearby contact departing the protected area.
+static func _cap_priority(m: AirMission, a: Unit, t: Track) -> float:
+	var center := m.protected_unit.position if m.cap_intent == "protect" and m.protected_unit != null else m.station
+	var range_nm := t.position.distance_to(center)
+	var score := range_nm + a.position.distance_to(t.position) * 0.1
+	if t.has_kinematics and t.speed_kn > 0.0 and range_nm > 0.01:
+		var velocity := Geo.heading_to_vector(t.course_deg) * Geo.knots_to_nm_per_s(t.speed_kn)
+		var closing := velocity.dot((center - t.position).normalized())
+		if closing > 0.0:
+			var cpa_time := clampf((center - t.position).dot(velocity) / maxf(velocity.length_squared(), 0.000001), 0.0, 600.0)
+			var cpa := (t.position + velocity * cpa_time).distance_to(center)
+			score = cpa + range_nm * 0.1 - 100.0
+	return score
+
+
+func _enforce_cap_boundary(m: AirMission, a: Unit, task: Dictionary) -> void:
+	var assigned: Track = task.get("cap_target") as Track
+	if assigned == null or (a.attack_track != assigned and a.investigation_track != assigned):
+		return
+	# The player may temporarily override the station. Only mission-issued pursuits are bounded.
+	if a.player_order_generation != int(task.get("cap_player_generation", a.player_order_generation)):
+		return
+	if assigned.position.distance_to(m.station) <= m.radius_nm + m.pursuit_nm:
+		return
+	if _crew(a, Order.return_to_station()):
+		task.erase("cap_target")
+		task["state"] = AirMission.TRANSITING
+		_report(m, "%s returning: contact outside CAP pursuit boundary" % a.callsign, true)
 
 
 ## Reconnaissance identifies what is in its area. It never fires: its looks are identify-only, so
@@ -876,4 +1049,5 @@ func _crew(a: Unit, order: Order) -> bool:
 
 func _report(m: AirMission, message: String, good: bool) -> void:
 	m.note = message
+	m.note_at_s = now_s
 	mission_report.emit(m, message, good)

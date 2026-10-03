@@ -37,6 +37,11 @@ extends Resource
 @export var altitude_rate_m_s := 0.0
 @export var endurance_s := 0.0
 @export var can_hover := false
+## Economical station, normal transit and short intercept profiles. Zero derives from cruise.
+## GAMEPLAY_ESTIMATE: representative mission speeds, not certified flight envelopes.
+@export var patrol_speed_kn := 0.0
+@export var transit_speed_kn := 0.0
+@export var dash_speed_kn := 0.0
 @export var launch_time_s := 120.0
 @export var recovery_time_s := 180.0
 @export var aircraft_capacity := 0  # how many airframes a ship or base can operate
@@ -87,6 +92,27 @@ extends Resource
 @export var vls_cells := 0
 @export var launcher_groups: Dictionary = {}  # weapon id -> physical launch service
 @export var launcher_service_s: Dictionary = {}  # service group -> minimum interval (game estimate)
+@export var weapon_mount_arcs: Dictionary = {}  # weapon id -> Array[Vector2(relative centre, half width degrees)]; omitted = unrestricted
+
+
+func flight_speed(profile: String) -> float:
+	if domain != "air":
+		return cruise_speed_kn
+	var transit := transit_speed_kn if transit_speed_kn > 0.0 else cruise_speed_kn
+	match profile:
+		"patrol": return minf(max_speed_kn, patrol_speed_kn if patrol_speed_kn > 0.0 else transit * (0.78 if can_hover else 0.82))
+		"dash": return minf(max_speed_kn, dash_speed_kn if dash_speed_kn > 0.0 else transit * (1.2 if can_hover else 1.45))
+	return minf(transit, max_speed_kn)
+
+
+## Endurance is measured at transit speed. Patrol saves fuel; high-speed dashes consume it
+## disproportionately. Hover costs more than forward helicopter flight. All coefficients estimated.
+func fuel_burn_rate(speed_kn: float) -> float:
+	var fraction := maxf(speed_kn, 0.0) / maxf(flight_speed("transit"), 1.0)
+	var burn := 0.7 + 0.3 * fraction * fraction + 3.0 * pow(maxf(fraction - 1.0, 0.0), 2.0)
+	if can_hover:
+		burn += 0.6 * maxf(1.0 - fraction / 0.6, 0.0)
+	return burn
 
 
 func flight_facility() -> String:

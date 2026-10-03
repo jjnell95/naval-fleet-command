@@ -18,6 +18,7 @@ static func step(u: Unit, dt: float) -> void:
 		return
 	if DippingSonar.step_motion(u, dt):
 		return
+	TowedArray.step(u, dt)
 	var evading := u.evasion_remaining_s > 0.0
 	var desired := u.evasion_course_deg if evading else u.ordered_heading_deg
 	if u.needs_sea_room():
@@ -53,6 +54,7 @@ static func step(u: Unit, dt: float) -> void:
 		target_speed = u.effective_max_speed()
 	else:
 		target_speed = minf(target_speed, u.formation_speed_cap_kn)
+	target_speed = minf(target_speed, TowedArray.speed_limit(u))
 	var max_dv := u.spec.accel_kn_s * dt
 	u.speed_kn += clampf(target_speed - u.speed_kn, -max_dv, max_dv)
 

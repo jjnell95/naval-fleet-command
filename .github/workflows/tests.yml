@@ -89,6 +89,18 @@ jobs:
       - name: Launch, interface scaling and sonar controls (1920 x 1080)
         run: timeout 600 xvfb-run -a -s "-screen 0 1920x1080x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1920x1080 --script tools/command_priorities_playtest.gd -- --seed=31 --capture --output-dir=res://work/ci-priorities-1080
 
+      - name: Readout wrapping, keyboard and lifecycle (720p, 100 and 125 percent)
+        run: timeout 360 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/readout_playtest.gd -- --seed=31 --capture --output-dir=res://work/ci-readout
+
+      - name: Assessed command training controls (720p, 125 percent)
+        run: timeout 360 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/command_training_playtest.gd -- --seed=31 --capture --output-dir=res://work/ci-command-training
+
+      - name: Mission editing and submarine communications (720p, 125 percent)
+        run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/fidelity_playtest.gd -- --seed=31 --ui-scale=125 --capture --output-dir=res://work/ci-fidelity
+
+      - name: Operating state aircraft and submarine models (1280 x 720)
+        run: timeout 360 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --audio-driver Dummy --path . --resolution 1280x720 --script tools/operational_fittings_playtest.gd -- --output-dir=res://work/ci-operational-fittings
+
       - name: Air operations checks
         run: timeout 600 xvfb-run -a -s "-screen 0 1600x1000x24" ~/godot/godot --path . --resolution 1600x1000 -- --aviation-smoke
 
@@ -103,3 +115,16 @@ jobs:
 
       - name: Weapon control checks (1280 x 720)
         run: timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --path . --resolution 1280x720 -- --weapon-control-smoke --scenario-storage=res://work/ci-weapons-1280
+
+      - name: Upload command fidelity screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: command-fidelity-native
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            work/ci-readout/
+            work/ci-command-training/
+            work/ci-fidelity/
+            work/ci-operational-fittings/

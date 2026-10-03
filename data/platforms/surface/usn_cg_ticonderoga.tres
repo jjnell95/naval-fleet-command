@@ -36,3 +36,5 @@ role = "Area air defence • ballistic missile defence"
 
 service_note = "Legacy BMD-capable cruiser fit; availability depends on scenario era."
 default_air_wing = {"usn_helo_mh60r": 2}
+
+weapon_mount_arcs = {"mk45_mod4_gun": [Vector2(0, 140), Vector2(180, 140)]}

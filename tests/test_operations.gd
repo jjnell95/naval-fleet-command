@@ -207,7 +207,7 @@ func test_all_operations_have_valid_dependencies_wings_and_finite_stores() -> vo
 		assert_eq(ScenarioWorkshop.validate(sc), "", "%s passes the authoring checks, events included" % entry.id)
 		um.free()
 	assert_eq(operations, 7, "one 2027 operation per chart region and three from 1990")
-	assert_eq(exercises, 2, "Northern Passage and Carrier Qualification")
+	assert_eq(exercises, 4, "Northern Passage, Carrier Qualification, Missile Defence and Deliberate Sonar")
 
 
 ## Replaying an operation means reading the plot again. Every operation draws part of its shape

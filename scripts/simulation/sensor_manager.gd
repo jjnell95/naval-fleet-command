@@ -11,11 +11,8 @@ const SENSOR_DT := 1.0
 const OBS_SIGMA_BASE_NM := 0.05  # GAMEPLAY: radar plot error
 const OBS_SIGMA_PER_NM := 0.003
 const ACTIVE_SONAR_SIGMA_NM := 0.12
-const TMA_BASE_PER_S := 0.005  # a still listener needs several minutes for a solution
-const TMA_MANOEUVRE_GAIN := 1.6
 const MANOEUVRE_FULL_DEG := 3.0  # heading change per cycle that counts as fully manoeuvring
 const INITIAL_RANGE_FRACTION := 0.55  # what an operator assumes before working the problem
-const RANGE_GUESS_NOISE := 0.15
 const ESM_CLASSIFY_BONUS := 2.2  # a radar type is a fingerprint
 const CZ_BEARING_PENALTY := 1.5  # a zone bearing is blurred by the long refracted path
 const CZ_QUALITY := 0.25
@@ -150,6 +147,7 @@ func run_cycle(now: float) -> void:
 		radar_us += mid - at
 		sonar_us += late - mid
 		esm_us += Time.get_ticks_usec() - late
+		_visual_pass(observer, now)
 	Debug.time_add("sensors/radar", radar_us)
 	Debug.time_add("sensors/sonar", sonar_us)
 	Debug.time_add("sensors/esm", esm_us)
@@ -165,7 +163,7 @@ func run_cycle(now: float) -> void:
 	Detection.end_jamming_batch()
 
 
-## How hard each unit is turning, which is what lets a passive listener resolve range.
+## Legacy saved heading history; range estimation now uses measured observer positions.
 func _update_manoeuvre() -> void:
 	for u in unit_manager.units:
 		var previous: float = _last_heading.get(u, u.heading_deg)
@@ -365,60 +363,49 @@ func _report_active(observer: Unit, target: Unit, d: float, reach: float, rate: 
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
-## A bearing, and a guess at range that only firms up as the listener manoeuvres against it.
+## A bearing report uses the set's nominal search area for its chart datum. Range and
+## confidence come only from crossing measurements in TrackManager, never target range.
 func _report_passive(observer: Unit, target: Unit, d: float, reach: float, sensor: SensorSpec, rate: float, now: float) -> void:
-	var existing := track_manager.find_for(observer, target)
-	var tma: float = existing.tma_quality if existing != null else 0.0
 	var bearing := Geo.bearing_deg(observer.position, target.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
-	var guess := reach * INITIAL_RANGE_FRACTION
-	var est_range := lerpf(guess, d, tma)
-	est_range += rng.randfn(0.0, (1.0 - tma) * d * RANGE_GUESS_NOISE)
-	est_range = clampf(est_range, 0.3, reach * 1.5)
-
-	var c := SensorContact.new()
-	c.target = target
-	c.position = observer.position + Geo.heading_to_vector(bearing) * est_range
-	c.error_minor_nm = maxf(est_range * tan(deg_to_rad(sensor.bearing_accuracy_deg * 2.0)), 0.2)
-	c.error_major_nm = maxf((1.0 - tma) * est_range * 0.7, c.error_minor_nm)
-	c.error_axis_deg = bearing
-	c.bearing_only = true
+	var search_range := maxf(sensor.passive_sensitivity_nm, 1.0)
+	var c := _bearing_contact(target, observer, bearing, sensor.bearing_accuracy_deg, search_range, "sonar_passive", sensor)
 	c.quality = clampf(1.0 - d / reach, 0.0, 1.0)
 	c.classify_rate = rate
-	c.range_nm = d
-	c.source = "sonar_passive"
-	c.observer = observer
-	c.set_sensor(sensor)
-	var manoeuvre: float = _manoeuvre.get(observer, 0.0)
-	c.tma_gain = TMA_BASE_PER_S * SENSOR_DT * (0.4 + TMA_MANOEUVRE_GAIN * manoeuvre)
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
-## A convergence-zone contact. The zone is narrow, so the operator knows the range to within a
-## couple of miles from the start; the bearing is worse than on a direct path and there is much
-## less signal to classify from. It still has to be worked like any other bearing.
-func _report_cz(observer: Unit, target: Unit, d: float, zone: Dictionary, sensor: SensorSpec, rate: float, now: float) -> void:
-	var existing := track_manager.find_for(observer, target)
-	var tma: float = existing.tma_quality if existing != null else 0.0
+func _bearing_contact(target: Unit, observer: Unit, bearing: float, accuracy: float, search_range: float, source: String, sensor: SensorSpec) -> SensorContact:
+	var c := SensorContact.new()
+	var estimate := maxf(search_range * INITIAL_RANGE_FRACTION, 0.3)
+	c.target = target
+	c.observer = observer
+	c.bearing_origin = observer.position
+	c.bearing_key = "unit:" + TrackManager._unit_key(observer) + ":" + source
+	c.bearing_accuracy_deg = accuracy
+	c.bearing_range_limit_nm = search_range * 6.0
+	c.bearing_speed_limit_kn = 1200.0 if source == "esm" else 70.0
+	c.position = observer.position + Geo.heading_to_vector(bearing) * estimate
+	c.error_minor_nm = maxf(estimate * tan(deg_to_rad(accuracy * 2.0)), 0.2)
+	c.error_major_nm = maxf(search_range * 0.8, c.error_minor_nm)
+	c.error_axis_deg = bearing
+	c.bearing_only = true
+	c.source = source
+	c.set_sensor(sensor)
+	return c
+
+
+## A convergence-zone ring contributes its measured propagation band, not an exact range.
+func _report_cz(observer: Unit, target: Unit, _d: float, zone: Dictionary, sensor: SensorSpec, rate: float, now: float) -> void:
 	var accuracy := sensor.bearing_accuracy_deg * CZ_BEARING_PENALTY
 	var bearing := Geo.bearing_deg(observer.position, target.position) + rng.randfn(0.0, accuracy)
 	var zone_range: float = zone["range_nm"]
 	var half_width: float = zone["half_width_nm"]
-	var est_range := lerpf(zone_range + rng.randfn(0.0, half_width * 0.4), d, tma)
-	var c := SensorContact.new()
-	c.target = target
-	c.observer = observer
-	c.position = observer.position + Geo.heading_to_vector(bearing) * est_range
-	c.error_minor_nm = maxf(est_range * tan(deg_to_rad(accuracy * 2.0)), 0.3)
-	c.error_major_nm = maxf(lerpf(half_width, 0.3, tma), c.error_minor_nm)
-	c.error_axis_deg = bearing
-	c.bearing_only = true
+	var c := _bearing_contact(target, observer, bearing, accuracy, zone_range, "sonar_cz", sensor)
+	c.position = observer.position + Geo.heading_to_vector(bearing) * zone_range
+	c.error_minor_nm = maxf(zone_range * tan(deg_to_rad(accuracy * 2.0)), 0.3)
+	c.error_major_nm = maxf(half_width, c.error_minor_nm)
 	c.quality = CZ_QUALITY / float(zone["index"])
 	c.classify_rate = rate * CZ_CLASSIFY_FACTOR
-	c.range_nm = d
-	c.source = "sonar_cz"
-	c.set_sensor(sensor)
-	var manoeuvre: float = _manoeuvre.get(observer, 0.0)
-	c.tma_gain = TMA_BASE_PER_S * SENSOR_DT * (0.4 + TMA_MANOEUVRE_GAIN * manoeuvre)
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
@@ -487,34 +474,38 @@ func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 
 
 func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: SensorSpec, now: float) -> void:
-	var existing := track_manager.find_for(observer, emitter)
-	var tma: float = existing.tma_quality if existing != null else 0.0
 	var bearing := Geo.bearing_deg(observer.position, emitter.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
-	var est_range := lerpf(reach * INITIAL_RANGE_FRACTION, d, tma)
-	est_range += rng.randfn(0.0, (1.0 - tma) * d * RANGE_GUESS_NOISE)
-	est_range = clampf(est_range, 0.3, reach * 1.5)
-
-	var c := SensorContact.new()
-	c.target = emitter
-	c.observer = observer
-	c.position = observer.position + Geo.heading_to_vector(bearing) * est_range
-	c.error_minor_nm = maxf(est_range * tan(deg_to_rad(sensor.bearing_accuracy_deg * 2.0)), 0.2)
-	c.error_major_nm = maxf((1.0 - tma) * est_range * 0.7, c.error_minor_nm)
-	c.error_axis_deg = bearing
-	c.bearing_only = true
+	var c := _bearing_contact(emitter, observer, bearing, sensor.bearing_accuracy_deg, reach, "esm", sensor)
 	c.quality = clampf(1.0 - d / reach, 0.0, 1.0)
-	# A radar type is a fingerprint, so ESM identifies what it is hearing unusually quickly.
 	c.classify_rate = sensor.classify_rate * ESM_CLASSIFY_BONUS
-	c.range_nm = d
-	c.source = "esm"
-	c.set_sensor(sensor)
-	var manoeuvre: float = _manoeuvre.get(observer, 0.0)
-	c.tma_gain = TMA_BASE_PER_S * SENSOR_DT * (0.4 + TMA_MANOEUVRE_GAIN * manoeuvre)
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
-## A single buoy tells you something noisy is inside its circle. Two or more overlapping tell you
-## roughly where it is, which is the whole reason to lay a field rather than drop one.
+## Recognition needs a close, unobscured look. This is separate from radar, so an EMCON patrol
+## can identify a ship. These distances are conservative gameplay optical recognition limits.
+func _visual_pass(observer: Unit, now: float) -> void:
+	if observer.submerged():
+		return
+	for target in unit_manager.units:
+		if target == observer or target.faction == observer.faction or not target.is_engageable() or target.submerged():
+			continue
+		var d := observer.position.distance_to(target.position)
+		var limit := 3.0 if target.is_aircraft() else 6.0
+		limit = minf(limit, float(Detection.environment.get("visibility_nm", 12.0)))
+		if d > limit:
+			continue
+		if d > Detection.radar_horizon_nm(Detection.mast_or_altitude_m(observer), Detection.mast_or_altitude_m(target)):
+			continue
+		if Detection.terrain_masks(observer, target):
+			continue
+		var c := SensorContact.make(target, target.position, 0.08, 1.0, 1.0, d, "visual", observer)
+		c.visual_identification = true
+		c.sensor_id = "lookout"
+		c.sensor_name = "Visual recognition"
+		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
+
+
+## A directional buoy reports a bearing. A field resolves range only with useful geometry.
 func _buoy_pass(now: float) -> void:
 	if aviation_manager == null or aviation_manager.sonobuoys.is_empty():
 		return
@@ -542,34 +533,28 @@ func _buoy_pass(now: float) -> void:
 
 
 func _report_buoys(faction: String, target: Unit, buoys: Array, now: float) -> void:
-	var nearest: Sonobuoy = buoys[0]
+	# Each directional buoy sends a bearing. Coincident or nearly parallel bearings add
+	# detection coverage but do not manufacture a precision fix.
 	for b: Sonobuoy in buoys:
-		if b.position.distance_to(target.position) < nearest.position.distance_to(target.position):
-			nearest = b
-	var reach := nearest.reach_against(target)
-	var c := SensorContact.new()
-	c.target = target
-	c.classify_rate = 0.8
-	c.range_nm = nearest.position.distance_to(target.position)
-	c.source = "sonobuoy"
-	# No platform holds a buoy report: the buoys themselves are the sensor, relayed to the side
-	# that laid them.
-	c.sensor_id = "sonobuoy"
-	c.sensor_name = "Sonobuoy field" if buoys.size() >= 2 else "Sonobuoy"
-	if buoys.size() >= 2:
-		# Overlapping circles cross: that is a position, not a guess.
-		var sigma := 0.35
-		c.position = target.position + Vector2(rng.randfn(0.0, sigma), rng.randfn(0.0, sigma))
-		c.error_major_nm = 0.8
-		c.error_minor_nm = 0.8
-		c.quality = 0.9
-	else:
-		var sigma := reach * 0.35
-		c.position = target.position + Vector2(rng.randfn(0.0, sigma), rng.randfn(0.0, sigma))
-		c.error_major_nm = maxf(reach * 0.5, 1.0)
-		c.error_minor_nm = c.error_major_nm
+		var c := SensorContact.new()
+		var bearing := Geo.bearing_deg(b.position, target.position) + rng.randfn(0.0, 1.5)
+		var estimate := b.sensitivity_nm * INITIAL_RANGE_FRACTION
+		c.target = target
+		c.classify_rate = 0.8
+		c.source = "sonobuoy"
+		c.sensor_id = "sonobuoy"
+		c.sensor_name = "Sonobuoy field" if buoys.size() >= 2 else "Sonobuoy"
+		c.bearing_origin = b.position
+		c.bearing_key = "buoy:%d" % b.id
+		c.bearing_accuracy_deg = 1.5
+		c.bearing_range_limit_nm = b.sensitivity_nm * 6.0
+		c.bearing_only = true
+		c.position = b.position + Geo.heading_to_vector(bearing) * estimate
+		c.error_axis_deg = bearing
+		c.error_major_nm = b.sensitivity_nm * 0.8
+		c.error_minor_nm = maxf(estimate * tan(deg_to_rad(3.0)), 0.2)
 		c.quality = 0.5
-	track_manager.observe_contact(faction, c, now, SENSOR_DT)
+		track_manager.observe_contact(faction, c, now, SENSOR_DT)
 
 
 ## Incoming rounds are found by radar above the water and by sonar below it. A sea-skimming
@@ -631,3 +616,5 @@ func _detect_weapons(now: float) -> void:
 			if Detection.terrain_hides_weapon(observer, w):
 				continue
 			threat_manager.mark_detected(observer.faction, w, now, observer)
+			if track_manager != null:
+				track_manager.observe_hostile_launch(observer, w, now)

@@ -102,6 +102,9 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
         d.update(min_range_nm=1.0, altitude_m=8000.0, signature_factor=0.05)
     note = kw.pop("note", "")
     payload = kw.pop("delivery_payload_id", "")
+    # Supported update-capable fits; an active terminal seeker alone does not imply a datalink.
+    if key in {"pla_pl15", "jasdf_aam4b", "jmsdf_type17_ssm", "jgsdf_type12_ssm"}:
+        d["midcourse_updates"] = True
     d.update(kw)
     if payload:
         # A rocket-delivered torpedo names its underwater payload beside its guidance.

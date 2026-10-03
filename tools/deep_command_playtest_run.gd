@@ -75,12 +75,16 @@ func run(scene_tree: SceneTree) -> void:
 	await _settle_guide()
 	checks["inspection advances without discarding the aircraft"] = guide.step() == 3 and main.map.selected == [helo]
 	await _shot("guided-contact")
-	var can_investigate := UnitManager.investigation_rejection(helo, unknown) == ""
+	var investigation_reason := UnitManager.investigation_rejection(helo, unknown)
+	var can_investigate := investigation_reason == ""
 	if can_investigate:
 		await _chart_click(unknown.position, MOUSE_BUTTON_RIGHT)
 	else:
-		checks["guide explains why this report cannot be investigated"] = guide._body.text.contains("range unresolved") and guide._body.text.contains("bearing")
-		checks["bearing-only world caption does not imply a positioned model"] = main._world_view._subject_label.text.begins_with("BEARING ONLY")
+		checks["guide explains why this report cannot be investigated"] = guide._body.text.contains(investigation_reason)
+		if unknown.is_bearing_only():
+			checks["bearing-only world caption does not imply a positioned model"] = main._world_view._subject_label.text.begins_with("BEARING ONLY")
+		else:
+			checks["classified contact with unknown allegiance is not a bearing-only report"] = unknown.classification >= Track.Classification.CLASS_KNOWN and not main._world_view._subject_label.text.begins_with("BEARING ONLY")
 		await _click_control(guide._skip)
 	await _settle_guide()
 	checks["guide advances by a real investigation or an explicit skip"] = guide.step() == 4 and ((helo.investigation_track == unknown and guide.done.has("investigate")) if can_investigate else (guide.skipped.has("investigate") and not guide.done.has("investigate")))

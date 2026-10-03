@@ -109,3 +109,31 @@ func test_trails_sample_once_per_tick_and_refresh_on_paused_picture_changes() ->
 	assert_eq(map._weapon_trails[1].size(), 1, "restart clears trail cache gates as well as history")
 	SimClock.sim_time = old_time
 	_free(f)
+
+
+func test_silent_submarine_weapon_is_hidden_until_a_communicating_observer_reports_it() -> void:
+	var f := _fixture()
+	var map: TacticalMap = f["map"]
+	var sub: Unit = f["own"]
+	sub.spec.domain = "subsurface"
+	sub.comms_enabled = true
+	sub.depth_m = 150
+	var torpedo := _round(77, "BLUE")
+	torpedo.shooter = sub
+	map.weapon_manager.in_flight.append(torpedo)
+	map.threat_manager.mark_detected("BLUE", torpedo, 0, sub)
+	var at := map.world_to_screen(torpedo.position)
+	assert_eq(map._weapon_at(at), null, "ownership and private submarine detections do not report a submerged launch")
+	assert_eq(map._get_tooltip(at), "")
+	map._record_weapon_trails()
+	assert_true(not map._weapon_trails.has(torpedo.id), "unreported rounds leave no visible trail")
+	var listener := Unit.new()
+	listener.spec = PlatformSpec.new()
+	listener.spec.has_datalink = true
+	listener.faction = "BLUE"
+	map.unit_manager.add_unit(listener)
+	map.threat_manager.mark_detected("BLUE", torpedo, 0, listener)
+	assert_eq(map._weapon_at(at), torpedo, "a connected listener can report the round")
+	map._record_weapon_trails()
+	assert_true(map._weapon_trails.has(torpedo.id))
+	_free(f)

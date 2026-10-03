@@ -179,12 +179,17 @@ static func _thousands(v: float) -> String:
 static func own_entry(u: Unit) -> Dictionary:
 	var domain := domain_of(u)
 	var height := height_of(u)
+	var disconnected := SubmarineComms.restricted(u) and not SubmarineComms.connected(u)
+	var position := SubmarineComms.reported_position(u)
+	var heading := SubmarineComms.reported_heading(u)
+	var speed := SubmarineComms.reported_speed(u)
+	if disconnected: height = -SubmarineComms.reported_depth(u)
 	return {
 		"kind": "own", "key": "u:%d" % u.id, "model": u.spec.id,
-		"position": u.position, "heading_deg": u.heading_deg, "has_heading": true,
+		"position": position, "heading_deg": heading, "has_heading": true,
 		"height_m": height, "domain": domain, "length_m": length_of(u.spec),
-		"label": u.callsign, "sublabel": motion_text(u.heading_deg, u.speed_kn, height, domain),
-		"color": TacticalMap.COL_FRIENDLY, "unit": u, "track": null,
+		"label": u.callsign, "sublabel": "LAST REPORT · " + SubmarineComms.status(u, SimClock.sim_time) if disconnected else motion_text(heading, speed, height, domain),
+		"color": TacticalMap.COL_FRIENDLY, "unit": null if disconnected else u, "track": null,
 	}
 
 
@@ -260,7 +265,7 @@ static func weapon_entries(weapon_manager: WeaponManager, threat_manager: Threat
 		if w.phase == Weapon.Phase.DEAD:
 			continue
 		var own := w.faction == player_faction
-		if not own and (reference == null or threat_manager == null or not threat_manager.visible_to(reference, w)):
+		if not weapon_visible(w, player_faction, reference, threat_manager, weapon_manager.unit_manager):
 			continue
 		var torpedo := w.spec.is_torpedo()
 		var gun := w.spec.type == "gun" or w.spec.type == "ciws"
@@ -276,6 +281,23 @@ static func weapon_entries(weapon_manager: WeaponManager, threat_manager: Threat
 			"ballistic": w.spec.profile == "ballistic" and not w.is_interceptor(),
 		})
 	return out
+
+
+## Ownership is not a live telemetry channel from a submarine below communication depth.
+## A connected observer may still report the weapon independently. A private detection aboard
+## the selected disconnected boat never reaches either the chart or the 3D view.
+static func weapon_visible(w: Weapon, faction: String, reference: Unit, threats: ThreatManager, units: UnitManager = null) -> bool:
+	if w == null or w.phase == Weapon.Phase.DEAD: return false
+	if w.faction == faction and (w.shooter == null or not SubmarineComms.restricted(w.shooter) or SubmarineComms.connected(w.shooter)):
+		return true
+	if threats == null: return false
+	if reference != null and (not SubmarineComms.restricted(reference) or SubmarineComms.connected(reference)):
+		return threats.visible_to(reference, w)
+	if reference != null and units != null:
+		for observer: Unit in units.get_faction_units(faction):
+			if SubmarineComms.connected(observer) and observer.datalink_connected() and threats.visible_to(observer, w):
+				return true
+	return false
 
 
 ## Where a round is in the vertical. A torpedo runs a few metres down; a ballistic round arcs to
@@ -328,6 +350,7 @@ static func buoy_entries(aviation_manager: AviationManager, player_faction: Stri
 ## where it happens; failing that, an event close to a held contact is drawn at the contact's
 ## plotted position. Only own units and the player's tracks are read.
 static func witness_point(pos: Vector2, own_units: Array, tracks: Array, env: Dictionary, target: Unit = null) -> Vector2:
+	own_units = own_units.filter(func(u: Unit) -> bool: return u != null and (not SubmarineComms.restricted(u) or SubmarineComms.connected(u)))
 	if target != null:
 		if own_units.has(target):
 			return pos
@@ -402,12 +425,12 @@ static func force_focus(own_units: Array) -> Dictionary:
 	var centre := Vector2.ZERO
 	var course := Vector2.ZERO
 	for u in group:
-		centre += u.position
-		course += Geo.heading_to_vector(u.heading_deg) * maxf(u.speed_kn, 0.1)
+		centre += SubmarineComms.reported_position(u)
+		course += Geo.heading_to_vector(SubmarineComms.reported_heading(u)) * maxf(SubmarineComms.reported_speed(u), 0.1)
 	centre /= float(group.size())
 	var spread := 0.0
 	for u in group:
-		spread = maxf(spread, u.position.distance_to(centre))
+		spread = maxf(spread, SubmarineComms.reported_position(u).distance_to(centre))
 	return {
 		"key": "force", "position": centre, "unit": null, "track": null, "name": "Force centre",
 		"detail": "%d platforms" % group.size(), "heading_deg": Geo.vector_to_heading(course) if course.length_squared() > 1e-9 else 0.0,
@@ -429,7 +452,8 @@ static func resolve_focus_key(entries: Array, focus: Dictionary) -> String:
 
 
 static func _unit_focus(u: Unit) -> Dictionary:
-	return {"key": "u:%d" % u.id, "position": u.position, "unit": u, "track": null, "name": u.callsign, "detail": u.spec.display_name}
+	var disconnected := SubmarineComms.restricted(u) and not SubmarineComms.connected(u)
+	return {"key": "u:%d" % u.id, "position": SubmarineComms.reported_position(u), "unit": null if disconnected else u, "track": null, "name": u.callsign, "detail": "LAST REPORT · " + u.spec.display_name if disconnected else u.spec.display_name}
 
 
 ## The nearest entries to `focus_nm` (the floating origin), inside `max_range_nm`, at most `cap`

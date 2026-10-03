@@ -573,6 +573,7 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 	_apply_look(rec, e, focus_key)
 	_apply_way(rec, e, root, yaw, length, scale)
 	_apply_lamps(rec, e)
+	WorldFittings.apply(root, e, bounds, scale)
 	if fresh and e["kind"] == "weapon":
 		_on_new_round(rec, e)
 	_apply_trails(rec, e, base, heading, length)

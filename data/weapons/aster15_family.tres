@@ -27,3 +27,5 @@ altitude_m = 8000.0
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
 
 vls_pack = 1
+
+midcourse_updates = true

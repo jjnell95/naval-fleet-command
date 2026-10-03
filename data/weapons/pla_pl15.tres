@@ -25,3 +25,5 @@ signature_factor = 0.05
 altitude_m = 8000.0
 soft_kill_resistance = 1.0
 source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."
+
+midcourse_updates = true

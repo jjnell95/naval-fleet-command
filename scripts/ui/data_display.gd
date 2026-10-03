@@ -61,6 +61,18 @@ var _time_rect := Rect2()
 var _scale_rect := Rect2()
 var _lamp_rect := Rect2()
 var _threat_rect := Rect2()
+var _row_tooltips: Array[Dictionary] = []
+var _details_button: Button
+var _more_button: Button
+var _details: Window
+var _details_text: RichTextLabel
+var _details_alert: Label
+var _details_clock: Label
+var _details_close: Button
+var _details_signature := ""
+var _details_focus: Control
+var _hidden_rows := 0
+var _more_drawn := false
 
 
 func _ready() -> void:
@@ -68,6 +80,31 @@ func _ready() -> void:
 	clip_contents = true
 	SimClock.paused_changed.connect(func(_p: bool) -> void: queue_redraw())
 	SimClock.speed_changed.connect(func(_i: int, _m: float) -> void: queue_redraw())
+	_details_button = Button.new()
+	_details_button.text = "DETAILS"
+	_details_button.accessibility_name = "Expand selected platform or contact details"
+	_details_button.tooltip_text = "Expand the complete live readout, including all weapons and sensor reports. The clock keeps its current state."
+	_details_button.add_theme_font_size_override("font_size", 11)
+	_details_button.pressed.connect(open_details)
+	add_child(_details_button)
+	_more_button = Button.new()
+	_more_button.flat = true
+	_more_button.add_theme_font_size_override("font_size", _font_size())
+	_more_button.add_theme_color_override("font_color", COL_LABEL)
+	_more_button.add_theme_color_override("font_hover_color", COL_WHITE)
+	for state in ["normal", "hover", "pressed"]:
+		_more_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	var more_focus := StyleBoxFlat.new()
+	more_focus.draw_center = false
+	more_focus.border_color = COL_WHITE
+	more_focus.set_border_width_all(1)
+	_more_button.add_theme_stylebox_override("focus", more_focus)
+	_more_button.tooltip_text = "Show every weapon system and its remaining rounds"
+	_more_button.pressed.connect(open_details)
+	_more_button.hide()
+	add_child(_more_button)
+	visibility_changed.connect(func() -> void:
+		if not is_visible_in_tree(): close_details())
 
 
 func _process(delta: float) -> void:
@@ -93,6 +130,10 @@ func _pulse_step() -> int:
 
 func refresh() -> void:
 	_rows = build_rows()
+	accessibility_name = "Command data readout"
+	accessibility_description = rows_text(_rows)
+	if _details != null and _details.visible:
+		_refresh_details()
 	queue_redraw()
 
 
@@ -149,6 +190,17 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 	rows.append(_kv("CLASS", u.spec.display_name.to_upper()))
 	if number != "":
 		rows.append(_kv("TRACK #", number))
+	if SubmarineComms.restricted(u) and not SubmarineComms.connected(u):
+		# A disconnected boat reports its last known state, not a live view of its crew. Even
+		# internal sensor, magazine and damage changes wait for the next communication window.
+		rows.append(_kv("COMMS", SubmarineComms.status(u, SimClock.sim_time)))
+		rows.append(_kv("LAST COURSE", "%03d" % (int(round(SubmarineComms.reported_heading(u))) % 360)) + [["   SPEED: ", LABEL], ["%d KTS" % int(round(SubmarineComms.reported_speed(u))), VALUE]])
+		rows.append(_kv("LAST DEPTH", "%d FT" % int(round(SubmarineComms.reported_depth(u) * 3.28084))))
+		var reported_health := float(u.comms_report.get("health", u.spec.health))
+		rows.append(_kv("LAST %DAMAGE", str(clampi(int(round(100.0 * (1.0 - reported_health / maxf(u.spec.health, 1.0)))), 0, 100))))
+		rows.append(_kv("ORDERS", "%d queued for next check-in; crew continues its standing task" % u.comms_pending.size()))
+		rows.append(_kv("CHECK-IN", SubmarineComms.detail(u, SimClock.sim_time)))
+		return rows
 	if not u.alive:
 		rows.append(_kv("STATUS", "DESTROYED", ALERT))
 		return rows
@@ -169,6 +221,9 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 		var fuel := int(round(u.fuel_fraction() * 100.0))
 		rows.append(_kv("%FUEL", str(fuel), ALERT if fuel <= 20 else VALUE))
 	rows.append(_kv("ORDERS", orders_text(u, weapon_manager, group_attacks)))
+	if u.comms_enabled and u.is_submarine():
+		rows.append(_kv("COMMS", SubmarineComms.status(u, SimClock.sim_time)))
+		rows.append(_kv("CHECK-IN", SubmarineComms.detail(u, SimClock.sim_time)))
 	var response := DefensiveResponse.status(u)
 	if response != "":
 		rows.append(_kv("DEFENCE", response, ALERT))
@@ -367,6 +422,7 @@ static func sensors_text(u: Unit) -> String:
 		parts.append("Radar %s" % ("on" if u.radar_emitting() else "off"))
 	if u.has_sonar():
 		parts.append(DippingSonar.status(u) if DippingSonar.capable(u) else "Sonar %s" % ("active" if u.active_sonar_on else "passive"))
+		if TowedArray.capable(u): parts.append(TowedArray.status(u))
 	if u.emcon == Unit.Emcon.SILENT:
 		parts.append("EMCON silent")
 	if u.jamming():
@@ -391,6 +447,10 @@ static func track_rows(t: Track, ref: Unit, now: float) -> Array:
 	else:
 		rows.append(_kv("POSITION", "+/-%.1f nm (sensor estimate)" % t.position_error_nm))
 	rows.append(_kv("SOURCE", source_readout(t)))
+	rows.append(_kv("CLASSIFICATION", t.class_confidence_text()))
+	rows.append(_kv("FIX", t.solution_text()))
+	if t.class_evidence != "": rows.append(_kv("CLASS EVIDENCE", t.class_evidence))
+	if t.identity_evidence != "": rows.append(_kv("IDENTITY EVIDENCE", t.identity_evidence))
 	rows.append(_kv("%DAMAGE", damage_text(t)))
 	if ref != null and ref.alive:
 		var brg := Geo.format_bearing(Geo.bearing_deg(ref.position, t.position))
@@ -541,6 +601,192 @@ static func mission_rows(sim: Simulation, m: TacticalMap) -> Array:
 
 # --- Drawing ------------------------------------------------------------------------------
 
+## Plain text is also the accessible description and the unabridged tooltip. Structural markers
+## belong to the renderer, never to what a commander reads or copies.
+static func rows_text(rows: Array) -> String:
+	var lines := PackedStringArray()
+	for row: Array in rows:
+		var line := ""
+		for span: Array in row:
+			if str(span[0]) not in [CELL, "FLOW"]:
+				line += str(span[0])
+		lines.append(line)
+	return "\n".join(lines)
+
+
+## Wrap at words while retaining each span's colour. Very long identifiers break at characters;
+## neither a long platform class nor an unbroken callsign can escape the pane at larger scales.
+static func wrap_spans(spans: Array, font: Font, font_size: int, width: float) -> Array:
+	var lines: Array = []
+	var line: Array = []
+	var used := 0.0
+	var available := maxf(width, 1.0)
+	for span: Array in spans:
+		var key := str(span[1])
+		var text := str(span[0])
+		if text in [CELL, "FLOW"]: continue
+		var tokens := PackedStringArray()
+		var token := ""
+		for character in text:
+			if character in [" ", "\t", "\n"]:
+				if token != "": tokens.append(token)
+				tokens.append(character)
+				token = ""
+			else:
+				token += character
+		if token != "": tokens.append(token)
+		var fs := font_size + (1 if key == TITLE else 0)
+		for word: String in tokens:
+			if word == "\n":
+				lines.append(line)
+				line = []
+				used = 0.0
+				continue
+			if line.is_empty() and word.strip_edges() == "": continue
+			var word_width := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			if used > 0.0 and used + word_width > available:
+				lines.append(line)
+				line = []
+				used = 0.0
+				if word.strip_edges() == "": continue
+			# A single word wider than the pane must still be readable in a narrow window.
+			if word_width > available:
+				for character in word:
+					var char_width := font.get_string_size(character, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+					if used > 0.0 and used + char_width > available:
+						lines.append(line)
+						line = []
+						used = 0.0
+					_append_span(line, character, key)
+					used += char_width
+			else:
+				_append_span(line, word, key)
+				used += word_width
+	if not line.is_empty(): lines.append(line)
+	return lines
+
+
+static func _append_span(line: Array, text: String, key: String) -> void:
+	if not line.is_empty() and str(line.back()[1]) == key:
+		line.back()[0] += text
+	else:
+		line.append([text, key])
+
+
+## Current orders, defences and contact uncertainty remain on the summary even when long
+## equipment names wrap. The expanded view retains the familiar full readout order.
+static func summary_rows(rows: Array) -> Array:
+	if rows.is_empty(): return []
+	var result: Array = [rows[0]]
+	var priority := ["STATUS: ", "DEFENCE: ", "COMMS: ", "ORDERS: ", "IDENTITY: ", "PLOT: ", "POSITION: ", "%DAMAGE: "]
+	for label: String in priority:
+		for index in range(1, rows.size()):
+			if rows[index].size() > 0 and str(rows[index][0][0]) == label:
+				result.append(rows[index])
+	for index in range(1, rows.size()):
+		if rows[index].is_empty() or str(rows[index][0][0]) not in priority:
+			result.append(rows[index])
+	return result
+
+
+func open_details() -> void:
+	if not is_inside_tree(): return
+	if _details == null: _create_details()
+	_details_focus = get_viewport().gui_get_focus_owner()
+	refresh()
+	_refresh_details()
+	# Embedded subwindow placement is in physical window pixels; the command canvas may have
+	# a different logical extent. Size and centre against the actual window to avoid a clipped
+	# footer at 720p, then apply the same effective font scale as the command canvas.
+	var available := Vector2(get_window().size)
+	var effective_scale := get_viewport().get_stretch_transform().get_scale().x
+	_details.content_scale_factor = effective_scale
+	_details.size = Vector2i(minf(760.0 * effective_scale, available.x - 32.0), minf(620.0 * effective_scale, available.y - 64.0))
+	_details.position = Vector2i((available - Vector2(_details.size)) * 0.5)
+	_details.show()
+	_details_close.grab_focus()
+
+
+func close_details() -> void:
+	if _details == null or not _details.visible: return
+	_details.hide()
+	if is_instance_valid(_details_focus) and _details_focus.is_visible_in_tree() and _details_focus.focus_mode != Control.FOCUS_NONE:
+		_details_focus.grab_focus()
+	elif _details_button != null and is_visible_in_tree() and _details_button.focus_mode != Control.FOCUS_NONE:
+		_details_button.grab_focus()
+
+
+func _create_details() -> void:
+	_details = load("res://scripts/ui/readout_window.gd").new()
+	_details.name = "ReadoutDetails"
+	_details.title = "Command readout"
+	_details.borderless = true
+	_details.visible = false
+	_details.transient = true
+	_details.exclusive = true
+	_details.min_size = Vector2i(280, 200)
+	_details.theme = UITheme.data_theme()
+	_details.close_requested.connect(close_details)
+	add_child(_details)
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.add_theme_stylebox_override("panel", UITheme.bevel_frame(12.0))
+	_details.add_child(panel)
+	var background := StyleBoxFlat.new()
+	background.bg_color = COL_BG
+	background.set_content_margin_all(12.0)
+	panel.add_theme_stylebox_override("panel", background)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	panel.add_child(box)
+	var heading := Label.new()
+	heading.text = "COMMAND READOUT"
+	heading.add_theme_color_override("font_color", COL_LABEL)
+	box.add_child(heading)
+	_details_alert = Label.new()
+	_details_alert.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_details_alert.add_theme_color_override("font_color", COL_ALERT)
+	box.add_child(_details_alert)
+	_details_text = RichTextLabel.new()
+	_details_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_details_text.selection_enabled = true
+	_details_text.focus_mode = Control.FOCUS_ALL
+	_details_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_details_text.add_theme_font_override("normal_font", UITheme.data_font())
+	_details_text.add_theme_font_size_override("normal_font_size", 15)
+	_details_text.accessibility_name = "Complete live command readout"
+	box.add_child(_details_text)
+	var footer := HBoxContainer.new()
+	box.add_child(footer)
+	_details_clock = Label.new()
+	_details_clock.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_details_clock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(_details_clock)
+	_details_close = Button.new()
+	_details_close.text = "CLOSE  [Esc]"
+	_details_close.pressed.connect(close_details)
+	footer.add_child(_details_close)
+
+
+func _refresh_details() -> void:
+	var signature := rows_text(_rows)
+	if signature != _details_signature:
+		var scroll := _details_text.get_v_scroll_bar().value
+		_details_text.clear()
+		for row: Array in _rows:
+			for span: Array in row:
+				if str(span[0]) in [CELL, "FLOW"]: continue
+				_details_text.push_color(_color(str(span[1])))
+				_details_text.add_text(str(span[0]))
+				_details_text.pop()
+			_details_text.newline()
+		_details_text.get_v_scroll_bar().set_deferred("value", scroll)
+		_details_text.accessibility_description = signature
+		_details_signature = signature
+	_details_alert.text = threat_text
+	_details_alert.visible = threat_text != ""
+	_details_clock.text = "%s · %s" % [clock_text(), "PAUSED" if SimClock.paused else "%dx — simulation running" % int(SimClock.multiplier())]
+
 func _font() -> Font:
 	return UITheme.data_font()
 
@@ -583,47 +829,60 @@ func _draw() -> void:
 	var ascent := font.get_ascent(fs)
 	var footer_y := size.y - MARGIN.y - line_h
 	var limit_y := footer_y - (line_h if threat_text != "" else 0.0) - 2.0
-	var x := MARGIN.x
 	var y := MARGIN.y
-	var flow_x := -1.0  # where the next flowing item may start on the current line, or -1
 	var index := 0
+	var rows := summary_rows(_rows)
 	grid_hidden = 0
-	while index < _rows.size():
-		var row: Array = _rows[index]
+	_hidden_rows = 0
+	_row_tooltips.clear()
+	_more_drawn = false
+	if _details_button != null:
+		_details_button.position = Vector2(maxf(MARGIN.x, size.x - MARGIN.x - 94.0), MARGIN.y)
+		_details_button.size = Vector2(94.0, 24.0)
+	while index < rows.size():
+		var row: Array = rows[index]
 		index += 1
 		if _is_cell(row):
 			var block: Array = [row]
-			while index < _rows.size() and _is_cell(_rows[index]):
-				block.append(_rows[index])
+			while index < rows.size() and _is_cell(rows[index]):
+				block.append(rows[index])
 				index += 1
-			# Rows after the grid (a carrier's air wing) keep their lines, unless that would leave the
-			# grid none: its "+N MORE" matters more than they do.
 			var free := int(floor((limit_y - y) / line_h))
-			y = _draw_grid(block, y, maxi(free - (_rows.size() - index), mini(free, 1)), font, fs, line_h, ascent)
-			flow_x = -1.0
+			y = _draw_grid(block, y, maxi(free - (rows.size() - index), mini(free, 1)), font, fs, line_h, ascent)
 			continue
-		var flowing: bool = row.size() > 0 and str(row[row.size() - 1][0]) == "FLOW"
-		var spans: Array = row.slice(0, row.size() - 1) if flowing else row
-		var width := 0.0
-		for s: Array in spans:
-			width += font.get_string_size(str(s[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		if flowing and flow_x >= 0.0 and flow_x + width <= size.x - MARGIN.x:
-			x = flow_x
-			y -= line_h
-		else:
-			x = MARGIN.x
-		if y + line_h > limit_y:
-			for rest in range(index - 1, _rows.size()):
-				grid_hidden += 1 if _is_cell(_rows[rest]) else 0
-			break
-		for s: Array in spans:
-			var text := str(s[0])
-			var key := str(s[1])
-			var title := key == TITLE
-			draw_string(font, Vector2(x, y + ascent), text, HORIZONTAL_ALIGNMENT_LEFT, size.x - x - MARGIN.x, fs + (1 if title else 0), _color(key))
-			x += font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs + (1 if title else 0)).x
-		flow_x = x + 16.0 if flowing else -1.0
-		y += line_h
+		var width := size.x - 2.0 * MARGIN.x
+		if index == 1: width -= 104.0
+		var wrapped := wrap_spans(row, font, fs, width)
+		var free_lines := int(floor((limit_y - y) / line_h))
+		# Preserve at least one line of ammunition and its actionable +N MORE control. Long
+		# class names and range summaries may use the expanded view, but never erase readiness.
+		if rows.slice(index).any(func(next: Array) -> bool: return _is_cell(next)):
+			free_lines -= 1
+		var max_lines := mini(1 if index == 1 else 2, free_lines)
+		if max_lines <= 0:
+			_hidden_rows += 1
+			continue
+		var visible_lines := mini(max_lines, wrapped.size())
+		var clipped := wrapped.size() > visible_lines
+		_row_tooltips.append({"rect": Rect2(MARGIN.x, y, width, visible_lines * line_h), "text": rows_text([row])})
+		for line_index in visible_lines:
+			var line: Array = wrapped[line_index].duplicate(true)
+			if clipped and line_index == visible_lines - 1:
+				_ellipsize(line, font, fs, width)
+			var x := MARGIN.x
+			for span: Array in line:
+				var span_fs := fs + (1 if str(span[1]) == TITLE else 0)
+				draw_string(font, Vector2(x, y + ascent), str(span[0]), HORIZONTAL_ALIGNMENT_LEFT, width - (x - MARGIN.x), span_fs, _color(str(span[1])))
+				x += font.get_string_size(str(span[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, span_fs).x
+			y += line_h
+		if clipped: _hidden_rows += 1
+		if index == 1: y = maxf(y, MARGIN.y + 28.0)
+	if _details_button != null:
+		_details_button.text = "DETAILS +" if _hidden_rows > 0 or grid_hidden > 0 else "DETAILS"
+		_details_button.tooltip_text = "Expand the complete live readout" + (" (%d shortened or hidden rows, %d additional weapon systems)" % [_hidden_rows, grid_hidden] if _hidden_rows > 0 or grid_hidden > 0 else "") + ". The clock keeps its current state."
+	# Toggling visibility off and on during every redraw cancels a mouse press before release.
+	# Keep the native button alive across refreshes and only hide it when overflow disappears.
+	if _more_button != null: _more_button.visible = _more_drawn
 	# Inbound threat line, above the footer.
 	_threat_rect = Rect2()
 	if threat_text != "":
@@ -667,6 +926,18 @@ static func _is_cell(row: Array) -> bool:
 	return row.size() > 0 and str(row[row.size() - 1][0]) == CELL
 
 
+func _ellipsize(line: Array, font: Font, fs: int, width: float) -> void:
+	var ellipsis_width := font.get_string_size("…", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	while not line.is_empty():
+		var used := 0.0
+		for span: Array in line:
+			used += font.get_string_size(str(span[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs + (1 if str(span[1]) == TITLE else 0)).x
+		if used + ellipsis_width <= width: break
+		line.back()[0] = str(line.back()[0]).substr(0, str(line.back()[0]).length() - 1)
+		if str(line.back()[0]) == "": line.pop_back()
+	line.append(["…", LABEL])
+
+
 ## Lays the weapon cells out in columns from `y`, in `lines` lines at most; returns the next line.
 func _draw_grid(block: Array, y: float, lines: int, font: Font, fs: int, line_h: float, ascent: float) -> float:
 	grid_hidden = block.size()
@@ -682,11 +953,18 @@ func _draw_grid(block: Array, y: float, lines: int, font: Font, fs: int, line_h:
 		var cx := MARGIN.x + float(k % columns) * (col_w + CELL_GAP_PX)
 		var cy := y + float(k / columns) * line_h + ascent
 		if k >= int(fit["shown"]):
-			draw_string(font, Vector2(cx, cy), "+%d MORE" % int(fit["more"]), HORIZONTAL_ALIGNMENT_LEFT, col_w, fs, COL_LABEL)
+			_more_drawn = true
+			if _more_button != null:
+				_more_button.text = "+%d MORE" % int(fit["more"])
+				_more_button.accessibility_name = "Show %d more weapon systems" % int(fit["more"])
+				_more_button.position = Vector2(cx, cy - ascent)
+				_more_button.size = Vector2(col_w, line_h)
+				_more_button.show()
 			break
 		var spans: Array = block[k]
 		var count := str(spans[1][0]).strip_edges()
 		var count_w := font.get_string_size(count, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		_row_tooltips.append({"rect": Rect2(cx, cy - ascent, col_w, line_h), "text": rows_text([spans])})
 		draw_string(font, Vector2(cx, cy), str(spans[0][0]), HORIZONTAL_ALIGNMENT_LEFT, col_w - count_w - 6.0, fs, _color(str(spans[0][1])))
 		draw_string(font, Vector2(cx + col_w - count_w, cy), count, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _color(str(spans[1][1])))
 	return y + float(fit["lines"]) * line_h
@@ -726,4 +1004,7 @@ func _get_tooltip(at_position: Vector2) -> String:
 		return "Messages. Click for the comms board"
 	if _threat_rect.grow(3.0).has_point(at_position):
 		return "Frame the inbound threat"
+	for row: Dictionary in _row_tooltips:
+		if (row["rect"] as Rect2).has_point(at_position):
+			return str(row["text"])
 	return ""

@@ -242,7 +242,7 @@ static func cz_available(observer: Unit) -> bool:
 		return false
 	var capable := false
 	for s in observer.sensors:
-		if s.kind == "sonar" and s.cz_capable:
+		if s.kind == "sonar" and s.cz_capable and Detection.sonar_sensor_ready(observer, s):
 			capable = true
 	if not capable:
 		return false

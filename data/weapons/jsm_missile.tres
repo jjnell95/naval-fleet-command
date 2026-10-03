@@ -26,3 +26,5 @@ signature_factor = 0.06
 altitude_m = 10.0
 soft_kill_resistance = 2.0
 source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Internally carried low-observable anti-ship missile with a passive imaging seeker, so chaff does very little against it here."
+
+midcourse_updates = true

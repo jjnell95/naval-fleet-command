@@ -26,3 +26,5 @@ signature_factor = 0.07
 altitude_m = 12.0
 soft_kill_resistance = 1.9
 source_status = "PUBLIC: Lockheed Martin's 2012 captive-carriage release describes passive RF sensing and electro-optical terminal identification; https://news.lockheedmartin.com/2012-07-16-Lockheed-Martin-Successfully-Completes-First-LRASM-Captive-Carriage-Test (checked 2026-09-29). GAMEPLAY_ESTIMATE: terminal seeker represented in the imaging-IR countermeasure band; all numeric performance and discrimination are tuning values. Low-observable, long-range air-launched anti-ship missile."
+
+midcourse_updates = true

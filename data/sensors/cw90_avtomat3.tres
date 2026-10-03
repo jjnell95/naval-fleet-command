@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "cw90_avtomat3"
+display_name = "Avtomat 3 airborne radar warning"
+kind = "esm"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+esm_gain = 1.25
+classify_rate = 0.4
+bearing_accuracy_deg = 4.0
+source_status = "PUBLIC: Avtomat 3 warning receiver in Tu-22M3 Ural defensive suite, https://www.ausairpower.net/APA-Backfire.html. GAMEPLAY_ESTIMATE: intercept reach, bearing accuracy, library coverage and classification rate, not measured operational performance."

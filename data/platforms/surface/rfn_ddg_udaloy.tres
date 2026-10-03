@@ -30,3 +30,5 @@ role = "ASW destroyer · short-range self defence"
 default_air_wing = {"rfn_helo_ka27": 2}
 
 service_note = "Project 1155 baseline represented by Vice-Admiral Kulakov: Rastrub-B, short-range naval Kinzhal and AK-100 guns. Not the Marshal Shaposhnikov refit; no Redut or Uran allocation."
+
+weapon_mount_arcs = {"ak100_gun": [Vector2(0, 140)]}

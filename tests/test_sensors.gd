@@ -68,9 +68,9 @@ func test_track_classification_progression() -> void:
 		now += 1.0
 		tm.observe("BLUE", t, t.position, 0.5, 1.0, now, 1.0, 10.0)
 		tm.tick(now, 1.0)
-	assert_eq(tr.classification, Track.Classification.CLASS_KNOWN, "class known after ~180 s obs")
-	assert_eq(tr.identity, "HOSTILE")
-	assert_eq(tr.known_class, "FFG Test")
+	assert_eq(tr.classification, Track.Classification.SURFACE, "generic radar history establishes domain, not exact class")
+	assert_eq(tr.identity, "UNKNOWN", "elapsed radar time is not hostile identification")
+	assert_eq(tr.known_class, "", "a generic return cannot disclose the true class")
 	assert_eq(tm.find_track("BLUE", t), tr, "association stable")
 	assert_eq(tm.get_tracks("RED").size(), 0, "no cross-faction leakage")
 	tm.free()

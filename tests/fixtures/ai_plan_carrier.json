@@ -15,6 +15,10 @@
     "victory": [{"id": "hold", "type": "time_elapsed", "seconds": 999999, "text": "Hold"}],
     "loss": []
   },
+  "recognition_affiliations": {
+    "BLUE": {"cw90_sovremenny": "HOSTILE", "cw90_tu22m3": "HOSTILE"},
+    "RED": {"cw90_nimitz": "HOSTILE", "cw90_perry": "HOSTILE"}
+  },
   "units": [
     {"platform": "cw90_nimitz", "callsign": "Carrier", "faction": "BLUE", "position_nm": [15, 85], "heading_deg": 90, "speed_kn": 0, "air_wing": []},
     {"platform": "cw90_perry", "callsign": "Picket", "faction": "BLUE", "position_nm": [-25, 25], "heading_deg": 90, "speed_kn": 0, "air_wing": []},
@@ -27,7 +31,11 @@
       "id": "raid",
       "faction": "RED",
       "kind": "threaten_carrier",
-      "units": ["Otlichny"],
+      "recognition_affiliations": {
+    "BLUE": {"cw90_sovremenny": "HOSTILE", "cw90_tu22m3": "HOSTILE"},
+    "RED": {"cw90_nimitz": "HOSTILE", "cw90_perry": "HOSTILE"}
+  },
+  "units": ["Otlichny"],
       "recon": ["Backfire Scout"],
       "priorities": ["carrier"],
       "objective_nm": [15, 75],

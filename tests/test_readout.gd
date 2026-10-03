@@ -315,3 +315,71 @@ func test_bearing_only_and_unassessed_damage_do_not_imply_measured_facts() -> vo
 	assert_eq(DataDisplay.damage_text(t), "not assessed")
 	t.damage_estimate = 35.0
 	assert_eq(DataDisplay.damage_text(t), "35 (est)", "reported hits remain estimates")
+
+
+func test_scaled_readout_wraps_coloured_long_text_without_losing_words() -> void:
+	var text := "A very long aircraft class with an unusually lengthy sensor description"
+	var spans := [["CLASS: ", DataDisplay.LABEL], [text, DataDisplay.VALUE]]
+	var font := UITheme.data_font()
+	var wrapped := DataDisplay.wrap_spans(spans, font, 14, 220.0)
+	assert_true(wrapped.size() >= 3, "the 125% narrow pane must reflow its long class")
+	var recovered := PackedStringArray()
+	for line: Array in wrapped:
+		var width := 0.0
+		var line_text := ""
+		for span: Array in line:
+			width += font.get_string_size(str(span[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+			line_text += str(span[0])
+			assert_true(span[1] in [DataDisplay.LABEL, DataDisplay.VALUE], "colours are retained across line breaks")
+		assert_true(width <= 220.01, "a wrapped line stays inside its available width")
+		recovered.append(line_text.strip_edges())
+	assert_eq(" ".join(recovered), "CLASS: " + text)
+	var identifier := "UNCORROBORATEDCONTACTIDENTIFIERWITHOUTSPACES"
+	var narrow := DataDisplay.wrap_spans([[identifier, DataDisplay.VALUE]], font, 14, 80.0)
+	assert_eq(DataDisplay.rows_text(narrow).replace("\n", ""), identifier, "even unbroken identifiers are preserved")
+
+
+func test_readout_summary_prioritizes_orders_and_uncertainty_without_mutating_details() -> void:
+	var rows := [[["Own ship", DataDisplay.TITLE]], DataDisplay._kv("CLASS", "Long class name"), DataDisplay._kv("ORDERS", "Evading"), DataDisplay._kv("DEFENCE", "Missile inbound"), DataDisplay._kv("SENSORS", "Listening")]
+	var original := rows.duplicate(true)
+	var summary := DataDisplay.summary_rows(rows)
+	assert_eq(summary[1], rows[3], "defensive action survives when the summary is short")
+	assert_eq(summary[2], rows[2], "current orders precede long equipment names")
+	assert_eq(rows, original, "the full details retain their familiar ordering")
+	assert_eq(summary.size(), rows.size(), "prioritization never deletes information")
+
+
+func test_readout_plain_text_excludes_layout_markers_and_keeps_every_weapon() -> void:
+	var rows := [[["WEAPONS:", DataDisplay.LABEL]], [["Harpoon", DataDisplay.VALUE], [" 8", DataDisplay.WHITE], [DataDisplay.CELL, ""]], [["Protect the convoy", DataDisplay.VALUE], ["FLOW", ""]]]
+	assert_eq(DataDisplay.rows_text(rows), "WEAPONS:\nHarpoon 8\nProtect the convoy")
+
+
+func test_contact_readout_separates_class_confidence_from_identity_evidence() -> void:
+	var t := Track.new()
+	t.identity = "UNKNOWN"
+	t.class_evidence = "Passive acoustic signature"
+	t.identity_evidence = "Awaiting identification"
+	var text := DataDisplay.rows_text(DataDisplay.track_rows(t, null, 0.0))
+	assert_true(text.contains("IDENTITY: UNKNOWN"))
+	assert_true(text.contains("CLASSIFICATION: " + t.class_confidence_text()))
+	assert_true(text.contains("CLASS EVIDENCE: Passive acoustic signature"))
+	assert_true(text.contains("IDENTITY EVIDENCE: Awaiting identification"))
+
+
+func test_disconnected_submarine_displays_last_report_not_live_state() -> void:
+	var u := _unit(DataDB.platform("fra_ssn_suffren"), "BLUE", Vector2.ZERO)
+	u.comms_enabled = true
+	u.depth_m = 100.0
+	u.heading_deg = 90.0
+	u.speed_kn = 5.0
+	SubmarineComms.initialize(u, 0.0)
+	u.heading_deg = 180.0
+	u.speed_kn = 22.0
+	u.depth_m = 220.0
+	u.health = u.spec.health * 0.5
+	var text := DataDisplay.rows_text(DataDisplay.unit_rows(u))
+	assert_true(text.contains("LAST COURSE: 090   SPEED: 5 KTS"))
+	assert_true(text.contains("LAST DEPTH: 328 FT"))
+	assert_true(text.contains("LAST %DAMAGE: 0"))
+	assert_true(not text.contains("SENSORS:") and not text.contains("WEAPONS:"), "onboard changes wait for a report")
+	assert_true(text.contains("queued for next check-in"))

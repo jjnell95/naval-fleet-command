@@ -18,6 +18,7 @@ var target_id := ""
 var classified := false
 var recovery_ordered := false
 var faction := "BLUE"
+var lesson_id := ""
 var _title: Label
 var _body: Label
 var _action: Button
@@ -73,7 +74,8 @@ func _ready() -> void:
 
 
 func reset(scenario_id: String, player_faction: String) -> void:
-	available = scenario_id == "northern_passage"
+	lesson_id = scenario_id if scenario_id in CommandTraining.IDS else ""
+	available = scenario_id == "northern_passage" or lesson_id != ""
 	enabled = available
 	faction = player_faction
 	done.clear()
@@ -155,7 +157,10 @@ func observe(um: UnitManager) -> void:
 		_complete("return")
 
 
-func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Track = null, torpedo := false) -> void:
+func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Track = null, torpedo := false, manager: MissionManager = null) -> void:
+	if lesson_id != "" and manager != null:
+		_refresh_training(manager)
+		return
 	observe(um)
 	var index := step()
 	var a := aircraft(um)
@@ -216,6 +221,53 @@ func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Trac
 	_action.visible = action != ""
 	_skip.visible = index < STEPS.size() and not inbound
 	# Container minimum heights shrink as the changing instructions get shorter.
+	reset_size()
+
+
+func _refresh_training(manager: MissionManager) -> void:
+	var current: MissionObjective
+	var completed := 0
+	for objective: MissionObjective in manager.victory_objectives:
+		if objective.complete: completed += 1
+		elif current == null and manager.prerequisites_complete(objective.after): current = objective
+	_title.text = "COMMAND PRACTICE · %d / %d" % [completed, manager.victory_objectives.size()]
+	_skip.hide() # Practice credit requires the actual task; dismissal remains available.
+	_action_id = "briefing"
+	_action.text = "Objectives"
+	_action.show()
+	if current == null:
+		_body.text = "Practice complete. Review your orders, sensor reports and weapons in the debrief."
+		return
+	_body.text = current.text + ". "
+	match current.practice:
+		"manual_defence":
+			_body.text += "Open the Normal / Classic options button and enable Manual missile defence (X). The exercise raid begins only after this order."
+		"manual_intercept":
+			_body.text += "Resume at 1×. When the radar reports an inbound, Space pauses. With the destroyer selected press X to authorize interception; Defence shows the detected threat."
+			_action_id = "open_defence"
+			_action.text = "Defence"
+		"defence_resolved":
+			_body.text += "Resume and monitor the engagement. If another order is needed, pause and press X. The lesson finishes after the inbound resolves and your ship survives."
+			_action_id = "open_defence"
+			_action.text = "Defence"
+		"dip_listen":
+			_body.text += "Select the Seahawk already airborne over the training datum. Orders → Sensors → Deploy dipping sonar. Resume for positioning, hover and lowering; wait for LISTENING."
+			_action_id = "guide_aircraft"
+			_action.text = "Select aircraft"
+		"passive_datum":
+			_body.text += "Click the submarine contact when passive sonar hears it. Read POSITION in the data pane: a bearing supplies direction, not range. A long wait without useful geometry is not a precise fix."
+			_action_id = "next_contact"
+			_action.text = "Next contact"
+		"active_fix":
+			_body.text += "Select the Seahawk. Orders → Sensors → Active sonar. Keep listening for measured range and a submarine classification matched to the exercise recognition brief. Active transmission exposes the listener."
+			_action_id = "guide_aircraft"
+			_action.text = "Select aircraft"
+		"authorize_attack":
+			_body.text += "Keep the Seahawk selected, inspect the localized contact, and use Attack → Fire one torpedo. The recognition brief identifies the exercise opponent; a probable class alone is not hostile intent."
+		"recover_array":
+			_body.text += "Orders → Sensors → Raise dipping sonar. Resume and wait for STOWED before giving a transit order. The exercise scores the complete recovery cycle."
+			_action_id = "guide_aircraft"
+			_action.text = "Select aircraft"
 	reset_size()
 
 

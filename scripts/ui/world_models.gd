@@ -21,7 +21,11 @@ func acquire(model_id: String, parent: Node3D) -> Dictionary:
 		node = _instantiate(model_id)
 		parent.add_child(node)
 	node.visible = true
-	var meshes: Array = node.find_children("*", "MeshInstance3D", true, false)
+	# Cache the authored mesh list before operational fittings/rotor discs/lights are attached.
+	# Reusing a pooled aircraft must not tint its stores or enlarge its rotor/bounds estimate.
+	if not node.has_meta("model_meshes"):
+		node.set_meta("model_meshes", node.find_children("*", "MeshInstance3D", true, false))
+	var meshes: Array = node.get_meta("model_meshes")
 	if not _bounds_cache.has(model_id):
 		var bounds := AABB()
 		var first := true
@@ -164,6 +168,8 @@ static func rotor_plane(model_id: String, meshes: Array, bounds: AABB) -> Vector
 func release(model_id: String, node: Node3D) -> void:
 	node.visible = false
 	node.transform = Transform3D.IDENTITY
+	var fittings := node.get_node_or_null("OperationalFittings") as Node3D
+	if fittings != null: fittings.visible = false
 	var free: Array = _pool.get(model_id, [])
 	free.append(node)
 	_pool[model_id] = free

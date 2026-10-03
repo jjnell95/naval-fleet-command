@@ -27,8 +27,9 @@ extends RefCounted
 ## restore, in order, before the objectives' saved progress is put back.
 
 const FORMAT := "naval-fleet-command.engagement"
-## 2: the operation director's state (version 1 kept only the ids of the events that had fired).
-const VERSION := 2
+## 2: the operation director's state (version 1 kept only event ids).
+## 3: explicit recognition briefs; migrate missing briefs only for older authored engagements.
+const VERSION := 3
 
 ## Variables kept out of the reflective copy, by class.
 const UNIT_SKIP := {
@@ -61,7 +62,7 @@ const MANAGER_FIELDS := {
 ## development switch between two cycles that produce the same tracks, not engagement state.
 const MANAGER_TRANSIENT := {
 	"UnitManager": ["units", "weapon_manager"],
-	"TrackManager": ["neutral_factions"],
+	"TrackManager": ["neutral_factions", "recognition_affiliations"],
 	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path"],
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
@@ -515,7 +516,24 @@ static func _missing_catalogue(v: Variant) -> String:
 ## triggers, so drawing them again from the scenario and marking those ids fired is exact; restore
 ## does that when the director's state is missing.
 static func migrate(snap: Dictionary) -> Dictionary:
-	return snap
+	if int(snap.get("version", 0)) >= VERSION:
+		return snap
+	var upgraded := snap.duplicate(true)
+	var embedded: Dictionary = upgraded["scenario"]
+	# Old engagements embed the original mission, which predates authored recognition
+	# libraries. Install only the named built-in operation's static class affiliations. Never
+	# derive a brief from saved/live unit factions, and never overwrite an explicit empty brief.
+	var id := str(embedded.get("id", ""))
+	var shipped := ["northern_passage", "aegis_bastion", "cold_war_01_convoy", "cold_war_02_barrier", "cold_war_03_carrier", "gulf_01_hormuz", "med_01_tartus", "pacific_02_taiwan_strait"]
+	var path := "res://data/scenarios/%s.json" % id
+	if not embedded.has("recognition_affiliations") and id in shipped and str(upgraded.get("scenario_path", "")) == path and FileAccess.file_exists(path):
+		var authored := ScenarioLoader.load_file(path)
+		var brief: Dictionary = authored.get("recognition_affiliations", {})
+		if not brief.is_empty():
+			embedded["recognition_affiliations"] = brief.duplicate(true)
+			upgraded["scenario_digest"] = scenario_digest(embedded)
+	upgraded["version"] = VERSION
+	return upgraded
 
 
 # --- Restore -------------------------------------------------------------------------------

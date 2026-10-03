@@ -160,6 +160,9 @@ func _ready() -> void:
 	map.selection_changed.connect(_on_selection_changed)
 	map.move_order_requested.connect(_on_move_order_requested)
 	map.patrol_order_requested.connect(_apply_order_to_selection)
+	map.mission_station_move_requested.connect(func(m: AirMission, at: Vector2) -> void: _revise_chart_mission(m, at, m.radius_nm))
+	map.mission_radius_change_requested.connect(func(m: AirMission, radius: float) -> void: _revise_chart_mission(m, m.station, radius))
+	map.escort_station_move_requested.connect(_move_escort_station)
 	map.engage_requested.connect(_on_engage_requested)
 	map.attack_requested.connect(func(t: Track) -> void: _apply_order_to_selection(Order.attack(t)))
 	map.intercept_requested.connect(func(w: Weapon) -> void: _apply_order_to_selection(Order.intercept(w)))
@@ -223,10 +226,10 @@ func _ready() -> void:
 		if m.faction == simulation.player_faction and not simulation.ai_plays_player:
 			radio.flash("%s %d ended: %s" % [m.label(), m.id, reason.to_lower()], "info", m.base))
 	simulation.group_attack_manager.group_report.connect(func(g: GroupAttack, message: String, good: bool) -> void:
-		if g.faction == simulation.player_faction and not simulation.ai_plays_player:
+		if g.faction == simulation.player_faction and not simulation.ai_plays_player and g.members.all(func(u: Unit) -> bool: return _receives_report(u)):
 			radio.flash(message, "info" if good else "warn", g.lead if g.lead != null and g.lead.alive else null))
 	simulation.group_attack_manager.group_ended.connect(func(g: GroupAttack, reason: String) -> void:
-		if g.faction == simulation.player_faction and not simulation.ai_plays_player:
+		if g.faction == simulation.player_faction and not simulation.ai_plays_player and g.members.all(func(u: Unit) -> bool: return _receives_report(u)):
 			radio.flash(g.note, "good" if reason in ["Target destroyed", "Targets destroyed"] else "info", g.lead if g.lead != null and g.lead.alive else null)
 		Debug.event("[Combat] group attack %d on %s ended: %s, %d of %d rounds fired" % [g.id, g.target_label(), reason, g.fired_total, g.budget]))
 	simulation.aviation_manager.aircraft_tanking.connect(func(a: Unit, tanker: Unit) -> void:
@@ -257,6 +260,8 @@ func _ready() -> void:
 	# Reinforcements and every airframe take the side's missile-defence doctrine as they arrive.
 	simulation.unit_manager.unit_added.connect(func(u: Unit) -> void:
 		if u.faction == simulation.player_faction:
+			if u.is_submarine():
+				SubmarineComms.configure(u, options.submarine_comms and not simulation.ai_plays_player, simulation.unit_manager.now_s)
 			_set_air_defence(u))
 	simulation.track_manager.track_added.connect(_on_track_added)
 	simulation.track_manager.track_classified.connect(_on_track_classified)
@@ -266,7 +271,7 @@ func _ready() -> void:
 			_command_guide.record_order(u, o)
 			Debug.event("[Order] %s: %s" % [u.callsign, o.describe()]))
 	simulation.unit_manager.investigation_ended.connect(func(u: Unit, t: Track, reason: String) -> void:
-		if u.faction != simulation.player_faction:
+		if u.faction != simulation.player_faction or not _receives_report(u):
 			return
 		_command_guide.record_classification(u, t, reason)
 		var report := "Track %s: %s" % [DataDisplay.track_number_for_track(t), reason.to_lower()]
@@ -274,15 +279,15 @@ func _ready() -> void:
 			report += " — " + t.description()
 		radio.flash(report, "good" if reason == "Contact classified" else "warn", u))
 	simulation.unit_manager.station_resumed.connect(func(u: Unit, reason: String) -> void:
-		if u.faction != simulation.player_faction or simulation.ai_plays_player:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
 			return
 		radio.flash("%s: %s — resuming %s" % [u.callsign, reason, DataDisplay.station_name(u.station_label, false) if u.station_label != "" else "station"], "good", u))
 	simulation.unit_manager.station_unavailable.connect(func(u: Unit, reason: String) -> void:
-		if u.faction != simulation.player_faction or simulation.ai_plays_player:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
 			return
 		radio.flash("%s cannot return to station: %s" % [u.callsign, reason.to_lower()], "warn", u))
 	simulation.unit_manager.attack_ended.connect(func(u: Unit, t: Track, reason: String) -> void:
-		if u.faction != simulation.player_faction or simulation.ai_plays_player:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
 			return
 		var number := DataDisplay.track_number_for_track(t)
 		if reason == "Target destroyed":
@@ -354,8 +359,8 @@ func _process(delta: float) -> void:
 	radio.set_objective_text(_objective_summary())
 	_autosave_if_due()
 	_announce_unannounced_threats()
-	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, map.reference_unit())
-	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo())
+	var threats := _commander_inbound()
+	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager)
 	_command_guide.visible = _command_taken and _command_guide.enabled and not _has_visible_modal() and not status_boards.visible and not _views_swapped and not _world_full
 	_command_guide.position = map.global_position - global_position + Vector2(14, 14)
 	if threats.is_empty():
@@ -403,6 +408,8 @@ func start_scenario(path: String) -> void:
 
 func _close_engagement_dialogs() -> void:
 	_control_groups.clear()
+	if data_display != null:
+		data_display.close_details()
 	if _weapon_control != null:
 		_weapon_control.hide()
 	if _fleet_operations != null:
@@ -1129,6 +1136,24 @@ func _issue_air_order(u: Unit, order: Order) -> void:
 	voice.say("order_ack" if accepted else "order_refused", u)
 
 
+func _revise_chart_mission(m: AirMission, at: Vector2, radius: float) -> void:
+	if m == null or not m.active or m.base == null: return
+	_issue_air_order(m.base, Order.revise_air_mission(m, at, radius, m.requested, m.relief, m.auto_return, m.cap_intent, m.protected_unit, m.pursuit_nm))
+
+
+func _move_escort_station(u: Unit, at: Vector2) -> void:
+	if u == null or u.faction != simulation.player_faction or u.station_leader == null: return
+	var leader := u.station_leader
+	var axis := u.station_axis_deg if u.station_axis_deg >= 0.0 else SubmarineComms.reported_heading(leader)
+	var delta := at - SubmarineComms.reported_position(leader)
+	var order := Order.form_up(leader, Vector2(delta.dot(Geo.heading_to_vector(axis + 90.0)), delta.dot(Geo.heading_to_vector(axis))), u.station_axis_deg)
+	order.station_label = u.station_label
+	var accepted := simulation.unit_manager.issue_order(u, order)
+	var receipt := order.receipt if order.receipt != "" else ("escort station revised" if accepted else "station order refused")
+	radio.flash("%s: %s" % [u.callsign, receipt], "good" if accepted else "warn")
+	if _receives_report(u): voice.say("order_ack" if accepted else "order_refused", u)
+
+
 func _toggle_library() -> void:
 	if _library.visible:
 		_close_library()
@@ -1351,7 +1376,7 @@ func _run_palette_action(id: String) -> void:
 			map.menu_open = true
 		"preset_normal", "preset_classic":
 			_choose_options(GameOptions.preset_named(id.trim_prefix("preset_"), options.voice, options.ambient))
-		"option_ceiling", "option_manual_defence", "option_engage_on_id":
+		"option_ceiling", "option_manual_defence", "option_engage_on_id", "option_submarine_comms":
 			_choose_options(options.toggled(id.trim_prefix("option_")))
 		"intercept_inbound":
 			_apply_order_to_selection(Order.intercept())
@@ -1785,6 +1810,7 @@ func _apply_options(o: GameOptions, persist: bool, sound: bool) -> void:
 ## automatic defence, and so does the player's when the AI flies it (a dev sweep).
 func _apply_doctrine() -> void:
 	var um := simulation.unit_manager
+	um.configure_submarine_comms(simulation.player_faction, options.submarine_comms and not simulation.ai_plays_player)
 	um.engage_on_hostile_id.clear()
 	um.set_engage_on_hostile_id(simulation.player_faction, options.engage_on_hostile_id and not simulation.ai_plays_player)
 	for u in um.units:
@@ -1794,7 +1820,11 @@ func _apply_doctrine() -> void:
 
 func _set_air_defence(u: Unit) -> void:
 	var automatic := not options.manual_missile_defence() or simulation.ai_plays_player
-	if u.auto_air_defence != automatic:
+	var pending_value := u.auto_air_defence
+	for pending: Dictionary in u.comms_pending:
+		if int(pending.get("type", -1)) == Order.Type.SET_AIR_DEFENCE_MODE:
+			pending_value = bool(pending.get("automatic", pending_value))
+	if pending_value != automatic:
 		simulation.unit_manager.issue_order(u, Order.set_air_defence_mode(automatic))
 
 
@@ -1867,7 +1897,7 @@ func _show_key_commands() -> void:
 
 
 func _on_selection_changed(units: Array) -> void:
-	if map.selected_track != null and not map.selected_track.visible_to(map.reference_unit()):
+	if map.selected_track != null and not _commander_sees_track(map.selected_track):
 		map.select_track(null)
 	unit_panel.set_units(units)
 	# The dock retains ownership/capability permission, then recalculates whether the
@@ -1879,6 +1909,7 @@ func _on_selection_changed(units: Array) -> void:
 
 
 func _on_track_selected(t: Track) -> void:
+	CommandTraining.record_inspection(simulation, t)
 	if _command_guide != null:
 		_command_guide.record_inspection(t)
 	contact_panel.refresh()
@@ -1898,7 +1929,7 @@ func _cycle_priority_track(step: int) -> void:
 
 
 func _focus_urgent_threat() -> void:
-	var threats := AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, map.reference_unit())
+	var threats := _commander_inbound()
 	if threats.is_empty():
 		radio.advise("No inbound weapon is held on this picture")
 		return
@@ -1906,7 +1937,8 @@ func _focus_urgent_threat() -> void:
 	var weapon: Weapon = entry["weapon"]
 	var target: Unit = entry["target"]
 	map.set_follow_selection(false)
-	map.fit_to((weapon.position + target.position) * 0.5, maxf(weapon.position.distance_to(target.position) * 1.55 + 4.0, 12.0))
+	var target_plot := SubmarineComms.reported_position(target)
+	map.fit_to((weapon.position + target_plot) * 0.5, maxf(weapon.position.distance_to(target_plot) * 1.55 + 4.0, 12.0))
 	radio.flash("FOCUS · %s inbound to %s · impact in ~%d s" % [weapon.spec.display_name, target.callsign, maxi(int(entry["time_s"]), 0)], "alert")
 
 
@@ -1914,6 +1946,7 @@ func _on_round_fired(shooter: Unit, spec: WeaponSpec, _track: Track) -> void:
 	if shooter.faction != simulation.player_faction:
 		return
 	_stats["own_rounds"] += 1
+	if not _receives_report(shooter): return
 	map.add_effect(shooter.position, "launch", true)
 	_world_view.add_effect(shooter.position, "launch", true)
 	SoundFx.play("launch")
@@ -1928,7 +1961,7 @@ func _on_round_fired(shooter: Unit, spec: WeaponSpec, _track: Track) -> void:
 func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
 	if _combat_observed(shooter, shooter.faction == simulation.player_faction):
 		SimClock.drop_to_realtime()
-	if shooter.faction == simulation.player_faction:
+	if shooter.faction == simulation.player_faction and _receives_report(shooter):
 		radio.flash("%d x %s committed to track %s; %d queued" % [rounds, spec.display_name, DataDisplay.track_number_for_track(t), simulation.weapon_manager.committed_rounds(shooter, spec, t, true)], "good", shooter)
 	Debug.event("[Combat] %s commits %d x %s at %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, t.id, shooter.position.distance_to(t.position)])
 
@@ -1938,7 +1971,7 @@ func _on_threat_detected(faction: String, w: Weapon) -> void:
 		return  # the other side's SAM or anti-torpedo round, after one of ours: not inbound on us
 	if faction != simulation.player_faction:
 		return
-	if map.reference_unit() != null and not simulation.threat_manager.visible_to(map.reference_unit(), w):
+	if not _commander_sees_threat(w):
 		# The side's first sight of it came from a platform the commander does not hear from. Detection
 		# fires once, so remember it and announce it when it reaches the commander's own picture.
 		if not _unannounced.has(w):
@@ -1951,7 +1984,7 @@ func _announce_unannounced_threats() -> void:
 	for w in _unannounced.duplicate():
 		if w.phase == Weapon.Phase.DEAD:
 			_unannounced.erase(w)
-		elif map.reference_unit() == null or simulation.threat_manager.visible_to(map.reference_unit(), w):
+		elif _commander_sees_threat(w):
 			_unannounced.erase(w)
 			_announce_threat(w)
 
@@ -1970,7 +2003,7 @@ func _announce_threat(w: Weapon) -> void:
 func _nearest_own_distance(pos: Vector2) -> float:
 	var best := INF
 	for u in simulation.unit_manager.get_faction_units(simulation.player_faction):
-		best = minf(best, pos.distance_to(u.position))
+		best = minf(best, pos.distance_to(SubmarineComms.reported_position(u)))
 	return 0.0 if best == INF else best
 
 
@@ -1979,7 +2012,8 @@ func _nearest_own_unit(w: Weapon) -> Unit:
 	var best: Unit = null
 	var best_d := INF
 	for u in simulation.unit_manager.get_faction_units(simulation.player_faction):
-		var d := w.position.distance_to(u.position)
+		if not _receives_report(u): continue
+		var d := w.position.distance_to(SubmarineComms.reported_position(u))
 		if d < best_d:
 			best_d = d
 			best = u
@@ -1990,16 +2024,18 @@ func _nearest_own_unit_pos(w: Weapon) -> Vector2:
 	var best := w.position
 	var best_d := INF
 	for u in simulation.unit_manager.get_faction_units(simulation.player_faction):
-		var d := w.position.distance_to(u.position)
+		if not _receives_report(u): continue
+		var d := w.position.distance_to(SubmarineComms.reported_position(u))
 		if d < best_d:
 			best_d = d
-			best = u.position
+			best = SubmarineComms.reported_position(u)
 	return best
 
 
 func _on_interceptor_launched(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int) -> void:
 	if shooter.faction == simulation.player_faction:
 		_stats["launched"] += rounds
+		if not _receives_report(shooter): return
 		map.add_effect(shooter.position, "launch", true)
 		_world_view.add_effect(shooter.position, "launch", true)
 		SoundFx.play("launch", 0.4)
@@ -2013,6 +2049,7 @@ func _on_weapon_defeated(threat: Weapon, reason: String, by_unit: Unit) -> void:
 			_stats["intercepted"] += 1
 		elif reason == "DECOYED":
 			_stats["decoyed"] += 1
+		if not _receives_report(by_unit): return
 		map.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy", true)
 		_world_view.add_effect(threat.position, "intercept" if reason == "INTERCEPTED" else "decoy", true, _effect_height(threat))
 		SoundFx.play("intercept", 0.3)
@@ -2030,6 +2067,7 @@ static func _effect_height(threat: Weapon) -> float:
 func _on_decoys_spent(u: Unit, count: int) -> void:
 	if u.faction == simulation.player_faction:
 		_stats["decoys_used"] += count
+		if not _receives_report(u): return
 		map.add_effect(u.position, "decoy", true)
 		_world_view.add_effect(u.position, "decoy", true, u.altitude_m if u.is_aircraft() else 10.0)
 
@@ -2037,10 +2075,13 @@ func _on_decoys_spent(u: Unit, count: int) -> void:
 ## Decoys pulled a round off one ship and it found another. Worth saying out loud: the escort's
 ## chaff has just handed the missile to whoever was behind it.
 func _on_weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit) -> void:
-	var own := to_unit.faction == simulation.player_faction
+	var from_reports := from_unit.faction == simulation.player_faction and _receives_report(from_unit)
+	var to_reports := to_unit.faction == simulation.player_faction and _receives_report(to_unit)
+	if not from_reports and not to_reports and not _commander_sees_threat(threat): return
+	var own := to_reports
 	map.add_effect(threat.position, "decoy", own)
 	_world_view.add_effect(threat.position, "decoy", own, _effect_height(threat))
-	if own or from_unit.faction == simulation.player_faction:
+	if from_reports or to_reports:
 		radio.flash("%s decoyed off %s — re-acquired %s" % [threat.spec.display_name, _radio_name(from_unit), _radio_name(to_unit)], "alert" if own else "warn")
 	Debug.event("[Defence] %s decoyed off %s, re-acquired %s" % [threat.spec.display_name, from_unit.callsign, to_unit.callsign])
 
@@ -2051,7 +2092,7 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 	if event == "lost":
 		_foundered[u] = true
 	Debug.event("[Damage] %s %s" % [u.callsign, event])
-	if u.faction != simulation.player_faction:
+	if u.faction != simulation.player_faction or not _receives_report(u):
 		return
 	match event:
 		"fire_out":
@@ -2070,6 +2111,10 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 		elif faction == simulation.player_faction:
 			_stats["hits_scored"] += 1
 	_stats["leaked"] += 1
+	# Internal after-action counts keep the result. The live watch receives only reports or
+	# independently witnessed effects; faction ownership alone cannot report a silent hit.
+	var observed := _combat_observed(target, own_target)
+	if not observed: return
 	if not hit:
 		map.add_effect(target.position, "miss", false, target)
 		_world_view.add_effect(target.position, "miss", false, -1.0, target)
@@ -2077,13 +2122,12 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 		return
 	# The chart and the 3D view show only a hit someone could witness; the clock and the speaker
 	# keep to the same rule.
-	var observed := _combat_observed(target, own_target or faction == simulation.player_faction)
 	if observed:
 		SimClock.drop_to_realtime()
 		SoundFx.play("impact", 0.2)
 	map.add_effect(target.position, "hit", own_target, target)
 	_world_view.add_effect(target.position, "hit", own_target, -1.0, target)
-	if own_target:
+	if own_target and _receives_report(target):
 		var casualties := ""
 		if target.fire > 0.0:
 			casualties += " · FIRE"
@@ -2102,27 +2146,28 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 
 
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
-	if _combat_observed(u, u.faction == simulation.player_faction or killer_faction == simulation.player_faction):
-		SimClock.drop_to_realtime()
-		SoundFx.play("impact", 0.0)
-	map.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, u)
-	_world_view.add_effect(u.position, "destroyed", u.faction == simulation.player_faction, -1.0, u)
-	if u.faction == simulation.player_faction:
+	var own := u.faction == simulation.player_faction
+	var neutral := simulation.track_manager.neutral_factions.has(u.faction)
+	# These are after-action facts; live radio/effects below still require a report or witness.
+	if own:
 		_losses.append(u.callsign)
+	elif killer_faction == simulation.player_faction:
+		if neutral: _civilian_incidents.append(_radio_name(u))
+		else: _kills.append(_radio_name(u))
+	if not _combat_observed(u, own): return
+	SimClock.drop_to_realtime()
+	SoundFx.play("impact", 0.0)
+	map.add_effect(u.position, "destroyed", own and _receives_report(u), u)
+	_world_view.add_effect(u.position, "destroyed", own and _receives_report(u), -1.0, u)
+	if own:
 		radio.flash("%s %s" % [u.callsign, "LOST TO FIRE AND FLOODING" if _foundered.has(u) else "DESTROYED"], "alert")
 		voice.say("unit_lost", null, {"name": u.callsign})
 	else:
-		var neutral := simulation.track_manager.neutral_factions.has(u.faction)
 		if killer_faction == simulation.player_faction:
 			if neutral:
-				_civilian_incidents.append(_radio_name(u))
 				radio.flash("CIVILIAN LOSS — your force sank a neutral vessel", "alert")
 			else:
-				# The debrief retains the observed label, including an unidentified contact.
-				_kills.append(_radio_name(u))
 				voice.say("target_destroyed", null, {"track": _held_track(u)})
-		# A loss the plot can see goes out under its track label; how an enemy's damage-control
-		# fight ended is not ours to know, and a kill we never held has no name to give.
 		var t := _held_track(u)
 		if t != null:
 			radio.flash("Neutral vessel lost" if neutral else "Destroyed", "alert" if neutral else "good", t)
@@ -2137,7 +2182,34 @@ func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
 ## when its rounds are detected, _on_threat_detected drops it then.
 func _combat_observed(subject: Unit, own_involved: bool) -> bool:
 	var own := simulation.unit_manager.get_faction_units(simulation.player_faction)
+	own = own.filter(func(u: Unit) -> bool: return _receives_report(u))
+	if subject != null and subject.faction == simulation.player_faction and not _receives_report(subject): own_involved = false
 	return WorldPresentation.combat_observed(subject, own_involved, own, simulation.track_manager.get_tracks(simulation.player_faction), Detection.environment)
+
+
+static func _receives_report(u: Unit) -> bool:
+	return u != null and (not SubmarineComms.restricted(u) or SubmarineComms.connected(u))
+
+
+func _commander_sees_track(t: Track) -> bool:
+	if t == null or t.owner_faction != simulation.player_faction: return false
+	var ref := map.reference_unit()
+	if ref == null or not _receives_report(ref): return t.networked
+	return t.visible_to(ref)
+
+
+func _commander_sees_threat(w: Weapon) -> bool:
+	var ref := map.reference_unit()
+	if ref != null and _receives_report(ref): return simulation.threat_manager.visible_to(ref, w)
+	for u: Unit in simulation.unit_manager.get_faction_units(simulation.player_faction):
+		if u.datalink_connected() and simulation.threat_manager.visible_to(u, w): return true
+	return false
+
+
+func _commander_inbound() -> Array:
+	var ref := map.reference_unit()
+	if ref != null and not _receives_report(ref): ref = null
+	return AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, ref).filter(func(e: Dictionary) -> bool: return _commander_sees_threat(e["weapon"]))
 
 
 ## The player's own track on another side's unit, if the plot holds it (association is the one
@@ -2151,13 +2223,13 @@ func _held_track(u: Unit) -> Track:
 ## holds on it, or not at all.
 func _radio_name(u: Unit) -> String:
 	if u.faction == simulation.player_faction:
-		return u.callsign
+		return u.callsign if _receives_report(u) else "an unreported contact"
 	var t := _held_track(u)
 	return t.label() if t != null else "another contact"
 
 
 func _on_engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String) -> void:
-	if shooter.faction == simulation.player_faction:
+	if shooter.faction == simulation.player_faction and _receives_report(shooter):
 		radio.flash("Cannot fire %s: %s" % [spec.display_name, reason], "warn", shooter)
 		# A queued round the weapon system cancels was never an order the crew refused.
 		if not reason.begins_with("QUEUED ROUND CANCELLED"):
@@ -2165,6 +2237,8 @@ func _on_engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String) ->
 
 
 func _on_mission_ended(result: String, summary: String) -> void:
+	if data_display != null:
+		data_display.close_details()
 	SimClock.set_paused(true)
 	_set_background_input_enabled(false)
 	var mm := simulation.mission_manager
@@ -2214,7 +2288,7 @@ func _on_waypoint_delete_requested(u: Unit, index: int) -> void:
 	elif u.patrol_active and remaining.size() >= 3:
 		if not simulation.unit_manager.issue_order(u, Order.patrol(remaining)):
 			radio.flash(UnitManager.patrol_rejection(u, remaining), "warn", u)
-			voice.say("order_refused", u)
+			if _receives_report(u): voice.say("order_refused", u)
 	else:
 		simulation.unit_manager.issue_order(u, Order.move(remaining[0], false))
 		for i in range(1, remaining.size()):
@@ -2337,16 +2411,17 @@ func _depth_orders(metres: float) -> Array:
 func _apply_order_to_selection(order: Order) -> void:
 	var accepted := 0
 	var refused := 0
+	var queued := 0
 	var rounds_committed := 0
 	var interceptors_before := int(_stats.get("launched", 0))
 	var refusal := ""
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
 			var before := _committed_for_order(u, order)
-			if order.type == Order.Type.INTERCEPT:
-				order.receipt = ""  # each ship's refusal, if it has one
+			order.receipt = ""  # each platform's delivery or refusal, if it has one
 			if simulation.unit_manager.issue_order(u, order):
 				accepted += 1
+				if order.receipt.begins_with("Queued for submarine"): queued += 1
 				if order.type == Order.Type.ENGAGE:
 					rounds_committed += maxi(_committed_for_order(u, order) - before, 0)
 			else:
@@ -2361,6 +2436,8 @@ func _apply_order_to_selection(order: Order) -> void:
 		if accepted > 0:
 			var away := int(_stats.get("launched", 0)) - interceptors_before
 			receipt = _order_acknowledgement(order) + (" · %d interceptor%s away" % [away, "" if away == 1 else "s"] if away > 0 else " · cleared to fire as it closes")
+	if queued > 0:
+		receipt = "Queued for submarine check-in · %d orders" % queued if queued == accepted else "%d orders sent · %d queued for submarine check-in" % [accepted - queued, queued]
 	_report_orders(order, accepted, refused, receipt)
 
 
@@ -2368,6 +2445,7 @@ func _apply_order_to_selection(order: Order) -> void:
 func _apply_unit_orders(pairs: Array) -> void:
 	var accepted := 0
 	var refused := 0
+	var queued := 0
 	var sample: Order = null
 	var volleys := {}
 	var rounds_committed := 0
@@ -2380,6 +2458,7 @@ func _apply_unit_orders(pairs: Array) -> void:
 		pair[1].execution_accepted = simulation.unit_manager.issue_order(u, pair[1])
 		if pair[1].execution_accepted:
 			accepted += 1
+			if sample.receipt.begins_with("Queued for submarine"): queued += 1
 			if sample.type == Order.Type.ENGAGE:
 				var key := "%s|%s" % [sample.track.id, sample.weapon_id]
 				if not volleys.has(key):
@@ -2396,6 +2475,8 @@ func _apply_unit_orders(pairs: Array) -> void:
 		var receipt := "; ".join(receipts)
 		if not receipts.is_empty():
 			receipt += " · %d rounds committed" % rounds_committed
+		if queued > 0:
+			receipt = "Queued for submarine check-in · %d orders" % queued if queued == accepted else "%d orders sent · %d queued for submarine check-in" % [accepted - queued, queued]
 		_report_orders(sample, accepted, refused, receipt)
 
 
@@ -2412,22 +2493,26 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 		SoundFx.play("click", 0.05)
 		var receipt := receipt_override if receipt_override != "" else _order_acknowledgement(order)
 		var speaker: Unit = map.selected[0] if map.selected.size() == 1 else null
+		if not _receives_report(speaker): speaker = null
 		if speaker == null or accepted > 1:
 			receipt += " · %d orders accepted" % accepted
 		if refused > 0:
 			receipt += " / %d refused" % refused
 		radio.flash(receipt, "warn" if refused > 0 else "good", speaker)
-		voice.say(_ack_event(order), speaker if speaker != null else _first_own(map.selected), {"track": order.track})
+		var reporter := speaker if speaker != null else _first_own(map.selected)
+		if not receipt.begins_with("Queued for submarine") and reporter != null:
+			voice.say(_ack_event(order), reporter, {"track": order.track})
 		if order.type == Order.Type.SET_ROE and order.roe == Unit.Roe.FREE:
 			radio.flash("Weapons free permits firing on unidentified contacts. Neutral sinkings can fail the mission.", "warn")
-		if order.type == Order.Type.MOVE and not Terrain.is_empty():
+		if order.type == Order.Type.MOVE and not Terrain.is_empty() and not receipt.begins_with("Queued for submarine"):
 			for u in map.selected:
-				if u.faction == simulation.player_faction and u.needs_sea_room() and Terrain.first_land_contact(u.position, order.target_pos) >= 0.0:
+				if u.faction == simulation.player_faction and u.needs_sea_room() and Terrain.first_land_contact(SubmarineComms.reported_position(u), order.target_pos) >= 0.0:
 					radio.flash("Land on that course — following the coast", "warn", u)
 					break
 	elif attempted > 0:
 		# The platform says it cannot; the console says why.
-		voice.say("order_refused", _first_own(map.selected))
+		var reporter := _first_own(map.selected)
+		if reporter != null: voice.say("order_refused", reporter)
 		if order.type == Order.Type.INVESTIGATE and not map.selected.is_empty():
 			radio.advise(UnitManager.investigation_rejection(map.selected[0], order.track))
 			return
@@ -2463,16 +2548,17 @@ static func _ack_event(order: Order) -> String:
 	return "order_ack"
 
 
-## The first own unit in a selection: who answers for a group order on the voice net.
+## The first communicating own unit: a disconnected crew cannot acknowledge a group order.
 func _first_own(units: Array) -> Unit:
 	for u: Unit in units:
-		if u.faction == simulation.player_faction and u.alive:
+		if u.faction == simulation.player_faction and u.alive and _receives_report(u):
 			return u
 	return null
 
 
 ## A short crew response ties the command to the platform and the plotted target.
 static func _order_acknowledgement(order: Order) -> String:
+	if order.receipt != "": return order.receipt
 	match order.type:
 		Order.Type.MOVE:
 			return "Waypoint added, aye" if order.append else "Making for the ordered position, aye"
@@ -2525,10 +2611,28 @@ func _apply_formation(pattern: String) -> void:
 	if own[0].in_formation():
 		simulation.unit_manager.issue_order(own[0], Order.break_formation())
 	var accepted := 0
-	for entry: Dictionary in Formation.assign(own, pattern):
-		accepted += int(simulation.unit_manager.issue_order(entry["unit"], entry["order"]))
-	radio.flash("%s: %d consorts on %s" % [pattern.to_upper(), accepted, own[0].callsign], "good")
-	voice.say("order_ack" if accepted > 0 else "order_refused", own[0])
+	var queued := 0
+	var axis := -1.0
+	if pattern in ["aaw_screen", "asw_screen"]:
+		var nearest := INF
+		for t: Track in simulation.track_manager.get_tracks(simulation.player_faction):
+			if t.status != Track.Status.ACTIVE or t.identity != "HOSTILE" or t.is_bearing_only(): continue
+			if pattern == "aaw_screen" and t.domain != "air": continue
+			if pattern == "asw_screen" and t.domain != "subsurface": continue
+			var distance: float = SubmarineComms.reported_position(own[0]).distance_squared_to(t.position)
+			if distance < nearest:
+				nearest = distance
+				axis = Geo.bearing_deg(SubmarineComms.reported_position(own[0]), t.position)
+	for entry: Dictionary in Formation.assign(own, pattern, 1.0, axis):
+		var consort: Unit = entry["unit"]
+		if simulation.unit_manager.issue_order(consort, entry["order"]):
+			accepted += 1
+			if entry["order"].receipt.begins_with("Queued for submarine"): queued += 1
+			if pattern == "asw_screen" and TowedArray.rejection(consort) == "":
+				simulation.unit_manager.issue_order(consort, Order.asw_search())
+	radio.flash("%s: %d consorts assigned on %s%s" % [pattern.to_upper(), accepted - queued, own[0].callsign, " · %d queued for submarine check-in" % queued if queued > 0 else ""], "good")
+	var reporter := _first_own(own)
+	if reporter != null and accepted > queued: voice.say("order_ack", reporter)
 
 
 func _store_control_group(number: int) -> void:
@@ -2577,13 +2681,13 @@ func _toggle_sonar_on_selection() -> void:
 		return
 	_apply_order_to_selection(Order.passive_sonar() if active == capable else Order.active_sonar())
 	for u in map.selected:
-		if u.active_sonar_on:
+		if u.active_sonar_on and _receives_report(u):
 			SoundFx.play("ping", 0.5)
 			break
 
 
 func _on_track_added(faction: String, t: Track) -> void:
-	if faction != simulation.player_faction or (map.reference_unit() != null and not t.visible_to(map.reference_unit())):
+	if faction != simulation.player_faction or not _commander_sees_track(t):
 		return
 	SimClock.drop_to_realtime()
 	_stats["contacts"] += 1
@@ -2595,7 +2699,7 @@ func _on_track_added(faction: String, t: Track) -> void:
 
 
 func _on_track_classified(faction: String, t: Track) -> void:
-	if faction != simulation.player_faction:
+	if faction != simulation.player_faction or not _commander_sees_track(t):
 		return
 	if t.classification == Track.Classification.CLASS_KNOWN:
 		SimClock.drop_to_realtime()
@@ -2611,7 +2715,7 @@ func _on_track_classified(faction: String, t: Track) -> void:
 
 
 func _on_track_lost(faction: String, t: Track) -> void:
-	if faction == simulation.player_faction:
+	if faction == simulation.player_faction and _commander_sees_track(t):
 		radio.flash("Track %s lost" % DataDisplay.track_number_for_track(t), "warn")
 
 

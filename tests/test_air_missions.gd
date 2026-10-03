@@ -650,3 +650,186 @@ func test_legacy_save_mid_dip_restores_the_search_route_and_deploys_deliberately
 	assert_eq(helo.dip_phase, DippingSonar.Phase.STOWED)
 	assert_true(helo.patrol_active and helo.speed_kn > DippingSonar.MAX_SPEED_KN, "the crew resumes its search instead of remaining stopped")
 	_done()
+
+
+func test_edit_moves_and_resizes_existing_mission_without_replacing_airframes() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var amm := _sim.air_mission_manager
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 2, cv.position + Vector2(0, 20), 10.0)))
+	var m := _mission()
+	_advance(600.0)
+	var original: Array[Unit] = m.aircraft.duplicate()
+	var launches := m.launched_total
+	var station := cv.position + Vector2(25, 15)
+	var edit := Order.revise_air_mission(m, station, 18.0, 2, true, true)
+	assert_true(_sim.unit_manager.issue_order(cv, edit), edit.receipt)
+	assert_eq(amm.active_missions("BLUE").size(), 1, "editing creates no replacement mission")
+	assert_eq(m.aircraft, original, "assigned airframes survive the edit")
+	assert_eq(m.launched_total, launches, "moving the station orders no duplicate launches")
+	assert_eq(m.pending_launches, 0)
+	assert_eq(m.station, station)
+	assert_eq(m.radius_nm, 18.0)
+	assert_true(m.relief)
+	for a in original:
+		assert_eq(a.station_mission_id, m.id)
+		assert_true(a.station_route.has(station - Vector2(18, 18)))
+	var before := SimSnapshot.capture(_sim)
+	var refused := Order.revise_air_mission(m, cv.position + Vector2(0, 2000), 20, 2, false, true)
+	assert_true(not _sim.unit_manager.issue_order(cv, refused))
+	assert_eq(m.station, station, "out-of-range edit leaves the accepted station intact")
+	assert_true(m.relief, "failed edits are atomic")
+	assert_eq(_sim.restore_snapshot(before), "")
+	m = _mission()
+	assert_eq(m.station, station)
+	assert_eq(m.radius_nm, 18.0)
+	assert_eq(m.note_at_s, 600.0)
+	_done()
+
+
+func test_reducing_mission_strength_cancels_queue_before_recalling_airframes() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 6, cv.position + Vector2(0, 20), 10)))
+	var m := _mission()
+	assert_eq(m.pending_launches, 2)
+	var flights: Array[Unit] = m.aircraft.duplicate()
+	assert_true(_sim.unit_manager.issue_order(cv, Order.revise_air_mission(m, m.station, 10, 2, true, true)))
+	assert_eq(m.pending_launches, 0)
+	assert_eq(m.requested, 2)
+	_advance(250)
+	assert_eq(m.launched_total, 4, "the two reserve launches were struck off")
+	assert_true(not flights[0].returning and not flights[1].returning, "the retained section flies its task")
+	for a in flights.slice(2):
+		assert_true(a.returning or not a.in_flight(), "excess launches recover after takeoff")
+	assert_eq(m.pending_launches, 0, "retiring airframes do not call their own relief")
+	_done()
+
+
+func test_cap_protects_its_anchor_and_breaks_mission_pursuit_at_boundary() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var assignment := Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, cv.position + Vector2(0, 20), 10)
+	assignment.cap_intent = "protect"
+	assignment.protected_unit = cv
+	assignment.pursuit_nm = 5
+	assert_true(_sim.unit_manager.issue_order(cv, assignment))
+	var m := _mission()
+	_advance(600)
+	var a := m.aircraft[0]
+	var old_station := m.station
+	cv.position += Vector2(4, 0)
+	_sim.air_mission_manager._follow_anchor(m)
+	assert_true(m.station.distance_to(old_station + Vector2(4, 0)) < 2.1, "station follows its protected group")
+	var raid := _plot(m.station + Vector2(5, 0), "8881")
+	raid.domain = "air"
+	raid.identity = "HOSTILE"
+	raid.classification = Track.Classification.CLASS_KNOWN
+	_sim.air_mission_manager._cap_look(m, a, m.tasks[a])
+	assert_eq(a.attack_track, raid)
+	raid.position = m.station + Vector2(40, 0)
+	_sim.air_mission_manager._enforce_cap_boundary(m, a, m.tasks[a])
+	assert_eq(a.attack_track, null, "mission pursuit cannot pull the fighter off its defended area")
+	assert_true(a.on_station())
+	var snapshot := SimSnapshot.capture(_sim)
+	assert_eq(_sim.restore_snapshot(snapshot), "")
+	m = _mission()
+	assert_eq(m.cap_intent, "protect")
+	assert_eq(m.protected_unit.callsign, IKE)
+	assert_eq(m.pursuit_nm, 5.0)
+	# Original saves have none of the intent/report-time fields: retain a fixed-area CAP.
+	for record: Dictionary in snapshot["air_missions"]:
+		for field in ["cap_intent", "protected_unit", "anchor_offset", "pursuit_nm", "note_at_s"]:
+			record.erase(field)
+	assert_eq(_sim.restore_snapshot(snapshot), "")
+	m = _mission()
+	assert_eq(m.cap_intent, "hold")
+	assert_eq(m.protected_unit, null)
+	assert_eq(m.pursuit_nm, 25.0)
+	assert_true(m.last_report().begins_with("Earlier report"), "legacy history does not invent a timestamp")
+	_done()
+
+
+func test_cap_prioritizes_held_closing_course_over_nearest_departing_raid() -> void:
+	var m := AirMission.new()
+	m.station = Vector2.ZERO
+	var a := Unit.new()
+	a.position = Vector2.ZERO
+	var inbound := Track.new()
+	inbound.position = Vector2(0, 30)
+	inbound.course_deg = 180.0
+	inbound.speed_kn = 420.0
+	inbound.has_kinematics = true
+	var outbound := Track.new()
+	outbound.position = Vector2(0, 10)
+	outbound.course_deg = 0.0
+	outbound.speed_kn = 420.0
+	outbound.has_kinematics = true
+	assert_true(AirMissionManager._cap_priority(m, a, inbound) < AirMissionManager._cap_priority(m, a, outbound))
+	inbound.has_kinematics = false
+	assert_true(AirMissionManager._cap_priority(m, a, inbound) > AirMissionManager._cap_priority(m, a, outbound), "unknown kinematics do not invent a closing course")
+
+
+func test_mission_editor_and_recovery_roster_show_only_relevant_controls() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var ui := AirOperations.new()
+	ui.simulation = _sim
+	(Engine.get_main_loop() as SceneTree).root.add_child(ui)
+	ui.open_for([cv])
+	ui.show_receipt("One aircraft launching", true)
+	assert_true(ui._receipt.text.begins_with("Order 00:00:00 · "), "reopened historical receipt cannot look like current aircraft state")
+	assert_true(not ui._lower_tabs.visible, "empty missions and recovery area collapses")
+	assert_eq(ui._roster.get_root().get_child_count(), 0, "ready airframes appear once on their deck")
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, cv.position + Vector2(0, 20), 10)))
+	var m := _mission()
+	ui.refresh()
+	assert_true(ui._lower_tabs.visible, "the active mission exposes the board")
+	ui._selected_mission = m
+	ui._edit_selected_mission()
+	assert_eq(ui._editing_mission, m)
+	assert_eq(int(ui._count.value), m.requested)
+	assert_true(ui._launch.text.begins_with("UPDATE"))
+	assert_true(ui._base_picker.disabled and ui._type_picker.disabled, "editing cannot silently replace the mission's deck/type")
+	ui.apply_station(m.station + Vector2(10, 0))
+	ui._finish_edit()
+	assert_eq(m.station, cv.position + Vector2(0, 20), "discarding edits sends no order")
+	assert_true(m.last_report().begins_with("00:00:00"), "historical receipt explicitly carries its time")
+	# A deck casualty suspends launches but cannot prevent retasking the aircraft in hand.
+	cv.fire = 0.5
+	ui._selected_mission = m
+	m.cap_intent = "protect"
+	m.protected_unit = cv
+	ui._edit_selected_mission()
+	assert_true(not ui._launch.disabled, "editor permits an existing mission update while launch operations are suspended")
+	var other_anchor: Unit = ui._anchors[0] if ui._anchors[0] != cv else ui._anchors[1]
+	ui._anchor_picker.select(ui._anchors.find(other_anchor))
+	ui.refresh()  # the same refresh that follows a chart pick
+	assert_eq(ui._anchors[ui._anchor_picker.selected], other_anchor, "chart pick return preserves the draft protected group")
+	ui.order_requested.connect(func(base: Unit, order: Order) -> void: _sim.unit_manager.issue_order(base, order))
+	var revised_station := m.station + Vector2(5, 0)
+	ui.apply_station(revised_station)
+	ui._launch_selected()
+	assert_eq(m.station, revised_station, "execution uses the same edit validation as the enabled button")
+	assert_eq(m.launched_total, 1, "an update does not launch around deck damage")
+	ui.free()
+	_done()
+
+
+func test_reopening_air_operations_after_a_simple_launch_exposes_recovery() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var ui := AirOperations.new()
+	ui.simulation = _sim
+	(Engine.get_main_loop() as SceneTree).root.add_child(ui)
+	ui.open_for([cv])
+	assert_true(not ui._lower_tabs.visible)
+	var a := _sim.aviation_manager.launch(cv, "cw90_f14a")
+	assert_true(a != null)
+	_advance(a.spec.launch_time_s + 1)
+	ui.open_for([a])
+	assert_eq(ui._lower_tabs.current_tab, 0, "reopening on an airborne aircraft must leave the previously empty Missions tab")
+	assert_true(ui._return.is_visible_in_tree() and not ui._return.disabled, "Return & Land is visible and actionable")
+	assert_eq(_sim.air_mission_manager.active_missions("BLUE").size(), 0)
+	ui.free()
+	_done()

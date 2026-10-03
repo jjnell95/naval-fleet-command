@@ -11,7 +11,7 @@ nation = "Russia"
 category = "strike aircraft"
 domain = "air"
 max_speed_kn = 1500.0
-cruise_speed_kn = 750.0
+cruise_speed_kn = 500.0
 turn_rate_deg_s = 5.0
 accel_kn_s = 10.0
 length_m = 22.7
@@ -32,3 +32,8 @@ weapon_loadout = {"kinzhal_family": 1}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
 
 role = "Strike Aircraft • maritime operations"
+
+; GAMEPLAY_ESTIMATE: economical station, normal transit, short intercept speeds.
+patrol_speed_kn = 410.0
+transit_speed_kn = 500.0
+dash_speed_kn = 720.0

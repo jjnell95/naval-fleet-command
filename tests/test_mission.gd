@@ -417,7 +417,7 @@ func test_the_desk_index_parses_shipped_missions_once_and_rereads_a_changed_cust
 	var first := ScenarioIndex.list_all()
 	var parsed := ScenarioIndex.parses
 	var shipped := first.filter(func(e: Dictionary) -> bool: return not e["custom"])
-	assert_eq(shipped.size(), 9, "nine missions ship")
+	assert_eq(shipped.size(), 11, "seven operations and four training missions ship")
 	first[0]["name"] = "scribbled on by a caller"
 	var again := ScenarioIndex.list_all()
 	assert_eq(ScenarioIndex.parses, parsed, "a second refresh parses nothing it has already read")

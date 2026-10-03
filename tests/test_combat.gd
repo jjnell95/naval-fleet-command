@@ -167,6 +167,7 @@ func test_stale_track_sends_missile_to_empty_water() -> void:
 
 func test_mid_course_update_follows_an_active_track() -> void:
 	var w := _asm(1.0, 60.0, 8.0, 40.0)
+	w.midcourse_updates = true
 	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, w, 8)
 	var target := _unit("RED", Vector2(0.0, 25.0), 100.0)
 	target.heading_deg = 90.0

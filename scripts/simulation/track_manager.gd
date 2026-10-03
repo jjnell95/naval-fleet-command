@@ -27,12 +27,19 @@ const GENERIC_HEALTH := 100.0  # GAMEPLAY
 ## Factions that are not at war with anyone. Their ships classify as NEUTRAL rather than HOSTILE,
 ## which is what makes identification a decision rather than a formality.
 var neutral_factions: PackedStringArray = []
+## Authored recognition briefing, scoped by observing faction and platform catalogue id.
+## A signature-library match can apply this intelligence; missing IFF never means hostile.
+var recognition_affiliations: Dictionary = {}
+
 var _tracks: Dictionary = {}  # faction -> Array[Track]
 var _by_target: Dictionary = {}  # picture key -> reported target association -> Track
 var _local_keys: Dictionary = {}
 var _track_ids: Dictionary = {}
 var _next_number: Dictionary = {}  # faction -> int
 
+
+func configure_recognition(brief: Dictionary) -> void:
+	recognition_affiliations = brief.duplicate(true)
 
 func get_tracks(faction: String) -> Array:
 	return _tracks.get(faction, [])
@@ -149,6 +156,7 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t._cycle_firm = false
 		t._cycle_error = INF
 		t._cycle_observation_gain = 0.0
+		t._cycle_signature_gain = 0.0
 		t._cycle_tma_start = t.tma_quality
 		t._cycle_tma_gain = 0.0
 		if reacquired or from_report:
@@ -164,17 +172,35 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t.altitude_m = c.altitude_m
 	t.status = Track.Status.ACTIVE
 	t.last_seen_time = now
-	_update_classification(faction, t)
+	_update_classification(faction, t, c, gain)
+	if c.bearing_only and c.bearing_key != "":
+		BearingSolution.add(t.bearing_history, c, now)
+		if not t.bearing_observers.has(c.bearing_key):
+			t.bearing_solution_at = -1.0e9
+			t.bearing_observers[c.bearing_key] = true
 	if c.bearing_only and not is_new and now - t.last_firm_time <= FIRM_HOLD_S:
 		# Something is holding this contact firmly. A bearing, or a convergence-zone ring, from
 		# another sensor confirms it is there but must not drag a good plot toward a worse guess.
 		return
+	if c.bearing_only and c.bearing_key != "":
+		# A crew updates its TMA every ten seconds, and immediately when another listener
+		# joins. Firm radar/active reports above need no redundant range fit at all.
+		if now - t.bearing_solution_at >= BearingSolution.SAMPLE_INTERVAL_S:
+			t.bearing_solution_cache = BearingSolution.estimate(t.bearing_history, now)
+			t.bearing_solution_at = now
+		var solution := t.bearing_solution_cache.duplicate()
+		if not solution.is_empty():
+			var age := maxf(now - t.bearing_solution_at, 0.0)
+			solution["position"] += (solution.get("velocity", Vector2.ZERO) as Vector2) * age
+			solution["major"] += Track.ERROR_GROWTH_NM_PER_S * age
+			solution["quality"] = maxf(float(solution["quality"]) - TMA_DECAY_PER_S * age, 0.0)
+		c = _resolved_contact(c, solution)
 	var error := maxf(c.error_major_nm, c.error_minor_nm)
 	var firm := not c.bearing_only
 	if t._cycle_has_plot:
 		if (t._cycle_firm and not firm) or (t._cycle_firm == firm and error >= t._cycle_error):
 			return
-	if firm and t.is_bearing_only():
+	if (firm or c.solution_quality >= 0.6) and t.is_bearing_only():
 		# A measured range replaces a tentative bearing guess, including any guessed
 		# positions that would otherwise produce a spurious velocity in the fit.
 		t._cycle_snap = true
@@ -186,9 +212,8 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t.last_firm_time = now
 	var blend := BEARING_BLEND if c.bearing_only else FIRM_BLEND
 	t.position = c.position if t._cycle_snap else t._cycle_start_position.lerp(c.position, blend)
-	# A firm plot hands over a range outright; a bearing has to be worked up over time.
-	t._cycle_tma_gain = maxf(t._cycle_tma_gain, c.tma_gain)
-	t.tma_quality = 1.0 if not c.bearing_only else clampf(t._cycle_tma_start + t._cycle_tma_gain, 0.0, 1.0)
+	# A measured range is firm; a passive solution carries only its geometry-derived quality.
+	t.tma_quality = 1.0 if not c.bearing_only else c.solution_quality
 	t.bearing_only = c.bearing_only
 	t.error_major_nm = c.error_major_nm
 	t.error_minor_nm = c.error_minor_nm
@@ -296,30 +321,77 @@ func _any_contributor_linked(t: Track) -> bool:
 	return false
 
 
-func _update_classification(faction: String, t: Track) -> void:
-	var level := t.classification
-	for i in range(Track.CLASS_TIMES_S.size() - 1, -1, -1):
-		if t.observation_time_s >= Track.CLASS_TIMES_S[i]:
-			level = i as Track.Classification
-			break
-	if level == t.classification:
-		return
-	t.classification = level
-	if level >= Track.Classification.SURFACE:
-		t.domain = t.truth.spec.domain
-	if level >= Track.Classification.CLASS_KNOWN:
-		t.known_class = t.truth.spec.short_name
-		t.known_category = t.truth.spec.category
-		if neutral_factions.has(t.truth.faction):
-			t.identity = "NEUTRAL"
-		elif t.truth.faction == faction:
-			t.identity = "FRIENDLY"
-		else:
-			t.identity = "HOSTILE"
-	if level >= Track.Classification.IDENTIFIED:
-		t.known_callsign = t.truth.callsign
-	if t.networked:
+func _resolved_contact(raw: SensorContact, solution: Dictionary) -> SensorContact:
+	if solution.is_empty():
+		return raw
+	var c := SensorContact.new()
+	for field in ["target", "observer", "source", "sensor_id", "sensor_name", "quality", "classify_rate", "range_nm"]:
+		c.set(field, raw.get(field))
+	c.position = solution["position"]
+	c.error_major_nm = solution["major"]
+	c.error_minor_nm = solution["minor"]
+	c.error_axis_deg = solution["axis"]
+	c.bearing_only = true
+	c.solution_quality = solution["quality"]
+	return c
+
+
+func _update_classification(faction: String, t: Track, c: SensorContact, gain: float) -> void:
+	var previous := [t.classification, t.identity]
+	if t.observation_time_s >= Track.CLASS_TIMES_S[1]:
+		t.classification = maxi(t.classification, Track.Classification.SURFACE) as Track.Classification
+		t.domain = c.target.spec.domain
+	# Emission/acoustic signature libraries give a probable class, not a hull name or proof of
+	# intent. A generic radar range/velocity plot cannot identify an exact platform by waiting.
+	if c.source in ["esm", "sonar_passive", "sonar_active", "sonar_cz", "sonobuoy"]:
+		t.signature_time_s += maxf(gain - t._cycle_signature_gain, 0.0)
+		t._cycle_signature_gain = maxf(gain, t._cycle_signature_gain)
+		if t.signature_time_s >= Track.CLASS_TIMES_S[2] and t.classification < Track.Classification.IDENTIFIED:
+			t.classification = Track.Classification.CLASS_KNOWN
+			t.known_class = c.target.spec.short_name
+			t.known_category = c.target.spec.category
+			t.class_is_probable = true
+			t.class_evidence = "Emitter library match" if c.source == "esm" else "Acoustic library match"
+			var brief: Dictionary = recognition_affiliations.get(faction, {})
+			var affiliation := String(brief.get(c.target.spec.id, ""))
+			if t.identity == "UNKNOWN" and affiliation in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
+				t.identity = affiliation
+				t.identity_evidence = "Scenario recognition brief"
+	if c.visual_identification:
+		t.classification = Track.Classification.IDENTIFIED
+		t.domain = c.target.spec.domain
+		t.known_class = c.target.spec.short_name
+		t.known_category = c.target.spec.category
+		t.known_callsign = c.target.callsign
+		t.class_is_probable = false
+		t.class_evidence = "Visual recognition"
+		# Markings provide positive affiliation, independently of a library's probable class.
+		t.identity = "NEUTRAL" if neutral_factions.has(c.target.faction) else ("FRIENDLY" if c.target.faction == faction else "HOSTILE")
+		t.identity_evidence = "Visual markings"
+	if previous != [t.classification, t.identity] and t.networked:
 		track_classified.emit(faction, t)
+
+
+## Attribute a visibly originating hostile weapon only when the launcher is held locally,
+## accurately and freshly. Seeing a distant incoming missile does not reveal its hidden source.
+func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
+	if observer == null or weapon.shooter == null or weapon.is_interceptor() or weapon.time_alive_s > 3.0:
+		return
+	var local := find_track(_local_keys.get(observer, ""), weapon.shooter)
+	if local == null or local.is_bearing_only() or local.age_s(now) > 2.0 or local.position_error_nm > 1.0:
+		return
+	if local.position.distance_to(weapon.position) > 1.5:
+		return
+	var toward := Geo.bearing_deg(weapon.position, observer.position)
+	if absf(Geo.heading_delta(weapon.heading_deg, toward)) > 30.0:
+		return
+	for key in [_local_keys.get(observer, ""), observer.faction if observer.datalink_connected() else ""]:
+		var t := find_track(key, weapon.shooter)
+		if t != null and t.identity != "HOSTILE":
+			t.identity = "HOSTILE"
+			t.identity_evidence = "Observed hostile launch"
+			if t.networked:
+				track_classified.emit(observer.faction, t)
 
 
 func _update_kinematics(t: Track, now: float) -> void:

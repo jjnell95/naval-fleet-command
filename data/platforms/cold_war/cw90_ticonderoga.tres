@@ -32,3 +32,5 @@ torpedo_decoy = "AN/SLQ-25 Nixie"
 towed_torpedo_decoy = true
 torpedo_decoy_effectiveness = 0.3
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."
+
+weapon_mount_arcs = {"cw90_mk45": [Vector2(0, 140), Vector2(180, 140)]}
