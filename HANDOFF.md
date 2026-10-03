@@ -1,5 +1,14 @@
 # Handoff
 
+Latest: M37, [integrated air defence, weapon fixes and flight operations](docs/2026-10-03-integrated-air-defence-and-flight-ops.md).
+- **Defence cycle.** `AirDefence.run_cycle` is now two passes over the raid, ranked by `_rank_defenders`. The per-layer lifetime allowance is keyed by `AirDefence.layer_key` (layer and ship).
+- **Networked guidance.** It lives in `WeaponManager.guidance_available`, `network_guide` and `network_track_guide`, gated by `PlatformSpec.cooperative_engagement` on both ships. Interceptors no longer take the shooter-radar check at the top of `_step`; `_step_interceptor` checks guidance itself.
+- **Weapons Free against aircraft.** `AirDefence.engage_hostile_aircraft` runs only for a player side with no AI controller.
+- **Holds.** `Movement.enter_hold` lays a racetrack and marks it (`Unit.hold_active`/`hold_point`). Anything deciding whether a unit is idle must use `Unit.has_route()`, not `waypoints.is_empty()`; the AI search did the latter and stalled until it was changed.
+- **Marshal.** `AviationManager.deck_can_recover`, `in_marshal` and `marshal_point`.
+- **Ready alert.** `Unit.ready_alert`, `Order.set_ready_alert` (a new `SET_READY_ALERT` order type, appended to the enum) and `AirMissionManager._scramble_alerts`.
+- **Generators.** They need `shapely`. Even with it, the generator sequence did not reproduce `data/` byte for byte in the cloud container, so data was edited by hand to match the generator output, and the generator carries the same change.
+
 Latest art pass: 22 aircraft and all 14 submarine catalogue entries have revised original geometry, matching portraits/map plans and a shared `submarine_coating` world finish. `tools/art/build_air_subs.py` overrides the old builders; regenerate with `tools/art/rebuild_air_subs.sh` (copies donor derivatives last). Do not regenerate these entries with the legacy Blender source. `tools/recognition_playtest.gd` checks every revised entry through the real Reference viewer, including all three camera presets. See [the combined art and command review](docs/2026-10-02-aircraft-submarines-and-integration.md).
 
 Latest deeper pass: [Classic, uncertainty and guided command](docs/2026-10-02-deep-command-review.md). `CommandGuide` observes accepted player orders and held reports; progress is saved in Main's presentation dictionary, not simulation fields. Briefing F1 can resume it. New native coverage: `tools/deep_command_playtest.gd`. Classic is now [1, 2, 4, 8], manual SAMs, auto-attack off. Explicit saved values always win; legacy 4×/auto-attack remains Custom. `WorldPresentation.plotted_entry` must never read a hidden specification: class representatives come from `MapSymbols.platform_for_class`, altitude from the Track. Visual sightings now also check terrain. Known sensor-only models are tinted, and captions distinguish SIGHTED, SENSOR ESTIMATE and BEARING ONLY/NO CURRENT FIX.

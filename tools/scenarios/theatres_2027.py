@@ -423,6 +423,7 @@ def catalogue():
               "mk45_mod4_gun": 300, "phalanx_ciws": 60, "jmsdf_type12_torpedo": 6},
              length_m=170.0, displacement_t=10250.0, health=125.0, signature_factor=1.05, mast_height_m=32.0,
              fire_control_channels=6, decoy_count=14, aircraft_capacity=1, vls_cells=96,
+             cooperative_engagement=True,
              default_air_wing={"jmsdf_helo_sh60k": 1},
              role="Aegis area air and ballistic missile defence",
              service_note="Aegis Baseline J7 with cooperative engagement; 96 cells shared between Standard, SM-3, SM-6, ESSM and the Type 07 rocket. Eight Type 17 in canisters.")

@@ -38,6 +38,16 @@ const DIP_S := 180.0
 const DIP_INTERVAL_S := 240.0
 ## A held radar altitude above this marks an unclassified contact as probably airborne.
 const AIRBORNE_ALTITUDE_M := 30.0
+## Ready alert. A deck holding fighters on alert scrambles them into a CAP between itself and a
+## hostile air raid that comes within this distance, or that is closing on it within the wider
+## one. The CAP is laid toward the raid at this fraction of its range, no further out than the
+## cap. GAMEPLAY_ESTIMATE throughout; the alert is spent by the scramble and set again by order.
+const MAX_READY_ALERT := 4
+const ALERT_TRIGGER_NM := 60.0
+const ALERT_CLOSING_TRIGGER_NM := 120.0
+const ALERT_STATION_FRACTION := 0.5
+const ALERT_STATION_MAX_NM := 40.0
+const ALERT_RADIUS_NM := 15.0
 
 var unit_manager: UnitManager
 var aviation_manager: AviationManager
@@ -530,6 +540,85 @@ func _end(m: AirMission, reason: String) -> void:
 
 # --- The mission cycle -------------------------------------------------------------------
 
+## Why this deck cannot hold `count` fighters on alert, or "". Standing an alert down always works.
+static func ready_alert_rejection(u: Unit, count: int) -> String:
+	if u == null or not u.is_engageable() or u.spec.aircraft_capacity <= 0:
+		return "No flight deck"
+	if count <= 0:
+		return ""
+	if count > MAX_READY_ALERT:
+		return "At most %d on alert" % MAX_READY_ALERT
+	if alert_fighter_type(u) == "":
+		return "No fighters aboard"
+	return ""
+
+
+## The fighter type a deck puts on alert: the one with most airframes aboard fit for a CAP.
+static func alert_fighter_type(base: Unit) -> String:
+	var counts := {}
+	for a: Unit in base.embarked:
+		if a.alive and type_suits(a.spec, AirMission.Kind.CAP):
+			counts[a.spec.id] = int(counts.get(a.spec.id, 0)) + 1
+	var best := ""
+	for pid: String in counts:
+		if best == "" or int(counts[pid]) > int(counts[best]):
+			best = pid
+	return best
+
+
+## The nearest hostile air contact that should bring an alert deck's fighters up, or null.
+func _alert_threat(base: Unit) -> Track:
+	var best: Track = null
+	var best_d := INF
+	for t: Track in track_manager.tracks_for(base):
+		if t.identity != "HOSTILE" or t.status != Track.Status.ACTIVE or not _probably_air(t) or t.is_bearing_only():
+			continue
+		var d := t.position.distance_to(base.position)
+		var closing := false
+		if t.has_kinematics and t.speed_kn > 0.0 and d > 0.01:
+			closing = Geo.heading_to_vector(t.course_deg).dot((base.position - t.position).normalized()) > 0.3
+		if (d <= ALERT_TRIGGER_NM or (closing and d <= ALERT_CLOSING_TRIGGER_NM)) and d < best_d:
+			best = t
+			best_d = d
+	return best
+
+
+## Decks on alert with a raid coming: launch the alert as a CAP toward it. A deck already flying a
+## CAP of its own is already answering, and keeps its alert for the next raid.
+func _scramble_alerts() -> void:
+	if track_manager == null:
+		return
+	for base: Unit in unit_manager.units:
+		if base.ready_alert <= 0 or not base.alive or not base.is_engageable():
+			continue
+		var flying_cap := false
+		for m in missions:
+			if m.active and m.base == base and m.kind == AirMission.Kind.CAP:
+				flying_cap = true
+				break
+		if flying_cap:
+			continue
+		var threat := _alert_threat(base)
+		if threat == null:
+			continue
+		var pid := alert_fighter_type(base)
+		if pid == "":
+			continue
+		var available := available_for(base, pid, AirMission.Kind.CAP)
+		if available <= 0:
+			continue
+		var count := mini(base.ready_alert, available)
+		var bearing := (threat.position - base.position).normalized()
+		var reach := minf(base.position.distance_to(threat.position) * ALERT_STATION_FRACTION, ALERT_STATION_MAX_NM)
+		var order := Order.air_mission(AirMission.Kind.CAP, pid, count, base.position + bearing * reach, ALERT_RADIUS_NM)
+		order.origin = "crew"
+		var m := request(base, order)
+		if m == null:
+			continue
+		base.ready_alert = 0
+		_report(m, "ALERT LAUNCH: %d × %s scrambled from %s toward track %s" % [count, DataDB.platform(pid).short_name, base.callsign, threat.id], true)
+
+
 func tick(dt: float, now: float) -> void:
 	now_s = now
 	_accum += dt
@@ -538,6 +627,7 @@ func tick(dt: float, now: float) -> void:
 		for m in missions:
 			if m.active:
 				_step(m)
+		_scramble_alerts()
 
 
 func _step(m: AirMission) -> void:
@@ -559,7 +649,11 @@ func _step(m: AirMission) -> void:
 			m.pending_launches = 0
 	_launch_owed(m)
 	if m.aircraft.is_empty() and m.pending_launches <= 0:
-		_end(m, "Strike complete" if m.kind == AirMission.Kind.STRIKE else "All aircraft recovered")
+		if m.kind == AirMission.Kind.STRIKE:
+			# A strike whose launches were all struck off never flew: say so, not "complete".
+			_end(m, "Strike complete" if m.launched_total > 0 else "Strike called off")
+		else:
+			_end(m, "All aircraft recovered")
 		return
 	if m.pending_launches > 0 and m.aircraft.is_empty() and _launch_candidates(m).is_empty() and not _any_coming_ready(m):
 		_report(m, "%s: no %s left to launch" % [m.label(), DataDB.platform(m.platform_id).short_name], false)
@@ -621,15 +715,16 @@ func _any_coming_ready(m: AirMission) -> bool:
 	return false
 
 
-## An airframe back over this deck and waiting for it to stop launching.
+## An airframe back at this deck, in the marshal stack or on approach, waiting for it to stop
+## launching: recoveries come first, or a busy launch queue would keep it holding on its last fuel.
 static func _recovery_waiting(base: Unit) -> bool:
 	if base.spec.flight_facility() == "airfield":
 		return false  # a field launches and recovers on separate runways
 	for a in base.inbound_aircraft:
-		if a.alive and a.airborne() and a.returning and a.position.distance_to(base.position) <= AviationManager.RECOVERY_RANGE_NM + 1.0:
+		if a.alive and a.airborne() and a.returning and a.position.distance_to(base.position) <= AviationManager.MARSHAL_RANGE_NM + AviationManager.MARSHAL_SLACK_NM:
 			return true
 	for a in base.embarked:
-		if a.alive and a.airborne() and a.returning and (a.recovery_base == null or a.recovery_base == base) and a.position.distance_to(base.position) <= AviationManager.RECOVERY_RANGE_NM + 1.0:
+		if a.alive and a.airborne() and a.returning and (a.recovery_base == null or a.recovery_base == base) and a.position.distance_to(base.position) <= AviationManager.MARSHAL_RANGE_NM + AviationManager.MARSHAL_SLACK_NM:
 			return true
 	return false
 
@@ -678,9 +773,9 @@ func _track_airframe(m: AirMission, a: Unit) -> void:
 	if m.kind == AirMission.Kind.CAP:
 		_enforce_cap_boundary(m, a, task)
 	if a.returning:
-		if task["state"] != AirMission.RETURNING:
-			task["state"] = AirMission.RETURNING
+		if task["state"] != AirMission.RETURNING and task["state"] != AirMission.MARSHAL:
 			_call_relief(m, a, task, "%s heading home" % a.callsign)
+		task["state"] = AirMission.MARSHAL if AviationManager.in_marshal(a) else AirMission.RETURNING
 		return
 	if a.tanking_on != null:
 		task["state"] = AirMission.REFUELLING
@@ -806,16 +901,27 @@ func _step_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 		task["next_dip_at"] = now_s + DIP_INTERVAL_S
 		return
 	if not a.on_station():
-		# A task ended with auto-return off: the airframe holds until told to go back (S).
+		# A task ended with auto-return off: the airframe holds until told to go back (S). It is
+		# still on the mission: a CAP that has just identified a hostile still intercepts it, from
+		# where it is holding, instead of flying on with nothing to do until bingo.
 		task["state"] = AirMission.HOLDING
+		_look(m, a, task)
 		return
 	var half := float(task.get("half", m.radius_nm)) + STATION_ARRIVAL_MARGIN_NM
 	var offset := a.position - m.station
 	task["state"] = AirMission.ON_STATION if absf(offset.x) <= half and absf(offset.y) <= half else AirMission.TRANSITING
-	var flight_speed := a.spec.flight_speed("patrol" if task["state"] == AirMission.ON_STATION else "transit")
-	if absf(a.ordered_speed_kn - flight_speed) > 0.1:
-		_crew(a, Order.set_speed(flight_speed))
+	# The mission sets the speed when the airframe's state changes (out at transit, on station at
+	# patrol), not every second: a dash the commander orders on station stands until the next change.
+	if str(task.get("speed_for", "")) != str(task["state"]):
+		task["speed_for"] = task["state"]
+		var flight_speed := a.spec.flight_speed("patrol" if task["state"] == AirMission.ON_STATION else "transit")
+		if absf(a.ordered_speed_kn - flight_speed) > 0.1:
+			_crew(a, Order.set_speed(flight_speed))
 	a.station_speed_kn = a.spec.flight_speed("patrol")
+	_look(m, a, task)
+
+
+func _look(m: AirMission, a: Unit, task: Dictionary) -> void:
 	match m.kind:
 		AirMission.Kind.CAP:
 			_cap_look(m, a, task)
@@ -882,6 +988,9 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 		return
 	if attack:
 		if _crew(a, Order.attack(best)):
+			# An intercept is flown fast: the attack takes its speed from the order after it.
+			_crew(a, Order.set_speed(a.spec.flight_speed("dash")))
+			task["speed_for"] = AirMission.ENGAGING
 			task["state"] = AirMission.ENGAGING
 			task["attacked"] = true
 			task["cap_target"] = best
@@ -931,6 +1040,10 @@ func _recon_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var best_d := INF
 	for t: Track in _nearby(m, a, m.radius_nm + SEARCH_MARGIN_NM):
 		if t.classification >= Track.Classification.CLASS_KNOWN or _committed(m.faction, t, false) > 0:
+			continue
+		# A look from the air identifies what can be seen. A submarine contact is the ASW
+		# mission's: an early-warning aircraft sent to circle one would circle it until bingo.
+		if t.domain == "subsurface" and not a.has_sonar() and a.spec.sonobuoy_count <= 0:
 			continue
 		if UnitManager.investigation_rejection(a, t) != "":
 			continue

@@ -28,5 +28,6 @@ length_m = 170.0
 displacement_t = 10250.0
 aircraft_capacity = 1
 vls_cells = 96
+cooperative_engagement = true
 default_air_wing = {"jmsdf_helo_sh60k": 1}
 source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

@@ -23,6 +23,8 @@ const ATTACK_STANDOFF_FRACTION := 0.8
 const ATTACK_ASSESS_S := 20.0
 ## An attack held this long without being able to fire or close ends with the reason, rather
 ## than parking the platform indefinitely. GAMEPLAY.
+## A standing attack closes on a stale plot for this long before giving it back. GAMEPLAY_ESTIMATE.
+const ATTACK_STALE_S := 240.0
 const ATTACK_STALL_S := 180.0
 
 var units: Array[Unit] = []
@@ -93,6 +95,10 @@ func _handoff_submarine_tasks(u: Unit) -> void:
 ## (deck spots and fire-control channels) remain with their specialist managers.
 func issue_order(u: Unit, order: Order) -> bool:
 	if not can_accept_order(u, order):
+		# A refused shot says why, so the console can tell the commander rather than just
+		# counting refusals. Each pair on a firing board carries its own Order.
+		if order != null and order.type == Order.Type.ENGAGE:
+			order.receipt = engage_rejection(u, order)
 		return false
 	if order.type == Order.Type.MOVE and u.needs_sea_room() and Terrain.is_land(order.target_pos):
 		return false
@@ -119,6 +125,20 @@ func _deliver_submarine_orders(u: Unit, orders: Array[Order]) -> void:
 	for order in orders:
 		if issue_order(u, order): accepted += 1
 	u.comms_note = "%d orders delivered%s" % [accepted, " · %d no longer executable" % (orders.size() - accepted) if accepted < orders.size() else ""]
+
+
+## Why this platform cannot fire this ENGAGE order now, or "". The same checks the order is
+## accepted on, worded for the radio line.
+static func engage_rejection(u: Unit, order: Order) -> String:
+	if u == null or not u.is_engageable():
+		return "platform not deployed"
+	var spec := u.get_weapon(order.weapon_id)
+	if spec == null:
+		return "%s not aboard" % order.weapon_id
+	if order.track == null:
+		return "no contact named"
+	var check := Combat.check_engagement(u, spec, order.track)
+	return "" if bool(check.get("ok", false)) else str(check.get("reason", "no firing solution")).to_lower()
 
 
 static func can_accept_order(u: Unit, order: Order) -> bool:
@@ -152,6 +172,8 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return station_rejection(u) == ""
 		Order.Type.SET_AUTO_RETURN:
 			return u.is_engageable() and u.spec.max_speed_kn > 0.0
+		Order.Type.SET_READY_ALERT:
+			return AirMissionManager.ready_alert_rejection(u, order.aircraft_count) == ""
 		Order.Type.DEPLOY_COUNTERMEASURES:
 			return DefensiveResponse.can_deploy(u, order.countermeasure_kind)
 		Order.Type.EVADE:
@@ -183,8 +205,7 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.CANCEL_FIRE:
 			return u.alive
 		Order.Type.ENGAGE:
-			var spec := u.get_weapon(order.weapon_id)
-			return u.is_engageable() and spec != null and order.track != null and bool(Combat.check_engagement(u, spec, order.track).get("ok", false))
+			return engage_rejection(u, order) == ""
 		Order.Type.SET_DEPTH:
 			return u.is_engageable() and u.is_submarine() and u.spec.max_depth_m > 0.0
 		Order.Type.SET_ALTITUDE:
@@ -365,9 +386,13 @@ func _engage_identified(u: Unit, track: Track, started: int) -> bool:
 static func _hold_investigation_position(u: Unit) -> void:
 	u.waypoints.clear()
 	u.ordered_heading_deg = u.heading_deg
-	# A fixed-wing aircraft cannot hover at a contact plot. Keep it flying on its present course;
-	# while the task remains active, later ticks bring it back toward the held plot as it turns.
-	u.ordered_speed_kn = maxf(u.investigation_speed_kn, u.spec.cruise_speed_kn) if u.is_aircraft() and not u.spec.can_hover else 0.0
+	# A fixed-wing aircraft cannot hover at a contact plot. It holds where it is: a racetrack
+	# through its present position, instead of flying on along its heading until it ran out of
+	# fuel; while the task remains active, later ticks bring it back toward the held plot.
+	if Movement.must_keep_flying(u):
+		Movement.enter_hold(u, u.position)
+	else:
+		u.ordered_speed_kn = 0.0
 
 
 # --- The attack task ---------------------------------------------------------------------
@@ -464,8 +489,14 @@ func _step_attack(u: Unit, dt: float) -> void:
 	var check: Dictionary = solution["check"]
 	if bool(check["ok"]):
 		if track.status != Track.Status.ACTIVE:
-			# Never shoot at a stale plot: the aim point would be old. Close on it instead.
+			# Never shoot at a stale plot: the aim point would be old. Close on it instead, but
+			# not for ever: a plot nobody refreshes for a few minutes is not going to firm up
+			# by itself, and a crew parked on it is a crew the commander thinks is fighting.
 			u.attack_phase = "Intercept track · contact stale"
+			u.attack_stall_s += dt
+			if u.attack_stall_s >= ATTACK_STALE_S:
+				_end_attack(u, track, "Contact stale: no fresh plot to fire on")
+				return
 			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * Combat.effective_range_nm(u, spec), dt)
 			return
 		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
@@ -527,7 +558,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			u.attack_phase = "Attack track · " + why.to_lower()
 			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * reach, dt)
 	# Unable to fire and going nowhere: after a while, say why and stop, rather than park.
-	if u.waypoints.is_empty():
+	if not u.has_route():
 		u.attack_stall_s += dt
 		if u.attack_stall_s >= ATTACK_STALL_S:
 			_end_attack(u, track, "Cannot engage: " + why.to_lower())

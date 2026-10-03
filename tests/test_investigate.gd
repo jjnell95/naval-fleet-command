@@ -243,8 +243,11 @@ func test_fixed_wing_keeps_flying_at_plot_and_after_classification() -> void:
 	t.classification = Track.Classification.CLASS_KNOWN
 	um.tick(0.25)
 	assert_eq(a.investigation_track, null)
-	assert_true(a.ordered_speed_kn >= a.spec.cruise_speed_kn, "completed aircraft maintains forward flight")
-	assert_true(a.waypoints.is_empty(), "no continued pursuit after positive classification")
+	assert_true(a.ordered_speed_kn >= a.spec.flight_speed("patrol") - 0.01, "completed aircraft maintains forward flight")
+	# It holds where it finished, a racetrack through its own position, rather than flying on along
+	# its heading until bingo or continuing to pursue the classified contact.
+	assert_eq(a.waypoints.size(), 4, "a holding pattern")
+	assert_true(a.waypoints.back().distance_to(a.position) < 0.5, "the hold is laid where the aircraft is")
 	um.free()
 
 

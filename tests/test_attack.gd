@@ -580,3 +580,20 @@ func test_an_attack_that_can_neither_fire_nor_move_ends_with_the_reason() -> voi
 	assert_true(ended, "but the task does not park the ship forever")
 	assert_eq(h.ended[0][2], "Cannot engage: radar guidance unavailable")
 	h.free_all()
+
+
+func test_an_attack_held_on_a_stale_plot_gives_it_back_with_the_reason() -> void:
+	var asm := _asm(60.0)
+	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [asm])
+	var target := _unit("RED", Vector2(0, 30), 800.0)
+	var t := _track(target, Vector2(0, 30))
+	t.status = Track.Status.STALE
+	var h := _harness([shooter, target])
+	h.um.issue_order(shooter, Order.attack(t))
+	h.advance(UnitManager.ATTACK_STALE_S - 5.0)
+	assert_true(h.ended.is_empty(), "still closing on the plot")
+	assert_eq(shooter.attack_rounds_fired, 0)
+	h.advance(10.0)
+	assert_eq(h.ended.size(), 1, "the crew does not park on a plot nobody refreshes")
+	assert_eq(h.ended[0][2], "Contact stale: no fresh plot to fire on")
+	h.free_all()

@@ -70,6 +70,12 @@ extends Resource
 @export var weapon_loadout: Dictionary = {}  # weapon id -> rounds carried
 @export var has_datalink := true  # a merchant or a boat under water is not on the network
 @export var fire_control_channels := 4  # simultaneous air-defence engagements (GAMEPLAY_ESTIMATE)
+## Integrated fire control over the link. A ship with this, on the link, can launch a guided
+## interceptor at a round or aircraft beyond its own radar's reach when another such ship on the
+## link holds it inside its own, and that consort's radar carries the round in. Gameplay
+## abstraction of a networked air-defence force; no real system's behaviour or performance is
+## represented. Both ships need it: an ordinary consort's plot is a cue, never guidance.
+@export var cooperative_engagement := false
 @export var decoy_count := 12  # chaff / decoy launches carried (GAMEPLAY_ESTIMATE)
 @export var decoy_effectiveness := 0.35  # base chance one salvo of decoys defeats a seeker
 

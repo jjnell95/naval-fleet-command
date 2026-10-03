@@ -103,8 +103,9 @@ func test_a_cap_launches_real_airframes_and_queues_the_rest() -> void:
 		seen[a] = true
 	var working := 0
 	for a in m.aircraft:
-		# The 1990 raid is real: the CAP may already be intercepting it on its own sensors.
-		if m.state_of(a) in [AirMission.ON_STATION, AirMission.INVESTIGATING, AirMission.ENGAGING]:
+		# The 1990 raid is real: the CAP may already be intercepting it on its own sensors, at
+		# dash, and be on its way back to the station from the chase.
+		if m.state_of(a) in [AirMission.ON_STATION, AirMission.INVESTIGATING, AirMission.ENGAGING] or (m.state_of(a) == AirMission.TRANSITING and bool(m.tasks[a].get("attacked", false))):
 			working += 1
 	assert_true(working >= 4, "the first section is on station or working it: %s" % m.summary())
 	_done()
@@ -832,4 +833,58 @@ func test_reopening_air_operations_after_a_simple_launch_exposes_recovery() -> v
 	assert_true(ui._return.is_visible_in_tree() and not ui._return.disabled, "Return & Land is visible and actionable")
 	assert_eq(_sim.air_mission_manager.active_missions("BLUE").size(), 0)
 	ui.free()
+	_done()
+
+
+func test_a_deck_on_ready_alert_scrambles_a_cap_toward_a_hostile_raid() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.set_ready_alert(2)))
+	assert_eq(cv.ready_alert, 2)
+	_advance(5.0)
+	assert_true(_mission() == null, "nothing to scramble for yet")
+	var raid := _plot(cv.position + Vector2(0, 45), "T1900", 8000.0)
+	raid.domain = "air"
+	raid.identity = "HOSTILE"
+	raid.classification = Track.Classification.CLASS_KNOWN
+	_advance(2.0)
+	var m := _mission()
+	assert_true(m != null, "the alert launched")
+	assert_eq(m.kind, AirMission.Kind.CAP)
+	assert_eq(m.requested, 2, "the two on alert")
+	assert_eq(cv.ready_alert, 0, "the alert is spent by the scramble")
+	assert_true(m.station.distance_to(cv.position) > 10.0 and m.station.distance_to(raid.position) < raid.position.distance_to(cv.position), "laid between the carrier and the raid")
+	_done()
+
+
+func test_ready_alert_needs_fighters_aboard() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	assert_eq(AirMissionManager.ready_alert_rejection(cv, 2), "")
+	assert_eq(AirMissionManager.ready_alert_rejection(cv, 9), "At most %d on alert" % AirMissionManager.MAX_READY_ALERT)
+	for u in _sim.unit_manager.units:
+		if u.faction == "BLUE" and not u.is_aircraft() and u.spec.aircraft_capacity > 0 and AirMissionManager.alert_fighter_type(u) == "":
+			assert_true(not _sim.unit_manager.issue_order(u, Order.set_ready_alert(2)), "%s has no fighters to hold" % u.callsign)
+			break
+	_done()
+
+
+func test_a_dash_ordered_on_station_is_not_undone_by_the_mission() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var station := cv.position + Vector2(0, 20)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, station, 10.0)))
+	var m := _mission()
+	var on_station := false
+	for i in 40:
+		_advance(30.0)
+		if not m.aircraft.is_empty() and m.state_of(m.aircraft[0]) == AirMission.ON_STATION:
+			on_station = true
+			break
+	assert_true(on_station)
+	var jet: Unit = m.aircraft[0]
+	var dash := jet.spec.flight_speed("dash")
+	assert_true(_sim.unit_manager.issue_order(jet, Order.set_speed(dash)))
+	_advance(5.0)
+	assert_near(jet.ordered_speed_kn, dash, 0.5, "the commander's dash stands")
 	_done()

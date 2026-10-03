@@ -334,6 +334,10 @@ func _step(dt: float) -> void:
 		_defence_accum -= DEFENCE_DT
 		DefensiveResponse.run_cycle(unit_manager, threat_manager, weapon_manager)
 		AirDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
+		# The sides with no AI commander (the player's): their ships on Weapons Free answer hostile
+		# aircraft in their envelope. An AI side does this through its own controller.
+		if not ai_controllers.has(player_faction):
+			AirDefence.engage_hostile_aircraft(unit_manager, track_manager, weapon_manager, SimClock.sim_time, [player_faction])
 		TorpedoDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
 	Debug.time_add("sim/defence", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()

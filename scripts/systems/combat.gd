@@ -41,6 +41,11 @@ const SURFACE_BOUND_PROFILES := ["sea_skimming", "direct", "subsurface"]
 
 
 static func profile_is_surface_bound(spec: WeaponSpec) -> bool:
+	# A "direct" air-to-air or anti-air round is fired at something in the air and flies at its
+	# height, not along the ground: a short-range dogfight missile shot across a headland, or a
+	# point-defence round at a helicopter over the coast, is not a sea-skimmer.
+	if spec.type in ["aam", "sam", "ciws"] and spec.profile == "direct":
+		return false
 	return SURFACE_BOUND_PROFILES.has(spec.profile)
 
 
