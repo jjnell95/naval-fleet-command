@@ -11727,7 +11727,7 @@
   "learning": "Manual interception, detected threat picture and finite defensive magazines",
   "commander_intent": "Select manual defence, engage the detected inbound, and keep the destroyer afloat.",
   "first_orders": [
-    "Select USS Practice. Open the Normal / Classic options button and enable Manual missile defence (X). The raid waits for this accepted order.",
+    "Select USS Practice. Classic starts in manual missile defence; under Normal, open the Normal / Classic options button and enable Manual missile defence (X). The raid waits for manual defence.",
     "Resume at 1x. When an inbound is reported, Space pauses. Select USS Practice and press X to authorize interception.",
     "Defence shows detected threats. Resume and monitor the engagement; the exercise ends when the inbound resolves and the destroyer survives."
   ],

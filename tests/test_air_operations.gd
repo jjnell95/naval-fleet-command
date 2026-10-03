@@ -181,6 +181,62 @@ func test_chart_station_drag_previews_then_requests_one_edit_and_escape_cancels(
 	sim.free()
 
 
+func test_station_drag_drops_on_focus_loss_and_handles_yield_to_contacts() -> void:
+	var sim := Simulation.new()
+	var map := TacticalMap.new()
+	var missions := AirMissionManager.new()
+	var tracks := TrackManager.new()
+	sim.air_mission_manager = missions
+	map.simulation = sim
+	map.track_manager = tracks
+	map.size = Vector2(800, 600)
+	map.center_nm = Vector2.ZERO
+	map.ppn = 5.0
+	var m := AirMission.new()
+	m.id = 8
+	m.faction = map.player_faction
+	m.station = Vector2.ZERO
+	m.radius_nm = 10
+	missions.missions.append(m)
+	var at := map.world_to_screen(m.station)
+	var edits: Array[Vector2] = []
+	map.mission_station_move_requested.connect(func(_m: AirMission, point: Vector2) -> void: edits.append(point))
+	# Alt-Tab mid-drag: the release goes to another window, so the chart never hears it.
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = at
+	map._drag_mission = m
+	map._begin_drag(TacticalMap.DragMode.STATION, press)
+	var motion := InputEventMouseMotion.new()
+	motion.position = at + Vector2(30, 20)
+	map._handle_mouse_motion(motion)
+	map.notification(Control.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	assert_eq(map._drag_mode, TacticalMap.DragMode.NONE, "losing focus drops the latched drag")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = false
+	click.position = at + Vector2(-200, 100)
+	map._handle_mouse_button(click)
+	assert_true(edits.is_empty(), "the next ordinary click is not a station edit")
+	# A contact crossing the station centre is selected by its click, not grabbed as a handle.
+	var contact := Track.new()
+	contact.id = "T1009"
+	contact.owner_faction = map.player_faction
+	contact.identity = "HOSTILE"
+	contact.position = m.station
+	contact.status = Track.Status.ACTIVE
+	tracks._tracks[map.player_faction] = [contact]
+	assert_true(map.station_handle_at(at).is_empty(), "the contact owns its own click")
+	assert_eq(map.station_handle_at(map.world_to_screen(Vector2(0, m.radius_nm)) + Vector2(0, -11)).get("mode"), TacticalMap.DragMode.STATION, "the station's label stays reachable")
+	tracks._tracks.clear()
+	assert_eq(map.station_handle_at(at).get("mode"), TacticalMap.DragMode.STATION)
+	map.free()
+	tracks.free()
+	missions.free()
+	sim.free()
+
+
 func test_silent_submarine_hover_and_escort_handle_use_reported_state() -> void:
 	var sub := _unit("cw90_los_angeles")
 	sub.comms_enabled = true

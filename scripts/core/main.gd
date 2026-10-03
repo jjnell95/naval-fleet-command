@@ -258,11 +258,13 @@ func _ready() -> void:
 	add_child(_command_guide)
 	_build_screens()
 	# Reinforcements and every airframe take the side's missile-defence doctrine as they arrive.
+	# Doctrine is set before communication windows apply, so a boat that starts deep does not
+	# queue its arrival doctrine as an order awaiting the next check-in.
 	simulation.unit_manager.unit_added.connect(func(u: Unit) -> void:
 		if u.faction == simulation.player_faction:
+			_set_air_defence(u)
 			if u.is_submarine():
-				SubmarineComms.configure(u, options.submarine_comms and not simulation.ai_plays_player, simulation.unit_manager.now_s)
-			_set_air_defence(u))
+				SubmarineComms.configure(u, options.submarine_comms and not simulation.ai_plays_player, simulation.unit_manager.now_s))
 	simulation.track_manager.track_added.connect(_on_track_added)
 	simulation.track_manager.track_classified.connect(_on_track_classified)
 	simulation.track_manager.track_lost.connect(_on_track_lost)
@@ -436,6 +438,7 @@ func _reset_command_screen() -> void:
 	_modal_pause_captured = true
 	_modal_was_paused = true
 	_set_background_input_enabled(false)
+	map.cancel_drag()
 	map.clear_selection()
 	map.weapon_ring = null
 	map.reset_presentation()
