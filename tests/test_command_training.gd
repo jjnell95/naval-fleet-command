@@ -47,6 +47,32 @@ func test_rejected_and_crew_orders_never_award_manual_command_credit() -> void:
 	assert_true(not sim.mission_manager.objective("manual_intercept").complete, "X against an empty sky is not practice")
 	sim.free()
 
+func test_classic_arrival_doctrine_is_the_manual_defence_order() -> void:
+	# Main gives every arriving player unit the preset's doctrine by order. Under Classic that is
+	# manual missile defence, issued while the forces populate; the lesson must hear it, or the
+	# raid never comes and the only way forward is to toggle defence off and on again.
+	for classic: bool in [false, true]:
+		var sim := Simulation.new()
+		sim.seed_override = 31
+		(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+		if classic:
+			sim.unit_manager.unit_added.connect(func(u: Unit) -> void:
+				if u.faction == sim.player_faction and u.auto_air_defence:
+					sim.unit_manager.issue_order(u, Order.set_air_defence_mode(false)))
+		assert_true(sim.load_scenario("res://data/scenarios/training_missile_defence.json"))
+		SimClock.set_paused(true)
+		assert_eq(sim.mission_manager.objective("manual_defence").complete, classic, "Classic start credits the preset's order; Normal still needs one")
+		if classic:
+			assert_true(_until(sim, "manual_defence", 5))
+			var raid_released := false
+			for second in 30:
+				SimClock.advance(1.0)
+				if _unit(sim, "Exercise Opponent") != null:
+					raid_released = true
+					break
+			assert_true(raid_released, "the exercise raid follows the Classic start")
+		sim.free()
+
 func test_missile_exercise_finishes_after_a_real_detected_interception() -> void:
 	var sim := _sim("training_missile_defence")
 	var ship := _unit(sim, "USS Practice")

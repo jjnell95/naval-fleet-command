@@ -120,8 +120,10 @@ func load_scenario(path: String) -> bool:
 	sensor_manager.rng.seed = base_seed
 	weapon_manager.rng.seed = base_seed ^ 0x5EED
 	Damage.rng.seed = base_seed ^ 0xDA46
-	ScenarioLoader.populate(unit_manager, scenario)
+	# Objectives exist before the forces do, as on a restore: a doctrine order the commander's
+	# preset gives each arriving unit (Classic's manual missile defence) is a recorded order.
 	mission_manager.configure(scenario)
+	ScenarioLoader.populate(unit_manager, scenario)
 	director.configure(scenario, variation_seed if variation_seed >= 0 else base_seed)
 	_build_ai()
 	SimClock.reset(ScenarioLoader.start_unix_time(scenario))

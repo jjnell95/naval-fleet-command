@@ -241,7 +241,7 @@ func _refresh_training(manager: MissionManager) -> void:
 	_body.text = current.text + ". "
 	match current.practice:
 		"manual_defence":
-			_body.text += "Open the Normal / Classic options button and enable Manual missile defence (X). The exercise raid begins only after this order."
+			_body.text += "Classic starts in manual. Under Normal, open the Normal / Classic options button and enable Manual missile defence (X). The exercise raid begins only after this order."
 		"manual_intercept":
 			_body.text += "Resume at 1×. When the radar reports an inbound, Space pauses. With the destroyer selected press X to authorize interception; Defence shows the detected threat."
 			_action_id = "open_defence"

@@ -23,6 +23,19 @@ func run(scene_tree: SceneTree) -> void:
 	await _click_control(main.command_bar.buttons["options_menu"])
 	await _choose_action({"kind": "palette", "id": "option_manual_defence"})
 	checks["manual mode earns actual order credit"] = main.simulation.mission_manager.objective("manual_defence").complete
+	# Classic gives the destroyer manual defence as it arrives. That order is the lesson's first
+	# task, so the raid follows without the commander toggling defence off and back on.
+	main._run_palette_action("preset_classic")
+	await _open_lesson("training_missile_defence")
+	checks["Classic start earns manual defence credit"] = main.simulation.mission_manager.objective("manual_defence").complete
+	var raid := false
+	for second in 30:
+		SimClock.advance(1.0)
+		for u: Unit in main.simulation.unit_manager.units:
+			raid = raid or u.callsign == "Exercise Opponent"
+		if raid: break
+	checks["Classic start releases the exercise raid"] = raid
+	main._run_palette_action("preset_normal")
 	await _open_lesson("training_asw")
 	facts["asw_ui"] = {"taken": main._command_taken, "guide_enabled": main._command_guide.enabled, "guide_visible": main._command_guide.visible, "guide_rect": str(main._command_guide.get_global_rect()), "viewport": str(main.get_viewport_rect()), "briefing": main._briefing.visible, "menu": main._menu.visible, "guide_text": main._command_guide._body.text, "briefing_start": str(main._briefing._start.get_global_rect())}
 	await _shot("asw-deployment-guide")
