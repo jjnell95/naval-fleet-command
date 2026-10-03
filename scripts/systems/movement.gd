@@ -3,6 +3,31 @@ class_name Movement
 
 const ARRIVAL_MIN_NM := 0.1
 const FULL_TURN_SPEED_KN := 5.0  # GAMEPLAY_ESTIMATE: below this, rudder authority scales down
+## A fixed-wing aircraft with nowhere to go flies a racetrack through the point it was sent to
+## rather than stopping in the air. GAMEPLAY_ESTIMATE dimensions.
+const HOLD_LEG_NM := 6.0
+const HOLD_WIDTH_NM := 3.0
+
+
+## Whether this unit is a fixed-wing aircraft in normal flight: it cannot stop, hover or park.
+static func must_keep_flying(u: Unit) -> bool:
+	return u.is_aircraft() and not u.spec.can_hover and u.flight_state == Unit.FlightState.AIRBORNE
+
+
+## A holding racetrack that starts and ends at `center`, its long legs along `heading_deg`. It ends
+## where it began, so arriving at the last point simply lays the same pattern again: no state.
+static func hold_pattern(center: Vector2, heading_deg: float) -> Array[Vector2]:
+	var along := Geo.heading_to_vector(heading_deg)
+	var right := Geo.heading_to_vector(heading_deg + 90.0)
+	return [center + along * HOLD_LEG_NM, center + along * HOLD_LEG_NM + right * HOLD_WIDTH_NM, center + right * HOLD_WIDTH_NM, center]
+
+
+## Puts a fixed-wing aircraft into a hold at `center` at its economical patrol speed.
+static func enter_hold(u: Unit, center: Vector2) -> void:
+	u.waypoints.assign(hold_pattern(center, u.heading_deg))
+	u.ordered_speed_kn = u.spec.flight_speed("patrol")
+	u.hold_active = true
+	u.hold_point = center
 
 
 static func step(u: Unit, dt: float) -> void:
@@ -33,11 +58,18 @@ static func step(u: Unit, dt: float) -> void:
 				u.patrol_legs_completed += 1
 			if u.waypoints.is_empty():
 				u.ordered_heading_deg = u.heading_deg
-				u.ordered_speed_kn = 0.0
+				if must_keep_flying(u):
+					enter_hold(u, wp)  # a jet arriving with nowhere to go holds there
+				else:
+					u.ordered_speed_kn = 0.0
 		if not u.waypoints.is_empty():
 			desired = Geo.bearing_deg(u.position, u.waypoints[0])
 			u.ordered_heading_deg = desired
 
+	if not evading and must_keep_flying(u) and u.waypoints.is_empty() and u.ordered_speed_kn < u.spec.flight_speed("patrol") * 0.5:
+		# Ordered to stop, or left with no speed by anything else: a fixed-wing aircraft holds.
+		enter_hold(u, u.position)
+		desired = Geo.bearing_deg(u.position, u.waypoints[0])
 	var turn_scale := clampf(u.speed_kn / FULL_TURN_SPEED_KN, 0.0, 1.0)
 	var rate := u.spec.turn_rate_deg_s * turn_scale
 	if u.needs_sea_room() and u.spec.length_m > 0:

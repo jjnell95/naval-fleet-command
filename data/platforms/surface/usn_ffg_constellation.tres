@@ -22,6 +22,7 @@ sensor_ids = PackedStringArray("an_spy_6_v3", "captas_mk2", "an_slq_32")
 mast_height_m = 26.0
 aircraft_capacity = 2
 fire_control_channels = 4
+cooperative_engagement = true
 decoy_count = 14
 weapon_loadout = {"sm2_family": 16, "essm_family": 32, "nsm_strike_missile": 16, "ram_block2": 21, "mk110_57mm_gun": 200, "mk54_lwt": 6}
 source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."

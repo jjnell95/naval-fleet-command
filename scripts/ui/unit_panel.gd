@@ -219,6 +219,10 @@ func _refresh() -> void:
 		chips.append(_chip(roe_text, [UITheme.HEX_RED, UITheme.HEX_AMBER, UITheme.HEX_GREEN][u.roe]))
 		if not u.datalink_connected():
 			chips.append(_chip("OFF LINK", UITheme.HEX_AMBER))
+		elif u.spec.cooperative_engagement:
+			chips.append(_chip("NETWORKED FIRE CONTROL", UITheme.HEX_ACCENT))
+		if u.ready_alert > 0:
+			chips.append(_chip("READY ALERT %d" % u.ready_alert, UITheme.HEX_ACCENT))
 		if u.jamming():
 			chips.append(_chip("JAMMING", UITheme.HEX_EW))
 		if u.fire > 0.0:

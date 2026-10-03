@@ -82,6 +82,11 @@ func _draw() -> void:
 			var kind := "BM" if w.threat_class() == "ballistic" else ("TORP" if w.spec.is_torpedo() else "MSL")
 			draw_rect(Rect2(12, y - 10, 3, 12), col)
 			var tail := "%ds · %d up" % [int(tti), assigned]
+			var engaging := AirDefence.engaging_units(m.weapon_manager, w)
+			if not engaging.is_empty():
+				# Who has the round: the first shooter, and how many more ships are on it.
+				var who := _short_name(engaging[0].callsign).get_slice(" (", 0).left(10)
+				tail = "%ds · %s%s" % [int(tti), who, "" if engaging.size() == 1 else " +%d" % (engaging.size() - 1)]
 			if w.spec.is_torpedo():
 				tail = "%ds · %s" % [int(tti), torpedo_answer(t["target"])]
 			var tw := _font.get_string_size(tail, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
@@ -94,7 +99,15 @@ func _draw() -> void:
 		y += 12.0
 	# Per-shooter channel load.
 	y += 8.0
-	draw_string(_font, Vector2(12, y), "CHANNELS %d / %d" % [used, channels], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UITheme.COL_DIM)
+	var networked := 0
+	for u: Unit in ships:
+		if u.spec.cooperative_engagement and u.datalink_connected():
+			networked += 1
+	var channel_line := "CHANNELS %d / %d" % [used, channels]
+	if networked >= 2:
+		# Two or more fitted ships on the link fight as one: each can take a shot a consort guides.
+		channel_line += " · NETWORKED FIRE CONTROL %d SHIPS" % networked
+	draw_string(_font, Vector2(12, y), channel_line, HORIZONTAL_ALIGNMENT_LEFT, int(size.x - 24.0), 10, UITheme.COL_ACCENT if networked >= 2 else UITheme.COL_DIM)
 	y += 6.0
 	for u: Unit in ships:
 		if y > size.y - 14.0:

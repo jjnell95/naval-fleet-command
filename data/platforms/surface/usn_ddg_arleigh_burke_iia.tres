@@ -24,6 +24,7 @@ health = 110.0
 weapon_loadout = {"rgm_139_vla": 8, "mk45_mod4_gun": 250, "sm2_family": 24, "essm_family": 32, "phalanx_ciws": 60, "tomahawk_block_v": 8}
 aircraft_capacity = 2
 fire_control_channels = 6
+cooperative_engagement = true
 decoy_count = 12
 decoy_effectiveness = 0.35
 torpedo_decoy = "AN/SLQ-25 Nixie"

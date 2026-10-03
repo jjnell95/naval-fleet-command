@@ -22,6 +22,8 @@ const ENGAGING := "ENGAGING"
 const REFUELLING := "REFUELLING"
 const HOLDING := "HOLDING"
 const RETURNING := "RETURNING"
+## Back at the deck and holding in the stack astern until the deck can take it.
+const MARSHAL := "MARSHAL"
 const RECOVERING := "RECOVERING"
 
 var id := -1
@@ -110,7 +112,7 @@ func summary() -> String:
 	if not active:
 		return "%s · %s" % [kind_name(), ended_reason.to_lower()]
 	var parts := PackedStringArray()
-	for state in [ON_STATION, DIPPING, TRANSITING, INVESTIGATING, ENGAGING, LAUNCHING, REFUELLING, HOLDING, RETURNING, RECOVERING, QUEUED]:
+	for state in [ON_STATION, DIPPING, TRANSITING, INVESTIGATING, ENGAGING, LAUNCHING, REFUELLING, HOLDING, RETURNING, MARSHAL, RECOVERING, QUEUED]:
 		var n := count_in(state)
 		if n > 0:
 			parts.append("%d %s" % [n, state.to_lower()])

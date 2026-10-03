@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT, DEPLOY_DIPPING_SONAR, RECOVER_DIPPING_SONAR, SET_SUB_COMMS_INTERVAL, REQUEST_SUB_CHECKIN, ASW_SEARCH, RECOVER_TOWED_ARRAY }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT, DEPLOY_DIPPING_SONAR, RECOVER_DIPPING_SONAR, SET_SUB_COMMS_INTERVAL, REQUEST_SUB_CHECKIN, ASW_SEARCH, RECOVER_TOWED_ARRAY, SET_READY_ALERT }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -183,6 +183,15 @@ static func return_to_station() -> Order:
 
 ## Whether the platform goes back to its station by itself once an identification, interception or
 ## attack ends. Refuelling always hands back to a valid station: it was never the commander's task.
+## Hold `count` fighters of this deck on ready alert (0 stands the alert down). See
+## AirMissionManager: the deck scrambles them on its own when a hostile raid comes in.
+static func set_ready_alert(count: int) -> Order:
+	var o := Order.new()
+	o.type = Type.SET_READY_ALERT
+	o.aircraft_count = count
+	return o
+
+
 static func set_auto_return(enabled: bool) -> Order:
 	var o := Order.new()
 	o.type = Type.SET_AUTO_RETURN
@@ -458,6 +467,8 @@ func describe() -> String:
 			return "RETURN TO STATION"
 		Type.SET_AUTO_RETURN:
 			return "AUTO RETURN TO STATION %s" % ("ON" if automatic else "OFF")
+		Type.SET_READY_ALERT:
+			return "READY ALERT %s" % ("OFF" if aircraft_count <= 0 else "%d FIGHTERS" % aircraft_count)
 		Type.MOVE:
 			return "MOVE to %s/%s%s" % [Geo.format_axis(target_pos.x, "E", "W"), Geo.format_axis(target_pos.y, "N", "S"), " (append)" if append else ""]
 		Type.PATROL:

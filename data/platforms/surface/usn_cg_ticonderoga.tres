@@ -22,6 +22,7 @@ sensor_ids = PackedStringArray("an_spy_1b", "an_sqs_53c", "an_slq_32")
 mast_height_m = 32.0
 aircraft_capacity = 2
 fire_control_channels = 8
+cooperative_engagement = true
 decoy_count = 18
 torpedo_decoy = "AN/SLQ-25 Nixie"
 towed_torpedo_decoy = true

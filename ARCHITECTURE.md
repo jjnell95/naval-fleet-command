@@ -389,7 +389,7 @@ Three standing orders, all per unit and all honoured by the AI as well as the pl
 | Order | Effect |
 |---|---|
 | `SET_EMCON` | silent turns off radar and active sonar together; free switches the radar back on |
-| `SET_ROE` | HOLD refuses every engagement including automatic defence; TIGHT defends only; FREE fights |
+| `SET_ROE` | HOLD refuses every engagement including automatic defence; TIGHT defends itself and fires only on HOSTILE contacts when ordered; FREE fights, and a commander's ship on FREE with automatic air defence engages identified hostile aircraft in its envelope (`AirDefence.engage_hostile_aircraft`) |
 | `FORM_UP` / `BREAK_FORMATION` | station keeping on a leader, or steering for yourself again |
 
 `AIController._manage_emissions()` makes emissions a decision rather than a default: a ship with
@@ -426,7 +426,10 @@ the target's speed, so a ship that has heard the weapon and is running is a much
    works out which friendly ship each detected round is going for
    (`threatened_unit`: the locked-on ship, else closest point of approach within 3 nm), sorts by
    time to impact, and lets **any** ship in range engage. Escorts defend consorts, not just
-   themselves.
+   themselves. The force allocates as one, in two passes over the raid: every round first gets
+   one interceptor from the best-placed ship (`_rank_defenders`: a free guidance channel first,
+   then the nearest), and only then are budgets topped up and close-in guns given their turn.
+   One time-to-impact, the round's time to the ship it is going for, decides the budget.
 4. `Unit.defensive_weapons()` returns interceptors longest-reach first, so layering is a property
    of the data rather than hard-coded tiers. At most two interceptors are committed per round at
    any moment; when they miss, the next layer gets its turn.
@@ -441,8 +444,15 @@ the target's speed, so a ship that has heard the weapon and is running is a much
 ### Engagement allowances
 Defence is deliberately finite, so a large enough salvo gets through a good escort:
 - `fire_control_channels` per platform caps how many rounds one ship can guide against at once.
-- Two guided interceptors per round over its whole flight (shoot-shoot-look), and at most two in
-  the air at any moment.
+- At most two guided interceptors in the air against a round at any moment, across the force
+  (`guided_budget`: one under `conserve` until the round is 45 s out, three under `saturation`).
+- Each ship's layer has its own lifetime allowance against a round (`AirDefence.layer_key`, layer
+  and ship), so an escort's point-defence missiles never use up the defended ship's own.
+- Networked fire control (`PlatformSpec.cooperative_engagement`): between two fitted ships on the
+  link, a radar-guided interceptor may be launched at a round below the shooter's own horizon when
+  the consort's emitting radar holds it inside its own (`WeaponManager.network_guide`), and the
+  shot fails if that support is lost. The same applies to aircraft on the plot
+  (`network_track_guide`). An unfitted consort's plot remains a cue only. Gameplay abstraction.
 - Close-in weapons are exempt from channels and the guided allowance, since they are
   self-contained, but get their own allowance of two bursts. One burst is modelled as a single
   engagement, so a close-in magazine counts bursts rather than rounds.

@@ -216,7 +216,10 @@ func _ready() -> void:
 			radio.flash("Recovered", "info", a))
 	simulation.aviation_manager.aircraft_bingo.connect(func(a: Unit) -> void:
 		if a.faction == simulation.player_faction:
-			SimClock.drop_to_realtime()
+			# A mission's airframe going home at bingo is the routine of a standing air task, and
+			# its relief is the mission's business: say it, but do not stop the clock for it.
+			if simulation.air_mission_manager.mission_for(a) == null:
+				SimClock.drop_to_realtime()
 			radio.flash("Bingo fuel, returning", "warn", a)
 			voice.say("aircraft_rtb", a))
 	simulation.air_mission_manager.mission_report.connect(func(m: AirMission, message: String, good: bool) -> void:
@@ -2449,6 +2452,7 @@ func _apply_unit_orders(pairs: Array) -> void:
 	var sample: Order = null
 	var volleys := {}
 	var rounds_committed := 0
+	var first_refusal := ""
 	for pair: Array in pairs:
 		var u: Unit = pair[0]
 		if u.faction != simulation.player_faction or not map.selected.has(u):
@@ -2468,7 +2472,11 @@ func _apply_unit_orders(pairs: Array) -> void:
 				rounds_committed += committed
 		else:
 			refused += 1
+			if first_refusal == "" and pair[1].receipt != "":
+				first_refusal = "%s: %s" % [u.callsign, pair[1].receipt]
 	if sample != null:
+		if accepted == 0 and first_refusal != "" and sample.type == Order.Type.ENGAGE:
+			sample.receipt = first_refusal
 		var receipts := PackedStringArray()
 		for volley: Dictionary in volleys.values():
 			receipts.append(_order_acknowledgement(Order.engage(volley["track"], volley["weapon"], volley["rounds"])))
@@ -2531,6 +2539,12 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 		if order.type == Order.Type.INTERCEPT:
 			radio.advise("Cannot intercept: " + (order.receipt if order.receipt != "" else "no hooked ship can engage").to_lower())
 			return
+		if order.type == Order.Type.ENGAGE:
+			var reason := order.receipt
+			if reason == "" and not map.selected.is_empty():
+				reason = UnitManager.engage_rejection(map.selected[0], order)
+			radio.advise("Cannot fire at track %s · %s" % [DataDisplay.track_number_for_track(order.track), reason if reason != "" else "no firing solution"])
+			return
 		radio.advise("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else ""])
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
@@ -2568,6 +2582,8 @@ static func _order_acknowledgement(order: Order) -> String:
 			return "Returning to station, aye"
 		Order.Type.SET_AUTO_RETURN:
 			return "Auto-return to station %s, aye" % ("on" if order.automatic else "off")
+		Order.Type.SET_READY_ALERT:
+			return "Ready alert stood down, aye" if order.aircraft_count <= 0 else "%d fighters on ready alert, aye" % order.aircraft_count
 		Order.Type.INVESTIGATE:
 			return "Investigating track %s" % DataDisplay.track_number_for_track(order.track)
 		Order.Type.ATTACK:
