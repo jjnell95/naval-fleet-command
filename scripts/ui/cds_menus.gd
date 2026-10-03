@@ -164,6 +164,12 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		tasks.append(item("Return to station  [S]", order_action(Order.return_to_station()), can_return.is_empty(), reason if reason != "" else "Resume the patrol, screen or air station an investigation, attack or refuelling interrupted."))
 	if any_deck:
 		tasks.append(item("Flight deck...", {"kind": "palette", "id": "air_operations"}, false, "Launch aircraft, or choose where an aircraft lands."))
+		var alert_decks := units.filter(func(u: Unit) -> bool: return not u.is_aircraft() and AirMissionManager.alert_fighter_type(u) != "")
+		if not alert_decks.is_empty():
+			var alerts: Array = []
+			for count in [0, 2, 4]:
+				alerts.append(item("Off" if count == 0 else "%d fighters" % count, order_action(Order.set_ready_alert(count)), false, "Stand the alert down." if count == 0 else "Hold fighters on deck alert; the deck scrambles them into a CAP toward a hostile raid when one appears.", _all(alert_decks, func(u: Unit) -> bool: return u.ready_alert == count)))
+			tasks.append(submenu("Ready alert", alerts, not controllable, why))
 	if ships.size() >= 2:
 		var forms: Array = []
 		for pattern in ["aaw_screen", "asw_screen", "transit", "screen", "column", "abreast"]:

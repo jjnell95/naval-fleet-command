@@ -33,7 +33,7 @@ var acoustic_decoy_tried: Dictionary = {}
 var hard_kill_shots := 0
 var seductions := 0  # times decoys have pulled this round off a lock
 var guided_interceptors_committed := 0  # SAMs ever fired at this round
-var defence_commitments: Dictionary = {}  # defensive layer -> reserved shots
+var defence_commitments: Dictionary = {}  # AirDefence.layer_key (layer and ship) -> shots fired at this round
 var close_in_commitments: Dictionary = {}  # defending unit id -> bursts
 var close_in_bursts_committed := 0  # close-in engagements; a round is only in that envelope briefly
 ## Ids of the units the commander has ordered to intercept this round (Order.intercept). A ship

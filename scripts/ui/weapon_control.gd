@@ -458,15 +458,20 @@ func _commit_plan() -> void:
 	unit_orders_requested.emit(pairs)
 	var accepted := 0
 	var rounds := 0
+	var why := ""
 	for i in pairs.size():
 		var pair: Array = pairs[i]
 		if pair[1].execution_accepted:
 			accepted += 1
 			var spec := (pair[0] as Unit).get_weapon(pair[1].weapon_id)
 			rounds += maxi(simulation.weapon_manager.committed_rounds(pair[0], spec, target) - committed_before[i], 0)
+		elif why == "":
+			var reason: String = pair[1].receipt if pair[1].receipt != "" else UnitManager.engage_rejection(pair[0], pair[1])
+			if reason != "":
+				why = " (%s: %s)" % [(pair[0] as Unit).callsign, reason]
 	_plan.clear()
 	refresh()
-	_receipt.text = "%d rounds committed across %d systems; %d orders refused. Return to the chart to advance time." % [rounds, accepted, pairs.size() - accepted]
+	_receipt.text = "%d rounds committed across %d systems; %d orders refused%s. Return to the chart to advance time." % [rounds, accepted, pairs.size() - accepted, why]
 
 
 func _commit_group() -> void:

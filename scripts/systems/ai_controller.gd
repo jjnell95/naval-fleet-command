@@ -464,7 +464,7 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			var score: float = check["range_nm"] + bucket * PLAN_BUCKET_NM
 			if score < best_range:
 				best_range = score
-				var rounds := mini(_salvo_for(u, spec), spare)
+				var rounds := mini(_salvo_for(u, spec, t), spare)
 				if plan != null:
 					if plan.salvo > 0 and not spec.is_gun():
 						rounds = mini(plan.salvo, spare)
@@ -474,10 +474,14 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 	return best
 
 
-func _salvo_for(u: Unit, spec: WeaponSpec) -> int:
+func _salvo_for(u: Unit, spec: WeaponSpec, t: Track = null) -> int:
 	var rounds := _offensive_rounds(u, spec)
 	if spec.is_gun():
 		return mini(spec.salvo_default, rounds)
+	# An aircraft is one airframe, not a ship's defences to saturate: the weapon's own doctrine
+	# salvo (two, typically), not the four-round anti-ship volley.
+	if spec.type in ["sam", "aam"] and t != null and t.domain == "air":
+		return clampi(spec.salvo_default, 1, rounds)
 	if spec.is_torpedo():
 		return clampi(TORPEDO_SALVO, 1, rounds)
 	return clampi(ASM_SALVO, 1, rounds)
@@ -721,7 +725,7 @@ func _do_air_search(u: Unit, b: Dictionary, now: float) -> void:
 		_manage_altitude(u, false)
 		_move_to(u, b, next_leg, now)
 		return
-	if not u.waypoints.is_empty():
+	if u.has_route():
 		return  # already on the way to the next search point
 	var index := int(b.get("search_index", 0))
 	b["search_index"] = index + 1
@@ -1460,7 +1464,7 @@ func _scout_close(u: Unit, b: Dictionary, t: Track, standoff_nm: float, now: flo
 ## Legs through an area: its centre first, then round it.
 func _sweep(u: Unit, b: Dictionary, centre: Vector2, radius_nm: float, now: float) -> void:
 	_manage_altitude(u, false)
-	if not u.waypoints.is_empty() and b.has("sweep_leg") and b["sweep_leg"] == b["goal"]:
+	if u.has_route() and b.has("sweep_leg") and b["sweep_leg"] == b["goal"]:
 		return  # still on the way to the last sweep leg
 	var index := int(b.get("sweep_index", 0))
 	b["sweep_index"] = index + 1
@@ -1547,7 +1551,7 @@ func _hold_point(u: Unit, b: Dictionary, point: Vector2, now: float) -> void:
 
 func _orbit(u: Unit, b: Dictionary, centre: Vector2, radius_nm: float, now: float) -> void:
 	_manage_altitude(u, false)
-	if not u.waypoints.is_empty() and u.waypoints[-1].distance_to(centre) <= radius_nm + GOAL_TOLERANCE_NM:
+	if u.has_route() and u.waypoints[-1].distance_to(centre) <= radius_nm + GOAL_TOLERANCE_NM:
 		return
 	var index := int(b.get("orbit_index", 0))
 	b["orbit_index"] = index + 1
@@ -1576,7 +1580,7 @@ func _move_to(u: Unit, b: Dictionary, wanted: Vector2, now: float) -> void:
 	var previous: Vector2 = b["goal"]
 	# Re-task only when the destination has actually moved, or when the ship has arrived and is
 	# sitting there with nothing to do. Anything else fills the order log with noise.
-	if previous != Vector2.INF and previous.distance_to(goal) < GOAL_TOLERANCE_NM and not u.waypoints.is_empty():
+	if previous != Vector2.INF and previous.distance_to(goal) < GOAL_TOLERANCE_NM and u.has_route():
 		return
 	b["goal"] = goal
 	b["goal_time"] = now

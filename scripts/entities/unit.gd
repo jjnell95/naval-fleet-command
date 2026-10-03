@@ -144,6 +144,13 @@ var auto_countermeasures := true
 var auto_air_defence := true
 var defence_policy := "balanced"  # balanced | conserve | saturation
 var defence_priority := 0
+## A fixed-wing aircraft flying a hold that Movement laid because it had nowhere to go (see
+## Movement.enter_hold), and the point the hold is through. The hold is not a route of its own.
+var hold_active := false
+var hold_point := Vector2.ZERO
+## Fighters this deck holds on ready alert, launched by the deck itself into a CAP toward a hostile
+## raid when one appears (AirMissionManager). 0 is no alert. Spent by the scramble.
+var ready_alert := 0
 var countermeasure_kind := ""
 var countermeasure_generation := 0
 var countermeasure_remaining_s := 0.0
@@ -184,6 +191,17 @@ var squadron := ""
 ## receiver decides it can reach a basket instead of the deck.
 var tanking_on: Unit
 var tanker_offload_s := 0.0  # give remaining, in receiver endurance-seconds
+
+
+## Flying a hold Movement laid for want of orders, not a route anyone gave it.
+func holding() -> bool:
+	return hold_active and not waypoints.is_empty() and waypoints.back() == hold_point
+
+
+## Has somewhere to go that someone chose: a hold laid for want of orders does not count, so
+## whatever is deciding the next leg (the AI, a stalled task) still sees this unit as idle.
+func has_route() -> bool:
+	return not waypoints.is_empty() and not holding()
 
 
 func is_aircraft() -> bool:
@@ -522,6 +540,8 @@ func apply_order(order: Order) -> void:
 			_resume_station()
 		Order.Type.SET_AUTO_RETURN:
 			auto_return = order.automatic
+		Order.Type.SET_READY_ALERT:
+			ready_alert = clampi(order.aircraft_count, 0, AirMissionManager.MAX_READY_ALERT)
 		Order.Type.MOVE:
 			if not order.append:
 				waypoints.clear()

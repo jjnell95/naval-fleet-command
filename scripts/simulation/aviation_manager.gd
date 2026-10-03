@@ -42,6 +42,20 @@ const TANKER_RESERVE := 0.30  # a tanker keeps this much of its own fuel to get 
 ## complex 400 miles away. An airframe with no deck of its own heads for the edge it can reach and
 ## is taken off the board when it crosses: it went home, and it is not coming back this scenario.
 const OFF_MAP_MARGIN_NM := 12.0
+## Marshal. An aircraft back at its deck while the deck cannot take it (the recovery spot is busy,
+## catapults are working, or the flight deck is on fire) holds in a stack astern of the ship at its
+## economical speed, rather than flying at the ship at transit speed and burning transit fuel.
+## GAMEPLAY_ESTIMATE distances and heights; no real case procedure is represented.
+const MARSHAL_RANGE_NM := 8.0
+const MARSHAL_ASTERN_NM := 5.0
+const MARSHAL_SLACK_NM := 2.5
+const MARSHAL_ALTITUDE_M := 1500.0
+const MARSHAL_HELO_ALTITUDE_M := 150.0
+## A deck this badly on fire suspends flight operations both ways.
+const DECK_FIRE_LIMIT := 0.35
+## An aircraft launched without orders holds this far ahead of its ship until it is given some.
+const DEPARTURE_HOLD_NM := 6.0
+const HELICOPTER_TURNAROUND_S := 1800.0
 
 var unit_manager: UnitManager
 var sonobuoys: Array[Sonobuoy] = []
@@ -277,6 +291,15 @@ func _step_launch(a: Unit, dt: float) -> void:
 	a.ordered_speed_kn = a.spec.flight_speed("transit")
 	a.tanker_offload_s = a.spec.tanker_offload_s
 	a.tanking_on = null
+	# Launched with no task: it holds ahead of its ship where the commander can see it, rather than
+	# flying the ship's heading until it reaches bingo. A mission or an order replaces this at once.
+	if a.waypoints.is_empty() and not a.has_station() and a.investigation_track == null and a.attack_track == null and a.home != null:
+		var departure := a.home.position + Geo.heading_to_vector(a.home.heading_deg) * DEPARTURE_HOLD_NM
+		if a.spec.can_hover:
+			a.waypoints.append(departure)
+			a.ordered_speed_kn = a.spec.flight_speed("patrol")
+		else:
+			Movement.enter_hold(a, departure)
 	aircraft_launched.emit(a, a.home)
 
 
@@ -337,18 +360,57 @@ func _step_airborne(a: Unit, dt: float) -> void:
 	if base == null:
 		_step_off_map_return(a)
 		return
+	var gap := a.position.distance_to(base.position)
+	var deck_open := deck_can_recover(base)
+	if gap <= MARSHAL_RANGE_NM and not deck_open:
+		_hold_marshal(a, base)
+		return
 	_steer_return(a, base)
 	if a.dip_phase != DippingSonar.Phase.STOWED:
 		return
-	if a.position.distance_to(base.position) <= RECOVERY_RANGE_NM:
-		if base.recovery_spots_busy() >= base.spec.recovery_capacity():
-			return
-		if base.launch_spots_busy() > 0 and base.spec.flight_facility() != "airfield":
-			return
+	if gap <= RECOVERY_RANGE_NM and deck_open:
 		a.flight_state = Unit.FlightState.RECOVERING
 		a.state_timer_s = a.spec.recovery_time_s
 		a.waypoints.clear()
 		a.ordered_altitude_m = 0.0
+
+
+## Whether this deck can take an aircraft aboard right now: a recovery spot free, no launch on the
+## catapults (a field's runways do both), and no fire bad enough to stop flight operations.
+static func deck_can_recover(base: Unit) -> bool:
+	if base == null:
+		return false
+	if base.recovery_spots_busy() >= base.spec.recovery_capacity():
+		return false
+	var field := base.spec.flight_facility() == "airfield"
+	if base.launch_spots_busy() > 0 and not field:
+		return false
+	return field or base.fire < DECK_FIRE_LIMIT
+
+
+## Holding in the marshal stack for this deck: back at the ship and waiting for it.
+static func in_marshal(a: Unit) -> bool:
+	return a.airborne() and a.returning and a.recovery_base != null and a.position.distance_to(a.recovery_base.position) <= MARSHAL_RANGE_NM + MARSHAL_SLACK_NM and not deck_can_recover(a.recovery_base)
+
+
+## The marshal point: astern of the ship, which is where an aircraft is out of the way of the deck
+## and set up for the approach when it is called down.
+static func marshal_point(base: Unit) -> Vector2:
+	return base.position - Geo.heading_to_vector(base.heading_deg) * MARSHAL_ASTERN_NM
+
+
+func _hold_marshal(a: Unit, base: Unit) -> void:
+	a.formation_leader = null
+	var point := marshal_point(base)
+	a.ordered_altitude_m = MARSHAL_HELO_ALTITUDE_M if a.spec.can_hover else minf(MARSHAL_ALTITUDE_M, a.spec.cruise_altitude_m)
+	if a.position.distance_to(point) > MARSHAL_SLACK_NM:
+		a.waypoints.assign([point])
+		a.ordered_speed_kn = a.spec.flight_speed("patrol")
+	elif a.spec.can_hover:
+		a.waypoints.clear()
+		a.ordered_speed_kn = 0.0
+	elif a.waypoints.is_empty() or a.waypoints.size() == 1:
+		Movement.enter_hold(a, point)
 
 
 func _steer_return(a: Unit, base: Unit) -> void:
@@ -397,7 +459,7 @@ func _step_recovery(a: Unit, dt: float) -> void:
 	a.position = base.position
 	a.heading_deg = base.heading_deg
 	a.flight_state = Unit.FlightState.TURNAROUND
-	a.state_timer_s = base.spec.turnaround_time_s()
+	a.state_timer_s = turnaround_for(a, base)
 	a.returning = false
 	a.tanking_on = null
 	a.clear_station()  # the sortie is over; any relief is the air mission's to send
@@ -411,6 +473,16 @@ func _step_recovery(a: Unit, dt: float) -> void:
 	var facility := base.spec.flight_facility()
 	a.completed_sorties_by_facility[facility] = int(a.completed_sorties_by_facility.get(facility, 0)) + 1
 	aircraft_recovered.emit(a, base)
+
+
+## Deck time for this airframe aboard this base. The deck's figure is for its own air wing; a
+## helicopter recovered aboard a carrier is not struck below and respotted like a strike fighter,
+## so it takes no longer than it would on a helicopter deck. GAMEPLAY_ESTIMATE.
+static func turnaround_for(a: Unit, base: Unit) -> float:
+	var deck := base.spec.turnaround_time_s()
+	if a.spec.can_hover:
+		return minf(deck, HELICOPTER_TURNAROUND_S)
+	return deck
 
 
 ## Fuel, ordnance and a spot on the deck. Until this finishes the airframe is aboard but is not a

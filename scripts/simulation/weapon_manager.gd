@@ -145,7 +145,7 @@ func engagement_check(shooter: Unit, spec: WeaponSpec, track: Track, now: float,
 	var check := Combat.check_engagement(shooter, spec, track, reserved_round)
 	if not check.ok:
 		return check
-	if not track_support_available(shooter, spec, track):
+	if not track_guidance_available(shooter, spec, track):
 		check.ok = false
 		check.reason = "RADAR GUIDANCE UNAVAILABLE"
 	elif not reserved_round and spec.requires_fire_control_channel() and track.domain == "air" and not channel_available(shooter, track):
@@ -241,7 +241,7 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		return 0
 	if not AirDefence._can_intercept(spec, threat):
 		return 0
-	if not interceptor_support_available(shooter, spec, threat):
+	if not guidance_available(shooter, spec, threat):
 		return 0
 	now_s = now
 	if now < _ready_time(shooter, spec):
@@ -280,7 +280,7 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		threat.close_in_commitments[shooter.id] = int(threat.close_in_commitments.get(shooter.id, 0)) + 1
 	else:
 		threat.guided_interceptors_committed += available
-		var layer := spec.defensive_layer()
+		var layer := AirDefence.layer_key(spec, shooter)
 		threat.defence_commitments[layer] = int(threat.defence_commitments.get(layer, 0)) + available
 	if _channel_batch and spec.requires_fire_control_channel():
 		var held: Dictionary = _channel_cache.get(shooter, {})
@@ -306,6 +306,11 @@ func tick(dt: float, now: float) -> void:
 	_sort_pending()
 	for p: Dictionary in _pending.duplicate():
 		var check := engagement_check(p.shooter, p.spec, p.track, now, true)
+		if check.ok and (p.track as Track).damage_estimate >= 100.0:
+			# The plot records the contact as sunk (the kill was reported): the rounds still on
+			# the rail are kept for something that is still afloat.
+			check.ok = false
+			check.reason = "TARGET DESTROYED"
 		if not check.ok:
 			_pending.erase(p)
 			revision += 1
@@ -372,11 +377,11 @@ func _step(w: Weapon, dt: float) -> void:
 	if w.phase == Weapon.Phase.DEAD:
 		return
 	w.time_alive_s += dt
-	if not radar_support_available(w.shooter, w.spec):
+	if w.intercept_target == null and not radar_support_available(w.shooter, w.spec) and network_track_guide(w.shooter, w.spec, w.target_track) == null:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "GUIDANCE LOST"
 		return
-	if w.intercept_target == null and w.target_track != null and not track_support_available(w.shooter, w.spec, w.target_track):
+	if w.intercept_target == null and w.target_track != null and not track_guidance_available(w.shooter, w.spec, w.target_track):
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "GUIDANCE LOST"
 		return
@@ -504,7 +509,7 @@ func _step_interceptor(w: Weapon, dt: float) -> void:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "THREAT ALREADY DEFEATED"
 		return
-	if not AirDefence._can_intercept(w.spec, threat) or not interceptor_support_available(w.shooter, w.spec, threat):
+	if not AirDefence._can_intercept(w.spec, threat) or not guidance_available(w.shooter, w.spec, threat):
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "GUIDANCE LOST"
 		return
@@ -787,3 +792,44 @@ static func track_support_available(shooter: Unit, spec: WeaponSpec, track: Trac
 	var altitude := maxf(track.altitude_m, 0.0)
 	var horizon := Detection.radar_horizon_nm(Detection.mast_or_altitude_m(shooter), altitude)
 	return shooter.position.distance_to(track.position) <= horizon and not Terrain.masks_line_of_sight(shooter.position, Detection.mast_or_altitude_m(shooter), track.position, altitude)
+
+
+## Whether this interceptor can be guided onto this round: by the shooter's own fire control, or
+## over the link by a consort's (`network_guide`).
+func guidance_available(shooter: Unit, spec: WeaponSpec, threat: Weapon) -> bool:
+	return interceptor_support_available(shooter, spec, threat) or network_guide(shooter, spec, threat) != null
+
+
+## The consort carrying a networked shot at a round in flight, or null. Only between ships that are
+## both fitted for integrated fire control and both on the link, and only when the consort's own
+## radar is up and has the round inside its own horizon with no land in between: the network moves
+## the shot, it does not see through the earth. Weapons that guide themselves never need one.
+func network_guide(shooter: Unit, spec: WeaponSpec, threat: Weapon) -> Unit:
+	if not _networked_shooter(shooter, spec):
+		return null
+	for u: Unit in unit_manager.units:
+		if _networked_consort(shooter, u) and interceptor_support_available(u, spec, threat):
+			return u
+	return null
+
+
+## The same for a shot at an aircraft on the plot.
+func track_guidance_available(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
+	return track_support_available(shooter, spec, track) or network_track_guide(shooter, spec, track) != null
+
+
+func network_track_guide(shooter: Unit, spec: WeaponSpec, track: Track) -> Unit:
+	if track == null or not _networked_shooter(shooter, spec):
+		return null
+	for u: Unit in unit_manager.units:
+		if _networked_consort(shooter, u) and track.visible_to(u) and track_support_available(u, spec, track):
+			return u
+	return null
+
+
+func _networked_shooter(shooter: Unit, spec: WeaponSpec) -> bool:
+	return unit_manager != null and shooter != null and shooter.alive and spec.requires_radar_support() and shooter.spec.cooperative_engagement and shooter.datalink_connected()
+
+
+func _networked_consort(shooter: Unit, u: Unit) -> bool:
+	return u != shooter and u.alive and u.faction == shooter.faction and u.spec.cooperative_engagement and u.datalink_connected() and not u.is_aircraft()

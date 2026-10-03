@@ -1,4 +1,30 @@
-# Current State: M36 + Command and recognition improvements
+# Current State: M37 Integrated air defence, weapon fixes and flight operations
+
+**Weapons.**
+- A refused fire order now says why.
+- A standing attack gives up on a plot that stays stale for four minutes.
+- Rounds queued at a ship the plot records as sunk are refunded.
+- Air-to-air and anti-air "direct" rounds fly at height instead of dying over land.
+- A commander's ship on Weapons Free engages identified hostile aircraft in its envelope, one round at a time.
+- The AI fires two SAMs at a fighter, not four.
+
+**The air-defence network.**
+- The force allocates as one: every inbound round gets an interceptor before any round gets a second, and a ship with a free guidance channel is asked first.
+- Each ship keeps its own inner-layer allowance.
+- Fitted ships on the link (`cooperative_engagement`: the 2027 US carriers, cruisers, destroyers and frigate, and Maya) can guide each other's shots below the shooter's own horizon.
+- The Air Defence board names who has each round.
+
+**Flight operations.**
+- Jets hold instead of stopping in the air.
+- An aircraft launched without orders holds ahead of its ship.
+- Aircraft back at a busy or burning deck hold in a marshal stack astern.
+- Helicopters are turned round in helicopter-deck time aboard a carrier.
+- CAP intercepts are flown at dash.
+- A deck can hold 2 or 4 fighters on ready alert and scrambles them toward a raid itself.
+
+The [M37 note](docs/2026-10-03-integrated-air-defence-and-flight-ops.md) gives the audit findings, the design, before-and-after battle measurements and what was deliberately left alone.
+
+# Previous: M36 + Command and recognition improvements
 
 22 aircraft and all 14 submarine entries now use improved original recognition models, with matching portraits, thumbnails, profiles and tactical-map plans. Aircraft have tapered wings, framed canopies, intake openings and clearer family silhouettes. Submarines have rounded bows, faired sails, corrected bow/sail planes, class-specific stern controls and open pump-jet shrouds or screws. The [combined art and command review](docs/2026-10-02-aircraft-submarines-and-integration.md) records scope and integration checks.
 
