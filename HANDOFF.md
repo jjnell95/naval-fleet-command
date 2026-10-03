@@ -1,5 +1,12 @@
 # Handoff
 
+Latest: M38, [sensor coverage, air combat and air tasking](docs/2026-10-03-sensor-coverage-air-combat-and-air-tasking.md).
+- **Coverage shading.** `SensorCoverage.discs` builds up to 48 Vector4 discs (kind in w). `ChartLayer.sensor_coverage` / `sensor_coverage_on` drive `coverage_mode` 1 in `chart_palette.gdshaderinc`; the regional map still uses mode 0. Map layer "coverage" (Shift+F4).
+- **Air combat.** `Combat.air_escape_factor` and `closing_on` gate shots at aircraft on current range. Track manager: radar recognition of aircraft within `RADAR_RECOGNITION_NM` after `RADAR_RECOGNITION_S`. In the AI: `_air_reach`, `_enemy_air_reach`, `AIR_ROUNDS_IN_FLIGHT`, `_guiding_rounds`. Hits on aircraft are fatal (`WeaponManager._resolve_impact`).
+- **Quick air.** `AirMissionManager.quick_type`, `quick_order`, `quick_deck`, `recall_all`. `CdsMenus.air_contact_items` and `air_deck_items`; Main's `_quick_air` pick state.
+- **Air board.** `TacticalMap.air_board_lines` / `_draw_air_board` / `_click_air_board`; layer "air_board".
+- **Harness flags.** `--silence=CALLSIGN|all` and `--quick-cap`, for coverage and air board screenshots.
+
 Latest: M37, [integrated air defence, weapon fixes and flight operations](docs/2026-10-03-integrated-air-defence-and-flight-ops.md).
 - **Defence cycle.** `AirDefence.run_cycle` is now two passes over the raid, ranked by `_rank_defenders`. The per-layer lifetime allowance is keyed by `AirDefence.layer_key` (layer and ship).
 - **Networked guidance.** It lives in `WeaponManager.guidance_available`, `network_guide` and `network_track_guide`, gated by `PlatformSpec.cooperative_engagement` on both ships. Interceptors no longer take the shooter-radar check at the top of `_step`; `_step_interceptor` checks guidance itself.
