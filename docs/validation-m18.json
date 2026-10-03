@@ -1,0 +1,315 @@
+{
+ "milestone": "M18 sea floor, underwater acoustics and damage control",
+ "date": "2026-09-24",
+ "engine": "Godot 4.7.2",
+ "environment": "Linux container, Xvfb + Mesa llvmpipe for windowed captures; wall times are several times slower than the M16 Mac record",
+ "regression": {
+  "tests": 249,
+  "failed": 0,
+  "new": {
+   "test_ocean.gd": 13,
+   "test_damage_control.gd": 10,
+   "test_ai.gd (submarine depth)": 2
+  }
+ },
+ "catalogue": {
+  "platforms": 56,
+  "weapons": 58,
+  "sensors": 65,
+  "missions": 10,
+  "presentation_models": 114
+ },
+ "bathymetry": {
+  "source": "Natural Earth 1:10m bathymetry 5.1.1 (public domain)",
+  "spot_checks_m": {
+   "Gotland Deep": 242,
+   "Central Baltic": 78,
+   "Lofoten Basin": 3545,
+   "Norwegian Basin": 2956,
+   "Iceland Basin": 2604,
+   "Bear Island Trough": 505,
+   "Central Barents": 195,
+   "North Sea (known too deep)": 155,
+   "Faroe-Shetland Channel (known too shallow)": 719
+  }
+ },
+ "damage_control_calibration": {
+  "method": "60 seeded trials per row, no consort, three hours after the hit",
+  "rows": [
+   {
+    "hit": "1 x Harpoon",
+    "target": "Flight IIA Burke",
+    "lost_pct": 0,
+    "survivor_hull_pct": 59
+   },
+   {
+    "hit": "2 x Harpoon",
+    "target": "Flight IIA Burke",
+    "lost_pct": 63,
+    "survivor_hull_pct": 17
+   },
+   {
+    "hit": "1 x P-800",
+    "target": "Flight IIA Burke",
+    "lost_pct": 33,
+    "survivor_hull_pct": 28
+   },
+   {
+    "hit": "1 x Mk 48",
+    "target": "Flight IIA Burke",
+    "lost_pct": 98,
+    "survivor_hull_pct": 2
+   },
+   {
+    "hit": "1 x Harpoon",
+    "target": "Admiral Gorshkov",
+    "lost_pct": 17,
+    "survivor_hull_pct": 48
+   },
+   {
+    "hit": "1 x NSM",
+    "target": "Steregushchiy",
+    "lost_pct": 97,
+    "survivor_hull_pct": 14
+   },
+   {
+    "hit": "1 x LRASM",
+    "target": "Slava",
+    "lost_pct": 3,
+    "survivor_hull_pct": 41
+   },
+   {
+    "hit": "2 x P-800",
+    "target": "Nimitz",
+    "lost_pct": 0,
+    "survivor_hull_pct": 65
+   }
+  ]
+ },
+ "baseline_comparison": {
+  "method": "10 missions, AI on both sides, 6,000 s, seed 2, this branch against commit 773dc7b",
+  "script_errors": {
+   "baseline": 0,
+   "m18": 0
+  },
+  "aground": {
+   "baseline": 0,
+   "m18": 0
+  },
+  "northern_vigil_wall_s": {
+   "baseline": 512.3,
+   "m18": 518.6
+  }
+ },
+ "web": {
+  "startup": true,
+  "briefing": true,
+  "take_command": true,
+  "sea_floor_shader_renders": true,
+  "browser": "headless Chromium, WebGL2 via SwiftShader",
+  "mission": "northern_vigil",
+  "new_console_errors": 0,
+  "preexisting_console_errors": {
+   "Invalid polygon data, triangulation failed (overview land fill; also on 773dc7b)": 546
+  },
+  "pack_bytes": 52069508,
+  "pack_sha256": "29fecaeaa1232dd70276e4995352d489ab40b0aa548c4470c62d9f35f3377fd5"
+ },
+ "smoke_events": {
+  "note": "counted from the smoke logs below",
+  "decoy_seductions": {
+   "aegis_bastion": 6,
+   "arctic_shield": 13,
+   "northern_sentry": 1,
+   "northern_vigil": 13
+  },
+  "convergence_zone_contacts": {
+   "north_atlantic_shadow_line": 2
+  },
+  "ships_lost_to_fire_or_flooding": {
+   "northern_vigil": 1
+  }
+ },
+ "smoke": [
+  {
+   "scenario": "aegis_bastion",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 97.3
+  },
+  {
+   "scenario": "arctic_shield",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 229.4
+  },
+  {
+   "scenario": "atlantic_gate",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 13.7
+  },
+  {
+   "scenario": "baltic_sentinel",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 35.2
+  },
+  {
+   "scenario": "giuk_passage",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 9.2
+  },
+  {
+   "scenario": "north_atlantic_shadow_line",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 7.2
+  },
+  {
+   "scenario": "northern_sentry",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 15.4
+  },
+  {
+   "scenario": "northern_shield",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 8.5
+  },
+  {
+   "scenario": "northern_vigil",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 493.4
+  },
+  {
+   "scenario": "sandbox_m1",
+   "seed": 2,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 4.9
+  },
+  {
+   "scenario": "aegis_bastion",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 89.5
+  },
+  {
+   "scenario": "arctic_shield",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 225.7
+  },
+  {
+   "scenario": "atlantic_gate",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 13.9
+  },
+  {
+   "scenario": "baltic_sentinel",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 35.3
+  },
+  {
+   "scenario": "giuk_passage",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 8.6
+  },
+  {
+   "scenario": "north_atlantic_shadow_line",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 7.2
+  },
+  {
+   "scenario": "northern_sentry",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 15.3
+  },
+  {
+   "scenario": "northern_shield",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 8.5
+  },
+  {
+   "scenario": "northern_vigil",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 499.5
+  },
+  {
+   "scenario": "sandbox_m1",
+   "seed": 13,
+   "ok": true,
+   "seconds": 6000.0,
+   "result": 0,
+   "aground": 0,
+   "wall_s": 5.0
+  }
+ ]
+}
