@@ -166,6 +166,15 @@ var selected_track: Track = null
 var _inspecting_track := false
 var show_key := false
 var show_rings := false
+## Sensor coverage: the chart is lit where the commander's own radars and sonars reach and dark
+## beyond them (SensorCoverage). On by default; the layer is "coverage".
+var show_coverage := true
+## This frame's coverage discs, refreshed by _process and read by the chart layers.
+var coverage_discs: Array[Vector4] = []
+## The live air board in the chart's top-right corner: every air mission and deck alert, updating
+## while time runs. Clicking a line hooks that mission's aircraft. Layer "air_board".
+var show_air_board := true
+var _air_board_rows: Array = []  # {rect: Rect2, units: Array} for this frame's clickable lines
 var show_trails := true
 ## Relief shading on land and sea floor (F6). Land and water are always drawn.
 var show_terrain := true
@@ -285,6 +294,8 @@ func zoom_at_center(factor: float) -> void:
 const LAYERS := {
 	"key": "show_key",
 	"sensors": "show_rings",
+	"coverage": "show_coverage",
+	"air_board": "show_air_board",
 	"weapon_ranges": "show_weapon_ranges",
 	"trails": "show_trails",
 	"terrain": "show_terrain",
@@ -464,6 +475,7 @@ func post_message(text: String, severity := "info", speaker = null) -> void:
 
 func _process(delta: float) -> void:
 	_anim += delta
+	coverage_discs = SensorCoverage.discs(_own_units()) if show_coverage and unit_manager != null else []
 	if selected_track != null and not _visible_tracks().has(selected_track):
 		select_track(null)
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
@@ -857,6 +869,8 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 				return
 			if not e.pressed and _drag_button == MOUSE_BUTTON_LEFT and _drag_mode == DragMode.PAN:
 				_end_drag()
+				return
+			if e.pressed and interaction_mode != InteractionMode.PICK and _click_air_board(e.position):
 				return
 			if interaction_mode == InteractionMode.PICK:
 				if e.pressed:
@@ -1519,6 +1533,7 @@ func _draw() -> void:
 		_draw_readout()
 		_draw_radio_line()
 		_draw_key()
+		_draw_air_board()
 		_draw_hover_card()
 	var t5 := Time.get_ticks_usec()
 	# The whole chart, and where it went (the parts add up to the whole).
@@ -2177,6 +2192,18 @@ static func _unit_domain(u: Unit) -> String:
 	return "subsurface" if u.is_submarine() and SubmarineComms.reported_depth(u) > 0.5 else u.spec.domain
 
 
+## A stale contact fades further the longer nobody has seen it, so a picture the force has stopped
+## refreshing (radars switched off, a contact gone beyond reach) visibly decays instead of looking
+## as solid as a live one. Presentation only: the plot's own ageing is unchanged.
+const STALE_FADE_S := 600.0
+const STALE_FLOOR_ALPHA := 0.22
+
+
+static func stale_alpha(t: Track, now: float) -> float:
+	var age := maxf(t.age_s(now) - Track.STALE_AFTER_S, 0.0)
+	return lerpf(STALE_ALPHA, STALE_FLOOR_ALPHA, clampf(age / STALE_FADE_S, 0.0, 1.0))
+
+
 func _draw_tracks() -> void:
 	var ref := reference_unit()
 	var view := Rect2(Vector2.ZERO, size).grow(64.0)
@@ -2184,7 +2211,7 @@ func _draw_tracks() -> void:
 		var sp := world_to_screen(t.position)
 		var col := track_color(t)
 		if t.status == Track.Status.STALE:
-			col.a = STALE_ALPHA
+			col.a = stale_alpha(t, SimClock.sim_time)
 		_draw_uncertainty(sp, t, col)
 		if show_trails:
 			_draw_track_history(t, col)
@@ -2675,6 +2702,71 @@ func _draw_speaker_rings() -> void:
 
 
 ## F2: the symbol key, top-left, in the chart's plain white readout style with no card behind it.
+## The air board's lines: one per active air mission and one per deck holding an alert. Each is
+## {text, units (the airframes a click hooks), warn}. Reads only the commander's own side.
+func air_board_lines() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if simulation == null or simulation.air_mission_manager == null:
+		return out
+	for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
+		var flying: Array = m.aircraft.filter(func(a: Unit) -> bool: return a.alive and a.in_flight())
+		var fuel := 1.0
+		for a: Unit in flying:
+			fuel = minf(fuel, a.fuel_fraction())
+		var base := m.base.callsign.get_slice(" (", 0) if m.base != null else "?"
+		var text := "%s %d  %s · %s" % [m.kind_name(), m.id, base, m.summary().get_slice(" · ", 1) if m.summary().contains(" · ") else m.summary()]
+		if not flying.is_empty():
+			text += " · fuel %d%%" % int(round(fuel * 100.0))
+		out.append({"text": text, "units": flying, "warn": not flying.is_empty() and fuel < 0.35})
+	for u: Unit in unit_manager.get_faction_units(player_faction) if unit_manager != null else []:
+		if u.alive and u.ready_alert > 0:
+			out.append({"text": "ALERT  %s · %d fighters ready to scramble" % [u.callsign.get_slice(" (", 0), u.ready_alert], "units": [u], "warn": false})
+	return out
+
+
+func _draw_air_board() -> void:
+	_air_board_rows.clear()
+	if not show_air_board:
+		return
+	var lines := air_board_lines()
+	if lines.is_empty():
+		return
+	var font := _readout_font()
+	var fs := 11
+	var line_h := 15.0
+	var width := 0.0
+	for l: Dictionary in lines:
+		width = maxf(width, font.get_string_size(str(l["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+	width = minf(width + 16.0, size.x * 0.45)
+	var x := size.x - width - 8.0
+	var y := 8.0
+	var shown := mini(lines.size(), 8)
+	var box := Rect2(x, y, width, 20.0 + line_h * shown)
+	draw_rect(box, Color(0.02, 0.05, 0.10, 0.72))
+	draw_rect(box, Color(COL_FRIENDLY, 0.35), false, 1.0)
+	_shadow_text(Vector2(x + 8.0, y + 13.0), "AIR · click a line to hook its aircraft · L returns them", 10, Color(COL_READOUT, 0.7), HORIZONTAL_ALIGNMENT_LEFT, width - 12.0)
+	for i in shown:
+		var l: Dictionary = lines[i]
+		var ly := y + 20.0 + line_h * i
+		var row := Rect2(x, ly, width, line_h)
+		if row.has_point(_mouse):
+			draw_rect(row, Color(COL_FRIENDLY, 0.15))
+		_shadow_text(Vector2(x + 8.0, ly + 11.0), str(l["text"]), fs, Color(1.0, 0.75, 0.3) if bool(l["warn"]) else COL_FRIENDLY, HORIZONTAL_ALIGNMENT_LEFT, width - 12.0)
+		_air_board_rows.append({"rect": row, "units": l["units"]})
+
+
+## A click on an air board line hooks that line's aircraft (or the alert deck) and frames them.
+func _click_air_board(at: Vector2) -> bool:
+	for r: Dictionary in _air_board_rows:
+		if (r["rect"] as Rect2).has_point(at):
+			var units: Array = r["units"]
+			if not units.is_empty():
+				select_units(units)
+				center_on_selection()
+			return true
+	return false
+
+
 func _draw_key() -> void:
 	if not show_key:
 		return

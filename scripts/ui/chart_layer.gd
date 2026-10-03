@@ -19,8 +19,12 @@ var relief_on := true
 ## The regional map's darker, less saturated treatment.
 var brightness := 1.0
 var saturation := 1.0
-## Radar-coverage discs, Vector3(centre x, centre y, radius) in world nm, at most 16.
+## Radar-coverage discs, Vector3(centre x, centre y, radius) in world nm: the regional map's tint.
 var coverage: Array[Vector3] = []
+## The tactical chart's sensor coverage (SensorCoverage.discs): when set, the chart is lit inside
+## these and dark beyond them, and `coverage` is not used.
+var sensor_coverage: Array[Vector4] = []
+var sensor_coverage_on := false
 
 var _material: ShaderMaterial
 var _bound_generation := -1
@@ -49,6 +53,8 @@ func _process(_delta: float) -> void:
 		view_center_nm = map.center_nm
 		px_per_nm = map.ppn
 		relief_on = map.show_terrain
+		sensor_coverage_on = map.show_coverage
+		sensor_coverage = map.coverage_discs
 	queue_redraw()
 
 
@@ -76,13 +82,20 @@ func _update_material(with_sea: bool) -> bool:
 	_material.set_shader_parameter("tone_brightness", brightness)
 	_material.set_shader_parameter("tone_saturation", saturation)
 	var discs: Array[Vector4] = []
-	for c in coverage:
-		if discs.size() >= 16:
-			break
-		discs.append(Vector4(c.x, c.y, c.z, 0.0))
+	if sensor_coverage_on:
+		for d in sensor_coverage:
+			if discs.size() >= SensorCoverage.MAX_DISCS:
+				break
+			discs.append(d)
+	else:
+		for c in coverage:
+			if discs.size() >= SensorCoverage.MAX_DISCS:
+				break
+			discs.append(Vector4(c.x, c.y, c.z, 0.0))
 	var count := discs.size()
-	while discs.size() < 16:
+	while discs.size() < SensorCoverage.MAX_DISCS:
 		discs.append(Vector4.ZERO)
 	_material.set_shader_parameter("coverage", discs)
 	_material.set_shader_parameter("coverage_count", count)
+	_material.set_shader_parameter("coverage_mode", 1 if sensor_coverage_on else 0)
 	return true

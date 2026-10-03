@@ -119,6 +119,7 @@ static func chart_items(chart: TacticalMap) -> Array:
 		CdsMenus.item("Platform names & contact labels", {"kind": "layer", "name": "tags"}, false, "Contact names show only what your sensors have established.", 1 if chart.show_tags else 0),
 		CdsMenus.item("Explain symbols", {"kind": "layer", "name": "key"}, false, "", 1 if chart.show_key else 0),
 		CdsMenus.sep(),
+		CdsMenus.item("Sensor coverage shading", {"kind": "layer", "name": "coverage"}, false, "Light the chart where your radars and sonars reach; dark beyond them.", 1 if chart.show_coverage else 0),
 		CdsMenus.item("Sensor ranges", {"kind": "layer", "name": "sensors"}, false, "", 1 if chart.show_rings else 0),
 		CdsMenus.item("Weapon ranges", {"kind": "layer", "name": "weapon_ranges"}, false, "", 1 if chart.show_weapon_ranges else 0),
 		CdsMenus.item("Movement trails", {"kind": "layer", "name": "trails"}, false, "", 1 if chart.show_trails else 0),
