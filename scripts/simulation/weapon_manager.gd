@@ -30,6 +30,11 @@ const IMPACT_MIN_NM := 0.05
 ## behind it. GAMEPLAY_ESTIMATE.
 const SEDUCED_REACQUIRE_P := 0.5
 const MAX_SEDUCTIONS := 2
+## A round inside its own minimum range of the launcher is still separating and is not armed
+## against what lies alongside it: the section's wingman, the ship's own helicopter in the hover.
+## Own units carry no held track, so the firing board's traffic advisory never warns about them.
+## Capped here so a long minimum range does not clear the line of fire. GAMEPLAY_ESTIMATE.
+const SAFE_SEPARATION_NM := 0.5
 
 var unit_manager: UnitManager
 var track_manager: TrackManager
@@ -605,15 +610,24 @@ static func first_seeker_contact_fraction(from: Vector2, to: Vector2, point: Vec
 ## Return the actual lock point, so an impact cannot use travel completed before acquisition.
 ## Terminal search cannot read the commander's identities: friendly and neutral traffic can be
 ## acquired just like hostile traffic. The firing platform is excluded from its own seeker.
+## A round still separating from its launcher takes no return alongside it (SAFE_SEPARATION_NM);
+## a short shot that opens its seeker at launch would otherwise lock the section's wingman.
+## A rocket-delivered payload enters the water on the held datum and searches around its entry
+## point, so the boat it was dropped on is never "astern" of it.
 func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	var radius := w.spec.acquisition_radius_nm()
+	var around_entry := w.delivery_spec != null
+	var separation := clampf(w.spec.min_range_nm, IMPACT_MIN_NM, SAFE_SEPARATION_NM)
+	var separating := w.shooter != null and not around_entry and w.distance_flown_nm < separation
 	var best: Unit = null
 	var first_fraction := INF
 	var best_d_squared := INF
 	for u in unit_manager.units:
 		if u == w.shooter or not can_target(w.spec, u):
 			continue
-		var fraction := first_seeker_contact_fraction(previous, w.position, u.position, radius, w.heading_deg, w.spec.seeker_half_angle_deg)
+		if separating and u.position.distance_to(w.shooter.position) < separation:
+			continue
+		var fraction := _first_radius_contact_fraction(previous, w.position, u.position, radius) if around_entry else first_seeker_contact_fraction(previous, w.position, u.position, radius, w.heading_deg, w.spec.seeker_half_angle_deg)
 		if not is_finite(fraction):
 			continue
 		var lock_point := previous.lerp(w.position, fraction)

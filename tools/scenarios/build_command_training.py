@@ -37,7 +37,7 @@ def missile_defence():
              "Credit requires an accepted interception order against a detected inbound and your destroyer surviving its resolution.", 92)
     s.update(role="Air-defence commander", learning="Manual interception, detected threat picture and finite defensive magazines",
              commander_intent="Select manual defence, engage the detected inbound, and keep the destroyer afloat.",
-             first_orders=["Select USS Practice. Open the Normal / Classic options button and enable Manual missile defence (X). The raid waits for this accepted order.",
+             first_orders=["Select USS Practice. Classic starts in manual missile defence; under Normal, open the Normal / Classic options button and enable Manual missile defence (X). The raid waits for manual defence.",
                            "Resume at 1x. When an inbound is reported, Space pauses. Select USS Practice and press X to authorize interception.",
                            "Defence shows detected threats. Resume and monitor the engagement; the exercise ends when the inbound resolves and the destroyer survives."])
     s["units"] = [{"platform": "usn_ddg_arleigh_burke_iia", "callsign": "USS Practice", "faction": "BLUE", "position_nm": [0, 0], "heading_deg": 90, "speed_kn": 0, "air_wing": []}]

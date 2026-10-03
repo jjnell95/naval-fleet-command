@@ -1113,6 +1113,13 @@ func cancel_drag() -> void:
 		_end_drag()
 
 
+## A release made while another window has focus never arrives either. Without this, a station
+## drag left latched by Alt-Tab is applied by the next ordinary click wherever it lands.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		cancel_drag()
+
+
 func _end_drag() -> void:
 	_drag_mode = DragMode.NONE
 	_drag_button = MOUSE_BUTTON_NONE
@@ -1122,10 +1129,11 @@ func _end_drag() -> void:
 	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode != InteractionMode.SELECT else Control.CURSOR_ARROW
 
 
-## Explicit handles avoid stealing platform selection. A station's label remains reachable
-## when an aircraft is sitting directly over its centre. East-edge handles resize the area.
+## Explicit handles avoid stealing platform or contact selection. A station's label remains
+## reachable when an aircraft or a contact is sitting directly over its centre. East-edge handles
+## resize the area.
 func station_handle_at(at: Vector2) -> Dictionary:
-	if interaction_mode != InteractionMode.SELECT or _unit_at(at) != null:
+	if interaction_mode != InteractionMode.SELECT or _unit_at(at) != null or _track_at(at) != null:
 		return {}
 	if simulation != null and simulation.air_mission_manager != null:
 		for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
