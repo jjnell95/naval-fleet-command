@@ -48,7 +48,7 @@ A measurement harness flew fighter-vs-fighter, ship SAM-vs-aircraft and full-sce
 | Ships fired SAMs at missiles chasing friendly fighters | Any detected round with a friendly victim counted | A missile chasing an aircraft is the aircraft's to beat |
 | Your rounds failed in silence | Only hits and misses at the target were reported | The radio says why: out of fuel, nothing found, target lost, guidance lost, decoyed |
 
-Your own attack orders on aircraft are flown at dash. A round keeps mid-course updates from the shared picture after its shooter is lost.
+Your own attack orders on aircraft are flown at dash. A round still gets no new guidance once its shooter is lost; an existing test pins that rule, and a trial that relaxed it did not help.
 
 Three rounds of measurement shaped these fixes. The validation section below gives the before and after numbers.
 

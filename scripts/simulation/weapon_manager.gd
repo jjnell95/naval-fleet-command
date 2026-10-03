@@ -393,7 +393,7 @@ func _step(w: Weapon, dt: float) -> void:
 		return
 	# Authored update-capable weapons follow only an active report held by a living shooter.
 	# An autonomous launch-and-leave weapon keeps its launch solution until terminal search.
-	if w.spec.supports_midcourse_updates() and w.delivery_spec == null and w.phase == Weapon.Phase.CRUISE and w.shooter != null and w.target_track != null and w.target_track.status == Track.Status.ACTIVE and (w.target_track.visible_to(w.shooter) if w.shooter.alive else w.target_track.networked):
+	if w.spec.supports_midcourse_updates() and w.delivery_spec == null and w.phase == Weapon.Phase.CRUISE and w.shooter != null and w.shooter.alive and w.target_track != null and w.target_track.status == Track.Status.ACTIVE and w.target_track.visible_to(w.shooter):
 		w.aim_point = _aim_for(w)
 
 	var goal := w.aim_point
