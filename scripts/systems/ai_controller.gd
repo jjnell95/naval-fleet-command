@@ -24,6 +24,8 @@ const AIR_REENGAGE_MIN_S := 15.0
 ## A fighter with air-to-air weapons holds this share of its longest one's reach from an air contact:
 ## inside its own envelope, not two hundred miles away behind its anti-ship stand-off.
 const AIR_STANDOFF_FRACTION := 0.5
+## ...and stays this far outside a known enemy aircraft's longer air-to-air reach.
+const ENEMY_REACH_MARGIN := 1.1
 const ORDER_REFRESH_S := 30.0
 const GOAL_TOLERANCE_NM := 3.0
 const COURSE_TOLERANCE_DEG := 8.0
@@ -211,6 +213,9 @@ func _update_unit(u: Unit, now: float) -> void:
 	var all_unknowns: Array = []
 	for t: Track in track_manager.tracks_for(u):
 		if t.status == Track.Status.LOST:
+			continue
+		# A hostile the side has seen go down is nothing to close on, shadow or shoot at.
+		if t.identity == "HOSTILE" and t.damage_estimate >= 100.0:
 			continue
 		var mine := u.can_engage_domain(t.domain) or (t.domain == "subsurface" and TowedArray.capable(u))
 		if t.identity == "HOSTILE":
@@ -542,6 +547,23 @@ func _air_reach(u: Unit, t: Track) -> float:
 	return best
 
 
+## The longest air-to-air reach the plot's reported class carries, or 0 when the class is not known.
+## Read from the catalogue entry for the reported class, never from the contact itself.
+static func _enemy_air_reach(t: Track) -> float:
+	if t.classification < Track.Classification.CLASS_KNOWN:
+		return 0.0
+	var pid := MapSymbols.platform_for_class(t.known_class, t.known_category)
+	var spec := DataDB.platform(pid) if pid != "" else null
+	if spec == null:
+		return 0.0
+	var best := 0.0
+	for wid: String in spec.weapon_loadout:
+		var w := DataDB.weapon(wid)
+		if w != null and w.type == "aam" and w.target_types.has("air"):
+			best = maxf(best, w.max_range_nm)
+	return best
+
+
 ## Standoff for holding a hostile. Weapon reach is not the binding constraint: a missile can
 ## outrange the radar many times over, and a track that is not being observed cannot receive
 ## mid-course updates. So the AI closes far enough to keep the contact, and no further.
@@ -714,8 +736,12 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 			var air_reach := _air_reach(u, t)
 			if air_reach > 0.0:
 				# A fighter presses into its own missile envelope against another aircraft, at dash,
-				# rather than turning away at its anti-ship stand-off the moment it sees one.
+				# rather than turning away at its anti-ship stand-off the moment it sees one; but
+				# not into a known enemy's longer reach, where it would be shot before it could shoot.
 				standoff_nm = AIR_STANDOFF_FRACTION * air_reach
+				var threat_reach := _enemy_air_reach(t)
+				if threat_reach > air_reach * AIR_STANDOFF_FRACTION:
+					standoff_nm = maxf(standoff_nm, threat_reach * ENEMY_REACH_MARGIN)
 				if range_nm > standoff_nm:
 					_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
 					unit_manager.issue_order(u, Order.set_speed(u.spec.flight_speed("dash")))

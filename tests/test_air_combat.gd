@@ -113,16 +113,16 @@ func test_close_range_radar_gives_a_probable_type_on_an_aircraft_but_not_on_a_sh
 	var bandit := _fighter("RED", Vector2(0, 20))
 	bandit.spec.id = "test_fighter"
 	bandit.spec.short_name = "Test Fighter"
-	for second in int(Track.CLASS_TIMES_S[2]) + 2:
+	for second in int(TrackManager.RADAR_RECOGNITION_S) + 2:
 		tm.observe_contact("BLUE", SensorContact.make(bandit, bandit.position, 0.3, 1.0, 1.0, 20.0, "radar"), float(second), 1.0)
 	var t := tm.find_track("BLUE", bandit)
 	assert_eq(t.classification, Track.Classification.CLASS_KNOWN)
 	assert_eq(t.class_evidence, "Radar recognition")
 	assert_eq(t.identity, "HOSTILE", "the recognition brief names the type's side")
-	var far := _fighter("RED", Vector2(0, 90))
+	var far := _fighter("RED", Vector2(0, 120))
 	far.spec.id = "test_fighter"
-	for second in int(Track.CLASS_TIMES_S[2]) + 2:
-		tm.observe_contact("BLUE", SensorContact.make(far, far.position, 0.3, 1.0, 1.0, 90.0, "radar"), float(second), 1.0)
+	for second in int(TrackManager.RADAR_RECOGNITION_S) + 2:
+		tm.observe_contact("BLUE", SensorContact.make(far, far.position, 0.3, 1.0, 1.0, 120.0, "radar"), float(second), 1.0)
 	assert_true(tm.find_track("BLUE", far).classification < Track.Classification.CLASS_KNOWN, "too far for a type from the return")
 	tm.free()
 
@@ -173,3 +173,17 @@ func test_ships_do_not_spend_interceptors_on_a_missile_chasing_an_aircraft() -> 
 	tm.free()
 	wm.free()
 	um.free()
+
+
+func test_an_aircraft_coming_straight_in_is_shot_at_the_full_envelope() -> void:
+	var aam := _aam(45.0, 2100.0)
+	var shooter := _fighter("BLUE", Vector2.ZERO, [aam])
+	var bandit := _fighter("RED", Vector2(0, 40))
+	var inbound := _air_track(bandit, 900.0, 180.0)  # heading south, straight at the shooter
+	assert_true(Combat.closing_on(inbound, shooter.position))
+	assert_true(Combat.check_engagement(shooter, aam, inbound)["ok"], "a closing target has not turned away yet")
+
+
+func test_a_kill_the_side_has_seen_drops_out_of_the_ai_picture() -> void:
+	var src := FileAccess.get_file_as_string("res://scripts/systems/ai_controller.gd")
+	assert_true(src.contains("if t.identity == \"HOSTILE\" and t.damage_estimate >= 100.0:"), "killed hostiles are not chased")

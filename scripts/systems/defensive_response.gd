@@ -58,6 +58,9 @@ static func try_active(u: Unit, w: Weapon, wm: WeaponManager) -> bool:
 	# Imaging seekers discriminate better than a simple heat seeker in this game abstraction.
 	if w.spec.guidance.contains("imaging"):
 		effectiveness *= 0.6
+	# A ship's fire-control radar keeps sorting the target from the chaff all the way in.
+	if w.spec.guidance in ["fire_control_directed", "semi_active_abstract", "track_via_missile"]:
+		effectiveness *= 0.5
 	var chance := clampf(effectiveness / maxf(w.spec.soft_kill_resistance, 0.1), 0.0, 0.9)
 	if wm.rng.randf() < chance:
 		wm.seduce(w, u)

@@ -130,7 +130,7 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 		return out
 	# The range the target is at now, against the reach left once it turns and runs: the lead point
 	# already allows for the course it holds, so this is the margin for the turn it has yet to make.
-	if track.domain == "air" and d > max_range * air_escape_factor(spec, track):
+	if track.domain == "air" and not closing_on(track, shooter.position) and d > max_range * air_escape_factor(spec, track):
 		out["reason"] = "TARGET CAN OUTRUN THE SHOT"
 		return out
 	if crosses_land(shooter, spec, track):
@@ -210,7 +210,6 @@ static func clear_standoff_point(from: Vector2, target_pos: Vector2, standoff_nm
 	return Vector2.INF
 
 
-## Unpowered bombs depend on the launch aircraft height. All numbers are gameplay tuning.
 ## The share of a missile's range that is usable against an aircraft that turns and runs once it
 ## sees the shot coming: (missile speed - escape speed) / missile speed, floored at AIR_ESCAPE_FLOOR.
 ## Escape speed is the reported class's top speed when the plot knows the class, else the plot's
@@ -227,6 +226,18 @@ static func air_escape_factor(spec: WeaponSpec, track: Track) -> float:
 	return clampf((spec.speed_kn - escape) / spec.speed_kn, AIR_ESCAPE_FLOOR, 1.0)
 
 
+## Whether the plot's course points within CLOSING_CONE_DEG of `at`: an aircraft coming straight
+## in is shot at the full envelope, because turning away is a choice it has not yet made.
+const CLOSING_CONE_DEG := 45.0
+
+
+static func closing_on(track: Track, at: Vector2) -> bool:
+	if track == null or not track.has_kinematics or track.speed_kn <= 0.0:
+		return false
+	return absf(Geo.heading_delta(track.course_deg, Geo.bearing_deg(track.position, at))) <= CLOSING_CONE_DEG
+
+
+## Unpowered bombs depend on the launch aircraft height. All numbers are gameplay tuning.
 static func effective_range_nm(shooter: Unit, spec: WeaponSpec) -> float:
 	if spec.type == "bomb":
 		return minf(spec.max_range_nm, maxf(shooter.altitude_m, 0.0) / 1000.0)

@@ -24,7 +24,8 @@ const HISTORY_LENGTH := 48
 ## Damage pool assumed for a contact whose class is not yet known, for battle damage assessment.
 const GENERIC_HEALTH := 100.0  # GAMEPLAY
 ## A radar plot this close on an aircraft accumulates toward a probable type. GAMEPLAY_ESTIMATE.
-const RADAR_RECOGNITION_NM := 40.0
+const RADAR_RECOGNITION_NM := 60.0
+const RADAR_RECOGNITION_S := 60.0
 
 ## Factions that are not at war with anyone. Their ships classify as NEUTRAL rather than HOSTILE,
 ## which is what makes identification a decision rather than a formality.
@@ -365,7 +366,7 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 	if c.source == "radar" and c.target.in_flight() and c.range_nm <= RADAR_RECOGNITION_NM and t.classification < Track.Classification.CLASS_KNOWN:
 		t.radar_recognition_s += maxf(gain - t._cycle_radar_gain, 0.0)
 		t._cycle_radar_gain = maxf(gain, t._cycle_radar_gain)
-		if t.radar_recognition_s >= Track.CLASS_TIMES_S[2]:
+		if t.radar_recognition_s >= RADAR_RECOGNITION_S:
 			t.classification = Track.Classification.CLASS_KNOWN
 			t.known_class = c.target.spec.short_name
 			t.known_category = c.target.spec.category
