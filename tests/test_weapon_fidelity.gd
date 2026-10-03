@@ -170,3 +170,137 @@ func test_traffic_advisory_reads_only_held_protected_reports() -> void:
 	assert_true(WeaponPresentation.protected_contact_warning(shooter, spec, target, [civilian]).contains("CIV1"))
 	civilian.status = Track.Status.LOST
 	assert_true(WeaponPresentation.protected_contacts_at_risk(shooter, spec, target, [civilian]).is_empty())
+
+
+func _armed(spec: WeaponSpec, domain: String, faction := "BLUE") -> Unit:
+	var u := _shooter()
+	u.spec.domain = domain
+	u.spec.vls_cells = 32
+	u.spec.fire_control_channels = 4
+	u.spec.has_datalink = true
+	u.faction = faction
+	u.health = 100
+	u.radar_on = true
+	if domain == "air":
+		u.flight_state = Unit.FlightState.AIRBORNE
+		u.altitude_m = 6000
+	if spec != null:
+		u.weapons.append(spec)
+		u.magazines[spec.id] = 8
+	return u
+
+
+func test_rocket_delivered_torpedo_searches_around_its_water_entry() -> void:
+	# The payload swims on along the rocket's line before its seeker comes on. A boat on or
+	# just short of the held datum is then astern of it, and must still be found.
+	for offset: Vector2 in [Vector2.ZERO, Vector2(0, 0.3), Vector2(0, -0.3), Vector2(0.4, 0)]:
+		Terrain.clear()
+		var rocket := DataDB.weapon("rgm_139_vla")
+		var ship := _armed(rocket, "surface")
+		var boat := _armed(null, "subsurface", "RED")
+		boat.position = Vector2(0, 5) + offset
+		boat.depth_m = 100
+		boat.ordered_depth_m = 100
+		var wm := WeaponManager.new()
+		wm.unit_manager = UnitManager.new()
+		wm.unit_manager.add_unit(ship)
+		wm.unit_manager.add_unit(boat)
+		var datum := _track(Vector2(0, 5))
+		datum.domain = "subsurface"
+		assert_true(wm.launch(ship, rocket, datum, 1, 0))
+		var round: Weapon = wm.in_flight[0]
+		var now := 0.0
+		while round.phase != Weapon.Phase.DEAD and round.acquired == null and now < 600.0:
+			now += 0.5
+			wm.tick(0.5, now)
+		assert_true(round.acquired == boat, "payload finds a boat %s from its datum" % offset)
+		wm.clear()
+		wm.unit_manager.free()
+		wm.free()
+
+
+func test_seeker_separating_from_its_launcher_ignores_the_wingman_alongside() -> void:
+	# A short shot opens its seeker at launch with the bandit and the shooter's own section
+	# already in the basket. A round still separating takes nothing alongside its launcher.
+	for ahead: float in [0.0, 0.3]:
+		Terrain.clear()
+		var aam := DataDB.weapon("cw90_aim9m")
+		var lead := _armed(aam, "air")
+		var wing := _armed(null, "air")
+		wing.position = Geo.heading_to_vector(0) * ahead
+		var bandit := _armed(null, "air", "RED")
+		bandit.position = Geo.heading_to_vector(0) * 3.0
+		var wm := WeaponManager.new()
+		wm.unit_manager = UnitManager.new()
+		for u: Unit in [lead, wing, bandit]:
+			wm.unit_manager.add_unit(u)
+		var target := _track(bandit.position)
+		target.domain = "air"
+		target.altitude_m = 6000
+		assert_true(wm.launch(lead, aam, target, 1, 0))
+		var round: Weapon = wm.in_flight[0]
+		var first: Unit = null
+		var now := 0.0
+		while round.phase != Weapon.Phase.DEAD and now < 60.0:
+			now += 0.25
+			wm.tick(0.25, now)
+			if first == null and round.acquired != null:
+				first = round.acquired
+		assert_true(first == bandit, "wingman %.1f nm ahead is not the first lock" % ahead)
+		assert_near(wing.health, 100.0, 0.001, "the section's wingman is not hit")
+		wm.clear()
+		wm.unit_manager.free()
+		wm.free()
+
+
+func test_traffic_ahead_beyond_safe_separation_is_still_in_the_line_of_fire() -> void:
+	# The seeker cannot read identities: a merchant between the shooter and its target is the
+	# first return the seeker meets, even while the round is still separating from its launcher.
+	var wm := WeaponManager.new()
+	wm.unit_manager = UnitManager.new()
+	var shooter := _armed(null, "surface")
+	var merchant := _armed(null, "surface", "NEUTRAL")
+	merchant.position = Vector2(0, 1.5)
+	var target := _armed(null, "surface", "RED")
+	target.position = Vector2(0, 2.5)
+	for u: Unit in [shooter, merchant, target]:
+		wm.unit_manager.add_unit(u)
+	var w := Weapon.new()
+	w.spec = _weapon()
+	w.shooter = shooter
+	w.faction = "BLUE"
+	w.position = Vector2(0, 0.3)
+	w.distance_flown_nm = 0.3
+	w.aim_point = target.position
+	wm._try_acquire(w, Vector2(0, 0.1))
+	assert_true(w.acquired == merchant, "safe separation does not clear the line of fire")
+	wm.unit_manager.free()
+	wm.free()
+
+
+func test_a_close_shot_the_weapon_allows_still_finds_its_target() -> void:
+	# Separation follows the round's own minimum range: a short-range missile cleared to fire at
+	# 0.4 nm is armed against the bandit it was fired at.
+	Terrain.clear()
+	var aam := DataDB.weapon("aim9x_air")
+	assert_true(aam.min_range_nm < 0.4, "the fixture needs a weapon that may fire inside half a mile")
+	var lead := _armed(aam, "air")
+	var bandit := _armed(null, "air", "RED")
+	bandit.position = Geo.heading_to_vector(0) * 0.4
+	var wm := WeaponManager.new()
+	wm.unit_manager = UnitManager.new()
+	for u: Unit in [lead, bandit]:
+		wm.unit_manager.add_unit(u)
+	var target := _track(bandit.position)
+	target.domain = "air"
+	target.altitude_m = 6000
+	assert_true(wm.launch(lead, aam, target, 1, 0))
+	var round: Weapon = wm.in_flight[0]
+	var now := 0.0
+	while round.phase != Weapon.Phase.DEAD and round.acquired == null and now < 30.0:
+		now += 0.25
+		wm.tick(0.25, now)
+	assert_true(round.acquired == bandit)
+	wm.clear()
+	wm.unit_manager.free()
+	wm.free()
