@@ -175,15 +175,31 @@ func test_ships_do_not_spend_interceptors_on_a_missile_chasing_an_aircraft() -> 
 	um.free()
 
 
-func test_an_aircraft_coming_straight_in_is_shot_at_the_full_envelope() -> void:
+func test_an_aircraft_coming_straight_in_is_shot_from_further_out_than_one_running() -> void:
 	var aam := _aam(45.0, 2100.0)
 	var shooter := _fighter("BLUE", Vector2.ZERO, [aam])
-	var bandit := _fighter("RED", Vector2(0, 40))
+	var bandit := _fighter("RED", Vector2(0, 33))
 	var inbound := _air_track(bandit, 900.0, 180.0)  # heading south, straight at the shooter
 	assert_true(Combat.closing_on(inbound, shooter.position))
 	assert_true(Combat.check_engagement(shooter, aam, inbound)["ok"], "a closing target has not turned away yet")
+	assert_true(not Combat.check_engagement(shooter, aam, _air_track(bandit, 900.0, 0.0))["ok"], "the same range on one already running is too far")
 
 
 func test_a_kill_the_side_has_seen_drops_out_of_the_ai_picture() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/systems/ai_controller.gd")
 	assert_true(src.contains("if t.identity == \"HOSTILE\" and t.damage_estimate >= 100.0:"), "killed hostiles are not chased")
+
+
+func test_a_closing_aircraft_gets_a_lighter_margin_not_none() -> void:
+	var aam := _aam(45.0, 2100.0)
+	var shooter := _fighter("BLUE", Vector2.ZERO, [aam])
+	var edge := _fighter("RED", Vector2(0, 44))
+	assert_true(not Combat.check_engagement(shooter, aam, _air_track(edge, 900.0, 180.0))["ok"], "not at the very edge: it will turn once it sees the shot")
+	var inside := _fighter("RED", Vector2(0, 35))
+	assert_true(Combat.check_engagement(shooter, aam, _air_track(inside, 900.0, 180.0))["ok"])
+
+
+func test_an_outranged_fighter_commits_instead_of_parking_outside_its_own_envelope() -> void:
+	assert_true(AIController.OUTRANGED_STANDOFF_FRACTION < 1.0, "it holds inside its own reach")
+	var src := FileAccess.get_file_as_string("res://scripts/systems/ai_controller.gd")
+	assert_true(not src.contains("ENEMY_REACH_MARGIN"), "no stand-off outside the enemy's reach")

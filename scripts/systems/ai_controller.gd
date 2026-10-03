@@ -24,8 +24,9 @@ const AIR_REENGAGE_MIN_S := 15.0
 ## A fighter with air-to-air weapons holds this share of its longest one's reach from an air contact:
 ## inside its own envelope, not two hundred miles away behind its anti-ship stand-off.
 const AIR_STANDOFF_FRACTION := 0.5
-## ...and stays this far outside a known enemy aircraft's longer air-to-air reach.
-const ENEMY_REACH_MARGIN := 1.1
+## Outranged (the known enemy reaches this much further): commit and hold at this share instead.
+const OUTRANGED_FACTOR := 1.15
+const OUTRANGED_STANDOFF_FRACTION := 0.8
 const ORDER_REFRESH_S := 30.0
 const GOAL_TOLERANCE_NM := 3.0
 const COURSE_TOLERANCE_DEG := 8.0
@@ -739,9 +740,10 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 				# rather than turning away at its anti-ship stand-off the moment it sees one; but
 				# not into a known enemy's longer reach, where it would be shot before it could shoot.
 				standoff_nm = AIR_STANDOFF_FRACTION * air_reach
-				var threat_reach := _enemy_air_reach(t)
-				if threat_reach > air_reach * AIR_STANDOFF_FRACTION:
-					standoff_nm = maxf(standoff_nm, threat_reach * ENEMY_REACH_MARGIN)
+				# Outranged by a known enemy: hanging about outside its reach only means never
+				# shooting. Commit at dash and shoot from the outer part of the own envelope.
+				if _enemy_air_reach(t) > air_reach * OUTRANGED_FACTOR:
+					standoff_nm = OUTRANGED_STANDOFF_FRACTION * air_reach
 				if range_nm > standoff_nm:
 					_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
 					unit_manager.issue_order(u, Order.set_speed(u.spec.flight_speed("dash")))
