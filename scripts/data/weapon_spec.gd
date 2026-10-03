@@ -83,6 +83,10 @@ func seeker_band() -> String:
 		return "infrared"
 	if guidance.contains("radar") or guidance == "inertial_active":
 		return "radar"
+	# Command and semi-active guidance still close on a radar return, and chaff and jamming work on
+	# that return: an aircraft's countermeasures get their chance against a ship's SAM too.
+	if guidance in ["fire_control_directed", "semi_active_abstract", "track_via_missile"]:
+		return "radar"
 	return "none"
 
 

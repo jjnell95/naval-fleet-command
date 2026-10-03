@@ -189,6 +189,7 @@ func _ready() -> void:
 	simulation.weapon_manager.weapon_launched.connect(_on_weapon_launched)
 	simulation.weapon_manager.round_fired.connect(_on_round_fired)
 	simulation.weapon_manager.weapon_impact.connect(_on_weapon_impact)
+	simulation.weapon_manager.weapon_resolved.connect(_on_own_round_resolved)
 	simulation.weapon_manager.unit_destroyed.connect(_on_unit_destroyed)
 	simulation.weapon_manager.engagement_rejected.connect(_on_engagement_rejected)
 	simulation.weapon_manager.interceptor_launched.connect(_on_interceptor_launched)
@@ -2170,6 +2171,31 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 			voice.say("fire_out", u)
 		"flooding_controlled":
 			radio.flash("Flooding under control", "good", u)
+
+
+## Why one of the commander's own rounds ended without reaching anything, in plain words. A hit
+## or a miss at the target is reported by _on_weapon_impact; this covers the rest, which used to
+## end in silence. Interceptors are the defence board's business and are left out.
+const ROUND_LOSS_WORDS := {
+	"RANGE EXHAUSTED": "ran out of fuel short of the target",
+	"NO ACQUISITION": "found nothing at the aim point",
+	"TARGET LOST": "lost its target",
+	"GUIDANCE LOST": "lost guidance",
+	"TERRAIN": "hit the ground",
+	"DECOYED": "was decoyed",
+}
+
+
+func _on_own_round_resolved(w: Weapon) -> void:
+	if w == null or w.faction != simulation.player_faction or w.is_interceptor():
+		return
+	if not ROUND_LOSS_WORDS.has(w.dead_reason) or w.spec.is_gun():
+		return
+	if w.shooter != null and not _receives_report(w.shooter):
+		return
+	var at := "track %s" % DataDisplay.track_number_for_track(w.target_track) if w.target_track != null else "its target"
+	radio.advise("%s at %s %s" % [w.spec.compact_name(), at, ROUND_LOSS_WORDS[w.dead_reason]])
+	map.add_effect(w.position, "refused")
 
 
 func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:

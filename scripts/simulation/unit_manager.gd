@@ -521,7 +521,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			u.ordered_speed_kn = minf(u.spec.cruise_speed_kn, maxf(u.attack_speed_kn, 5.0))
 			u.attack_stall_s = 0.0
 			return
-		"OUT OF RANGE", "BEARING ONLY / NO RANGE SOLUTION", "NO INTERCEPT SOLUTION":
+		"OUT OF RANGE", "BEARING ONLY / NO RANGE SOLUTION", "NO INTERCEPT SOLUTION", "TARGET CAN OUTRUN THE SHOT", "NO RADAR FIX ON AIRCRAFT":
 			u.attack_phase = "Intercept track"
 			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * reach, dt)
 		"INTERCEPT BEYOND WEAPON RANGE":
@@ -626,6 +626,8 @@ func _steer_attack(u: Unit, track: Track, standoff_nm: float, dt: float, opening
 	var goal := Combat.standoff_point(u.position, track.position, standoff_nm)
 	u.waypoints.assign([goal])
 	u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn) if fixed_wing else u.attack_speed_kn
+	if fixed_wing and track.domain == "air":
+		u.ordered_speed_kn = u.spec.flight_speed("dash")  # an intercept is flown fast
 
 
 func _end_attack(u: Unit, track: Track, reason: String) -> void:

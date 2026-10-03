@@ -163,6 +163,10 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 						continue
 					if first_pass:
 						_try_decoy(u, w, weapon_manager)
+					# A missile chasing an aircraft is the aircraft's to beat with countermeasures and a
+					# hard turn; a ship spending interceptors on it is shooting at the wrong thing.
+					if (entry["target"] as Unit).is_aircraft():
+						continue
 					if w.phase == Weapon.Phase.DEAD or u.roe == Unit.Roe.HOLD or not u.can_fire():
 						continue
 					var already: int = committed.get(w.id, 0)

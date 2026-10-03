@@ -23,6 +23,8 @@ const HISTORY_INTERVAL_S := 30.0
 const HISTORY_LENGTH := 48
 ## Damage pool assumed for a contact whose class is not yet known, for battle damage assessment.
 const GENERIC_HEALTH := 100.0  # GAMEPLAY
+## A radar plot this close on an aircraft accumulates toward a probable type. GAMEPLAY_ESTIMATE.
+const RADAR_RECOGNITION_NM := 40.0
 
 ## Factions that are not at war with anyone. Their ships classify as NEUTRAL rather than HOSTILE,
 ## which is what makes identification a decision rather than a formality.
@@ -157,6 +159,7 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t._cycle_error = INF
 		t._cycle_observation_gain = 0.0
 		t._cycle_signature_gain = 0.0
+		t._cycle_radar_gain = 0.0
 		t._cycle_tma_start = t.tma_quality
 		t._cycle_tma_gain = 0.0
 		if reacquired or from_report:
@@ -356,6 +359,21 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 			var affiliation := String(brief.get(c.target.spec.id, ""))
 			if t.identity == "UNKNOWN" and affiliation in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
 				t.identity = affiliation
+				t.identity_evidence = "Scenario recognition brief"
+	# Aircraft only, and only close: a firm radar plot held long enough gives a probable type from
+	# the return itself. Ships are still not classified by a generic radar plot (see above).
+	if c.source == "radar" and c.target.in_flight() and c.range_nm <= RADAR_RECOGNITION_NM and t.classification < Track.Classification.CLASS_KNOWN:
+		t.radar_recognition_s += maxf(gain - t._cycle_radar_gain, 0.0)
+		t._cycle_radar_gain = maxf(gain, t._cycle_radar_gain)
+		if t.radar_recognition_s >= Track.CLASS_TIMES_S[2]:
+			t.classification = Track.Classification.CLASS_KNOWN
+			t.known_class = c.target.spec.short_name
+			t.known_category = c.target.spec.category
+			t.class_is_probable = true
+			t.class_evidence = "Radar recognition"
+			var aff := String(recognition_affiliations.get(faction, {}).get(c.target.spec.id, ""))
+			if t.identity == "UNKNOWN" and aff in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
+				t.identity = aff
 				t.identity_evidence = "Scenario recognition brief"
 	if c.visual_identification:
 		t.classification = Track.Classification.IDENTIFIED
