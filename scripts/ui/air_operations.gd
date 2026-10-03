@@ -60,6 +60,15 @@ var _mission_kind := -1
 var _station := Vector2.INF
 var _target: Track
 var _selected_mission: AirMission
+var _editing_mission: AirMission
+var _edit_mission: Button
+var _cancel_edit: Button
+var _cap_options: HBoxContainer
+var _cap_intent: OptionButton
+var _anchor_picker: OptionButton
+var _anchors: Array[Unit] = []
+var _pursuit: SpinBox
+var _airborne_page: VBoxContainer
 
 
 func _ready() -> void:
@@ -194,6 +203,33 @@ func _ready() -> void:
 	_auto_return.button_pressed = true
 	_auto_return.tooltip_text = "After identifying or intercepting a contact, return to the station without being told"
 	mission_options.add_child(_auto_return)
+	_cap_options = HBoxContainer.new()
+	mission_page.add_child(_cap_options)
+	_cap_intent = OptionButton.new()
+	_cap_intent.add_item("Hold area")
+	_cap_intent.add_item("Protect group")
+	_cap_intent.accessibility_name = "CAP purpose"
+	_cap_intent.item_selected.connect(func(_i: int) -> void:
+		_anchor_picker.disabled = _cap_intent.selected == 0 or _anchors.is_empty()
+		_refresh_launch())
+	_cap_options.add_child(_cap_intent)
+	_anchor_picker = OptionButton.new()
+	_anchor_picker.custom_minimum_size.x = 210
+	_anchor_picker.clip_text = true
+	_anchor_picker.accessibility_name = "Group protected by CAP"
+	_anchor_picker.tooltip_text = "The CAP station follows this platform; interceptors prioritize closing threats."
+	_anchor_picker.item_selected.connect(func(_i: int) -> void: _refresh_launch())
+	_cap_options.add_child(_anchor_picker)
+	_cap_options.add_child(_label("PURSUIT BEYOND AREA", 12))
+	_pursuit = SpinBox.new()
+	_pursuit.min_value = 0
+	_pursuit.max_value = AirMissionManager.MAX_RADIUS_NM
+	_pursuit.value = AirMissionManager.COMMIT_MARGIN_NM
+	_pursuit.suffix = "nm"
+	_pursuit.custom_minimum_size.x = 90
+	_pursuit.accessibility_name = "CAP pursuit distance beyond station"
+	_pursuit.tooltip_text = "Mission interceptors return when their contact leaves this boundary."
+	_cap_options.add_child(_pursuit)
 	_station_label = _label("", 12, UITheme.INK_DIM)
 	_station_label.clip_text = true
 	mission_page.add_child(_station_label)
@@ -228,6 +264,9 @@ func _ready() -> void:
 	_launch = _button("LAUNCH NOW", _launch_selected)
 	_launch.theme_type_variation = "PrimaryButton"
 	launch_row.add_child(_launch)
+	_cancel_edit = _button("DISCARD EDIT", _finish_edit)
+	_cancel_edit.hide()
+	launch_row.add_child(_cancel_edit)
 	_launch_hint = _label("", 12, UITheme.INK_DIM)
 	_launch_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_launch_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -237,6 +276,7 @@ func _ready() -> void:
 	_lower_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_child(_lower_tabs)
 	var airborne_page := VBoxContainer.new()
+	_airborne_page = airborne_page
 	airborne_page.name = "AIRBORNE & RECOVERY"
 	_lower_tabs.add_child(airborne_page)
 	var recovery_head := HBoxContainer.new()
@@ -328,6 +368,9 @@ func _ready() -> void:
 	var mission_buttons := HBoxContainer.new()
 	mission_buttons.add_theme_constant_override("separation", 10)
 	missions_page.add_child(mission_buttons)
+	_edit_mission = _button("EDIT MISSION", _edit_selected_mission)
+	_edit_mission.tooltip_text = "Move or resize the station, change strength and relief; keep the assigned aircraft."
+	mission_buttons.add_child(_edit_mission)
 	_cancel_mission = _button("CANCEL MISSION", _cancel_selected_mission)
 	_cancel_mission.tooltip_text = "Strike off queued launches and bring the mission's airborne aircraft home"
 	mission_buttons.add_child(_cancel_mission)
@@ -368,6 +411,9 @@ func _label(text: String, font_size: int, color := UITheme.INK) -> Label:
 
 
 func open_for(selection: Array) -> void:
+	_editing_mission = null
+	_cancel_edit.hide()
+	_mission_picker.disabled = false
 	_base = null
 	_aircraft = null
 	_destination_aircraft = null
@@ -423,6 +469,8 @@ func _default_mission_kind() -> int:
 
 ## -1 launches with no mission; otherwise an AirMission.Kind. Quantity remains explicit.
 func set_mission_kind(kind: int) -> void:
+	if _editing_mission != null and kind != _editing_mission.kind:
+		_finish_edit()
 	_mission_kind = kind
 	if _mission_picker == null:
 		return
@@ -431,6 +479,7 @@ func set_mission_kind(kind: int) -> void:
 	_plan_tabs.set_block_signals(false)
 	if kind >= 0:
 		_mission_picker.select(kind)
+	_cap_options.visible = kind == AirMission.Kind.CAP
 	_station_button.disabled = kind < 0
 	_radius.editable = kind >= 0 and kind != AirMission.Kind.STRIKE
 	_relief.disabled = kind < 0 or kind == AirMission.Kind.STRIKE
@@ -511,11 +560,12 @@ func refresh() -> void:
 				cycling += 1
 	if not _bases.has(_base):
 		_base = _bases[0] if not _bases.is_empty() else null
-	_base_picker.disabled = _bases.is_empty()
+	_base_picker.disabled = _bases.is_empty() or _editing_mission != null
 	if _base != null:
 		_base_picker.select(_bases.find(_base))
 	var on_mission := simulation.air_mission_manager.active_missions(simulation.player_faction).size()
 	_summary.text = "%02d READY  ·  %02d IN FLIGHT  ·  %02d IN DECK CYCLE  ·  %02d MISSIONS  ·  PAUSED" % [ready, flying, cycling, on_mission]
+	_refresh_anchors()
 	_refresh_types()
 	_refresh_roster()
 	_refresh_recovery()
@@ -557,7 +607,7 @@ func _refresh_types() -> void:
 	# With nothing chosen, open on the type with the most airframes ready: the deck's main effort.
 	if not _type_ids.has(_type_id):
 		_type_id = most_ready
-	_type_picker.disabled = _type_ids.is_empty()
+	_type_picker.disabled = _type_ids.is_empty() or _editing_mission != null
 	_refresh_launch()
 
 
@@ -567,7 +617,7 @@ static func deck_rows(base: Unit, type_id: String) -> Array[Unit]:
 	if base == null or type_id == "":
 		return out
 	for a: Unit in base.embarked:
-		if a.alive and a.spec.id == type_id:
+		if a.alive and a.spec.id == type_id and not a.in_flight():
 			out.append(a)
 	return out
 
@@ -639,11 +689,15 @@ func _refresh_launch() -> void:
 func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reason: String) -> void:
 	var amm := simulation.air_mission_manager
 	var available := amm.available_for(_base, _type_id, _mission_kind, _target)
+	if _editing_mission != null:
+		available += _editing_mission.pending_launches + AirMissionManager.working_aircraft(_editing_mission).size()
 	_count.max_value = available
 	_count.editable = available > 0
 	var count := mini(int(_count.value), available)
-	_launch.text = "ASSIGN %s · %d" % [AirMission.KIND_LABELS[_mission_kind].to_upper(), count]
-	var why := amm.mission_rejection(_base, _mission_kind, _type_id, _station, _target)
+	_launch.text = "UPDATE %s %d" % [_editing_mission.kind_name(), _editing_mission.id] if _editing_mission != null else "ASSIGN %s · %d" % [AirMission.KIND_LABELS[_mission_kind].to_upper(), count]
+	var why := amm.revision_rejection(_base, _planned_order()) if _editing_mission != null else amm.mission_rejection(_base, _mission_kind, _type_id, _station, _target)
+	if why == "":
+		why = amm._intent_rejection(_base, _planned_order())
 	var now := mini(count, ready if deck_reason == "" else 0)
 	now = mini(now, spots)
 	var where := ""
@@ -663,6 +717,8 @@ func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reas
 		_launch_hint.text = why
 	elif count <= 0:
 		_launch_hint.text = "%d %s available to this deck. Set how many fly the mission." % [available, spec.short_name]
+	elif _editing_mission != null:
+		_launch_hint.text = "Update station, radius and %d-aircraft strength. Assigned aircraft keep this mission." % count
 	else:
 		var queued := count - now
 		_launch_hint.text = "%d launch now%s%s." % [now, ", %d queued (%s)" % [queued, ("catapults committed" if deck_reason != "" or spots < count else "awaiting ready aircraft")] if queued > 0 else "", ", relieved from ready reserve" if _relief.button_pressed else ""]
@@ -736,7 +792,12 @@ func _launch_selected() -> void:
 	if _base == null or _type_id == "" or _launch.disabled or int(_count.value) <= 0:
 		return
 	if _mission_kind >= 0:
-		order_requested.emit(_base, Order.air_mission(_mission_kind, _type_id, int(_count.value), _station, float(_radius.value), _target, _relief.button_pressed, _auto_return.button_pressed))
+		var order := _planned_order()
+		order_requested.emit(_base, order)
+		if _editing_mission != null:
+			if order.execution_accepted:
+				_finish_edit()
+			return
 		# Clear quantity after submission to prevent an accidental duplicate assignment.
 		_count.set_value_no_signal(0)
 		_lower_tabs.current_tab = 1
@@ -765,7 +826,7 @@ func _refresh_roster() -> void:
 	_roster.clear()
 	var root := _roster.create_item()
 	for a: Unit in simulation.unit_manager.units:
-		if not a.alive or a.faction != simulation.player_faction or not a.is_aircraft():
+		if not a.alive or a.faction != simulation.player_faction or not a.is_aircraft() or not a.in_flight():
 			continue
 		var item := _roster.create_item(root)
 		item.set_metadata(0, a)
@@ -781,6 +842,15 @@ func _refresh_roster() -> void:
 		item.set_text(5, "%s · %s" % [m.kind_name(), m.state_of(a)] if m != null else "")
 		if a == _aircraft:
 			item.select(0)
+	var has_airborne := root.get_child_count() > 0
+	var has_missions := not simulation.air_mission_manager.active_missions(simulation.player_faction).is_empty()
+	_lower_tabs.set_tab_hidden(0, not has_airborne)
+	if not has_airborne:
+		_aircraft = null
+		_lower_tabs.current_tab = 1
+	elif not has_missions:
+		_lower_tabs.current_tab = 0
+	_lower_tabs.visible = has_airborne or has_missions
 
 
 func _refresh_recovery() -> void:
@@ -849,7 +919,7 @@ func _refresh_missions() -> void:
 		head.set_text(0, "%s %d  ·  %d × %s" % [m.kind_name(), m.id, m.requested, DataDB.platform(m.platform_id).short_name])
 		head.set_text(1, m.summary().trim_prefix(m.kind_name() + " · "))
 		head.set_text(3, m.base_callsign)
-		head.set_tooltip_text(0, m.note)
+		head.set_tooltip_text(0, m.last_report())
 		for row: Dictionary in m.board_rows():
 			var child := _missions.create_item(head)
 			child.set_metadata(0, m)
@@ -868,12 +938,13 @@ func _refresh_mission_detail() -> void:
 	if _mission_detail == null:
 		return
 	_cancel_mission.disabled = _selected_mission == null or not _selected_mission.active
+	_edit_mission.disabled = _cancel_mission.disabled or _selected_mission.cancelled or _selected_mission.kind == AirMission.Kind.STRIKE
 	if _selected_mission == null:
 		_mission_detail.text = "No missions. Choose a mission above, place it on the chart, then ASSIGN MISSION."
 		return
 	var m := _selected_mission
-	var where := "track %s" % m.target_id if m.kind == AirMission.Kind.STRIKE else "%.0f nm radius" % m.radius_nm
-	_mission_detail.text = "%s from %s, %s%s%s.\nLast report: %s" % [m.label(), m.base_callsign, where, " · relief from reserve" if m.relief else "", " · back to station after a task" if m.auto_return and m.kind != AirMission.Kind.STRIKE else "", m.note]
+	var where := "track %s" % m.target_id if m.kind == AirMission.Kind.STRIKE else "%.0f nm radius · %s" % [m.radius_nm, m.intent_label()]
+	_mission_detail.text = "%s from %s, %s%s%s.\nLast report: %s" % [m.label(), m.base_callsign, where, " · relief from reserve" if m.relief else "", " · back to station after a task" if m.auto_return and m.kind != AirMission.Kind.STRIKE else "", m.last_report()]
 
 
 func _cancel_selected_mission() -> void:
@@ -884,5 +955,62 @@ func _cancel_selected_mission() -> void:
 
 
 func show_receipt(message: String, accepted: bool) -> void:
-	_receipt.text = message
+	var at := int(SimClock.sim_time)
+	_receipt.text = "Order %02d:%02d:%02d · %s" % [at / 3600, (at / 60) % 60, at % 60, message]
 	_receipt.add_theme_color_override("font_color", UITheme.INK_GREEN if accepted else UITheme.INK_RED)
+
+
+func _refresh_anchors() -> void:
+	var previous: Unit = _anchors[_anchor_picker.selected] if _anchor_picker.selected >= 0 and _anchor_picker.selected < _anchors.size() else _base
+	_anchors.clear()
+	_anchor_picker.clear()
+	for u: Unit in simulation.unit_manager.units:
+		if u.alive and u.faction == simulation.player_faction and u.spec.domain == "surface":
+			_anchors.append(u)
+			_anchor_picker.add_item(u.callsign)
+	if _anchors.has(previous):
+		_anchor_picker.select(_anchors.find(previous))
+	_anchor_picker.disabled = _cap_intent.selected == 0 or _anchors.is_empty()
+
+
+func _edit_selected_mission() -> void:
+	if _selected_mission == null or not _selected_mission.active or _selected_mission.kind == AirMission.Kind.STRIKE:
+		return
+	var m := _selected_mission
+	_editing_mission = m
+	_base = m.base
+	_type_id = m.platform_id
+	set_mission_kind(m.kind)
+	_station = m.station
+	_radius.set_value_no_signal(m.radius_nm)
+	_relief.set_pressed_no_signal(m.relief)
+	_auto_return.set_pressed_no_signal(m.auto_return)
+	_cap_intent.select(1 if m.cap_intent == "protect" else 0)
+	_pursuit.set_value_no_signal(m.pursuit_nm)
+	_mission_picker.disabled = true
+	_cancel_edit.show()
+	_count.max_value = maxi(m.requested, 1)
+	_count.set_value_no_signal(m.requested)
+	refresh()
+	if _anchors.has(m.protected_unit):
+		_anchor_picker.select(_anchors.find(m.protected_unit))
+	_refresh_launch()
+	_station_button.grab_focus()
+
+
+func _finish_edit() -> void:
+	_editing_mission = null
+	_cancel_edit.hide()
+	_mission_picker.disabled = false
+	_count.set_value_no_signal(0)
+	refresh()
+
+
+func _planned_order() -> Order:
+	var order := Order.air_mission(_mission_kind, _type_id, int(_count.value), _station, float(_radius.value), _target, _relief.button_pressed, _auto_return.button_pressed)
+	order.cap_intent = "protect" if _mission_kind == AirMission.Kind.CAP and _cap_intent.selected == 1 else "hold"
+	order.protected_unit = _anchors[_anchor_picker.selected] if order.cap_intent == "protect" and _anchor_picker.selected >= 0 and _anchor_picker.selected < _anchors.size() else null
+	order.pursuit_nm = _pursuit.value
+	if _editing_mission != null:
+		order.mission_id = _editing_mission.id
+	return order

@@ -11,7 +11,7 @@ nation = "USA"
 category = "fighter"
 domain = "air"
 max_speed_kn = 1200.0
-cruise_speed_kn = 780.0
+cruise_speed_kn = 480.0
 turn_rate_deg_s = 6.0
 accel_kn_s = 4.0
 health = 25.0
@@ -34,3 +34,8 @@ launch_requirement = "catobar"
 length_m = 19.1
 can_refuel = true
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."
+
+; GAMEPLAY_ESTIMATE: economical station, normal transit, short intercept speeds.
+patrol_speed_kn = 390.0
+transit_speed_kn = 480.0
+dash_speed_kn = 700.0

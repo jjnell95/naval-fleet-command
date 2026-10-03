@@ -29,12 +29,17 @@ def resource(kind, key, data, packed_fields=()):
     script = {"platforms": "platform_spec", "weapons": "weapon_spec", "sensors": "sensor_spec"}[kind]
     output = ROOT / "data" / kind / ("cold_war" if kind == "platforms" else "")
     output.mkdir(parents=True, exist_ok=True)
-    fields = {"id": ident(key), **data, "source_status": SOURCE}
+    fields = {"id": ident(key), **data, "source_status": data.get("source_status", SOURCE)}
     lines = [f'[gd_resource type="Resource" script_class="{cls}" load_steps=2 format=3]', "",
              f'[ext_resource type="Script" path="res://scripts/data/{script}.gd" id="1"]', "",
              '[resource]', 'script = ExtResource("1")']
     for k, v in fields.items():
-        text = packed(v) if k in packed_fields else json.dumps(v, ensure_ascii=False)
+        if k == "weapon_mount_arcs":
+            text = "{" + ", ".join(json.dumps(wid) + ": [" + ", ".join(
+                f"Vector2({center}, {half_width})" for center, half_width in arcs) + "]"
+                for wid, arcs in v.items()) + "}"
+        else:
+            text = packed(v) if k in packed_fields else json.dumps(v, ensure_ascii=False)
         lines.append(f"{k} = {text}")
     (output / (ident(key) + ".tres")).write_text("\n".join(lines) + "\n")
     {"platforms": PLATFORMS, "weapons": WEAPONS, "sensors": SENSORS}[kind][ident(key)] = fields
@@ -92,6 +97,16 @@ def platform(key, name, short, nation, category, sensors, weapons, **kw):
              sensor_ids=[ident(v) for v in sensors], weapon_loadout={ident(k): v for k, v in weapons.items()},
              decoy_count=12, fire_control_channels=2, role=category.capitalize(),
              service_note="Period baseline; only systems represented by the game are listed.")
+    # Broad relative mount sectors are gameplay estimates. Opposing mounts form a union;
+    # true VLS launchers are unrestricted in Combat.firing_arc_check.
+    mount_arcs = {
+        "perry": {"sm1mr": [(0, 140)], "harpoon": [(0, 140)], "mk75": [(180, 140)]},
+        "ticonderoga": {"mk45": [(0, 140), (180, 140)]},
+        "slava": {"ak130": [(0, 140)]}, "udaloy": {"ak100": [(0, 140)]},
+        "sovremenny": {"ak130": [(0, 140), (180, 140)]},
+    }
+    if key in mount_arcs:
+        d["weapon_mount_arcs"] = {ident(wid): arcs for wid, arcs in mount_arcs[key].items()}
     if "default_air_wing" in kw:
         kw["default_air_wing"] = {ident(k): v for k, v in kw["default_air_wing"].items()}
     # A shared launcher (the Perry's single-arm Mk 13) sits beside the fire-control channels it limits.
@@ -140,6 +155,14 @@ def catalogue():
         resource("sensors", key, dict(display_name=name, kind="esm", emits=False,
                  range_surface_nm=0.0, range_air_nm=0.0, esm_gain=1.65, classify_rate=.65))
 
+    # Avtomat 3 is listed in the Tu-22M3 Ural defensive suite by Air Power Australia:
+    # https://www.ausairpower.net/APA-Backfire.html . Its in-game reach, bearing error,
+    # classification rate and broad emitter-library matching are GAMEPLAY_ESTIMATE.
+    resource("sensors", "avtomat3", dict(display_name="Avtomat 3 airborne radar warning",
+             kind="esm", emits=False, range_surface_nm=0.0, range_air_nm=0.0,
+             esm_gain=1.25, classify_rate=.4, bearing_accuracy_deg=4.0,
+             source_status="PUBLIC: Avtomat 3 warning receiver in Tu-22M3 Ural defensive suite, https://www.ausairpower.net/APA-Backfire.html. GAMEPLAY_ESTIMATE: intercept reach, bearing accuracy, library coverage and classification rate, not measured operational performance."))
+
     weapon("harpoon", "RGM-84 Harpoon Block 1C", "asm", ["surface"], 65, 480, 42,
            salvo_default=4, base_pk=.78, altitude_m=10.0)
     # Air-launched Harpoon for the A-6E. Published air-launch figures are longer than the ship
@@ -157,7 +180,7 @@ def catalogue():
     weapon("mk48", "Mk 48 Mod 4 heavyweight torpedo", "torpedo", ["surface", "subsurface"], 22, 50, 92,
            base_pk=.74)
     weapon("aim54a", "AIM-54A Phoenix", "aam", ["air"], 65, 2300, 50,
-           guidance="inertial_active", base_pk=.52, min_range_nm=3.0, altitude_m=10000.0)
+           guidance="inertial_active", base_pk=.52, min_range_nm=3.0, altitude_m=10000.0, midcourse_updates=True)
     weapon("aim9m", "AIM-9M Sidewinder", "aam", ["air"], 8, 1600, 34,
            guidance="infrared_homing", base_pk=.65, min_range_nm=.5, altitude_m=6000.0)
     weapon("mk45", "Mk 45 5-inch/54 gun", "gun", ["surface"], 11, 1500, 5, base_pk=.65)
@@ -273,6 +296,7 @@ def catalogue():
     aircraft("f14a","F-14A+ Tomcat","F-14A+","USA","fighter",["awg9","alr45"],
              {"aim54a":4,"aim9m":2},1200,launch_requirement="catobar",length_m=19.1,
              endurance_s=9000.0,can_refuel=True,role="Fleet air defence / long-range interception",
+             cruise_speed_kn=480.0,patrol_speed_kn=390.0,transit_speed_kn=480.0,dash_speed_kn=700.0,
              service_note="F-14A+ was renamed F-14B after 1990. AWG-9, four AIM-54A and two AIM-9M. The normal Sparrow stations are deliberately empty because continuous semi-active AAM illumination is not modelled. No AMRAAM or active-homing Sparrow substitute.")
     aircraft("e2c","E-2C Hawkeye","E-2C","USA","airborne early warning",["aps125","alr45"],{},
              320,launch_requirement="catobar",length_m=17.6,cruise_altitude_m=7500.0,
@@ -307,7 +331,7 @@ def catalogue():
              560,launch_requirement="catobar",length_m=16.7,cruise_altitude_m=6000.0,
              endurance_s=10800.0,role="Carrier all-weather attack / anti-ship Harpoon",
              service_note="A-6E TRAM with AN/APQ-156 and two AGM-84 Harpoon. No KA-6D tanking, bombs, HARM or SLAM are represented; the TRAM turret's laser designation is outside the game.")
-    aircraft("tu22m3","Tu-22M3 Backfire-C","Tu-22M3","USSR","maritime strike bomber",["pn_a"],{"kh22":1},
+    aircraft("tu22m3","Tu-22M3 Backfire-C","Tu-22M3","USSR","maritime strike bomber",["pn_a","avtomat3"],{"kh22":1},
              1050,cruise_speed_kn=490.0,signature_factor=1.4,health=40.0,length_m=42.5,
              cruise_altitude_m=10000.0,launch_requirement="runway",role="Long-range anti-carrier strike",
              service_note="One conventional Kh-22 represents an anti-ship sortie. No Kh-32, Kinzhal or inflight refuelling. Raid strength and search geometry are fictional.")

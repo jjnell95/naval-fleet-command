@@ -22,3 +22,5 @@ base_pk = 0.55
 salvo_default = 2
 launch_interval_s = 1.5
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
+
+midcourse_updates = true

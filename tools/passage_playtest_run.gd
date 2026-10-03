@@ -98,7 +98,7 @@ func _run() -> void:
 	elif policy == "deadline":
 		_order(cargo, Order.stop())
 	elif policy == "civilian":
-		main.map.select_units([frigate])
+		main.map.select_units([host])
 		main._apply_order_to_selection(Order.set_roe(Unit.Roe.FREE))
 		checks["free-fire order warns about civilians"] = main.radio.journal.back().contains("Neutral sinkings")
 	else:
@@ -168,18 +168,24 @@ func _drive_orders() -> void:
 			helo_returned = _order(helo, Order.return_to_base())
 	if policy not in ["escort", "civilian"]:
 		return
-	for t: Track in main.simulation.track_manager.tracks_for(frigate):
+	var shooter := host if policy == "civilian" else frigate
+	for t: Track in main.simulation.track_manager.tracks_for(shooter):
 		if t.identity != ("UNKNOWN" if policy == "civilian" else "HOSTILE") or t.domain != "surface":
 			continue
-		if clock.sim_time - float(fired_at.get(t.id, -1000)) < 240:
+		# This policy deliberately fires at a probable merchant without establishing affiliation.
+		# Waiting for the held class avoids spending the whole magazine on the first unknown
+		# warship; it uses only the commander's picture, never the contact's hidden faction.
+		if policy == "civilian" and (t.classification < Track.Classification.CLASS_KNOWN or not t.known_category.contains("merchant")):
 			continue
-		for w: WeaponSpec in frigate.weapons:
-			if w.type != "asm" or not Combat.check_engagement(frigate, w, t).ok:
+		if clock.sim_time - float(fired_at.get(t.id, -1000)) < (30.0 if policy == "civilian" else 240.0):
+			continue
+		for w: WeaponSpec in shooter.weapons:
+			if w.type != ("gun" if policy == "civilian" else "asm") or not Combat.check_engagement(shooter, w, t).ok:
 				continue
 			if policy == "escort" and not _clear_civilian_corridor(t, w):
 				facts.held_fire_for_civilians = true
 				continue
-			if _order(frigate, Order.engage(t, w.id, mini(4, frigate.magazine_count(w.id)))):
+			if _order(shooter, Order.engage(t, w.id, mini(8 if policy == "civilian" else 4, shooter.magazine_count(w.id)))):
 				fired_at[t.id] = clock.sim_time
 				return
 

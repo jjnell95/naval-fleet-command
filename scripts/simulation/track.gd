@@ -53,11 +53,21 @@ var identity := "UNKNOWN"  # UNKNOWN | HOSTILE (FRIENDLY / NEUTRAL later)
 var status := Status.ACTIVE
 var known_class := ""  # filled when classification reaches CLASS_KNOWN
 var known_category := ""  # reported classification, never a UI lookup through truth
-var known_callsign := ""  # filled when IDENTIFIED
+var known_callsign := ""  # only positive identification, never a timed signature match
+var class_is_probable := false
+var class_evidence := ""
+var identity_evidence := ""
+var signature_time_s := 0.0
+var _cycle_signature_gain := 0.0
+## Saved bearing measurements, with observer positions and times, for deterministic TMA.
+var bearing_history: Array = []
+var bearing_observers: Dictionary = {}
+var bearing_solution_at := -1.0e9
+var bearing_solution_cache: Dictionary = {}
 var observation_time_s := 0.0
 var first_seen_time := 0.0
 var last_seen_time := 0.0
-## When a firm plot (radar, active sonar, crossed buoys) last held this track. A bearing heard in
+## When a measured plot (radar, active sonar, visual) last held this track. A bearing heard in
 ## the same moment adds nothing to the geometry, so it is not allowed to blur it.
 var last_firm_time := -1.0e9
 var _obs_times := PackedFloat64Array()  # sliding observation window for kinematics fit
@@ -174,3 +184,21 @@ static func _fmt_age(s: float) -> String:
 	if s < 60.0:
 		return "%ds" % int(s)
 	return "%dm" % int(s / 60.0)
+
+
+func class_confidence_text() -> String:
+	if classification == Classification.IDENTIFIED:
+		return "VISUALLY CONFIRMED"
+	if classification >= Classification.CLASS_KNOWN:
+		return "PROBABLE CLASS" if class_is_probable else "CLASS CONFIRMED"
+	if classification == Classification.SURFACE:
+		return "DOMAIN CLASSIFIED"
+	return "UNCLASSIFIED"
+
+
+func solution_text() -> String:
+	if reported:
+		return "REPORTED DATUM"
+	if is_bearing_only():
+		return "BEARING ONLY"
+	return "ESTIMATED FIX" if bearing_only else "MEASURED FIX"

@@ -28,3 +28,5 @@ source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPL
 
 vls_pack = 1
 intercept_max_altitude_m = 50000.0
+
+midcourse_updates = true

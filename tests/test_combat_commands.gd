@@ -222,3 +222,55 @@ func test_engage_menu_uses_live_fire_control_readiness_and_explains_group_salvos
 	entries = CdsMenus.engage_weapon_items([f.unit, other], f.track, f.simulation.weapon_manager)
 	assert_true(entries[0].children[0].text.contains("per platform"))
 	_clean(f)
+
+
+func test_protected_traffic_warning_stays_visible_for_a_filtered_firing_plan() -> void:
+	var f := _fixture()
+	var civilian := Track.new()
+	civilian.id = "CIV42"
+	civilian.owner_faction = "BLUE"
+	civilian.domain = "surface"
+	civilian.identity = "NEUTRAL"
+	civilian.position = f.track.position + Vector2(1, 0)
+	f.simulation.track_manager._tracks["BLUE"].append(civilian)
+	var board := _board(f)
+	board.set_salvo(f.unit, f.spec, 2)
+	assert_true(board._traffic.visible and board._traffic.text.contains("CIV42"), "protected traffic receives a dedicated visible warning, not a clipped third detail line")
+	board._role_option.select(1)  # air defence filter hides this surface weapon
+	board.refresh()
+	assert_true(board._traffic.visible and board._traffic.text.contains("CIV42"), "hiding a planned system does not hide its traffic risk")
+	assert_eq(board._plan.size(), 1, "advisory does not silently delete the commander's plan")
+	civilian.position = Vector2(500, 500)
+	board.refresh()
+	assert_true(not board._traffic.visible, "updated held geometry clears the warning")
+	board.free()
+	_clean(f)
+
+
+func test_disconnected_submarine_board_does_not_expose_private_contacts_or_ammunition() -> void:
+	var f := _fixture()
+	f.unit.spec.domain = "subsurface"
+	f.unit.comms_enabled = true
+	f.unit.depth_m = 150.0
+	SubmarineComms.initialize(f.unit, 0.0)
+	var private_track := Track.new()
+	private_track.id = "PRIVATE"
+	private_track.owner_faction = "BLUE"
+	private_track.networked = false
+	private_track.contributors = {f.unit: 0.0}
+	private_track.position = Vector2(0, 10)
+	f.simulation.track_manager._local_keys[f.unit] = "private_blue"
+	f.simulation.track_manager._tracks["private_blue"] = [private_track]
+	var board := _board(f)
+	assert_true(not board._targets.has(private_track))
+	assert_true(board._targets.has(f.track), "the faction's shared plot remains available to inspect")
+	var row: TreeItem = board._items[0]
+	assert_eq(row.get_text(2), "--")
+	assert_eq(row.get_text(3), "--")
+	assert_eq(row.get_text(4), "--")
+	assert_true(row.get_text(7).contains("CHECK-IN"))
+	assert_true(not row.is_editable(8))
+	board.set_salvo(f.unit, f.spec, 2)
+	assert_true(board._plan.is_empty(), "a live firing solution must wait for a check-in")
+	board.free()
+	_clean(f)

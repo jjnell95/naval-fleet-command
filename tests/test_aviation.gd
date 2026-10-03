@@ -167,17 +167,17 @@ func test_fuel_burns_faster_at_speed() -> void:
 	var h := _harness([ship, slow])
 	h.av.launch(ship)
 	var now := _run(h, 70.0)
-	slow.ordered_speed_kn = 0.0
-	slow.speed_kn = 0.0
+	slow.ordered_speed_kn = slow.spec.flight_speed("patrol")
+	slow.speed_kn = slow.spec.flight_speed("patrol")
 	var before := slow.fuel_s
 	now = _run(h, 200.0, now)
-	var hover_burn := before - slow.fuel_s
+	var patrol_burn := before - slow.fuel_s
 	slow.speed_kn = slow.spec.max_speed_kn
 	slow.ordered_speed_kn = slow.spec.max_speed_kn
 	before = slow.fuel_s
 	_run(h, 200.0, now)
 	var dash_burn := before - slow.fuel_s
-	assert_true(dash_burn > hover_burn * 1.3, "a dash costs more than the clock suggests")
+	assert_true(dash_burn > patrol_burn * 1.3, "a dash uses materially more fuel than economical forward patrol")
 	h.free_all()
 
 
@@ -323,7 +323,7 @@ func test_a_dipping_set_only_works_after_deployment() -> void:
 	assert_true(Detection.best_passive_sonar(helo, boat)["range_nm"] > 3.0, "and then it hears the boat")
 
 
-func test_one_buoy_gives_a_circle_and_two_give_a_position() -> void:
+func test_one_buoy_gives_a_bearing_and_crossed_buoys_give_a_position() -> void:
 	var boat := _unit(_boat_spec(), "RED", Vector2.ZERO, 6.0)
 	boat.depth_m = 90.0
 	var ship := _unit(_ship_spec(), "BLUE", Vector2(0.0, 200.0))  # far away, contributing nothing
@@ -340,17 +340,17 @@ func test_one_buoy_gives_a_circle_and_two_give_a_position() -> void:
 	var t: Track = h.tm.get_tracks("BLUE")[0]
 	assert_eq(t.source, "sonobuoy")
 	var single_error := t.error_major_nm
-	assert_true(single_error > 1.5, "one buoy says only that something noisy is inside its circle")
+	assert_true(single_error > 1.5, "one directional buoy gives no range")
 
 	var b2 := Sonobuoy.new()
 	b2.id = 2
 	b2.faction = "BLUE"
-	b2.position = Vector2(-1.0, 0.5)
+	b2.position = Vector2(0.0, 1.0)
 	b2.sensitivity_nm = 24.0
 	b2.expires_at = 9999.0
 	h.av.sonobuoys.append(b2)
 	h.sm.run_cycle(2.0)
-	assert_true(t.error_major_nm < single_error, "two overlapping circles cross, and that is a position")
+	assert_true(t.error_major_nm < single_error, "usefully crossed measured bearings resolve position")
 	assert_true(t.position.distance_to(boat.position) < 2.0, "close to the truth")
 	h.free_all()
 

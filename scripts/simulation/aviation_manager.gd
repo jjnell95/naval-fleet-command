@@ -29,8 +29,6 @@ const BINGO_FRACTION := 0.28  # minimum fuel threshold; distant bases require an
 const LANDING_RESERVE_FRACTION := 0.12
 const LANDING_TOLERANCE_NM := 0.08
 const FINAL_APPROACH_ALTITUDE_M := 30.0
-const IDLE_BURN := 0.7  # fraction of cruise burn when barely moving
-const DASH_BURN := 0.3  # added quadratically with speed
 ## Tanking. A receiver at bingo looks for a basket before it looks for the deck, and takes it if
 ## the tanker is closer than the trip home would cost. GAMEPLAY_ESTIMATE throughout: one transfer
 ## rate stands in for the whole business of joining, plugging and taking a load.
@@ -276,15 +274,14 @@ func _step_launch(a: Unit, dt: float) -> void:
 	a.flight_state = Unit.FlightState.AIRBORNE
 	a.fuel_s = a.spec.endurance_s
 	a.ordered_altitude_m = a.spec.cruise_altitude_m
-	a.ordered_speed_kn = a.spec.cruise_speed_kn
+	a.ordered_speed_kn = a.spec.flight_speed("transit")
 	a.tanker_offload_s = a.spec.tanker_offload_s
 	a.tanking_on = null
 	aircraft_launched.emit(a, a.home)
 
 
 func _burn_fuel(a: Unit, dt: float) -> bool:
-	var cruise := maxf(a.spec.cruise_speed_kn, 1.0)
-	var rate := IDLE_BURN + DASH_BURN * pow(a.speed_kn / cruise, 2.0)
+	var rate := a.spec.fuel_burn_rate(a.speed_kn)
 	a.fuel_s = maxf(a.fuel_s - dt * rate, 0.0)
 	if a.fuel_s <= 0.0:
 		_lose_aircraft(a, "OUT OF FUEL")
@@ -308,10 +305,10 @@ func return_fuel_required(a: Unit, base: Unit) -> float:
 	var minimum := a.spec.endurance_s * BINGO_FRACTION
 	if base == null:
 		return minimum
-	var cruise_nm_s := Geo.knots_to_nm_per_s(maxf(a.spec.cruise_speed_kn, 1.0))
+	var cruise_nm_s := Geo.knots_to_nm_per_s(maxf(a.spec.flight_speed("transit"), 1.0))
 	var travel_s := a.position.distance_to(base.position) / cruise_nm_s
 	var approach_s := maxf(a.spec.recovery_time_s, a.altitude_m / maxf(a.spec.altitude_rate_m_s, 1.0))
-	return maxf(minimum, travel_s + approach_s + a.spec.endurance_s * LANDING_RESERVE_FRACTION)
+	return maxf(minimum, travel_s * a.spec.fuel_burn_rate(a.spec.flight_speed("transit")) + approach_s * a.spec.fuel_burn_rate(a.spec.flight_speed("transit") * 0.5) + a.spec.endurance_s * LANDING_RESERVE_FRACTION)
 
 
 func _step_airborne(a: Unit, dt: float) -> void:
@@ -358,7 +355,7 @@ func _steer_return(a: Unit, base: Unit) -> void:
 	a.formation_leader = null
 	a.waypoints.clear()
 	a.waypoints.append(base.position)
-	a.ordered_speed_kn = a.spec.cruise_speed_kn
+	a.ordered_speed_kn = a.spec.flight_speed("transit")
 	# Descend progressively near the field instead of arriving at cruise height.
 	var distance := a.position.distance_to(base.position)
 	a.ordered_altitude_m = minf(a.spec.cruise_altitude_m, maxf(150.0, distance * 150.0))
@@ -377,7 +374,7 @@ func _step_recovery(a: Unit, dt: float) -> void:
 		return
 	a.state_timer_s = maxf(a.state_timer_s - dt, 0.0)
 	var gap := a.position.distance_to(base.position)
-	var approach_speed := minf(a.spec.max_speed_kn, maxf(a.spec.cruise_speed_kn * 0.5, base.speed_kn * 1.2))
+	var approach_speed := minf(a.spec.max_speed_kn, maxf(a.spec.flight_speed("transit") * 0.5, base.speed_kn * 1.2))
 	a.speed_kn = approach_speed
 	a.ordered_speed_kn = approach_speed
 	if gap > LANDING_TOLERANCE_NM:
@@ -464,7 +461,7 @@ func _find_tanker(a: Unit) -> Unit:
 		if d > TANKER_SEARCH_NM or d >= best_d:
 			continue
 		# Reaching the basket has to be inside what is left in the tanks, with something spare.
-		var reach_nm := Geo.knots_to_nm_per_s(a.spec.cruise_speed_kn) * a.fuel_s
+		var reach_nm := Geo.knots_to_nm_per_s(a.spec.flight_speed("transit")) * a.fuel_s
 		if d > reach_nm * 0.7:
 			continue
 		best_d = d
@@ -493,7 +490,7 @@ func _step_tanking_receiver(a: Unit) -> bool:
 	a.waypoints.clear()
 	a.waypoints.append(t.position)
 	a.ordered_altitude_m = t.altitude_m
-	a.ordered_speed_kn = a.spec.cruise_speed_kn
+	a.ordered_speed_kn = a.spec.flight_speed("transit")
 	return true
 
 
@@ -547,4 +544,4 @@ func _step_off_map_return(a: Unit) -> void:
 		exit_point.y = map_center.y + (half + OFF_MAP_MARGIN_NM * 2.0) * signf(local.y if local.y != 0.0 else 1.0)
 	a.waypoints.clear()
 	a.waypoints.append(exit_point)
-	a.ordered_speed_kn = a.spec.cruise_speed_kn
+	a.ordered_speed_kn = a.spec.flight_speed("transit")

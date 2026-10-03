@@ -16,7 +16,7 @@ extends RefCounted
 ## The simulation never sees this object. Main copies what the simulation needs into it as orders
 ## and plain data, and the preferences live in UserSettings, which is presentation.
 
-const VERSION := 1
+const VERSION := 2
 const NORMAL := "normal"
 const CLASSIC := "classic"
 const CUSTOM := "custom"
@@ -34,11 +34,12 @@ const CLASSIC_SCALES: Array[float] = [1.0, 2.0, 4.0, 8.0]
 const CLASSIC_CEILING: float = CLASSIC_SCALES[-1]
 ## The single options, in menu order; "" is a separator. Shared by the desk's OPTIONS menu, the
 ## chip's menu and the CDS Gameplay submenu; option_text and option_tooltip give their words.
-const OPTION_KEYS := ["ceiling", "manual_defence", "engage_on_id", "", "voice", "ambient"]
+const OPTION_KEYS := ["ceiling", "manual_defence", "engage_on_id", "submarine_comms", "", "voice", "ambient"]
 
 var time_scales: Array[float] = NORMAL_SCALES.duplicate()
 var missile_defence := DEFENCE_AUTO
 var engage_on_hostile_id := false
+var submarine_comms := false
 var voice := false
 var ambient := true
 
@@ -55,6 +56,7 @@ static func classic() -> GameOptions:
 	o.time_scales = CLASSIC_SCALES.duplicate()
 	o.missile_defence = DEFENCE_MANUAL
 	o.engage_on_hostile_id = false
+	o.submarine_comms = true
 	o.voice = true
 	o.ambient = true
 	return o
@@ -71,7 +73,7 @@ static func preset_named(name: String, voice_now: bool, ambient_now: bool) -> Ga
 ## only, never a year: Classic is a way of playing any operation, not a period.
 static func preset_description(name: String) -> String:
 	if name == CLASSIC:
-		return "%s actual time ceiling, missile defence on your orders (X), attack on orders, crew voice and ambient sound on" % _times(CLASSIC_CEILING)
+		return "%s actual time ceiling, missile defence on your orders (X), attack on orders, submarine communication windows, crew voice and ambient sound on" % _times(CLASSIC_CEILING)
 	return "The full time ladder to %s, automatic missile defence, ships that attack only when ordered" % _times(NORMAL_SCALES[-1])
 
 
@@ -84,6 +86,8 @@ static func option_text(key: String) -> String:
 			return "Manual missile defence (X engages inbound)"
 		"engage_on_id":
 			return "Auto-attack after investigation"
+		"submarine_comms":
+			return "Submarine communication windows"
 		"voice":
 			return "Crew voice"
 		"ambient":
@@ -100,6 +104,8 @@ static func option_tooltip(key: String) -> String:
 			return "SAMs engage inbound missiles only when ordered (X or right-click the round); close-in guns, chaff and flares keep their own settings."
 		"engage_on_id":
 			return "Optional convenience rule: ships and aircraft attack a hostile after investigating it, within their rules of engagement. Off in Classic. Reconnaissance never fires."
+		"submarine_comms":
+			return "Full orders and reports wait until 150 ft / 46 m or shallower (Classic gameplay abstraction). Submarines continue their tasks and check in on schedule."
 		"voice":
 			return "Spoken crew reports through the system's text-to-speech."
 		"ambient":
@@ -116,6 +122,8 @@ func option_on(key: String) -> bool:
 			return manual_missile_defence()
 		"engage_on_id":
 			return engage_on_hostile_id
+		"submarine_comms":
+			return submarine_comms
 		"voice":
 			return voice
 		"ambient":
@@ -133,6 +141,8 @@ func toggled(key: String) -> GameOptions:
 			o.missile_defence = DEFENCE_AUTO if manual_missile_defence() else DEFENCE_MANUAL
 		"engage_on_id":
 			o.engage_on_hostile_id = not engage_on_hostile_id
+		"submarine_comms":
+			o.submarine_comms = not submarine_comms
 		"voice":
 			o.voice = not voice
 		"ambient":
@@ -142,10 +152,10 @@ func toggled(key: String) -> GameOptions:
 
 ## NORMAL, CLASSIC or CUSTOM, from the values.
 func preset() -> String:
-	var rules_normal := _same_scales(time_scales, NORMAL_SCALES) and missile_defence == DEFENCE_AUTO and not engage_on_hostile_id
+	var rules_normal := _same_scales(time_scales, NORMAL_SCALES) and missile_defence == DEFENCE_AUTO and not engage_on_hostile_id and not submarine_comms
 	if rules_normal:
 		return NORMAL
-	if _same_scales(time_scales, CLASSIC_SCALES) and missile_defence == DEFENCE_MANUAL and not engage_on_hostile_id and voice and ambient:
+	if _same_scales(time_scales, CLASSIC_SCALES) and missile_defence == DEFENCE_MANUAL and not engage_on_hostile_id and submarine_comms and voice and ambient:
 		return CLASSIC
 	return CUSTOM
 
@@ -175,6 +185,8 @@ func summary() -> String:
 	parts.append("%s ceiling" % _times(ceiling()))
 	parts.append("manual missile defence" if manual_missile_defence() else "automatic missile defence")
 	parts.append("auto-attack after investigation" if engage_on_hostile_id else "attack on orders")
+	if submarine_comms:
+		parts.append("submarine communication windows")
 	return " · ".join(parts)
 
 
@@ -184,6 +196,7 @@ func summary_lines() -> PackedStringArray:
 	out.append("Time: up to %d× (%s)" % [int(ceiling()), ", ".join(_scale_names())])
 	out.append("Missile defence: %s" % ("manual — ships fire SAMs only when ordered (X); close-in guns stay automatic" if manual_missile_defence() else "automatic"))
 	out.append("Auto-attack after investigation: %s" % ("on, within the rules of engagement" if engage_on_hostile_id else "off"))
+	out.append("Submarine communications: %s" % ("150 ft / 46 m communication windows (gameplay abstraction)" if submarine_comms else "immediate orders"))
 	out.append("Crew voice %s · ambient sound %s" % ["on" if voice else "off", "on" if ambient else "off"])
 	return out
 
@@ -203,6 +216,7 @@ func to_dict() -> Dictionary:
 		"time_scales": Array(time_scales),
 		"missile_defence": missile_defence,
 		"engage_on_hostile_id": engage_on_hostile_id,
+		"submarine_comms": submarine_comms,
 		"voice": voice,
 		"ambient": ambient,
 	}
@@ -224,6 +238,7 @@ static func from_dict(d: Dictionary) -> GameOptions:
 	var defence := str(d.get("missile_defence", DEFENCE_AUTO))
 	o.missile_defence = defence if defence in [DEFENCE_AUTO, DEFENCE_MANUAL] else DEFENCE_AUTO
 	o.engage_on_hostile_id = _flag(d, "engage_on_hostile_id", false)
+	o.submarine_comms = _flag(d, "submarine_comms", false)
 	o.voice = _flag(d, "voice", false)
 	o.ambient = _flag(d, "ambient", true)
 	return o
@@ -254,6 +269,7 @@ static func load_preferred() -> GameOptions:
 		"time_scales": UserSettings.get_value(SECTION, "time_scales", NORMAL_SCALES),
 		"missile_defence": UserSettings.get_value(SECTION, "missile_defence", DEFENCE_AUTO),
 		"engage_on_hostile_id": UserSettings.get_value(SECTION, "engage_on_hostile_id", false),
+		"submarine_comms": UserSettings.get_value(SECTION, "submarine_comms", false),
 		"voice": UserSettings.get_value(AUDIO_SECTION, CrewVoice.SETTINGS_KEY, CrewVoice.default_on()),
 		"ambient": UserSettings.get_value(AUDIO_SECTION, SoundFx.AMBIENT_SETTINGS_KEY, true),
 	}
@@ -272,6 +288,7 @@ static func save_preferred(o: GameOptions) -> bool:
 	ok = UserSettings.set_value(SECTION, "time_scales", Array(o.time_scales)) and ok
 	ok = UserSettings.set_value(SECTION, "missile_defence", o.missile_defence) and ok
 	ok = UserSettings.set_value(SECTION, "engage_on_hostile_id", o.engage_on_hostile_id) and ok
+	ok = UserSettings.set_value(SECTION, "submarine_comms", o.submarine_comms) and ok
 	if bool(UserSettings.get_value(AUDIO_SECTION, CrewVoice.SETTINGS_KEY, CrewVoice.default_on())) != o.voice:
 		ok = UserSettings.set_value(AUDIO_SECTION, CrewVoice.SETTINGS_KEY, o.voice) and ok
 	if bool(UserSettings.get_value(AUDIO_SECTION, SoundFx.AMBIENT_SETTINGS_KEY, true)) != o.ambient:

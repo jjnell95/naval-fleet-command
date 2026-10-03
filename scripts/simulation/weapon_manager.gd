@@ -29,7 +29,6 @@ const IMPACT_MIN_NM := 0.05
 ## locks whatever else it finds ahead, which is why an escort's chaff is a hazard to the ship
 ## behind it. GAMEPLAY_ESTIMATE.
 const SEDUCED_REACQUIRE_P := 0.5
-const SEEKER_CONE_DEG := 35.0
 const MAX_SEDUCTIONS := 2
 
 var unit_manager: UnitManager
@@ -250,6 +249,8 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 	var distance := shooter.position.distance_to(threat.position)
 	if distance < spec.min_range_nm or distance > spec.max_range_nm:
 		return 0
+	if not Combat.firing_arc_check(shooter, spec, threat.position).ok:
+		return 0
 	if spec.requires_fire_control_channel() and not channel_available(shooter, threat):
 		return 0
 	# SAMs leave one at a time at the authored launch interval. A CIWS round count is a
@@ -385,8 +386,9 @@ func _step(w: Weapon, dt: float) -> void:
 	if w.spec.delivery_payload_id != "":
 		_step_delivery(w, dt)
 		return
-	# Mid-course updates only while the track is still being observed.
-	if w.delivery_spec == null and w.phase == Weapon.Phase.CRUISE and w.target_track != null and w.target_track.status == Track.Status.ACTIVE and w.target_track.visible_to(w.shooter):
+	# Authored update-capable weapons follow only an active report held by a living shooter.
+	# An autonomous launch-and-leave weapon keeps its launch solution until terminal search.
+	if w.spec.supports_midcourse_updates() and w.delivery_spec == null and w.phase == Weapon.Phase.CRUISE and w.shooter != null and w.shooter.alive and w.target_track != null and w.target_track.status == Track.Status.ACTIVE and w.target_track.visible_to(w.shooter):
 		w.aim_point = _aim_for(w)
 
 	var goal := w.aim_point
@@ -564,16 +566,49 @@ static func _first_radius_contact_fraction(from: Vector2, to: Vector2, point: Ve
 	return fraction if fraction >= 0.0 and fraction <= 1.0 else INF
 
 
+## First intersection of a swept forward search cone and its range circle. Clip the segment
+## against the two cone boundary half-planes, then the circle. This catches fast passes without
+## acquiring something behind the seeker or inventing an impact before the lock point.
+static func first_seeker_contact_fraction(from: Vector2, to: Vector2, point: Vector2, radius: float, heading_deg: float, half_angle_deg: float) -> float:
+	var delta := to - from
+	var relative := point - from
+	var forward := Geo.heading_to_vector(heading_deg)
+	var side := Vector2(forward.y, -forward.x)
+	var angle := deg_to_rad(clampf(half_angle_deg, 0.1, 89.9))
+	var low := 0.0
+	var high := 1.0
+	for sign_value: float in [-1.0, 1.0]:
+		var normal := forward * sin(angle) + side * (sign_value * cos(angle))
+		var start := relative.dot(normal)
+		var rate := -delta.dot(normal)
+		if absf(rate) < 1e-9:
+			if start < -1e-7:
+				return INF
+		elif rate > 0.0:
+			low = maxf(low, -start / rate)
+		else:
+			high = minf(high, -start / rate)
+	if low > high + 1e-7 or high < 0.0 or low > 1.0:
+		return INF
+	low = clampf(low, 0.0, 1.0)
+	high = clampf(high, low, 1.0)
+	var clipped_from := from.lerp(to, low)
+	var fraction := _first_radius_contact_fraction(clipped_from, from.lerp(to, high), point, radius)
+	return lerpf(low, high, fraction) if is_finite(fraction) else INF
+
+
 ## Return the actual lock point, so an impact cannot use travel completed before acquisition.
+## Terminal search cannot read the commander's identities: friendly and neutral traffic can be
+## acquired just like hostile traffic. The firing platform is excluded from its own seeker.
 func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	var radius := w.spec.acquisition_radius_nm()
 	var best: Unit = null
 	var first_fraction := INF
 	var best_d_squared := INF
 	for u in unit_manager.units:
-		if u.faction == w.faction or not can_target(w.spec, u):
+		if u == w.shooter or not can_target(w.spec, u):
 			continue
-		var fraction := _first_radius_contact_fraction(previous, w.position, u.position, radius)
+		var fraction := first_seeker_contact_fraction(previous, w.position, u.position, radius, w.heading_deg, w.spec.seeker_half_angle_deg)
 		if not is_finite(fraction):
 			continue
 		var lock_point := previous.lerp(w.position, fraction)
@@ -602,12 +637,12 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	if w.seductions <= MAX_SEDUCTIONS and rng.randf() < SEDUCED_REACQUIRE_P:
 		var best_d := w.spec.acquisition_radius_nm()
 		for u in unit_manager.units:
-			if u == from or u.faction == w.faction or not can_target(w.spec, u):
+			if u == from or u == w.shooter or not can_target(w.spec, u):
 				continue
 			var d := w.position.distance_to(u.position)
 			if d > best_d:
 				continue
-			if absf(Geo.heading_delta(w.heading_deg, Geo.bearing_deg(w.position, u.position))) > SEEKER_CONE_DEG:
+			if not is_finite(first_seeker_contact_fraction(w.position, w.position, u.position, best_d, w.heading_deg, w.spec.seeker_half_angle_deg)):
 				continue
 			best = u
 			best_d = d

@@ -53,6 +53,7 @@ const SEARCH_RADIUS_NM := 11.0  # around a datum: the thing is near there
 const WIDE_SEARCH_MAX_NM := 260.0  # the most a surveillance aircraft will range on a blank plot
 const SEARCH_STEP_DEG := 55.0
 const DIP_DURATION_S := 180.0
+const SHIP_ASW_WORK_RADIUS_NM := 6.0  # gameplay estimate: near a held submarine datum
 const PATROL_ARRIVAL_NM := 4.0
 ## A ship at 30 kn turning at 3 deg/s eats a quarter of a mile getting ninety degrees round, so an
 ## avoidance bearing has to look further ahead than that or it orders a turn that cannot be made.
@@ -205,13 +206,14 @@ func _update_unit(u: Unit, now: float) -> void:
 	for t: Track in track_manager.tracks_for(u):
 		if t.status == Track.Status.LOST:
 			continue
-		var mine := u.can_engage_domain(t.domain)
+		var mine := u.can_engage_domain(t.domain) or (t.domain == "subsurface" and TowedArray.capable(u))
 		if t.identity == "HOSTILE":
 			all_hostiles.append(t)
 			if mine:
 				hostiles.append(t)
 				b["last_contact"] = t.position
 				b["last_contact_time"] = now
+				b["last_contact_domain"] = t.domain
 		elif t.identity == "UNKNOWN" and t.status == Track.Status.ACTIVE:
 			all_unknowns.append(t)  # a contact identified as neutral is left alone
 			if mine:
@@ -234,6 +236,9 @@ func _update_unit(u: Unit, now: float) -> void:
 		return
 	var inbound := _inbound_on(u)
 	var new_state := _choose_state(u, b, hostiles, unknowns, inbound, now) if task.is_empty() else _choose_plan_state(u, b, hostiles, unknowns, inbound, now, task)
+	if u.array_search_active and new_state not in [State.SEARCH, State.INVESTIGATE, State.SHADOW, State.ENGAGE]:
+		unit_manager.issue_order(u, Order.recover_towed_array())
+		unit_manager.issue_order(u, Order.set_speed(u.spec.cruise_speed_kn))
 	if new_state != b["state"]:
 		b["state"] = new_state
 		b["since"] = now
@@ -327,6 +332,7 @@ func _note_torpedo_datum(u: Unit, b: Dictionary, now: float) -> void:
 		if w.phase != Weapon.Phase.DEAD and w.spec.is_torpedo() and not w.is_interceptor() and threat_manager.visible_to(u, w):
 			b["last_contact"] = w.position
 			b["last_contact_time"] = now
+			b["last_contact_domain"] = "subsurface"
 			return
 
 
@@ -659,9 +665,13 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 		return
 	var t: Track = _nearest(u, targets)
 	b["target"] = t
+	if u.array_search_active and t.domain != "subsurface":
+		unit_manager.issue_order(u, Order.recover_towed_array())
 	_manage_depth(u, DepthIntent.TRACK)
 	_manage_emissions(u, true)
 	var range_nm := u.position.distance_to(t.position)
+	if t.domain == "subsurface" and _work_ship_array(u, b, t.position, now):
+		return
 	if u.is_aircraft() and _is_asw_airframe(u):
 		_prosecute(u, b, t, range_nm, now)  # sonar work happens over the contact or not at all
 		return
@@ -764,7 +774,30 @@ func _do_search(u: Unit, b: Dictionary, now: float) -> void:
 	if u.is_aircraft():
 		_do_air_search(u, b, now)
 		return
+	if b.get("last_contact_domain", "") == "subsurface" and _work_ship_array(u, b, last, now):
+		return
 	_move_to(u, b, last, now)
+
+
+## A fitted ship works a nearby submarine datum quietly, with a crossing listening leg. It does
+## not tow at full transit speed or endlessly cancel deployment with the normal course refresh.
+## Distant contacts, breakout routes and formation assignments keep their existing priorities;
+## their navigation/evasion orders recover the array through the same Unit handling as the player.
+func _work_ship_array(u: Unit, b: Dictionary, datum: Vector2, now: float) -> bool:
+	if not TowedArray.capable(u) or u.ai_posture == "breakout" or u.in_formation():
+		return false
+	if u.position.distance_to(datum) > SHIP_ASW_WORK_RADIUS_NM or not TowedArray.safe_water(u) or u.component("sensors") <= 0.0:
+		return false
+	if u.array_phase == TowedArray.Phase.RECOVERING:
+		return false  # finish the deliberate recovery before starting another listening leg
+	if u.array_search_active:
+		return true
+	if TowedArray.rejection(u) != "":
+		return false
+	_command(u, b, Geo.bearing_deg(u.position, datum) + 90.0, TowedArray.QUIET_SPEED_KN, now)
+	var order := Order.asw_search()
+	order.origin = "crew"
+	return unit_manager.issue_order(u, order)
 
 
 func _do_patrol(u: Unit, b: Dictionary, now: float) -> void:

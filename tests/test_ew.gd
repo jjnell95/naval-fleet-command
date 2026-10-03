@@ -418,3 +418,20 @@ func test_civil_traffic_is_not_on_a_military_network() -> void:
 	var burke := DataDB.platform("usn_ddg_arleigh_burke_iia")
 	if burke != null:
 		assert_true(burke.has_datalink, "a warship is")
+
+
+func test_an_air_search_radar_is_not_a_weak_emitter_because_of_its_surface_range() -> void:
+	var air := _spec("air")
+	air.cruise_altitude_m = 10000.0
+	var listener := _unit(air, "RED", Vector2.ZERO)
+	listener.flight_state = Unit.FlightState.AIRBORNE
+	listener.altitude_m = 10000.0
+	var receiver := _esm(1.25, 3.0)
+	listener.sensors.append(receiver)
+	var carrier := _unit(_spec(), "BLUE", Vector2(0, 100))
+	var search := _radar(30.0)
+	search.range_air_nm = 165.0
+	carrier.sensors.append(search)
+	assert_true(Detection.esm_detection_nm(listener, receiver, carrier) > 100.0, "one-way air-search emission reaches a high-altitude warning receiver")
+	listener.altitude_m = 0.0
+	assert_true(Detection.esm_detection_nm(listener, receiver, carrier) < 30.0, "the same intercept remains horizon-limited down on the surface")

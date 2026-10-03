@@ -152,6 +152,7 @@ func _install_scenario(sc: Dictionary, path: String) -> void:
 	Terrain.load_from(scenario)
 	Bathymetry.load_for(scenario)
 	track_manager.neutral_factions = PackedStringArray()
+	track_manager.configure_recognition(scenario.get("recognition_affiliations", {}))
 	for f in scenario.get("neutral_factions", []):
 		track_manager.neutral_factions.append(str(f))
 	unit_manager.clear()
@@ -293,6 +294,7 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 			var result := AirDefence.order_intercept(u, o.threat, unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
 			o.execution_accepted = int(result["cleared"]) > 0
 			o.receipt = str(result["reason"])
+	CommandTraining.record_order(self, u, o)
 
 
 func _on_tick(dt: float) -> void:
@@ -344,6 +346,7 @@ func _step(dt: float) -> void:
 				c.tick(SimClock.sim_time)
 			weapon_manager.end_channel_batch()
 	Debug.time_add("sim/ai", Time.get_ticks_usec() - profile_at)
+	CommandTraining.tick(self)
 	mission_manager.tick(SimClock.sim_time)
 
 

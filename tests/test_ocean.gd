@@ -219,6 +219,8 @@ func test_a_hull_set_hears_a_boat_below_the_layer_badly_and_a_towed_body_does_no
 	hull_ship.sensors.append(_sonar(30.0))
 	var vds_ship := _unit(_ship_spec(), "BLUE", Vector2(1, 0), 5.0)
 	vds_ship.sensors.append(_sonar(30.0, 300.0))
+	TowedArray.search(vds_ship)
+	TowedArray.step(vds_ship, TowedArray.STREAM_S)
 	var deep := _unit(_boat_spec(0.3), "RED", Vector2(0, 8), 8.0, 150.0)
 	var hull_range := Detection.passive_sonar_range_nm(hull_ship, hull_ship.sensors[0], deep)
 	var vds_range := Detection.passive_sonar_range_nm(vds_ship, vds_ship.sensors[0], deep)

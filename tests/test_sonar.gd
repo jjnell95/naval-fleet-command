@@ -177,25 +177,17 @@ func test_passive_contact_is_a_long_thin_ellipse_along_the_bearing() -> void:
 	_cleanup(h)
 
 
-func test_manoeuvring_resolves_the_range() -> void:
-	var still := _unit(_ship_spec(), "BLUE", Vector2.ZERO, 4.0)
-	still.sensors.append(_sonar(40.0, 0.0))
-	var target_a := _unit(_ship_spec(1.0), "RED", Vector2(0.0, 12.0), 16.0)
-	var ha := _sonar_harness(still, target_a)
-	_run_cycles(ha, 200.0)
-	var steady: float = ha[1].get_tracks("BLUE")[0].tma_quality
-
-	var turning := _unit(_ship_spec(), "BLUE", Vector2.ZERO, 4.0)
-	turning.sensors.append(_sonar(40.0, 0.0))
-	var target_b := _unit(_ship_spec(1.0), "RED", Vector2(0.0, 12.0), 16.0)
-	var hb := _sonar_harness(turning, target_b)
-	_run_cycles(hb, 200.0, 4.0)
-	var manoeuvred: float = hb[1].get_tracks("BLUE")[0].tma_quality
-
-	assert_true(manoeuvred > steady * 1.5, "turning against the bearing is how you get a range")
-	assert_true(manoeuvred > 0.6, "a few minutes of manoeuvring gives a usable solution")
-	_cleanup(ha)
-	_cleanup(hb)
+func test_turning_in_place_never_resolves_passive_range() -> void:
+	var listener := _unit(_ship_spec(), "BLUE", Vector2.ZERO, 4.0)
+	listener.sensors.append(_sonar(40.0, 0.0))
+	var target := _unit(_ship_spec(1.0), "RED", Vector2(0.0, 12.0), 16.0)
+	var h := _sonar_harness(listener, target)
+	_run_cycles(h, 900.0, 4.0)
+	var t: Track = h[1].get_tracks("BLUE")[0]
+	assert_true(t.is_bearing_only(), "heading changes without an observer baseline add no range evidence")
+	assert_near(t.tma_quality, 0.0)
+	assert_true(t.position.distance_to(target.position) > 5.0, "waiting never interpolates a nominal datum toward hidden range")
+	_cleanup(h)
 
 
 func test_active_sonar_gives_a_firm_position_immediately() -> void:

@@ -37,3 +37,5 @@ role = "Multimission escort • area air defence • ASW"
 
 service_note = "Flight IIA baseline: 96 Mk 41 cells and two helicopter hangars; no deck Harpoon launchers. Tomahawk in the VLS is the ship's reach against surface and shore targets. Only the scenario missile allocation is loaded."
 default_air_wing = {"usn_helo_mh60r": 2}
+
+weapon_mount_arcs = {"mk45_mod4_gun": [Vector2(0, 145)]}

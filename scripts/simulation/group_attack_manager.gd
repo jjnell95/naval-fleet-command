@@ -105,6 +105,16 @@ func groups_on(faction: String, track: Track) -> Array[GroupAttack]:
 ## and says what it cannot: a shooter out of range, a magazine short of the budget. Refused only
 ## when no shooter can put a single round on any of the contacts now.
 func request(lead: Unit, order: Order) -> GroupAttack:
+	# A fresh coordinated instruction must reach every named submarine before it can
+	# authorize the group's internal crew orders. Once received, an existing attack may
+	# continue autonomously while a boat dives; only new group requests are gated here.
+	if order.origin == "player":
+		var waiting := PackedStringArray()
+		for u: Unit in order.group_members:
+			if u != null and u.alive and u.faction == lead.faction and SubmarineComms.restricted(u) and not SubmarineComms.connected(u):
+				waiting.append(u.callsign)
+		if not waiting.is_empty():
+			return _refuse(order, "Group order awaiting submarine communication window: %s. Request check-in, then issue the coordinated attack." % ", ".join(waiting))
 	var g := _build(lead, order)
 	if g.members.is_empty():
 		return _refuse(order, "No platform in the group can fire")

@@ -130,3 +130,72 @@ func test_quantity_selects_the_airframes_the_deck_will_send() -> void:
 	assert_eq(ready_in_order.slice(0, 2), [first, second] as Array[Unit], "the indicators match the deck's own choice")
 	assert_eq(AirOperations.deck_rows(null, "fra_fighter_rafale_m"), [] as Array[Unit])
 	base.embarked.clear()
+
+
+func test_chart_station_drag_previews_then_requests_one_edit_and_escape_cancels() -> void:
+	var sim := Simulation.new()
+	var map := TacticalMap.new()
+	var missions := AirMissionManager.new()
+	sim.air_mission_manager = missions
+	map.simulation = sim
+	map.size = Vector2(800, 600)
+	map.center_nm = Vector2.ZERO
+	map.ppn = 5.0
+	var m := AirMission.new()
+	m.id = 7
+	m.faction = map.player_faction
+	m.station = Vector2.ZERO
+	m.radius_nm = 10
+	missions.missions.append(m)
+	var at := map.world_to_screen(m.station)
+	assert_eq(map.station_handle_at(at).get("mode"), TacticalMap.DragMode.STATION)
+	assert_eq(map.station_handle_at(at + Vector2(50, 0)).get("mode"), TacticalMap.DragMode.RADIUS)
+	var edits: Array[Vector2] = []
+	map.mission_station_move_requested.connect(func(_m: AirMission, point: Vector2) -> void: edits.append(point))
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = at
+	map._drag_mission = m
+	map._begin_drag(TacticalMap.DragMode.STATION, press)
+	var motion := InputEventMouseMotion.new()
+	motion.position = at + Vector2(30, 20)
+	map._handle_mouse_motion(motion)
+	assert_eq(m.station, Vector2.ZERO, "dragging previews without mutating the accepted mission")
+	assert_true(map.cancel_interaction_mode(), "Escape consumes an active station drag")
+	assert_true(edits.is_empty())
+	map._drag_mission = m
+	map._begin_drag(TacticalMap.DragMode.STATION, press)
+	map._handle_mouse_motion(motion)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = motion.position
+	map._handle_mouse_button(release)
+	assert_eq(edits.size(), 1, "release submits exactly one authoritative revision")
+	assert_eq(edits[0], map.screen_to_world(motion.position))
+	assert_eq(m.station, Vector2.ZERO, "the map leaves order acceptance to the simulation")
+	assert_eq(map._drag_mode, TacticalMap.DragMode.NONE)
+	map.free()
+	missions.free()
+	sim.free()
+
+
+func test_silent_submarine_hover_and_escort_handle_use_reported_state() -> void:
+	var sub := _unit("cw90_los_angeles")
+	sub.comms_enabled = true
+	sub.depth_m = 200
+	sub.position = Vector2(90, 90)
+	sub.heading_deg = 90
+	sub.speed_kn = 25
+	sub.health = 1
+	sub.fire = 0.8
+	sub.comms_report = {"position": Vector2.ZERO, "heading_deg": 0.0, "speed_kn": 10.0, "depth_m": 40.0, "health": sub.spec.health}
+	var lines := TacticalMap.own_hover_lines(sub, 100.0)
+	assert_true(lines[2].contains("CSE 000") and lines[2].contains("10 kn") and lines[2].contains("40 m") and lines[2].contains("0% damage"), lines[2])
+	var escort := _unit("cw90_los_angeles")
+	escort.station_leader = sub
+	escort.station_offset = Vector2(2, 5)
+	assert_true(TacticalMap.escort_station_point(escort).distance_to(Vector2(2, 5)) < 0.001, "relative station follows reported guide position/course")
+	escort.station_axis_deg = 90
+	assert_true(TacticalMap.escort_station_point(escort).distance_to(Vector2(5, -2)) < 0.001, "fixed threat axis stays fixed even when the guide turns")

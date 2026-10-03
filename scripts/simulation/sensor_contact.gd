@@ -16,7 +16,16 @@ var bearing_only := false
 var quality := 0.0  # 0..1, drives classification speed
 var classify_rate := 1.0
 var range_nm := 0.0
-var tma_gain := 0.0  # how much this observation improves the range solution
+# Raw bearing evidence; no hidden target range enters the estimator. Empty key means a
+# legacy approximate contact with no usable bearing geometry.
+var bearing_origin := Vector2.ZERO
+var bearing_accuracy_deg := 1.0
+var bearing_key := ""
+var bearing_range_limit_nm := 100.0
+var bearing_speed_limit_kn := 70.0
+var solution_quality := 0.0
+var tma_gain := 0.0  # legacy save/fixture compatibility; never accumulated
+var visual_identification := false
 var altitude_m := -1.0
 var source := "radar"  # radar | sonar_passive | sonar_active | sonar_cz | esm | sonobuoy
 ## The set that made this observation: its catalogue id and display name. Empty when it came from

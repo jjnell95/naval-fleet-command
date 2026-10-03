@@ -11,7 +11,9 @@ static func solution(own: Unit, track: Track, now: float) -> Dictionary:
 	var result := {"valid": false, "reason": "SELECT A REFERENCE SHIP"}
 	if own == null or track == null:
 		return result
-	if not track.visible_to(own):
+	var own_report := not SubmarineComms.connected(own)
+	var held := track.networked and (track.owner_faction == "" or track.owner_faction == own.faction) if own_report else track.visible_to(own)
+	if not held:
 		result.reason = "TRACK NOT HELD / OFF LINK"
 		return result
 	if track.status != Track.Status.ACTIVE or track.age_s(now) > Track.STALE_AFTER_S:
@@ -23,9 +25,10 @@ static func solution(own: Unit, track: Track, now: float) -> Dictionary:
 	if not track.has_kinematics:
 		result.reason = "ESTIMATING COURSE AND SPEED"
 		return result
-	var own_velocity := Geo.heading_to_vector(own.heading_deg) * Geo.knots_to_nm_per_s(own.speed_kn)
+	var own_position := SubmarineComms.reported_position(own)
+	var own_velocity := Geo.heading_to_vector(SubmarineComms.reported_heading(own)) * Geo.knots_to_nm_per_s(SubmarineComms.reported_speed(own))
 	var contact_velocity := Geo.heading_to_vector(track.course_deg) * Geo.knots_to_nm_per_s(track.speed_kn)
-	var separation := track.position - own.position
+	var separation := track.position - own_position
 	var velocity := contact_velocity - own_velocity
 	var range_nm := separation.length()
 	result["closing_kn"] = -separation.dot(velocity) / maxf(range_nm, 0.001) * 3600.0
@@ -40,9 +43,9 @@ static func solution(own: Unit, track: Track, now: float) -> Dictionary:
 		result.reason = "CPA BEYOND 30 MINUTES"
 		return result
 	result["valid"] = true
-	result["reason"] = "CONSTANT COURSE ESTIMATE"
+	result["reason"] = "LAST OWN REPORT / CONSTANT COURSE ESTIMATE" if own_report else "CONSTANT COURSE ESTIMATE"
 	result["time_s"] = time_s
-	result["own_position"] = own.position + own_velocity * time_s
+	result["own_position"] = own_position + own_velocity * time_s
 	result["contact_position"] = track.position + contact_velocity * time_s
 	result["distance_nm"] = (result.own_position as Vector2).distance_to(result.contact_position)
 	result["uncertainty_nm"] = track.position_error_nm

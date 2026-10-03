@@ -44,6 +44,7 @@ func test_changing_any_one_option_makes_the_preset_custom() -> void:
 	var changes := {
 		"time": func(o: GameOptions) -> void: o.time_scales = GameOptions.scales_to(10.0),
 		"defence": func(o: GameOptions) -> void: o.missile_defence = GameOptions.DEFENCE_AUTO,
+		"communications": func(o: GameOptions) -> void: o.submarine_comms = false,
 		"engage": func(o: GameOptions) -> void: o.engage_on_hostile_id = true,
 		"voice": func(o: GameOptions) -> void: o.voice = false,
 		"ambient": func(o: GameOptions) -> void: o.ambient = false,
@@ -79,7 +80,7 @@ func test_each_option_toggles_on_its_own_and_the_classic_ladder_is_one_constant(
 	assert_eq(GameOptions.option_text("ceiling"), "Time ceiling 8× (1×, 2×, 4×, 8×)")
 	assert_true(GameOptions.preset_description(GameOptions.CLASSIC).begins_with("8× actual time ceiling"))
 	var classic := GameOptions.classic()
-	assert_eq(classic.summary(), "8× ceiling · manual missile defence · attack on orders")
+	assert_eq(classic.summary(), "8× ceiling · manual missile defence · attack on orders · submarine communication windows")
 	assert_eq(GameOptions.normal().summary(), "60× ceiling · automatic missile defence · attack on orders")
 	assert_eq(classic.toggled("engage_on_id").toggled("engage_on_id").preset(), GameOptions.CLASSIC)
 

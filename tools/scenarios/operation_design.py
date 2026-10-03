@@ -517,6 +517,8 @@ def _check_geometry(d):
 
 
 def enhance(d):
+    from recognition_brief import apply_recognition_brief
+    apply_recognition_brief(d)
     if d.get('operation_revision', 0) >= REVISION:
         return d
     sid = d['id']

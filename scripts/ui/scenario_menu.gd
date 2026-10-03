@@ -164,7 +164,7 @@ func _ready() -> void:
 	var filter_row := HBoxContainer.new()
 	filter_row.add_theme_constant_override("separation", 10)
 	v.add_child(filter_row)
-	for entry in [["operations", "OPERATIONS", "Seven authored operations, one 2027 operation in each of four theatres and three from 1990, with stars for difficulty and your best result"], ["campaigns", "CAMPAIGNS", "The same operations as two campaigns, 1990 and 2027, taken in order: win each at 60% or better to open the next"], ["training", "TRAINING", "Two missions to learn on: the screen and the contact picture, then the air-operations cycle"], ["custom", "MY MISSIONS", "Missions you built or imported"]]:
+	for entry in [["operations", "OPERATIONS", "Seven authored operations, one 2027 operation in each of four theatres and three from 1990, with stars for difficulty and your best result"], ["campaigns", "CAMPAIGNS", "The same operations as two campaigns, 1990 and 2027, taken in order: win each at 60% or better to open the next"], ["training", "TRAINING", "Practice the command screen, air operations, manual missile defence and deliberate sonar deployment"], ["custom", "MY MISSIONS", "Missions you built or imported"]]:
 		var key: String = entry[0]
 		var button := _button(entry[1])
 		button.theme_type_variation = "MenuBigButton"

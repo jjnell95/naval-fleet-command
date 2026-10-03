@@ -43,8 +43,11 @@ signal interaction_mode_changed(active: bool)
 signal point_picked(world_pos: Vector2)
 signal contact_picked(track: Track)
 signal pick_cancelled
+signal mission_station_move_requested(mission: AirMission, world_pos: Vector2)
+signal mission_radius_change_requested(mission: AirMission, radius_nm: float)
+signal escort_station_move_requested(unit: Unit, world_pos: Vector2)
 
-enum DragMode { NONE, PAN, BOX }
+enum DragMode { NONE, PAN, BOX, STATION, RADIUS, ESCORT }
 enum InteractionMode { SELECT, MOVE, PATROL, PICK }
 ## NTDS frames, or the platforms' plan views at three sizes (JFC's graphic symbols).
 enum SymbolMode { NTDS, SMALL, MEDIUM, LARGE }
@@ -187,6 +190,8 @@ var _drag_mode := DragMode.NONE
 var _drag_button := MOUSE_BUTTON_NONE
 var _drag_start := Vector2.ZERO
 var _drag_moved := false
+var _drag_mission: AirMission
+var _drag_escort: Unit
 var _mouse := Vector2.ZERO
 var _mouse_inside := false
 var _last_click_ms: int = -1000000
@@ -359,7 +364,7 @@ func range_circle_nm() -> float:
 
 func _range_centre() -> Vector2:
 	if _range_unit != null:
-		return _range_unit.position
+		return SubmarineComms.reported_position(_range_unit)
 	return _range_track.position if _range_track != null else Vector2.ZERO
 
 
@@ -420,6 +425,10 @@ func _finish_pick() -> void:
 
 
 func cancel_interaction_mode() -> bool:
+	if _drag_mode in [DragMode.STATION, DragMode.RADIUS, DragMode.ESCORT]:
+		cancel_drag()
+		post_message("Station edit cancelled; existing orders retained.")
+		return true
 	if interaction_mode == InteractionMode.SELECT:
 		return false
 	set_move_mode(false)
@@ -455,7 +464,7 @@ func post_message(text: String, severity := "info", speaker = null) -> void:
 
 func _process(delta: float) -> void:
 	_anim += delta
-	if selected_track != null and not selected_track.visible_to(reference_unit()):
+	if selected_track != null and not _visible_tracks().has(selected_track):
 		select_track(null)
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
 	_keyboard_pan(delta)
@@ -465,7 +474,7 @@ func _process(delta: float) -> void:
 		if inspection_track() != null:
 			_center_world_in_chart(inspection_track().position)
 		elif selected.size() == 1:
-			_center_world_in_chart((selected[0] as Unit).position)
+			_center_world_in_chart(SubmarineComms.reported_position(selected[0] as Unit))
 	_record_trails()
 	_record_weapon_trails()
 	_record_wrecks()
@@ -517,7 +526,7 @@ func _record_weapon_trails() -> void:
 	for w: Weapon in weapon_manager.in_flight:
 		if w.phase == Weapon.Phase.DEAD:
 			continue
-		if w.faction != player_faction and not Debug.enabled and (threat_manager == null or ref == null or not threat_manager.visible_to(ref, w)):
+		if not Debug.enabled and not WorldPresentation.weapon_visible(w, player_faction, ref, threat_manager, unit_manager):
 			continue
 		live[w.id] = true
 		var arr: PackedVector2Array = _weapon_trails.get(w.id, PackedVector2Array())
@@ -546,7 +555,7 @@ func _record_trails() -> void:
 		if not _trails.has(u):
 			_trails[u] = PackedVector2Array()
 		var arr: PackedVector2Array = _trails[u]
-		arr.append(u.position)
+		arr.append(SubmarineComms.reported_position(u))
 		if arr.size() > TRAIL_LENGTH:
 			arr.remove_at(0)
 		_trails[u] = arr
@@ -679,11 +688,11 @@ func center_on_selection() -> void:
 			fit_to_fleet()
 		return
 	if selected.size() == 1 and selected_track == null:
-		center_on((selected[0] as Unit).position)
+		center_on(SubmarineComms.reported_position(selected[0] as Unit))
 		return
 	var points := PackedVector2Array()
 	for u: Unit in selected:
-		points.append(u.position)
+		points.append(SubmarineComms.reported_position(u))
 	if selected_track != null:
 		points.append(selected_track.position)
 	_fit_points(points)
@@ -710,7 +719,7 @@ func fit_to_fleet() -> void:
 		return
 	var points := PackedVector2Array()
 	for u in own:
-		points.append(u.position)
+		points.append(SubmarineComms.reported_position(u))
 	_fit_points(points)
 
 
@@ -787,6 +796,9 @@ func _chart_accepts_point(point: Vector2) -> bool:
 ## Inspect a plotted round without changing the shooter or contact selection. Enemy rounds
 ## use the hooked observer's picture and never expose a launcher or an enemy target at truth.
 func _get_tooltip(at: Vector2) -> String:
+	var handle := station_handle_at(at)
+	if not handle.is_empty():
+		return "Drag to resize the area; Escape or right-click cancels." if handle["mode"] == DragMode.RADIUS else "Drag to move this station, keeping assigned units. Escape or right-click cancels."
 	var w := _weapon_at(at)
 	if w == null:
 		return ""
@@ -819,7 +831,7 @@ func _weapon_at(screen_pos: Vector2, inbound_only := false) -> Weapon:
 			continue
 		if inbound_only and (w.faction == player_faction or w.is_interceptor()):
 			continue
-		if w.faction != player_faction and (observer == null or threat_manager == null or not threat_manager.visible_to(observer, w)):
+		if not WorldPresentation.weapon_visible(w, player_faction, observer, threat_manager, unit_manager):
 			continue
 		var d := world_to_screen(w.position).distance_squared_to(screen_pos)
 		if d < distance_sq:
@@ -894,8 +906,28 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 				return
 			if e.pressed:
 				grab_focus()
-				_begin_drag(DragMode.BOX, e)
+				var handle := station_handle_at(e.position)
+				if not handle.is_empty() and not e.shift_pressed:
+					_drag_mission = handle.get("mission") as AirMission
+					_drag_escort = handle.get("unit") as Unit
+					_begin_drag(handle["mode"] as DragMode, e)
+					post_message("Drag station handle; release to apply. Escape or right-click cancels.")
+				else:
+					_begin_drag(DragMode.BOX, e)
 			elif _drag_button == MOUSE_BUTTON_LEFT:
+				if _drag_mode in [DragMode.STATION, DragMode.RADIUS, DragMode.ESCORT]:
+					if _drag_moved and _chart_accepts_point(e.position):
+						var destination := screen_to_world(e.position)
+						if _drag_mode == DragMode.STATION:
+							mission_station_move_requested.emit(_drag_mission, destination)
+						elif _drag_mode == DragMode.RADIUS:
+							mission_radius_change_requested.emit(_drag_mission, clampf(_drag_mission.station.distance_to(destination), AirMissionManager.MIN_RADIUS_NM, AirMissionManager.MAX_RADIUS_NM))
+						else:
+							escort_station_move_requested.emit(_drag_escort, destination)
+					elif _drag_moved:
+						post_message("Station edit cancelled; release inside the chart to apply.")
+					_end_drag()
+					return
 				if _drag_moved and _drag_mode == DragMode.BOX:
 					_box_select(Rect2(_drag_start, e.position - _drag_start).abs(), e.shift_pressed)
 				elif not _drag_moved:
@@ -908,6 +940,9 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 			elif _drag_button == MOUSE_BUTTON_MIDDLE:
 				_end_drag()
 		MOUSE_BUTTON_RIGHT:
+			if _drag_mode in [DragMode.STATION, DragMode.RADIUS, DragMode.ESCORT]:
+				cancel_interaction_mode()
+				return
 			if interaction_mode != InteractionMode.SELECT:
 				if e.pressed:
 					set_move_mode(false)
@@ -980,6 +1015,8 @@ static func default_contact_verb(t: Track) -> String:
 func hover_cursor_shape(screen_pos: Vector2) -> Control.CursorShape:
 	if interaction_mode != InteractionMode.SELECT:
 		return Control.CURSOR_CROSS
+	if not station_handle_at(screen_pos).is_empty():
+		return Control.CURSOR_DRAG
 	if not _has_controllable_selection() or _unit_at(screen_pos) != null:
 		return Control.CURSOR_ARROW
 	if str(context_at(screen_pos)["kind"]) == "weapon":
@@ -1066,7 +1103,54 @@ func _end_drag() -> void:
 	_drag_mode = DragMode.NONE
 	_drag_button = MOUSE_BUTTON_NONE
 	_drag_moved = false
+	_drag_mission = null
+	_drag_escort = null
 	mouse_default_cursor_shape = Control.CURSOR_CROSS if interaction_mode != InteractionMode.SELECT else Control.CURSOR_ARROW
+
+
+## Explicit handles avoid stealing platform selection. A station's label remains reachable
+## when an aircraft is sitting directly over its centre. East-edge handles resize the area.
+func station_handle_at(at: Vector2) -> Dictionary:
+	if interaction_mode != InteractionMode.SELECT or _unit_at(at) != null:
+		return {}
+	if simulation != null and simulation.air_mission_manager != null:
+		for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
+			if m.kind == AirMission.Kind.STRIKE or m.cancelled:
+				continue
+			var centre := world_to_screen(m.station)
+			var radius := m.radius_nm * ppn
+			if (centre + Vector2(radius, 0)).distance_to(at) <= 9.0:
+				return {"mode": DragMode.RADIUS, "mission": m}
+			if centre.distance_to(at) <= 9.0 or Rect2(centre + Vector2(-48, -maxf(radius, 8.0) - 23.0), Vector2(96, 24)).has_point(at):
+				return {"mode": DragMode.STATION, "mission": m}
+	for u in _own_units():
+		if u.station_kind == "formation" and u.station_leader != null and u.station_leader.alive:
+			if world_to_screen(escort_station_point(u)).distance_to(at) <= 9.0:
+				return {"mode": DragMode.ESCORT, "unit": u}
+	return {}
+
+
+static func escort_station_point(u: Unit) -> Vector2:
+	var leader := u.station_leader
+	if leader == null:
+		return Vector2.INF
+	var axis := u.station_axis_deg if u.station_axis_deg >= 0.0 else SubmarineComms.reported_heading(leader)
+	return SubmarineComms.reported_position(leader) + Geo.heading_to_vector(axis) * u.station_offset.y + Geo.heading_to_vector(axis + 90.0) * u.station_offset.x
+
+
+static func own_hover_lines(u: Unit, now: float) -> PackedStringArray:
+	var lines := PackedStringArray([u.callsign, u.spec.display_name])
+	if not SubmarineComms.connected(u):
+		var health := float(u.comms_report.get("health", u.spec.health))
+		var damage := clampi(int(roundf(100.0 * (1.0 - health / maxf(u.spec.health, 1.0)))), 0, 100)
+		lines.append("LAST REPORT · CSE %03d° · %.0f kn · %.0f m · %d%% damage" % [int(SubmarineComms.reported_heading(u)) % 360, SubmarineComms.reported_speed(u), SubmarineComms.reported_depth(u), damage])
+		lines.append(SubmarineComms.status(u, now))
+		lines.append("Orders queue until the next check-in")
+	else:
+		lines.append("%s  ·  %s" % [Damage.condition_text(u), Damage.damage_report(u)])
+		lines.append(u.status_line())
+	lines.append("Click to command · Right-click for orders")
+	return lines
 
 
 # --- Selection --------------------------------------------------------------------------
@@ -1088,7 +1172,21 @@ func _visible_tracks() -> Array:
 	if track_manager == null:
 		return []
 	var ref := reference_unit()
-	return track_manager.tracks_for(ref) if ref != null else track_manager.get_tracks(player_faction)
+	# A disconnected boat may hold local bearings; the commander hears them on its next report.
+	return track_manager.tracks_for(ref) if ref != null and SubmarineComms.connected(ref) else track_manager.get_tracks(player_faction)
+
+
+func _threat_visible(observer: Unit, weapon: Weapon) -> bool:
+	if threat_manager == null or observer == null:
+		return false
+	if SubmarineComms.connected(observer):
+		return threat_manager.visible_to(observer, weapon)
+	# Selecting a silent boat must not reveal its live local torpedo detections. Continue to
+	# show threats actually reported by connected members of the force.
+	for u in _own_units():
+		if SubmarineComms.connected(u) and threat_manager.visible_to(u, weapon):
+			return true
+	return false
 
 
 ## Priority navigation keeps a busy watch actionable: confirmed hostiles first, then unknowns,
@@ -1110,8 +1208,8 @@ static func _track_precedes(a: Track, b: Track, ref: Unit) -> bool:
 	if a_stale != b_stale:
 		return a_stale < b_stale
 	if ref != null:
-		var ad := ref.position.distance_squared_to(a.position)
-		var bd := ref.position.distance_squared_to(b.position)
+		var ad := SubmarineComms.reported_position(ref).distance_squared_to(a.position)
+		var bd := SubmarineComms.reported_position(ref).distance_squared_to(b.position)
 		if not is_equal_approx(ad, bd):
 			return ad < bd
 	return a.id < b.id
@@ -1134,7 +1232,7 @@ func _unit_at(screen_pos: Vector2) -> Unit:
 	var best: Unit = null
 	var best_d := CLICK_RADIUS_PX
 	for u in _own_units():
-		var d := world_to_screen(u.position).distance_to(screen_pos)
+		var d := world_to_screen(SubmarineComms.reported_position(u)).distance_to(screen_pos)
 		if d <= best_d:
 			best = u
 			best_d = d
@@ -1195,7 +1293,7 @@ func _check_double_click(screen_pos: Vector2) -> void:
 	if is_double:
 		var u := _unit_at(screen_pos)
 		if u != null:
-			center_on(u.position)
+			center_on(SubmarineComms.reported_position(u))
 		else:
 			var t := _track_at(screen_pos)
 			if t != null:
@@ -1235,7 +1333,7 @@ func _box_select(rect: Rect2, additive: bool) -> void:
 	if not additive:
 		selected.clear()
 	for u in _own_units():
-		if rect.has_point(world_to_screen(u.position)) and not selected.has(u):
+		if rect.has_point(world_to_screen(SubmarineComms.reported_position(u))) and not selected.has(u):
 			selected.append(u)
 	_normalize_interaction_state()
 	selection_changed.emit(selected)
@@ -1359,7 +1457,7 @@ func _refresh_threats() -> void:
 	for entry: Dictionary in _threat_candidates:
 		var w: Weapon = entry["weapon"]
 		var victim: Unit = entry["target"]
-		if w.phase != Weapon.Phase.DEAD and victim.alive and (observer == null or threat_manager.visible_to(observer, w)):
+		if w.phase != Weapon.Phase.DEAD and victim.alive and (observer == null or _threat_visible(observer, w)):
 			_threats.append(entry)
 
 
@@ -1453,7 +1551,7 @@ func _draw_move_preview() -> void:
 	for u: Unit in selected:
 		if u.faction != player_faction:
 			continue
-		var start := u.waypoints[-1] if append and not u.waypoints.is_empty() else u.position
+		var start := u.waypoints[-1] if append and not u.waypoints.is_empty() else SubmarineComms.reported_position(u)
 		var a := world_to_screen(start)
 		var hit := Terrain.first_land_contact(start, target) if u.needs_sea_room() and not Terrain.is_empty() else -1.0
 		if hit >= 0.0:
@@ -1775,7 +1873,7 @@ func _draw_range_rings() -> void:
 	var ref := reference_unit()
 	if ref == null:
 		return
-	var c := world_to_screen(ref.position)
+	var c := world_to_screen(SubmarineComms.reported_position(ref))
 	var step := _nice_step(140.0)
 	var max_r := maxf(size.x, size.y) * 1.2
 	var i := 1
@@ -1840,11 +1938,24 @@ func _draw_air_missions() -> void:
 			draw_dashed_line(world_to_screen(m.base.position), tp, col, 1.0, 8.0)
 			_centred_text(tp + Vector2(0.0, -18.0), "STRIKE %d" % m.id, 11)
 			continue
-		var sp := world_to_screen(m.station)
-		var r := m.radius_nm * ppn
-		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), col, 1.0, true)
-		_draw_plus(sp, 4.0, col)
-		_centred_text(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), "%s %d" % [m.kind_name(), m.id], 11)
+		var preview := m == _drag_mission and _drag_moved
+		var station := screen_to_world(_mouse) if preview and _drag_mode == DragMode.STATION else m.station
+		var radius_nm := clampf(m.station.distance_to(screen_to_world(_mouse)), AirMissionManager.MIN_RADIUS_NM, AirMissionManager.MAX_RADIUS_NM) if preview and _drag_mode == DragMode.RADIUS else m.radius_nm
+		var sp := world_to_screen(station)
+		var r := radius_nm * ppn
+		var ink := COL_SELECT if preview else col
+		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), ink, 1.0, true)
+		_draw_plus(sp, 5.0, ink)
+		draw_rect(Rect2(sp + Vector2(r - 3.0, -3.0), Vector2(6, 6)), ink, false, 1.0)
+		var title := "%s %d · %.0f nm" % [m.kind_name(), m.id, radius_nm]
+		if m.kind == AirMission.Kind.CAP:
+			title += " · " + m.intent_label()
+		_centred_text(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), title, 11)
+		if preview:
+			_centred_text(sp + Vector2(0, maxf(r, 8.0) + 18.0), "RELEASE TO APPLY · ESC CANCELS", 11)
+		if m.kind == AirMission.Kind.CAP and (preview or selected.any(func(u: Unit) -> bool: return m.aircraft.has(u))):
+			var boundary := (radius_nm + m.pursuit_nm) * ppn
+			draw_arc(sp, boundary, 0, TAU, _arc_segments(boundary), Color(ink, 0.3), 1.0, true)
 
 
 func _draw_objectives() -> void:
@@ -1887,7 +1998,10 @@ func _draw_sensor_rings() -> void:
 	for u in _own_units():
 		if not (Debug.enabled or selected.has(u)):
 			continue
-		var sp := world_to_screen(u.position)
+		var sp := world_to_screen(SubmarineComms.reported_position(u))
+		if not SubmarineComms.connected(u):
+			_shadow_text(sp + Vector2(12, -18), "SENSOR STATUS · AWAITING CHECK-IN", 11)
+			continue
 		var esm := Detection.nominal_esm_ring_nm(u)
 		if esm > 0.0:
 			_draw_dashed_circle(sp, esm * ppn, COL_ESM_RING, 160)
@@ -1968,7 +2082,7 @@ func _draw_weapon_ring() -> void:
 			for spec: WeaponSpec in specs:
 				var col := WeaponPresentation.color(spec)
 				var radius := Combat.effective_range_nm(ref, spec) * ppn
-				var center := world_to_screen(ref.position)
+				var center := world_to_screen(SubmarineComms.reported_position(ref))
 				if spec.type in ["torpedo", "asw_rocket", "bomb"]:
 					_draw_dashed_circle(center, radius, Color(col, 0.65), _arc_segments(radius))
 				else:
@@ -1984,7 +2098,7 @@ func _draw_weapon_ring() -> void:
 	for u in _own_units():
 		if not selected.has(u) or u.magazine_count(weapon_ring.id) <= 0:
 			continue
-		var sp := world_to_screen(u.position)
+		var sp := world_to_screen(SubmarineComms.reported_position(u))
 		var reach := Combat.effective_range_nm(u, weapon_ring)
 		var outer := reach * ppn
 		draw_arc(sp, outer, 0.0, TAU, _arc_segments(outer), col, 1.5, true)
@@ -2006,6 +2120,11 @@ func _draw_weapon_ring() -> void:
 		# The seeker basket makes contact uncertainty a visible targeting decision.
 		_draw_dashed_circle(ap, weapon_ring.acquisition_radius_nm() * ppn, Color(col, 0.35), 48)
 		var warning := " / UNCERTAIN" if selected_track.position_error_nm > weapon_ring.acquisition_radius_nm() or selected_track.status == Track.Status.STALE else ""
+		var traffic := WeaponPresentation.protected_contacts_at_risk(u, weapon_ring, selected_track, _visible_tracks())
+		if not traffic.is_empty():
+			warning += " / TRAFFIC RISK"
+			for contact: Track in traffic:
+				draw_arc(world_to_screen(contact.position), 14.0, 0.0, TAU, 24, Color("ffb45b"), 2.0, true)
 		var solution_label := "SEARCH" if selected_track.is_bearing_only() else "INTERCEPT"
 		if u == reference_unit():
 			_shadow_text(ap + Vector2(10, -8), "%s %ds%s" % [solution_label, int(check.flight_time_s), warning], 11, col)
@@ -2024,7 +2143,7 @@ func _draw_truth() -> void:
 	for u in unit_manager.units:
 		if not u.is_engageable() or u.faction == player_faction:
 			continue
-		var sp := world_to_screen(u.position)
+		var sp := world_to_screen(SubmarineComms.reported_position(u))
 		MapSymbols.draw_ntds(self, sp, COL_TRUTH, MapSymbols.Frame.HOSTILE, _unit_domain(u), u.spec.can_hover)
 		MapSymbols.draw_leader(self, sp, u.heading_deg, MapSymbols.leader_px(u.speed_kn, ppn), COL_TRUTH)
 		var r := Detection.nominal_radar_ring_nm(u)
@@ -2055,7 +2174,7 @@ func track_color(t: Track) -> Color:
 static func _unit_domain(u: Unit) -> String:
 	if u.is_aircraft():
 		return "air"
-	return "subsurface" if u.submerged() else u.spec.domain
+	return "subsurface" if u.is_submarine() and SubmarineComms.reported_depth(u) > 0.5 else u.spec.domain
 
 
 func _draw_tracks() -> void:
@@ -2071,7 +2190,7 @@ func _draw_tracks() -> void:
 			_draw_track_history(t, col)
 		if t.is_bearing_only() and ref != null:
 			# A bearing line from the listener through the contact: this is all it really is.
-			var from := ref.position
+			var from := SubmarineComms.reported_position(ref)
 			var far := from + (t.position - from).normalized() * (from.distance_to(t.position) + t.error_major_nm)
 			draw_line(world_to_screen(from), world_to_screen(far), Color(col, col.a * BEARING_LINE_ALPHA), 1.0, true)
 		if not view.has_point(sp):
@@ -2206,7 +2325,7 @@ func _draw_units() -> void:
 		MapSymbols.draw_ntds(self, world_to_screen(wreck["pos"]).round(), COL_DESTROYED_OWN, MapSymbols.Frame.FRIENDLY, wreck["domain"], wreck["rotary"])
 	var view := Rect2(Vector2.ZERO, size).grow(64.0)
 	for u in _own_units():
-		var sp := world_to_screen(u.position)
+		var sp := world_to_screen(SubmarineComms.reported_position(u))
 		if show_trails and _trails.has(u):
 			var arr: PackedVector2Array = _trails[u]
 			for i in arr.size():
@@ -2215,21 +2334,24 @@ func _draw_units() -> void:
 					_draw_dot(dot, Color(COL_FRIENDLY, 0.1 + 0.4 * float(i + 1) / float(arr.size())))
 		if show_routes:
 			_draw_route(u, sp)
-		if u.in_formation():
-			var station := world_to_screen(Formation.station_for(u))
+		if u.station_kind == "formation" and u.station_leader != null and u.station_leader.alive:
+			var preview := u == _drag_escort and _drag_moved
+			var station := _mouse if preview else world_to_screen(escort_station_point(u))
 			draw_dashed_line(sp, station, Color(COL_ROUTE, 0.3), 1.0, 3.0)
-			draw_rect(Rect2(station - Vector2(2.5, 2.5), Vector2(5, 5)), Color(COL_ROUTE, 0.5), false, 1.0)
+			draw_rect(Rect2(station - Vector2(4, 4), Vector2(8, 8)), COL_SELECT if preview else Color(COL_ROUTE, 0.7), false, 1.0)
+			if preview:
+				_centred_text(station + Vector2(0, -12), "RELEASE TO MOVE STATION · ESC CANCELS", 11)
 		if not view.has_point(sp):
 			continue
 		sp = sp.round()
-		var extent := _draw_platform(sp, COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, _unit_domain(u), u.spec.can_hover, u.spec.id, u.heading_deg)
+		var extent := _draw_platform(sp, COL_FRIENDLY, MapSymbols.Frame.FRIENDLY, _unit_domain(u), u.spec.can_hover, u.spec.id, SubmarineComms.reported_heading(u))
 		if show_leaders:
-			MapSymbols.draw_leader(self, sp, u.heading_deg, MapSymbols.leader_px(u.speed_kn, ppn), COL_FRIENDLY, extent)
+			MapSymbols.draw_leader(self, sp, SubmarineComms.reported_heading(u), MapSymbols.leader_px(SubmarineComms.reported_speed(u), ppn), COL_FRIENDLY, extent)
 		if selected.has(u):
 			MapSymbols.draw_brackets(self, sp, COL_SELECT, _bracket_box(extent))
 		_draw_casualty_ticks(u, sp, extent)
 		_draw_threat_marks(u, sp)
-		_queue_label("u:%d" % u.id, sp, extent, track_number_text(u), u.callsign, 1.0, selected.has(u))
+		_queue_label("u:%d" % u.id, sp, extent, track_number_text(u), u.callsign + (" · LAST REPORT" if u.comms_enabled and not SubmarineComms.connected(u) else ""), 1.0, selected.has(u))
 
 
 ## A route as PIM legs: thin white lines from the symbol's edge through small white + waypoints.
@@ -2242,7 +2364,7 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 	var first := world_to_screen(u.waypoints[0])
 	if first.distance_to(sp) > MapSymbols.RADIUS:
 		prev = sp + (first - sp).normalized() * MapSymbols.RADIUS
-	var prev_world := u.position
+	var prev_world := SubmarineComms.reported_position(u)
 	var check_land := selected.has(u) and u.needs_sea_room() and not Terrain.is_empty()
 	for wp in u.waypoints:
 		var wsp := world_to_screen(wp)
@@ -2285,6 +2407,8 @@ func _draw_plus(c: Vector2, arm: float, col: Color, width := 1.0, shadow := fals
 ## Fire and flooding aboard: a short orange and a short red tick left of the symbol. The rest of
 ## the damage picture is the data display's.
 func _draw_casualty_ticks(u: Unit, sp: Vector2, extent: float) -> void:
+	if not SubmarineComms.connected(u):
+		return
 	var x := sp.x - extent - 4.0
 	if u.fire > 0.0:
 		draw_line(Vector2(x, sp.y - 7.0), Vector2(x, sp.y - 1.0), COL_FIRE, 2.0)
@@ -2316,13 +2440,13 @@ func _draw_relative_motion() -> void:
 		return
 	var own_end := world_to_screen(solution.own_position)
 	var contact_end := world_to_screen(solution.contact_position)
-	draw_dashed_line(world_to_screen(ref.position), own_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
+	draw_dashed_line(world_to_screen(SubmarineComms.reported_position(ref)), own_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
 	draw_dashed_line(world_to_screen(selected_track.position), contact_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
 	draw_line(own_end, contact_end, Color(COL_ROUTE, 0.85), 1.0, true)
 	for endpoint: Vector2 in [own_end, contact_end]:
 		draw_arc(endpoint, 4.0, 0.0, TAU, 16, Color(COL_ROUTE, 0.85), 1.0, true)
 	var middle := own_end.lerp(contact_end, 0.5)
-	_shadow_text(middle + Vector2(4, -4), "CPA %.1f nm / %s" % [solution.distance_nm, Track._fmt_age(solution.time_s)], 11)
+	_shadow_text(middle + Vector2(4, -4), "%sCPA %.1f nm / %s" % ["LAST REPORT · " if not SubmarineComms.connected(ref) else "", solution.distance_nm, Track._fmt_age(solution.time_s)], 11)
 
 
 ## Rounds in flight: own ones always, an opposing one only while the plot holds it. Each is a small
@@ -2343,8 +2467,7 @@ func _draw_weapons() -> void:
 		if w.phase == Weapon.Phase.DEAD:
 			continue
 		var own := w.faction == player_faction
-		var detected := not own and ref != null and threat_manager != null and threat_manager.visible_to(ref, w)
-		if not own and not detected and not Debug.enabled:
+		if not Debug.enabled and not WorldPresentation.weapon_visible(w, player_faction, ref, threat_manager, unit_manager):
 			continue  # an undetected round is invisible, which is the whole problem
 		var sp := world_to_screen(w.position)
 		if not visible_chart.has_point(sp):
@@ -2544,7 +2667,7 @@ func _draw_speaker_rings() -> void:
 	for s in speakers:
 		var at := Vector2.INF
 		if s is Unit and (s as Unit).alive and own.has(s):
-			at = world_to_screen((s as Unit).position)
+			at = world_to_screen(SubmarineComms.reported_position(s as Unit))
 		elif s is Track and tracks.has(s):
 			at = world_to_screen((s as Track).position)
 		if at != Vector2.INF:
@@ -2624,12 +2747,7 @@ func _draw_hover_card() -> void:
 	var lines := PackedStringArray()
 	var u := _unit_at(_mouse)
 	if u != null:
-		lines.append(u.callsign)
-		lines.append(u.spec.display_name)
-		lines.append("%s  ·  %s" % [Damage.condition_text(u), Damage.damage_report(u)])
-		lines.append(u.status_line())
-		lines.append("Click to command · Right-click for orders")
-		_draw_card(lines)
+		_draw_card(own_hover_lines(u, SimClock.sim_time))
 		return
 	var t := _track_at(_mouse)
 	if t == null:
@@ -2651,7 +2769,7 @@ func _draw_hover_card() -> void:
 		lines.append("Kinematics estimating  ·  damage %s" % DataDisplay.damage_text(t))
 	lines.append("Bearing only - range unresolved" if t.is_bearing_only() else "+/-%.1f nm (sensor estimate)" % t.position_error_nm)
 	var ref := reference_unit()
-	if ref != null and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
+	if ref != null and SubmarineComms.connected(ref) and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
 		lines.append("Radar jammed on this bearing")
 	lines.append(contact_hint(default_contact_verb(t) if _has_controllable_selection() else ""))
 	_draw_card(lines)

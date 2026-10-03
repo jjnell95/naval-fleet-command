@@ -79,10 +79,19 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		items.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit track %s." % DataDisplay.track_number_for_track(target)))
 		items.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))
 	if movable:
-		var speeds: Array = [item("Stop", order_action(Order.stop()))]
-		for kn in SPEEDS_KN:
-			speeds.append(item("%d knots" % int(kn), order_action(Order.set_speed(kn))))
-		speeds.append(item("Flank", order_action(Order.set_speed(999.0))))
+		var speeds: Array = []
+		if not ships.is_empty():
+			speeds.append(item("Stop", order_action(Order.stop())))
+			for kn in SPEEDS_KN:
+				speeds.append(item("%d knots" % int(kn), order_action(Order.set_speed(kn))))
+			speeds.append(item("Flank", order_action(Order.set_speed(999.0))))
+		if not aircraft.is_empty():
+			if not speeds.is_empty(): speeds.append(sep())
+			for profile: String in ["patrol", "transit", "dash"]:
+				var pairs: Array = []
+				for a: Unit in aircraft:
+					pairs.append([a, Order.set_speed(a.spec.flight_speed(profile))])
+				speeds.append(item("Aircraft " + profile.capitalize(), {"kind": "unit_orders", "pairs": pairs}, false, "Economical station speed." if profile == "patrol" else ("Cruise to the assigned area." if profile == "transit" else "Maximum speed; higher fuel consumption.")))
 		navigation.append(submenu("Speed", speeds))
 		navigation.append(item("Course...", {"kind": "board", "board": StatusBoards.BOARD_ORDERS, "tab": 0}, false, "Set an exact course on the orders board."))
 	if not aircraft.is_empty():
@@ -105,6 +114,13 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 			var blocked: bool = d[1] == -2.0 and under < 0.0
 			depths.append(item(d[0], {"kind": "depth", "metres": d[1]}, blocked, under_layer_reason(under, floor_m) if d[1] == -2.0 else ""))
 		navigation.append(submenu("Depth", depths, not controllable, why))
+		var communicating := diving.filter(func(u: Unit) -> bool: return u.comms_enabled)
+		if not communicating.is_empty():
+			var windows: Array = [item("Request check-in now", order_action(Order.request_sub_checkin()), false, "Transmit a brief receive-only summons. The boat comes to communication depth before receiving detailed orders.")]
+			for seconds: float in SubmarineComms.INTERVALS:
+				var label := "On demand" if seconds == 0.0 else "Every %d hour%s" % [int(seconds / 3600.0), "" if seconds == 3600.0 else "s"]
+				windows.append(item(label, order_action(Order.set_sub_comms_interval(seconds)), false, "New intervals are delivered at the next communication window. The existing task continues while deep.", _all(communicating, func(u: Unit) -> bool: return u.comms_interval_s == seconds)))
+			navigation.append(submenu("Communications", windows, not controllable, "Full reports and orders at 150 ft / 46 m or shallower: a Classic gameplay abstraction."))
 	var sensors: Array = []
 	if any_radar:
 		sensors.append(item("Radar on", order_action(Order.activate_radar())))
@@ -118,6 +134,12 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		var can_recover := dip_units.any(func(u: Unit) -> bool: return UnitManager.can_accept_order(u, Order.recover_dipping_sonar()))
 		sensors.append(item("Deploy dipping sonar", order_action(Order.deploy_dipping_sonar()), not can_deploy, "Hover, lower the array, then listen. New navigation orders raise it first." if can_deploy else DippingSonar.rejection(dip_units[0])))
 		sensors.append(item("Raise dipping sonar", order_action(Order.recover_dipping_sonar()), not can_recover, "Raise the array, then resume the current route or station."))
+	var array_units := units.filter(func(u: Unit) -> bool: return TowedArray.capable(u))
+	if not array_units.is_empty():
+		var search_ready := array_units.any(func(u: Unit) -> bool: return TowedArray.rejection(u) == "")
+		var recover_ready := array_units.any(func(u: Unit) -> bool: return UnitManager.can_accept_order(u, Order.recover_towed_array()))
+		sensors.append(item("ASW search", order_action(Order.asw_search()), not search_ready, "Stream the towed array and slow to listen while keeping this route."))
+		sensors.append(item("Recover towed array", order_action(Order.recover_towed_array()), not recover_ready, "Recover the array before resuming the latest navigation order."))
 	if any_buoys:
 		sensors.append(item("Drop sonobuoy", order_action(Order.deploy_sonobuoy())))
 	if not sensors.is_empty():
@@ -144,8 +166,8 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		tasks.append(item("Flight deck...", {"kind": "palette", "id": "air_operations"}, false, "Launch aircraft, or choose where an aircraft lands."))
 	if ships.size() >= 2:
 		var forms: Array = []
-		for pattern in ["screen", "column", "abreast"]:
-			forms.append(item(pattern.capitalize(), {"kind": "formation", "pattern": pattern}))
+		for pattern in ["aaw_screen", "asw_screen", "transit", "screen", "column", "abreast"]:
+			forms.append(item({"aaw_screen": "Air defence screen", "asw_screen": "ASW screen", "transit": "Transit formation"}.get(pattern, pattern.capitalize()), {"kind": "formation", "pattern": pattern}))
 		forms.append(item("Break", order_action(Order.break_formation())))
 		tasks.append(submenu("Formation", forms, not controllable, why))
 	elif ships.size() == 1 and (ships[0] as Unit).in_formation():

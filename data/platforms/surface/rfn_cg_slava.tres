@@ -30,3 +30,5 @@ role = "Cruiser • maritime operations"
 default_air_wing = {"rfn_helo_ka27": 1}
 
 service_note = "Project 1164 representative fit with a twin 130 mm AK-130 mount. Secondary defensive and ASW systems are simplified."
+
+weapon_mount_arcs = {"ak130_gun": [Vector2(0, 140)]}

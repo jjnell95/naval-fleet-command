@@ -5,7 +5,8 @@ extends RefCounted
 ## Lifecycle: CRUISE (fly to the aim point derived from the TRACK, not the real unit)
 ##          → TERMINAL (seeker acquires a real unit within acquisition radius)
 ##          → hit roll → IMPACT or MISS.
-## Mid-course aim updates only happen while the track is ACTIVE. Firing at a stale track means
+## Authored update-capable weapons accept aim updates only while the shooter holds an ACTIVE track.
+## Launch-and-leave weapons keep the launch solution. Firing at a stale track means
 ## flying to where the enemy was believed to be, which is how misses happen.
 
 enum Phase { CRUISE, TERMINAL, DEAD }

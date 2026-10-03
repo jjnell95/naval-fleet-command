@@ -59,11 +59,33 @@ func tick(dt: float, now := -1.0) -> void:
 	for u in units:
 		if not u.alive:
 			continue
+		_deliver_submarine_orders(u, SubmarineComms.step(u, now_s))
 		DefensiveResponse.tick(u, dt)
+		_handoff_submarine_tasks(u)
 		_step_investigation(u, dt)
 		_step_attack(u, dt)
 		Formation.step(u)
 		Movement.step(u, dt)
+		# Detach before the next sensor cycle can update the shared picture after diving.
+		_handoff_submarine_tasks(u)
+
+
+## A task received over the link continues on the boat's own sensor picture once it dives.
+## Contact keys associate held reports; neither the shared track's new position nor hidden
+## target truth is copied. Without a local report, ordinary task checks report contact loss.
+func _handoff_submarine_tasks(u: Unit) -> void:
+	if not SubmarineComms.restricted(u) or SubmarineComms.connected(u) or weapon_manager == null or weapon_manager.track_manager == null:
+		return
+	var own_picture := weapon_manager.track_manager.tracks_for(u)
+	for field: String in ["attack_track", "investigation_track"]:
+		var old: Track = u.get(field)
+		if old == null or not old.networked:
+			continue
+		var key := WeaponManager.contact_key(old)
+		for local: Track in own_picture:
+			if WeaponManager.contact_key(local) == key:
+				u.set(field, local)
+				break
 
 
 ## Returns false when this platform cannot carry out the order, so group-order receipts count
@@ -75,15 +97,51 @@ func issue_order(u: Unit, order: Order) -> bool:
 	if order.type == Order.Type.MOVE and u.needs_sea_room() and Terrain.is_land(order.target_pos):
 		return false
 	order.execution_accepted = true
-	u.apply_order(order)
+	if SubmarineComms.should_queue(u, order):
+		SubmarineComms.initialize(u, now_s)
+		return SubmarineComms.queue_order(u, order)
+	if not SubmarineComms.on_order(u, order, now_s):
+		u.apply_order(order)
 	order_issued.emit(u, order)
 	return order.execution_accepted
+
+
+## Apply the commander's communication rules without changing another side's behavior.
+func configure_submarine_comms(faction: String, enabled: bool) -> void:
+	for u in units:
+		if u.faction == faction and u.is_submarine():
+			_deliver_submarine_orders(u, SubmarineComms.configure(u, enabled, now_s))
+
+
+func _deliver_submarine_orders(u: Unit, orders: Array[Order]) -> void:
+	if orders.is_empty(): return
+	var accepted := 0
+	for order in orders:
+		if issue_order(u, order): accepted += 1
+	u.comms_note = "%d orders delivered%s" % [accepted, " · %d no longer executable" % (orders.size() - accepted) if accepted < orders.size() else ""]
 
 
 static func can_accept_order(u: Unit, order: Order) -> bool:
 	if u == null or order == null or not u.alive:
 		return false
+	# A disconnected crew cannot yet assess a newly transmitted firing or investigation
+	# solution. Accept coherent instructions into the queue, then run the full checks when
+	# the communication window delivers them; a lost contact is never attacked blindly.
+	if SubmarineComms.should_queue(u, order) and order.type in [Order.Type.ENGAGE, Order.Type.ATTACK, Order.Type.INVESTIGATE]:
+		if order.track == null or (order.track.owner_faction != "" and order.track.owner_faction != u.faction):
+			return false
+		if order.type == Order.Type.ENGAGE:
+			return u.get_weapon(order.weapon_id) != null
+		return u.spec.max_speed_kn > 0.0
 	match order.type:
+		Order.Type.SET_SUB_COMMS_INTERVAL:
+			return SubmarineComms.restricted(u) and order.comms_interval_s in SubmarineComms.INTERVALS
+		Order.Type.REQUEST_SUB_CHECKIN:
+			return SubmarineComms.restricted(u) and u.spec.max_depth_m > 0.0
+		Order.Type.ASW_SEARCH:
+			return TowedArray.rejection(u) == ""
+		Order.Type.RECOVER_TOWED_ARRAY:
+			return TowedArray.capable(u) and (u.array_search_active or u.array_phase != TowedArray.Phase.STOWED)
 		Order.Type.INVESTIGATE:
 			return investigation_rejection(u, order.track) == ""
 		Order.Type.ATTACK:
@@ -265,6 +323,10 @@ func _step_investigation(u: Unit, dt: float) -> void:
 	var arrive := maxf(Movement.ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
 	if u.position.distance_to(track.position) <= arrive:
 		_hold_investigation_position(u)
+		if track.domain == "subsurface" and TowedArray.rejection(u) == "":
+			var search := Order.asw_search()
+			search.origin = "crew"
+			issue_order(u, search)
 		if track.domain == "subsurface" and DippingSonar.rejection(u) == "":
 			var dip := Order.deploy_dipping_sonar(180.0)
 			dip.origin = "crew"
@@ -421,6 +483,13 @@ func _step_attack(u: Unit, dt: float) -> void:
 	var reach := Combat.effective_range_nm(u, spec)
 	var range_nm := u.position.distance_to(track.position)
 	match why:
+		"MOUNT MASKED / ATTACK TO UNMASK":
+			u.attack_phase = "Turning to engage"
+			u.waypoints.clear()
+			u.ordered_heading_deg = float(check.get("unmask_heading_deg", u.heading_deg))
+			u.ordered_speed_kn = minf(u.spec.cruise_speed_kn, maxf(u.attack_speed_kn, 5.0))
+			u.attack_stall_s = 0.0
+			return
 		"OUT OF RANGE", "BEARING ONLY / NO RANGE SOLUTION", "NO INTERCEPT SOLUTION":
 			u.attack_phase = "Intercept track"
 			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * reach, dt)
@@ -615,9 +684,11 @@ func clear() -> void:
 		u.formation_leader = null
 		u.station_leader = null
 		u.tanking_on = null
+		u.comms_pending.clear()
 		Detection.jammers.erase(u)
 	units.clear()
 	_next_id = 1
+	now_s = 0.0
 
 
 func _notification(what: int) -> void:

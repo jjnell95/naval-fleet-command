@@ -69,10 +69,10 @@ func _ready() -> void:
 		_button(policies, policy.to_upper(), func() -> void: order_requested.emit(Order.set_defence_policy(policy)))
 	_button(policies, "EMCON SILENT", func() -> void: order_requested.emit(Order.set_emcon(true)))
 	_button(policies, "RADIATE", func() -> void: order_requested.emit(Order.set_emcon(false)))
-	var formations := HBoxContainer.new()
+	var formations := HFlowContainer.new()
 	box.add_child(formations)
-	for pattern: String in ["screen", "column", "abreast", "wedge", "dispersed"]:
-		_button(formations, pattern.to_upper(), func() -> void: formation_requested.emit(pattern); refresh())
+	for pattern: String in ["aaw_screen", "asw_screen", "transit", "abreast", "dispersed"]:
+		_button(formations, pattern.replace("_", " ").to_upper(), func() -> void: formation_requested.emit(pattern); refresh())
 	_button(formations, "BREAK FORMATION", func() -> void: order_requested.emit(Order.break_formation()); refresh())
 	_receipt = Label.new()
 	_receipt.clip_text = true

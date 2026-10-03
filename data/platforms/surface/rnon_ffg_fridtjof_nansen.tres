@@ -31,3 +31,5 @@ role = "Frigate • maritime operations"
 default_air_wing = {}
 
 service_note = "Norway terminated NH90 in 2022. The landing facility remains available, but no operational helicopter detachment is assumed. Ship-launched torpedoes use the Sting Ray family."
+
+weapon_mount_arcs = {"oto_76mm_gun": [Vector2(0, 140)]}

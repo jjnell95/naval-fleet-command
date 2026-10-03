@@ -127,7 +127,7 @@ func _ready() -> void:
 	_rail.add_child(_posture)
 	_guide = CheckButton.new()
 	_guide.text = "Command guide · learn while issuing real orders"
-	_guide.tooltip_text = "Optional Northern Passage practice. Close it at any time; resume here with F1."
+	_guide.tooltip_text = "Optional command practice. Close it at any time; resume here with F1. Practice credit still requires the actual orders and outcomes."
 	_guide.toggled.connect(func(on: bool) -> void: guide_toggled.emit(on))
 	v.add_child(_guide)
 	_guide.hide()
@@ -216,7 +216,7 @@ func configure(scenario_name: String, forces: String, situation: String, environ
 	_situation = situation
 	_environment = environment
 	_scenario = scenario
-	_guide.visible = str(scenario.get("id", "")) == "northern_passage"
+	_guide.visible = str(scenario.get("id", "")) == "northern_passage" or str(scenario.get("id", "")) in CommandTraining.IDS
 	_guide.set_pressed_no_signal(_guide.visible)
 	_active_section = "orders"
 	if _preview != null:
@@ -359,6 +359,8 @@ func _append_situation(out: PackedStringArray) -> void:
 		out.append(_safe(str(_scenario["setting_note"])))
 	elif _scenario.has("force_note"):
 		out.append("\n" + _safe(str(_scenario["force_note"])))
+	if _scenario.has("recognition_note"):
+		out.append("\n[b]RECOGNITION BRIEF[/b]\n" + _safe(str(_scenario["recognition_note"])))
 
 
 ## The command reference: the key commands of the command screen, the chart, the 3D view and the

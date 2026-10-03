@@ -1,7 +1,7 @@
 class_name Sonobuoy
 extends RefCounted
-## A passive listener dropped in the water and left behind. One buoy tells you something is
-## inside its circle; two or more overlapping tell you roughly where.
+## A directional passive listener dropped in the water and left behind. One reports a bearing;
+## separated buoys with useful crossing geometry can support an estimated position.
 
 var id := -1
 var faction := ""

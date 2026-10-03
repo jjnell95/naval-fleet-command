@@ -10,7 +10,7 @@ extends RefCounted
 ## whether a ship has been hit or is radiating, and any or all of several. The referee evaluates
 ## them at truth; what an event then does with the answer is what has to respect the fog.
 
-enum Kind { FORCE_DESTROYED, UNIT_LOST, ALL_UNITS_LOST, REACH_AREA, TIME_ELAPSED, UNKNOWN, AIRCRAFT_RECOVERED, HOLD_AREA, TRACK_HELD, AIRCRAFT_READY, UNIT_DAMAGED, EMITTING, ANY, ALL }
+enum Kind { FORCE_DESTROYED, UNIT_LOST, ALL_UNITS_LOST, REACH_AREA, TIME_ELAPSED, UNKNOWN, AIRCRAFT_RECOVERED, HOLD_AREA, TRACK_HELD, AIRCRAFT_READY, UNIT_DAMAGED, EMITTING, ANY, ALL, TRAINING_TASK }
 
 const KIND_NAMES := {
 	"force_destroyed": Kind.FORCE_DESTROYED,
@@ -26,11 +26,13 @@ const KIND_NAMES := {
 	"emitting": Kind.EMITTING,
 	"any": Kind.ANY,
 	"all": Kind.ALL,
+	"training_task": Kind.TRAINING_TASK,
 }
 ## How well a side's plot must know a contact for TRACK_HELD: Track.Classification by name.
 const CLASSIFICATION_NAMES := {"UNKNOWN": 0, "SURFACE": 1, "CLASS_KNOWN": 2, "IDENTIFIED": 3}
 ## What a saved engagement keeps of an objective's progress; the rest is rebuilt from its dict.
-const PROGRESS_FIELDS := ["complete", "unlocked", "held_since", "held_seconds"]
+const PROGRESS_FIELDS := ["complete", "unlocked", "held_since", "held_seconds", "practice_state"]
+const TRAINING_TASKS := ["manual_defence", "manual_intercept", "defence_resolved", "dip_listen", "passive_datum", "active_fix", "authorize_attack", "recover_array"]
 
 var id := ""
 var kind: Kind = Kind.UNKNOWN
@@ -68,6 +70,10 @@ var health_below := 1.0
 var platform := ""
 ## ANY and ALL: the predicates combined.
 var children: Array[MissionObjective] = []
+## Deliberate training tasks are assessed by CommandTraining from accepted orders and observed
+## outcomes. Their progress is saved with the objective, so loading cannot award or erase credit.
+var practice := ""
+var practice_state: Dictionary = {}
 
 
 static func from_dict(d: Dictionary) -> MissionObjective:
@@ -99,6 +105,7 @@ static func from_dict(d: Dictionary) -> MissionObjective:
 	o.plotted_in_area = o.kind == Kind.TRACK_HELD and d.has("center_nm")
 	o.health_below = float(d.get("health_below", 1.0))
 	o.platform = str(d.get("platform", ""))
+	o.practice = str(d.get("practice", ""))
 	for child in d.get("of", []):
 		if typeof(child) == TYPE_DICTIONARY:
 			o.children.append(from_dict(child))
@@ -113,6 +120,8 @@ static func problem(d: Variant) -> String:
 	var kind: Kind = KIND_NAMES.get(str(d.get("type", "")), Kind.UNKNOWN)
 	if kind == Kind.UNKNOWN:
 		return "unknown condition type '%s'" % d.get("type", "")
+	if kind == Kind.TRAINING_TASK and str(d.get("practice", "")) not in TRAINING_TASKS:
+		return "unknown training task '%s'" % d.get("practice", "")
 	if kind in [Kind.ANY, Kind.ALL]:
 		if typeof(d.get("of", [])) != TYPE_ARRAY or (d.get("of", []) as Array).is_empty():
 			return "'%s' needs a list of conditions under 'of'" % d["type"]
@@ -144,7 +153,8 @@ static func named_units(d: Dictionary) -> PackedStringArray:
 func progress_state() -> Dictionary:
 	var d := {}
 	for name: String in PROGRESS_FIELDS:
-		d[name] = get(name)
+		var value: Variant = get(name)
+		d[name] = value.duplicate(true) if value is Dictionary or value is Array else value
 	if not children.is_empty():
 		var parts := []
 		for c in children:
@@ -156,7 +166,8 @@ func progress_state() -> Dictionary:
 func restore_progress(d: Dictionary) -> void:
 	for name: String in PROGRESS_FIELDS:
 		if d.has(name):
-			set(name, d[name])
+			var value: Variant = d[name]
+			set(name, value.duplicate(true) if value is Dictionary or value is Array else value)
 	var parts: Array = d.get("children", [])
 	for i in mini(parts.size(), children.size()):
 		children[i].restore_progress(parts[i])
@@ -327,6 +338,8 @@ func progress(um: UnitManager, now: float) -> String:
 			# The referee knows the ship's condition; the panel says only that it has not happened,
 			# so a strike task never reads out an enemy's damage before the hit is confirmed.
 			return "no hit yet"
+		Kind.TRAINING_TASK:
+			return str(practice_state.get("status", "awaiting command practice"))
 	return ""
 
 

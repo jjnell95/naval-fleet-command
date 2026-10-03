@@ -10,11 +10,10 @@ const PLAN_FIXTURE := "res://tests/fixtures/ai_plan_carrier.json"
 const IKE := "USS Dwight D. Eisenhower (CVN 69)"
 const SAVE_AT := 989.75  # off the one- and two-second cycle boundaries, so every phase matters
 const COMPARE_AT := 2460.0  # after the follow-on raid this seed draws
-## Carrier Watch's draw saved inside the Soviet force's first volley at the carrier (its mission
-## plan holds fire until its own picture classifies her): rounds in the air and Slava's salvo still
-## queued, the Norwegian report on Slava and its bonus task already received (the restore makes
-## that tasking change again), and the second Backfire element still to come, sent by RED's own
-## plot of the carrier.
+## Carrier Watch is saved before its follow-on event and again inside the first hostile volley.
+## Evidence-based classification and launcher handling can put that volley after the event;
+## both continuations must still reach exactly the same state, including queued rounds and
+## Norwegian report tasking. Neither test depends on those distinct events coinciding.
 const CONTINUATION_SEED := 13
 
 var _sim: Simulation
@@ -95,19 +94,27 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	_fresh(CARRIER_WATCH, CONTINUATION_SEED)
 	_play_to_save_point(SAVE_AT, Callable(), SAVE_AT - 61.75, true)
 	assert_eq(SimClock.sim_time, SAVE_AT)
-	# What the save has to carry, present at the moment it is taken.
+	assert_true(not _sim.completed_events.has("follow_on_raid"), "the first save precedes the triggered follow-on raid")
+	var before_raid := _write_and_read(SimSnapshot.capture(_sim))
 	var wm := _sim.weapon_manager
+	# Also save during an actual enemy salvo, retaining the airborne/queued-shot assertions.
+	while SimClock.sim_time < 2000.0:
+		var attacking_carrier := wm.in_flight.any(func(w: Weapon) -> bool: return w.phase != Weapon.Phase.DEAD and w.faction == "RED" and w.target_track != null and w.target_track.truth == _unit(IKE))
+		if attacking_carrier and not wm._pending.is_empty():
+			break
+		SimClock.advance(0.25)
+	var volley_save_at := SimClock.sim_time
+	# What the combat save has to carry, present at the moment it is taken.
 	assert_true(wm.in_flight.any(func(w: Weapon) -> bool: return w.phase != Weapon.Phase.DEAD), "rounds airborne at the save")
 	assert_true(not wm._pending.is_empty(), "shots queued on the launchers at the save")
 	assert_true(_sim.unit_manager.units.any(func(u: Unit) -> bool: return u.alive and u.is_aircraft() and (u.returning or u.flight_state == Unit.FlightState.RECOVERING)), "an aircraft on its way back to the deck")
 	assert_true(_sim.unit_manager.units.any(func(u: Unit) -> bool: return u.alive and (u.attack_track != null or u.investigation_track != null)), "a crew on a temporary task")
-	assert_true(not _sim.completed_events.has("follow_on_raid"), "the follow-on raid is still to come")
 	assert_true(_sim.completed_events.has("cruiser_report") and _sim.mission_manager.objective("strike_slava") != null, "the contact report's tasking update is already in")
 	assert_true(_sim.weapon_manager.in_flight.any(func(w: Weapon) -> bool: return w.phase != Weapon.Phase.DEAD and w.faction == "RED" and w.target_track != null and w.target_track.truth == _unit(IKE)), "the enemy's volley at the carrier is in the air")
 	var latest := float(_sim.director.event("follow_on_raid")["latest_s"])
 	assert_true(not _sim.air_mission_manager.active_missions("BLUE").is_empty(), "air missions flying")
 	var saved := _write_and_read(SimSnapshot.capture(_sim))
-	SimClock.advance(COMPARE_AT - SAVE_AT)
+	SimClock.advance(COMPARE_AT - volley_save_at)
 	var expected := _bytes()
 	var expected_result := _sim.mission_manager.result
 	assert_true(_sim.completed_events.has("follow_on_raid"), "the uninterrupted battle saw the raid")
@@ -117,9 +124,9 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 	# A different seed: the restore must replace every random stream, not continue this one's.
 	_fresh(CARRIER_WATCH, 999)
 	assert_eq(_sim.restore_snapshot(saved), "")
-	assert_eq(SimClock.sim_time, SAVE_AT, "the clock resumes at the saved tick")
+	assert_eq(SimClock.sim_time, volley_save_at, "the clock resumes at the saved tick")
 	assert_true(_sim.mission_manager.objective("strike_slava") != null, "the tasking change received before the save is made again on restore")
-	SimClock.advance(COMPARE_AT - SAVE_AT)
+	SimClock.advance(COMPARE_AT - volley_save_at)
 	var got := _bytes()
 	assert_true(_sim.completed_events.has("follow_on_raid"), "the triggered raid still arrives after a reload")
 	assert_true(float(_sim.completed_events["follow_on_raid"]) < latest, "on the same trigger")
@@ -129,6 +136,17 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 		failures.append("continuation differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
 	_free()
 
+	# The earlier save must recreate the trigger itself as well as its later consequences.
+	_fresh(CARRIER_WATCH, 5)
+	assert_eq(_sim.restore_snapshot(before_raid), "")
+	assert_true(not _sim.completed_events.has("follow_on_raid"))
+	SimClock.advance(COMPARE_AT - SAVE_AT)
+	got = _bytes()
+	assert_true(_sim.completed_events.has("follow_on_raid"), "the pending event fires after the earlier save resumes")
+	if got != expected:
+		failures.append("continuation across raid trigger differs: %s" % _first_difference(bytes_to_var(expected), bytes_to_var(got), ""))
+	_free()
+
 
 ## Both sides fighting through Northern Passage, saved after hits have been taken, so the damage
 ## stream has moved on from its seed and fires and flooding are being fought at the save.
@@ -136,10 +154,14 @@ func test_continuation_after_damage_matches_the_uninterrupted_battle() -> void:
 	_fresh(PASSAGE, 31)
 	_sim.ai_plays_player = true
 	_sim._build_ai()
-	var save_at := 500.75
-	SimClock.advance(save_at)
 	var untouched := RandomNumberGenerator.new()
 	untouched.seed = Damage.rng.seed
+	# Seeker geometry, evidence and launcher arcs change the first-impact time. Save the
+	# battle's actual first damage state, with a strict scenario-time bound, rather than a
+	# timestamp that can precede all damage. The continuation comparison remains byte-exact.
+	while SimClock.sim_time < 1500.0 and Damage.rng.state == untouched.state:
+		SimClock.advance(1.0)
+	SimClock.advance(0.75)
 	assert_true(Damage.rng.state != untouched.state, "damage has been rolled before the save")
 	assert_eq(_sim.mission_manager.result, MissionManager.Result.RUNNING, "still being fought at the save")
 	var saved := _write_and_read(SimSnapshot.capture(_sim))
@@ -211,14 +233,31 @@ func test_continuation_through_group_attacks_matches_the_uninterrupted_battle() 
 	_fresh(PASSAGE, 31)
 	var truxtun := _unit("USS Truxtun (DDG 103)")
 	var amundsen := _unit("HNoMS Roald Amundsen (F 311)")
+	# This save-mechanics fixture controls opposing ROE while reconnaissance establishes
+	# genuine reports. It does not fabricate identities, fixes, damage or weapons in flight.
+	for u: Unit in _sim.unit_manager.get_faction_units("RED"):
+		assert_true(_sim.unit_manager.issue_order(u, Order.set_roe(Unit.Roe.HOLD)))
 	var gam := _sim.group_attack_manager
 	var wm := _sim.weapon_manager
+	# A silent combatant needs reconnaissance; elapsed radar time no longer reveals its type.
+	assert_true(_sim.unit_manager.issue_order(truxtun, Order.launch_aircraft("usn_helo_mh60r")))
+	var helo: Unit = null
+	for u: Unit in _sim.unit_manager.units:
+		if u.faction == "BLUE" and u.is_aircraft():
+			helo = u
+			break
+	var recon_ordered := false
 	var contacts: Array[Track] = []
 	while contacts.size() < 2 and SimClock.sim_time < 1500.0:
 		SimClock.advance(0.25)
+		if helo != null and helo.airborne() and not recon_ordered:
+			recon_ordered = _sim.unit_manager.issue_order(helo, Order.move(Vector2(29, -3)))
 		contacts.assign(_sim.track_manager.tracks_for(truxtun).filter(func(t: Track) -> bool:
 			return t.domain == "surface" and t.identity == "HOSTILE" and t.status == Track.Status.ACTIVE and UnitManager.attack_rejection(truxtun, t) == "" and UnitManager.attack_rejection(amundsen, t) == ""))
-	assert_eq(contacts.size(), 2, "both opposing warships held as hostile")
+	assert_eq(contacts.size(), 2, "reconnaissance identifies both opposing warships")
+	if contacts.size() < 2:
+		_free()
+		return
 	var first := Order.group_attack([truxtun, amundsen], [contacts[0]], 4, 2)
 	assert_true(_sim.unit_manager.issue_order(truxtun, first), first.receipt)
 	var looking: GroupAttack = gam.groups[-1]
@@ -518,21 +557,34 @@ func _play_classic(seconds: float) -> void:
 		_intercept_inbound()
 
 
+## A manual defensive command has reached a launcher and both rounds are still airborne.
+func _manual_interception_active() -> bool:
+	for w: Weapon in _sim.weapon_manager.in_flight:
+		if w.phase == Weapon.Phase.DEAD or w.faction != "BLUE" or w.intercept_target == null:
+			continue
+		var target := w.intercept_target
+		if target.phase != Weapon.Phase.DEAD and not target.intercept_cleared.is_empty():
+			return true
+	return false
+
+
 ## The Classic options in play across a reload. Saved twice in the same battle: once while the
 ## escort's look is still running, so its hostile identification becomes the crew's attack only
 ## after the reload; once with a round the commander ordered intercepted still in the air, the
 ## ship's SAMs on it and every other ship holding its own. Each continuation must match the
 ## uninterrupted battle tick for tick.
 func test_continuation_under_classic_options_matches_the_uninterrupted_battle() -> void:
-	# The second save point is where seed 31's first volley at the carrier has our SAMs on a
-	# cleared round; the operation's drawn timing and the enemy plan's weapons-free decide it.
-	for save_at: float in [200.75, 1251.75]:
+	# Sensor evidence and economical patrol profiles change when the raid is detected. Take
+	# the defensive save on an actual manually cleared interception, not a historical second.
+	for looking: bool in [true, false]:
 		_fresh(CARRIER_WATCH, 31)
 		_classic_doctrine()
-		_play_to_save_point(save_at, _intercept_inbound)
-		assert_eq(SimClock.sim_time, save_at)
+		_play_to_save_point(200.75 if looking else 600.75, _intercept_inbound)
+		if not looking:
+			while SimClock.sim_time < 2700.0 and not _manual_interception_active():
+				_play_classic(0.25)
+		var save_at := SimClock.sim_time
 		var escort := _unit("USS Spruance (DD 963)")
-		var looking := save_at < 211.0
 		if looking:
 			assert_true(escort.investigation_track != null and escort.attack_track == null, "the escort is still looking at the save")
 		else:

@@ -33,3 +33,5 @@ role = "Integrated air and missile defence • SPY-6(V)1"
 
 service_note = "Flight III / Aegis Baseline 10; Tomahawk in the VLS is the ship's reach against surface and shore targets. Magazine is a scenario allocation."
 default_air_wing = {"usn_helo_mh60r": 2}
+
+weapon_mount_arcs = {"mk45_mod4_gun": [Vector2(0, 145)]}

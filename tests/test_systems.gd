@@ -93,6 +93,8 @@ func test_sea_state_shortens_sonar_and_hides_skimmers() -> void:
 	var kilo := _unit("rfn_ssk_kilo", "RED", Vector2(5.0, 0.0))
 	kilo.speed_kn = 8.0
 	Detection.set_environment({})
+	TowedArray.search(ffg)
+	TowedArray.step(ffg, TowedArray.STREAM_S)
 	var calm: float = Detection.best_passive_sonar(ffg, kilo)["range_nm"]
 	var kh35 := DataDB.weapon("kh35_uran")
 	var clear_skimmer := Detection.best_weapon_detection_nm(ffg, kh35) * Detection.weapon_clutter_factor(kh35)

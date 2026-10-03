@@ -100,7 +100,7 @@ Each Intruder carries two AGM-84 with the ship round's 65 nm reach, so a strike 
 
 ## Model boundaries
 
-The catalogue has 21 separate `cw90_` platform variants, 29 weapons and 26 sensors. Modern resources remain available in other missions. `data/cold_war_1990_manifest.json` is the explicit period inventory; the generator and Godot tests recursively validate sensors, weapons, default detachments and scenario loadout overrides. The source ledger establishes broad identities and associations, not every modification on every day in 1990.
+The catalogue has 21 separate `cw90_` platform variants, 29 weapons and 27 sensors. Modern resources remain available in other missions. `data/cold_war_1990_manifest.json` is the explicit period inventory; the generator and Godot tests recursively validate sensors, weapons, default detachments and scenario loadout overrides. The source ledger establishes broad identities and associations, not every modification on every day in 1990.
 
 - Spruance represents DD-963 after its documented 1986–87 refit. Its 61 VLS cells are recognized, while land-attack Tomahawk stores are outside these maritime missions and omitted from the player-accessible tactical magazine. This does not claim the real ship sailed with empty cells. Neither box ASROC nor later VL-ASROC is inserted into that fit. Bunker Hill likewise lists only mission-available SM-2 and conventional surface/ASW weapons; its unused VLS capacity is not an operational load claim.
 - The Perry's 32 SM-1MR and eight Harpoon share the physical 40-round Mk 13 magazine. The engine shares Mk 13 service across SM-1 and Harpoon, including queued and automatic shots. Its eight-second minimum service interval is gameplay tuning, not a verified mechanical cycle. Naval semi-active guidance uses fire-control channels, the shooter's emitting radar and horizon/terrain geometry against held track height. Guidance is lost if that support fails. Illuminator sectors, waveform details and real seeker performance remain abstracted.
@@ -119,3 +119,11 @@ Regenerate only this pack with `python3 tools/scenarios/build_cold_war.py`; it u
 `docs/validation-cold-war-scenarios.json` records ten runs through the real Main scene in Godot 4.7.2 after the final AI corrections, including domain-matched SAM, torpedo and anti-ship ammunition checks. Both-side AI was exercised with seeds 2 and 13 in every new mission; passive-player seed 2 was also checked in the convoy and ASW barrier. Every run resolved within its scenario deadline, with no script/runtime errors and no actors aground at sampled states. Sandbox log-write and macOS certificate warnings are recorded separately.
 
 The passive convoy reached its goal at 7,313.5 simulated seconds with automatic defenses handling the corvette's six missiles. Dallas prosecuted its local sonar contact and won both AI ASW runs at about 1,106 seconds, while the ASW patrol launched three sorties and laid two buoys; a passive ASW player lost at 1,618 seconds. The carrier watch produced one victory and one defeat, with five sorties in each run. The Baltic AI force lost both tested seeds, one to the gate and one to escort loss; its Advanced label reflects a contested missile engagement rather than a guaranteed scripted win. These are reproducible behavior checks, not a claim of measured human completion time or exhaustive balance testing.
+
+
+The Tu-22M3 carries an Avtomat 3 radar-warning receiver in addition to PN-A. The public fit
+is described in [Air Power Australia's Tu-22M3 equipment table](https://www.ausairpower.net/APA-Backfire.html).
+The game models limited passive bearing reports and emitter-library recognition; reach,
+4-degree bearing accuracy, classification time and library coverage are gameplay estimates.
+A probable emitter class is correlated with an explicitly authored recognition brief to infer
+hostility. Radar range alone does not reveal exact class, allegiance, or callsign.

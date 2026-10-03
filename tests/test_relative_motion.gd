@@ -69,3 +69,22 @@ func test_cpa_uses_reported_geometry_with_no_ground_truth_link() -> void:
 	assert_true(RelativeMotion.solution(_ship(), t, 10.0).valid)
 	t.position = Vector2(0, 50)
 	assert_eq(RelativeMotion.solution(_ship(), t, 10.0).reason, "CPA BEYOND 30 MINUTES")
+
+
+func test_silent_submarine_cpa_uses_last_report_and_shared_contact_only() -> void:
+	var own := _ship()
+	own.spec.domain = "subsurface"
+	own.comms_enabled = true
+	own.depth_m = 200.0
+	own.position = Vector2(90, 90)
+	own.heading_deg = 90.0
+	own.speed_kn = 25.0
+	own.comms_report = {"position": Vector2.ZERO, "heading_deg": 0.0, "speed_kn": 10.0, "depth_m": 40.0, "health": 100.0}
+	var contact := _track()
+	var result := RelativeMotion.solution(own, contact, 10.0)
+	assert_true(result.valid)
+	assert_near(result.time_s, 900.0, 0.01, "current submerged maneuver cannot update remote CPA")
+	assert_true(result.reason.begins_with("LAST OWN REPORT"))
+	contact.networked = false
+	contact.contributors[own] = true
+	assert_eq(RelativeMotion.solution(own, contact, 10.0).reason, "TRACK NOT HELD / OFF LINK", "aboard-only reports await communication")

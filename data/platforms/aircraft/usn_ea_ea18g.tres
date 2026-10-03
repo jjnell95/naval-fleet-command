@@ -11,7 +11,7 @@ nation = "USA"
 category = "electronic attack"
 domain = "air"
 max_speed_kn = 950.0
-cruise_speed_kn = 600.0
+cruise_speed_kn = 480.0
 turn_rate_deg_s = 6.0
 accel_kn_s = 6.0
 length_m = 18.3
@@ -33,3 +33,8 @@ source_status = "PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPL
 role = "Electronic Attack • maritime operations"
 can_refuel = true
 launch_requirement = "catobar"
+
+; GAMEPLAY_ESTIMATE: economical station, normal transit, short intercept speeds.
+patrol_speed_kn = 390.0
+transit_speed_kn = 480.0
+dash_speed_kn = 700.0

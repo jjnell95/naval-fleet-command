@@ -26,3 +26,5 @@ signature_factor = 0.05
 altitude_m = 15.0
 soft_kill_resistance = 1.7
 source_status = "PUBLIC: weapon family identity and broad role; see docs/REALISM.md. GAMEPLAY_ESTIMATE: range, speed, effectiveness, salvo behaviour, signature and every other number here is a tuning value. Not a capability claim. Helicopter-launched light anti-ship missile sized for corvettes and fast attack craft."
+
+midcourse_updates = true
