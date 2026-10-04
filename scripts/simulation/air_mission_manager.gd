@@ -540,6 +540,100 @@ func _end(m: AirMission, reason: String) -> void:
 
 # --- The mission cycle -------------------------------------------------------------------
 
+## Quick tasking: one gesture on the chart flies a sensible mission, without the Air Operations
+## dialog. Defaults per kind: airframes asked for, station radius, relief. GAMEPLAY_ESTIMATE.
+const QUICK_COUNT := {AirMission.Kind.CAP: 2, AirMission.Kind.RECON: 1, AirMission.Kind.ASW: 1, AirMission.Kind.STRIKE: 4}
+const QUICK_RADIUS_NM := {AirMission.Kind.CAP: 15.0, AirMission.Kind.RECON: 20.0, AirMission.Kind.ASW: 12.0, AirMission.Kind.STRIKE: 0.0}
+const QUICK_RELIEF := {AirMission.Kind.CAP: true, AirMission.Kind.RECON: false, AirMission.Kind.ASW: true, AirMission.Kind.STRIKE: false}
+## A look at one contact searches a small area round it.
+const QUICK_IDENTIFY_RADIUS_NM := 6.0
+
+
+## The aircraft type this deck should send on a quick mission: the type with the most airframes it
+## can have for the job. Reconnaissance prefers an unarmed sensor aircraft or a helicopter over a
+## fighter, so a quick look does not spend a deck's strike or CAP airframes. "" when none fits.
+func quick_type(base: Unit, kind: int, target: Track = null) -> String:
+	if base == null:
+		return ""
+	var best := ""
+	var best_score := -1.0
+	var seen := {}
+	for a: Unit in base.embarked:
+		if not a.alive or seen.has(a.spec.id):
+			continue
+		seen[a.spec.id] = true
+		if not type_suits(a.spec, kind):
+			continue
+		var n := available_for(base, a.spec.id, kind, target)
+		if n <= 0:
+			continue
+		var score := float(n)
+		if kind == AirMission.Kind.RECON and (a.is_sensor_aircraft() or a.spec.can_hover):
+			score += 1000.0
+		if kind == AirMission.Kind.ASW and (a.spec.sonobuoy_count > 0 or _dips(a)):
+			score += 1000.0
+		if score > best_score:
+			best = a.spec.id
+			best_score = score
+	return best
+
+
+## The order a quick mission flies, or null with the reason in `why` (index 0).
+func quick_order(base: Unit, kind: int, at: Vector2, target: Track = null, why: Array = []) -> Order:
+	# Only a strike is laid on a contact; every other quick mission is a station at a point, and a
+	# contact named for one (a look at it, an intercept of it) only sets where and how wide.
+	var identify := target != null and kind == AirMission.Kind.RECON
+	if kind != AirMission.Kind.STRIKE:
+		target = null
+	var pid := quick_type(base, kind, target)
+	if pid == "":
+		why.append("No %s aircraft ready on %s" % [AirMission.KIND_NAMES[kind], base.callsign if base != null else "a deck"])
+		return null
+	var count := mini(int(QUICK_COUNT[kind]), available_for(base, pid, kind, target))
+	var radius := QUICK_IDENTIFY_RADIUS_NM if identify else float(QUICK_RADIUS_NM[kind])
+	var order := Order.air_mission(kind, pid, count, at, radius, target, bool(QUICK_RELIEF[kind]), true)
+	var reason := mission_rejection(base, kind, pid, at, target)
+	if reason != "":
+		why.append(reason)
+		return null
+	return order
+
+
+## The nearest of this side's decks that can fly a quick mission of this kind to `at`, or null.
+func quick_deck(faction: String, kind: int, at: Vector2, target: Track = null) -> Unit:
+	if kind != AirMission.Kind.STRIKE:
+		target = null
+	var best: Unit = null
+	var best_d := INF
+	for u: Unit in unit_manager.units:
+		if u.faction != faction or not u.alive or u.is_aircraft() or u.spec.aircraft_capacity <= 0 or not u.is_engageable():
+			continue
+		if quick_type(u, kind, target) == "" or mission_rejection(u, kind, quick_type(u, kind, target), at, target) != "":
+			continue
+		var d := u.position.distance_to(at)
+		if d < best_d:
+			best = u
+			best_d = d
+	return best
+
+
+## Sends every airborne airframe of this deck home, mission or not. Returns how many were told.
+func recall_all(base: Unit) -> int:
+	if base == null:
+		return 0
+	var flying := 0
+	for a: Unit in base.embarked:
+		if a.alive and a.airborne():
+			flying += 1
+	for m in missions.duplicate():
+		if m.active and m.base == base:
+			cancel(m.id, base)
+	for a: Unit in base.embarked:
+		if a.alive and a.airborne() and not a.returning:
+			unit_manager.issue_order(a, Order.return_to_base())
+	return flying
+
+
 ## Why this deck cannot hold `count` fighters on alert, or "". Standing an alert down always works.
 static func ready_alert_rejection(u: Unit, count: int) -> String:
 	if u == null or not u.is_engageable() or u.spec.aircraft_capacity <= 0:

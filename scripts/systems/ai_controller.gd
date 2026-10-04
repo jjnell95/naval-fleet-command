@@ -18,6 +18,15 @@ const ENGAGE_COOLDOWN_S := 200.0  # wait and assess before re-attacking the same
 ## Rounds flying or queued at one contact, across the side, before anyone adds more: enough for a
 ## group to mass a saturating salvo on one target, and no more.
 const MAX_ROUNDS_IN_FLIGHT_PER_TRACK := 8
+## The same limit for an aircraft, and the shortest wait before shooting at one again. GAMEPLAY_ESTIMATE.
+const AIR_ROUNDS_IN_FLIGHT := 2
+const AIR_REENGAGE_MIN_S := 15.0
+## A fighter with air-to-air weapons holds this share of its longest one's reach from an air contact:
+## inside its own envelope, not two hundred miles away behind its anti-ship stand-off.
+const AIR_STANDOFF_FRACTION := 0.5
+## Outranged (the known enemy reaches this much further): commit and hold at this share instead.
+const OUTRANGED_FACTOR := 1.15
+const OUTRANGED_STANDOFF_FRACTION := 0.8
 const ORDER_REFRESH_S := 30.0
 const GOAL_TOLERANCE_NM := 3.0
 const COURSE_TOLERANCE_DEG := 8.0
@@ -205,6 +214,9 @@ func _update_unit(u: Unit, now: float) -> void:
 	var all_unknowns: Array = []
 	for t: Track in track_manager.tracks_for(u):
 		if t.status == Track.Status.LOST:
+			continue
+		# A hostile the side has seen go down is nothing to close on, shadow or shoot at.
+		if t.identity == "HOSTILE" and t.damage_estimate >= 100.0:
 			continue
 		var mine := u.can_engage_domain(t.domain) or (t.domain == "subsurface" and TowedArray.capable(u))
 		if t.identity == "HOSTILE":
@@ -421,19 +433,23 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			bucket = _plan_bucket(u, t, task)
 			if bucket < 0:
 				continue  # neither the plan's business nor close enough to be a threat
-		if t.status != Track.Status.ACTIVE:
-			continue  # never shoot at a stale track: the aim point would be old
+		if t.status != Track.Status.ACTIVE or t.damage_estimate >= 100.0:
+			continue  # never shoot at a stale track, nor at one the side has already seen go down
 		if t.classification < Track.Classification.CLASS_KNOWN:
 			continue  # not confirmed hostile yet
 		if now - float(engaged.get(t.id, -10000.0)) < float(b.get("cooldown_%s" % t.id, ENGAGE_COOLDOWN_S)):
 			continue  # a salvo is already on its way; assess before spending more
 		var cap := MAX_ROUNDS_IN_FLIGHT_PER_TRACK
+		if t.domain == "air":
+			cap = AIR_ROUNDS_IN_FLIGHT  # an aircraft is one airframe, not a ship's defences to saturate
 		if plan != null:
 			if plan.assessing(t.id, now):
 				continue  # the whole group waits to see what its last volley did
 			# The budget is for what the plan is after. A contact shot at only because it came too
 			# close gets no more than the side would put on it anyway.
 			cap = plan.budget if bucket < THREAT_BUCKET else mini(plan.budget, MAX_ROUNDS_IN_FLIGHT_PER_TRACK)
+			if t.domain == "air":
+				cap = mini(cap, AIR_ROUNDS_IN_FLIGHT)
 		var committed := _rounds_already_committed(t)
 		if committed >= cap:
 			continue
@@ -465,6 +481,8 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			if score < best_range:
 				best_range = score
 				var rounds := mini(_salvo_for(u, spec, t), spare)
+				if t.domain == "air":
+					rounds = mini(rounds, maxi(cap - committed, 1))
 				if plan != null:
 					if plan.salvo > 0 and not spec.is_gun():
 						rounds = mini(plan.salvo, spare)
@@ -519,6 +537,32 @@ func _act(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inbound: Arr
 			_do_search(u, b, now)
 		State.PATROL:
 			_do_patrol(u, b, now)
+
+
+## The longest reach this aircraft has against this air contact, or 0 with nothing that suits it.
+func _air_reach(u: Unit, t: Track) -> float:
+	var best := 0.0
+	for spec: WeaponSpec in u.weapons_for_track(t):
+		if spec.type in ["aam", "sam"]:
+			best = maxf(best, spec.max_range_nm)
+	return best
+
+
+## The longest air-to-air reach the plot's reported class carries, or 0 when the class is not known.
+## Read from the catalogue entry for the reported class, never from the contact itself.
+static func _enemy_air_reach(t: Track) -> float:
+	if t.classification < Track.Classification.CLASS_KNOWN:
+		return 0.0
+	var pid := MapSymbols.platform_for_class(t.known_class, t.known_category)
+	var spec := DataDB.platform(pid) if pid != "" else null
+	if spec == null:
+		return 0.0
+	var best := 0.0
+	for wid: String in spec.weapon_loadout:
+		var w := DataDB.weapon(wid)
+		if w != null and w.type == "aam" and w.target_types.has("air"):
+			best = maxf(best, w.max_range_nm)
+	return best
 
 
 ## Standoff for holding a hostile. Weapon reach is not the binding constraint: a missile can
@@ -602,7 +646,9 @@ func _do_engage(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
 		b["engaged"][t.id] = now
 		# Wait until the salvo would actually have arrived before deciding it did not work.
 		var flight := Combat.time_of_flight_s(plan["weapon"], u.position.distance_to(t.position))
-		b["cooldown_%s" % t.id] = maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
+		# An aircraft is shot at, looked at once the rounds have had time to arrive, and shot at
+		# again; a ship gets the long assessment its damage needs.
+		b["cooldown_%s" % t.id] = maxf(flight * 1.2, AIR_REENGAGE_MIN_S) if t.domain == "air" else maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
 	if u.ai_posture == "breakout":
 		_do_patrol(u, b, now)  # keep running the route while shooting
 	else:
@@ -651,6 +697,10 @@ func _do_defend(u: Unit, b: Dictionary, inbound: Array, now: float) -> void:
 		var w: Weapon = entry["weapon"]
 		mean += (w.position - u.position).normalized()
 	var away := Geo.vector_to_heading(-mean) if mean.length() > 0.001 else u.heading_deg
+	# An aircraft with a missile on it breaks hard, as the commander's own can be ordered to: the
+	# same manoeuvre, the same benefit against the seeker.
+	if u.is_aircraft() and u.evasion_remaining_s <= 0.0:
+		DefensiveResponse.start_evasion(u, unit_manager, threat_manager)
 	_command(u, b, _open_bearing(u, away), u.spec.max_speed_kn, now)
 
 
@@ -683,6 +733,21 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 		# A strike aircraft holds outside the envelope of what it is shooting at. Flying overhead
 		# to look at the ship it just fired a two-hundred-mile missile at is how a wing is spent.
 		_manage_altitude(u, false)
+		if t.domain == "air":
+			var air_reach := _air_reach(u, t)
+			if air_reach > 0.0:
+				# A fighter presses into its own missile envelope against another aircraft, at dash,
+				# rather than turning away at its anti-ship stand-off the moment it sees one; but
+				# not into a known enemy's longer reach, where it would be shot before it could shoot.
+				standoff_nm = AIR_STANDOFF_FRACTION * air_reach
+				# Outranged by a known enemy: hanging about outside its reach only means never
+				# shooting. Commit at dash and shoot from the outer part of the own envelope.
+				if _enemy_air_reach(t) > air_reach * OUTRANGED_FACTOR:
+					standoff_nm = OUTRANGED_STANDOFF_FRACTION * air_reach
+				if range_nm > standoff_nm:
+					_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
+					unit_manager.issue_order(u, Order.set_speed(u.spec.flight_speed("dash")))
+					return
 		if range_nm <= standoff_nm:
 			_command(u, b, Geo.vector_to_heading(u.position - t.position), u.spec.cruise_speed_kn, now)
 			return
@@ -1632,6 +1697,16 @@ func _command(u: Unit, b: Dictionary, course_deg: float, speed_kn: float, now: f
 ## Emissions. A submerged boat stays quiet because it has no choice. A ship with electronic
 ## support has a choice worth making: it can listen for the other side's radar instead of
 ## transmitting, and only switch on when it actually needs the picture.
+## Rounds of this unit's still flying that its own radar guides: switching it off would kill them.
+func _guiding_rounds(u: Unit) -> bool:
+	if weapon_manager == null:
+		return false
+	for w: Weapon in weapon_manager.in_flight:
+		if w.shooter == u and w.phase != Weapon.Phase.DEAD and w.spec.requires_radar_support():
+			return true
+	return false
+
+
 func _manage_emissions(u: Unit, need_radar: bool) -> void:
 	if u.is_aircraft():
 		if u.has_radar() and not u.radar_on:
@@ -1643,6 +1718,6 @@ func _manage_emissions(u: Unit, need_radar: bool) -> void:
 		return
 	if not u.has_radar():
 		return
-	var want := need_radar or not u.has_esm()
+	var want := need_radar or not u.has_esm() or _guiding_rounds(u)
 	if want != u.radar_on:
 		unit_manager.issue_order(u, Order.activate_radar() if want else Order.silence_radar())

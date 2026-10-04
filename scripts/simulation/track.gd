@@ -59,6 +59,9 @@ var class_evidence := ""
 var identity_evidence := ""
 var signature_time_s := 0.0
 var _cycle_signature_gain := 0.0
+## Close-range radar observation of an aircraft toward a probable type (TrackManager).
+var radar_recognition_s := 0.0
+var _cycle_radar_gain := 0.0
 ## Saved bearing measurements, with observer positions and times, for deterministic TMA.
 var bearing_history: Array = []
 var bearing_observers: Dictionary = {}

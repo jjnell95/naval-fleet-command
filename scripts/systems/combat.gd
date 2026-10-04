@@ -2,7 +2,11 @@ class_name Combat
 ## Engagement geometry and probability. Pure static functions, no state, no randomness.
 
 const LEAD_MAX_ITER := 4
-const AIR_TARGET_BONUS := 1.5
+const AIR_TARGET_BONUS := 1.25
+## An aircraft that sees a missile coming turns away and runs, and a missile fired at the edge of
+## its range then runs out of fuel short of it. Against an air target the usable range is cut by
+## the target's escape speed over the missile's, never below this fraction. GAMEPLAY_ESTIMATE.
+const AIR_ESCAPE_FLOOR := 0.6
 const TORPEDO_EVASION_BENEFIT := 0.45
 const BMD_INTERCEPTOR_ADVANTAGE := 0.45  # GAMEPLAY_ESTIMATE
 
@@ -109,6 +113,11 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if track.is_bearing_only() and not spec.is_torpedo():
 		out["reason"] = "BEARING ONLY / NO RANGE SOLUTION"
 		return out
+	# A position worked up from bearings is a fair guess at a ship; at an aircraft covering eight
+	# miles a minute it is no fire-control solution at all.
+	if track.domain == "air" and track.bearing_only:
+		out["reason"] = "NO RADAR FIX ON AIRCRAFT"
+		return out
 	var aim := intercept_point(shooter.position, spec.speed_kn, track.position, track.course_deg, track.speed_kn, track.has_kinematics)
 	if not aim.is_finite():
 		out["reason"] = "NO INTERCEPT SOLUTION"
@@ -118,6 +127,16 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	out["flight_time_s"] = time_of_flight_s(spec, out["flight_range_nm"])
 	if float(out["flight_range_nm"]) > max_range:
 		out["reason"] = "INTERCEPT BEYOND WEAPON RANGE"
+		return out
+	# The range the target is at now, against the reach left once it turns and runs: the lead point
+	# already allows for the course it holds, so this is the margin for the turn it has yet to make.
+	# An aircraft coming straight in has not yet chosen to turn away, so it gets a lighter margin, not
+	# none: it will turn once it sees the shot.
+	var escape := air_escape_factor(spec, track)
+	if closing_on(track, shooter.position):
+		escape = maxf(escape, CLOSING_ESCAPE_FLOOR)
+	if track.domain == "air" and d > max_range * escape:
+		out["reason"] = "TARGET CAN OUTRUN THE SHOT"
 		return out
 	if crosses_land(shooter, spec, track):
 		out["reason"] = "NO LINE OF FIRE"
@@ -194,6 +213,34 @@ static func clear_standoff_point(from: Vector2, target_pos: Vector2, standoff_nm
 				if not Terrain.is_land(candidate) and not Terrain.blocks_path(candidate, target_pos):
 					return candidate
 	return Vector2.INF
+
+
+## The share of a missile's range that is usable against an aircraft that turns and runs once it
+## sees the shot coming: (missile speed - escape speed) / missile speed, floored at AIR_ESCAPE_FLOOR.
+## Escape speed is the reported class's top speed when the plot knows the class, else the plot's
+## own speed. Reads only the plot.
+static func air_escape_factor(spec: WeaponSpec, track: Track) -> float:
+	if track == null or track.domain != "air" or spec.speed_kn <= 0.0 or spec.is_gun():
+		return 1.0
+	var escape := track.speed_kn if track.has_kinematics else 0.0
+	if track.classification >= Track.Classification.CLASS_KNOWN:
+		var pid := MapSymbols.platform_for_class(track.known_class, track.known_category)
+		var known := DataDB.platform(pid) if pid != "" else null
+		if known != null:
+			escape = maxf(escape, known.max_speed_kn)
+	return clampf((spec.speed_kn - escape) / spec.speed_kn, AIR_ESCAPE_FLOOR, 1.0)
+
+
+## Whether the plot's course points within CLOSING_CONE_DEG of `at`: an aircraft coming straight
+## in is shot at the full envelope, because turning away is a choice it has not yet made.
+const CLOSING_CONE_DEG := 45.0
+const CLOSING_ESCAPE_FLOOR := 0.8
+
+
+static func closing_on(track: Track, at: Vector2) -> bool:
+	if track == null or not track.has_kinematics or track.speed_kn <= 0.0:
+		return false
+	return absf(Geo.heading_delta(track.course_deg, Geo.bearing_deg(track.position, at))) <= CLOSING_CONE_DEG
 
 
 ## Unpowered bombs depend on the launch aircraft height. All numbers are gameplay tuning.

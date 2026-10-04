@@ -39,6 +39,8 @@ var _command_palette: CommandPalette
 var _air_operations: AirOperations
 ## The Air Operations dialog has handed the chart over to pick a station or a strike target.
 var _air_picking := false
+## A quick air mission waiting for its point on the chart: {base, mission}. Empty when none.
+var _quick_air: Dictionary = {}
 var _saves: SavedEngagements
 ## Simulated time of the last autosave in this engagement.
 var _autosaved_at := 0.0
@@ -187,6 +189,7 @@ func _ready() -> void:
 	simulation.weapon_manager.weapon_launched.connect(_on_weapon_launched)
 	simulation.weapon_manager.round_fired.connect(_on_round_fired)
 	simulation.weapon_manager.weapon_impact.connect(_on_weapon_impact)
+	simulation.weapon_manager.weapon_resolved.connect(_on_own_round_resolved)
 	simulation.weapon_manager.unit_destroyed.connect(_on_unit_destroyed)
 	simulation.weapon_manager.engagement_rejected.connect(_on_engagement_rejected)
 	simulation.weapon_manager.interceptor_launched.connect(_on_interceptor_launched)
@@ -827,6 +830,9 @@ func _build_screens() -> void:
 	_air_operations.order_requested.connect(_issue_air_order)
 	_air_operations.chart_pick_requested.connect(_begin_air_pick)
 	map.point_picked.connect(func(pos: Vector2) -> void:
+		if not _quick_air.is_empty():
+			_finish_quick_air_pick(pos)
+			return
 		if _air_picking:
 			_air_operations.apply_station(pos)
 			_end_air_pick())
@@ -835,6 +841,10 @@ func _build_screens() -> void:
 			_air_operations.apply_target(t)
 			_end_air_pick())
 	map.pick_cancelled.connect(func() -> void:
+		if not _quick_air.is_empty():
+			_quick_air = {}
+			radio.advise("Air tasking cancelled")
+			return
 		if _air_picking:
 			_end_air_pick())
 	_air_operations.aircraft_selected.connect(func(a: Unit) -> void:
@@ -1103,6 +1113,57 @@ func _end_air_pick() -> void:
 	_air_operations.refresh()
 
 
+## One gesture, one mission: the deck's best type for the job, a sensible count, radius and relief
+## (AirMissionManager.quick_order). The clock is not stopped and no dialog opens.
+func _issue_quick_air(base: Unit, order: Order) -> void:
+	if base == null or not base.alive or order == null:
+		return
+	order.execution_accepted = false
+	var accepted := simulation.unit_manager.issue_order(base, order)
+	var spec := DataDB.platform(order.aircraft_id)
+	var what := "%s %d × %s" % [AirMission.KIND_NAMES[clampi(order.mission_kind, 0, 3)], order.aircraft_count, spec.short_name if spec != null else order.aircraft_id]
+	if accepted:
+		radio.flash("%s: %s — %s" % [base.callsign, what, order.receipt if order.receipt != "" else "launching"], "good", base)
+		voice.say("order_ack", base)
+	else:
+		radio.advise("%s refused: %s" % [what, order.receipt if order.receipt != "" else "the deck cannot fly it now"])
+
+
+## L: every hooked aircraft in the air goes home, in one key.
+func _return_selected_aircraft() -> void:
+	var flying := map.selected.filter(func(u: Unit) -> bool: return u.faction == simulation.player_faction and u.airborne() and not u.returning)
+	if flying.is_empty():
+		radio.advise("Hook aircraft in the air to send them home")
+		return
+	var sent := 0
+	for a: Unit in flying:
+		if simulation.unit_manager.issue_order(a, Order.return_to_base()):
+			sent += 1
+	radio.flash("%d aircraft returning to deck" % sent, "info", flying[0] if sent == 1 else null)
+
+
+func _begin_quick_air_pick(base: Unit, kind: int) -> void:
+	if base == null or not base.alive:
+		return
+	_quick_air = {"base": base, "mission": kind}
+	var prompt := "Click the %s station" % AirMission.KIND_LABELS[kind].to_lower()
+	map.set_pick_mode(false, prompt, base.position, float(AirMissionManager.QUICK_RADIUS_NM[kind]))
+	map.grab_focus()
+	radio.advise(prompt + ". Right-click or Escape cancels.")
+
+
+func _finish_quick_air_pick(pos: Vector2) -> void:
+	var base: Unit = _quick_air.get("base")
+	var kind := int(_quick_air.get("mission", 0))
+	_quick_air = {}
+	var why: Array = []
+	var order := simulation.air_mission_manager.quick_order(base, kind, pos, null, why)
+	if order == null:
+		radio.advise("Cannot fly it: " + (str(why[0]) if not why.is_empty() else "no aircraft ready"))
+		return
+	_issue_quick_air(base, order)
+
+
 ## "Air strike..." from a contact's menu: Air Operations, set to strike that contact.
 func _open_air_strike(t: Track) -> void:
 	if _air_operations.visible or _has_visible_modal():
@@ -1290,6 +1351,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "toggle_leaders", "label": "Velocity leaders", "description": "Speed-scaled course lines on every symbol.", "shortcut": "Shift+V", "enabled": true, "state": _on_off(layers, "leaders")},
 		{"id": "toggle_track_numbers", "label": "Track numbers", "description": "Four-digit track numbers beside the symbols.", "shortcut": "Shift+K", "enabled": true, "state": _on_off(layers, "track_numbers")},
 		{"id": "toggle_tags", "label": "Tags", "description": "Names and classifications under the track numbers.", "shortcut": "Shift+I", "enabled": true, "state": _on_off(layers, "tags")},
+		{"id": "toggle_coverage", "label": "Sensor coverage shading", "description": "Light the chart where your radars and sonars reach, dark beyond them.", "shortcut": "Shift+F4", "enabled": true, "state": _on_off(layers, "coverage")},
 		{"id": "toggle_sensors", "label": "Sensor rings", "description": "Detection ranges for the current selection.", "shortcut": "F4", "enabled": true, "state": _on_off(layers, "sensors")},
 		{"id": "toggle_trails", "label": "Track trails", "description": "Recent movement history.", "shortcut": "F5", "enabled": true, "state": _on_off(layers, "trails")},
 		{"id": "toggle_relief", "label": "Relief shading", "description": "Hill-shading on land and sea floor.", "shortcut": "F6", "enabled": true, "state": _on_off(layers, "relief")},
@@ -1347,7 +1409,7 @@ static func _on_off(state: Dictionary, key: String) -> String:
 func _cds_state() -> Dictionary:
 	var state := {"symbol_mode": map.symbol_mode, "radar_coverage": regional.show_radar_coverage, "sound": SoundFx.enabled, "voice": voice.enabled, "ambient": SoundFx.ambient_enabled,
 		"options": options}
-	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "graticule", "key"]:
+	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "coverage", "graticule", "key"]:
 		state[layer] = map.has_layer(layer)
 	return state
 
@@ -1466,6 +1528,8 @@ func _run_palette_action(id: String) -> void:
 			map.toggle_layer("tags")
 		"toggle_sensors":
 			map.toggle_layer("sensors")
+		"toggle_coverage":
+			radio.advise("Sensor coverage shading %s" % ("on" if map.toggle_layer("coverage") else "off"))
 		"toggle_trails":
 			map.toggle_layer("trails")
 		"toggle_relief":
@@ -1683,6 +1747,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				map.toggle_layer("tags")
 			KEY_N:
 				_cycle_priority_track(-1)
+			KEY_F4:
+				_run_palette_action("toggle_coverage")
 			_:
 				return
 		get_viewport().set_input_as_handled()
@@ -1763,6 +1829,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			map.fit_to_fleet()
 		KEY_C:
 			map.center_on_selection()
+		KEY_L:
+			_return_selected_aircraft()
 		_:
 			return
 	get_viewport().set_input_as_handled()
@@ -2108,6 +2176,31 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 			radio.flash("Flooding under control", "good", u)
 
 
+## Why one of the commander's own rounds ended without reaching anything, in plain words. A hit
+## or a miss at the target is reported by _on_weapon_impact; this covers the rest, which used to
+## end in silence. Interceptors are the defence board's business and are left out.
+const ROUND_LOSS_WORDS := {
+	"RANGE EXHAUSTED": "ran out of fuel short of the target",
+	"NO ACQUISITION": "found nothing at the aim point",
+	"TARGET LOST": "lost its target",
+	"GUIDANCE LOST": "lost guidance",
+	"TERRAIN": "hit the ground",
+	"DECOYED": "was decoyed",
+}
+
+
+func _on_own_round_resolved(w: Weapon) -> void:
+	if w == null or w.faction != simulation.player_faction or w.is_interceptor():
+		return
+	if not ROUND_LOSS_WORDS.has(w.dead_reason) or w.spec.is_gun():
+		return
+	if w.shooter != null and not _receives_report(w.shooter):
+		return
+	var at := "track %s" % DataDisplay.track_number_for_track(w.target_track) if w.target_track != null else "its target"
+	radio.advise("%s at %s %s" % [w.spec.compact_name(), at, ROUND_LOSS_WORDS[w.dead_reason]])
+	map.add_effect(w.position, "refused")
+
+
 func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
 	var own_target := target.faction == simulation.player_faction
 	if hit:
@@ -2312,6 +2405,11 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			if u != null and not map.selected.has(u):
 				map.select_units([u])
 			items = CdsMenus.orders_items(map.selected, map.selected_track, _all_controllable(map.selected), _all_movable(map.selected), simulation.weapon_manager)
+			if _all_controllable(map.selected):
+				var decks := map.selected.filter(func(d: Unit) -> bool: return not d.is_aircraft() and d.spec.aircraft_capacity > 0 and d.alive)
+				var air := CdsMenus.air_deck_items(simulation.air_mission_manager, decks)
+				if not air.is_empty():
+					items = air + items
 		"weapon":
 			var w: Weapon = context.get("weapon")
 			if w == null:
@@ -2323,6 +2421,16 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 				return
 			var shooters: Array = map.selected if _all_controllable(map.selected) else []
 			items = CdsMenus.engage_items(shooters, t, not shooters.is_empty(), simulation.weapon_manager)
+			# Air tasking does not need a shooter hooked: the nearest deck that can fly it is named.
+			var air := CdsMenus.air_contact_items(simulation.air_mission_manager, simulation.player_faction, t)
+			if not air.is_empty():
+				# After the hooked platforms' own verbs, before the view and follow items.
+				var at := items.size()
+				for i in items.size():
+					if bool((items[i] as Dictionary).get("separator", false)):
+						at = i
+						break
+				items = items.slice(0, at) + air + items.slice(at)
 		"waypoint":
 			var owner: Unit = context.get("waypoint_unit")
 			if owner == null or owner.faction != simulation.player_faction:
@@ -2364,6 +2472,14 @@ func _run_cds_action(action: Dictionary) -> void:
 			_apply_order_to_selection(Order.investigate(action["track"]))
 		"air_strike":
 			_open_air_strike(action["track"])
+		"quick_air_now":
+			_issue_quick_air(action["base"], action["order"])
+		"quick_air_pick":
+			_begin_quick_air_pick(action["base"], int(action["mission"]))
+		"recall_air":
+			var base: Unit = action["base"]
+			var n := simulation.air_mission_manager.recall_all(base)
+			radio.flash("%s: recalling %d aircraft, missions cancelled" % [base.callsign, n], "info", base)
 		"group_attack":
 			_open_group_attack(action["track"], int(action.get("budget", 0)))
 		"waypoint_delete":
@@ -2615,7 +2731,28 @@ func _toggle_radar_on_selection() -> void:
 	if capable == 0:
 		radio.advise("The selection has no radar")
 		return
-	_apply_order_to_selection(Order.silence_radar() if active == capable else Order.activate_radar())
+	var silencing := active == capable
+	_apply_order_to_selection(Order.silence_radar() if silencing else Order.activate_radar())
+	_report_sensor_change("Radar", silencing)
+
+
+## Says what a sensor switch did to the picture, in words the chart's shading also shows: what
+## coverage the hooked platforms gave up or added, and what still covers the force. Reads only the
+## commander's own units.
+func _report_sensor_change(sensor: String, switched_off: bool) -> void:
+	var own: Array = map.selected.filter(func(u: Unit) -> bool: return u.faction == simulation.player_faction)
+	if own.is_empty():
+		return
+	var still := SensorCoverage.discs(map._own_units())
+	var radars := still.filter(func(d: Vector4) -> bool: return d.w == SensorCoverage.RADAR_SURFACE).size()
+	if sensor == "Radar" and switched_off:
+		radio.advise("Radar silent on %d platform%s · %d radar%s still lighting the chart · contacts only they held go stale in a minute; ESM still hears emitters" % [own.size(), "" if own.size() == 1 else "s", radars, "" if radars == 1 else "s"])
+	elif sensor == "Radar":
+		radio.advise("Radar radiating on %d platform%s · %d radar%s lighting the chart · your emissions can now be heard by enemy ESM" % [own.size(), "" if own.size() == 1 else "s", radars, "" if radars == 1 else "s"])
+	elif switched_off:
+		radio.advise("Sonar passive: listening only, nothing transmitted")
+	else:
+		radio.advise("Sonar active: firm ranges inside the inner ring, and every submarine nearby hears the ping")
 
 
 ## Formation orders are per-unit, so they cannot go through the broadcast path.
@@ -2698,7 +2835,9 @@ func _toggle_sonar_on_selection() -> void:
 	if capable == 0:
 		radio.advise("The selection has no sonar")
 		return
-	_apply_order_to_selection(Order.passive_sonar() if active == capable else Order.active_sonar())
+	var quieting := active == capable
+	_apply_order_to_selection(Order.passive_sonar() if quieting else Order.active_sonar())
+	_report_sensor_change("Sonar", quieting)
 	for u in map.selected:
 		if u.active_sonar_on and _receives_report(u):
 			SoundFx.play("ping", 0.5)

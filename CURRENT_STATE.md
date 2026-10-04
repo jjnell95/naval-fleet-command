@@ -1,4 +1,8 @@
-# Current State: M37 Integrated air defence, weapon fixes and flight operations
+# Current State: M38 Sensor coverage, air combat and one-click air tasking
+
+The chart is lit where your own radars and sonars reach and dark beyond them, so switching a sensor visibly changes the picture; stale contacts fade as they age. Air combat was measured end to end and fixed: fighters close into their own air-to-air envelopes instead of fleeing, shots are held until the target cannot simply outrun them, any hit downs an aircraft, radar recognises aircraft at close range, overkill and shots at dead aircraft are gone, SAMs keep guidance, and your lost rounds say why. A deck's menu flies a CAP, search or ASW mission with one chart click; a contact's menu offers an intercept, strike or look from the nearest deck; L sends hooked aircraft home; a live air board lists missions and hooks their aircraft. See [the M38 note](docs/2026-10-03-sensor-coverage-air-combat-and-air-tasking.md).
+
+# Previous: M37 Integrated air defence, weapon fixes and flight operations
 
 **Weapons.**
 - A refused fire order now says why.

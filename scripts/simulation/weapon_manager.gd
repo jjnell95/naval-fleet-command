@@ -705,7 +705,10 @@ func _resolve_impact(w: Weapon) -> void:
 	var hit := rng.randf() < pk
 	w.dead_reason = "HIT" if hit else "MISS"
 	if hit:
-		var destroyed := Damage.apply(target, w.spec.damage, w.spec.type, w.faction)
+		# An aircraft is not a ship that can absorb a hit and fight on: a warhead that reaches it
+		# brings it down, whatever the weapon's rating against a hull.
+		var amount := maxf(w.spec.damage, target.health) if target.is_aircraft() else w.spec.damage
+		var destroyed := Damage.apply(target, amount, w.spec.type, w.faction)
 		weapon_impact.emit(w.faction, w.spec, target, true)
 		if destroyed:
 			unit_destroyed.emit(target, w.faction)

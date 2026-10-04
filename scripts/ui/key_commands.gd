@@ -30,6 +30,8 @@ const COMMANDS := [
 		["Tab", "NTDS or graphic symbols"],
 		["Shift+V / K / I", "Velocity leaders / track numbers / tags"],
 		["F2 / F4 / F5 / F6", "Symbol key / sensor rings / trails / relief"],
+		["Shift+F4", "Sensor coverage shading (dark beyond your sensors)"],
+		["L", "Hooked aircraft return to deck"],
 		["Ctrl+L / S / W", "Lat-long readout / scale / radar coverage"],
 	]],
 	["3D VIEW", [

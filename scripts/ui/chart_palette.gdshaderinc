@@ -23,8 +23,13 @@ uniform float land_raster = 0.0;
 // Regional map treatment: darker, less saturated, with translucent radar-coverage discs.
 uniform float tone_brightness = 1.0;
 uniform float tone_saturation = 1.0;
-uniform vec4 coverage[16];             // centre x, centre y, radius (all nm), unused
+uniform vec4 coverage[48];             // centre x, centre y, radius (all nm), kind (SensorCoverage)
 uniform int coverage_count = 0;
+// 0: the regional map's translucent green discs. 1: the tactical chart's sensor coverage, lit
+// inside the discs and dark beyond them (radar fully, air search partly, sonar sea-green).
+uniform int coverage_mode = 0;
+const float COVER_DARK = 0.30;          // brightness of the chart beyond every sensor
+const float COVER_FEATHER_PX = 5.0;     // soft edge of a lit disc, on screen
 
 const float LAND_SCALE_M = 6000.0;
 const float GRAIN_PX = 1.6;            // grain cell size on screen
@@ -224,9 +229,43 @@ vec3 finish(vec3 c, vec2 w) {
 	c *= 1.0 + grain(w) * GRAIN;
 	float luma = dot(c, vec3(0.299, 0.587, 0.114));
 	c = mix(vec3(luma), c, tone_saturation) * tone_brightness;
-	float covered = 0.0;
 	float nm_px = 1.0 / max(px_per_nm, 0.0001);
-	for (int i = 0; i < 16; i++) {
+	if (coverage_mode == 1) {
+		float lit = 0.0;
+		float sonar = 0.0;
+		float rim = 0.0;
+		float sonar_rim = 0.0;
+		float feather = COVER_FEATHER_PX * nm_px;
+		for (int i = 0; i < 48; i++) {
+			if (i >= coverage_count) {
+				break;
+			}
+			float edge = length(w - coverage[i].xy) - coverage[i].z;
+			float inside = 1.0 - smoothstep(-feather, 0.0, edge);
+			// A faint line on each disc's edge, so where radar reach ends inside air-search reach,
+			// and each ship's own share, can be read without the rings switched on.
+			float line = 1.0 - smoothstep(0.0, 1.3 * nm_px, abs(edge));
+			if (coverage[i].w < 0.5) {
+				lit = max(lit, inside);
+				rim = max(rim, line);
+			} else if (coverage[i].w < 1.5) {
+				lit = max(lit, inside * 0.55);
+				rim = max(rim, line * 0.5);
+			} else {
+				sonar = max(sonar, inside);
+				sonar_rim = max(sonar_rim, line);
+			}
+		}
+		float l2 = dot(c, vec3(0.299, 0.587, 0.114));
+		vec3 dark = mix(vec3(l2), c, 0.35) * COVER_DARK;
+		vec3 shown = mix(dark, c, max(lit, sonar * 0.5));
+		// Under water only: a sea-green cast where sonar listens and no radar reaches.
+		shown = mix(shown, shown * vec3(0.78, 1.08, 1.02), sonar * (1.0 - lit) * 0.7);
+		shown = mix(shown, vec3(0.70, 0.95, 0.75), rim * 0.32);
+		return mix(shown, vec3(0.45, 0.90, 0.85), sonar_rim * 0.30);
+	}
+	float covered = 0.0;
+	for (int i = 0; i < 48; i++) {
 		if (i >= coverage_count) {
 			break;
 		}

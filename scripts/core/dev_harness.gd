@@ -18,6 +18,8 @@ extends RefCounted
 ##   --defence-once / --engage-once   fire one salvo and stop with rounds still in the air
 ##   --ping                      player surface ships go active on sonar at the start
 ##   --select / --form           select the player's ships, optionally in a screen formation
+##   --silence=CALLSIGN[,..]     switch those own platforms' radars off, or `all`, for coverage shots
+##   --quick-cap                 the player's first carrier flies a quick CAP 30 nm ahead, before any fast-forward
 ##   --move-mode                 leave Plot Move armed, for UI screenshots and interaction smoke
 ##   --open-palette              open the searchable Actions palette
 ##   --open-air-ops              open aircraft type selection and landing controls
@@ -139,9 +141,22 @@ func handle_flags() -> void:
 			print("[Dev] t=%.0f %s defends with %d x %s" % [SimClock.sim_time, shooter.callsign, rounds, spec.display_name]))
 		main.simulation.weapon_manager.weapon_impact.connect(func(_faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
 			print("[Dev] t=%.0f %s %s %s" % [SimClock.sim_time, spec.display_name, "hits" if hit else "misses", target.callsign]))
+	if args.has("--quick-cap"):
+		for u in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+			if not u.is_aircraft() and u.spec.flight_facility() == "catobar":
+				var o := main.simulation.air_mission_manager.quick_order(u, AirMission.Kind.CAP, u.position + Geo.heading_to_vector(u.heading_deg) * 30.0)
+				if o != null:
+					main.simulation.unit_manager.issue_order(u, o)
+				break
 	if fast_forward > 0.0:
 		SimClock.advance(fast_forward)
 		print("[Dev] fast-forwarded %.0f s" % fast_forward)
+	for a in args:
+		if a.begins_with("--silence="):
+			var names := a.get_slice("=", 1).split(",")
+			for u in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+				if names.has("all") or names.has(u.callsign):
+					main.simulation.unit_manager.issue_order(u, Order.silence_radar())
 	if args.has("--select"):
 		var own: Array = []
 		for u in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):

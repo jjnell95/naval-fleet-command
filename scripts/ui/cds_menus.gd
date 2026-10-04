@@ -162,6 +162,9 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		var can_return := stationed.filter(func(u: Unit) -> bool: return UnitManager.station_rejection(u) == "")
 		var reason := "" if not can_return.is_empty() else UnitManager.station_rejection(stationed[0])
 		tasks.append(item("Return to station  [S]", order_action(Order.return_to_station()), can_return.is_empty(), reason if reason != "" else "Resume the patrol, screen or air station an investigation, attack or refuelling interrupted."))
+	if not aircraft.is_empty():
+		var homeward := aircraft.filter(func(a: Unit) -> bool: return a.airborne() and not a.returning)
+		tasks.append(item("Return to deck  [L]", order_action(Order.return_to_base()), homeward.is_empty() or not controllable, "Land at home, or the nearest deck that can take it." if not homeward.is_empty() else "Already returning"))
 	if any_deck:
 		tasks.append(item("Flight deck...", {"kind": "palette", "id": "air_operations"}, false, "Launch aircraft, or choose where an aircraft lands."))
 		var alert_decks := units.filter(func(u: Unit) -> bool: return not u.is_aircraft() and AirMissionManager.alert_fighter_type(u) != "")
@@ -439,6 +442,56 @@ static func attack_with_items(units: Array, target: Track) -> Array:
 
 
 ## Right-click on a contact.
+## One-click air tasking at a contact, from whichever of the side's decks can fly it nearest:
+## fighters to intercept a hostile aircraft, a strike on a hostile ship or installation, a look at
+## an unidentified contact. Each item names the deck, the type and the number before it is chosen.
+static func air_contact_items(air: AirMissionManager, faction: String, target: Track) -> Array:
+	var items: Array = []
+	if air == null or target == null or target.status == Track.Status.LOST or target.identity in ["NEUTRAL", "FRIENDLY"]:
+		return items
+	var wants: Array = []
+	if target.identity == "HOSTILE" and target.domain == "air":
+		wants.append([AirMission.Kind.CAP, "Intercept with fighters", "A CAP over the contact: the fighters close and engage it under your rules of engagement."])
+	if target.identity == "HOSTILE" and target.domain in ["surface", "land"]:
+		wants.append([AirMission.Kind.STRIKE, "Air strike now", "Launch strike aircraft at the held contact now, without opening Air Operations."])
+	if target.classification < Track.Classification.CLASS_KNOWN:
+		wants.append([AirMission.Kind.RECON, "Send aircraft to identify", "A reconnaissance aircraft looks at the contact and reports what it is. It never fires."])
+	for w: Array in wants:
+		var kind: int = w[0]
+		var base := air.quick_deck(faction, kind, target.position, target)
+		if base == null:
+			items.append(item(str(w[1]), {}, true, "No deck has %s aircraft ready that can reach it" % AirMission.KIND_NAMES[kind]))
+			continue
+		var order := air.quick_order(base, kind, target.position, target)
+		if order == null:
+			continue
+		var spec := DataDB.platform(order.aircraft_id)
+		items.append(item("%s: %d × %s from %s" % [w[1], order.aircraft_count, spec.short_name if spec != null else order.aircraft_id, base.callsign.get_slice(" (", 0)], {"kind": "quick_air_now", "base": base, "order": order}, false, str(w[2])))
+	return items
+
+
+## A deck's quick tasking: pick a point on the chart and the mission flies with sensible defaults.
+static func air_deck_items(air: AirMissionManager, decks: Array) -> Array:
+	var items: Array = []
+	if air == null or decks.is_empty():
+		return items
+	var base: Unit = decks[0]
+	var tasks: Array = []
+	for row: Array in [[AirMission.Kind.CAP, "CAP over a point…"], [AirMission.Kind.RECON, "Search an area…"], [AirMission.Kind.ASW, "ASW search…"]]:
+		var kind: int = row[0]
+		var pid := air.quick_type(base, kind)
+		if pid == "":
+			tasks.append(item(str(row[1]), {}, true, "No %s aircraft ready on %s" % [AirMission.KIND_NAMES[kind], base.callsign]))
+			continue
+		var count := mini(int(AirMissionManager.QUICK_COUNT[kind]), air.available_for(base, pid, kind))
+		tasks.append(item("%s  %d × %s" % [row[1], count, DataDB.platform(pid).short_name], {"kind": "quick_air_pick", "base": base, "mission": kind}, false, "Click the chart once: the deck launches and the aircraft hold that station, with relief." if kind != AirMission.Kind.RECON else "Click the chart once: the deck launches and searches there."))
+	var flying := base.embarked.filter(func(a: Unit) -> bool: return a.alive and a.airborne()).size()
+	tasks.append(sep())
+	tasks.append(item("Recall all aircraft (%d airborne)" % flying, {"kind": "recall_air", "base": base}, flying == 0, "Cancel this deck's missions and bring every airframe home."))
+	items.append(submenu("Air tasking", tasks, false, "Launch a mission with one click on the chart."))
+	return items
+
+
 static func engage_items(units: Array, target: Track, controllable: bool, weapon_manager: WeaponManager = null) -> Array:
 	var items: Array = []
 	var number := DataDisplay.track_number_for_track(target)

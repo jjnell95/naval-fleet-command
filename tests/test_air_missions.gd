@@ -888,3 +888,79 @@ func test_a_dash_ordered_on_station_is_not_undone_by_the_mission() -> void:
 	_advance(5.0)
 	assert_near(jet.ordered_speed_kn, dash, 0.5, "the commander's dash stands")
 	_done()
+
+
+func test_quick_cap_flies_two_fighters_with_relief_from_one_gesture() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var at := cv.position + Vector2(0, 30)
+	var air := _sim.air_mission_manager
+	var o := air.quick_order(cv, AirMission.Kind.CAP, at)
+	assert_true(o != null)
+	assert_eq(o.aircraft_count, 2)
+	assert_true(o.relief, "a quick CAP keeps itself up")
+	assert_near(o.radius_nm, 15.0, 0.01)
+	assert_true(AirMissionManager.type_suits(DataDB.platform(o.aircraft_id), AirMission.Kind.CAP))
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	assert_eq(_mission().kind, AirMission.Kind.CAP)
+	_done()
+
+
+func test_a_quick_look_sends_a_sensor_aircraft_not_a_fighter() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var pid := _sim.air_mission_manager.quick_type(cv, AirMission.Kind.RECON)
+	var spec := DataDB.platform(pid)
+	assert_true(spec.weapon_loadout.is_empty() or spec.can_hover, "%s should be an unarmed sensor aircraft or a helicopter" % pid)
+	_done()
+
+
+func test_the_nearest_deck_that_can_fly_it_is_chosen_and_recall_brings_everything_home() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var air := _sim.air_mission_manager
+	var at := cv.position + Vector2(10, 20)
+	assert_eq(air.quick_deck("BLUE", AirMission.Kind.CAP, at), cv)
+	assert_true(_sim.unit_manager.issue_order(cv, air.quick_order(cv, AirMission.Kind.CAP, at)))
+	_advance(200.0)
+	var flying := cv.embarked.filter(func(a: Unit) -> bool: return a.alive and a.airborne()).size()
+	assert_true(flying >= 2)
+	assert_eq(air.recall_all(cv), flying)
+	assert_true(air.active_missions("BLUE").all(func(m: AirMission) -> bool: return m.cancelled or not m.active), "missions cancelled")
+	assert_true(cv.embarked.filter(func(a: Unit) -> bool: return a.alive and a.airborne() and not a.returning).is_empty(), "every airframe in the air is going home")
+	_done()
+
+
+func test_the_contact_menu_offers_an_intercept_naming_the_deck_and_the_fighters() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var raid := _plot(cv.position + Vector2(0, 40), "T1950", 8000.0)
+	raid.domain = "air"
+	raid.identity = "HOSTILE"
+	raid.classification = Track.Classification.CLASS_KNOWN
+	var items := CdsMenus.air_contact_items(_sim.air_mission_manager, "BLUE", raid)
+	assert_eq(items.size(), 1)
+	assert_true(str(items[0]["text"]).begins_with("Intercept with fighters: 2 ×"), str(items[0]["text"]))
+	assert_true(str(items[0]["text"]).contains("Eisenhower"))
+	assert_eq(items[0]["action"]["kind"], "quick_air_now")
+	_done()
+
+
+func test_the_air_board_lists_live_missions_and_a_click_hooks_their_aircraft() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var air := _sim.air_mission_manager
+	assert_true(_sim.unit_manager.issue_order(cv, air.quick_order(cv, AirMission.Kind.CAP, cv.position + Vector2(0, 25))))
+	_advance(200.0)
+	var map := TacticalMap.new()
+	map.simulation = _sim
+	map.unit_manager = _sim.unit_manager
+	map.track_manager = _sim.track_manager
+	map.player_faction = "BLUE"
+	var lines := map.air_board_lines()
+	assert_eq(lines.size(), 1)
+	assert_true(str(lines[0]["text"]).begins_with("CAP"), str(lines[0]["text"]))
+	assert_true(str(lines[0]["text"]).contains("fuel"))
+	assert_eq((lines[0]["units"] as Array).size(), 2)
+	map.free()
+	_done()
