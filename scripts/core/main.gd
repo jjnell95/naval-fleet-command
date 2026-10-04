@@ -2181,7 +2181,7 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 ## end in silence. Interceptors are the defence board's business and are left out.
 const ROUND_LOSS_WORDS := {
 	"RANGE EXHAUSTED": "ran out of fuel short of the target",
-	"NO ACQUISITION": "found nothing at the aim point",
+	"NO ACQUISITION": "searched and found nothing",
 	"TARGET LOST": "lost its target",
 	"GUIDANCE LOST": "lost guidance",
 	"TERRAIN": "hit the ground",

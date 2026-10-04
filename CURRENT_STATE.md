@@ -1,4 +1,8 @@
-# Current State: M38 Sensor coverage, air combat and one-click air tasking
+# Current State: M39 Air combat regressions fixed
+
+The four air-combat results M38 left worse than before are fixed. A shot at an aircraft is held to its no-escape range, worked out from the reported type's turn rate, acceleration and top speed. That brings SM-2's first shot at a bomber flying straight in back out to 42 nm. A fighter closes at dash until it has a shot, then cranks 50° off the bearing instead of turning tail. A round at an aircraft that finds nothing at its aim point keeps searching until its fuel runs out. The 2027 AMRAAM and R-77 families reach 60 nm, so the PL-15 outranges them by a third rather than three-quarters. F/A-18E against J-15 from 80 nm went from 18 losses against 4 to 17 against 15. See [the M39 note](docs/2026-10-04-air-combat-regressions.md).
+
+# Previous: M38 Sensor coverage, air combat and one-click air tasking
 
 The chart is lit where your own radars and sonars reach and dark beyond them, so switching a sensor visibly changes the picture; stale contacts fade as they age. Air combat was measured end to end and fixed: fighters close into their own air-to-air envelopes instead of fleeing, shots are held until the target cannot simply outrun them, any hit downs an aircraft, radar recognises aircraft at close range, overkill and shots at dead aircraft are gone, SAMs keep guidance, and your lost rounds say why. A deck's menu flies a CAP, search or ASW mission with one chart click; a contact's menu offers an intercept, strike or look from the nearest deck; L sends hooked aircraft home; a live air board lists missions and hooks their aircraft. See [the M38 note](docs/2026-10-03-sensor-coverage-air-combat-and-air-tasking.md).
 

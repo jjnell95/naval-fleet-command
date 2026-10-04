@@ -435,6 +435,8 @@ func _step(w: Weapon, dt: float) -> void:
 				var enabled_fraction := clampf((w.spec.run_to_enable_nm - distance_before) / maxf(travel, 1e-9), 0.0, 1.0)
 				previous = previous.lerp(w.position, enabled_fraction)
 				previous = _try_acquire(w, previous)
+		elif w.searching_on:
+			previous = _try_acquire(w, previous)
 		else:
 			var radius := w.spec.acquisition_radius_nm()
 			var enabled_fraction := _first_radius_contact_fraction(previous, w.position, w.aim_point, radius)
@@ -448,7 +450,7 @@ func _step(w: Weapon, dt: float) -> void:
 		_resolve_impact(w)
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "RANGE EXHAUSTED"
+		w.dead_reason = "NO ACQUISITION" if w.searching_on else "RANGE EXHAUSTED"
 
 
 ## Rocket-delivered ASW: fly to the held launch solution, then put a fresh torpedo into the
@@ -637,13 +639,26 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 			first_fraction = fraction
 			best_d_squared = d_squared
 	if best == null:
-		if _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0:
-			w.phase = Weapon.Phase.DEAD
-			w.dead_reason = "NO ACQUISITION"
+		if not w.searching_on and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0:
+			if searches_on(w):
+				# An aircraft that turned after the last update is somewhere ahead: the round holds
+				# its heading with the seeker on rather than dying on an empty patch of sky.
+				w.searching_on = true
+				w.aim_point = w.position + Geo.heading_to_vector(w.heading_deg) * maxf(w.spec.max_range_nm - w.distance_flown_nm, 0.0)
+			else:
+				w.phase = Weapon.Phase.DEAD
+				w.dead_reason = "NO ACQUISITION"
 		return previous
 	w.acquired = best
 	w.phase = Weapon.Phase.TERMINAL
 	return previous.lerp(w.position, first_fraction)
+
+
+## Whether a round that finds nothing at its aim point flies on searching: one fired at an aircraft,
+## which may have turned since the solution was last updated. A round at a ship or a submarine
+## ends there, as it always has.
+static func searches_on(w: Weapon) -> bool:
+	return w.target_track != null and w.target_track.domain == "air" and w.delivery_spec == null and not w.spec.is_torpedo() and not w.is_interceptor()
 
 
 ## Decoys have beaten the lock on `from`. The seeker searches on along its heading; if another

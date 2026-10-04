@@ -61,15 +61,15 @@ func test_a_missile_is_not_fired_where_the_aircraft_can_outrun_it() -> void:
 	var aam := _aam(45.0, 2100.0)
 	var shooter := _fighter("BLUE", Vector2.ZERO, [aam])
 	var bandit := _fighter("RED", Vector2(0, 40))
-	# Running away at 900 kn: the usable reach is 45 × (2100 - 900) / 2100 ≈ 26 nm.
+	# Running away at 900 kn for the whole 77 s flight: the usable reach is 45 - 19 ≈ 26 nm.
 	var running := _air_track(bandit, 900.0, 0.0)
 	var check := Combat.check_engagement(shooter, aam, running)
 	assert_true(not check["ok"])
 	assert_true(str(check["reason"]) in ["TARGET CAN OUTRUN THE SHOT", "INTERCEPT BEYOND WEAPON RANGE"], str(check["reason"]))
 	bandit.position = Vector2(0, 20)
 	assert_true(Combat.check_engagement(shooter, aam, _air_track(bandit, 900.0, 0.0))["ok"], "inside the no-escape reach it fires")
-	assert_near(Combat.air_escape_factor(aam, _air_track(bandit, 2000.0)), Combat.AIR_ESCAPE_FLOOR, 1e-6, "never below the floor")
-	assert_near(Combat.air_escape_factor(aam, _air_track(bandit, 0.0)), 1.0, 1e-6, "a target with no known speed costs nothing")
+	assert_near(Combat.air_no_escape_range_nm(aam, _air_track(bandit, 2000.0), shooter.position), Combat.AIR_ESCAPE_FLOOR * 45.0, 1e-6, "never below the floor")
+	assert_near(Combat.air_no_escape_range_nm(aam, _air_track(bandit, 0.0), shooter.position), 45.0, 1e-6, "a target with no known speed costs nothing")
 
 
 func test_a_position_worked_up_from_bearings_is_no_solution_on_an_aircraft() -> void:
@@ -180,7 +180,6 @@ func test_an_aircraft_coming_straight_in_is_shot_from_further_out_than_one_runni
 	var shooter := _fighter("BLUE", Vector2.ZERO, [aam])
 	var bandit := _fighter("RED", Vector2(0, 33))
 	var inbound := _air_track(bandit, 900.0, 180.0)  # heading south, straight at the shooter
-	assert_true(Combat.closing_on(inbound, shooter.position))
 	assert_true(Combat.check_engagement(shooter, aam, inbound)["ok"], "a closing target has not turned away yet")
 	assert_true(not Combat.check_engagement(shooter, aam, _air_track(bandit, 900.0, 0.0))["ok"], "the same range on one already running is too far")
 
@@ -195,11 +194,152 @@ func test_a_closing_aircraft_gets_a_lighter_margin_not_none() -> void:
 	var shooter := _fighter("BLUE", Vector2.ZERO, [aam])
 	var edge := _fighter("RED", Vector2(0, 44))
 	assert_true(not Combat.check_engagement(shooter, aam, _air_track(edge, 900.0, 180.0))["ok"], "not at the very edge: it will turn once it sees the shot")
-	var inside := _fighter("RED", Vector2(0, 35))
+	var inside := _fighter("RED", Vector2(0, 34))
 	assert_true(Combat.check_engagement(shooter, aam, _air_track(inside, 900.0, 180.0))["ok"])
 
 
-func test_an_outranged_fighter_commits_instead_of_parking_outside_its_own_envelope() -> void:
-	assert_true(AIController.OUTRANGED_STANDOFF_FRACTION < 1.0, "it holds inside its own reach")
-	var src := FileAccess.get_file_as_string("res://scripts/systems/ai_controller.gd")
-	assert_true(not src.contains("ENEMY_REACH_MARGIN"), "no stand-off outside the enemy's reach")
+func _known_track(platform_id: String, pos: Vector2, speed: float, course: float) -> Track:
+	var spec := DataDB.platform(platform_id)
+	var t := _air_track(_fighter("RED", pos), speed, course)
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = spec.short_name
+	t.known_category = spec.category
+	return t
+
+
+func test_a_slow_turning_bomber_is_shot_from_further_out_than_a_fighter() -> void:
+	# Both coming straight in at 500 kn. The Tu-22M3 needs a minute to turn round and cannot open
+	# the range before an SM-2 arrives; the Su-35 turns in a third of the time and runs.
+	var sm2 := DataDB.weapon("sm2_family")
+	var bomber := Combat.air_no_escape_range_nm(sm2, _known_track("rfn_bomber_tu22m3", Vector2(0, 50), 500.0, 180.0), Vector2.ZERO)
+	var fighter := Combat.air_no_escape_range_nm(sm2, _known_track("rfn_fighter_su35s", Vector2(0, 50), 500.0, 180.0), Vector2.ZERO)
+	assert_true(bomber > 40.0, "a bomber coming straight in is shot from near the full reach: %.1f" % bomber)
+	assert_true(fighter < bomber - 5.0, "a fighter that can turn and run is not: %.1f" % fighter)
+	var running := Combat.air_no_escape_range_nm(sm2, _known_track("rfn_bomber_tu22m3", Vector2(0, 50), 500.0, 0.0), Vector2.ZERO)
+	assert_true(running < bomber, "one already running away is shot from closer in")
+
+
+func test_the_no_escape_range_reads_the_plot_not_the_aircraft() -> void:
+	var aam := _aam(45.0, 2100.0)
+	var t := _known_track("rfn_bomber_tu22m3", Vector2(0, 30), 500.0, 180.0)
+	var before := Combat.air_no_escape_range_nm(aam, t, Vector2.ZERO)
+	t.truth.spec.turn_rate_deg_s = 90.0  # the real airframe's figures are never consulted
+	t.truth.spec.max_speed_kn = 2000.0
+	assert_near(Combat.air_no_escape_range_nm(aam, t, Vector2.ZERO), before, 1e-6)
+
+
+class AirHarness:
+	extends RefCounted
+	var um: UnitManager
+	var wm: WeaponManager
+	var ai: AIController
+	var orders: Array = []
+
+	func free_all() -> void:
+		ai.free()
+		wm.free()
+		um.free()
+
+
+func _air_harness(fighter: Unit, bandit: Unit) -> AirHarness:
+	var h := AirHarness.new()
+	h.um = UnitManager.new()
+	h.um.add_unit(fighter)
+	h.um.add_unit(bandit)
+	h.wm = WeaponManager.new()
+	h.wm.unit_manager = h.um
+	h.ai = AIController.new()
+	h.ai.faction = fighter.faction
+	h.ai.unit_manager = h.um
+	h.ai.weapon_manager = h.wm
+	h.um.order_issued.connect(func(_u: Unit, o: Order) -> void: h.orders.append(o))
+	return h
+
+
+func _ordered(h: AirHarness, type: Order.Type) -> Order:
+	for o: Order in h.orders:
+		if o.type == type:
+			return o
+	return null
+
+
+func test_a_fighter_closes_at_dash_until_it_has_a_shot() -> void:
+	var aam := _aam(45.0, 2100.0)
+	var fighter := _fighter("BLUE", Vector2.ZERO, [aam])
+	var bandit := _fighter("RED", Vector2(0, 60))
+	var h := _air_harness(fighter, bandit)
+	var t := _air_track(bandit, 480.0, 180.0)
+	h.ai._fight_air(fighter, h.ai._board(fighter), t, 60.0, 0.0)
+	assert_true(_ordered(h, Order.Type.MOVE) != null, "it flies at the contact")
+	var speed := _ordered(h, Order.Type.SET_SPEED)
+	assert_true(speed != null and speed.speed_kn > fighter.spec.cruise_speed_kn, "at dash")
+	h.free_all()
+
+
+func test_a_fighter_with_rounds_on_the_way_cranks_instead_of_turning_tail() -> void:
+	var aam := _aam(45.0, 2100.0)
+	var fighter := _fighter("BLUE", Vector2.ZERO, [aam])
+	fighter.heading_deg = 10.0
+	var bandit := _fighter("RED", Vector2(0, 30))
+	var h := _air_harness(fighter, bandit)
+	var t := _air_track(bandit, 480.0, 180.0)
+	var round := Weapon.new()
+	round.spec = aam
+	round.shooter = fighter
+	round.target_track = t
+	h.wm.in_flight.append(round)
+	h.ai._fight_air(fighter, h.ai._board(fighter), t, 30.0, 0.0)
+	var course := _ordered(h, Order.Type.SET_COURSE)
+	assert_true(course != null)
+	assert_near(absf(Geo.heading_delta(0.0, course.heading_deg)), AIController.AIR_CRANK_DEG, 0.01, "the contact held well off the nose, not astern")
+	h.free_all()
+
+
+func _round_at(track: Track, aim: Vector2, heading: float) -> Weapon:
+	var w := Weapon.new()
+	w.spec = _aam(45.0, 2100.0)
+	w.spec.seeker_half_angle_deg = 30.0
+	w.faction = "BLUE"
+	w.target_track = track
+	w.position = aim - Geo.heading_to_vector(heading) * 0.5
+	w.heading_deg = heading
+	w.aim_point = aim
+	w.distance_flown_nm = 20.0
+	return w
+
+
+func test_a_round_at_an_aircraft_that_finds_nothing_at_its_aim_point_searches_on() -> void:
+	var um := UnitManager.new()
+	var wm := WeaponManager.new()
+	wm.unit_manager = um
+	# The bandit turned after the last update: it is twelve miles beyond the aim point, on the line.
+	var bandit := _fighter("RED", Vector2(0, 32))
+	um.add_unit(bandit)
+	var w := _round_at(_air_track(bandit), Vector2(0, 20), 0.0)
+	wm.in_flight.append(w)
+	for i in 40:
+		wm._step(w, 0.5)
+		if w.phase != Weapon.Phase.CRUISE:
+			break
+	assert_true(w.searching_on, "it flew past the aim point still searching")
+	assert_eq(w.phase, Weapon.Phase.TERMINAL, "and found the aircraft further on")
+	assert_true(w.acquired == bandit)
+	wm.free()
+	um.free()
+
+
+func test_a_round_searching_on_that_never_finds_anything_ends_as_no_acquisition() -> void:
+	var um := UnitManager.new()
+	var wm := WeaponManager.new()
+	wm.unit_manager = um
+	um.add_unit(_fighter("RED", Vector2(40, 0)))
+	var w := _round_at(_air_track(_fighter("RED", Vector2(0, 20))), Vector2(0, 20), 0.0)
+	wm.in_flight.append(w)
+	for i in 200:
+		wm._step(w, 0.5)
+		if w.phase == Weapon.Phase.DEAD:
+			break
+	assert_eq(w.dead_reason, "NO ACQUISITION")
+	assert_near(w.distance_flown_nm, w.spec.max_range_nm, 0.01, "it searched until its fuel ran out")
+	wm.free()
+	um.free()

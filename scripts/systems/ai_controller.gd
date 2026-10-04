@@ -21,12 +21,12 @@ const MAX_ROUNDS_IN_FLIGHT_PER_TRACK := 8
 ## The same limit for an aircraft, and the shortest wait before shooting at one again. GAMEPLAY_ESTIMATE.
 const AIR_ROUNDS_IN_FLIGHT := 2
 const AIR_REENGAGE_MIN_S := 15.0
-## A fighter with air-to-air weapons holds this share of its longest one's reach from an air contact:
-## inside its own envelope, not two hundred miles away behind its anti-ship stand-off.
-const AIR_STANDOFF_FRACTION := 0.5
-## Outranged (the known enemy reaches this much further): commit and hold at this share instead.
-const OUTRANGED_FACTOR := 1.15
-const OUTRANGED_STANDOFF_FRACTION := 0.8
+## Against another aircraft a fighter flies this far off the bearing once it has a shot away:
+## the contact stays on its radar to guide the rounds in while it closes far more slowly.
+const AIR_CRANK_DEG := 50.0
+## It closes to this share of its no-escape range before it would fire, so a target that turns
+## in the last few seconds does not leave it just outside. GAMEPLAY_ESTIMATE.
+const AIR_COMMIT_FRACTION := 0.9
 const ORDER_REFRESH_S := 30.0
 const GOAL_TOLERANCE_NM := 3.0
 const COURSE_TOLERANCE_DEG := 8.0
@@ -539,30 +539,42 @@ func _act(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inbound: Arr
 			_do_patrol(u, b, now)
 
 
-## The longest reach this aircraft has against this air contact, or 0 with nothing that suits it.
-func _air_reach(u: Unit, t: Track) -> float:
+## The furthest this aircraft could shoot at this air contact from, with what it has left: the
+## no-escape range of its best air-to-air round. 0 with nothing that suits.
+func _air_shot_range(u: Unit, t: Track) -> float:
 	var best := 0.0
 	for spec: WeaponSpec in u.weapons_for_track(t):
-		if spec.type in ["aam", "sam"]:
-			best = maxf(best, spec.max_range_nm)
+		if spec.type in ["aam", "sam"] and u.magazine_count(spec.id) > 0:
+			best = maxf(best, Combat.air_no_escape_range_nm(spec, t, u.position))
 	return best
 
 
-## The longest air-to-air reach the plot's reported class carries, or 0 when the class is not known.
-## Read from the catalogue entry for the reported class, never from the contact itself.
-static func _enemy_air_reach(t: Track) -> float:
-	if t.classification < Track.Classification.CLASS_KNOWN:
-		return 0.0
-	var pid := MapSymbols.platform_for_class(t.known_class, t.known_category)
-	var spec := DataDB.platform(pid) if pid != "" else null
-	if spec == null:
-		return 0.0
-	var best := 0.0
-	for wid: String in spec.weapon_loadout:
-		var w := DataDB.weapon(wid)
-		if w != null and w.type == "aam" and w.target_types.has("air"):
-			best = maxf(best, w.max_range_nm)
-	return best
+## A fighter against another aircraft. With no round of its own on the way it closes at dash until
+## it has a shot, whatever the other side carries: hanging about outside a longer-ranged enemy's
+## reach only means never shooting. Once it has rounds on the way, or is inside its shot and
+## waiting to see what the last pair did, it cranks. Turning tail inside its own envelope, as a
+## strike aircraft does from a ship, hands the shot to the other side. A missile actually coming at
+## it is DEFEND's business, not this.
+func _fight_air(u: Unit, b: Dictionary, t: Track, range_nm: float, now: float) -> void:
+	var shot := _air_shot_range(u, t)
+	if _own_rounds_at(u, t) == 0 and range_nm > shot * AIR_COMMIT_FRACTION:
+		_move_to(u, b, _standoff_point(u, t.position, shot * AIR_COMMIT_FRACTION), now)
+		unit_manager.issue_order(u, Order.set_speed(u.spec.flight_speed("dash")))
+		return
+	var bearing := Geo.bearing_deg(u.position, t.position)
+	var side := 1.0 if Geo.heading_delta(bearing, u.heading_deg) >= 0.0 else -1.0
+	_command(u, b, fposmod(bearing + side * AIR_CRANK_DEG, 360.0), u.spec.cruise_speed_kn, now)
+
+
+## Rounds this aircraft has flying at the contact.
+func _own_rounds_at(u: Unit, t: Track) -> int:
+	if weapon_manager == null:
+		return 0
+	var n := 0
+	for w: Weapon in weapon_manager.in_flight:
+		if w.shooter == u and w.target_track == t and w.phase != Weapon.Phase.DEAD:
+			n += 1
+	return n
 
 
 ## Standoff for holding a hostile. Weapon reach is not the binding constraint: a missile can
@@ -733,21 +745,9 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 		# A strike aircraft holds outside the envelope of what it is shooting at. Flying overhead
 		# to look at the ship it just fired a two-hundred-mile missile at is how a wing is spent.
 		_manage_altitude(u, false)
-		if t.domain == "air":
-			var air_reach := _air_reach(u, t)
-			if air_reach > 0.0:
-				# A fighter presses into its own missile envelope against another aircraft, at dash,
-				# rather than turning away at its anti-ship stand-off the moment it sees one; but
-				# not into a known enemy's longer reach, where it would be shot before it could shoot.
-				standoff_nm = AIR_STANDOFF_FRACTION * air_reach
-				# Outranged by a known enemy: hanging about outside its reach only means never
-				# shooting. Commit at dash and shoot from the outer part of the own envelope.
-				if _enemy_air_reach(t) > air_reach * OUTRANGED_FACTOR:
-					standoff_nm = OUTRANGED_STANDOFF_FRACTION * air_reach
-				if range_nm > standoff_nm:
-					_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
-					unit_manager.issue_order(u, Order.set_speed(u.spec.flight_speed("dash")))
-					return
+		if t.domain == "air" and _air_shot_range(u, t) > 0.0:
+			_fight_air(u, b, t, range_nm, now)
+			return
 		if range_nm <= standoff_nm:
 			_command(u, b, Geo.vector_to_heading(u.position - t.position), u.spec.cruise_speed_kn, now)
 			return
