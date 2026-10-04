@@ -4,9 +4,13 @@ class_name Combat
 const LEAD_MAX_ITER := 4
 const AIR_TARGET_BONUS := 1.25
 ## An aircraft that sees a missile coming turns away and runs, and a missile fired at the edge of
-## its range then runs out of fuel short of it. Against an air target the usable range is cut by
-## the target's escape speed over the missile's, never below this fraction. GAMEPLAY_ESTIMATE.
+## its range then runs out of fuel short of it. Against an air target the usable range is the
+## no-escape range (`air_no_escape_range_nm`), never below this fraction of the reach. GAMEPLAY_ESTIMATE.
 const AIR_ESCAPE_FLOOR := 0.6
+## Seconds an aircraft takes to see a shot coming and start its turn away. GAMEPLAY_ESTIMATE.
+const AIR_REACTION_S := 5.0
+## The turn rate assumed for an aircraft whose type the plot does not know. GAMEPLAY_ESTIMATE.
+const AIR_DEFAULT_TURN_DEG_S := 6.0
 const TORPEDO_EVASION_BENEFIT := 0.45
 const BMD_INTERCEPTOR_ADVANTAGE := 0.45  # GAMEPLAY_ESTIMATE
 
@@ -128,14 +132,10 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if float(out["flight_range_nm"]) > max_range:
 		out["reason"] = "INTERCEPT BEYOND WEAPON RANGE"
 		return out
-	# The range the target is at now, against the reach left once it turns and runs: the lead point
-	# already allows for the course it holds, so this is the margin for the turn it has yet to make.
-	# An aircraft coming straight in has not yet chosen to turn away, so it gets a lighter margin, not
-	# none: it will turn once it sees the shot.
-	var escape := air_escape_factor(spec, track)
-	if closing_on(track, shooter.position):
-		escape = maxf(escape, CLOSING_ESCAPE_FLOOR)
-	if track.domain == "air" and d > max_range * escape:
+	# The range the target is at now, against the range it could still be caught from if it turned
+	# and ran the moment it saw the shot: the lead point allows for the course it holds, this is the
+	# margin for the turn it has yet to make.
+	if track.domain == "air" and d > air_no_escape_range_nm(spec, track, shooter.position, max_range):
 		out["reason"] = "TARGET CAN OUTRUN THE SHOT"
 		return out
 	if crosses_land(shooter, spec, track):
@@ -215,32 +215,76 @@ static func clear_standoff_point(from: Vector2, target_pos: Vector2, standoff_nm
 	return Vector2.INF
 
 
-## The share of a missile's range that is usable against an aircraft that turns and runs once it
-## sees the shot coming: (missile speed - escape speed) / missile speed, floored at AIR_ESCAPE_FLOOR.
-## Escape speed is the reported class's top speed when the plot knows the class, else the plot's
-## own speed. Reads only the plot.
-static func air_escape_factor(spec: WeaponSpec, track: Track) -> float:
+## The no-escape range: how far off an aircraft can be and still be caught if it turns and runs the
+## moment it sees the shot. It holds its course for AIR_REACTION_S, turns until the shooter is dead
+## astern at its type's turn rate (coming straight in, the turn gains it time but no distance), then
+## runs, accelerating to its type's top speed, while the missile flies its whole reach. Read from
+## the plot and the catalogue entry for the reported class, never from the aircraft itself; a type
+## the plot does not know turns like a fighter and runs at the plot's speed. Never below
+## AIR_ESCAPE_FLOOR of the reach. GAMEPLAY_ESTIMATE.
+static func air_no_escape_range_nm(spec: WeaponSpec, track: Track, from: Vector2, reach := -1.0) -> float:
+	if reach < 0.0:
+		reach = spec.max_range_nm
 	if track == null or track.domain != "air" or spec.speed_kn <= 0.0 or spec.is_gun():
-		return 1.0
-	var escape := track.speed_kn if track.has_kinematics else 0.0
-	if track.classification >= Track.Classification.CLASS_KNOWN:
-		var pid := MapSymbols.platform_for_class(track.known_class, track.known_category)
-		var known := DataDB.platform(pid) if pid != "" else null
-		if known != null:
-			escape = maxf(escape, known.max_speed_kn)
-	return clampf((spec.speed_kn - escape) / spec.speed_kn, AIR_ESCAPE_FLOOR, 1.0)
+		return reach
+	var speed := track.speed_kn if track.has_kinematics else 0.0
+	var top := speed
+	var turn_rate := AIR_DEFAULT_TURN_DEG_S
+	var accel := 0.0
+	var known := _reported_platform(track)
+	if known != null:
+		if not track.has_kinematics:
+			speed = known.cruise_speed_kn
+		top = maxf(speed, known.max_speed_kn)
+		turn_rate = maxf(known.turn_rate_deg_s, 0.1)
+		accel = known.accel_kn_s
+	# Degrees between its course and straight away from the shooter. With no course on the plot it is
+	# taken to be running already, which costs the shot the most.
+	var off := 0.0
+	if track.has_kinematics:
+		off = absf(Geo.heading_delta(Geo.bearing_deg(from, track.position), track.course_deg))
+	var flight_s := reach / spec.speed_kn * 3600.0
+	var best := 0.0
+	var second := 0.0
+	while true:
+		var t := minf(second, flight_s)
+		best = maxf(best, spec.speed_kn * t / 3600.0 - _distance_opened_nm(t, speed, off, turn_rate, accel, top))
+		if t >= flight_s:
+			break
+		second += 1.0
+	return clampf(best, AIR_ESCAPE_FLOOR * reach, reach)
 
 
-## Whether the plot's course points within CLOSING_CONE_DEG of `at`: an aircraft coming straight
-## in is shot at the full envelope, because turning away is a choice it has not yet made.
-const CLOSING_CONE_DEG := 45.0
-const CLOSING_ESCAPE_FLOOR := 0.8
+## Distance an aircraft opens from a shooter `t` seconds after a launch, by the escape described in
+## `air_no_escape_range_nm`: negative while it is still coming in.
+static func _distance_opened_nm(t: float, speed_kn: float, off_deg: float, turn_rate_deg_s: float, accel_kn_s: float, top_kn: float) -> float:
+	var off := deg_to_rad(off_deg)
+	var react := minf(t, AIR_REACTION_S)
+	var opened := speed_kn * cos(off) * react / 3600.0
+	if t <= AIR_REACTION_S:
+		return opened
+	var rate := deg_to_rad(turn_rate_deg_s)
+	var turn_s := off / rate
+	var turning := minf(t - AIR_REACTION_S, turn_s)
+	# Speed held through the turn; the course swings from `off` toward straight away.
+	opened += speed_kn / 3600.0 * (sin(off) - sin(off - rate * turning)) / rate
+	var running := t - AIR_REACTION_S - turning
+	if running <= 0.0:
+		return opened
+	var to_top := (top_kn - speed_kn) / accel_kn_s if accel_kn_s > 0.0 and top_kn > speed_kn else 0.0
+	var climbing := minf(running, to_top)
+	opened += (speed_kn * climbing + 0.5 * accel_kn_s * climbing * climbing) / 3600.0
+	var at_top := speed_kn + accel_kn_s * climbing
+	opened += at_top * (running - climbing) / 3600.0
+	return opened
 
 
-static func closing_on(track: Track, at: Vector2) -> bool:
-	if track == null or not track.has_kinematics or track.speed_kn <= 0.0:
-		return false
-	return absf(Geo.heading_delta(track.course_deg, Geo.bearing_deg(track.position, at))) <= CLOSING_CONE_DEG
+## The catalogue entry for the plot's reported class, or null when the class is not known.
+static func _reported_platform(track: Track) -> PlatformSpec:
+	if track.classification < Track.Classification.CLASS_KNOWN:
+		return null
+	var pid := MapSymbols.platform_for_class(track.known_class, track.known_category)
+	return DataDB.platform(pid) if pid != "" else null
 
 
 ## Unpowered bombs depend on the launch aircraft height. All numbers are gameplay tuning.
