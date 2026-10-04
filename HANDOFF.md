@@ -1,6 +1,12 @@
 # Handoff
 
-Latest: M38, [sensor coverage, air combat and air tasking](docs/2026-10-03-sensor-coverage-air-combat-and-air-tasking.md).
+Latest: M39, [air combat regressions](docs/2026-10-04-air-combat-regressions.md).
+- **Range rule.** `Combat.air_no_escape_range_nm(spec, track, from, reach)` replaces M38's `air_escape_factor` and `closing_on`. It reads only the plot and the catalogue entry for the reported class (`turn_rate_deg_s`, `accel_kn_s`, `max_speed_kn`). It is floored at `AIR_ESCAPE_FLOOR` of the reach.
+- **AI fighters.** `AIController._fight_air` (dash to `AIR_COMMIT_FRACTION` of the shot, then crank `AIR_CRANK_DEG`), `_air_shot_range` and `_own_rounds_at`. `AIR_STANDOFF_FRACTION`, `OUTRANGED_*`, `_air_reach` and `_enemy_air_reach` are gone.
+- **Searching on.** `WeaponManager.searches_on` and `Weapon.searching_on`: a round at an air track that passes an empty aim point re-aims along its heading for the rest of its range. It reports NO ACQUISITION if it never finds anything.
+- **Data.** `aim120_family` and `r77_family` reach 60 nm, by hand edit; neither is generated.
+
+Previously: M38, [sensor coverage, air combat and air tasking](docs/2026-10-03-sensor-coverage-air-combat-and-air-tasking.md).
 - **Coverage shading.** `SensorCoverage.discs` builds up to 48 Vector4 discs (kind in w). `ChartLayer.sensor_coverage` / `sensor_coverage_on` drive `coverage_mode` 1 in `chart_palette.gdshaderinc`; the regional map still uses mode 0. Map layer "coverage" (Shift+F4).
 - **Air combat.** `Combat.air_escape_factor` and `closing_on` gate shots at aircraft on current range. Track manager: radar recognition of aircraft within `RADAR_RECOGNITION_NM` after `RADAR_RECOGNITION_S`. In the AI: `_air_reach`, `_enemy_air_reach`, `AIR_ROUNDS_IN_FLIGHT`, `_guiding_rounds`. Hits on aircraft are fatal (`WeaponManager._resolve_impact`).
 - **Quick air.** `AirMissionManager.quick_type`, `quick_order`, `quick_deck`, `recall_all`. `CdsMenus.air_contact_items` and `air_deck_items`; Main's `_quick_air` pick state.

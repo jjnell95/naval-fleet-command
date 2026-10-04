@@ -49,4 +49,50 @@ A fighter with no air-to-air rounds left still turns away as a strike aircraft d
 
 ## Validation
 
-Measurements are being added.
+The regression suite has 1,039 tests, 0 failed. `tests/test_air_combat.gd` was rewritten for the new rule and gained six tests:
+- a slow-turning bomber is shot from further out than a fighter;
+- the no-escape range reads the plot, not the aircraft;
+- a fighter closes at dash until it has a shot;
+- a fighter with rounds on the way cranks instead of turning tail;
+- a round at an aircraft searches on past an empty aim point and finds it;
+- a round that never finds anything ends as NO ACQUISITION at the end of its fuel.
+
+The three behaviour tests fail on the old code. M38's assertions on the removed escape factor were restated against the no-escape range, its source check on the outranged stand-off was replaced by the dash test, and one edge case moved from 35 nm to 34 nm.
+
+**Synthetic engagements.** The M38 measurement harness was re-run on `main` and on this branch with the AI on both sides: 20 trials per case, the same seeds, starting head-on at 480 kn. Losses are blue / red.
+
+| Case | main | This branch |
+|---|---|---|
+| F/A-18E vs J-15, 40 nm | 17 / 3, 10 AMRAAMs fired | 11 / 18, 46 fired |
+| F/A-18E vs J-15, 80 nm | 18 / 4, 32 of 46 AMRAAMs found nothing | 17 / 15, 2 found nothing |
+| F/A-18E vs J-15, 2v2 | 36 / 25 | 34 / 31 |
+| Typhoon vs J-15, 80 nm | 16 / 17 | 18 / 14 |
+| F/A-18E vs Su-35S, 60 nm | 17 / 16 | 17 / 15 |
+| F/A-18E vs Su-35S, 40 nm | 17 / 15 | 15 / 16 |
+| F/A-18E vs Su-35S, 20 nm | 11 / 17 | 10 / 14 |
+| Player attack order vs Su-35S, 80 nm | 15 / 14 | 17 / 16 |
+| SM-2 vs Tu-22M3 straight in: first shot, kill time | 34.9 nm, 641 s | 42.1 nm, 602 s |
+| SM-2 vs Su-35S straight in | 34.9 nm, 364 s | 33.6 nm, 371 s |
+| ESSM vs Su-34, scripted at 20 nm | 15 kills of 30 | 15 kills of 30 |
+
+No AMRAAM, R-77, PL-15 or Meteor ran out of fuel in any synthetic case on this branch.
+
+The original build traded evenly from 40 nm, 31 against 29 over 40 trials. The branch now favours the F/A-18 in that one case. Both sides classify each other at about the same moment, and the AMRAAM was decoyed slightly less often over these seeds. From 80 nm the J-15 still fires first, at 53 nm against 44, which is the PL-15's remaining edge.
+
+**Operations.** Five operations were flown for 6,000 simulated seconds with the AI on both sides, three seeds each, on `main` and on this branch. Kills scored are by each side, counting every unit destroyed.
+
+| Operation | main, blue / red kills | Branch, blue / red kills | Air-to-air rounds |
+|---|---|---|---|
+| Taiwan Strait | 28 / 25 | 34 / 20 | AMRAAM out of fuel 17 → 0; rounds per hit 4.3 → 3.4. PL-15s fired 72 → 58 |
+| Aegis Bastion | 21 / 15 | 22 / 12 | AMRAAMs finding nothing 13 → 5; R-77 now fired at 40 nm, rounds per hit 2.8 → 4.0 |
+| Tartus | 17 / 29 | 15 / 26 | Meteor rounds per hit 4.1 → 3.2 |
+| Hormuz | 26 / 6 | 26 / 6 | No air-to-air; ship and shore SAMs unchanged |
+| Northern Passage | 5 / 1 | 5 / 1 | Unchanged |
+
+None of the runs had a script error. Three seeds per operation is a direction and stability check, not a balance study. The blue side scores a little more in Taiwan Strait and Aegis Bastion, mostly because its AMRAAMs no longer run out of fuel.
+
+## Not changed
+
+- **Aircraft still get no missile launch warning.** An aircraft defends only once it sees the missile, usually when the seeker goes active. Its own no-escape calculation assumes the target reacts within five seconds, so the rule errs toward holding a shot.
+- **SM-2 at a fighter fires about a mile later than before.** The Su-35's 8°/s turn earns it a bigger margin than M38's flat 80% floor gave it, and it dies seven seconds later. Kills hold at 20 of 20.
+- **The browser build was not rebuilt.**
