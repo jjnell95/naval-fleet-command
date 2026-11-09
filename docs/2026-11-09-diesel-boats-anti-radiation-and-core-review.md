@@ -64,6 +64,8 @@ The first attempt at the waypoint fix (anything abaft the beam within two radii)
 
 - `tests/run_tests.gd`: 1,064 tests, 0 failed (1,039 before).
 - `tools/verify_northern_passage.py` and `tools/verify_save_continuation.py --quick`: outcomes, replay and save continuation unchanged or identical.
+- The 15 graphical playtests CI runs at 1280 × 720 or 1600 × 900 (command deck, command priorities, contact intent, fidelity, readout, weapon control, air operations, air missions, deep command, Northern Passage, Command Watch, workshop, recognition, training, fittings) all exit 0 under a virtual display. The 1920 × 1080 variants were not run locally.
+- Hormuz, seed 31, both sides left to themselves for two hours: the Kilo at 7 knots is at 83%; the Ghadir sprints at 11 knots from the 60th minute, is down to 10% by the 120th and is then snorkelling.
 - New: `tests/test_submarine_power.gd` (8), `tests/test_anti_radiation.gd` (11), `tests/test_review_fixes.gd` (6).
 
 ## Next
