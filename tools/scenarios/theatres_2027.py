@@ -325,7 +325,7 @@ def catalogue():
              role="Carrier air defence / anti-ship strike",
              service_note="Ski-jump launch caps its fuel and stores; the short endurance is that penalty. Buddy refuelling is represented by can_refuel.")
     aircraft("pla_fighter_j16", "J-16 multirole fighter", "J-16", "China", "strike fighter",
-             ["pla_j16_aesa", "pla_air_esm"], {"pla_pl15": 4, "pla_pl10": 2, "pla_yj83k": 2}, 1300,
+             ["pla_j16_aesa", "pla_air_esm"], {"pla_pl15": 4, "pla_pl10": 2, "pla_yj83k": 2, "pla_yj91": 2}, 1300,  # pla_yj91.tres is hand-authored
              cruise_speed_kn=490.0, cruise_altitude_m=10000.0, max_altitude_m=16000.0, endurance_s=9000.0, health=25.0,
              signature_factor=0.8, length_m=21.9, launch_requirement="runway", can_refuel=True,
              role="Land-based counter-air and anti-ship strike")

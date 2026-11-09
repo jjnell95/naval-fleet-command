@@ -1744,6 +1744,30 @@ func _guiding_rounds(u: Unit) -> bool:
 	return false
 
 
+## An anti-radiation round this unit knows of, coming roughly its way and near enough to hear it.
+const ARM_SHUTDOWN_CONE_DEG := 45.0  # GAMEPLAY_ESTIMATE
+
+
+func _anti_radiation_inbound(u: Unit) -> bool:
+	if threat_manager == null:
+		return false
+	for w: Weapon in threat_manager.get_threats(faction):
+		if w.phase == Weapon.Phase.DEAD or not w.spec.is_anti_radiation() or not threat_manager.visible_to(u, w):
+			continue
+		if w.position.distance_to(u.position) > w.spec.acquisition_radius_nm() * 1.5:
+			continue
+		if absf(Geo.heading_delta(w.heading_deg, Geo.bearing_deg(w.position, u.position))) <= ARM_SHUTDOWN_CONE_DEG:
+			return true
+	return false
+
+
+func _can_shoot_missiles(u: Unit) -> bool:
+	for w: WeaponSpec in u.defensive_weapons():
+		if w.type == "sam":
+			return true
+	return false
+
+
 func _manage_emissions(u: Unit, need_radar: bool) -> void:
 	if u.is_aircraft():
 		if u.has_radar() and not u.radar_on:
@@ -1756,5 +1780,9 @@ func _manage_emissions(u: Unit, need_radar: bool) -> void:
 	if not u.has_radar():
 		return
 	var want := need_radar or not u.has_esm() or _guiding_rounds(u)
+	# A radar with nothing to shoot back with is only a beacon for the missile coming down its
+	# beam. A ship that can engage the round keeps its picture and fights it.
+	if want and not _guiding_rounds(u) and not _can_shoot_missiles(u) and _anti_radiation_inbound(u):
+		want = false
 	if want != u.radar_on:
 		unit_manager.issue_order(u, Order.activate_radar() if want else Order.silence_radar())

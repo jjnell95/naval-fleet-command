@@ -182,7 +182,7 @@ static func best_weapon_detection_nm(observer: Unit, wspec: WeaponSpec, weapon_a
 	for s in observer.sensors:
 		if s.kind == "radar":
 			best = maxf(best, weapon_detection_range_nm(s, wspec, observer_height_m(observer, s), weapon_altitude))
-	return best
+	return best * observer.sensor_efficiency()
 
 
 ## Radar signature actually presented by a unit. A submerged boat presents nothing at all; at
@@ -410,7 +410,7 @@ static func torpedo_detection_nm(listener: Unit, wspec: WeaponSpec) -> float:
 			if not sonar_sensor_ready(listener, s):
 				continue
 			best = maxf(best, s.passive_sensitivity_nm * sqrt(maxf(wspec.acoustic_signature, 0.01)) * self_noise_factor(listener, s))
-	return best * sonar_environment_factor()
+	return best * sonar_environment_factor() * listener.sensor_efficiency()
 
 
 # --- Electronic support -------------------------------------------------------------------

@@ -9,6 +9,35 @@ const HOLD_LEG_NM := 6.0
 const HOLD_WIDTH_NM := 3.0
 
 
+## Fraction of economical patrol speed below which a fixed-wing aircraft cannot be flown.
+const MIN_FLYING_FRACTION := 0.6  # GAMEPLAY_ESTIMATE
+
+
+## Turn rate actually available now, in degrees a second: the catalogue rate, scaled down at low
+## speed, and for a hull held to a turning circle proportional to its length.
+static func turn_rate_now(u: Unit) -> float:
+	var rate := u.spec.turn_rate_deg_s * clampf(u.speed_kn / FULL_TURN_SPEED_KN, 0.0, 1.0)
+	if u.needs_sea_room() and u.spec.length_m > 0:
+		# GAMEPLAY_ESTIMATE: a displacement hull needs a turning circle proportional to
+		# its length. The catalogue rate is a ceiling, not a pivot rate at every speed.
+		var radius_m := u.spec.length_m * (1.5 if u.is_submarine() else 2.5)
+		rate = minf(rate, rad_to_deg(u.speed_kn * 1852.0 / 3600.0 / radius_m))
+	return rate
+
+
+## A waypoint inside either of the two circles the unit would trace at full rudder can never be
+## reached by turning toward it: the unit would orbit it for good. It counts as passed. A point
+## merely close astern is outside both circles and is reached by coming round.
+static func _passing_inside_turn(u: Unit, wp: Vector2) -> bool:
+	var rate := turn_rate_now(u)
+	if rate <= 0.0:
+		return false
+	var radius_nm := Geo.knots_to_nm_per_s(u.speed_kn) / deg_to_rad(rate)
+	var abeam := Geo.heading_to_vector(u.heading_deg + 90.0) * radius_nm
+	var inside := radius_nm * 0.95
+	return wp.distance_to(u.position + abeam) < inside or wp.distance_to(u.position - abeam) < inside
+
+
 ## Whether this unit is a fixed-wing aircraft in normal flight: it cannot stop, hover or park.
 static func must_keep_flying(u: Unit) -> bool:
 	return u.is_aircraft() and not u.spec.can_hover and u.flight_state == Unit.FlightState.AIRBORNE
@@ -52,7 +81,7 @@ static func step(u: Unit, dt: float) -> void:
 	if not evading and not u.waypoints.is_empty():
 		var wp: Vector2 = u.waypoints[0]
 		var arrive := maxf(ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
-		if u.position.distance_to(wp) <= arrive:
+		if u.position.distance_to(wp) <= arrive or _passing_inside_turn(u, wp):
 			u.waypoints.pop_front()
 			if u.patrol_active:
 				u.waypoints.append(wp)
@@ -71,18 +100,14 @@ static func step(u: Unit, dt: float) -> void:
 		# Ordered to stop, or left with no speed by anything else: a fixed-wing aircraft holds.
 		enter_hold(u, u.position)
 		desired = Geo.bearing_deg(u.position, u.waypoints[0])
-	var turn_scale := clampf(u.speed_kn / FULL_TURN_SPEED_KN, 0.0, 1.0)
-	var rate := u.spec.turn_rate_deg_s * turn_scale
-	if u.needs_sea_room() and u.spec.length_m > 0:
-		# GAMEPLAY_ESTIMATE: a displacement hull needs a turning circle proportional to
-		# its length. The catalogue rate is a ceiling, not a pivot rate at every speed.
-		var radius_m := u.spec.length_m * (1.5 if u.is_submarine() else 2.5)
-		rate = minf(rate, rad_to_deg(u.speed_kn * 1852.0 / 3600.0 / radius_m))
-	var max_turn := rate * dt
+	var max_turn := turn_rate_now(u) * dt
 	var delta := clampf(Geo.heading_delta(u.heading_deg, desired), -max_turn, max_turn)
 	u.heading_deg = fposmod(u.heading_deg + delta, 360.0)
 
 	var target_speed := clampf(u.ordered_speed_kn, 0.0, u.effective_max_speed())
+	if must_keep_flying(u):
+		# A wing stops flying long before it stops moving: no order holds a jet below this.
+		target_speed = maxf(target_speed, minf(u.spec.flight_speed("patrol") * MIN_FLYING_FRACTION, u.effective_max_speed()))
 	if evading:
 		target_speed = u.effective_max_speed()
 	else:

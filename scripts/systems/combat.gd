@@ -102,6 +102,9 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if shooter.roe == Unit.Roe.TIGHT and track.identity != "HOSTILE":
 		out["reason"] = "IDENTIFY CONTACT / WEAPONS TIGHT"
 		return out
+	if spec.is_anti_radiation() and not track.radiating() and track.domain != "air" and track.domain != "subsurface":
+		out["reason"] = "CONTACT NOT RADIATING"
+		return out
 	if not suits_track(spec, track):
 		out["reason"] = "WRONG WEAPON FOR CONTACT"
 		return out
@@ -114,7 +117,9 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if d < spec.min_range_nm:
 		out["reason"] = "TOO CLOSE"
 		return out
-	if track.is_bearing_only() and not spec.is_torpedo():
+	# A torpedo searches down a bearing and an anti-radiation missile rides one in; nothing else
+	# can be laid on a contact with no range.
+	if track.is_bearing_only() and not spec.is_torpedo() and not spec.is_anti_radiation():
 		out["reason"] = "BEARING ONLY / NO RANGE SOLUTION"
 		return out
 	# A position worked up from bearings is a fair guess at a ship; at an aircraft covering eight
@@ -335,6 +340,10 @@ static func time_of_flight_s(spec: WeaponSpec, range_nm: float) -> float:
 ## domain is not yet known cannot be matched to a weapon, which is another reason to classify
 ## before shooting.
 static func suits_track(spec: WeaponSpec, track: Track) -> bool:
+	if spec.is_anti_radiation():
+		# Only something heard transmitting, on the sea or ashore. An intercept not yet classified
+		# has no domain; the missile is the one weapon that does not need to know.
+		return track.radiating() and (track.domain == "" or (track.domain in ["surface", "land"] and spec.target_types.has(track.domain)))
 	if track.domain == "subsurface":
 		return spec.target_types.has("subsurface")
 	if track.domain == "surface":

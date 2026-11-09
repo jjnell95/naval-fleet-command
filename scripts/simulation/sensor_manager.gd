@@ -483,6 +483,11 @@ func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: 
 
 ## Recognition needs a close, unobscured look. This is separate from radar, so an EMCON patrol
 ## can identify a ship. These distances are conservative gameplay optical recognition limits.
+const PERISCOPE_SIGHTING_NM := 1.5  # GAMEPLAY_ESTIMATE
+const SNORKEL_SIGHTING_NM := 3.0
+const PERISCOPE_HEIGHT_M := 1.0
+
+
 func _visual_pass(observer: Unit, now: float) -> void:
 	if observer.submerged():
 		return
@@ -491,14 +496,22 @@ func _visual_pass(observer: Unit, now: float) -> void:
 			continue
 		var d := observer.position.distance_to(target.position)
 		var limit := 3.0 if target.is_aircraft() else 6.0
+		var height := Detection.mast_or_altitude_m(target)
+		var error := 0.08
+		if target.is_submarine() and target.at_periscope_depth():
+			# A mast and its feather, not a hull: seen close to, less in a sea, and only roughly
+			# placed. A snorkel and its exhaust show further than a periscope.
+			limit = (SNORKEL_SIGHTING_NM if SubmarinePower.snorkelling(target) else PERISCOPE_SIGHTING_NM) * clampf(1.0 - 0.12 * Detection.sea_state, 0.25, 1.0)
+			height = PERISCOPE_HEIGHT_M
+			error = 0.3
 		limit = minf(limit, float(Detection.environment.get("visibility_nm", 12.0)))
 		if d > limit:
 			continue
-		if d > Detection.radar_horizon_nm(Detection.mast_or_altitude_m(observer), Detection.mast_or_altitude_m(target)):
+		if d > Detection.radar_horizon_nm(Detection.mast_or_altitude_m(observer), height):
 			continue
 		if Detection.terrain_masks(observer, target):
 			continue
-		var c := SensorContact.make(target, target.position, 0.08, 1.0, 1.0, d, "visual", observer)
+		var c := SensorContact.make(target, target.position + Vector2(rng.randfn(0.0, error), rng.randfn(0.0, error)) if error > 0.1 else target.position, error, 1.0, 1.0, d, "visual", observer)
 		c.visual_identification = true
 		c.sensor_id = "lookout"
 		c.sensor_name = "Visual recognition"

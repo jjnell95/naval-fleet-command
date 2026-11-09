@@ -176,6 +176,8 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t.altitude_m = c.altitude_m
 	t.status = Track.Status.ACTIVE
 	t.last_seen_time = now
+	if c.source == "esm":
+		t.last_esm_time = now
 	_update_classification(faction, t, c, gain)
 	if c.bearing_only and c.bearing_key != "":
 		BearingSolution.add(t.bearing_history, c, now)
