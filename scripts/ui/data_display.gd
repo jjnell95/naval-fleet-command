@@ -210,6 +210,9 @@ static func unit_rows(u: Unit, weapon_manager: WeaponManager = null, number := "
 		rows.append(_kv("ALTITUDE", "%.1f KFT" % (u.altitude_m * 3.28084 / 1000.0)))
 	elif u.spec.max_depth_m > 0.0:
 		rows.append(_kv("DEPTH", "%d FT" % int(round(u.depth_m * 3.28084))))
+	if SubmarinePower.fitted(u):
+		var charge := int(round(u.battery * 100.0))
+		rows.append(_kv("%BATTERY", str(charge), ALERT if u.battery <= SubmarinePower.LOW else VALUE) + [["   " + SubmarinePower.status(u), ALERT if SubmarinePower.on_diesels(u) or u.battery <= 0.0 else LABEL]])
 	var damage := damage_percent(u)
 	var damage_row := _kv("%DAMAGE", str(damage), ALERT if damage > 0 else VALUE)
 	if u.fire > 0.0:

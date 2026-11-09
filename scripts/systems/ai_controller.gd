@@ -232,6 +232,7 @@ func _update_unit(u: Unit, now: float) -> void:
 				unknowns.append(t)
 
 	_note_torpedo_datum(u, b, now)
+	_manage_battery(u, all_hostiles, all_unknowns)
 	# A plan member does its part of the plan; everything else, and every unit of a side without
 	# a plan, decides exactly as it always has.
 	var task: Dictionary = _plan_task(u) if not plans.is_empty() else {}
@@ -624,6 +625,12 @@ enum DepthIntent { HIDE, TRACK, MISSILE_SHOT }
 func _manage_depth(u: Unit, intent: DepthIntent) -> void:
 	if not u.is_submarine():
 		return
+	if u.snorkel_on:
+		# Charging. Only a boat that has to hide gives the charge up, and only if it has the
+		# battery to go anywhere afterwards; a shot is taken from where it is.
+		if intent != DepthIntent.HIDE or u.battery <= SubmarinePower.CRITICAL:
+			return
+		unit_manager.issue_order(u, Order.snorkel(false))
 	var wanted := u.spec.patrol_depth_m
 	match intent:
 		DepthIntent.HIDE:
@@ -635,6 +642,36 @@ func _manage_depth(u: Unit, intent: DepthIntent) -> void:
 	wanted = floorf(wanted / 5.0) * 5.0
 	if absf(u.ordered_depth_m - wanted) > 1.0:
 		unit_manager.issue_order(u, Order.set_depth(wanted))
+
+
+## A conventional boat's captain watches his battery. He charges when it is low and nothing he
+## holds is close enough to hear or see him doing it, breaks the charge off when something closes,
+## and with the battery all but flat charges whatever is about, because the alternative is to stop.
+## Read from the boat's own plot only.
+const SNORKEL_CLEAR_NM := 15.0  # GAMEPLAY_ESTIMATE
+const SNORKEL_NO_CHOICE := 0.04
+
+
+func _manage_battery(u: Unit, hostiles: Array, unknowns: Array) -> void:
+	if not SubmarinePower.fitted(u):
+		return
+	var crowded := u.evasion_remaining_s > 0.0
+	if not crowded and threat_manager != null:
+		for w: Weapon in (_cycle_torpedoes if _in_decision_cycle else threat_manager.get_threats(faction)):
+			if w.phase != Weapon.Phase.DEAD and w.spec.is_torpedo() and threat_manager.visible_to(u, w) and w.position.distance_to(u.position) <= SNORKEL_CLEAR_NM:
+				crowded = true
+				break
+	if not crowded:
+		for t: Track in hostiles + unknowns:
+			if not t.bearing_only and t.position.distance_to(u.position) <= SNORKEL_CLEAR_NM:
+				crowded = true
+				break
+	if u.snorkel_on:
+		if crowded and u.battery > SubmarinePower.CRITICAL:
+			unit_manager.issue_order(u, Order.snorkel(false))
+	elif u.battery < SubmarinePower.FULL and u.evasion_remaining_s <= 0.0:
+		if (u.battery <= SubmarinePower.LOW and not crowded) or u.battery <= SNORKEL_NO_CHOICE:
+			unit_manager.issue_order(u, Order.snorkel(true))
 
 
 func _best_strike_range(u: Unit) -> float:

@@ -316,6 +316,8 @@ func _step(dt: float) -> void:
 			# Lost to fire or flooding after the fact: the same destruction every other system
 			# already listens for, credited to whoever started it.
 			weapon_manager.unit_destroyed.emit(u, u.last_attacker)
+	for e: Dictionary in SubmarinePower.take_events():
+		casualty_event.emit(e["unit"], e["event"])
 	Debug.time_add("sim/units", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()
 	sensor_manager.tick(dt)

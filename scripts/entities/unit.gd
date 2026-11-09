@@ -126,6 +126,15 @@ var formation_axis_deg := -1.0  # negative follows the guide's heading; otherwis
 var station_axis_deg := -1.0
 var depth_m := 0.0
 var ordered_depth_m := 0.0
+## Diesel-electric boats only (SubmarinePower.fitted). The charge left, 1.0 full; the seconds of
+## air-independent running used; whether the snorkel is ordered up; and the depth the boat goes
+## back to when the charge is done or the snorkel is secured (negative: none remembered).
+var battery := 1.0
+var aip_used_s := 0.0
+var snorkel_on := false
+var snorkel_return_depth_m := -1.0
+## How the last snorkel ended ("charged", "secured: evading"), for the data display.
+var snorkel_note := ""
 ## Water under the hull, cached by Acoustics.bottom_m() until the unit moves or the chart changes.
 var bottom_depth_m := -1.0
 var bottom_sampled_at := Vector2.INF
@@ -466,6 +475,7 @@ const DETACHING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.ST
 func apply_order(order: Order) -> void:
 	DippingSonar.on_order(self, order)
 	TowedArray.on_order(self, order)
+	SubmarinePower.on_order(self, order)
 	# A second attack order on the contact already under attack keeps the task, its round count
 	# and its assessment pause; only the chosen weapon can change.
 	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
@@ -627,6 +637,8 @@ func apply_order(order: Order) -> void:
 			pass  # routed to AirMissionManager by Simulation
 		Order.Type.GROUP_ATTACK, Order.Type.CANCEL_GROUP_ATTACK:
 			pass  # routed to GroupAttackManager by Simulation; the group never steers its members
+		Order.Type.SNORKEL:
+			pass  # SubmarinePower.on_order has already raised or secured the mast
 
 
 func set_station(kind: String, label: String) -> void:
@@ -769,7 +781,8 @@ func in_formation() -> bool:
 func status_line() -> String:
 	var base := "HDG %s  SPD %.1f kn" % [Geo.format_bearing(heading_deg), speed_kn]
 	if is_submarine():
-		return base + "  DEP %.0f m" % depth_m
+		base += "  DEP %.0f m" % depth_m
+		return base + "  BATT %d%%" % int(round(battery * 100.0)) if SubmarinePower.fitted(self) else base
 	if is_aircraft():
 		return base + "  ALT %.0f m  FUEL %.0f%%" % [altitude_m, fuel_fraction() * 100.0]
 	return base

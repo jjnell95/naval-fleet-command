@@ -193,7 +193,8 @@ static func radar_signature_of(target: Unit) -> float:
 	if target.submerged():
 		return 0.0
 	if target.at_periscope_depth():
-		return target.spec.signature_factor * RADAR_PERISCOPE_SIGNATURE
+		# A snorkel head and its exhaust plume are a good deal more than a periscope.
+		return target.spec.signature_factor * (SubmarinePower.SNORKEL_RADAR_SIGNATURE if SubmarinePower.snorkelling(target) else RADAR_PERISCOPE_SIGNATURE)
 	return target.spec.signature_factor
 
 
@@ -273,6 +274,8 @@ static func acoustic_noise(u: Unit) -> float:
 	var noise := u.spec.acoustic_signature * (NOISE_AT_REST + NOISE_SPEED_GAIN * frac * frac)
 	if frac > cavitation_fraction(u):
 		noise *= CAVITATION_MULTIPLIER
+	if SubmarinePower.on_diesels(u):
+		noise *= SubmarinePower.DIESEL_NOISE  # the one time a conventional boat is not quiet
 	return noise
 
 

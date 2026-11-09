@@ -2174,6 +2174,14 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 			voice.say("fire_out", u)
 		"flooding_controlled":
 			radio.flash("Flooding under control", "good", u)
+		"battery_low":
+			radio.flash("Battery %d%%. Request permission to snorkel" % int(round(u.battery * 100.0)), "warn", u)
+		"battery_critical":
+			radio.flash("Battery critical, %d%%. We must charge" % int(round(u.battery * 100.0)), "alert", u)
+		"battery_flat":
+			radio.flash("Battery flat. Steerage way only until we snorkel", "alert", u)
+		"battery_charged":
+			radio.flash("Charge complete. Snorkel secured, returning to depth", "good", u)
 
 
 ## Why one of the commander's own rounds ended without reaching anything, in plain words. A hit

@@ -30,6 +30,20 @@ extends Resource
 @export var patrol_depth_m := 0.0  # depth the AI holds when nothing is happening
 @export var depth_rate_m_s := 0.0  # how fast it changes depth
 
+## Diesel-electric propulsion. A conventional boat runs submerged on a battery that an hour at
+## full speed empties and days at a crawl do not, and it recharges by running its diesels with a
+## snorkel mast up: loud, and a radar target. `battery_hotel_h` is how long the battery lasts with
+## the boat stopped, `battery_sprint_h` how long propulsion alone would take to empty it at full
+## speed (the load rises with the cube of speed), `battery_charge_h` a full charge on the diesels.
+## An air-independent plant carries the boat up to `aip_speed_kn` for `aip_endurance_h` without
+## touching the battery. Zero sprint hours means a nuclear boat or no battery modelled. All
+## GAMEPLAY_ESTIMATE, in the shape of public endurance figures; see SubmarinePower.
+@export var battery_hotel_h := 0.0
+@export var battery_sprint_h := 0.0
+@export var battery_charge_h := 0.0
+@export var aip_endurance_h := 0.0
+@export var aip_speed_kn := 0.0
+
 ## Aviation. All GAMEPLAY_ESTIMATE. `endurance_s` is time airborne at cruise; burn scales with
 ## speed, so a dash costs more than the clock suggests.
 @export var cruise_altitude_m := 0.0
