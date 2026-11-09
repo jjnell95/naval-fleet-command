@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M40 Diesel boats, anti-radiation missiles and a core review
+
+Conventional submarines run on a battery with an air-independent plant and a snorkel; three anti-radiation missiles make radiating dangerous and can be fired down a bearing; seven defects found reading the simulation core are fixed with tests. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+
+Next: re-sweep the operations (Hormuz first, where the Kilo can no longer sprint for long), give the AI plan a suppression role, name an inbound anti-radiation round for the player, and build an AGM-88 model.
+
 ## M36 Missions, saves and an enemy with a plan
 
 Aircraft fly CAP, reconnaissance, ASW search and strike missions with a launch queue and opt-in relief; ships and aircraft keep standing stations and return to them with S; battles save and reload exactly (quicksave, autosaves, the browser included); ships share group attacks under one round budget; the enemy can pursue a mission objective, and every operation now gives it one; a Classic preset offers the 1999 game's 4× ceiling, manual missile defence and engagement after identification; the operations react to the battle and vary by seed, with a 1990 strike element in Carrier Watch; and the largest late battle's sensor cycle costs a third of what it did, with orders reaching the screen in about 65 ms at 60×. See [the M36 note](docs/2026-10-02-m36-missions-saves-and-an-enemy-with-a-plan.md).

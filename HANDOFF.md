@@ -1,6 +1,13 @@
 # Handoff
 
-Latest: M39, [air combat regressions](docs/2026-10-04-air-combat-regressions.md).
+Latest: M40, [diesel boats, anti-radiation missiles and a core review](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+- **Submarine power.** `SubmarinePower` (fitted, on_diesels, snorkelling, drain_per_hour, speed_limit, step, status, take_events). `Unit.battery`, `aip_used_s`, `snorkel_on`, `snorkel_return_depth_m`, `snorkel_note`; `PlatformSpec.battery_*` and `aip_*`. `Order.snorkel(raise)` is a new `SNORKEL` type at the end of the enum. `Movement.step` steps it and applies its speed limit; `Detection.acoustic_noise` and `radar_signature_of` read it. Battery reports ride `Simulation.casualty_event`. The AI's part is `AIController._manage_battery`; `_manage_depth` returns early for a charging boat.
+- **Anti-radiation missiles.** `WeaponSpec.is_anti_radiation()`; `Track.last_esm_time` and `radiating()`; `Combat.check_engagement` and `suits_track` (bearing-only allowed, CONTACT NOT RADIATING); `WeaponManager.seeker_sees`, `Weapon.emitter_point` / `emitter_silent`, `ARM_MEMORY_PK`, `ARM_MEMORY_NM`, `ARM_SENSOR_LOSS`. The AI's shutdown is in `_manage_emissions` (`_anti_radiation_inbound`, `_can_shoot_missiles`). `agm88_harm`, `kh31p` and `pla_yj91` are hand-authored, with donor art; the generator carries only the J-16's loadout.
+- **Movement.** `Movement.turn_rate_now`, `_passing_inside_turn` and `MIN_FLYING_FRACTION`. The passed-waypoint test must stay the exact two-circle geometry: a looser one stops ships short of reachable points and broke two seeded AI raids.
+- **Seekers.** `WeaponManager.can_target` follows a submarine to any depth for "subsurface" weapons; `searches_on` is true for every tube-launched torpedo and every anti-radiation round.
+- **Not re-swept.** No balance sweep was run after these changes.
+
+Previously: M39, [air combat regressions](docs/2026-10-04-air-combat-regressions.md).
 - **Range rule.** `Combat.air_no_escape_range_nm(spec, track, from, reach)` replaces M38's `air_escape_factor` and `closing_on`. It reads only the plot and the catalogue entry for the reported class (`turn_rate_deg_s`, `accel_kn_s`, `max_speed_kn`). It is floored at `AIR_ESCAPE_FLOOR` of the reach.
 - **AI fighters.** `AIController._fight_air` (dash to `AIR_COMMIT_FRACTION` of the shot, then crank `AIR_CRANK_DEG`), `_air_shot_range` and `_own_rounds_at`. `AIR_STANDOFF_FRACTION`, `OUTRANGED_*`, `_air_reach` and `_enemy_air_reach` are gone.
 - **Searching on.** `WeaponManager.searches_on` and `Weapon.searching_on`: a round at an air track that passes an empty aim point re-aims along its heading for the rest of its range. It reports NO ACQUISITION if it never finds anything.
