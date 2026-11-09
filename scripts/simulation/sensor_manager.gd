@@ -504,7 +504,8 @@ func _visual_pass(observer: Unit, now: float) -> void:
 			limit = (SNORKEL_SIGHTING_NM if SubmarinePower.snorkelling(target) else PERISCOPE_SIGHTING_NM) * clampf(1.0 - 0.12 * Detection.sea_state, 0.25, 1.0)
 			height = PERISCOPE_HEIGHT_M
 			error = 0.3
-		limit = minf(limit, float(Detection.environment.get("visibility_nm", 12.0)))
+		# Darkness shortens what the eye can recognise; the weather caps it either way.
+		limit = minf(limit * Detection.visual_light_factor(), float(Detection.environment.get("visibility_nm", 12.0)))
 		if d > limit:
 			continue
 		if d > Detection.radar_horizon_nm(Detection.mast_or_altitude_m(observer), height):

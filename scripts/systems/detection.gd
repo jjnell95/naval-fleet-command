@@ -32,6 +32,12 @@ const SMALL_TARGET_SIGNATURE := 0.5
 const SKIMMER_ALTITUDE_M := 60.0
 static var sea_state := 0
 static var environment: Dictionary = {}
+## Daylight, 1.0 with the sun up and 0.0 once it is twelve degrees down (the end of nautical
+## twilight). Only the eye cares: radar, sonar and ESM work the same at midnight. Simulation sets it
+## from the scenario's clock and position; anything that never sets it fights in daylight.
+const NIGHT_SUN_ELEVATION_DEG := -12.0
+const NIGHT_VISUAL_FACTOR := 0.35  # GAMEPLAY_ESTIMATE: recognising a hull by eye at night
+static var light := 1.0
 
 ## Electronic attack. A jammer degrades every hostile radar within its reach, but only against
 ## targets lying roughly in the jammer's direction: the noise comes down one bearing.
@@ -44,6 +50,20 @@ static var _jam_lobes: Dictionary = {}
 static func set_environment(env: Dictionary) -> void:
 	environment = env.duplicate()
 	sea_state = clampi(int(env.get("sea_state", 0)), 0, SEA_STATE_NAMES.size() - 1)
+	light = 1.0
+
+
+static func set_sun_elevation(elevation_deg: float) -> void:
+	light = clampf(1.0 - elevation_deg / NIGHT_SUN_ELEVATION_DEG, 0.0, 1.0)
+
+
+## Multiplier on how far a lookout can recognise what he is looking at.
+static func visual_light_factor() -> float:
+	return lerpf(NIGHT_VISUAL_FACTOR, 1.0, light)
+
+
+static func light_name() -> String:
+	return "day" if light >= 0.999 else ("night" if light <= 0.001 else "twilight")
 
 
 static func sea_state_name() -> String:

@@ -15,6 +15,11 @@
     "triangles": 1424
   },
   {
+    "id": "agm88_harm",
+    "kind": "weapon",
+    "triangles": 1056
+  },
+  {
     "id": "agm_114_hellfire",
     "kind": "weapon",
     "triangles": 1424
@@ -665,6 +670,11 @@
     "triangles": 2032
   },
   {
+    "id": "kh31p",
+    "kind": "weapon",
+    "triangles": 1360
+  },
+  {
     "id": "kh32_family",
     "kind": "weapon",
     "triangles": 1424
@@ -1008,6 +1018,11 @@
     "id": "pla_yj83k",
     "kind": "weapon",
     "triangles": 1044
+  },
+  {
+    "id": "pla_yj91",
+    "kind": "weapon",
+    "triangles": 1360
   },
   {
     "id": "pla_yu6",

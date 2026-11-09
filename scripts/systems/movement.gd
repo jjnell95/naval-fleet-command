@@ -7,6 +7,7 @@ const FULL_TURN_SPEED_KN := 5.0  # GAMEPLAY_ESTIMATE: below this, rudder authori
 ## rather than stopping in the air. GAMEPLAY_ESTIMATE dimensions.
 const HOLD_LEG_NM := 6.0
 const HOLD_WIDTH_NM := 3.0
+const HOLD_TURN_MARGIN := 1.15
 
 
 ## Fraction of economical patrol speed below which a fixed-wing aircraft cannot be flown.
@@ -45,15 +46,26 @@ static func must_keep_flying(u: Unit) -> bool:
 
 ## A holding racetrack that starts and ends at `center`, its long legs along `heading_deg`. It ends
 ## where it began, so arriving at the last point simply lays the same pattern again: no state.
-static func hold_pattern(center: Vector2, heading_deg: float) -> Array[Vector2]:
+static func hold_pattern(center: Vector2, heading_deg: float, width_nm := HOLD_WIDTH_NM, leg_nm := HOLD_LEG_NM) -> Array[Vector2]:
 	var along := Geo.heading_to_vector(heading_deg)
 	var right := Geo.heading_to_vector(heading_deg + 90.0)
-	return [center + along * HOLD_LEG_NM, center + along * HOLD_LEG_NM + right * HOLD_WIDTH_NM, center + right * HOLD_WIDTH_NM, center]
+	return [center + along * leg_nm, center + along * leg_nm + right * width_nm, center + right * width_nm, center]
+
+
+## The racetrack an airframe can actually fly at its patrol speed: at least as wide as its turn
+## diameter with a margin, and twice as long as it is wide. A fighter keeps the standard pattern;
+## a patrol aircraft or a bomber gets a bigger one.
+static func hold_size_nm(spec: PlatformSpec) -> Vector2:
+	var rate := maxf(spec.turn_rate_deg_s, 0.1)
+	var diameter := 2.0 * Geo.knots_to_nm_per_s(spec.flight_speed("patrol")) / deg_to_rad(rate)
+	var width := maxf(HOLD_WIDTH_NM, diameter * HOLD_TURN_MARGIN)
+	return Vector2(width, maxf(HOLD_LEG_NM, width * 2.0))
 
 
 ## Puts a fixed-wing aircraft into a hold at `center` at its economical patrol speed.
 static func enter_hold(u: Unit, center: Vector2) -> void:
-	u.waypoints.assign(hold_pattern(center, u.heading_deg))
+	var hold := hold_size_nm(u.spec)
+	u.waypoints.assign(hold_pattern(center, u.heading_deg, hold.x, hold.y))
 	u.ordered_speed_kn = u.spec.flight_speed("patrol")
 	u.hold_active = true
 	u.hold_point = center

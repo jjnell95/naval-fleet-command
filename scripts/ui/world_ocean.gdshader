@@ -25,6 +25,7 @@ uniform float reflect_strength = 0.22;
 uniform vec3 far_color : source_color = vec3(0.075, 0.094, 0.137);   // the sea just short of the horizon
 uniform float haze_m = 30000.0;                                       // distance over which it gets there
 uniform float fog_density = 0.0;                                      // per metre; 0 in clear weather
+uniform float horizon_haze : hint_range(0.0, 1.0) = 0.8;              // how far the last degrees pale toward the sky
 uniform vec3 fog_color : source_color = vec3(0.576, 0.561, 0.745);   // the environment's fog colour
 uniform float sea_state : hint_range(0.0, 6.0) = 2.0;    // Detection.sea_state
 uniform vec4 swell_a = vec4(0.4, 90.0, 0.2, 55.0);       // amplitude, wavelength of two swell trains (m)
@@ -154,6 +155,13 @@ void fragment() {
 	vec3 water = mix(deep_color, body_color, face) * (0.35 + 0.65 * daylight);
 	vec3 col = mix(water, sky * 0.62 * (0.25 + 0.75 * daylight), clamp(fresnel * reflect_strength * (1.0 - far * 0.6), 0.0, 1.0));
 	col = mix(col, far_color * (0.3 + 0.7 * daylight), far);
+	// Aerial perspective. At a grazing angle the sea is a mirror of the sky just above the horizon,
+	// and miles of air lie in between: the last few degrees pale toward the horizon's own colour, so
+	// the sea meets the sky in a soft line and not a cut-out edge. It goes by the angle of the sight
+	// line, not by distance, because from a masthead the last thirty miles are a few pixels deep.
+	// The near and middle sea keep their dark.
+	float aerial = pow(1.0 - clamp(view_dir.y, 0.0, 1.0), 16.0);
+	col = mix(col, sky_horizon * 0.92, aerial * horizon_haze);
 	// Sunlight: a broad sheen on the sun's side and hard glints where a facet catches it.
 	float rs = max(dot(r, sd), 0.0);
 	float sheen = pow(rs, 24.0) * 0.12 + pow(rs, 180.0) * 0.35;

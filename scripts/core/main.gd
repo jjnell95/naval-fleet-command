@@ -411,7 +411,8 @@ func start_scenario(path: String) -> void:
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
 	_briefing.set_mode(true)
 	var coast := "" if Terrain.is_empty() else ", %d landmass%s charted" % [Terrain.landmasses.size(), "" if Terrain.landmasses.size() == 1 else "es"]
-	radio.flash("%s loaded — sea state %d, %s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), coast])
+	var dark := "" if Detection.light >= 0.999 else ", %s: lookouts identify at %d%% of their daylight range" % [Detection.light_name(), int(round(Detection.visual_light_factor() * 100.0))]
+	radio.flash("%s loaded — sea state %d, %s%s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), dark, coast])
 
 
 func _close_engagement_dialogs() -> void:
@@ -2067,8 +2068,10 @@ func _announce_threat(w: Weapon) -> void:
 	SimClock.drop_to_realtime()
 	_stats["hostile_rounds"] += 1
 	var seconds := int(w.time_to_reach_s(_nearest_own_unit_pos(w)))
-	var label := "TORPEDO IN THE WATER" if w.spec.is_torpedo() else ("BALLISTIC INBOUND" if w.threat_class() == "ballistic" else "INCOMING")
+	var label := "TORPEDO IN THE WATER" if w.spec.is_torpedo() else ("BALLISTIC INBOUND" if w.threat_class() == "ballistic" else ("ANTI-RADIATION MISSILE INBOUND" if w.spec.is_anti_radiation() else "INCOMING"))
 	radio.flash("%s — %s, impact in ~%d s" % [label, w.spec.display_name, seconds], "alert")
+	if w.spec.is_anti_radiation():
+		radio.advise("It homes on a radar that is transmitting. A silent ship that keeps moving is not where it remembers; a ship with SAMs can shoot it down instead.")
 	SoundFx.play("torpedo" if w.spec.is_torpedo() else "alarm", 1.0)
 	voice.say("torpedo_inbound" if w.spec.is_torpedo() else "inbound_missile", _nearest_own_unit(w))
 	Debug.event("[Defence] inbound %s detected at %.1f nm" % [w.spec.display_name, w.position.distance_to(_nearest_own_unit_pos(w))])
