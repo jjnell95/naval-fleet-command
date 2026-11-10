@@ -35,6 +35,10 @@ environment/defaults/default_clear_color=Color(0.03, 0.05, 0.08, 1)
 
 [shader_globals]
 
+world_sun_dir={
+"type": "vec4",
+"value": Vector4(0, 1, 0, 1)
+}
 world_sky_color={
 "type": "color",
 "value": Color(0.62, 0.6, 0.8, 1)

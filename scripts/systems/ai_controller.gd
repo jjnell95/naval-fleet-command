@@ -255,6 +255,10 @@ func _update_unit(u: Unit, now: float) -> void:
 	if new_state != b["state"]:
 		b["state"] = new_state
 		b["since"] = now
+	if u.is_submarine():
+		# A captain with nothing in hand clears his baffles; one who is closing, shooting or
+		# running keeps his course.
+		u.baffle_clear_interval_s = BAFFLE_CLEAR_INTERVAL_S if new_state in [State.PATROL, State.SEARCH] else 0.0
 	if task.is_empty():
 		_act(u, b, hostiles, unknowns, inbound, now)
 	else:
@@ -649,6 +653,7 @@ func _manage_depth(u: Unit, intent: DepthIntent) -> void:
 ## and with the battery all but flat charges whatever is about, because the alternative is to stop.
 ## Read from the boat's own plot only.
 const SNORKEL_CLEAR_NM := 15.0  # GAMEPLAY_ESTIMATE
+const BAFFLE_CLEAR_INTERVAL_S := 900.0  # GAMEPLAY_ESTIMATE
 const SNORKEL_NO_CHOICE := 0.04
 
 

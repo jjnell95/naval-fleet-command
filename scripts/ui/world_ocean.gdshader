@@ -98,7 +98,9 @@ vec2 wave(vec2 p, float t, vec2 dir, float len, float amp, float footprint, inou
 	float k = 6.2831853 / len;
 	float w = sqrt(9.81 * k);
 	float ph = dot(p, dir) * k - w * t;
-	float fade = 1.0 - smoothstep(len * 0.25, len * 0.9, footprint);
+	// Gone by the time a pixel spans half a wavelength: held any longer, a train seen at a low angle
+	// beats against the pixel rows and lays bands across the middle distance.
+	float fade = 1.0 - smoothstep(len * 0.12, len * 0.5, footprint);
 	crest += amp * sin(ph) * fade / len;
 	return amp * k * cos(ph) * dir * fade;
 }
@@ -127,7 +129,7 @@ void fragment() {
 	vec2 wind = swell_dir.xy;
 	vec2 side = vec2(-wind.y, wind.x);
 	float crest = 0.0;
-	vec2 g = swell_grad(p, swell_time) * (1.0 - smoothstep(1500.0, 5000.0, v_dist));
+	vec2 g = swell_grad(p, swell_time) * (1.0 - smoothstep(1500.0, 5000.0, v_dist)) * (1.0 - smoothstep(6.0, 26.0, footprint));
 	g += wave(p, t, normalize(wind + side * 0.2), 41.0, amp * 1.5, footprint, crest);
 	g += wave(p, t * 1.03, normalize(wind + side * 0.9), 23.0, amp * 0.9, footprint, crest);
 	g += wave(p, t * 0.97, normalize(wind - side * 0.75), 13.7, amp * 0.55, footprint, crest);

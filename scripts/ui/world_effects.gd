@@ -84,9 +84,14 @@ func _ready() -> void:
 	_trail_material.shader = load("res://scripts/ui/world_smoke.gdshader")
 	_trail_material.render_priority = 2
 	_smoke_ramp = _ramp([0.0, 0.06, 0.5, 1.0], [Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.92), Color(1, 1, 1, 0.55), Color(1, 1, 1, 0.0)])
-	_black_ramp = _ramp([0.0, 0.05, 0.45, 1.0], [Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.95), Color(1, 1, 1, 0.7), Color(1, 1, 1, 0.0)])
+	# Oil smoke: lit from below by the fire where it leaves it, black in the body of the column,
+	# and thinning to a brown-grey haze as it rises and spreads. The values multiply the emitter's
+	# own colour, so they run above one where the smoke lightens.
+	_black_ramp = _ramp([0.0, 0.04, 0.16, 0.5, 0.8, 1.0], [Color(2.6, 1.3, 0.5, 0.0), Color(2.2, 1.2, 0.55, 0.9), Color(1.0, 0.95, 0.9, 0.95), Color(1.5, 1.45, 1.45, 0.75), Color(2.3, 2.2, 2.2, 0.4), Color(3.0, 2.9, 2.9, 0.0)])
 	_fire_ramp = _ramp([0.0, 0.15, 0.45, 0.75, 1.0], [Color(1.0, 0.98, 0.85, 1.0), Color(1.0, 0.72, 0.25, 1.0), Color(0.95, 0.35, 0.06, 0.85), Color(0.35, 0.10, 0.03, 0.5), Color(0.1, 0.05, 0.03, 0.0)])
-	_flame_ramp = _ramp([0.0, 0.3, 0.7, 1.0], [Color(1.0, 0.95, 0.7, 0.0), Color(1.0, 0.75, 0.3, 1.0), Color(0.95, 0.35, 0.05, 0.7), Color(0.4, 0.1, 0.02, 0.0)])
+	# Flames: the particles add, so a ramp at full strength burned the whole fire out to one pale
+	# blob. Held down, the hot yellow stays at the base and the tongues above it go orange and red.
+	_flame_ramp = _ramp([0.0, 0.2, 0.5, 0.8, 1.0], [Color(1.0, 0.9, 0.55, 0.0), Color(1.0, 0.66, 0.2, 0.5), Color(0.95, 0.36, 0.06, 0.42), Color(0.7, 0.14, 0.03, 0.25), Color(0.3, 0.05, 0.02, 0.0)])
 	_spray_ramp = _ramp([0.0, 0.15, 1.0], [Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.85), Color(1, 1, 1, 0.0)])
 	_chaff_ramp = _ramp([0.0, 0.1, 0.7, 1.0], [Color(1, 1, 1, 0.0), Color(1, 1, 1, 1.0), Color(1, 1, 1, 0.6), Color(1, 1, 1, 0.0)])
 	_grow = _curve([Vector2(0.0, 0.3), Vector2(1.0, 1.0)])

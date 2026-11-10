@@ -39,6 +39,23 @@ static func _passing_inside_turn(u: Unit, wp: Vector2) -> bool:
 	return wp.distance_to(u.position + abeam) < inside or wp.distance_to(u.position - abeam) < inside
 
 
+## Clearing baffles. A boat with the habit swings BAFFLE_CLEAR_TURN_DEG off its course for the last
+## BAFFLE_CLEAR_S of every interval, to alternate sides, so the arc its hull sonar cannot hear
+## (Detection.baffled) sweeps over what was dead astern. The route itself is not changed.
+const BAFFLE_CLEAR_S := 150.0
+const BAFFLE_CLEAR_TURN_DEG := 70.0
+
+
+static func _baffle_clearing_offset(u: Unit, dt: float) -> float:
+	if u.baffle_clear_interval_s <= BAFFLE_CLEAR_S or not u.is_submarine() or u.speed_kn < 1.0:
+		return 0.0
+	u.baffle_clock_s += dt
+	var leg := floorf(u.baffle_clock_s / u.baffle_clear_interval_s)
+	if u.baffle_clock_s - leg * u.baffle_clear_interval_s < u.baffle_clear_interval_s - BAFFLE_CLEAR_S:
+		return 0.0
+	return BAFFLE_CLEAR_TURN_DEG if int(leg) % 2 == 0 else -BAFFLE_CLEAR_TURN_DEG
+
+
 ## Whether this unit is a fixed-wing aircraft in normal flight: it cannot stop, hover or park.
 static func must_keep_flying(u: Unit) -> bool:
 	return u.is_aircraft() and not u.spec.can_hover and u.flight_state == Unit.FlightState.AIRBORNE
@@ -112,6 +129,8 @@ static func step(u: Unit, dt: float) -> void:
 		# Ordered to stop, or left with no speed by anything else: a fixed-wing aircraft holds.
 		enter_hold(u, u.position)
 		desired = Geo.bearing_deg(u.position, u.waypoints[0])
+	if not evading:
+		desired += _baffle_clearing_offset(u, dt)
 	var max_turn := turn_rate_now(u) * dt
 	var delta := clampf(Geo.heading_delta(u.heading_deg, desired), -max_turn, max_turn)
 	u.heading_deg = fposmod(u.heading_deg + delta, 360.0)

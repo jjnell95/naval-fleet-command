@@ -319,8 +319,43 @@ static func sonar_sensor_ready(observer: Unit, sensor: SensorSpec) -> bool:
 	return (not sensor.requires_hover or DippingSonar.listening(observer)) and TowedArray.sensor_ready(observer, sensor)
 
 
+## The baffles. A sonar fixed to the hull is deaf in the arc astern, where the hull itself and the
+## screws lie between it and the sound: nothing there is heard and no ping comes back from it. An
+## array streamed on a cable (a towed or variable-depth set) is clear of the hull, and a dipping
+## set hangs under a hovering helicopter; neither has the arc. It is why a boat turns to clear
+## its baffles, and why astern is the way to come at one. GAMEPLAY_ESTIMATE half-angle.
+const BAFFLE_HALF_ANGLE_DEG := 30.0
+
+
+static func has_baffles(observer: Unit, sensor: SensorSpec) -> bool:
+	if sensor.kind != "sonar" or sensor.requires_hover or sensor.array_depth_m > 0.0:
+		return false
+	return observer.needs_sea_room()
+
+
+## Whether every sonar this unit can listen on right now is a hull set: it then has no ears astern
+## at all, which is what the chart's gap in the sonar ring shows.
+static func deaf_astern(u: Unit) -> bool:
+	var any := false
+	for s in u.sensors:
+		if s.kind != "sonar" or not sonar_sensor_ready(u, s):
+			continue
+		if not has_baffles(u, s):
+			return false
+		any = true
+	return any
+
+
+static func baffled(observer: Unit, sensor: SensorSpec, at: Vector2) -> bool:
+	if not has_baffles(observer, sensor):
+		return false
+	return absf(Geo.heading_delta(observer.heading_deg + 180.0, Geo.bearing_deg(observer.position, at))) <= BAFFLE_HALF_ANGLE_DEG
+
+
 static func passive_sonar_range_nm(observer: Unit, sensor: SensorSpec, target: Unit, with_path := true) -> float:
 	if sensor.passive_sensitivity_nm <= 0.0 or target.is_aircraft() or target.spec.domain == "land":
+		return 0.0
+	if baffled(observer, sensor, target.position):
 		return 0.0
 	if not sonar_sensor_ready(observer, sensor):
 		return 0.0  # a dipping set has to be in the water
@@ -367,7 +402,7 @@ static func active_sonar_reach_nm(observer: Unit, target: Unit) -> float:
 	for s in observer.sensors:
 		if s.kind != "sonar" or s.active_range_nm <= 0.0:
 			continue
-		if not sonar_sensor_ready(observer, s):
+		if not sonar_sensor_ready(observer, s) or baffled(observer, s, target.position):
 			continue
 		best = maxf(best, s.active_range_nm * Acoustics.active_path_factor(observer, s, target))
 	return best * observer.sensor_efficiency()
@@ -380,7 +415,7 @@ static func active_sonar_sensor_for(observer: Unit, target: Unit) -> SensorSpec:
 	for s in observer.sensors:
 		if s.kind != "sonar" or s.active_range_nm <= 0.0:
 			continue
-		if not sonar_sensor_ready(observer, s):
+		if not sonar_sensor_ready(observer, s) or baffled(observer, s, target.position):
 			continue
 		var r := s.active_range_nm * Acoustics.active_path_factor(observer, s, target)
 		if r > best:
@@ -407,8 +442,8 @@ static func active_sonar_detection_nm(listener: Unit, emitter: Unit) -> float:
 	var best := 0.0
 	for s in listener.sensors:
 		if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0:
-			if not sonar_sensor_ready(listener, s):
-				continue  # a dipping set hears nothing until it is in the water
+			if not sonar_sensor_ready(listener, s) or baffled(listener, s, emitter.position):
+				continue  # a dipping set hears nothing until it is in the water; a hull set nothing astern
 			best = maxf(best, s.passive_sensitivity_nm * 1.8 * self_noise_factor(listener, s))
 	return best
 

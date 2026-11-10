@@ -2029,7 +2029,15 @@ func _draw_sensor_rings() -> void:
 		if esm > 0.0:
 			_draw_dashed_circle(sp, esm * ppn, COL_ESM_RING, 160)
 		var sonar := Detection.nominal_passive_ring_nm(u)
-		if sonar > 0.0:
+		if sonar > 0.0 and Detection.deaf_astern(u):
+			# The baffles: a hull sonar hears nothing in the arc astern, so the ring is open there.
+			var astern := deg_to_rad(SubmarineComms.reported_heading(u) + 180.0 - 90.0)
+			var half := deg_to_rad(Detection.BAFFLE_HALF_ANGLE_DEG)
+			draw_arc(sp, sonar * ppn, astern + half, astern + TAU - half, _arc_segments(sonar * ppn), COL_SONAR_RING, 1.0, true)
+			for edge: float in [astern - half, astern + half]:
+				draw_line(sp, sp + Vector2(cos(edge), sin(edge)) * sonar * ppn, Color(COL_SONAR_RING, COL_SONAR_RING.a * 0.6), 1.0, true)
+			_ring_label(sp, sonar * ppn, "baffles astern")
+		elif sonar > 0.0:
 			draw_arc(sp, sonar * ppn, 0.0, TAU, _arc_segments(sonar * ppn), COL_SONAR_RING, 1.0, true)
 		if Acoustics.cz_available(u):
 			_draw_convergence_zones(sp)

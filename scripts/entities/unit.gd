@@ -135,6 +135,11 @@ var snorkel_on := false
 var snorkel_return_depth_m := -1.0
 ## How the last snorkel ended ("charged", "secured: evading"), for the data display.
 var snorkel_note := ""
+## A boat's habit of clearing its baffles: every this many seconds on a steady course it swings off
+## it for a look astern (Movement). Zero is no habit. The AI's captains set it while they patrol or
+## search; the clock runs with the boat.
+var baffle_clear_interval_s := 0.0
+var baffle_clock_s := 0.0
 ## Water under the hull, cached by Acoustics.bottom_m() until the unit moves or the chart changes.
 var bottom_depth_m := -1.0
 var bottom_sampled_at := Vector2.INF
