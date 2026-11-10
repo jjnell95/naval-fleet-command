@@ -1,4 +1,8 @@
-# Current State: M41 A softer horizon, a dark night and holds that fit
+# Current State: M42 Ships against the light, fire, and the baffles
+
+A ship's shadowed side now keeps its shape against the light; fire has a hot base under orange and red tongues and smoke that is lit from below and thins as it rises; the banding across the sea's middle distance is gone. A hull-mounted sonar is deaf within 30° of dead astern, the chart shows the gap, and the AI's submarine captains clear their baffles every fifteen minutes. Hormuz was re-flown on both opening plans and two seeds and came out within two points of `main`. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+
+# Previous: M41 A softer horizon, a dark night and holds that fit
 
 The 3D view's sea now pales into the sky instead of ending in a hard line; the three anti-radiation missiles have models and renders built by the art pipeline, the AGM-88 its own; a long radio signal wraps inside the chart. Lookouts identify at 35% of their daylight range at night, from the scenario's clock and position; an inbound anti-radiation missile is named with what to do about it; a holding pattern is sized to the airframe's turn. See [the M41 note](docs/2026-11-10-horizon-night-and-holds.md).
 

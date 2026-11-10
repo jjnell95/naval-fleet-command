@@ -436,3 +436,7 @@ The route is two water-clear legs of 3 and 5 nautical miles in the shipped Natur
 No primary source was consulted for M40, and none is cited. What is taken as public is general only: that conventional submarines run submerged on a battery whose endurance falls steeply with speed, recharge by snorkelling on diesels, and that the Gotland and Type 039A/B classes carry air-independent plants and Taigei a lithium-ion battery; that the AGM-88, Kh-31P and YJ-91 are air-launched anti-radiation missiles, the YJ-91 derived from the Kh-31P; and that switching a radar off is the classic defence against one. The EA-18G, Su-34 and J-16 fits are fictional scenario allocations and their integration is not verified here.
 
 Every number is a GAMEPLAY_ESTIMATE: the battery hotel, sprint and charge hours, the air-independent hours and speeds, snorkel depth, speed, noise and radar signature, the missiles' ranges, speeds, seeker reach and cone, the 40% emitter-memory chance, the quarter-mile memory radius and the sensor damage of a hit. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+
+## Sonar baffles, 10 November 2026
+
+No source was consulted for M42. That a hull-mounted sonar has a blind arc astern, and that submarines turn to clear it, is taken as general public knowledge. The 30° half-angle, the 150-second clearing turn of 70° and the fifteen-minute interval are GAMEPLAY_ESTIMATE values, not any navy's practice. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).

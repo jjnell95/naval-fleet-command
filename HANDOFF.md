@@ -1,6 +1,14 @@
 # Handoff
 
-Latest: M41, [a softer horizon, a dark night and holds that fit](docs/2026-11-10-horizon-night-and-holds.md).
+Latest: M42, [ships against the light, fire, and the baffles](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+- **Hull lighting.** `world_sun_dir` is a new global shader parameter (declared in `project.godot`, set in `WorldScene.set_time_of_day`; w is the twilight factor). `SKY_AZIMUTH_CONTRAST` in `world_hull.gdshader`.
+- **Effects.** `_flame_ramp` and `_black_ramp` in `world_effects.gd`; `_black_ramp` multiplies the emitter colour and runs above one. It is shared by the fire column and two other black-smoke emitters.
+- **Ocean.** Wave trains fade between 0.12 and 0.5 wavelengths per pixel; the swell slope also fades with footprint.
+- **Baffles.** `Detection.BAFFLE_HALF_ANGLE_DEG`, `has_baffles`, `baffled`, `deaf_astern`; applied in `passive_sonar_range_nm`, `active_sonar_reach_nm`, `active_sonar_sensor_for` and `active_sonar_detection_nm`, so both sensor-cycle paths get it. Not applied to `torpedo_detection_nm`. A test that puts a sonar target due south of a listener heading north will now hear nothing: turn the listener.
+- **Clearing baffles.** `Unit.baffle_clear_interval_s` and `baffle_clock_s`; `Movement._baffle_clearing_offset`. The AI sets the interval directly on its submarines in `_update_unit` (no order is issued, so order logs are unchanged).
+- **Sweep.** `tools/opening_plans.py --only=gulf_01_hormuz --seeds=2,13 --jobs=2` takes about 20 minutes here.
+
+Previously: M41, [a softer horizon, a dark night and holds that fit](docs/2026-11-10-horizon-night-and-holds.md).
 - **Horizon.** `horizon_haze` in `world_ocean.gdshader`, by sight-line angle. `tests/test_world_view.gd` still pins `sea_fog_density` at 0 on a clear day; that is weather fog and is unchanged.
 - **Light.** `Detection.light`, `set_sun_elevation`, `visual_light_factor`, `light_name`; `Detection.set_environment` resets it to daylight. `Simulation._update_light` is keyed on the simulated minute and runs at the end of `load_scenario` (after `SimClock.reset`) and at the top of every `_step`; `_install_scenario` clears its key so a restore recomputes on its first tick. Only `SensorManager._visual_pass` reads it.
 - **Holds.** `Movement.hold_size_nm(spec)`; `hold_pattern` takes a width and a leg.

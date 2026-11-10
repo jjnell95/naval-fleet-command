@@ -19,6 +19,12 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M42 Ships against the light, fire, and the baffles
+
+Hull lighting that keeps a ship's shape on its shadowed side, relit fire and smoke, no banding on the sea; sonar baffles with a chart display and AI captains who clear them; Hormuz re-flown and unchanged. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+
+Next: sweep the other six operations, baffle the torpedo warning and the coverage shading, give the player a clear-baffles order, and have AI escorts zigzag.
+
 ## M41 A softer horizon, a dark night and holds that fit
 
 The sea pales into the sky, the anti-radiation missiles have their own models, long signals wrap; lookouts see less at night, an inbound anti-radiation missile is named, and holds fit the airframe. See [the M41 note](docs/2026-11-10-horizon-night-and-holds.md).
