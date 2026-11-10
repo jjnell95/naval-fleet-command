@@ -49,4 +49,6 @@ Batteries, anti-radiation missiles, night and baffles together moved Hormuz by a
 ## Evidence
 
 - `tests/run_tests.gd`: 1,073 tests, 0 failed. New: `tests/test_baffles.gd` (4). One existing fixture in `tests/test_sonar.gd` had its listener stern-on to a pinger and was turned bows-on.
+- `tools/test_runner_self_check.py`, `tools/verify_northern_passage.py` and `tools/verify_save_continuation.py --quick` pass; replay and save continuation are identical.
+- The fifteen 1280 × 720 or 1600 × 900 graphical playtests CI runs exit 0 under a virtual display. The 1920 × 1080 variants were left to CI.
 - Captures above are from this build at 1600 × 900 under a software renderer.
