@@ -40,7 +40,7 @@ Emission control cost a side only detection: a radar that was on could be heard,
 - **A hit** does a small warhead's damage and takes 0.75 off the target's sensors. Chaff and flares do nothing to a passive seeker; SAMs and guns engage it like any other round.
 - **The enemy.** An AI radar with no SAM aboard goes silent when an anti-radiation round it knows of is coming its way inside 1.5 seeker ranges, and comes back up when the round is gone. A ship that can shoot at the round keeps its picture.
 
-**Art.** The Kh-31P and YJ-91 share the Kh-31A's airframe, as the real missiles do, and use its model and renders. The AGM-88 uses the AIM-120's as a stand-in; it needs its own model.
+**Art.** The Kh-31P and YJ-91 share the Kh-31A's airframe, as the real missiles do, and use its model and renders. The AGM-88 used the AIM-120's as a stand-in until M41 gave it its own model.
 
 **What is not done.** The player gets no named warning that an inbound round is an anti-radiation one. The AI does not plan suppression: an AI aircraft fires the weapon only when its ordinary weapon choice reaches it, which in practice means the EA-18G, or a strike fighter whose longer-ranged missiles are gone. Aircraft radars cannot be targeted.
 

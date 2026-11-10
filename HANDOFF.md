@@ -1,6 +1,13 @@
 # Handoff
 
-Latest: M40, [diesel boats, anti-radiation missiles and a core review](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+Latest: M41, [a softer horizon, a dark night and holds that fit](docs/2026-11-10-horizon-night-and-holds.md).
+- **Horizon.** `horizon_haze` in `world_ocean.gdshader`, by sight-line angle. `tests/test_world_view.gd` still pins `sea_fog_density` at 0 on a clear day; that is weather fog and is unchanged.
+- **Light.** `Detection.light`, `set_sun_elevation`, `visual_light_factor`, `light_name`; `Detection.set_environment` resets it to daylight. `Simulation._update_light` is keyed on the simulated minute and runs at the end of `load_scenario` (after `SimClock.reset`) and at the top of every `_step`; `_install_scenario` clears its key so a restore recomputes on its first tick. Only `SensorManager._visual_pass` reads it.
+- **Holds.** `Movement.hold_size_nm(spec)`; `hold_pattern` takes a width and a leg.
+- **Radio line.** `TacticalMap.wrap_radio_text`, `RADIO_SIDE_CLEAR_PX`.
+- **Art.** `build_ordnance.weapon_model` has an `agm-88` branch. `agm88_harm`, `kh31p` and `pla_yj91` are now in `assets/models/manifest.json` and `tools/art/render_manifest.json`. The pipeline needs `pip install trimesh` here.
+
+Previously: M40, [diesel boats, anti-radiation missiles and a core review](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
 - **Submarine power.** `SubmarinePower` (fitted, on_diesels, snorkelling, drain_per_hour, speed_limit, step, status, take_events). `Unit.battery`, `aip_used_s`, `snorkel_on`, `snorkel_return_depth_m`, `snorkel_note`; `PlatformSpec.battery_*` and `aip_*`. `Order.snorkel(raise)` is a new `SNORKEL` type at the end of the enum. `Movement.step` steps it and applies its speed limit; `Detection.acoustic_noise` and `radar_signature_of` read it. Battery reports ride `Simulation.casualty_event`. The AI's part is `AIController._manage_battery`; `_manage_depth` returns early for a charging boat.
 - **Anti-radiation missiles.** `WeaponSpec.is_anti_radiation()`; `Track.last_esm_time` and `radiating()`; `Combat.check_engagement` and `suits_track` (bearing-only allowed, CONTACT NOT RADIATING); `WeaponManager.seeker_sees`, `Weapon.emitter_point` / `emitter_silent`, `ARM_MEMORY_PK`, `ARM_MEMORY_NM`, `ARM_SENSOR_LOSS`. The AI's shutdown is in `_manage_emissions` (`_anti_radiation_inbound`, `_can_shoot_missiles`). `agm88_harm`, `kh31p` and `pla_yj91` are hand-authored, with donor art; the generator carries only the J-16's loadout.
 - **Movement.** `Movement.turn_rate_now`, `_passing_inside_turn` and `MIN_FLYING_FRACTION`. The passed-waypoint test must stay the exact two-circle geometry: a looser one stops ships short of reachable points and broke two seeded AI raids.

@@ -1,4 +1,8 @@
-# Current State: M40 Diesel boats, anti-radiation missiles and a core review
+# Current State: M41 A softer horizon, a dark night and holds that fit
+
+The 3D view's sea now pales into the sky instead of ending in a hard line; the three anti-radiation missiles have models and renders built by the art pipeline, the AGM-88 its own; a long radio signal wraps inside the chart. Lookouts identify at 35% of their daylight range at night, from the scenario's clock and position; an inbound anti-radiation missile is named with what to do about it; a holding pattern is sized to the airframe's turn. See [the M41 note](docs/2026-11-10-horizon-night-and-holds.md).
+
+# Previous: M40 Diesel boats, anti-radiation missiles and a core review
 
 Conventional submarines now live on a battery: about an hour at full speed, days at a crawl, an air-independent plant for the two boats that have one, and a snorkel that charges the battery at the price of being four times as loud, a radar target and held to 8 knots. Three anti-radiation missiles (AGM-88, Kh-31P, YJ-91) home on a transmitting radar, can be fired down an ESM bearing, and are beaten by switching off, which leaves the radar off. A read of the simulation core found seven defects, all fixed with tests: ASW torpedoes could not follow a boat above 20 m, torpedoes died at a passive plot's guessed range, a periscope was identified at 6 nm, jets could be slowed to a stop, waypoints inside the turning circle were orbited for ever, and two ranges ignored sensor damage or a stale altitude. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
 

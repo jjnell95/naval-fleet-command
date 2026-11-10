@@ -19,6 +19,10 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M41 A softer horizon, a dark night and holds that fit
+
+The sea pales into the sky, the anti-radiation missiles have their own models, long signals wrap; lookouts see less at night, an inbound anti-radiation missile is named, and holds fit the airframe. See [the M41 note](docs/2026-11-10-horizon-night-and-holds.md).
+
 ## M40 Diesel boats, anti-radiation missiles and a core review
 
 Conventional submarines run on a battery with an air-independent plant and a snorkel; three anti-radiation missiles make radiating dangerous and can be fired down a bearing; seven defects found reading the simulation core are fixed with tests. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
