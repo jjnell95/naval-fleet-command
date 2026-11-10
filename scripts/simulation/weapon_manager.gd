@@ -35,6 +35,13 @@ const MAX_SEDUCTIONS := 2
 ## Own units carry no held track, so the firing board's traffic advisory never warns about them.
 ## Capped here so a long minimum range does not clear the line of fire. GAMEPLAY_ESTIMATE.
 const SAFE_SEPARATION_NM := 0.5
+## Anti-radiation missiles. A round whose emitter switches off flies on to where it last heard it:
+## ARM_MEMORY_PK of its ordinary chance if the emitter is still within ARM_MEMORY_NM of that
+## point, nothing if it has moved away. A hit wrecks antennas before it sinks anything.
+## GAMEPLAY_ESTIMATE, in the shape of public accounts of radar shutdown as the defence.
+const ARM_MEMORY_PK := 0.4
+const ARM_MEMORY_NM := 0.25
+const ARM_SENSOR_LOSS := 0.75
 
 var unit_manager: UnitManager
 var track_manager: TrackManager
@@ -404,7 +411,13 @@ func _step(w: Weapon, dt: float) -> void:
 	var goal := w.aim_point
 	# The seeker loses a target that leaves its medium: a helicopter that lands on its deck, a
 	# boat that dives under an anti-ship missile.
-	if w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.acquired.alive and can_target(w.spec, w.acquired):
+	if w.phase == Weapon.Phase.TERMINAL and w.spec.is_anti_radiation() and w.acquired != null and w.acquired.alive and can_target(w.spec, w.acquired):
+		# Homing on the transmission itself. Silence leaves it the last place it heard.
+		w.emitter_silent = not (w.acquired.radar_emitting() or w.acquired.jamming())
+		if not w.emitter_silent or not w.emitter_point.is_finite():
+			w.emitter_point = w.acquired.position
+		goal = w.emitter_point
+	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.acquired.alive and can_target(w.spec, w.acquired):
 		goal = w.acquired.position
 	elif w.phase == Weapon.Phase.TERMINAL:
 		w.phase = Weapon.Phase.DEAD
@@ -435,7 +448,8 @@ func _step(w: Weapon, dt: float) -> void:
 				var enabled_fraction := clampf((w.spec.run_to_enable_nm - distance_before) / maxf(travel, 1e-9), 0.0, 1.0)
 				previous = previous.lerp(w.position, enabled_fraction)
 				previous = _try_acquire(w, previous)
-		elif w.searching_on:
+		elif w.searching_on or w.spec.is_anti_radiation():
+			# A passive seeker listens from the rail: it needs no aim point to be close to.
 			previous = _try_acquire(w, previous)
 		else:
 			var radius := w.spec.acquisition_radius_nm()
@@ -446,7 +460,14 @@ func _step(w: Weapon, dt: float) -> void:
 
 	# Sweep the travelled segment instead of inflating the impact radius by speed. Fast rounds
 	# must not skip a target, or hit one they passed a long way abeam while unable to turn.
-	if w.phase == Weapon.Phase.TERMINAL and w.acquired != null and _segment_distance_squared(previous, w.position, w.acquired.position) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
+	if w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.emitter_silent:
+		if _segment_distance_squared(previous, w.position, w.emitter_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
+			if w.acquired.position.distance_to(w.emitter_point) <= ARM_MEMORY_NM:
+				_resolve_impact(w)
+			else:
+				w.phase = Weapon.Phase.DEAD
+				w.dead_reason = "TARGET LOST"  # it went quiet and moved off the spot
+	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and _segment_distance_squared(previous, w.position, w.acquired.position) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
 		_resolve_impact(w)
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
@@ -625,7 +646,7 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	var first_fraction := INF
 	var best_d_squared := INF
 	for u in unit_manager.units:
-		if u == w.shooter or not can_target(w.spec, u):
+		if u == w.shooter or not seeker_sees(w, u):
 			continue
 		if separating and u.position.distance_to(w.shooter.position) < separation:
 			continue
@@ -638,6 +659,9 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 			best = u
 			first_fraction = fraction
 			best_d_squared = d_squared
+	if best != null and w.spec.is_anti_radiation():
+		w.emitter_point = best.position
+		w.emitter_silent = false
 	if best == null:
 		if not w.searching_on and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0:
 			if searches_on(w):
@@ -658,6 +682,12 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 ## which may have turned since the solution was last updated. A round at a ship or a submarine
 ## ends there, as it always has.
 static func searches_on(w: Weapon) -> bool:
+	if w.spec.is_anti_radiation():
+		return true  # a bearing gives no range: it listens the whole way down it
+	if w.spec.is_torpedo() and w.delivery_spec == null:
+		# The range on a passive contact is a guess. A torpedo that finds nothing there runs on
+		# down the bearing with its seeker on for as long as it has battery or fuel.
+		return true
 	return w.target_track != null and w.target_track.domain == "air" and w.delivery_spec == null and not w.spec.is_torpedo() and not w.is_interceptor()
 
 
@@ -691,6 +721,19 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	return best
 
 
+## What this round's seeker can lock. An anti-radiation seeker hears only a radar that is
+## transmitting, and is set against the other side's emitters: it does not take its own force's
+## radars or a neutral's.
+func seeker_sees(w: Weapon, u: Unit) -> bool:
+	if not can_target(w.spec, u):
+		return false
+	if not w.spec.is_anti_radiation():
+		return true
+	if u.faction == w.faction or (track_manager != null and track_manager.neutral_factions.has(u.faction)):
+		return false
+	return u.radar_emitting() or u.jamming()
+
+
 ## Whether this round is on its way to a target ashore, by seeker lock or by the track it was
 ## fired at.
 static func _bound_for_land(w: Weapon) -> bool:
@@ -708,8 +751,10 @@ static func can_target(spec: WeaponSpec, u: Unit) -> bool:
 		return spec.target_types.has("land")
 	if u.in_flight():
 		return spec.target_types.has("air")
-	if u.submerged():
-		return spec.target_types.has("subsurface")
+	if u.is_submarine():
+		# An anti-submarine torpedo follows a boat to any depth, the surface included: coming up
+		# to periscope depth is not an escape. A surface seeker needs something above the water.
+		return spec.target_types.has("subsurface") or (not u.submerged() and spec.target_types.has("surface"))
 	return spec.target_types.has("surface")
 
 
@@ -717,6 +762,8 @@ func _resolve_impact(w: Weapon) -> void:
 	var target := w.acquired
 	w.phase = Weapon.Phase.DEAD
 	var pk := Combat.hit_probability(w.spec, target)
+	if w.emitter_silent:
+		pk *= ARM_MEMORY_PK
 	var hit := rng.randf() < pk
 	w.dead_reason = "HIT" if hit else "MISS"
 	if hit:
@@ -724,6 +771,9 @@ func _resolve_impact(w: Weapon) -> void:
 		# brings it down, whatever the weapon's rating against a hull.
 		var amount := maxf(w.spec.damage, target.health) if target.is_aircraft() else w.spec.damage
 		var destroyed := Damage.apply(target, amount, w.spec.type, w.faction)
+		if w.spec.is_anti_radiation() and not destroyed:
+			# It flew down the beam into the antenna it was listening to.
+			target.components["sensors"] = maxf(target.component("sensors") - ARM_SENSOR_LOSS, 0.0)
 		weapon_impact.emit(w.faction, w.spec, target, true)
 		if destroyed:
 			unit_destroyed.emit(target, w.faction)
@@ -821,7 +871,9 @@ static func track_support_available(shooter: Unit, spec: WeaponSpec, track: Trac
 		return false
 	if not spec.requires_radar_support() or track == null or track.domain != "air":
 		return true
-	var altitude := maxf(track.altitude_m, 0.0)
+	# A height measured when the contact was last plotted says nothing about one that has since
+	# dropped out of sight: a coasting track is assumed to be on the deck.
+	var altitude := maxf(track.altitude_m, 0.0) if track.status == Track.Status.ACTIVE else 0.0
 	var horizon := Detection.radar_horizon_nm(Detection.mast_or_altitude_m(shooter), altitude)
 	return shooter.position.distance_to(track.position) <= horizon and not Terrain.masks_line_of_sight(shooter.position, Detection.mast_or_altitude_m(shooter), track.position, altitude)
 

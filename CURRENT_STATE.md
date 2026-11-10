@@ -1,4 +1,16 @@
-# Current State: M39 Air combat regressions fixed
+# Current State: M42 Ships against the light, fire, and the baffles
+
+A ship's shadowed side now keeps its shape against the light; fire has a hot base under orange and red tongues and smoke that is lit from below and thins as it rises; the banding across the sea's middle distance is gone. A hull-mounted sonar is deaf within 30° of dead astern, the chart shows the gap, and the AI's submarine captains clear their baffles every fifteen minutes. Hormuz was re-flown on both opening plans and two seeds and came out within two points of `main`. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+
+# Previous: M41 A softer horizon, a dark night and holds that fit
+
+The 3D view's sea now pales into the sky instead of ending in a hard line; the three anti-radiation missiles have models and renders built by the art pipeline, the AGM-88 its own; a long radio signal wraps inside the chart. Lookouts identify at 35% of their daylight range at night, from the scenario's clock and position; an inbound anti-radiation missile is named with what to do about it; a holding pattern is sized to the airframe's turn. See [the M41 note](docs/2026-11-10-horizon-night-and-holds.md).
+
+# Previous: M40 Diesel boats, anti-radiation missiles and a core review
+
+Conventional submarines now live on a battery: about an hour at full speed, days at a crawl, an air-independent plant for the two boats that have one, and a snorkel that charges the battery at the price of being four times as loud, a radar target and held to 8 knots. Three anti-radiation missiles (AGM-88, Kh-31P, YJ-91) home on a transmitting radar, can be fired down an ESM bearing, and are beaten by switching off, which leaves the radar off. A read of the simulation core found seven defects, all fixed with tests: ASW torpedoes could not follow a boat above 20 m, torpedoes died at a passive plot's guessed range, a periscope was identified at 6 nm, jets could be slowed to a stop, waypoints inside the turning circle were orbited for ever, and two ranges ignored sensor damage or a stale altitude. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+
+# Previous: M39 Air combat regressions fixed
 
 The four air-combat results M38 left worse than before are fixed. A shot at an aircraft is held to its no-escape range, worked out from the reported type's turn rate, acceleration and top speed. That brings SM-2's first shot at a bomber flying straight in back out to 42 nm. A fighter closes at dash until it has a shot, then cranks 50° off the bearing instead of turning tail. A round at an aircraft that finds nothing at its aim point keeps searching until its fuel runs out. The 2027 AMRAAM and R-77 families reach 60 nm, so the PL-15 outranges them by a third rather than three-quarters. F/A-18E against J-15 from 80 nm went from 18 losses against 4 to 17 against 15. See [the M39 note](docs/2026-10-04-air-combat-regressions.md).
 

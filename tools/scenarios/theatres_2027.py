@@ -308,6 +308,7 @@ def catalogue():
               service_note="Publicly assessed as quieter than the first Type 093 boats but noisier than current Western designs; the acoustic value reflects that ordering only. YJ-18 is fired from the torpedo tubes.")
     submarine("pla_ssk_type039a", "Type 039A/B submarine (Yuan)", "SSK Type 039A", "China",
               ["pla_yuan_sonar"], {"pla_yu6": 14, "pla_yj82": 4}, 77.6, 3600.0, 20.0, 0.05, 300.0,
+              battery_hotel_h=200.0, battery_sprint_h=1.0, battery_charge_h=3.0, aip_endurance_h=240.0, aip_speed_kn=4.0,
               category="diesel-electric attack submarine", health=45.0, patrol_depth_m=120.0,
               role="Air-independent ambush / barrier",
               service_note="Stirling air-independent propulsion makes it very quiet at patrol speed; a sprint gives it away like any other boat.")
@@ -324,7 +325,7 @@ def catalogue():
              role="Carrier air defence / anti-ship strike",
              service_note="Ski-jump launch caps its fuel and stores; the short endurance is that penalty. Buddy refuelling is represented by can_refuel.")
     aircraft("pla_fighter_j16", "J-16 multirole fighter", "J-16", "China", "strike fighter",
-             ["pla_j16_aesa", "pla_air_esm"], {"pla_pl15": 4, "pla_pl10": 2, "pla_yj83k": 2}, 1300,
+             ["pla_j16_aesa", "pla_air_esm"], {"pla_pl15": 4, "pla_pl10": 2, "pla_yj83k": 2, "pla_yj91": 2}, 1300,  # pla_yj91.tres is hand-authored
              cruise_speed_kn=490.0, cruise_altitude_m=10000.0, max_altitude_m=16000.0, endurance_s=9000.0, health=25.0,
              signature_factor=0.8, length_m=21.9, launch_requirement="runway", can_refuel=True,
              role="Land-based counter-air and anti-ship strike")
@@ -454,6 +455,7 @@ def catalogue():
              service_note="After the deck modification for F-35B. The fighters belong to the Air Self-Defense Force and embark as a detachment.")
     submarine("jmsdf_ssk_taigei", "Taigei-class submarine", "SSK Taigei", "Japan",
               ["jmsdf_zqq8"], {"jmsdf_type18_torpedo": 12, "rgm_84_harpoon": 6}, 84.0, 4300.0, 20.0, 0.05, 400.0,
+              battery_hotel_h=400.0, battery_sprint_h=2.5, battery_charge_h=2.0,
               category="diesel-electric attack submarine", health=50.0, torpedo_decoy_count=8, patrol_depth_m=150.0,
               role="Quiet barrier / anti-surface ambush",
               service_note="Lithium-ion batteries in place of air-independent propulsion: a long quiet loiter and a fast sprint, then a long charge. The sub-launched Harpoon uses the surface round's numbers.")
@@ -531,11 +533,13 @@ def catalogue():
              service_note="A 1970s hull rearmed with Noor; no missile air defence since the Seacat was landed.")
     submarine("irn_ssk_kilo_877ekm", "Kilo-class submarine (Project 877EKM)", "SSK Kilo 877EKM", "Iran",
               ["irn_mgk400"], {"irn_test71me": 12, "irn_53_65ke": 6}, 72.6, 3076.0, 17.0, 0.06, 240.0,
+              battery_hotel_h=180.0, battery_sprint_h=0.9, battery_charge_h=3.2,
               category="diesel-electric attack submarine", health=45.0, patrol_depth_m=100.0, has_datalink=False,
               role="Gulf of Oman ambush",
               service_note="The export Kilo of the 1990s deliveries; no cruise missiles.")
     submarine("irn_ssm_ghadir", "Ghadir-class midget submarine", "SSM Ghadir", "Iran",
               ["irn_ghadir_sonar"], {"irn_test71me": 2}, 29.0, 120.0, 11.0, 0.12, 100.0,
+              battery_hotel_h=60.0, battery_sprint_h=1.0, battery_charge_h=2.5,
               category="midget submarine", health=20.0, signature_factor=0.12, mast_height_m=4.0, patrol_depth_m=40.0,
               cruise_speed_kn=5.0, has_datalink=False, torpedo_decoy_count=0,
               role="Shallow-water ambush in the strait",

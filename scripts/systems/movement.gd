@@ -7,6 +7,53 @@ const FULL_TURN_SPEED_KN := 5.0  # GAMEPLAY_ESTIMATE: below this, rudder authori
 ## rather than stopping in the air. GAMEPLAY_ESTIMATE dimensions.
 const HOLD_LEG_NM := 6.0
 const HOLD_WIDTH_NM := 3.0
+const HOLD_TURN_MARGIN := 1.15
+
+
+## Fraction of economical patrol speed below which a fixed-wing aircraft cannot be flown.
+const MIN_FLYING_FRACTION := 0.6  # GAMEPLAY_ESTIMATE
+
+
+## Turn rate actually available now, in degrees a second: the catalogue rate, scaled down at low
+## speed, and for a hull held to a turning circle proportional to its length.
+static func turn_rate_now(u: Unit) -> float:
+	var rate := u.spec.turn_rate_deg_s * clampf(u.speed_kn / FULL_TURN_SPEED_KN, 0.0, 1.0)
+	if u.needs_sea_room() and u.spec.length_m > 0:
+		# GAMEPLAY_ESTIMATE: a displacement hull needs a turning circle proportional to
+		# its length. The catalogue rate is a ceiling, not a pivot rate at every speed.
+		var radius_m := u.spec.length_m * (1.5 if u.is_submarine() else 2.5)
+		rate = minf(rate, rad_to_deg(u.speed_kn * 1852.0 / 3600.0 / radius_m))
+	return rate
+
+
+## A waypoint inside either of the two circles the unit would trace at full rudder can never be
+## reached by turning toward it: the unit would orbit it for good. It counts as passed. A point
+## merely close astern is outside both circles and is reached by coming round.
+static func _passing_inside_turn(u: Unit, wp: Vector2) -> bool:
+	var rate := turn_rate_now(u)
+	if rate <= 0.0:
+		return false
+	var radius_nm := Geo.knots_to_nm_per_s(u.speed_kn) / deg_to_rad(rate)
+	var abeam := Geo.heading_to_vector(u.heading_deg + 90.0) * radius_nm
+	var inside := radius_nm * 0.95
+	return wp.distance_to(u.position + abeam) < inside or wp.distance_to(u.position - abeam) < inside
+
+
+## Clearing baffles. A boat with the habit swings BAFFLE_CLEAR_TURN_DEG off its course for the last
+## BAFFLE_CLEAR_S of every interval, to alternate sides, so the arc its hull sonar cannot hear
+## (Detection.baffled) sweeps over what was dead astern. The route itself is not changed.
+const BAFFLE_CLEAR_S := 150.0
+const BAFFLE_CLEAR_TURN_DEG := 70.0
+
+
+static func _baffle_clearing_offset(u: Unit, dt: float) -> float:
+	if u.baffle_clear_interval_s <= BAFFLE_CLEAR_S or not u.is_submarine() or u.speed_kn < 1.0:
+		return 0.0
+	u.baffle_clock_s += dt
+	var leg := floorf(u.baffle_clock_s / u.baffle_clear_interval_s)
+	if u.baffle_clock_s - leg * u.baffle_clear_interval_s < u.baffle_clear_interval_s - BAFFLE_CLEAR_S:
+		return 0.0
+	return BAFFLE_CLEAR_TURN_DEG if int(leg) % 2 == 0 else -BAFFLE_CLEAR_TURN_DEG
 
 
 ## Whether this unit is a fixed-wing aircraft in normal flight: it cannot stop, hover or park.
@@ -16,15 +63,26 @@ static func must_keep_flying(u: Unit) -> bool:
 
 ## A holding racetrack that starts and ends at `center`, its long legs along `heading_deg`. It ends
 ## where it began, so arriving at the last point simply lays the same pattern again: no state.
-static func hold_pattern(center: Vector2, heading_deg: float) -> Array[Vector2]:
+static func hold_pattern(center: Vector2, heading_deg: float, width_nm := HOLD_WIDTH_NM, leg_nm := HOLD_LEG_NM) -> Array[Vector2]:
 	var along := Geo.heading_to_vector(heading_deg)
 	var right := Geo.heading_to_vector(heading_deg + 90.0)
-	return [center + along * HOLD_LEG_NM, center + along * HOLD_LEG_NM + right * HOLD_WIDTH_NM, center + right * HOLD_WIDTH_NM, center]
+	return [center + along * leg_nm, center + along * leg_nm + right * width_nm, center + right * width_nm, center]
+
+
+## The racetrack an airframe can actually fly at its patrol speed: at least as wide as its turn
+## diameter with a margin, and twice as long as it is wide. A fighter keeps the standard pattern;
+## a patrol aircraft or a bomber gets a bigger one.
+static func hold_size_nm(spec: PlatformSpec) -> Vector2:
+	var rate := maxf(spec.turn_rate_deg_s, 0.1)
+	var diameter := 2.0 * Geo.knots_to_nm_per_s(spec.flight_speed("patrol")) / deg_to_rad(rate)
+	var width := maxf(HOLD_WIDTH_NM, diameter * HOLD_TURN_MARGIN)
+	return Vector2(width, maxf(HOLD_LEG_NM, width * 2.0))
 
 
 ## Puts a fixed-wing aircraft into a hold at `center` at its economical patrol speed.
 static func enter_hold(u: Unit, center: Vector2) -> void:
-	u.waypoints.assign(hold_pattern(center, u.heading_deg))
+	var hold := hold_size_nm(u.spec)
+	u.waypoints.assign(hold_pattern(center, u.heading_deg, hold.x, hold.y))
 	u.ordered_speed_kn = u.spec.flight_speed("patrol")
 	u.hold_active = true
 	u.hold_point = center
@@ -44,6 +102,7 @@ static func step(u: Unit, dt: float) -> void:
 	if DippingSonar.step_motion(u, dt):
 		return
 	TowedArray.step(u, dt)
+	SubmarinePower.step(u, dt)
 	var evading := u.evasion_remaining_s > 0.0
 	var desired := u.evasion_course_deg if evading else u.ordered_heading_deg
 	if u.needs_sea_room():
@@ -51,7 +110,7 @@ static func step(u: Unit, dt: float) -> void:
 	if not evading and not u.waypoints.is_empty():
 		var wp: Vector2 = u.waypoints[0]
 		var arrive := maxf(ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
-		if u.position.distance_to(wp) <= arrive:
+		if u.position.distance_to(wp) <= arrive or _passing_inside_turn(u, wp):
 			u.waypoints.pop_front()
 			if u.patrol_active:
 				u.waypoints.append(wp)
@@ -70,23 +129,22 @@ static func step(u: Unit, dt: float) -> void:
 		# Ordered to stop, or left with no speed by anything else: a fixed-wing aircraft holds.
 		enter_hold(u, u.position)
 		desired = Geo.bearing_deg(u.position, u.waypoints[0])
-	var turn_scale := clampf(u.speed_kn / FULL_TURN_SPEED_KN, 0.0, 1.0)
-	var rate := u.spec.turn_rate_deg_s * turn_scale
-	if u.needs_sea_room() and u.spec.length_m > 0:
-		# GAMEPLAY_ESTIMATE: a displacement hull needs a turning circle proportional to
-		# its length. The catalogue rate is a ceiling, not a pivot rate at every speed.
-		var radius_m := u.spec.length_m * (1.5 if u.is_submarine() else 2.5)
-		rate = minf(rate, rad_to_deg(u.speed_kn * 1852.0 / 3600.0 / radius_m))
-	var max_turn := rate * dt
+	if not evading:
+		desired += _baffle_clearing_offset(u, dt)
+	var max_turn := turn_rate_now(u) * dt
 	var delta := clampf(Geo.heading_delta(u.heading_deg, desired), -max_turn, max_turn)
 	u.heading_deg = fposmod(u.heading_deg + delta, 360.0)
 
 	var target_speed := clampf(u.ordered_speed_kn, 0.0, u.effective_max_speed())
+	if must_keep_flying(u):
+		# A wing stops flying long before it stops moving: no order holds a jet below this.
+		target_speed = maxf(target_speed, minf(u.spec.flight_speed("patrol") * MIN_FLYING_FRACTION, u.effective_max_speed()))
 	if evading:
 		target_speed = u.effective_max_speed()
 	else:
 		target_speed = minf(target_speed, u.formation_speed_cap_kn)
 	target_speed = minf(target_speed, TowedArray.speed_limit(u))
+	target_speed = minf(target_speed, SubmarinePower.speed_limit(u))
 	var max_dv := u.spec.accel_kn_s * dt
 	u.speed_kn += clampf(target_speed - u.speed_kn, -max_dv, max_dv)
 

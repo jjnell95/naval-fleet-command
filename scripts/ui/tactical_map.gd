@@ -2029,7 +2029,15 @@ func _draw_sensor_rings() -> void:
 		if esm > 0.0:
 			_draw_dashed_circle(sp, esm * ppn, COL_ESM_RING, 160)
 		var sonar := Detection.nominal_passive_ring_nm(u)
-		if sonar > 0.0:
+		if sonar > 0.0 and Detection.deaf_astern(u):
+			# The baffles: a hull sonar hears nothing in the arc astern, so the ring is open there.
+			var astern := deg_to_rad(SubmarineComms.reported_heading(u) + 180.0 - 90.0)
+			var half := deg_to_rad(Detection.BAFFLE_HALF_ANGLE_DEG)
+			draw_arc(sp, sonar * ppn, astern + half, astern + TAU - half, _arc_segments(sonar * ppn), COL_SONAR_RING, 1.0, true)
+			for edge: float in [astern - half, astern + half]:
+				draw_line(sp, sp + Vector2(cos(edge), sin(edge)) * sonar * ppn, Color(COL_SONAR_RING, COL_SONAR_RING.a * 0.6), 1.0, true)
+			_ring_label(sp, sonar * ppn, "baffles astern")
+		elif sonar > 0.0:
 			draw_arc(sp, sonar * ppn, 0.0, TAU, _arc_segments(sonar * ppn), COL_SONAR_RING, 1.0, true)
 		if Acoustics.cz_available(u):
 			_draw_convergence_zones(sp)
@@ -2680,6 +2688,26 @@ func _depth_readout(w: Vector2) -> String:
 
 
 ## Bottom-centre: the newest radio lines, the latest at the bottom, each fading after its hold.
+## Width kept clear at each side of the radio line, for the corner readouts.
+const RADIO_SIDE_CLEAR_PX := 230.0
+
+
+## Splits a signal into rows no wider than `width`, breaking between words.
+static func wrap_radio_text(font: Font, text: String, font_size: int, width: float) -> PackedStringArray:
+	var rows := PackedStringArray()
+	var row := ""
+	for word: String in text.split(" ", false):
+		var trial := word if row == "" else row + " " + word
+		if row != "" and font.get_string_size(trial, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > width:
+			rows.append(row)
+			row = word
+		else:
+			row = trial
+	if row != "":
+		rows.append(row)
+	return rows
+
+
 func _draw_radio_line() -> void:
 	var lines := _radio.visible(_anim)
 	var baseline := size.y - RADIO_BOTTOM_PX - 3.0
@@ -2687,8 +2715,12 @@ func _draw_radio_line() -> void:
 		var e: Dictionary = lines[i]
 		var alpha := RadioLine.alpha_at(_anim - float(e["t0"]))
 		var col := COL_RADIO_ALERT if e["severity"] == "alert" else (COL_RADIO_ADVICE if e["severity"] == RadioNet.ADVICE else COL_READOUT)
-		_shadow_text(Vector2(0.0, baseline), e["text"], READOUT_FONT_SIZE, Color(col, alpha * col.a), HORIZONTAL_ALIGNMENT_CENTER, size.x)
-		baseline -= READOUT_LINE_H
+		# A long signal wraps inside the middle of the chart: it used to run off both edges and
+		# over the position and scale readout in the corner.
+		var rows := wrap_radio_text(_readout_font(), e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
+		for r in range(rows.size() - 1, -1, -1):
+			_shadow_text(Vector2(0.0, baseline), rows[r], READOUT_FONT_SIZE, Color(col, alpha * col.a), HORIZONTAL_ALIGNMENT_CENTER, size.x)
+			baseline -= READOUT_LINE_H
 
 
 ## A white circle round each platform whose message is on the radio line: it is transmitting.

@@ -73,6 +73,8 @@ var last_seen_time := 0.0
 ## When a measured plot (radar, active sonar, visual) last held this track. A bearing heard in
 ## the same moment adds nothing to the geometry, so it is not allowed to blur it.
 var last_firm_time := -1.0e9
+## When this side's own ESM last heard the contact transmit. See `radiating`.
+var last_esm_time := -1.0e9
 var _obs_times := PackedFloat64Array()  # sliding observation window for kinematics fit
 var _obs_pos := PackedVector2Array()
 var _last_est_time := -1.0
@@ -117,6 +119,15 @@ func _domain_short() -> String:
 		"land":
 			return "SHORE"
 	return "SURF"
+
+
+## Whether the contact was heard radiating about when it was last held at all: what this side knows
+## of its emissions, never a read of the unit's radar switch. An anti-radiation shot needs it.
+const EMITTER_MEMORY_S := 120.0
+
+
+func radiating() -> bool:
+	return status != Status.LOST and last_esm_time >= last_seen_time - EMITTER_MEMORY_S
 
 
 ## True when the contact is held on sound alone, with no usable range.

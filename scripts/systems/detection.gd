@@ -32,6 +32,12 @@ const SMALL_TARGET_SIGNATURE := 0.5
 const SKIMMER_ALTITUDE_M := 60.0
 static var sea_state := 0
 static var environment: Dictionary = {}
+## Daylight, 1.0 with the sun up and 0.0 once it is twelve degrees down (the end of nautical
+## twilight). Only the eye cares: radar, sonar and ESM work the same at midnight. Simulation sets it
+## from the scenario's clock and position; anything that never sets it fights in daylight.
+const NIGHT_SUN_ELEVATION_DEG := -12.0
+const NIGHT_VISUAL_FACTOR := 0.35  # GAMEPLAY_ESTIMATE: recognising a hull by eye at night
+static var light := 1.0
 
 ## Electronic attack. A jammer degrades every hostile radar within its reach, but only against
 ## targets lying roughly in the jammer's direction: the noise comes down one bearing.
@@ -44,6 +50,20 @@ static var _jam_lobes: Dictionary = {}
 static func set_environment(env: Dictionary) -> void:
 	environment = env.duplicate()
 	sea_state = clampi(int(env.get("sea_state", 0)), 0, SEA_STATE_NAMES.size() - 1)
+	light = 1.0
+
+
+static func set_sun_elevation(elevation_deg: float) -> void:
+	light = clampf(1.0 - elevation_deg / NIGHT_SUN_ELEVATION_DEG, 0.0, 1.0)
+
+
+## Multiplier on how far a lookout can recognise what he is looking at.
+static func visual_light_factor() -> float:
+	return lerpf(NIGHT_VISUAL_FACTOR, 1.0, light)
+
+
+static func light_name() -> String:
+	return "day" if light >= 0.999 else ("night" if light <= 0.001 else "twilight")
 
 
 static func sea_state_name() -> String:
@@ -182,7 +202,7 @@ static func best_weapon_detection_nm(observer: Unit, wspec: WeaponSpec, weapon_a
 	for s in observer.sensors:
 		if s.kind == "radar":
 			best = maxf(best, weapon_detection_range_nm(s, wspec, observer_height_m(observer, s), weapon_altitude))
-	return best
+	return best * observer.sensor_efficiency()
 
 
 ## Radar signature actually presented by a unit. A submerged boat presents nothing at all; at
@@ -193,7 +213,8 @@ static func radar_signature_of(target: Unit) -> float:
 	if target.submerged():
 		return 0.0
 	if target.at_periscope_depth():
-		return target.spec.signature_factor * RADAR_PERISCOPE_SIGNATURE
+		# A snorkel head and its exhaust plume are a good deal more than a periscope.
+		return target.spec.signature_factor * (SubmarinePower.SNORKEL_RADAR_SIGNATURE if SubmarinePower.snorkelling(target) else RADAR_PERISCOPE_SIGNATURE)
 	return target.spec.signature_factor
 
 
@@ -273,6 +294,8 @@ static func acoustic_noise(u: Unit) -> float:
 	var noise := u.spec.acoustic_signature * (NOISE_AT_REST + NOISE_SPEED_GAIN * frac * frac)
 	if frac > cavitation_fraction(u):
 		noise *= CAVITATION_MULTIPLIER
+	if SubmarinePower.on_diesels(u):
+		noise *= SubmarinePower.DIESEL_NOISE  # the one time a conventional boat is not quiet
 	return noise
 
 
@@ -296,8 +319,43 @@ static func sonar_sensor_ready(observer: Unit, sensor: SensorSpec) -> bool:
 	return (not sensor.requires_hover or DippingSonar.listening(observer)) and TowedArray.sensor_ready(observer, sensor)
 
 
+## The baffles. A sonar fixed to the hull is deaf in the arc astern, where the hull itself and the
+## screws lie between it and the sound: nothing there is heard and no ping comes back from it. An
+## array streamed on a cable (a towed or variable-depth set) is clear of the hull, and a dipping
+## set hangs under a hovering helicopter; neither has the arc. It is why a boat turns to clear
+## its baffles, and why astern is the way to come at one. GAMEPLAY_ESTIMATE half-angle.
+const BAFFLE_HALF_ANGLE_DEG := 30.0
+
+
+static func has_baffles(observer: Unit, sensor: SensorSpec) -> bool:
+	if sensor.kind != "sonar" or sensor.requires_hover or sensor.array_depth_m > 0.0:
+		return false
+	return observer.needs_sea_room()
+
+
+## Whether every sonar this unit can listen on right now is a hull set: it then has no ears astern
+## at all, which is what the chart's gap in the sonar ring shows.
+static func deaf_astern(u: Unit) -> bool:
+	var any := false
+	for s in u.sensors:
+		if s.kind != "sonar" or not sonar_sensor_ready(u, s):
+			continue
+		if not has_baffles(u, s):
+			return false
+		any = true
+	return any
+
+
+static func baffled(observer: Unit, sensor: SensorSpec, at: Vector2) -> bool:
+	if not has_baffles(observer, sensor):
+		return false
+	return absf(Geo.heading_delta(observer.heading_deg + 180.0, Geo.bearing_deg(observer.position, at))) <= BAFFLE_HALF_ANGLE_DEG
+
+
 static func passive_sonar_range_nm(observer: Unit, sensor: SensorSpec, target: Unit, with_path := true) -> float:
 	if sensor.passive_sensitivity_nm <= 0.0 or target.is_aircraft() or target.spec.domain == "land":
+		return 0.0
+	if baffled(observer, sensor, target.position):
 		return 0.0
 	if not sonar_sensor_ready(observer, sensor):
 		return 0.0  # a dipping set has to be in the water
@@ -344,7 +402,7 @@ static func active_sonar_reach_nm(observer: Unit, target: Unit) -> float:
 	for s in observer.sensors:
 		if s.kind != "sonar" or s.active_range_nm <= 0.0:
 			continue
-		if not sonar_sensor_ready(observer, s):
+		if not sonar_sensor_ready(observer, s) or baffled(observer, s, target.position):
 			continue
 		best = maxf(best, s.active_range_nm * Acoustics.active_path_factor(observer, s, target))
 	return best * observer.sensor_efficiency()
@@ -357,7 +415,7 @@ static func active_sonar_sensor_for(observer: Unit, target: Unit) -> SensorSpec:
 	for s in observer.sensors:
 		if s.kind != "sonar" or s.active_range_nm <= 0.0:
 			continue
-		if not sonar_sensor_ready(observer, s):
+		if not sonar_sensor_ready(observer, s) or baffled(observer, s, target.position):
 			continue
 		var r := s.active_range_nm * Acoustics.active_path_factor(observer, s, target)
 		if r > best:
@@ -384,8 +442,8 @@ static func active_sonar_detection_nm(listener: Unit, emitter: Unit) -> float:
 	var best := 0.0
 	for s in listener.sensors:
 		if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0:
-			if not sonar_sensor_ready(listener, s):
-				continue  # a dipping set hears nothing until it is in the water
+			if not sonar_sensor_ready(listener, s) or baffled(listener, s, emitter.position):
+				continue  # a dipping set hears nothing until it is in the water; a hull set nothing astern
 			best = maxf(best, s.passive_sensitivity_nm * 1.8 * self_noise_factor(listener, s))
 	return best
 
@@ -407,7 +465,7 @@ static func torpedo_detection_nm(listener: Unit, wspec: WeaponSpec) -> float:
 			if not sonar_sensor_ready(listener, s):
 				continue
 			best = maxf(best, s.passive_sensitivity_nm * sqrt(maxf(wspec.acoustic_signature, 0.01)) * self_noise_factor(listener, s))
-	return best * sonar_environment_factor()
+	return best * sonar_environment_factor() * listener.sensor_efficiency()
 
 
 # --- Electronic support -------------------------------------------------------------------

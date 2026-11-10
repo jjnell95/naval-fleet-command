@@ -162,6 +162,8 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return TowedArray.rejection(u) == ""
 		Order.Type.RECOVER_TOWED_ARRAY:
 			return TowedArray.capable(u) and (u.array_search_active or u.array_phase != TowedArray.Phase.STOWED)
+		Order.Type.SNORKEL:
+			return SubmarinePower.snorkel_rejection(u, order.automatic) == ""
 		Order.Type.INVESTIGATE:
 			return investigation_rejection(u, order.track) == ""
 		Order.Type.ATTACK:
