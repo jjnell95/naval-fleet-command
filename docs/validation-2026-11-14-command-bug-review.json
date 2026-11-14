@@ -55,5 +55,34 @@
     "sha256": "8f019205dfbc2e6ac82cf3d1c93e4dd97158a1f8592e35e95e37e586bd2a3c36"
   },
   "evidence_directory": "work/review-2026-11-14",
-  "delivery": "Source fixes and rebuilt local browser pack; no live deployment."
+  "delivery": "Source fixes and rebuilt browser pack for normal main-branch publishing.",
+  "validation_phase": "Initial review before integration with newer main; merge_validation records the integrated build.",
+  "merge_validation": {
+    "base_commit": "58439ee0aea29001887a2bfa7ba83c9eadad285a",
+    "code_and_pack_commit": "f915aa644e32f5f9a52b902f7c6dc7e6b36284ec",
+    "native": {
+      "name": "command screen at 1280x720",
+      "checks": 79,
+      "failed": 0,
+      "errors": []
+    },
+    "browser": {
+      "started": true,
+      "save_persisted_after_reload": true,
+      "save_restored": true,
+      "deletion_persisted_after_reload": true,
+      "page_errors": [],
+      "console_errors": [],
+      "console_warnings": 0
+    },
+    "web_pack": {
+      "bytes": 58372040,
+      "sha256": "274fae5382cbadc824dd6ce76086a7fe787059cd6377d85854055dbd3bbd7b19"
+    },
+    "headless": {
+      "tests": 1082,
+      "failed": 0,
+      "new_tests": 9
+    }
+  }
 }

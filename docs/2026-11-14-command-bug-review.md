@@ -4,7 +4,7 @@
 
 This review fixes failures in the existing Fleet Command command loop: select a platform, order an investigation or attack, and let its crew carry out that task using the held contact picture. The reference remains the original manual research recorded in the [command-loop review](2026-10-01-fleet-command-command-loop.md) and [Classic rules review](2026-10-02-deep-command-review.md).
 
-The four-pane command screen, NTDS symbols, right-click orders, finite salvos, original 1990 catalogue and Classic defaults are retained. Classic still offers 1×/2×/4×/8× actual time, manual missile defence and attacks on orders. Platform performance, weapon specifications and scenario definitions are unchanged.
+The four-pane command screen, NTDS symbols, right-click orders, finite salvos, original 1990 catalogue and Classic defaults are retained. Classic still offers 1×/2×/4×/8× actual time, manual missile defence and attacks on orders. These fixes do not change platform performance, weapon specifications or scenario definitions.
 
 ## Findings and fixes
 
@@ -21,11 +21,13 @@ The four-pane command screen, NTDS symbols, right-click orders, finite salvos, o
 
 The stale-contact timer is included in the existing reflective save format. A regression saves a nearly expired pursuit, reloads it and verifies that the remaining grace period expires; older saves without the field load with a fresh grace period. Existing gameplay preferences and saved damage reports retain their values.
 
-The browser data pack is rebuilt with the matching Godot runtime. These are workspace changes; this review does not publish a new live release.
+The browser data pack is rebuilt with the matching Godot runtime from the current main branch plus these fixes, preserving the newer submarine-power, sensor, weapon and graphics updates from PR #42. The pack uses the repository's normal main-branch publishing process.
 
 ## Validation
 
 Seven newly added regression cases failed against the original command/combat implementation before the fixes. Nine new tests in total cover the corrected behavior, including estimated damage and saved pursuit state.
+
+Initial review validation, before integrating the newer main branch:
 
 - **Full headless suite:** 1,048 tests, zero failures.
 - **Native command screen, 1920 × 1080:** 79 checks, zero failures; actual chart selection, context menus, investigation, finite salvos, standing attacks and camera controls.
@@ -33,6 +35,12 @@ Seven newly added regression cases failed against the original command/combat im
 - **Separate-process save continuation:** Carrier Watch (1990) and Northern Passage both resume to byte-identical tactical states compared with uninterrupted runs.
 - **Rebuilt browser game, Chromium:** boot, operation entry, quicksave, page reload, save restoration, deletion and a second reload all passed. No page errors, console errors or console warnings.
 - **Patch checks:** `git diff --check` passed.
+
+Integration validation after rebasing onto main at `58439ee` (PR #42) and rebuilding the pack:
+
+- **Full headless suite:** 1,082 tests, zero failures.
+- **Native command screen, 1280 × 720:** 79 checks, zero failures or unexpected engine errors.
+- **Rebuilt browser game, Chromium:** boot, operation entry, quicksave, reload, restoration and persistent deletion passed again, with no page errors, console errors or console warnings.
 
 Counts, save-state hashes and the rebuilt pack's hash are recorded in [the validation record](validation-2026-11-14-command-bug-review.json).
 
