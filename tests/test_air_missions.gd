@@ -707,6 +707,29 @@ func test_reducing_mission_strength_cancels_queue_before_recalling_airframes() -
 	_done()
 
 
+func test_repeating_a_cap_attack_explicitly_takes_over_its_pursuit() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var assignment := Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, cv.position + Vector2(0, 20), 10)
+	assignment.pursuit_nm = 5
+	assert_true(_sim.unit_manager.issue_order(cv, assignment))
+	var m := _mission()
+	_advance(600)
+	var a := m.aircraft[0]
+	var raid := _plot(m.station + Vector2(5, 0), "8882")
+	raid.domain = "air"
+	raid.identity = "HOSTILE"
+	raid.classification = Track.Classification.CLASS_KNOWN
+	_sim.air_mission_manager._cap_look(m, a, m.tasks[a])
+	assert_eq(a.attack_track, raid)
+	assert_true(_sim.unit_manager.issue_order(a, Order.attack(raid)), "the commander confirms the same contact")
+	raid.position = m.station + Vector2(40, 0)
+	_sim.air_mission_manager._enforce_cap_boundary(m, a, m.tasks[a])
+	assert_eq(a.attack_track, raid, "an explicit player task overrides the automatic pursuit boundary")
+	assert_eq(a.task_generation, a.order_generation, "task completion still belongs to the current order")
+	_done()
+
+
 func test_cap_protects_its_anchor_and_breaks_mission_pursuit_at_boundary() -> void:
 	_load(CARRIER_WATCH)
 	var cv := _unit(IKE)

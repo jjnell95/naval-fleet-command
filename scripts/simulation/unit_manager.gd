@@ -415,6 +415,8 @@ static func attack_rejection(u: Unit, track: Track, weapon_id := "") -> String:
 		return "Contact lost"
 	if not track.visible_to(u):
 		return "Contact is not available to this unit"
+	if track.damage_estimate >= 100.0:
+		return "Target destroyed"
 	if track.identity in ["NEUTRAL", "FRIENDLY"]:
 		return "Protected identity"
 	if u.roe == Unit.Roe.HOLD:
@@ -463,13 +465,19 @@ func _step_attack(u: Unit, dt: float) -> void:
 	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
 		u.clear_attack()
 		return
+	var away := _rounds_away(u, track)
 	var reason := attack_rejection(u, track, u.attack_weapon_id)
-	if reason != "":
+	# Empty racks do not end support for the final salvo. All other refusals (ROE, lost
+	# contact, a reported kill) still end the task immediately.
+	if reason != "" and not (away > 0 and reason in ["Magazine empty", "Magazines empty"]):
 		_end_attack(u, track, reason)
+		return
+	u.attack_stale_s = u.attack_stale_s + dt if track.status != Track.Status.ACTIVE else 0.0
+	if u.attack_stale_s >= ATTACK_STALE_S:
+		_end_attack(u, track, "Contact stale: no fresh plot to fire on")
 		return
 	if u.evasion_remaining_s > 0.0:
 		return  # evasion outranks the task and hands back to it afterwards
-	var away := _rounds_away(u, track)
 	if away > 0:
 		u.attack_phase = "Engaging track · %d round%s away" % [away, "" if away == 1 else "s"]
 		u.attack_assess_until_s = -1.0
@@ -488,32 +496,27 @@ func _step_attack(u: Unit, dt: float) -> void:
 	if spec == null:
 		_end_attack(u, track, "Magazines empty")
 		return
+	var standoff := u.attack_reach_nm(track, spec.id)
+	if track.status != Track.Status.ACTIVE:
+		# Seeking a fresh report is bounded independently of weapon range, guidance or
+		# movement. A launcher refusal must not turn stale-contact pursuit into an endless task.
+		u.attack_phase = "Intercept track · contact stale"
+		_steer_attack(u, track, standoff, dt)
+		return
 	var check: Dictionary = solution["check"]
 	if bool(check["ok"]):
-		if track.status != Track.Status.ACTIVE:
-			# Never shoot at a stale plot: the aim point would be old. Close on it instead, but
-			# not for ever: a plot nobody refreshes for a few minutes is not going to firm up
-			# by itself, and a crew parked on it is a crew the commander thinks is fighting.
-			u.attack_phase = "Intercept track · contact stale"
-			u.attack_stall_s += dt
-			if u.attack_stall_s >= ATTACK_STALE_S:
-				_end_attack(u, track, "Contact stale: no fresh plot to fire on")
-				return
-			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * Combat.effective_range_nm(u, spec), dt)
-			return
 		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
 		if weapon_manager != null and weapon_manager.launch(u, spec, track, salvo, now_s):
 			u.attack_rounds_fired += salvo
 			u.attack_assess_until_s = -1.0
 			u.attack_stall_s = 0.0
-			u.attack_standoff_nm = ATTACK_STANDOFF_FRACTION * Combat.effective_range_nm(u, spec)
+			u.attack_standoff_nm = standoff
 			u.attack_phase = "Engaging track"
 			_steer_attack(u, track, u.attack_standoff_nm, dt)
 		else:
 			u.attack_phase = "Engaging track · awaiting launcher"
 		return
 	var why := str(check["reason"])
-	var reach := Combat.effective_range_nm(u, spec)
 	var range_nm := u.position.distance_to(track.position)
 	match why:
 		"MOUNT MASKED / ATTACK TO UNMASK":
@@ -525,7 +528,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			return
 		"OUT OF RANGE", "BEARING ONLY / NO RANGE SOLUTION", "NO INTERCEPT SOLUTION", "TARGET CAN OUTRUN THE SHOT", "NO RADAR FIX ON AIRCRAFT":
 			u.attack_phase = "Intercept track"
-			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * reach, dt)
+			_steer_attack(u, track, standoff, dt)
 		"INTERCEPT BEYOND WEAPON RANGE":
 			# In reach of the plot but not of where the contact will be: it is opening. Keep
 			# closing on it rather than holding at a standoff the lead point never enters.
@@ -533,7 +536,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			_steer_attack(u, track, maxf(range_nm * 0.5, spec.min_range_nm * 1.5 + 0.5), dt)
 		"NO LINE OF FIRE":
 			# Land between the shooter and the round's path: move to water with an open line.
-			var clear := Combat.clear_standoff_point(u.position, track.position, ATTACK_STANDOFF_FRACTION * reach)
+			var clear := Combat.clear_standoff_point(u.position, track.position, standoff)
 			if not clear.is_finite() or u.spec.max_speed_kn <= 0.0:
 				_end_attack(u, track, "No line of fire")
 				return
@@ -558,7 +561,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 		_:
 			# Fire control saturated, guidance unavailable: hold the geometry and try again.
 			u.attack_phase = "Attack track · " + why.to_lower()
-			_steer_attack(u, track, ATTACK_STANDOFF_FRACTION * reach, dt)
+			_steer_attack(u, track, standoff, dt)
 	# Unable to fire and going nowhere: after a while, say why and stop, rather than park.
 	if not u.has_route():
 		u.attack_stall_s += dt

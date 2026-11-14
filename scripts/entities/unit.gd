@@ -51,6 +51,7 @@ var attack_standoff_nm := 0.0  # where the shooter holds once inside the envelop
 var attack_rounds_fired := 0
 var attack_assess_until_s := -1.0  # a pause between salvos to read the plot again
 var attack_stall_s := 0.0  # time held unable to fire; past UnitManager.ATTACK_STALL_S the task ends
+var attack_stale_s := 0.0  # uninterrupted time without a fresh plot, even while closing
 ## The standing assignment: where this platform belongs when no temporary task holds it. A patrol
 ## circuit (an air station is one too) or a formation station on a guide. Attack, Investigate,
 ## evasion and air-to-air refuelling suspend it; an explicit replacement order from the commander (a
@@ -481,16 +482,17 @@ func apply_order(order: Order) -> void:
 	DippingSonar.on_order(self, order)
 	TowedArray.on_order(self, order)
 	SubmarinePower.on_order(self, order)
-	# A second attack order on the contact already under attack keeps the task, its round count
-	# and its assessment pause; only the chosen weapon can change.
-	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
-		attack_weapon_id = order.weapon_id
-		return
 	if order.type in NAVIGATION_ORDERS:
 		order_generation += 1
 		if order.origin != "crew":
 			player_order_generation += 1
 		station_note = ""
+	# Repeating an attack keeps its rounds and assessment, but the commander's confirmation
+	# takes ownership of a crew-issued pursuit (including the CAP boundary override).
+	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
+		attack_weapon_id = order.weapon_id
+		task_generation = order_generation
+		return
 	var keeping_station := in_formation()
 	if order.type in DETACHING_ORDERS:
 		formation_leader = null
@@ -760,7 +762,10 @@ func attack_reach_nm(track: Track, weapon_id := "") -> float:
 		if suitable.is_empty():
 			return 0.0
 		spec = suitable[0]
-	return UnitManager.ATTACK_STANDOFF_FRACTION * Combat.effective_range_nm(self, spec)
+	var reach := Combat.effective_range_nm(self, spec)
+	if track.domain == "air":
+		reach = Combat.air_no_escape_range_nm(spec, track, position, reach)
+	return UnitManager.ATTACK_STANDOFF_FRACTION * reach
 
 
 ## Other navigation replaces the attack as well; a finished attack keeps its result readable.
@@ -777,6 +782,7 @@ func clear_attack() -> void:
 	attack_rounds_fired = 0
 	attack_assess_until_s = -1.0
 	attack_stall_s = 0.0
+	attack_stale_s = 0.0
 
 
 func in_formation() -> bool:

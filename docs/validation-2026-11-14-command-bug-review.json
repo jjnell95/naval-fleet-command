@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-14",
+  "base_commit": "ce5333b947918fe0884fbabb1967b0e53f93cdee",
+  "godot": "4.7.2.stable.official.ed1daf0bf",
+  "headless": {
+    "tests": 1048,
+    "failed": 0,
+    "new_tests": 9
+  },
+  "native": [
+    {
+      "name": "command screen at 1920x1080",
+      "checks": 79,
+      "failed": 0,
+      "errors": []
+    },
+    {
+      "name": "air operations at 1280x720",
+      "checks": 55,
+      "failed": 0,
+      "errors": []
+    }
+  ],
+  "browser": {
+    "started": true,
+    "save_persisted_after_reload": true,
+    "save_restored": true,
+    "deletion_persisted_after_reload": true,
+    "page_errors": [],
+    "console_errors": [],
+    "console_warnings": 0
+  },
+  "save_continuation": {
+    "cold_war_03_carrier": {
+      "seed": 31,
+      "save_at_s": 601.75,
+      "compare_at_s": 1500.0,
+      "state_bytes": 1863872,
+      "save_file_bytes": 122155,
+      "identical": true,
+      "sha256": "9327e2def68cac78b5ada4b7e25c81e2912426ed85219623905c8cf4deb78d34"
+    },
+    "northern_passage": {
+      "seed": 31,
+      "save_at_s": 500.75,
+      "compare_at_s": 900.0,
+      "state_bytes": 841596,
+      "save_file_bytes": 93790,
+      "identical": true,
+      "sha256": "7196bf9921ddddcaad9be724cb3d0bfd4058f117e0d8627bbbcaf172db4e9d97"
+    }
+  },
+  "web_pack": {
+    "bytes": 57997644,
+    "sha256": "8f019205dfbc2e6ac82cf3d1c93e4dd97158a1f8592e35e95e37e586bd2a3c36"
+  },
+  "evidence_directory": "work/review-2026-11-14",
+  "delivery": "Source fixes and rebuilt local browser pack; no live deployment."
+}
