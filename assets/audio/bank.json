@@ -1,0 +1,733 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "file": "assets/audio/ambient/boat.ogg",
+      "seconds": 12.0,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.83,
+      "sha256": "d89c1a48ac4459ee481b4e1ade13a8f1eba61cb9852d46aa590bda6558e5134c"
+    },
+    {
+      "file": "assets/audio/ambient/engine.ogg",
+      "seconds": 12.0,
+      "sample_rate": 24000,
+      "peak_dbfs": -5.42,
+      "sha256": "1a6334ad3b77529e5983bcd15c4e3823d88f1782c10488a0eaf5f97d50483b13"
+    },
+    {
+      "file": "assets/audio/ambient/jet.ogg",
+      "seconds": 12.0,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.84,
+      "sha256": "f75d80b7b3d70e0d9f1a948f610ba51e1418c4d795dfe056d370df4f3bf405ff"
+    },
+    {
+      "file": "assets/audio/ambient/rotor.ogg",
+      "seconds": 10.0,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.07,
+      "sha256": "ab6a2afd68d5b5188028916ddd83c069e4aad103ebc04fb9b2785e3b5c6c9209"
+    },
+    {
+      "file": "assets/audio/ambient/sea.ogg",
+      "seconds": 18.0,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.87,
+      "sha256": "e709170eff62713a50d5df3c4cc8624514fb5b5a6cfb4dea3c7b9d99901f3e24"
+    },
+    {
+      "file": "assets/audio/crew/bridge/aircraft_rtb_0.ogg",
+      "seconds": 1.2017,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.25,
+      "sha256": "3ed46c016f970d62df10e210c31e14efecf2cdcd8f8d8faddfee1d5cbca90141"
+    },
+    {
+      "file": "assets/audio/crew/bridge/aircraft_rtb_1.ogg",
+      "seconds": 1.1803,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.41,
+      "sha256": "337e6014a5d64bf7618fb61b4d15cadb70af99da45cef8131ed819353cd91dac"
+    },
+    {
+      "file": "assets/audio/crew/bridge/attack_ack_0.ogg",
+      "seconds": 1.8203,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.16,
+      "sha256": "e515edb04321841c19fe4830bc413613f553840944c48fdee6f4c9507a575d0b"
+    },
+    {
+      "file": "assets/audio/crew/bridge/attack_ack_1.ogg",
+      "seconds": 1.543,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.78,
+      "sha256": "9b0d5c8bae6e0505086d4359a6b67d6264225c9de28f8eed32299497fa71fc03"
+    },
+    {
+      "file": "assets/audio/crew/bridge/attack_broken_off_0.ogg",
+      "seconds": 1.799,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.24,
+      "sha256": "d996bd4cacdbc4a7117075ae75a46bfc1e68254f5a0fa65498fbbaa9445ebdb5"
+    },
+    {
+      "file": "assets/audio/crew/bridge/attack_broken_off_1.ogg",
+      "seconds": 1.735,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.28,
+      "sha256": "7095213dea9e63f3458a7b6d133354bdebdec132af63e6622c5c86bf3453d93c"
+    },
+    {
+      "file": "assets/audio/crew/bridge/contact_hostile_0.ogg",
+      "seconds": 1.799,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.21,
+      "sha256": "533010db0c50e85b3837e9c02df6f1c5b1eab1ebda4c6771458784dbedbd7041"
+    },
+    {
+      "file": "assets/audio/crew/bridge/contact_hostile_1.ogg",
+      "seconds": 1.799,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.1,
+      "sha256": "8d503a486dccad2a029757d313eebdaf83954c588aae26bbf5fa6f0a61c5b105"
+    },
+    {
+      "file": "assets/audio/crew/bridge/fire_out_0.ogg",
+      "seconds": 1.9697,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.43,
+      "sha256": "6b421eb5d7a07ff54063b3f61aa7f0835a8fc99e1495d8b0ebf0b87a28c0bc24"
+    },
+    {
+      "file": "assets/audio/crew/bridge/fire_out_1.ogg",
+      "seconds": 1.2657,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.78,
+      "sha256": "18edbcea0eec21947c46bc5bea6e27e8641f4ac89a1208dc20256d12065383bf"
+    },
+    {
+      "file": "assets/audio/crew/bridge/inbound_missile_0.ogg",
+      "seconds": 2.2043,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.15,
+      "sha256": "6964d8e6785d44528d24ab8de2510505f908ba4744381dea988624b96b953fd6"
+    },
+    {
+      "file": "assets/audio/crew/bridge/inbound_missile_1.ogg",
+      "seconds": 2.2897,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.64,
+      "sha256": "4d431d35efbc654aceb74e10a143ad8859bdf22d3017d0a8597a64b6ee82d769"
+    },
+    {
+      "file": "assets/audio/crew/bridge/interceptor_kill_0.ogg",
+      "seconds": 0.9883,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.29,
+      "sha256": "bf9a6f3f6db38213bab5a99ec8b74432f5a0adb2d77cfe6b8ab34e401a14fe7e"
+    },
+    {
+      "file": "assets/audio/crew/bridge/interceptor_kill_1.ogg",
+      "seconds": 1.1163,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.16,
+      "sha256": "07b2a39f02aa6fba89be496f8fd78136e3fcbf56a7a7188d9f7bc7f1ee993b67"
+    },
+    {
+      "file": "assets/audio/crew/bridge/investigate_ack_0.ogg",
+      "seconds": 1.8417,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.88,
+      "sha256": "7dda5aa00ae834436ab0b92e5b7523cbfe76560c0454cd1cb4473bafaabdb8bb"
+    },
+    {
+      "file": "assets/audio/crew/bridge/investigate_ack_1.ogg",
+      "seconds": 1.5857,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.49,
+      "sha256": "7f27b9d7728b37f38666826c8636873ef01256f102f9103282a09d8d6c4063b6"
+    },
+    {
+      "file": "assets/audio/crew/bridge/missile_away_0.ogg",
+      "seconds": 1.031,
+      "sample_rate": 24000,
+      "peak_dbfs": -5.23,
+      "sha256": "89e2a23cfe435a08fe2be62e2609a3fb2041d846ef90624cb35cd40ebecbaba1"
+    },
+    {
+      "file": "assets/audio/crew/bridge/missile_away_1.ogg",
+      "seconds": 1.223,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.44,
+      "sha256": "0763acf68e14c14b89281bec14173fac438892f98e12fbfee5fa2a2d0c0d8a07"
+    },
+    {
+      "file": "assets/audio/crew/bridge/mission_lost_0.ogg",
+      "seconds": 2.183,
+      "sample_rate": 24000,
+      "peak_dbfs": -5.14,
+      "sha256": "d31ff525ba02ba13de9e9618c86544685b6480f691c27924640150411d87c404"
+    },
+    {
+      "file": "assets/audio/crew/bridge/mission_lost_1.ogg",
+      "seconds": 2.2897,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.35,
+      "sha256": "0fb3bb379843901b1e82fa86fcfa0a9a3fd91bae00757d7e27ce9d315bf18d3d"
+    },
+    {
+      "file": "assets/audio/crew/bridge/mission_won_0.ogg",
+      "seconds": 2.8017,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.02,
+      "sha256": "523f9557d7137265ad17527f306962e44e1b56339a803015876c95237f1c4008"
+    },
+    {
+      "file": "assets/audio/crew/bridge/mission_won_1.ogg",
+      "seconds": 2.2043,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.24,
+      "sha256": "3cd7b1491467ce2f2b8ecff615d382dd8a3de280d8a85b63cc83e86473d1a74a"
+    },
+    {
+      "file": "assets/audio/crew/bridge/new_contact_0.ogg",
+      "seconds": 1.5003,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.04,
+      "sha256": "a172afddfafdd77366e8d499c0b2bee50d9d85672c41ddf8eb884a046ea4970b"
+    },
+    {
+      "file": "assets/audio/crew/bridge/new_contact_1.ogg",
+      "seconds": 1.8203,
+      "sample_rate": 24000,
+      "peak_dbfs": -3.86,
+      "sha256": "02f1a12b7bd6efb3bb3ed82959445db5ac67a9a0e498712e5641922616e1e1da"
+    },
+    {
+      "file": "assets/audio/crew/bridge/order_ack_0.ogg",
+      "seconds": 0.8177,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.82,
+      "sha256": "aa91e32430aa67d823d77451060b1ca15109826cbc1027c651209f91ab410408"
+    },
+    {
+      "file": "assets/audio/crew/bridge/order_ack_1.ogg",
+      "seconds": 1.1377,
+      "sample_rate": 24000,
+      "peak_dbfs": -5.01,
+      "sha256": "de3b7bab81b2353bbda4682b40515a38d8d4da757ba0a47680af1feb9dcfb1fc"
+    },
+    {
+      "file": "assets/audio/crew/bridge/order_refused_0.ogg",
+      "seconds": 1.3297,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.99,
+      "sha256": "cd0d1746686be6bc4caa6b06cf5e53f684019155b3b86fb8f1436e08e07c390e"
+    },
+    {
+      "file": "assets/audio/crew/bridge/order_refused_1.ogg",
+      "seconds": 2.0763,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.62,
+      "sha256": "fdf1ba8974aec2518567e0c96c636df9f54852907d13788165ca8734720a16ca"
+    },
+    {
+      "file": "assets/audio/crew/bridge/own_ship_hit_0.ogg",
+      "seconds": 2.3537,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.22,
+      "sha256": "98fafbe9af23e3f9b8a2d5dc41c934affb640bba86a3a6fa326a2facc05d9062"
+    },
+    {
+      "file": "assets/audio/crew/bridge/own_ship_hit_1.ogg",
+      "seconds": 1.7777,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.07,
+      "sha256": "c4cae07b4353bafac7ca5697add9226a6766e27e4994f29f854392c3d6f11c61"
+    },
+    {
+      "file": "assets/audio/crew/bridge/target_destroyed_0.ogg",
+      "seconds": 1.1803,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.14,
+      "sha256": "2b6718e4b1bcecadbd3b970a400321ff28e05008f0663c1318be327761238757"
+    },
+    {
+      "file": "assets/audio/crew/bridge/target_destroyed_1.ogg",
+      "seconds": 1.095,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.24,
+      "sha256": "9bc6dd6bfb02d647c40fd449991b16e2e81bc900d192c8230b2086010a5b328c"
+    },
+    {
+      "file": "assets/audio/crew/bridge/torpedo_away_0.ogg",
+      "seconds": 1.159,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.58,
+      "sha256": "25d089059a1f61d822d04f859c9411935925b7403a0b4b63f4c501fdd53c6b51"
+    },
+    {
+      "file": "assets/audio/crew/bridge/torpedo_away_1.ogg",
+      "seconds": 1.2017,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.99,
+      "sha256": "a65e18c56e62bb5ce99b70ace301c6a9b57773d99a0b474548e49608eaece257"
+    },
+    {
+      "file": "assets/audio/crew/bridge/torpedo_inbound_0.ogg",
+      "seconds": 1.351,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.26,
+      "sha256": "d5249d0a37464dd49a00e3cbad0182a21f474a745e6199ace13e71255078585f"
+    },
+    {
+      "file": "assets/audio/crew/bridge/torpedo_inbound_1.ogg",
+      "seconds": 1.287,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.67,
+      "sha256": "917d72561d372dea520455fe254df8f4e6f32246d3929ce03dc91b0e8a6225f6"
+    },
+    {
+      "file": "assets/audio/crew/bridge/unit_lost_0.ogg",
+      "seconds": 1.5857,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.23,
+      "sha256": "7467793f10791b4e8bf4282eab8da4fa9ec03eededec4857a11031c7dbf28bf9"
+    },
+    {
+      "file": "assets/audio/crew/bridge/unit_lost_1.ogg",
+      "seconds": 1.3083,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.49,
+      "sha256": "8710ed34832f7255924fdf2d63bdb2f6a59cfb02af5f6fb59242f587a0bac819"
+    },
+    {
+      "file": "assets/audio/crew/watch/aircraft_rtb_0.ogg",
+      "seconds": 1.6497,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.24,
+      "sha256": "8656b433ea7d6fd4dedbe3172981d8067859c5ba9ef8d357879b20154a8b9b6e"
+    },
+    {
+      "file": "assets/audio/crew/watch/aircraft_rtb_1.ogg",
+      "seconds": 1.6497,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.3,
+      "sha256": "86d0b07f6d24d54639fbb143446b5b0736b9c2cbed179111a579385c37e5a409"
+    },
+    {
+      "file": "assets/audio/crew/watch/attack_ack_0.ogg",
+      "seconds": 2.4603,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.51,
+      "sha256": "afec6c49a410d5c323ad84744cceae70599c8c95fdea979dfddb72e4f436b151"
+    },
+    {
+      "file": "assets/audio/crew/watch/attack_ack_1.ogg",
+      "seconds": 2.1403,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.07,
+      "sha256": "d9215b17f120c9a67a8e109530a4aa25805b9ab905caf5ce83dfa6313e8968d8"
+    },
+    {
+      "file": "assets/audio/crew/watch/attack_broken_off_0.ogg",
+      "seconds": 2.375,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.31,
+      "sha256": "02eb0f43ca6460440ab67bd09291e67581d04a7b266a0d7b3fcaea0527e9c921"
+    },
+    {
+      "file": "assets/audio/crew/watch/attack_broken_off_1.ogg",
+      "seconds": 2.4817,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.0,
+      "sha256": "e67c746d93a9d48696e1f612052ba570d551ff36520dc35b083b27aa0a824bff"
+    },
+    {
+      "file": "assets/audio/crew/watch/contact_hostile_0.ogg",
+      "seconds": 2.503,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.28,
+      "sha256": "67a1ea2363b0e7274552a4e70579ae55cb1451655450dc623b0ea1435adb18fb"
+    },
+    {
+      "file": "assets/audio/crew/watch/contact_hostile_1.ogg",
+      "seconds": 2.375,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.47,
+      "sha256": "224e05f3a199b1de9eb68ce63ad10a37f8a5e66f65b1adae55cc4214c80b9bd1"
+    },
+    {
+      "file": "assets/audio/crew/watch/fire_out_0.ogg",
+      "seconds": 2.8443,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.05,
+      "sha256": "3c0b4d191894bd5a601efbd8ddf09c683f3ce7e6ef717a6bc6cc94c8693866ed"
+    },
+    {
+      "file": "assets/audio/crew/watch/fire_out_1.ogg",
+      "seconds": 1.671,
+      "sample_rate": 24000,
+      "peak_dbfs": -3.96,
+      "sha256": "22b8dcd65f41c200b299c657e4974b2ca118f686693ccffe3899f35f1641b064"
+    },
+    {
+      "file": "assets/audio/crew/watch/inbound_missile_0.ogg",
+      "seconds": 2.9297,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.23,
+      "sha256": "ca308647291856b6983cf305969177d348e46ea66a36ded57326ecc25e649020"
+    },
+    {
+      "file": "assets/audio/crew/watch/inbound_missile_1.ogg",
+      "seconds": 3.1857,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.4,
+      "sha256": "bbd6233fc2a0cb4a825acf567ef0a235054ef095ff1178a235a0456bf2c13464"
+    },
+    {
+      "file": "assets/audio/crew/watch/interceptor_kill_0.ogg",
+      "seconds": 1.3723,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.33,
+      "sha256": "b63145dfb34b009903a98ce8dd30b80a985e0a43716d328c048d1f517914bcce"
+    },
+    {
+      "file": "assets/audio/crew/watch/interceptor_kill_1.ogg",
+      "seconds": 1.543,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.2,
+      "sha256": "1e5d205967425c8e18e0a45e85d7e7915bf93b67b3a05afdeddaa62f98a2dfe4"
+    },
+    {
+      "file": "assets/audio/crew/watch/investigate_ack_0.ogg",
+      "seconds": 2.6097,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.38,
+      "sha256": "7334c7a57fb9d23824d14f7e9b8e2ddf26af539dcec8e52412b415caa545b671"
+    },
+    {
+      "file": "assets/audio/crew/watch/investigate_ack_1.ogg",
+      "seconds": 2.0337,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.48,
+      "sha256": "96b604a7f3b3a43e693015a6727cf15dff18d9ed7503cbb01ae357afd068f2ae"
+    },
+    {
+      "file": "assets/audio/crew/watch/missile_away_0.ogg",
+      "seconds": 1.4363,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.4,
+      "sha256": "5413cf280b93658d883b33964d96c81934b61c3a01cd3ffbdf34734dfbd86044"
+    },
+    {
+      "file": "assets/audio/crew/watch/missile_away_1.ogg",
+      "seconds": 1.6283,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.41,
+      "sha256": "801f7bffa7cebf0f986f51f4ed376b113dc2ead88c522f272b8154bacd39981c"
+    },
+    {
+      "file": "assets/audio/crew/watch/mission_lost_0.ogg",
+      "seconds": 2.887,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.34,
+      "sha256": "7d6a8fffcd9988415b9b79e16adac2f4929caed0c252f981ae74d819649ba3b2"
+    },
+    {
+      "file": "assets/audio/crew/watch/mission_lost_1.ogg",
+      "seconds": 3.1003,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.17,
+      "sha256": "36e12375aa6b5bec5e467a8403ba1e2f9787886e73a624bbc79b590b457ddcac"
+    },
+    {
+      "file": "assets/audio/crew/watch/mission_won_0.ogg",
+      "seconds": 3.527,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.27,
+      "sha256": "451959bee4afb442819fc8de524322f14fa132a558427e8f967588aad1a10e8b"
+    },
+    {
+      "file": "assets/audio/crew/watch/mission_won_1.ogg",
+      "seconds": 2.823,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.24,
+      "sha256": "587ccba7b96a862f948f3f835e8af0ce13a9b5e518f5b6159eabeba4f851c5fe"
+    },
+    {
+      "file": "assets/audio/crew/watch/new_contact_0.ogg",
+      "seconds": 2.1617,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.19,
+      "sha256": "9bdd5c080a4f601e89358e21e7d0e3425aa6bf4981c3414ff94fbd073095f6ee"
+    },
+    {
+      "file": "assets/audio/crew/watch/new_contact_1.ogg",
+      "seconds": 2.3537,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.05,
+      "sha256": "d010ea8229aaa55566b9eee4976f964592f5011fbb21042e14def89b2877ad0a"
+    },
+    {
+      "file": "assets/audio/crew/watch/order_ack_0.ogg",
+      "seconds": 1.1803,
+      "sample_rate": 24000,
+      "peak_dbfs": -5.13,
+      "sha256": "436c17b68cd9c8a7f2467a5e121cc3b8934d271a4c348026b1082252a2e88cf6"
+    },
+    {
+      "file": "assets/audio/crew/watch/order_ack_1.ogg",
+      "seconds": 1.6283,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.38,
+      "sha256": "87cbff50fa1999363e459bea78bdf0ec54600379c81221a639f5d0e8dc5977fa"
+    },
+    {
+      "file": "assets/audio/crew/watch/order_refused_0.ogg",
+      "seconds": 1.9057,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.43,
+      "sha256": "9272cfe7b5964adb1c07f3fbf81e9c40e856a3b5aee58e7ef02612c2c5a57aad"
+    },
+    {
+      "file": "assets/audio/crew/watch/order_refused_1.ogg",
+      "seconds": 2.759,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.17,
+      "sha256": "b53ff09c9df3bdd67239d59b2018d870570187a3cb3ecade3a15960017af6d6a"
+    },
+    {
+      "file": "assets/audio/crew/watch/own_ship_hit_0.ogg",
+      "seconds": 2.9083,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.25,
+      "sha256": "17af24304a9d9b6171b0c09f1cfe9c1e4d84d051ce9e3edecb570d21ed6d8e19"
+    },
+    {
+      "file": "assets/audio/crew/watch/own_ship_hit_1.ogg",
+      "seconds": 2.2897,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.32,
+      "sha256": "a75ae0cbdea510d162d92efe647b5111aa24815ee841f7685450b01ef650c512"
+    },
+    {
+      "file": "assets/audio/crew/watch/target_destroyed_0.ogg",
+      "seconds": 1.671,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.32,
+      "sha256": "998c7cdada7e72d3d8d49c0e662182c314fe71bc3d51b0b153d370ef5ed7c203"
+    },
+    {
+      "file": "assets/audio/crew/watch/target_destroyed_1.ogg",
+      "seconds": 1.479,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.13,
+      "sha256": "6735b451d87f12333bef1138014bab7fc7d3937d95ac459f57748598649cc06a"
+    },
+    {
+      "file": "assets/audio/crew/watch/torpedo_away_0.ogg",
+      "seconds": 1.6283,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.91,
+      "sha256": "1af59cb1e66a5dab9c29818d1e03200bb1164369e15bdbf75e1fc1797ea9fdb3"
+    },
+    {
+      "file": "assets/audio/crew/watch/torpedo_away_1.ogg",
+      "seconds": 1.6923,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.47,
+      "sha256": "de3bab7e7820222da7ea32e5b9ec0bb07983f8ce5cd6d316efffeaf9f07b3ab4"
+    },
+    {
+      "file": "assets/audio/crew/watch/torpedo_inbound_0.ogg",
+      "seconds": 1.927,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.22,
+      "sha256": "998944c3d293277c2a09a82a6f2d69cb6aea1044a1b16a60da851a1b0a29f743"
+    },
+    {
+      "file": "assets/audio/crew/watch/torpedo_inbound_1.ogg",
+      "seconds": 1.8843,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.22,
+      "sha256": "dbea9dd63b57d4e3d7206961cb2dcd43a731d51bace75e9afdab33e8898cec6b"
+    },
+    {
+      "file": "assets/audio/crew/watch/unit_lost_0.ogg",
+      "seconds": 2.2257,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.42,
+      "sha256": "0a854e79f8cd926441223da39b3e7f0644328af35d505cf89ffa8263a2e534bf"
+    },
+    {
+      "file": "assets/audio/crew/watch/unit_lost_1.ogg",
+      "seconds": 1.7563,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.13,
+      "sha256": "edd7f0781766b449c267e00aeeea3094f7fad11fe5e7ae9302a313da8366590d"
+    },
+    {
+      "file": "assets/audio/effects/alarm_0.ogg",
+      "seconds": 1.05,
+      "sample_rate": 24000,
+      "peak_dbfs": -9.06,
+      "sha256": "19effa28344258ce7a7fae5f2de28146b5a300c33a98cd65919be172f2d799e6"
+    },
+    {
+      "file": "assets/audio/effects/classified_0.ogg",
+      "seconds": 0.19,
+      "sample_rate": 24000,
+      "peak_dbfs": -5.32,
+      "sha256": "b416380b1a3df93fede6198295f4f240b12a459376c003693cc8e907fe0e93ab"
+    },
+    {
+      "file": "assets/audio/effects/click_0.ogg",
+      "seconds": 0.055,
+      "sample_rate": 24000,
+      "peak_dbfs": -5.21,
+      "sha256": "dd8dba2a6101957ad85f4246cf776b79f6e7e4dfd9ee0cb65760b54502d613fa"
+    },
+    {
+      "file": "assets/audio/effects/complete_0.ogg",
+      "seconds": 0.22,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.74,
+      "sha256": "9cdf1e35fc890aa010d02a557146ff061cea0e68f950001096061015f10bd962"
+    },
+    {
+      "file": "assets/audio/effects/contact_0.ogg",
+      "seconds": 0.2,
+      "sample_rate": 24000,
+      "peak_dbfs": -4.21,
+      "sha256": "48c2dfedf32c20dee346382aa393050fbe25c3cc258f6c3af0fd337a4350734a"
+    },
+    {
+      "file": "assets/audio/effects/gun_0.ogg",
+      "seconds": 1.2,
+      "sample_rate": 24000,
+      "peak_dbfs": -1.92,
+      "sha256": "a72ccf8e39bf1f11df581034f7fb9fad69aa0c0fbc2bb017474811ffc37d8b19"
+    },
+    {
+      "file": "assets/audio/effects/gun_1.ogg",
+      "seconds": 1.2,
+      "sample_rate": 24000,
+      "peak_dbfs": -1.95,
+      "sha256": "82d8ced84804138e5d7173d7f209c19e18131ea2a0549e4f058d1fd7b83877ba"
+    },
+    {
+      "file": "assets/audio/effects/gun_2.ogg",
+      "seconds": 1.2,
+      "sample_rate": 24000,
+      "peak_dbfs": -1.84,
+      "sha256": "b1b558bea1018d55ac095d0778b7ee18e38d8112bdca83bce5719cdabd00ee2b"
+    },
+    {
+      "file": "assets/audio/effects/impact_0.ogg",
+      "seconds": 2.6,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.43,
+      "sha256": "19318494a6724e50627c091a470dfef0e19977f3c2a061ae68979af7c9df6ae5"
+    },
+    {
+      "file": "assets/audio/effects/impact_1.ogg",
+      "seconds": 2.6,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.14,
+      "sha256": "074fbf2fedaf998e101bf3355bebb40da9c9400edc68a2e84d2f094998e1f3cb"
+    },
+    {
+      "file": "assets/audio/effects/impact_2.ogg",
+      "seconds": 2.6,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.8,
+      "sha256": "5f7230f6dcaa60f6b96d44bf66807f9ef606016ba0d8bf7d9f16ab226165480e"
+    },
+    {
+      "file": "assets/audio/effects/intercept_0.ogg",
+      "seconds": 0.85,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.35,
+      "sha256": "b711f3c04995916b0de20cbe7249adb4bce742a7a6c84107d13bdadb2a21f078"
+    },
+    {
+      "file": "assets/audio/effects/intercept_1.ogg",
+      "seconds": 0.85,
+      "sample_rate": 24000,
+      "peak_dbfs": -1.97,
+      "sha256": "b716c1d0b94963a4cc52401d1e3281237a3d41efd236805f6575b2574c1f4967"
+    },
+    {
+      "file": "assets/audio/effects/intercept_2.ogg",
+      "seconds": 0.85,
+      "sample_rate": 24000,
+      "peak_dbfs": -1.79,
+      "sha256": "8c1bbe1db3dc2c7cbc90802432aa857bc73317c5c0a7b2a99615035d7590fa70"
+    },
+    {
+      "file": "assets/audio/effects/launch_0.ogg",
+      "seconds": 2.0,
+      "sample_rate": 24000,
+      "peak_dbfs": -1.66,
+      "sha256": "a651675dde58dc59594672f32d9161a70e27a3c8e148e4889cacb715d46d2cb0"
+    },
+    {
+      "file": "assets/audio/effects/launch_1.ogg",
+      "seconds": 2.0,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.63,
+      "sha256": "5cade26498e74efc1db5011283501b01dccdae3446add5c58b6d1772d9a1d2db"
+    },
+    {
+      "file": "assets/audio/effects/launch_2.ogg",
+      "seconds": 2.0,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.55,
+      "sha256": "0684ff4d5a020effea05c3a13a03b64009b7b31bd4b64c68e328c4a8395920ea"
+    },
+    {
+      "file": "assets/audio/effects/ping_0.ogg",
+      "seconds": 1.1,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.35,
+      "sha256": "a270b9944d219c9efcdcf8f6b9900b42c91e487f03dc7bb1b5b6d02c5126ba2d"
+    },
+    {
+      "file": "assets/audio/effects/release_0.ogg",
+      "seconds": 0.22,
+      "sample_rate": 24000,
+      "peak_dbfs": -1.75,
+      "sha256": "667ce2a1d0468a789fb1ab311d5886f22bc533d4456e559ddf74372b2d6508df"
+    },
+    {
+      "file": "assets/audio/effects/torpedo_0.ogg",
+      "seconds": 1.2,
+      "sample_rate": 24000,
+      "peak_dbfs": -8.69,
+      "sha256": "eec6c227d4743abb80ef5e4497ff781e4f8fd03ed18727d724992457745d2730"
+    },
+    {
+      "file": "assets/audio/effects/torpedo_launch_0.ogg",
+      "seconds": 1.5,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.44,
+      "sha256": "fe8163d17ef35a591d829f5a528cf4c0206f30ab9ce48ce2eb12ba15dc2c0dde"
+    },
+    {
+      "file": "assets/audio/effects/torpedo_launch_1.ogg",
+      "seconds": 1.5,
+      "sample_rate": 24000,
+      "peak_dbfs": -1.94,
+      "sha256": "24a12200e847a4b270b984e3c1eb4348d166cf1d55f18c4b8148a003fe8de479"
+    },
+    {
+      "file": "assets/audio/effects/torpedo_launch_2.ogg",
+      "seconds": 1.5,
+      "sample_rate": 24000,
+      "peak_dbfs": -2.23,
+      "sha256": "2bb69f4051285e813dbeb2e86d51760c217a8b17fa294f017831bc4f4c932f66"
+    }
+  ]
+}
