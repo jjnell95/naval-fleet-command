@@ -160,7 +160,7 @@ func test_own_hit_raises_only_the_shooters_estimate_over_the_class_health() -> v
 	assert_near(blue.damage_estimate, 100.0 * 35.0 / health, 0.01, "a miss assesses nothing")
 	for i in 10:
 		tm.on_weapon_impact("BLUE", weapon, target, true)
-	assert_near(blue.damage_estimate, 100.0, 1e-6, "capped at 100")
+	assert_near(blue.damage_estimate, 99.0, 1e-6, "estimated hits cannot confirm a kill")
 	assert_true(target.health == DataDB.platform("rfn_cg_slava").health, "assessment never touches or reads the target's health")
 	tm.free()
 
@@ -184,6 +184,32 @@ func test_a_kill_the_plot_sees_reads_one_hundred() -> void:
 	var t := _held("BLUE", target, tm)
 	tm.on_unit_destroyed(target, "BLUE")
 	assert_near(t.damage_estimate, 100.0, 1e-6)
+	var later_hit := WeaponSpec.new()
+	later_hit.damage = 35.0
+	tm.record_hit("BLUE", later_hit, target)
+	assert_eq(t.damage_estimate, 100.0, "a later impact report cannot undo a confirmed kill")
+	tm.free()
+
+
+func test_estimated_damage_does_not_stop_an_attack_on_a_surviving_contact() -> void:
+	var tm := TrackManager.new()
+	var target := _unit(_spec("Unknown carrier", 1000.0), "RED", Vector2(0, 10))
+	var t := _held("BLUE", target, tm)
+	t.identity = "HOSTILE"
+	t.domain = "surface"
+	var weapon := WeaponSpec.new()
+	weapon.id = "test_asm"
+	weapon.damage = 200.0  # exceeds the unclassified contact's assumed 100-point pool
+	weapon.max_range_nm = 60.0
+	var shooter := _unit(_spec("DDG Test"), "BLUE", Vector2.ZERO)
+	shooter.weapons.append(weapon)
+	shooter.magazines[weapon.id] = 4
+	tm.record_hit("BLUE", weapon, target)
+	assert_true(Combat.check_engagement(shooter, weapon, t).ok, "the estimate alone does not end engagement")
+	assert_eq(UnitManager.attack_rejection(shooter, t), "")
+	tm.record_kill(target)
+	assert_eq(Combat.check_engagement(shooter, weapon, t).reason, "TARGET DESTROYED")
+	assert_eq(UnitManager.attack_rejection(shooter, t), "Target destroyed")
 	tm.free()
 
 

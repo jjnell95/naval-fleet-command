@@ -318,11 +318,6 @@ func tick(dt: float, now: float) -> void:
 	_sort_pending()
 	for p: Dictionary in _pending.duplicate():
 		var check := engagement_check(p.shooter, p.spec, p.track, now, true)
-		if check.ok and (p.track as Track).damage_estimate >= 100.0:
-			# The plot records the contact as sunk (the kill was reported): the rounds still on
-			# the rail are kept for something that is still afloat.
-			check.ok = false
-			check.reason = "TARGET DESTROYED"
 		if not check.ok:
 			_pending.erase(p)
 			revision += 1

@@ -112,6 +112,23 @@ func test_envelope_checks() -> void:
 
 # --- Weapon flight -----------------------------------------------------------------------
 
+func test_reported_kills_refuse_new_salvos_without_spending_ammunition() -> void:
+	var w := _asm()
+	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, w, 8)
+	var target := _unit("RED", Vector2(0, 20))
+	var t := _track(target, target.position)
+	t.damage_estimate = 100.0
+	var wm := _harness([shooter, target])
+	assert_true(not wm.launch(shooter, w, t, 2, 0.0), "the held kill report blocks the whole salvo")
+	assert_eq(shooter.magazine_count(w.id), 8)
+	assert_true(wm.in_flight.is_empty())
+	assert_eq(Combat.check_engagement(shooter, w, t).reason, "TARGET DESTROYED")
+	# Decisions still use the held report: hidden destruction alone is not a kill confirmation.
+	t.damage_estimate = -1.0
+	target.alive = false
+	assert_true(Combat.check_engagement(shooter, w, t).ok)
+	_cleanup(wm)
+
 func test_salvo_consumes_magazine_and_spawns_rounds() -> void:
 	var w := _asm()
 	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, w, 8)

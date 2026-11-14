@@ -96,6 +96,9 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if not track.visible_to(shooter):
 		out["reason"] = "TRACK NOT HELD / OFF LINK"
 		return out
+	if track.damage_estimate >= 100.0:
+		out["reason"] = "TARGET DESTROYED"
+		return out
 	if track.identity in ["NEUTRAL", "FRIENDLY"]:
 		out["reason"] = "PROTECTED IDENTITY"
 		return out

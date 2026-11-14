@@ -258,6 +258,44 @@ func test_magazines_empty_ends_the_task_with_a_report() -> void:
 	h.free_all()
 
 
+func test_the_last_salvo_is_followed_until_it_resolves_before_returning_to_station() -> void:
+	var asm := _asm(60.0)
+	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [asm], 2)
+	var target := _unit("RED", Vector2(0, 30), 800.0)
+	var t := _track(target, target.position)
+	var h := _harness([shooter, target])
+	assert_true(h.um.issue_order(shooter, Order.patrol_box(Vector2(-5, -5), Vector2(5, 5))))
+	shooter.auto_return = true
+	assert_true(h.um.issue_order(shooter, Order.attack(t)))
+	h.advance(5.0)
+	assert_eq(shooter.magazine_count(asm.id), 0)
+	assert_true(h.wm.committed_rounds(shooter, asm, t) > 0, "the final salvo is still in flight")
+	assert_eq(shooter.attack_track, t, "the crew still supports and observes its final salvo")
+	assert_true(not shooter.on_station(), "automatic station return waits for the salvo")
+	assert_true(h.ended.is_empty(), "empty magazines are not a completed engagement while rounds are away")
+	assert_true(h.until(func() -> bool: return not h.ended.is_empty(), 900.0))
+	assert_eq(h.wm.committed_rounds(shooter, asm, t), 0)
+	assert_eq(h.ended[0][2], "Magazines empty")
+	assert_true(shooter.on_station())
+	h.free_all()
+
+
+func test_a_reported_kill_cannot_start_or_continue_a_standing_attack() -> void:
+	var asm := _asm()
+	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [asm])
+	var target := _unit("RED", Vector2(0, 80))
+	var t := _track(target, target.position)
+	var h := _harness([shooter, target])
+	assert_true(h.um.issue_order(shooter, Order.attack(t)))
+	t.damage_estimate = 100.0  # reported by another platform, while this ship is closing
+	h.advance(DT)
+	assert_eq(shooter.attack_track, null)
+	assert_eq(shooter.attack_result, "Target destroyed")
+	assert_true(not h.um.issue_order(shooter, Order.attack(t)), "a second right-click must not restart it")
+	assert_eq(shooter.magazine_count(asm.id), 8)
+	h.free_all()
+
+
 # --- Rejections -------------------------------------------------------------------------
 
 func test_attack_is_refused_for_protected_lost_unidentified_and_unarmed_cases() -> void:
@@ -596,4 +634,66 @@ func test_an_attack_held_on_a_stale_plot_gives_it_back_with_the_reason() -> void
 	h.advance(10.0)
 	assert_eq(h.ended.size(), 1, "the crew does not park on a plot nobody refreshes")
 	assert_eq(h.ended[0][2], "Contact stale: no fresh plot to fire on")
+	h.free_all()
+
+
+func test_a_stale_plot_expires_even_while_out_of_range_or_without_guidance() -> void:
+	for gap in [30.0, 80.0]:
+		var asm := _asm(60.0)
+		asm.type = "sam"
+		asm.guidance = "semi_active_radar"
+		var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [asm])
+		var target := _unit("RED", Vector2(0, gap))
+		var t := _track(target, target.position)
+		t.status = Track.Status.STALE
+		var h := _harness([shooter, target])
+		assert_true(h.um.issue_order(shooter, Order.attack(t)))
+		h.advance(UnitManager.ATTACK_STALE_S - 1.0)
+		assert_eq(shooter.attack_track, t, "allow time to reacquire the contact")
+		h.advance(2.0)
+		assert_eq(shooter.attack_track, null, "range and radar availability must not reset stale time")
+		assert_eq(shooter.attack_result, "Contact stale: no fresh plot to fire on")
+		assert_eq(shooter.magazine_count(asm.id), 8)
+		h.free_all()
+
+
+func test_a_fresh_report_resets_the_stale_pursuit_timeout() -> void:
+	var asm := _asm(60.0)
+	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [asm])
+	var target := _unit("RED", Vector2(0, 80))
+	var t := _track(target, target.position)
+	t.status = Track.Status.STALE
+	var h := _harness([shooter, target])
+	h.um.issue_order(shooter, Order.attack(t))
+	h.advance(UnitManager.ATTACK_STALE_S - 5.0)
+	t.status = Track.Status.ACTIVE
+	h.advance(DT)
+	t.status = Track.Status.STALE
+	h.advance(10.0)
+	assert_eq(shooter.attack_track, t, "a new loss of contact starts a fresh grace period")
+	h.advance(UnitManager.ATTACK_STALE_S)
+	assert_eq(shooter.attack_result, "Contact stale: no fresh plot to fire on")
+	h.free_all()
+
+
+func test_an_attack_closes_inside_the_air_targets_usable_weapon_envelope() -> void:
+	var sam := _asm(45.0)
+	sam.type = "sam"
+	sam.target_types = PackedStringArray(["air"])
+	sam.speed_kn = 2100.0
+	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [sam])
+	var target := _unit("RED", Vector2(0, 34), 100.0, [], 0, true)
+	var t := _track(target, target.position)
+	t.has_kinematics = true
+	t.speed_kn = 900.0
+	t.course_deg = 90.0  # crossing: within nominal reach, outside the no-escape envelope
+	var h := _harness([shooter, target])
+	assert_eq(Combat.check_engagement(shooter, sam, t).reason, "TARGET CAN OUTRUN THE SHOT")
+	assert_true(h.um.issue_order(shooter, Order.attack(t)))
+	assert_true(shooter.has_route(), "the paused attack already plots a useful closing leg")
+	h.advance(DT)
+	assert_true(shooter.has_route(), "the ship must not stop outside the range at which it can fire")
+	assert_true(shooter.ordered_speed_kn > 0.0)
+	if shooter.has_route():
+		assert_true(shooter.waypoints[0].distance_to(t.position) < Combat.air_no_escape_range_nm(sam, t, shooter.position))
 	h.free_all()

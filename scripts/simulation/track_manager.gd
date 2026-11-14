@@ -286,9 +286,11 @@ func record_hit(faction: String, spec: WeaponSpec, target: Unit) -> void:
 	if spec == null or target == null:
 		return
 	var t := find_track(faction, target)
-	if t == null or t.status == Track.Status.LOST:
+	if t == null or t.status == Track.Status.LOST or t.damage_estimate >= 100.0:
 		return
-	t.damage_estimate = minf(t.damage_estimate + 100.0 * spec.damage / assessed_health(t, spec.id), 100.0)
+	# Estimated damage cannot confirm destruction: catalogue health and actual damage can
+	# differ. Reserve 100 for record_kill, since crews use it to stop spending ammunition.
+	t.damage_estimate = minf(t.damage_estimate + 100.0 * spec.damage / assessed_health(t, spec.id), 99.0)
 
 
 ## The damage pool a side assumes for a contact: the catalogue health of the class its track

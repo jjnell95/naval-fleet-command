@@ -1,5 +1,7 @@
 # Naval Fleet Command
 
+**Command bug fixes:** attacks respect confirmed kill reports, keep supporting their final salvo, close to usable air-target range and release stale pursuits consistently. Explicit player attacks take precedence over automatic CAP boundaries. The Classic rules and four-pane command screen are preserved. See [the review and validation](docs/2026-11-14-command-bug-review.md).
+
 **Credible command update:** move and resize existing air stations on the chart, assign CAP to protect a group, and use capability-based AAW/ASW screens. Expanded readouts, evidence-based contact solutions, forward-looking missile seekers, submarine check-ins, deliberate ship-array handling and aircraft patrol/transit/dash profiles make the command decisions more legible. Two short command exercises teach missile defence and sonar deployment. See [controls, behavior and limitations](docs/2026-10-03-credible-command.md).
 
 **Deeper command review:** Classic now uses the original four actual time rates (1×, 2×, 4×, 8×), manual SAM defence and attacks on orders. Northern Passage has an optional guide that follows real commands and explains unresolved reports. The 3D view distinguishes sighted vessels from sensor estimates, uses reported class data and respects terrain masking. Existing saves keep their exact gameplay rules. See [the findings and validation](docs/2026-10-02-deep-command-review.md).
