@@ -32,10 +32,7 @@ func run(scene_tree: SceneTree) -> void:
 	main._briefing._start.pressed.connect(func() -> void: SimClock.set_paused(true), CONNECT_ONE_SHOT)
 	await _click_control(main._briefing._start)
 	Debug.log_events = false
-	for unit: Unit in main.simulation.unit_manager.get_faction_units("BLUE"):
-		if unit.spec.id == "usn_ddg_arleigh_burke_iia": host = unit
-		if unit.spec.id == "rnon_ffg_fridtjof_nansen": frigate = unit
-		if unit.is_aircraft(): helo = unit
+	_find_intro_units()
 	checks["mission opens through mouse input"] = main._command_taken and not main._menu.visible and not main._briefing.visible
 	checks["intro force available"] = host != null and frigate != null and helo != null
 	if not checks["intro force available"]:
@@ -51,6 +48,7 @@ func run(scene_tree: SceneTree) -> void:
 	await _chart_click(frigate.position)
 	checks["own ship selected through chart input"] = main.map.selected == [frigate]
 	await _shot("command")
+	await _comms_location()
 	await _chart_and_clock()
 	await _camera_controls()
 	main.simulation.unit_manager.issue_order(frigate, Order.set_roe(Unit.Roe.TIGHT))
@@ -69,6 +67,47 @@ func run(scene_tree: SceneTree) -> void:
 		await _contact_and_investigation(unknown)
 	await _aircraft_and_engagement()
 	_finish()
+
+
+func _find_intro_units() -> void:
+	for unit: Unit in main.simulation.unit_manager.get_faction_units("BLUE"):
+		if unit.spec.id == "usn_ddg_arleigh_burke_iia": host = unit
+		if unit.spec.id == "rnon_ffg_fridtjof_nansen": frigate = unit
+		if unit.is_aircraft(): helo = unit
+
+
+func _comms_location() -> void:
+	var original_center := main.map.center_nm
+	var original_zoom := main.map.ppn
+	var original_camera := main._world_view.camera_mode()
+	var reported := host.position
+	main.status_boards.restore_messages(["[b]08:00[/b]   Earlier text-only report"])
+	main.radio.flash("Position report", "info", host)
+	host.position += Vector2(4, 3)
+	var previous_root := SaveGame.root_override
+	SaveGame.root_override = output_dir.path_join("engagements")
+	var path := SaveGame.slot_path("comms-location")
+	var saved := main.save_engagement("comms-location", "manual", "Report location")
+	main.status_boards.clear_messages()
+	var loaded := main.load_engagement(path) if saved == "" else saved
+	SaveGame.root_override = previous_root
+	checks["Engagement with a Comms location saves and reloads"] = saved == "" and loaded == ""
+	if loaded != "":
+		host.position = reported
+		return
+	_find_intro_units()
+	main.map.set_follow_selection(true)
+	await _click(main.data_display.get_global_transform_with_canvas() * main.data_display._lamp_rect.get_center())
+	var comms := main.status_boards._comms
+	checks["Comms restores reports and leaves legacy messages as plain text"] = main.status_boards.showing_comms() and comms.get_parsed_text().begins_with("Locate") and comms.get_parsed_text().ends_with("Earlier text-only report")
+	await _shot("comms-location")
+	var inset := comms.get_theme_stylebox("normal").get_offset()
+	await _click(comms.get_global_transform_with_canvas() * (inset + Vector2(12, comms.get_line_height(0) * 0.5)))
+	checks["Clicking Locate returns to the position at report time after restore"] = not main.status_boards.visible and main.map.world_to_screen(reported).distance_to(main.map.unobstructed_chart_rect().get_center()) < 1.0
+	checks["Locate preserves the command selection, zoom and camera mode"] = main.map.selected == [frigate] and main.map.ppn == original_zoom and main._world_view.camera_mode() == original_camera and not main.map.follow_selection
+	host.position = reported
+	main.map.center_nm = original_center
+	main.status_boards.close_boards()
 
 
 func _chart_and_clock() -> void:

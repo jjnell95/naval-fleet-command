@@ -28,7 +28,7 @@ uniform int coverage_count = 0;
 // 0: the regional map's translucent green discs. 1: the tactical chart's sensor coverage, lit
 // inside the discs and dark beyond them (radar fully, air search partly, sonar sea-green).
 uniform int coverage_mode = 0;
-const float COVER_DARK = 0.30;          // brightness of the chart beyond every sensor
+const float COVER_DARK = 0.70;          // retain readable land relief and depth bands outside coverage
 const float COVER_FEATHER_PX = 5.0;     // soft edge of a lit disc, on screen
 
 const float LAND_SCALE_M = 6000.0;
@@ -111,18 +111,18 @@ vec3 band(vec3 c, float d, float fw, float from_m, vec3 rgb) {
 	return mix(c, rgb / 255.0, clamp((d - from_m) / fw + 0.5, 0.0, 1.0));
 }
 
-// Stepped sea bands by depth in metres, lightest at the coast, no green.
+// Nautical depth tints: a brighter shelf at the coast grades into deep blue offshore.
 vec3 sea_colour(float d, float fw) {
-	vec3 c = vec3(28.0, 48.0, 132.0) / 255.0;
-	c = band(c, d, fw, 20.0, vec3(24.0, 41.0, 124.0));
-	c = band(c, d, fw, 50.0, vec3(20.0, 35.0, 114.0));
-	c = band(c, d, fw, 100.0, vec3(17.0, 30.0, 106.0));
-	c = band(c, d, fw, 200.0, vec3(14.0, 26.0, 98.0));
-	c = band(c, d, fw, 500.0, vec3(12.0, 23.0, 92.0));
-	c = band(c, d, fw, 1000.0, vec3(10.0, 20.0, 84.0));
-	c = band(c, d, fw, 2000.0, vec3(8.0, 17.0, 76.0));
-	c = band(c, d, fw, 3000.0, vec3(7.0, 14.0, 68.0));
-	return band(c, d, fw, 4000.0, vec3(6.0, 12.0, 60.0));
+	vec3 c = vec3(47.0, 100.0, 166.0) / 255.0;
+	c = band(c, d, fw, 20.0, vec3(39.0, 86.0, 155.0));
+	c = band(c, d, fw, 50.0, vec3(32.0, 73.0, 144.0));
+	c = band(c, d, fw, 100.0, vec3(26.0, 62.0, 133.0));
+	c = band(c, d, fw, 200.0, vec3(22.0, 53.0, 122.0));
+	c = band(c, d, fw, 500.0, vec3(18.0, 46.0, 114.0));
+	c = band(c, d, fw, 1000.0, vec3(15.0, 40.0, 106.0));
+	c = band(c, d, fw, 2000.0, vec3(12.0, 34.0, 98.0));
+	c = band(c, d, fw, 3000.0, vec3(10.0, 29.0, 89.0));
+	return band(c, d, fw, 4000.0, vec3(8.0, 25.0, 81.0));
 }
 
 vec3 ramp(vec3 c, float h, float from_m, float to_m, vec3 rgb) {
@@ -257,7 +257,7 @@ vec3 finish(vec3 c, vec2 w) {
 			}
 		}
 		float l2 = dot(c, vec3(0.299, 0.587, 0.114));
-		vec3 dark = mix(vec3(l2), c, 0.35) * COVER_DARK;
+		vec3 dark = mix(vec3(l2), c, 0.80) * COVER_DARK;
 		vec3 shown = mix(dark, c, max(lit, sonar * 0.5));
 		// Under water only: a sea-green cast where sonar listens and no radar reaches.
 		shown = mix(shown, shown * vec3(0.78, 1.08, 1.02), sonar * (1.0 - lit) * 0.7);

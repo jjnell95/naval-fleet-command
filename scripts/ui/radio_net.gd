@@ -35,7 +35,8 @@ var latest_text := ""
 
 ## Puts a message on the net. `speaker` is the unit or track talking, if any: the line reads
 ## "<callsign>: <text>" and the speaker's symbol is ringed while the line shows.
-func flash(msg: String, severity := "info", speaker: RefCounted = null) -> void:
+## A report about a plot already visible to the commander can supply its last recorded fix.
+func flash(msg: String, severity := "info", speaker: RefCounted = null, reported_position := Vector2.INF) -> void:
 	var line := format_line(msg, speaker)
 	latest_text = line
 	var stamped := "%s  %s" % [SimClock.datetime_string(), line]
@@ -49,10 +50,23 @@ func flash(msg: String, severity := "info", speaker: RefCounted = null) -> void:
 	if map != null:
 		map.post_message(line, severity, speaker)
 	if boards != null:
-		boards.add_message(line, severity)
+		boards.add_message(line, severity, reported_position if reported_position.is_finite() else _reported_position(speaker))
 	if display != null and severity in ["alert", "warn"] and (boards == null or not boards.showing_comms()):
 		display.unread_alerts += 1
 	logged.emit(line, severity)
+
+
+## Snapshot only what the plot holds at report time. A later click never looks up the subject.
+func _reported_position(subject: RefCounted) -> Vector2:
+	if map != null and subject is Unit:
+		var u := subject as Unit
+		if u.faction == map.player_faction and (SubmarineComms.connected(u) or u.comms_report.has("position")):
+			return SubmarineComms.reported_position(u)
+	elif map != null and subject is Track:
+		var t := subject as Track
+		if not t.is_bearing_only() and map._visible_tracks().has(t):
+			return t.position
+	return Vector2.INF
 
 
 ## Interface advice: a line that only explains the interface ("Select a shooter before you

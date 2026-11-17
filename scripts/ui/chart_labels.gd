@@ -1,15 +1,8 @@
 class_name ChartLabels
 extends RefCounted
-## Where the chart prints its track numbers and tags. Every symbol asks for its label at the
-## classic place, the lower right; where that would print over another label or another symbol,
-## the label moves to the upper right, the lower left or the upper left, and where none of those is
-## clear it is left off, so a close formation never smears its numbers into one another. The hooked
-## platform's label is placed first and always printed at the classic place.
-##
-## The assignment is remade a few times a second rather than every frame (labels follow their
-## symbols in between, and a settled plot does not flicker), and the collision test walks a coarse
-## grid, so a busy plot costs a fraction of a millisecond. The placement itself is a pure function,
-## so the tests can pin it.
+## Places track labels and chart captions in one collision grid. The inspected contact gets
+## first choice, followed by the selected platforms. A crowded primary label can move farther
+## from its symbol and connect to it with a leader. Other labels need a clear adjacent space.
 
 ## Offset signs (x, y) tried in order: lower right, upper right, lower left, upper left.
 const OFFSETS: Array[Vector2] = [Vector2(1.0, 1.0), Vector2(1.0, -1.0), Vector2(-1.0, 1.0), Vector2(-1.0, -1.0)]
@@ -21,6 +14,8 @@ const EXTENT_PUSH := 0.4
 const REPLACE_S := 0.25
 const CELL_PX := 48.0
 const GAP_PX := 2.0
+const CALLOUT_STEP := Vector2(20, 15)
+const CALLOUT_LEVELS := 6
 
 var _slots: Dictionary = {}  # key -> offset index, or HIDDEN
 var _last_s := -INF
@@ -32,10 +27,10 @@ func due(now: float, count: int) -> bool:
 	return now - _last_s >= REPLACE_S or now < _last_s or count != _last_count
 
 
-func assign(labels: Array, now: float) -> void:
-	_slots = place(labels)
+func assign(labels: Array, now: float, bounds := Rect2(), captions: Array = []) -> void:
+	_slots = place(labels, bounds, captions)
 	_last_s = now
-	_last_count = labels.size()
+	_last_count = labels.size() + captions.size()
 
 
 ## The offset index a label was given (the classic place for one not yet assigned), or HIDDEN.
@@ -64,41 +59,58 @@ static func baseline(rect: Rect2, ascent: float) -> Vector2:
 	return Vector2(rect.position.x, rect.position.y + ascent)
 
 
-## Assigns every label an offset index, or HIDDEN. `labels` are dictionaries with `key`, `at`
-## (Vector2), `extent`, `size` (Vector2), `ascent` and `priority`. Priority labels (the hook's) are
-## placed first and never left off; the rest follow in the order given, each clear of every symbol
-## but its own and of every label already placed, or left off where none of the four places is.
-static func place(labels: Array) -> Dictionary:
+## The first four slots sit beside the symbol. Higher slots move the block farther along the
+## same diagonal so the inspected number can clear a cluster without moving its marker.
+static func slot_box(label: Dictionary, slot_index: int) -> Rect2:
+	var direction := OFFSETS[slot_index % OFFSETS.size()]
+	var rect := box(label.at, label.extent, label.size, label.ascent, direction)
+	rect.position += direction * CALLOUT_STEP * floorf(float(slot_index) / OFFSETS.size())
+	return rect
+
+
+static func place(labels: Array, bounds := Rect2(), captions: Array = []) -> Dictionary:
 	var slots := {}
-	var grid := {}  # Vector2i cell -> PackedInt32Array of entries
+	var grid := {}
 	var rects: Array[Rect2] = []
-	var owners := PackedInt32Array()  # the label whose symbol a rect is, or -1 for a placed label
+	var owners := PackedInt32Array()
+	var order := PackedInt32Array()
+	var ordinary := PackedInt32Array()
 	for i in labels.size():
 		var l: Dictionary = labels[i]
-		var e: float = l["extent"]
-		_insert(grid, rects, owners, Rect2((l["at"] as Vector2) - Vector2.ONE * e, Vector2.ONE * 2.0 * e), i)
-	var order := PackedInt32Array()
-	for i in labels.size():
-		if bool(labels[i].get("priority", false)):
+		var e: float = l.extent
+		_insert(grid, rects, owners, Rect2(l.at - Vector2.ONE * e, Vector2.ONE * 2.0 * e), i)
+		slots[l.key] = HIDDEN
+		if l.size == Vector2.ZERO or (bounds.has_area() and not bounds.has_point(l.at)):
+			continue
+		if l.get("priority", false):
 			order.append(i)
-	for i in labels.size():
-		if not bool(labels[i].get("priority", false)):
-			order.append(i)
+		else:
+			ordinary.append(i)
+	var primary := order[0] if not order.is_empty() else -1
+	order.append_array(ordinary)
 	for i in order:
 		var l: Dictionary = labels[i]
-		var at: Vector2 = l["at"]
-		var priority := bool(l.get("priority", false))
-		slots[l["key"]] = HIDDEN
-		for k in OFFSETS.size():
-			var r := box(at, l["extent"], l["size"], l["ascent"], OFFSETS[k])
+		var limit := OFFSETS.size() * (CALLOUT_LEVELS + 1 if i == primary else 1)
+		var inside := HIDDEN
+		for k in limit:
+			var r := slot_box(l, k)
+			if bounds.has_area() and not bounds.encloses(r.grow(GAP_PX)):
+				continue
+			if inside == HIDDEN:
+				inside = k
 			if _clear(grid, rects, owners, r.grow(GAP_PX), i):
-				slots[l["key"]] = k
+				slots[l.key] = k
 				_insert(grid, rects, owners, r, -1)
 				break
-		if priority and int(slots[l["key"]]) == HIDDEN:
-			# The hook's number is never left off: it takes the classic place, clear or not.
-			slots[l["key"]] = 0
-			_insert(grid, rects, owners, box(at, l["extent"], l["size"], l["ascent"], OFFSETS[0]), -1)
+		if i == primary and int(slots[l.key]) == HIDDEN and inside != HIDDEN:
+			slots[l.key] = inside
+			_insert(grid, rects, owners, slot_box(l, inside), -1)
+	for caption: Dictionary in captions:
+		var rect: Rect2 = caption.rect
+		var clear := (not bounds.has_area() or bounds.encloses(rect)) and _clear(grid, rects, owners, rect.grow(GAP_PX), -2)
+		slots[caption.key] = 0 if clear else HIDDEN
+		if clear:
+			_insert(grid, rects, owners, rect, -1)
 	return slots
 
 

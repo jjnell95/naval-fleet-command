@@ -111,6 +111,11 @@ func _ready() -> void:
 	status_boards.finish_boards()
 	status_boards.hide()
 	status_boards.closed.connect(_focus_map_if_clear)
+	status_boards.report_located.connect(func(position: Vector2) -> void:
+		if _world_full:
+			_toggle_world_full()
+		status_boards.close_boards()
+		map.center_on(position))
 	status_boards.visibility_changed.connect(_sync_overlay)
 	radio.map = map
 	radio.display = data_display
@@ -643,7 +648,7 @@ func _restore_presentation(d: Dictionary) -> void:
 	radio.journal.assign(d.get("journal", []))
 	radio.journal_omitted = int(d.get("journal_omitted", 0))
 	radio.history.assign(d.get("history", []))
-	status_boards._messages.assign(d.get("board_messages", []))
+	status_boards.restore_messages(d.get("board_messages", []))
 	_stats = d.get("stats", _stats).duplicate()
 	_losses = PackedStringArray(d.get("losses", []))
 	_kills = PackedStringArray(d.get("kills", []))
@@ -2414,6 +2419,8 @@ func _on_waypoint_delete_requested(u: Unit, index: int) -> void:
 func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 	var items: Array = []
 	match str(context.get("kind", "")):
+		"contact_stack":
+			items = CdsMenus.contact_stack_items(context["tracks"], map.selected_track)
 		"own_unit":
 			var u: Unit = context.get("unit")
 			if u != null and not map.selected.has(u):
@@ -2458,6 +2465,8 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 
 func _run_cds_action(action: Dictionary) -> void:
 	match str(action.get("kind", "")):
+		"choose_contact":
+			map.choose_plotted_contact(action["track"])
 		"order":
 			_apply_order_to_selection(action["order"])
 		"unit_orders":
@@ -2858,12 +2867,17 @@ func _toggle_sonar_on_selection() -> void:
 			break
 
 
+## These callbacks receive the commander's known contact, including its last plot after loss.
+func _report_contact(t: Track, message: String, severity: String) -> void:
+	radio.flash(message, severity, null, Vector2.INF if t.is_bearing_only() else t.position)
+
+
 func _on_track_added(faction: String, t: Track) -> void:
 	if faction != simulation.player_faction or not _commander_sees_track(t):
 		return
 	SimClock.drop_to_realtime()
 	_stats["contacts"] += 1
-	radio.flash("New contact, track %s (%s)" % [DataDisplay.track_number_for_track(t), DataDisplay.source_text(t.source)], "warn")
+	_report_contact(t, "New contact, track %s (%s)" % [DataDisplay.track_number_for_track(t), DataDisplay.source_text(t.source)], "warn")
 	SoundFx.play("contact", 0.5)
 	voice.say("new_contact", null, {"track": t})
 	contact_panel.refresh()
@@ -2877,18 +2891,18 @@ func _on_track_classified(faction: String, t: Track) -> void:
 		SimClock.drop_to_realtime()
 		if t.identity == "HOSTILE":
 			_stats["classified"] += 1
-		radio.flash("Track %s classified %s, %s" % [DataDisplay.track_number_for_track(t), t.known_class, t.identity.to_lower()], "alert" if t.identity == "HOSTILE" else "info")
+		_report_contact(t, "Track %s classified %s, %s" % [DataDisplay.track_number_for_track(t), t.known_class, t.identity.to_lower()], "alert" if t.identity == "HOSTILE" else "info")
 		SoundFx.play("classified", 0.5)
 		if t.identity == "HOSTILE":
 			voice.say("contact_hostile", null, {"track": t})
 		Debug.event("[Contact] %s classified as %s (%s)" % [t.id, t.known_class, t.identity])
 	elif t.classification == Track.Classification.IDENTIFIED:
-		radio.flash("Track %s identified as %s" % [DataDisplay.track_number_for_track(t), t.known_callsign])
+		_report_contact(t, "Track %s identified as %s" % [DataDisplay.track_number_for_track(t), t.known_callsign], "info")
 
 
 func _on_track_lost(faction: String, t: Track) -> void:
 	if faction == simulation.player_faction and _commander_sees_track(t):
-		radio.flash("Track %s lost" % DataDisplay.track_number_for_track(t), "warn")
+		_report_contact(t, "Track %s lost" % DataDisplay.track_number_for_track(t), "warn")
 
 
 func _all_controllable(units: Array) -> bool:

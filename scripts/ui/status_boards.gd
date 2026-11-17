@@ -12,6 +12,7 @@ extends PanelContainer
 signal closed
 ## The comms history came on screen, by any route: the lamp, A, or a click on the COMMS tab.
 signal comms_shown
+signal report_located(position: Vector2)
 
 const BOARD_ORDERS := 0
 const BOARD_TASK_GROUP := 1
@@ -23,7 +24,7 @@ const SEVERITY_COLORS := {"alert": "#c01818", "warn": "#9a5a00", "good": "#0a6a1
 
 var _tabs: TabContainer
 var _comms: RichTextLabel
-var _messages: Array[String] = []
+var _messages: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -53,6 +54,9 @@ func _ready() -> void:
 	_comms.name = "Comms"
 	_comms.bbcode_enabled = true
 	_comms.scroll_following = false
+	_comms.meta_clicked.connect(func(position: Variant) -> void:
+		if position is Vector2 and position.is_finite():
+			report_located.emit(position))
 
 
 ## Moves a panel onto a board. Panels arrive from the scene in board order. A board page is
@@ -105,6 +109,7 @@ func close_boards() -> void:
 
 func _announce_comms() -> void:
 	if showing_comms():
+		_render_messages()
 		comms_shown.emit()
 
 
@@ -116,15 +121,44 @@ func showing_comms() -> bool:
 	return visible and current_board() == BOARD_COMMS
 
 
-func add_message(text: String, severity := "info") -> void:
+func add_message(text: String, severity := "info", reported_position := Vector2.INF) -> void:
 	var stamp := DataDisplay.clock_text()
 	var colour: String = SEVERITY_COLORS.get(severity, "")
 	var body := text.replace("[", "[lb]")
-	_messages.push_front("[b]%s[/b]   %s" % [stamp, body if colour == "" else "[color=%s]%s[/color]" % [colour, body]])
+	var report := {"line": "[b]%s[/b]   %s" % [stamp, body if colour == "" else "[color=%s]%s[/color]" % [colour, body]]}
+	if reported_position.is_finite():
+		report["position"] = reported_position
+	_messages.push_front(report)
 	if _messages.size() > MAX_MESSAGES:
 		_messages.resize(MAX_MESSAGES)
-	if _comms != null:
-		_comms.text = "\n".join(_messages)
+	if showing_comms():
+		_render_messages()
+
+
+func restore_messages(saved: Array) -> void:
+	_messages.clear()
+	for entry in saved.slice(0, MAX_MESSAGES):
+		if entry is String:
+			_messages.append({"line": entry}) # Earlier saves kept only formatted text.
+		elif entry is Dictionary and entry.get("line") is String:
+			_messages.append(entry)
+	if showing_comms():
+		_render_messages()
+
+
+func _render_messages() -> void:
+	_comms.clear()
+	for index in _messages.size():
+		var report := _messages[index]
+		if index > 0:
+			_comms.newline()
+		var position: Variant = report.get("position")
+		if position is Vector2 and position.is_finite():
+			_comms.push_meta(position, RichTextLabel.META_UNDERLINE_ALWAYS, "Center the chart on this report’s recorded position")
+			_comms.add_text("Locate")
+			_comms.pop()
+			_comms.add_text("   ")
+		_comms.append_text(report.line)
 
 
 func clear_messages() -> void:

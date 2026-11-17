@@ -648,7 +648,7 @@ func test_a_crowd_drops_the_labels_it_cannot_place_and_never_the_hook() -> void:
 		labels.append(_label("t%d" % i, Vector2(200 + 2 * i, 200 + i)))
 	labels.append(_label("hooked", Vector2(206, 203), true))
 	var slots := ChartLabels.place(labels)
-	assert_eq(int(slots["hooked"]), 0, "the hooked platform's number is always at the classic place")
+	assert_true(int(slots["hooked"]) >= ChartLabels.OFFSETS.size(), "the crowded hook gets a connected label outside the symbols")
 	for i in 8:
 		assert_eq(int(slots["t%d" % i]), ChartLabels.HIDDEN, "eight symbols on one spot cannot be labelled without a smear")
 	# A line of four, 14 px apart: the ones at the ends have room, the ones inside do not.
@@ -672,6 +672,45 @@ func test_a_crowd_drops_the_labels_it_cannot_place_and_never_the_hook() -> void:
 				assert_true(not r.intersects(symbol), "and of every other symbol")
 		rects.append(r)
 	assert_true(printed >= 2, "the ends of the line are labelled; %d were" % printed)
+
+
+func test_group_selection_keeps_one_clear_primary_and_never_piles_selected_tags_on_it() -> void:
+	var labels: Array = []
+	for i in 24:
+		labels.append(_label("u%d" % i, Vector2(115 + i % 5, 98 + i % 3), true))
+	var slots := ChartLabels.place(labels, Rect2(0, 0, 300, 200))
+	assert_true(slots.u0 >= ChartLabels.OFFSETS.size())
+	for i in range(1, 24):
+		assert_eq(slots[labels[i].key], ChartLabels.HIDDEN, "selecting the whole group cannot force overprinted labels")
+
+
+func test_a_concave_island_does_not_label_the_water_in_its_bay() -> void:
+	var island := Landmass.from_dict({"name": "U Island", "points_nm": [
+		[-5, -5], [5, -5], [5, 5], [3, 5], [3, -3], [-3, -3], [-3, 5], [-5, 5]]})
+	var map := TacticalMap.new()
+	map.size = Vector2(600, 400)
+	map.ppn = 20
+	assert_true(not island.contains(island.centroid), "the mean vertex position falls in the bay")
+	map._draw_land_name(island, island.bounds.grow(1))
+	assert_true(map._chart_captions.is_empty(), "an offshore fallback cannot stand in for an island label")
+	map.free()
+
+
+func test_range_and_place_captions_share_the_number_and_symbol_reservations() -> void:
+	var bounded := Rect2(0, 0, 240, 150)
+	var hook := _label("hook", Vector2(232, 140), true)
+	var quiet := Rect2(15, 20, 40, 14)
+	var captions := [{"key": 0, "rect": Rect2(226, 134, 12, 12)}, {"key": 1, "rect": quiet}, {"key": 2, "rect": quiet}]
+	var slots := ChartLabels.place([hook], bounded, captions)
+	assert_true(slots.hook >= 0)
+	var hooked_rect := ChartLabels.slot_box(hook, slots.hook)
+	assert_true(bounded.encloses(hooked_rect), "the hooked number stays inside the chart at a corner")
+	assert_eq(slots[0], ChartLabels.HIDDEN, "a range caption cannot obscure the mark")
+	assert_eq(slots[1], 0, "an unobstructed name still prints")
+	assert_eq(slots[2], ChartLabels.HIDDEN, "two captions cannot print on top of one another")
+	captions[0].rect = hooked_rect
+	slots = ChartLabels.place([hook], bounded, captions)
+	assert_eq(slots[0], ChartLabels.HIDDEN, "a place name cannot obscure the hooked number")
 
 
 func test_the_assignment_is_remade_a_few_times_a_second_or_when_the_count_changes() -> void:

@@ -251,6 +251,7 @@ func set_weather(state: int, visibility_nm: float, env: Dictionary) -> void:
 	_sky_material.set_shader_parameter("cloud_wind", _wind * wind_kn * 0.00018)
 	_sky_material.set_shader_parameter("rain_intensity", rain_intensity)
 	_ocean_material.set_shader_parameter("sea_state", float(state))
+	_ocean_material.set_shader_parameter("cloud_cover", cloud_cover)
 	_ocean_material.set_shader_parameter("swell_a", _swell)
 	_ocean_material.set_shader_parameter("swell_dir", Vector4(_wind.x, _wind.y, _wind2.x, _wind2.y))
 	RenderingServer.global_shader_parameter_set("world_swell_a", _swell if state > 0 else Vector4(0.0, _swell.y, 0.0, _swell.w))
@@ -1362,25 +1363,59 @@ func focus_frame(key: String) -> Dictionary:
 	return frame
 
 
-## The nearest own unit to a point on the view, within `radius_px`, for double-click selection.
-func pick_own_unit(screen: Vector2, radius_px := 30.0) -> Unit:
-	if camera == null:
-		return null
-	var best: Unit = null
-	var best_d := radius_px
-	for key in _records:
-		var rec: Dictionary = _records[key]
-		var e: Dictionary = rec["entry"]
-		if e["kind"] != "own" or rec.get("root") == null:
+## Pick from the drawn models, including unlabelled hulls that can obscure a held contact.
+## A direct hit wins over the small cursor allowance; overlapping hits resolve front to back.
+func pick_entry(screen: Vector2) -> Dictionary:
+	if camera == null or not camera.get_viewport().get_visible_rect().has_point(screen):
+		return {}
+	var eye := camera.project_ray_origin(screen)
+	var direction := camera.project_ray_normal(screen)
+	var best: Dictionary = {}
+	var best_gap := INF
+	var best_depth := INF
+	var best_point := Vector3.ZERO
+	for rec: Dictionary in _records.values():
+		var root: Node3D = rec.get("root")
+		if root == null or not root.is_visible_in_tree():
 			continue
-		var root: Node3D = rec["root"]
-		if camera.is_position_behind(root.position):
+		var bounds: AABB = rec["bounds"]
+		var xf := root.global_transform
+		var inverse := xf.affine_inverse()
+		var hit = bounds.intersects_ray(inverse * eye, inverse.basis * direction)
+		var point := xf * (Vector3(hit) if hit != null else bounds.get_center())
+		if not camera.is_position_in_frustum(point):
 			continue
-		var d := camera.unproject_position(root.position).distance_to(screen)
-		if d < best_d:
-			best_d = d
-			best = e["unit"]
-	return best
+		var gap := 0.0
+		if hit == null:
+			var kind: String = rec["entry"]["kind"]
+			if kind not in ["own", "visual", "plotted"]:
+				continue
+			gap = camera.unproject_position(point).distance_to(screen)
+			if gap > (30.0 if kind == "own" else 10.0):
+				continue
+		var depth := eye.distance_squared_to(point)
+		if gap < best_gap or (is_equal_approx(gap, best_gap) and depth < best_depth):
+			best = rec
+			best_gap = gap
+			best_depth = depth
+			best_point = point
+	if best.is_empty() or float(best["dying_since"]) >= 0 or _land_hides_pick(eye, best_point):
+		return {}
+	return best["entry"]
+
+
+## Sample the same presentation height field that the pane draws. The sea remains transparent
+## to the schematic submerged contacts the pane deliberately renders through it.
+func _land_hides_pick(eye: Vector3, point: Vector3) -> bool:
+	if land == null:
+		return false
+	var steps := maxi(2, ceili(eye.distance_to(point) / 100.0))
+	for i in range(1, steps):
+		var p := eye.lerp(point, float(i) / steps)
+		var ground := ground_at(p)
+		if ground > 0.0 and ground > p.y:
+			return true
+	return false
 
 
 # --- Effects and reset ---------------------------------------------------------------------

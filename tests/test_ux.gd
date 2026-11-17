@@ -574,6 +574,65 @@ func test_overlapping_hit_areas_select_the_symbol_under_the_pointer() -> void:
 	_free_fixture(f)
 
 
+func _left_click(map: TacticalMap, at: Vector2) -> void:
+	for pressed: bool in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = pressed
+		click.position = at
+		map._gui_input(click)
+
+
+func test_crowded_contact_picker_uses_the_held_picture_and_retains_the_chosen_track() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var one: Track = f["hostile"]
+	var two: Track = f["unknown"]
+	two.position = one.position
+	var at := map.world_to_screen(one.position)
+	map.select_units([f["ship"]])
+	var shell := Main.new()
+	shell.map = map
+	shell._cds_menus = CdsMenus.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(shell._cds_menus)
+	map.context_menu_requested.connect(shell._on_map_context)
+	shell._cds_menus.action_chosen.connect(shell._run_cds_action)
+	for i in 40:
+		var distant := _track("D%d" % i, "UNKNOWN", Vector2(32 + i, 35))
+		(f["tracks"] as TrackManager)._tracks["BLUE"].append(distant)
+	_left_click(map, at)
+	var popup := shell._cds_menus._root
+	assert_true(popup != null and popup.visible, "a plain click opens the native picker")
+	assert_eq(popup.item_count, 4, "the heading, separator, and two contacts at this point")
+	assert_true(popup.get_item_text(2).begins_with(DataDisplay.track_number_for_track(one)))
+	assert_true(popup.get_item_text(3).begins_with(DataDisplay.track_number_for_track(two)))
+	assert_eq(map.selected_track, null, "opening the picker issues no selection or order")
+	assert_true(f["events"]["attack"].is_empty())
+	popup.id_pressed.emit(popup.get_item_id(2))
+	assert_eq(map.selected_track, one)
+	assert_eq(map.selected, [f["ship"]])
+	_right_click(map, at)
+	assert_eq(f["events"]["attack"], [one], "a follow-up click on the stack uses the chosen track")
+	two.position += Vector2(2, 0) # Eight screen pixels between two 18 px hit areas.
+	_left_click(map, map.world_to_screen(two.position))
+	assert_eq(map.selected_track, two, "a clearly closer contact bypasses the picker")
+	assert_eq(f["events"]["context"].size(), 1)
+	two.position = one.position
+	_left_click(map, at)
+	popup = shell._cds_menus._root
+	one.status = Track.Status.LOST
+	popup.id_pressed.emit(popup.get_item_id(2))
+	assert_eq(map.selected_track, two, "a contact lost while the menu was open cannot be hooked")
+	one.status = Track.Status.ACTIVE
+	map.show_hostiles = false
+	_left_click(map, at)
+	assert_eq(map.selected_track, two)
+	assert_eq(f["events"]["context"].size(), 2, "a hidden contact cannot cause ambiguity")
+	shell._cds_menus.free()
+	shell.free()
+	_free_fixture(f)
+
+
 func test_stowed_aircraft_and_unsupported_system_orders_are_refused() -> void:
 	var aircraft := _unit("usn_fighter_f35c")
 	assert_true(not aircraft.is_engageable())

@@ -595,8 +595,8 @@ func _point_frame(focus: Dictionary) -> Dictionary:
 
 # --- Input ---------------------------------------------------------------------------------
 
-## Left drag orbits the tether, the wheel zooms it, a double-click on one of ours hooks it on the
-## chart. Every mouse event is consumed here so nothing falls through to what lies underneath.
+## Left drag orbits the tether, the wheel zooms it, and double-click inspects a platform or held
+## contact on the chart. Every mouse event is consumed here.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var e := event as InputEventMouseButton
@@ -629,9 +629,17 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _select_at(screen: Vector2) -> void:
-	var u := _scene.pick_own_unit(screen)
-	if u != null and map != null:
-		map.select_units([u])
+	if map == null or not _live():
+		return
+	var entry := _scene.pick_entry(screen)
+	if entry.get("kind") == "own":
+		var unit: Unit = entry.get("unit")
+		if unit != null and unit.is_engageable():
+			map.select_units([unit])
+	elif entry.get("kind") in ["visual", "plotted"]:
+		var track: Track = entry.get("track")
+		if WorldPresentation.plottable(track) and not track.confirmed_destroyed and map._plotted_tracks().has(track):
+			map.select_track(track)
 
 
 # --- HUD -----------------------------------------------------------------------------------
@@ -653,7 +661,7 @@ func _build_camera_controls() -> void:
 	_camera_select.custom_minimum_size = Vector2(96, 25)
 	_camera_select.add_theme_font_size_override("font_size", 12)
 	_camera_select.focus_mode = Control.FOCUS_NONE
-	_camera_select.tooltip_text = "Choose camera · drag to orbit · wheel to zoom"
+	_camera_select.tooltip_text = "Choose camera · drag to orbit · wheel to zoom · double-click a platform or contact to inspect"
 	for mode in WorldCamera.MODE_NAMES:
 		_camera_select.add_item(mode)
 	_camera_select.item_selected.connect(set_camera_mode)

@@ -208,3 +208,35 @@ func test_per_unit_orders_and_escort_drag_both_report_queue_without_moving_silen
 	assert_true(_main.radio.journal[-1].contains("Queued for submarine check-in"))
 	assert_true(_voice.reported_events.is_empty())
 	_done()
+
+
+func test_comms_keeps_the_reported_fix_after_the_track_expires_and_guards_private_positions() -> void:
+	_setup()
+	var boards := StatusBoards.new()
+	_main.radio.map = _main.map
+	_main.radio.boards = boards
+	var manager := _main.simulation.track_manager
+	manager.track_lost.connect(_main._on_track_lost)
+	var contact := Unit.new()
+	contact.faction = "RED"
+	contact.position = Vector2(222, 90)
+	var fix := Vector2(145, 70)
+	var t := manager.report_intel("BLUE", contact, fix, 2.0, 0.0, "Exercise report")
+	manager.tick(Track.LOST_AFTER_S + 1.0, 0.0)
+	assert_true(not manager.get_tracks("BLUE").has(t), "loss is recorded after removal")
+	assert_eq(boards._messages[0].get("position"), fix, "uses the last charted fix")
+	t.bearing_only = true
+	_main._on_track_lost("BLUE", t)
+	assert_true(not boards._messages[0].has("position"), "an unlocated bearing has no Locate action")
+	t.networked = false
+	var count := boards.message_count()
+	_main._on_track_lost("BLUE", t)
+	assert_eq(boards.message_count(), count, "private losses stay out of Comms")
+	var last_fix := _boat.position
+	_boat.position += Vector2(10, 10)
+	_main.radio.flash("Order queued", "info", _boat)
+	assert_eq(boards._messages[0].get("position"), last_fix, "only the last reported own position is visible")
+	_main.radio.flash("Unplotted report", "info", contact)
+	assert_true(not boards._messages[0].has("position"), "a foreign unit's true position is never clickable")
+	boards.free()
+	_done()

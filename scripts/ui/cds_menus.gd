@@ -42,6 +42,20 @@ static func submenu(text: String, children: Array, disabled := false, tooltip :=
 	return {"text": text, "children": children, "disabled": disabled or children.is_empty(), "tooltip": tooltip}
 
 
+static func contact_stack_items(contacts: Array, selected: Track) -> Array:
+	var items: Array = [{"text": "Choose contact", "disabled": true}, sep()]
+	for t: Track in contacts:
+		var description := t.description()
+		if description == "":
+			description = "Contact"
+		var number := DataDisplay.track_number_for_track(t)
+		var label := "%s   %s" % [number if number != "" else t.id, description]
+		if t.identity != "UNKNOWN" or description != "UNKNOWN CONTACT":
+			label += "  ·  " + t.identity.capitalize()
+		items.append(item(label, {"kind": "choose_contact", "track": t}, false, "", 1 if t == selected else -1))
+	return items
+
+
 static func order_action(o: Order) -> Dictionary:
 	return {"kind": "order", "order": o}
 

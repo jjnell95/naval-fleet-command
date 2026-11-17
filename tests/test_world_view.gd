@@ -1047,6 +1047,7 @@ func test_weather_follows_explicit_rain_and_wind_changes_without_a_sea_state_cha
 	assert_eq(scene.rain_intensity, 0.12)
 	assert_eq(scene.cloud_base_m, 1100.0)
 	assert_eq(float(scene._sky_material.get_shader_parameter("cloud_cover")), 0.65, "the sky receives the scenario's cloud cover")
+	assert_eq(float(scene._ocean_material.get_shader_parameter("cloud_cover")), 0.65, "the water reflects the same overcast sky")
 	scene.paused = false
 	scene.update(0.25, [], "")
 	var clock := scene.weather_time
@@ -1128,6 +1129,7 @@ func _live_view(units: Array) -> Dictionary:
 	var map := TacticalMap.new()
 	map.simulation = sim
 	map.unit_manager = sim.unit_manager
+	map.track_manager = sim.track_manager
 	var view := WorldView.new()
 	(Engine.get_main_loop() as SceneTree).root.add_child(view)
 	view.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -1147,6 +1149,89 @@ func _free_view(f: Dictionary) -> void:
 	sim.unit_manager.free()
 	sim.track_manager.free()
 	sim.free()
+
+
+func _model_centre(view: WorldView, key: String) -> Vector3:
+	var rec: Dictionary = view._scene._records[key]
+	return (rec.root as Node3D).global_transform * (rec.bounds as AABB).get_center()
+
+
+func _double_click_world(view: WorldView, at: Vector2) -> void:
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.double_click = true
+	click.pressed = true
+	click.position = at
+	view._gui_input(click)
+
+
+func test_double_click_inspects_only_current_held_contacts_and_keeps_command_selection() -> void:
+	Terrain.clear()
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	var sighted := _unit("cw90_slava", "RED", Vector2(1, 0))
+	var f := _live_view([ship, sighted])
+	var view: WorldView = f.view
+	var map: TacticalMap = f.map
+	var visual := _hold(f.tm, "T1", sighted, sighted.position, Track.Classification.CLASS_KNOWN)
+	var marker := _hold(f.tm, "T2", null, Vector2(-2, 0), Track.Classification.UNKNOWN)
+	map.select_units([ship])
+	view._process(0.016)
+	var camera := view._scene.camera
+	for key: String in ["u:%d" % sighted.id, "t:T2"]:
+		var centre := _model_centre(view, key)
+		camera.look_at_from_position(centre + Vector3(0, 100, 400), centre)
+		_double_click_world(view, camera.unproject_position(centre))
+		assert_eq(map.inspection_track(), visual if key.begins_with("u:") else marker)
+		assert_eq(map.selected, [ship])
+	map.select_track(null)
+	map.show_hostiles = false
+	var at := camera.unproject_position(_model_centre(view, "t:T2"))
+	_double_click_world(view, at)
+	assert_eq(map.selected_track, null, "filtered contacts cannot be inspected from the pane")
+	map.show_hostiles = true
+	f.tm._tracks["BLUE"].erase(marker)
+	_double_click_world(view, at)
+	assert_eq(map.selected_track, null, "a rendered record can outlast the commander's report")
+	map.select_units([])
+	var own_centre := _model_centre(view, "u:%d" % ship.id)
+	camera.look_at_from_position(own_centre + Vector3(0, 100, 400), own_centre)
+	_double_click_world(view, camera.unproject_position(own_centre))
+	assert_eq(map.selected, [ship], "the own-platform gesture still works")
+	_free_view(f)
+
+
+func test_contact_pick_cannot_pass_through_a_model_or_land_or_pick_behind_the_camera() -> void:
+	Terrain.clear()
+	Bathymetry.clear()
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2(-2, 0))
+	var sighted := _unit("cw90_slava", "RED", Vector2.ZERO)
+	var f := _live_view([ship, sighted])
+	var view: WorldView = f.view
+	var marker := _hold(f.tm, "T3", null, Vector2(0, 1), Track.Classification.UNKNOWN)
+	f.map.select_units([ship])
+	view._process(0.016)
+	var camera := view._scene.camera
+	var front := _model_centre(view, "u:%d" % sighted.id)
+	var back := _model_centre(view, "t:T3")
+	var eye := front + (front - back).normalized() * 250.0
+	camera.look_at_from_position(eye, back)
+	var at := camera.unproject_position(back)
+	_double_click_world(view, at)
+	assert_eq(f.map.selected_track, null, "an unlabelled nearer hull blocks the contact")
+	view._scene._records["u:%d" % sighted.id].root.hide()
+	Terrain.load_from({"terrain": {"land": [{"id": "island", "points_nm": [[-0.3, 0.3], [0.3, 0.3], [0.3, 0.7], [-0.3, 0.7]]}]}})
+	_double_click_world(view, at)
+	assert_eq(f.map.selected_track, null, "land between the camera and marker blocks inspection")
+	Terrain.clear()
+	camera.look_at(eye + (eye - back))
+	_double_click_world(view, at)
+	assert_eq(f.map.selected_track, null, "the contact is now behind the viewer")
+	camera.look_at(back)
+	_double_click_world(view, Vector2(-1, at.y))
+	assert_eq(f.map.selected_track, null, "a point outside the pane never picks a model")
+	_double_click_world(view, at)
+	assert_eq(f.map.selected_track, marker, "the same held marker can be inspected in clear view")
+	_free_view(f)
 
 
 func test_paused_world_updates_detected_and_forgotten_missiles() -> void:

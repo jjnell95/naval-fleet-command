@@ -12,8 +12,8 @@ render_mode cull_disabled, depth_draw_opaque, unshaded, fog_disabled;
 // the visibility drops below a clear day's. Nothing here needs a texture beyond the coast mask, a
 // compute pass or anything the GL Compatibility renderer and the browser lack.
 
-uniform vec3 deep_color : source_color = vec3(0.043, 0.059, 0.106);   // #0B0F1B
-uniform vec3 body_color : source_color = vec3(0.105, 0.135, 0.185);   // a wave face toward the light
+uniform vec3 deep_color : source_color = vec3(0.042, 0.104, 0.150);
+uniform vec3 body_color : source_color = vec3(0.100, 0.255, 0.302);   // a wave face toward the light
 uniform vec3 sky_top : source_color = vec3(0.408, 0.361, 0.855);
 uniform vec3 sky_horizon : source_color = vec3(0.616, 0.600, 0.800);
 uniform vec3 foam_color : source_color = vec3(0.86, 0.89, 0.93);
@@ -21,8 +21,9 @@ uniform vec3 sun_color : source_color = vec3(1.0, 0.95, 0.86);
 uniform vec3 sun_dir = vec3(0.0, 1.0, 0.0);          // toward the sun, world space
 uniform float sun_strength : hint_range(0.0, 1.0) = 1.0; // 0 at night
 uniform float daylight : hint_range(0.0, 1.0) = 1.0;
-uniform float reflect_strength = 0.22;
-uniform vec3 far_color : source_color = vec3(0.075, 0.094, 0.137);   // the sea just short of the horizon
+uniform float reflect_strength = 0.44;
+uniform float cloud_cover : hint_range(0.0, 1.0) = 0.28;
+uniform vec3 far_color : source_color = vec3(0.105, 0.172, 0.227);
 uniform float haze_m = 30000.0;                                       // distance over which it gets there
 uniform float fog_density = 0.0;                                      // per metre; 0 in clear weather
 uniform float horizon_haze : hint_range(0.0, 1.0) = 0.8;              // how far the last degrees pale toward the sky
@@ -128,18 +129,30 @@ void fragment() {
 	float amp = 0.10 + 0.07 * s;
 	vec2 wind = swell_dir.xy;
 	vec2 side = vec2(-wind.y, wind.x);
+	// Let the short trains bend through the same two wind patches that colour the water.
+	// This breaks up parallel stripes without adding noise samples or moving the hull swell.
+	float broad_patch = vnoise(p * 0.0024 + wind * t * 0.004);
+	float local_patch = vnoise(p * 0.009 - side * t * 0.01);
+	float slick = broad_patch * 0.65 + local_patch * 0.35;
+	vec2 chop_pos = p + wind * (broad_patch - 0.5) * 70.0 + side * (local_patch - 0.5) * 36.0;
+	amp *= mix(0.68, 1.35, slick);
 	float crest = 0.0;
 	vec2 g = swell_grad(p, swell_time) * (1.0 - smoothstep(1500.0, 5000.0, v_dist)) * (1.0 - smoothstep(6.0, 26.0, footprint));
-	g += wave(p, t, normalize(wind + side * 0.2), 41.0, amp * 1.5, footprint, crest);
-	g += wave(p, t * 1.03, normalize(wind + side * 0.9), 23.0, amp * 0.9, footprint, crest);
-	g += wave(p, t * 0.97, normalize(wind - side * 0.75), 13.7, amp * 0.55, footprint, crest);
-	g += wave(p, t * 1.05, normalize(wind + side * 2.1), 7.9, amp * 0.3, footprint, crest);
-	g += wave(p, t * 0.93, normalize(wind - side * 1.6), 4.3, amp * 0.16, footprint, crest);
+	g += wave(chop_pos, t, normalize(wind + side * 0.2), 41.0, amp * 1.5, footprint, crest);
+	g += wave(chop_pos, t * 1.03, normalize(wind + side * 0.9), 23.0, amp * 0.9, footprint, crest);
+	g += wave(chop_pos, t * 0.97, normalize(wind - side * 0.75), 13.7, amp * 0.55, footprint, crest);
+	g += wave(chop_pos, t * 1.05, normalize(wind + side * 2.1), 7.9, amp * 0.3, footprint, crest);
+	g += wave(chop_pos, t * 0.93, normalize(wind - side * 1.6), 4.3, amp * 0.16, footprint, crest);
 	// Three octaves of drifting noise break up the regularity: cat's paws and chop.
 	float chop_fade = 1.0 - smoothstep(0.6, 4.0, footprint);
 	g += vnoise_d(p * 0.045 + wind * t * 0.12).yz * 0.045 * (0.9 + 0.35 * s) * (1.0 - smoothstep(3.0, 18.0, footprint));
 	g += vnoise_d(p * 0.21 + wind * t * 0.35).yz * 0.21 * (0.3 + 0.12 * s) * chop_fade;
 	g += vnoise_d(p * 0.9 - wind * t * 0.8 + 11.0).yz * 0.9 * (0.05 + 0.03 * s) * (1.0 - smoothstep(0.08, 0.7, footprint));
+	// A grazing pixel averages many facets. Keep the broad colour of the wind patches as the
+	// individual wave faces merge, especially in the small observer pane.
+	float facet_detail = 1.0 - 0.78 * smoothstep(1.0, 12.0, footprint);
+	g *= facet_detail;
+	crest *= facet_detail;
 	vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
 	// Far away the surface smooths into one dark sheet up to a crisp horizon.
 	float far = smoothstep(2500.0, haze_m, v_dist);
@@ -148,14 +161,13 @@ void fragment() {
 	float fresnel = 0.02 + 0.98 * pow(1.0 - ndv, 5.0);
 	vec3 r = reflect(-view_dir, n);
 	r.y = abs(r.y);
-	vec3 sky = mix(sky_horizon, sky_top, smoothstep(0.0, 0.32, r.y));
+	float overcast = smoothstep(0.2, 0.95, cloud_cover);
+	vec3 sky = mix(sky_horizon, sky_top, smoothstep(0.0, 0.48, r.y) * (1.0 - 0.7 * overcast));
 	vec3 sd = normalize(sun_dir);
 	float lit = clamp(dot(n, sd) * 0.5 + 0.5, 0.0, 1.0);
-	// Large, slow blotches of darker and lighter water, as wind slicks paint a real sea.
-	float slick = vnoise(p * 0.0024 + wind * t * 0.004) * 0.65 + vnoise(p * 0.009 - side * t * 0.01) * 0.35;
-	float face = clamp(lit * 0.8 - 0.25 + crest * 5.0 + (slick - 0.5) * 0.45, 0.0, 1.0);
-	vec3 water = mix(deep_color, body_color, face) * (0.35 + 0.65 * daylight);
-	vec3 col = mix(water, sky * 0.62 * (0.25 + 0.75 * daylight), clamp(fresnel * reflect_strength * (1.0 - far * 0.6), 0.0, 1.0));
+	float face = clamp(lit * 0.8 - 0.17 + crest * 6.0 + (slick - 0.5) * 0.65, 0.0, 1.0);
+	vec3 water = mix(deep_color, body_color, face) * (0.14 + 0.86 * daylight);
+	vec3 col = mix(water, sky * (0.22 + 0.52 * daylight), clamp(fresnel * reflect_strength * (1.0 - far * 0.55), 0.0, 1.0));
 	col = mix(col, far_color * (0.3 + 0.7 * daylight), far);
 	// Aerial perspective. At a grazing angle the sea is a mirror of the sky just above the horizon,
 	// and miles of air lie in between: the last few degrees pale toward the horizon's own colour, so
