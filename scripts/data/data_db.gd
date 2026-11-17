@@ -33,6 +33,12 @@ static func weapon(id: String) -> WeaponSpec:
 ## platform or weapon id from the same scenario, picks the entry from its own catalogue.
 ## Otherwise the first by id. Null when no class has that short name.
 static func platform_by_short_name(short_name: String, hint_id := "") -> PlatformSpec:
+	var matches := platforms_by_short_name(short_name, hint_id)
+	return null if matches.is_empty() else matches[0]
+
+
+## All catalogue variants consistent with a class report. The report may not name its operator.
+static func platforms_by_short_name(short_name: String, hint_id := "") -> Array:
 	_ensure_loaded()
 	if _by_short_name.is_empty():
 		var ids: Array = _platforms.keys()
@@ -43,14 +49,12 @@ static func platform_by_short_name(short_name: String, hint_id := "") -> Platfor
 				_by_short_name[p.short_name] = []
 			_by_short_name[p.short_name].append(p)
 	var matches: Array = _by_short_name.get(short_name, [])
-	if matches.is_empty():
-		return null
-	if hint_id != "":
+	if hint_id != "" and matches.size() > 1:
 		var cold_war := hint_id.begins_with(COLD_WAR_PREFIX)
-		for p: PlatformSpec in matches:
-			if p.id.begins_with(COLD_WAR_PREFIX) == cold_war:
-				return p
-	return matches[0]
+		var same_era := matches.filter(func(p: PlatformSpec) -> bool: return p.id.begins_with(COLD_WAR_PREFIX) == cold_war)
+		if not same_era.is_empty():
+			return same_era
+	return matches.duplicate()
 
 
 ## Every platform, sorted by domain then nation then name, for the scenario editor's palette.

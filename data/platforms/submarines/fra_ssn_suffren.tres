@@ -10,6 +10,7 @@ short_name = "SSN Suffren"
 nation = "France"
 category = "nuclear attack submarine"
 domain = "subsurface"
+recognition_note = "Four fins form an X around a circular shroud at the stern. A smaller pair of horizontal planes projects from the sides of the bow."
 length_m = 99.5
 displacement_t = 5300.0
 max_speed_kn = 25.0

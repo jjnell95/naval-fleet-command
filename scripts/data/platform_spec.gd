@@ -106,6 +106,7 @@ extends Resource
 
 ## Recognition and configuration metadata. Performance remains estimated; capacity is physical.
 @export var role := ""
+@export var recognition_note := ""
 @export var service_note := ""
 @export var aviation_facility := "auto"  # auto | none | helicopter | stovl | stobar | catobar | airfield
 @export var launch_requirement := "auto"  # auto | helicopter | stovl | stobar | catobar | runway

@@ -485,7 +485,9 @@ func set_units(units: Array, controllable: bool, movable := controllable) -> voi
 	_movement_authorized = movable and _command_authorized
 	_sync_live_eligibility(true)
 	if units.size() == 1:
-		_heading.value = roundf(units[0].ordered_heading_deg)
+		var u: Unit = units[0]
+		var heading := u.ordered_heading_deg if SubmarineComms.connected(u) else SubmarineComms.reported_heading(u)
+		_heading.value = posmod(roundi(heading), 360)
 	_sync_quick_actions()
 
 

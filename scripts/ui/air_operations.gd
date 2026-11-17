@@ -426,15 +426,17 @@ func open_for(selection: Array) -> void:
 		if u.faction != simulation.player_faction or not u.alive:
 			continue
 		if u.is_aircraft():
-			_aircraft = u
+			_aircraft = u if u.in_flight() else null
 			_base = u.home
 			_type_id = u.spec.id
 			break
-		if u.spec.aircraft_capacity > 0 and not u.stowed_aircraft().is_empty():
+		if u.spec.aircraft_capacity > 0:
 			_base = u
 			break
 	show()
 	refresh()
+	if _aircraft != null:
+		_lower_tabs.current_tab = 0
 	_count.value = mini(1, int(_count.max_value))
 	_refresh_launch()
 	_base_picker.call_deferred("grab_focus")
@@ -816,7 +818,7 @@ static func status_text(a: Unit) -> String:
 		Unit.FlightState.TURNAROUND: return "REFUEL / REARM"
 		Unit.FlightState.RESERVE: return "RESERVE %.0f MIN" % ceilf(a.state_timer_s / 60.0)
 	if a.returning:
-		return "RETURNING"
+		return "WAITING TO LAND" if AviationManager.in_marshal(a) else "RETURNING"
 	if a.tanking_on != null:
 		return "TANKING"
 	return "AIRBORNE"
@@ -872,6 +874,12 @@ func _refresh_recovery() -> void:
 			var spec := DataDB.weapon(wid)
 			stores.append("%d × %s" % [int(a.magazines[wid]), spec.display_name if spec != null else wid])
 	_aircraft_detail.text = "%s  /  %s  ·  %s  ·  Fuel %d%% (%.0f min at cruise)  ·  %.0f m  ·  %.0f kn\n%s" % [a.callsign, a.spec.display_name, status_text(a), int(a.fuel_fraction() * 100.0), a.fuel_s / 60.0, a.altitude_m, a.speed_kn, ", ".join(stores) if not stores.is_empty() else "No expendable weapons carried"]
+	if a.flight_state == Unit.FlightState.RECOVERING:
+		_destination.add_item(a.recovery_base.callsign if a.recovery_base != null else "Landing in progress")
+		_destination.disabled = true
+		_return.disabled = true
+		_return.tooltip_text = "Landing is already in progress."
+		return
 	if a.airborne():
 		_destinations = simulation.aviation_manager.available_recovery_bases(a)
 	for base in _destinations:

@@ -1270,23 +1270,19 @@ func _focus_map_if_clear() -> void:
 		map.grab_focus()
 
 
-## F7: with a class-known contact hooked or inspected, the reference opens on that class's
-## entry; otherwise it opens on the last entry shown, as before. The class is the track's
-## reported one, looked up by short name in the catalogue, never the unit under the track.
+## F7 follows the subject in the data display. A contact is looked up by its held class.
 func _open_reference() -> void:
-	var spec := PlatformLibrary.entry_for_track(_reference_contact(), _catalogue_hint())
-	if spec != null and not _library.visible:
-		_inspect_asset(spec.id)
+	if _library.visible:
+		_close_library()
 		return
 	_toggle_library()
-
-
-## The contact F7 refers to: the one being inspected, else the hooked one.
-func _reference_contact() -> Track:
 	var t := map.inspection_track()
-	if t == null:
-		t = map.selected_track
-	return t if t != null and t.status != Track.Status.LOST else null
+	if t != null:
+		_library.inspect_track(t, _catalogue_hint())
+	elif map.selected.size() == 1:
+		var u: Unit = map.selected[0]
+		if u.faction == map.player_faction and u.spec != null:
+			_library.inspect(u.spec.id)
 
 
 ## An own platform id, so a class name shared by both catalogues resolves in this mission's era.
@@ -1673,7 +1669,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if _menu.visible:
-		if k.keycode in [KEY_M, KEY_ESCAPE] and _command_taken:
+		if k.keycode == KEY_F7:
+			_toggle_library()
+			get_viewport().set_input_as_handled()
+		elif k.keycode in [KEY_M, KEY_ESCAPE] and _command_taken:
 			_hide_screens()
 			get_viewport().set_input_as_handled()
 		elif k.keycode == KEY_E and (k.ctrl_pressed or k.meta_pressed):

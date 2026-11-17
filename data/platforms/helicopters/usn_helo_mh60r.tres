@@ -10,6 +10,7 @@ short_name = "MH-60R"
 nation = "USA"
 category = "ASW helicopter"
 domain = "air"
+recognition_note = "Four main rotor blades span the twin engine housings above the cabin. The small tailwheel sits where the cabin meets the tail boom."
 max_speed_kn = 145.0
 cruise_speed_kn = 110.0
 turn_rate_deg_s = 6.0
@@ -39,4 +40,4 @@ weapon_loadout = {
 "mk54_lwt": 2
 }
 
-role = "Asw Helicopter • maritime operations"
+role = "Shipborne ASW helicopter"

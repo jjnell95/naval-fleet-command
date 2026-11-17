@@ -161,9 +161,29 @@ func test_orders_text_describes_what_the_unit_is_doing() -> void:
 	var u := _unit()
 	u.ordered_speed_kn = 0.0
 	assert_eq(DataDisplay.orders_text(u), "Hold position")
+	var manager := UnitManager.new()
+	manager.add_unit(u)
+	u.speed_kn = 15.0
 	u.ordered_speed_kn = 15.0
-	u.ordered_heading_deg = 90.0
+	u.heading_deg = 85.0
+	assert_true(manager.issue_order(u, Order.set_course(90)))
+	manager.tick(0.25)
+	assert_true(u.heading_deg > 85.0 and u.heading_deg < 89.5)
+	assert_eq(DataDisplay.orders_text(u), "Turning to 090")
+	for tick in 80:
+		manager.tick(0.25)
 	assert_eq(DataDisplay.orders_text(u), "Steady on 090")
+	assert_true(manager.issue_order(u, Order.stop()))
+	manager.tick(0.25)
+	assert_true(u.speed_kn > 0.1)
+	assert_eq(DataDisplay.orders_text(u), "Stopping")
+	for tick in 1200:
+		manager.tick(0.25)
+		if u.speed_kn == 0.0:
+			break
+	assert_eq(u.speed_kn, 0.0)
+	assert_eq(DataDisplay.orders_text(u), "Hold position")
+	manager.free()
 	u.waypoints.append(Vector2(10, 10))
 	assert_eq(DataDisplay.orders_text(u), "Transit (1 wpt)")
 

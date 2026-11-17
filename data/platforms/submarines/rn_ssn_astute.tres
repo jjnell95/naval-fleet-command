@@ -10,6 +10,7 @@ short_name = "SSN Astute"
 nation = "UK"
 category = "nuclear attack submarine"
 domain = "subsurface"
+recognition_note = "A low raised casing runs along the top of the hull. From behind, the stern fins form a cross around a circular shroud."
 max_speed_kn = 25.0
 cruise_speed_kn = 8.0
 turn_rate_deg_s = 2.2

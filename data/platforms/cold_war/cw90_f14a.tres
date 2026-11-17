@@ -10,6 +10,7 @@ short_name = "F-14A+"
 nation = "USA"
 category = "fighter"
 domain = "air"
+recognition_note = "From above, broad triangular wing roots meet the swept wings. From behind, the twin exhausts sit far apart beneath the two tail fins."
 max_speed_kn = 1200.0
 cruise_speed_kn = 480.0
 turn_rate_deg_s = 6.0

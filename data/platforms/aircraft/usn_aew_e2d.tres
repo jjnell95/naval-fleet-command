@@ -10,6 +10,7 @@ short_name = "E-2D"
 nation = "USA"
 category = "airborne early warning"
 domain = "air"
+recognition_note = "A round radar dome sits above the fuselage and four fins span the tail. From the front, count eight blades on each propeller."
 length_m = 17.6
 max_speed_kn = 340.0
 cruise_speed_kn = 221.0

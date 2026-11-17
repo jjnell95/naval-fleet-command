@@ -217,6 +217,7 @@ func test_a_burning_deck_takes_nobody_aboard() -> void:
 	_run(h, 60.0)
 	assert_eq(helo.flight_state, Unit.FlightState.AIRBORNE, "flight operations suspended")
 	assert_true(AviationManager.in_marshal(helo))
+	assert_eq(AirOperations.status_text(helo), "WAITING TO LAND")
 	ship.fire = 0.0
 	_run(h, 120.0, 60.0)
 	assert_true(helo.flight_state in [Unit.FlightState.RECOVERING, Unit.FlightState.TURNAROUND], "taken aboard once the fire is out")

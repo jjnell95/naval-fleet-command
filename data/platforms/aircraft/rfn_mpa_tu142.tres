@@ -10,6 +10,7 @@ short_name = "Tu-142"
 nation = "Russia"
 category = "maritime patrol"
 domain = "air"
+recognition_note = "Each of the four engines on the swept wings carries two rows of propeller blades. The inner engine housings extend well behind the wing."
 max_speed_kn = 500.0
 cruise_speed_kn = 380.0
 turn_rate_deg_s = 2.5
@@ -34,4 +35,4 @@ decoy_effectiveness = 0.25
 weapon_loadout = {"apr3": 4}
 source_status = "M30: airborne APR-3-family ASW fit replaces submarine-launched UGST; Rosoboronexport Aerospace Systems catalogue (2005), p129, describes the air-delivered family and explicitly lists Il-38. Tu-142 quantity and variant compatibility remain a representative scenario assumption. PUBLIC: designation and broad role; see DATA_SOURCES.md. GAMEPLAY_ESTIMATE: all numeric values, signatures, loadouts, channels and sensor envelopes. Not an operational capability claim."
 
-role = "Maritime Patrol • maritime operations"
+role = "Long-range maritime patrol aircraft"

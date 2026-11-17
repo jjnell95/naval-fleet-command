@@ -4,6 +4,13 @@ extends PanelContainer
 ## The front end's REFERENCE: the dusk backdrop, a grey-metal panel, a starred-list look for the
 ## catalogue, the 3D stage in the three-line frame and the dossier in a text box.
 signal closed()
+const FACILITY_NAMES := {
+	"airfield": "Airfield",
+	"helicopter": "Helicopter deck",
+	"stovl": "STOVL deck",
+	"stobar": "Ski-jump carrier",
+	"catobar": "Catapult carrier"
+}
 var _list: ItemList
 var _detail: RichTextLabel
 var _stage: ModelStage
@@ -157,14 +164,12 @@ func _ready() -> void:
 	var views := HBoxContainer.new()
 	views.add_theme_constant_override("separation", 2)
 	view_frame.add_child(views)
-	for view in [["3D", "three_quarter"], ["PROFILE", "profile"], ["PLAN", "plan"]]:
+	for view in [["3D", "three_quarter"], ["PROFILE", "profile"], ["PLAN", "plan"], ["FRONT", "front"]]:
 		var button := Button.new()
 		button.theme_type_variation = "TabButton"
 		button.custom_minimum_size = Vector2(76, 28)
 		button.text = view[0]
-		button.pressed.connect(func() -> void:
-			_stage.set_view(view[1])
-			_spin_button.set_pressed_no_signal(false))
+		button.pressed.connect(_stage.set_view.bind(view[1]))
 		views.add_child(button)
 	_spin_button = Button.new()
 	_spin_button.theme_type_variation = "QuietButton"
@@ -172,6 +177,8 @@ func _ready() -> void:
 	UIIcons.apply(_spin_button, "restart", 16)
 	_spin_button.toggle_mode = true
 	_spin_button.toggled.connect(_stage.set_spin)
+	_stage.spin_changed.connect(_spin_button.set_pressed_no_signal)
+	_spin_button.button_pressed = true
 	view_bar.add_child(_spin_button)
 	var hint := Label.new()
 	hint.text = "  DRAG TO ORBIT  ·  SCROLL TO ZOOM"
@@ -229,14 +236,15 @@ func _build_domains() -> void:
 		_domain_picker.set_item_metadata(_domain_picker.item_count - 1, entry[1])
 	_domain = "all"
 
-func _set_mode(weapons: bool) -> void:
+func _set_mode(weapons: bool, refresh := true) -> void:
 	if _weapons != weapons:
 		_search.text = ""
 	_weapons = weapons
 	_platform_button.button_pressed = not weapons
 	_weapon_button.button_pressed = weapons
 	_build_domains()
-	_filter(_search.text)
+	if refresh:
+		_filter(_search.text)
 
 ## The reference entry for a contact, from what its track reports and nothing else: the class
 ## short name held once the contact is CLASS_KNOWN, matched against the catalogue. `hint_id` (an
@@ -247,53 +255,100 @@ static func entry_for_track(t: Track, hint_id := "") -> PlatformSpec:
 		return null
 	return DataDB.platform_by_short_name(t.known_class, hint_id)
 
+## Match only the reported class. If multiple operators use it, let the player compare entries.
+func inspect_track(t: Track, hint_id: String) -> void:
+	var entry := entry_for_track(t, hint_id)
+	if entry != null:
+		var variants := DataDB.platforms_by_short_name(t.known_class, hint_id)
+		if variants.size() == 1:
+			inspect(entry.id)
+			return
+		_set_mode(false, false)
+		_search.text = t.known_class
+		_filter(_search.text, variants, false)
+		_empty_entry(t.known_class, "Choose a catalogue variant to inspect.")
+		return
+	_set_mode(false, false)
+	_search.text = ""
+	_filter("", [], false)
+	var title := "Class unreported"
+	if t != null and t.classification >= Track.Classification.CLASS_KNOWN and t.known_class != "":
+		title = t.known_class
+	_empty_entry(title, "Browse the catalogue to compare recognition models.")
 
 func inspect(asset_id: String, weapon := false) -> void:
 	_search.text = ""
-	_set_mode(weapon)
+	_set_mode(weapon, false)
+	_filter("", [], false)
 	for i in _specs.size():
 		if _specs[i].id == asset_id:
 			_list.select(i)
 			_list.ensure_current_is_visible()
 			_select(i)
 			return
+	_empty_entry("Catalogue entry unavailable", "Choose a platform or ordnance entry.")
 
-func _filter(query: String) -> void:
+func _filter(query: String, candidates: Array = [], select_first := true) -> void:
 	_list.clear()
 	_specs.clear()
-	var records := DataDB.all_weapons() if _weapons else DataDB.all_platforms()
+	var records := candidates
+	if records.is_empty():
+		records = DataDB.all_weapons() if _weapons else DataDB.all_platforms()
+	var terms := Array(query.to_lower().split(" ", false))
 	for p in records:
-		var search_text: String = p.display_name + " " + (p.family if _weapons else p.nation + " " + p.role)
+		var name_text: String = p.family if _weapons else p.short_name
+		var search_text: String = p.display_name + " " + name_text
+		if not _weapons:
+			var era := "1990" if p.id.begins_with(DataDB.COLD_WAR_PREFIX) else "2027"
+			search_text += " " + " ".join([p.nation, p.role, p.category, era])
+			if DataDB.platforms_by_short_name(p.short_name).size() > 1:
+				var qualifier: String = era if DataDB.platforms_by_short_name(p.short_name, p.id).size() == 1 else p.nation
+				name_text += " · " + qualifier
 		var category: String = p.type if _weapons else p.domain
-		if (not query.is_empty() and query.to_lower() not in search_text.to_lower()) or (_domain != "all" and (not WeaponPresentation.matches(p, _domain) if _weapons else category != _domain)):
+		search_text = search_text.to_lower()
+		if not terms.all(func(term: String) -> bool: return term in search_text) or (_domain != "all" and (not WeaponPresentation.matches(p, _domain) if _weapons else category != _domain)):
 			continue
 		_specs.append(p)
-		_list.add_item(p.family if _weapons else p.short_name, PlatformArt.thumbnail(p.id, _weapons))
+		_list.add_item(name_text, PlatformArt.thumbnail(p.id, _weapons))
 		_list.set_item_tooltip(_list.item_count - 1, p.display_name)
 	_count.text = "%02d %s" % [_specs.size(), "WEAPON SYSTEMS" if _weapons else "PLATFORM CLASSES"]
-	if not _specs.is_empty():
+	if select_first and not _specs.is_empty():
 		_list.select(0)
 		_select(0)
-	else:
-		_stage.show_asset("", _weapons)
-		_title.text = "NO MATCHES"
-		_subtitle.text = "Try another search or domain."
-		_eyebrow.text = "RECOGNITION LIBRARY"
-		_detail.text = ""
-		_clear_loadout()
-		_loadout_title.text = ""
+	elif _specs.is_empty():
+		_empty_entry("No matches", "Try another search or domain.")
+
+func _empty_entry(title: String, subtitle: String) -> void:
+	_stage.show_asset("", _weapons)
+	_title.text = title.to_upper()
+	_subtitle.text = subtitle
+	_eyebrow.text = "RECOGNITION LIBRARY"
+	_detail.text = ""
+	_clear_loadout()
+	_loadout_title.text = ""
 
 func _clear_loadout() -> void:
 	for child in _loadout.get_children():
 		_loadout.remove_child(child)
 		child.queue_free()
 
+## Use the same compatibility rule as the flight deck, including aircraft that can use land bases.
+static func basing_options(aircraft: PlatformSpec) -> PackedStringArray:
+	var available := {}
+	for host: PlatformSpec in DataDB.all_platforms():
+		if host.can_operate(aircraft):
+			available[host.flight_facility()] = true
+	var labels := PackedStringArray()
+	for facility: String in FACILITY_NAMES:
+		if available.has(facility):
+			labels.append(FACILITY_NAMES[facility])
+	return labels
+
 func _select(index: int) -> void:
 	if index < 0 or index >= _specs.size():
 		return
 	var p = _specs[index]
 	_stage.show_asset(p.id, _weapons)
-	_spin_button.set_pressed_no_signal(false)
 	_clear_loadout()
 	if _weapons:
 		_show_weapon(p)
@@ -303,12 +358,18 @@ func _select(index: int) -> void:
 	_subtitle.text = p.display_name
 	var lines := PackedStringArray()
 	lines.append("[font_size=18][b]%s[/b][/font_size]\n" % p.role)
-	lines.append("[color=%s]LENGTH[/color]   %.1f m" % [UITheme.HEX_INK_DIM, p.length_m])
+	if p.recognition_note != "":
+		lines.append(UITheme.section_bb("Recognition", true))
+		lines.append(p.recognition_note + "\n")
+	if p.length_m > 0.0:
+		lines.append("[color=%s]LENGTH[/color]   %.1f m" % [UITheme.HEX_INK_DIM, p.length_m])
+	if p.domain in ["surface", "subsurface"] and p.displacement_t > 0.0:
+		lines.append("[color=%s]DISPLACEMENT[/color]   %d t" % [UITheme.HEX_INK_DIM, roundi(p.displacement_t)])
 	if p.aircraft_capacity > 0:
-		lines.append("[color=%s]AVIATION[/color]   %s" % [UITheme.HEX_INK_DIM, p.flight_facility().to_upper()])
-		lines.append("%d game airframes" % p.aircraft_capacity)
+		lines.append("[color=%s]AVIATION[/color]   %s" % [UITheme.HEX_INK_DIM, FACILITY_NAMES.get(p.flight_facility(), p.flight_facility())])
+		lines.append("[color=%s]GAME AIRFRAME CAPACITY[/color]   %d" % [UITheme.HEX_INK_DIM, p.aircraft_capacity])
 	elif p.domain == "air":
-		lines.append("[color=%s]BASING[/color]   %s" % [UITheme.HEX_INK_DIM, p.flight_requirement().to_upper()])
+		lines.append("[color=%s]IN-GAME BASING[/color]   %s" % [UITheme.HEX_INK_DIM, ", ".join(basing_options(p))])
 	if p.vls_cells > 0:
 		lines.append("[color=%s]VLS CELLS[/color]   %d / %d allocated" % [UITheme.HEX_INK_DIM, p.occupied_vls_cells(), p.vls_cells])
 	lines.append("\n" + UITheme.section_bb("Sensor fit", true))

@@ -781,6 +781,23 @@ func test_order_receipt_uses_the_synchronous_execution_result() -> void:
 	manager.free()
 
 
+func test_course_control_starts_from_an_available_heading_and_wraps_north() -> void:
+	var boat := _unit("fra_ssn_suffren")
+	var panel := OrdersPanel.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(panel)
+	boat.heading_deg = 359.8
+	boat.depth_m = 100.0
+	SubmarineComms.configure(boat, true, 0.0)
+	boat.heading_deg = 100.0
+	boat.ordered_heading_deg = 130.0
+	panel.set_units([boat], true)
+	assert_eq(panel._heading.value, 0.0, "the last recorded heading rounds to north")
+	boat.depth_m = 0.0
+	panel.set_units([boat], true)
+	assert_eq(panel._heading.value, 130.0, "a connected unit supplies its ordered course")
+	panel.free()
+
+
 func test_stowed_aircraft_cannot_arm_the_persistent_move_action() -> void:
 	var aircraft := _unit("usn_fighter_f35c")
 	var panel := OrdersPanel.new()

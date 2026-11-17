@@ -409,3 +409,19 @@ func test_disconnected_submarine_displays_last_report_not_live_state() -> void:
 	assert_true(text.contains("LAST %DAMAGE: 0"))
 	assert_true(not text.contains("SENSORS:") and not text.contains("WEAPONS:"), "onboard changes wait for a report")
 	assert_true(text.contains("queued for next check-in"))
+	var ship := _unit(DataDB.platform("usn_ddg_burke_iii"), "BLUE", Vector2.ONE, 16)
+	ship.heading_deg = 245
+	text = DataDisplay.rows_text(DataDisplay.group_rows([ship, u]))
+	assert_true(text.contains("245  16 KTS"))
+	assert_true(text.contains("LAST REPORT  090  5 KTS"))
+	assert_true(not text.contains("180  22 KTS"), "adding an escort cannot reveal the boat's unreported movement")
+	u.depth_m = 0.0
+	text = DataDisplay.rows_text(DataDisplay.group_rows([ship, u]))
+	assert_true(text.contains("180  22 KTS") and not text.contains("LAST REPORT"), "after check-in the group reads live course and speed")
+
+
+func test_reference_basing_matches_the_flight_deck() -> void:
+	assert_eq(PlatformLibrary.basing_options(DataDB.platform("rfn_mpa_tu142")), PackedStringArray(["Airfield"]))
+	assert_eq(PlatformLibrary.basing_options(DataDB.platform("cw90_f14a")), PackedStringArray(["Airfield", "Catapult carrier"]))
+	var helicopter := PlatformLibrary.basing_options(DataDB.platform("usn_helo_mh60r"))
+	assert_true(helicopter.has("Airfield") and helicopter.has("Helicopter deck") and helicopter.has("Catapult carrier"))

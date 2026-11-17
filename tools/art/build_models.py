@@ -688,6 +688,77 @@ def carrier_markings(m, L, B, z, angle=.12, catapults=True):
 # --------------------------------------------------------------------------------------------
 
 
+def build_fishing_trawler(m, spec):
+    s = Ship(m, spec["length_m"], 10.0, 3.2, 2.1, 4.6, stations=36,
+             transom=.77, fullness=.50, bow_power=1.5)
+    x, d = s.x, s.d
+    # A broad, low stern work deck and raised forward wheelhouse for this generic trawler.
+    work_z = d(.44) * 1.12
+    m.plate([(x(.01), -3.6), (x(.15), -4.4), (x(.47), -4.4), (x(.47), 4.4),
+             (x(.15), 4.4), (x(.01), 3.6)], d(0), work_z, "working_deck", "deck_non_skid")
+    m.prism(x(.45), x(.80), -3.8, 3.8, d(.45), 5.7, .25, "deckhouse", "marking_white")
+    m.box(x(.54), x(.74), -3.7, 3.7, 5.7, 8.0, "bridge", "marking_white")
+    m.box(x(.53), x(.75), -3.9, 3.9, 8.0, 8.25, "wheelhouse_roof", "airframe_blue")
+    m.funnel(x(.49), 1.6, 5.7, 3.2, 1.2, 1.7, -.4, "airframe_blue")
+    m.mast(x(.61), 0, 8.25, 13.3, .18, 3.2)
+
+    drum_x = x(.33)
+    m.cylinder(drum_x, work_z + 1.45, -2.5, 2.5, 1.0, 20, "net_drum", "y", m="rubber")
+    for sign in (-1, 1):
+        side = sign * 2.6
+        m.cylinder(drum_x, work_z + 1.45, side - .10, side + .10, 1.35, 20,
+                   "drum_flange", "y", m="marking_yellow")
+        m.cbox(drum_x, sign * 2.85, work_z + .85, 1.6, .4, 1.7,
+               "winch_frame", "airframe_blue")
+        # Taper the legs toward the overhead crossbar; leave its centre open in stern view.
+        top = (x(.09), sign * 3.2, work_z + 6.8)
+        for foot in (.055, .23):
+            m.rod((x(foot), sign * 3.8, work_z), top, .25, "gantry_leg", "marking_yellow", 8)
+    m.cbox(x(.09), 0, work_z + 6.8, .75, 6.85, .58, "gantry_crossbar", "marking_yellow")
+    finish_surface(m, s, spec)
+    split_hull_materials(s.hull_part, s.draft, paint="airframe_blue")
+
+
+def build_maud(m, spec):
+    s = Ship(m, spec["length_m"], 26.0, 7.2, 7.2, 11.6, stations=44,
+             transom=.84, fullness=.65, bow_power=1.7)
+    x, d = s.x, s.d
+    bulbous_bow(m, s)
+    # Keep the stern free for the catalogue's helicopter spot, with the hangar facing it.
+    pad_z = d(.25) * 1.12 + .25
+    m.plate([(x(.005), -10.0), (x(.13), -12.0), (x(.27), -12.0),
+             (x(.27), 12.0), (x(.13), 12.0), (x(.005), 10.0)],
+            d(0), pad_z, "landing_deck", "flight_deck")
+    pad_x = x(.125)
+    m.circle(pad_x, 0, pad_z + .025, 9.1, .38)
+    for yy in (-2.0, 2.0):
+        m.stripe((pad_x - 3.2, yy, pad_z + .035), (pad_x + 3.2, yy, pad_z + .035), .5)
+    m.stripe((pad_x, -2.0, pad_z + .035), (pad_x, 2.0, pad_z + .035), .5)
+
+    base = pad_z - .2
+    m.hangar(x(.26), x(.39), 25.0, base, 7.2)
+    m.prism(x(.35), x(.52), -11.2, 11.2, base, base + 9.0, .45, "accommodation")
+    m.box(x(.37), x(.50), -9.0, 9.0, base + 9.0, base + 12.3, "upper_house")
+    m.box(x(.41), x(.505), -11.7, 11.7, base + 12.3, base + 15.2, "bridge")
+    m.funnel(x(.355), 0, base + 9.0, 9.5, 4.7, 6.6, -.8)
+    m.mast(x(.445), 0, base + 15.2, spec["mast_height_m"], .50, 7.5)
+    # Open cargo deck ahead of the bridge. The two gantries are visible end-on as portals.
+    for t in (.60, .73):
+        z = d(t) * 1.12
+        for sign in (-1, 1):
+            yy = sign * 8.0
+            m.cbox(x(t), yy, z + 7.7, 1.65, 1.35, 15.4, "cargo_upright")
+            m.rod((x(t) - 5.0, yy, z), (x(t), yy, z + 10.8),
+                  .30, "cargo_stay", "naval_paint", 6)
+            m.rod((x(t), yy, z + 11.0), (x(t), sign * 4.0, z + 15.0),
+                  .42, "cargo_brace", "naval_paint", 6)
+        m.cbox(x(t), 0, z + 15.0, 2.0, 17.5, 1.35, "cargo_gantry")
+        m.box(x(t) - 4, x(t) + 4, -3.0, 3.0, z - .25, z + 2.0, "deck_casing")
+    for yy in (-1.55, 1.55):
+        m.cylinder(yy, d(.65) * 1.12 + .4, x(.52), x(.79), .4, 10, "deck_pipe", "x")
+    finish_surface(m, s, spec)
+
+
 def build_type903a(m, spec):
     L = spec["length_m"]
     B, dr, fa, ff = 24.8, 8.6, 6.4, 10.0
@@ -1170,6 +1241,8 @@ BUILDERS = {
     "pla_cv_shandong": build_shandong,
     "jmsdf_ddh_izumo": build_izumo,
     "pla_aor_type903a": build_type903a,
+    "rnon_aux_maud": build_maud,
+    "civ_fishing_trawler": build_fishing_trawler,
     "civ_tanker_vlcc": build_vlcc,
     "pla_ssn_type093b": build_type093b,
     "pla_ssk_type039a": build_type039a,
@@ -1228,7 +1301,9 @@ def build_one(sid, spec, is_weapon):
     entry = {"kind": "weapon" if is_weapon else "platform"}
     if not is_weapon:
         entry["domain"] = spec["domain"]
-        if sid in air_subs.BUILDERS:
+        if sid in ("rfn_mpa_tu142", "usn_helo_mh60r", "civ_fishing_trawler", "rnon_aux_maud"):
+            entry["recognition_revision"] = "2026-11-17"
+        elif sid in air_subs.BUILDERS:
             entry["recognition_revision"] = "2026-10-02"
         if spec["domain"] in ("surface", "subsurface"):
             entry["waterline_y"] = round(info["waterline_y"], 4)

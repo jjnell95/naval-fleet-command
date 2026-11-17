@@ -102,7 +102,7 @@
   {
     "id": "civ_fishing_trawler",
     "kind": "platform",
-    "triangles": 6688
+    "triangles": 2844
   },
   {
     "id": "civ_merchant_bulk",
@@ -1142,7 +1142,7 @@
   {
     "id": "rfn_mpa_tu142",
     "kind": "platform",
-    "triangles": 4584
+    "triangles": 4992
   },
   {
     "id": "rfn_sam_s400_site",
@@ -1242,7 +1242,7 @@
   {
     "id": "rnon_aux_maud",
     "kind": "platform",
-    "triangles": 8456
+    "triangles": 5064
   },
   {
     "id": "rnon_ffg_fridtjof_nansen",
@@ -1412,7 +1412,7 @@
   {
     "id": "usn_helo_mh60r",
     "kind": "platform",
-    "triangles": 3092
+    "triangles": 3964
   },
   {
     "id": "usn_helo_mh60s",

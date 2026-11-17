@@ -218,6 +218,37 @@ def falcon(m, spec, f2=False):
     cockpit(m, L, x=.25, length=.23, width=.074, base=.044, height=.047)
 
 
+def glazed_panel(m, L, body_sections, corners, side):
+    """Inset framed panes conform to the curved body instead of sitting above the nose."""
+    sections = np.asarray(body_sections)
+    # Tessellate the curved patch: a single flat quad cuts through the loft.
+    points, faces = [], []
+    n = 7
+    corners = np.asarray(corners)
+    for inset in (-.012, .025):
+        for v in np.linspace(0, 1, n):
+            for u in np.linspace(0, 1, n):
+                x, a = ((1 - u) * (1 - v) * corners[0] + u * (1 - v) * corners[1]
+                        + u * v * corners[2] + (1 - u) * v * corners[3])
+                ry, rz, z = [np.interp(L * x, sections[:, 0], sections[:, i])
+                             for i in (1, 2, 3)]
+                angle = math.radians(a)
+                points.append((L * x, side * (ry + inset) * math.sin(angle),
+                               z + (rz + inset) * math.cos(angle)))
+    for offset in (0, n * n):
+        for row in range(n - 1):
+            for col in range(n - 1):
+                a = offset + row * n + col
+                f = (a, a + 1, a + n + 1, a + n)
+                faces.append(f if offset else tuple(reversed(f)))
+    perimeter = list(range(n)) + [i * n + n - 1 for i in range(1, n)]
+    perimeter += list(range(n * n - 2, n * (n - 1) - 1, -1))
+    perimeter += [i * n for i in range(n - 2, 0, -1)]
+    for a, b in zip(perimeter, perimeter[1:] + perimeter[:1]):
+        faces.append((a, b, b + n * n, a + n * n))
+    m.add("cockpit_windows", points, faces, "glazing", smooth=65)
+
+
 def patrol(m, spec, kind="poseidon", advanced=False):
     L = spec["length_m"]
     hawkeye, orion, viking = kind == "hawkeye", kind == "orion", kind == "viking"
@@ -270,41 +301,106 @@ def patrol(m, spec, kind="poseidon", advanced=False):
         m.ellipsoid(-L * .10, 0, r * 2.65, 3.66, 3.66, .42, 48, 10, "rotodome", "array_face")
     if orion:
         m.cylinder(0, r * .25, -L * .5, -L * .36, .10, 16, "mad_boom", "x", m="array_face")
-    # Follow the actual loft so windows cannot disappear inside the curved nose.
-    sections = np.asarray(body_sections)
-    def window_point(x, angle, side, inset):
-        ry, rz, z = [np.interp(L * x, sections[:, 0], sections[:, i]) for i in (1, 2, 3)]
-        a = math.radians(angle)
-        return (L * x, side * (ry + inset) * math.sin(a), z + (rz + inset) * math.cos(a))
     for s in (-1, 1):
         for pane in [[(.387, 6), (.425, 7), (.434, 40), (.390, 47)],
                      [(.345, 48), (.382, 48), (.390, 73), (.345, 74)]]:
-            # Tessellate the curved patch: a single flat quad cuts through the loft.
-            points, faces = [], []
-            n = 7
-            corners = np.asarray(pane)
-            for inset in (-.012, .025):
-                for v in np.linspace(0, 1, n):
-                    for u in np.linspace(0, 1, n):
-                        x, a = ((1 - u) * (1 - v) * corners[0] + u * (1 - v) * corners[1]
-                                + u * v * corners[2] + (1 - u) * v * corners[3])
-                        points.append(window_point(x, a, s, inset))
-            for offset in (0, n * n):
-                for row in range(n - 1):
-                    for col in range(n - 1):
-                        a = offset + row * n + col
-                        f = (a, a + 1, a + n + 1, a + n)
-                        faces.append(f if offset else tuple(reversed(f)))
-            perimeter = list(range(n)) + [i * n + n - 1 for i in range(1, n)]
-            perimeter += list(range(n * n - 2, n * (n - 1) - 1, -1))
-            perimeter += [i * n for i in range(n - 2, 0, -1)]
-            for a, b in zip(perimeter, perimeter[1:] + perimeter[:1]):
-                faces.append((a, b, b + n * n, a + n * n))
-            m.add("cockpit_windows", points, faces, "glazing", smooth=65)
+            glazed_panel(m, L, body_sections, pane, s)
         for xx in (-.08, .05, .17):
             if not hawkeye:
                 m.ellipsoid(L * xx, s * r * .998, r * .08, .16, .022, .21, 12, 6, "observer_window", "glazing")
     m.box(-L * .12, L * .10, -r * .5, r * .5, -r * 1.005, -r * .96, "weapons_bay", "array_face")
+
+
+def bear_patrol(m, spec):
+    """Tu-142: swept shoulder wings, long inboard nacelles and four pairs of propellers."""
+    L = spec["length_m"]
+    skin = "airframe_light"
+    body = [(L * x, y, z, h) for x, y, z, h in [
+        (-.50, .07, .10, .48), (-.43, .65, .77, .40), (-.28, 1.30, 1.38, .19),
+        (-.12, 1.53, 1.56, .02), (.27, 1.55, 1.58, 0), (.35, 1.45, 1.48, .04),
+        (.40, 1.22, 1.29, .08), (.44, .95, .85, -.12), (.49, .36, .35, -.20),
+        (.50, .06, .07, -.20)]]
+    loft(m, body, "fuselage", skin)
+    m.ellipsoid(L * .15, 0, -1.24, 3.0, 1.40, .87, 24, 8, "belly_fairing", "array_face")
+    m.fin(-L * .263, 9.25, 3.3, 7.4, 6.8, z0=.98, thickness=.40, m=skin)
+    for side in (-1, 1):
+        foil(m, [(.65, L * .147, 8.8, .45, 1.10), (8.1, L * .070, 7.5, .67, .83),
+                 (17.2, -L * .06, 4.8, 1.02, .48), (24.8, -L * .166, 2.22, 1.32, .18)],
+             material=skin, side=side)
+        foil(m, [(.37, -L * .328, 6.1, .77, .50), (9.0, -L * .445, 2.4, 1.28, .16)],
+             "tailplane", skin, side)
+        for pane in [[(.368, 6), (.397, 6), (.417, 48), (.377, 48)],
+                     [(.339, 51), (.373, 52), (.382, 76), (.341, 77)]]:
+            glazed_panel(m, L, body, pane, side)
+        for span_pos, leading_x, aft in [(7.9, 3.9, -12.5), (15.8, -1.9, -5.4)]:
+            y = side * span_pos
+            z = .56
+            stations = [(aft, .10, .20, .25), (-3.2, .61, .70, .10),
+                        (-.8, .77, .83, .03), (1.9, .81, .82, 0), (2.4, .48, .53, 0)]
+            loft(m, [(leading_x + x, ry, rz, z + h) for x, ry, rz, h in stations],
+                 "nacelle", skin, 24).translate((0, y, 0))
+            # Two separated four-blade rows, with opposite blade sweep and a shared axis.
+            for row, spin in enumerate((1, -1)):
+                hub_x = leading_x + 2.45 + row * .48
+                m.cylinder(y, z, hub_x - .11, hub_x + .13, .47, 16, "propeller_hub", "x", m="titanium")
+                for blade in range(4):
+                    outline = [(.26, -.10), (.91, -.23), (2.35, -.18), (2.83, -.05),
+                               (2.79, .12), (1.32, .26), (.40, .17)]
+                    p = m.plate([(r, spin * chord) for r, chord in outline], -.05, .05,
+                                "propeller_blade", "rubber")
+                    p.rotate((0, 1, 0), -math.pi / 2)
+                    p.rotate((1, 0, 0), blade * math.pi / 2 + row * math.pi / 4 + .12)
+                    p.translate((hub_x, y, z))
+            m.ellipsoid(leading_x + 3.10, y, z, .59, .46, .46, 20, 6,
+                        "spinner", "airframe_light")
+
+
+def seahawk_romeo(m, spec):
+    """MH-60R: glazed naval cabin, fixed wheels, exposed canted tail rotor and low belly fairing."""
+    L = spec["length_m"]
+    skin = "airframe"
+    body = [(L * x, y, z, h) for x, y, z, h in [
+        (-.204, .30, .41, .35), (-.156, .72, .79, .19), (-.098, 1.12, 1.14, .04),
+        (-.044, 1.27, 1.29, .00), (.165, 1.31, 1.29, .01), (.223, 1.22, 1.25, .03),
+        (.272, 1.08, 1.06, .00), (.312, .86, .66, -.23), (.347, .53, .37, -.33),
+        (.364, .12, .14, -.35)]]
+    loft(m, body, "cabin", skin)
+    loft(m, [(-L*.44, .19, .19, .99), (-L*.33, .32, .30, .86),
+             (-L*.21, .45, .41, .59), (-L*.13, .63, .60, .35)], "tail_boom", skin, 20)
+    loft(m, [(-2.28, .30, .21, 1.01), (-1.71, .68, .43, 1.15),
+             (1.85, .72, .45, 1.23), (2.96, .49, .26, 1.13)], "rotor_fairing", skin, 20)
+    for side in (-1, 1):
+        for pane in [[(.224, 4), (.257, 4), (.318, 44), (.280, 54)],
+                     [(.160, 41), (.221, 34), (.273, 58), (.165, 86)],
+                     [(.080, 45), (.147, 45), (.145, 87), (.081, 87)],
+                     [(-.017, 52), (.061, 50), (.062, 84), (-.018, 84)]]:
+            glazed_panel(m, L, body, pane, side)
+        # Paired exhaust fairings, proud of the roof and blended into the cabin shoulders.
+        loft(m, [(-1.89, .23, .23, 1.20), (-1.08, .43, .44, 1.28),
+                 (1.32, .48, .43, 1.32), (1.95, .39, .32, 1.26)],
+             "engine_housing", skin, 16).translate((0, side * .76, 0))
+        m.cylinder(side*.76, 1.26, 1.94, 1.96, .255, 16, "intake", "x", m="rubber")
+        foil(m, [(.07, -L*.294, 1.40, .81, .14), (2.08, -L*.320, .90, .90, .08)],
+             "stabilator", skin, side)
+        wheel_x = L * .12
+        m.rod((wheel_x, side*.92, -.57), (wheel_x-.17, side*1.53, -1.15), .085,
+              "main_gear", "titanium", 8)
+        m.cylinder(wheel_x-.17, -1.16, side*1.54-.12, side*1.54+.12, .36, 20,
+                   "main_wheel", "y", m="rubber")
+        m.cylinder(wheel_x-.17, -1.16, side*1.55-.13, side*1.55+.13, .14, 14,
+                   "wheel_hub", "y", m=skin)
+    # Naval tailwheel is forward of the stabilator, below the joint of the cabin and tail.
+    m.rod((-L*.152, 0, -.21), (-L*.166, 0, -.93), .105, "tail_gear", "titanium", 10)
+    for y in (-.135, .135):
+        m.cylinder(-L*.166, -.96, y-.083, y+.083, .24, 18, "tail_wheel", "y", m="rubber")
+    m.ellipsoid(2.72, 0, -1.12, 1.02, .69, .33, 24, 8, "belly_fairing", skin)
+    m.fin(-L*.40, 1.04, .62, 2.13, .47, z0=.83, thickness=.28, m=skin)
+    mark = m.mark()
+    m.tail_rotor(-L*.429, -.28, 2.68, 1.68, 4)
+    for part in m.since(mark):
+        part.rotate((1, 0, 0), math.radians(-16), (-L*.429, -.28, 2.68))
+    m.cylinder(L*.049, 0, 1.40, 2.48, .17, 16, "rotor_mast", m="titanium")
+    m.rotor(L*.049, 0, 2.48, 8.17, 4, .47, .28)
 
 
 # Hull beam, sail centre/length/height (fractions of L or radius), plane location,
@@ -425,6 +521,8 @@ BUILDERS.update({
     "usaf_fighter_f16c": falcon,
     "jasdf_fighter_f2": partial(falcon, f2=True),
     "usn_mpa_p8a": patrol,
+    "rfn_mpa_tu142": bear_patrol,
+    "usn_helo_mh60r": seahawk_romeo,
     "cw90_p3c": partial(patrol, kind="orion"),
     "cw90_s3a": partial(patrol, kind="viking"),
     "usn_aew_e2d": partial(patrol, kind="hawkeye", advanced=True),

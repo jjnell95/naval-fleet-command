@@ -10,6 +10,7 @@ short_name = "Fishing vessel"
 nation = "Civil"
 category = "fishing vessel"
 domain = "surface"
+recognition_note = "The raised wheelhouse sits forward of an open working deck. A tall frame straddles the stern, with a net drum just ahead of it."
 max_speed_kn = 12.0
 cruise_speed_kn = 7.0
 turn_rate_deg_s = 1.2

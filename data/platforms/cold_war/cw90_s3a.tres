@@ -10,6 +10,7 @@ short_name = "S-3A"
 nation = "USA"
 category = "ASW aircraft"
 domain = "air"
+recognition_note = "Two engine pods hang beneath the high wing. The tailplane sits on top of a single fin, forming a T when viewed from behind."
 max_speed_kn = 430.0
 cruise_speed_kn = 279.5
 turn_rate_deg_s = 6.0

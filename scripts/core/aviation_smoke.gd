@@ -57,7 +57,15 @@ static func run(main: Main) -> void:
 	var weapon_id: String = divert.spec.weapon_loadout.keys()[0]
 	divert.magazines[weapon_id] = 0
 	main._close_air_operations()
-	SimClock.advance(1500.0)
+	var elapsed := 0.0
+	while elapsed < 1500.0 and divert.flight_state != Unit.FlightState.RECOVERING:
+		SimClock.advance(5.0)
+		elapsed += 5.0
+	main.map.select_units([divert])
+	main._toggle_air_operations()
+	checks["final approach shows the committed destination and keeps the aircraft on the chart"] = divert.flight_state == Unit.FlightState.RECOVERING and panel._destination.get_item_text(0) == field.callsign and panel._destination.disabled and panel._return.disabled and not panel._focus.disabled
+	main._close_air_operations()
+	SimClock.advance(1500.0 - elapsed)
 	checks["diverted aircraft lands at shore and transfers membership"] = divert.completed_sorties == 1 and divert.home == field and field.embarked.has(divert) and not carrier.embarked.has(divert)
 	checks["other aircraft lands aboard its carrier"] = recover.completed_sorties == 1 and recover.home == carrier
 	checks["landing enters turnaround rather than instant ready state"] = divert.flight_state == Unit.FlightState.TURNAROUND and recover.flight_state == Unit.FlightState.TURNAROUND
@@ -79,6 +87,14 @@ static func run(main: Main) -> void:
 	checks["closing planning preserves an existing pause"] = SimClock.paused and main.map.keyboard_navigation_enabled
 	main.start_scenario("res://data/scenarios/carrier_qualification.json")
 	checks["scenario reset clears stale aviation selections"] = panel._aircraft == null and panel._base == null and panel._bases.is_empty() and panel._destinations.is_empty()
+	var escort := _find(main, "Andrea Doria (D 553)")
+	main.map.select_units([escort])
+	main._toggle_air_operations()
+	panel._launch_selected()
+	main._close_air_operations()
+	main._toggle_air_operations()
+	checks["reopening a selected one-aircraft deck during launch keeps that host and its cycling aircraft"] = escort.launch_spots_busy() == 1 and panel._base == escort and panel._deck_rows == escort.embarked and panel._launch.disabled
+	main._close_air_operations()
 	_finish(main, checks)
 
 

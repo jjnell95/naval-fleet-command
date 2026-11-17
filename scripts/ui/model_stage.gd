@@ -2,13 +2,14 @@ class_name ModelStage
 extends Control
 ## A self-contained inspection stage. Only the visible library runs a 3D viewport.
 ## Public catalogue models never reveal scenario contact identity.
+signal spin_changed(enabled: bool)
 var _viewport: SubViewport
 var _container: SubViewportContainer
 var _pivot: Node3D
 var _model: Node3D
 var _camera: Camera3D
 var _id := ""
-var _yaw := 0.0
+var _yaw := 0.5
 var _pitch := 0.38
 var _zoom := 13.5
 var _dragging := false
@@ -82,7 +83,6 @@ func show_asset(asset_id: String, weapon := false) -> void:
 	_id = asset_id
 	_weapon = weapon
 	_fallback = PlatformArt.beauty(asset_id, weapon)
-	reset_view()
 	if is_node_ready():
 		_load_model()
 	queue_redraw()
@@ -110,28 +110,33 @@ func _load_model() -> void:
 	queue_redraw()
 
 func reset_view() -> void:
-	_yaw = 0.0
+	_yaw = 0.5
 	_pitch = 0.38
 	_zoom = 13.5
-	_spin = false
+	set_spin(false)
 	_camera_pose()
 
 func set_view(preset: String) -> void:
-	_spin = false
+	set_spin(false)
 	match preset:
 		"profile":
-			_yaw = -0.5
-			_pitch = 0.03
-			_camera_pose()
+			_yaw = 0.0
+			_pitch = 0.0
 		"plan":
-			_yaw = -0.5
-			_pitch = 1.54
-			_camera_pose()
+			_yaw = 0.0
+			_pitch = PI / 2.0
+		"front":
+			_yaw = PI / 2.0
+			_pitch = 0.0
 		_:
 			reset_view()
+			return
+	_camera_pose()
 
 func set_spin(enabled: bool) -> void:
-	_spin = enabled
+	if _spin != enabled:
+		_spin = enabled
+		spin_changed.emit(enabled)
 
 func _sync_visibility() -> void:
 	if _viewport != null:
@@ -143,12 +148,16 @@ func _resize_view() -> void:
 	_camera_pose()
 	queue_redraw()
 
-func _camera_pose(straight := false) -> void:
+func _camera_pose() -> void:
 	if _camera == null:
 		return
-	var a := _yaw + (0.0 if straight else 0.5)
-	_camera.position = Vector3(sin(a) * cos(_pitch), sin(_pitch), cos(a) * cos(_pitch)) * 25.0
-	_camera.look_at(Vector3.ZERO)
+	var centre := _model_bounds.get_center()
+	var horizontal := Vector3(sin(_yaw), 0.0, cos(_yaw))
+	var toward_eye := horizontal * cos(_pitch) + Vector3.UP * sin(_pitch)
+	# The projected up direction remains defined directly overhead in the plan view.
+	var screen_up := Vector3.UP * cos(_pitch) - horizontal * sin(_pitch)
+	_camera.position = centre + toward_eye * 25.0
+	_camera.look_at(centre, screen_up)
 	# Project the bounds into this camera's axes. A tall gun mount and a long ship must
 	# both fit the stage, including after orbiting or changing to a plan/profile view.
 	var aspect := maxf(size.x / maxf(size.y, 1.0), .1)
@@ -179,7 +188,7 @@ func _gui_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and _dragging:
 		_yaw -= event.relative.x * 0.008
 		_pitch = clampf(_pitch + event.relative.y * 0.006, -0.65, 1.54)
-		_spin = false
+		set_spin(false)
 		_camera_pose()
 		accept_event()
 
@@ -188,7 +197,7 @@ func _process(delta: float) -> void:
 		return
 	if _dragging and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		_dragging = false
-	if _spin and not _dragging:
+	if _spin and not _dragging and _model != null:
 		_yaw += delta * 0.18
 		_camera_pose()
 

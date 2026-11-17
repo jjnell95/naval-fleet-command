@@ -10,6 +10,7 @@ short_name = "E-2C"
 nation = "USA"
 category = "airborne early warning"
 domain = "air"
+recognition_note = "A round radar dome sits above the fuselage and four fins span the tail. From the front, each propeller on this model has four blades."
 max_speed_kn = 320.0
 cruise_speed_kn = 208.0
 turn_rate_deg_s = 6.0

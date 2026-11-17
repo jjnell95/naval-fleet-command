@@ -10,6 +10,7 @@ short_name = "AOR Maud"
 nation = "Norway"
 category = "auxiliary"
 domain = "surface"
+recognition_note = "Paired cargo posts rise from the open deck ahead of the bridge. A marked helicopter deck stretches from the hangar to the stern."
 max_speed_kn = 18.0
 cruise_speed_kn = 14.0
 turn_rate_deg_s = 1.6
@@ -27,7 +28,7 @@ decoy_effectiveness = 0.25
 weapon_loadout = {
 }
 
-role = "Auxiliary • maritime operations"
+role = "Fleet replenishment ship"
 aircraft_capacity = 1
 default_air_wing = {}
 service_note = "Replenishment ship with helicopter landing facilities. No NH90 automatically embarked after Norway terminated that program."

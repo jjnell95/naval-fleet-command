@@ -314,7 +314,10 @@ static func group_rows(units: Array, group_attacks: GroupAttackManager = null) -
 	for u: Unit in units:
 		if u == null or u.spec == null:
 			continue
-		rows.append([[u.callsign, VALUE], ["  %03d  %d KTS" % [int(round(u.heading_deg)) % 360, int(round(u.speed_kn))], WHITE]])
+		var heading := Geo.format_bearing(SubmarineComms.reported_heading(u))
+		var speed := roundi(SubmarineComms.reported_speed(u))
+		var source := "LAST REPORT  " if not SubmarineComms.connected(u) else ""
+		rows.append([[u.callsign, VALUE], ["  %s%s  %d KTS" % [source, heading, speed], WHITE]])
 	return rows
 
 
@@ -392,11 +395,14 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null, group_att
 		return "Off station" + _off_station_hint(u)
 	if u.station_note != "":
 		return u.station_note
-	if u.ordered_speed_kn <= 0.1 and u.spec.max_speed_kn > 0.0:
-		return "Hold position"
 	if u.spec.max_speed_kn <= 0.0:
 		return "Weapons %s" % ["hold", "tight", "free"][u.roe]
-	return "Steady on %03d" % (int(round(u.ordered_heading_deg)) % 360)
+	if u.ordered_speed_kn <= 0.1:
+		return "Stopping" if u.speed_kn > 0.1 else "Hold position"
+	var ordered_course := Geo.format_bearing(u.ordered_heading_deg)
+	if ordered_course != Geo.format_bearing(u.heading_deg):
+		return "Turning to " + ordered_course
+	return "Steady on " + ordered_course
 
 
 ## A platform away from a standing assignment it still holds says how to get back to it.

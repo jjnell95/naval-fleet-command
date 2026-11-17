@@ -8,6 +8,12 @@
  "aim9x_air": {
   "kind": "weapon"
  },
+ "civ_fishing_trawler": {
+  "kind": "platform",
+  "domain": "surface",
+  "recognition_revision": "2026-11-17",
+  "waterline_y": -1.2009
+ },
  "cw90_a6e": {
   "kind": "platform",
   "domain": "air"
@@ -213,6 +219,11 @@
   "domain": "surface",
   "waterline_y": -1.0612
  },
+ "rfn_mpa_tu142": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-11-17"
+ },
  "rfn_sam_s400_site": {
   "kind": "platform",
   "domain": "land"
@@ -258,6 +269,12 @@
   "domain": "subsurface",
   "waterline_y": 0.3018,
   "recognition_revision": "2026-10-02"
+ },
+ "rnon_aux_maud": {
+  "kind": "platform",
+  "domain": "surface",
+  "recognition_revision": "2026-11-17",
+  "waterline_y": -0.6193
  },
  "rnon_ffg_fridtjof_nansen": {
   "kind": "platform",
@@ -325,6 +342,11 @@
   "kind": "platform",
   "domain": "air",
   "recognition_revision": "2026-10-02"
+ },
+ "usn_helo_mh60r": {
+  "kind": "platform",
+  "domain": "air",
+  "recognition_revision": "2026-11-17"
  },
  "usn_lha_america": {
   "kind": "platform",

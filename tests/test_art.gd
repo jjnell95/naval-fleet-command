@@ -91,6 +91,39 @@ func test_surface_and_aircraft_plans_keep_distinct_proportions() -> void:
 		assert_true(float(jet.get_width()) / jet.get_height() < 2, "carrier fighter shows its broad wing")
 
 
+func test_trawler_has_a_forward_wheelhouse_and_a_separate_aft_working_rig() -> void:
+	var trawler := preload("res://assets/models/civ_fishing_trawler.glb").instantiate()
+	var windows := _material_bounds(trawler, "glazing")
+	var rig := _material_bounds(trawler, "marking_yellow")
+	assert_true(windows.position.x > 0.0 and windows.size.z > 1.0, "wheelhouse windows span the forward deck")
+	assert_true(rig.end.x < 0.0 and rig.size.y > 1.0 and rig.size.z > 1.0, "raised trawl gantry spans the stern")
+	trawler.free()
+
+
+func test_maud_has_a_marked_landing_deck_behind_the_bridge() -> void:
+	var maud := preload("res://assets/models/rnon_aux_maud.glb").instantiate()
+	var pad := _material_bounds(maud, "flight_deck")
+	var markings := _material_bounds(maud, "marking_white")
+	var windows := _material_bounds(maud, "glazing")
+	assert_true(pad.size.x > 2.0 and pad.end.x < windows.position.x, "stern deck lies aft of the accommodation")
+	assert_true(markings.size.z > 0.8 and pad.position.x < markings.position.x and markings.end.x < pad.end.x
+			and markings.position.y >= pad.end.y, "visible landing markings lie above the aft deck")
+	maud.free()
+
+
+func _material_bounds(model: Node, material_name: String) -> AABB:
+	var bounds := AABB()
+	for part: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		for surface in part.mesh.get_surface_count():
+			var finish := part.mesh.surface_get_material(surface)
+			if finish == null or finish.resource_name != material_name:
+				continue
+			var points: PackedVector3Array = part.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+			for point: Vector3 in points:
+				bounds = AABB(point, Vector3.ZERO) if bounds == AABB() else bounds.expand(point)
+	return bounds
+
+
 func test_close_scale_plot_uses_legible_metric_steps() -> void:
 	var map := TacticalMap.new()
 	map.ppn = TacticalMap.MAX_PPN
@@ -98,3 +131,13 @@ func test_close_scale_plot_uses_legible_metric_steps() -> void:
 	assert_true(step * map.ppn >= 80 and step * map.ppn <= 200, "scale bar remains inside the plot")
 	assert_true(map._chart_axis(.014, "E", "W") != map._chart_axis(.034, "E", "W"), "close coordinates do not collapse to the same label")
 	map.free()
+
+
+func test_seahawk_and_tu142_cockpit_glazing_spans_both_sides_forward() -> void:
+	for id: String in ["usn_helo_mh60r", "rfn_mpa_tu142"]:
+		var scene := load("res://assets/models/%s.glb" % id) as PackedScene
+		var model := scene.instantiate()
+		var glass := _material_bounds(model, "glazing")
+		assert_true(glass.end.x > 3.0 and glass.position.z < 0.0 and glass.end.z > 0.0,
+				"%s has a glazed forward cockpit across both sides of the normalized model" % id)
+		model.free()

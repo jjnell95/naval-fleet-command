@@ -54,9 +54,9 @@ tools/art/rebuild_air_subs.sh
 
 The script requires Python with numpy/trimesh/Pillow, Godot 4.7.2 and Xvfb. Set `GODOT` to select the
 engine. It imports before rendering and copies the Japanese F-35B and Iranian Kilo **after** their
-donor renders are refreshed. Preserve each plan texture's 384-pixel import limit. The render sidecar
-marks this set with `recognition_revision: "2026-10-02"`; `tools/recognition_playtest.gd` opens every
-marked entry in the actual Reference viewer and checks three camera presets and frame containment.
+donor renders are refreshed. Preserve each plan texture's 384-pixel import limit. The render sidecar marks the revised models with `recognition_revision`. The Reference playtest opens each tagged model and checks framing in three-quarter, profile, plan and front views.
+
+The November revisions add the MH-60R and Tu-142 to the aircraft builder. The fishing trawler and Maud use dedicated hulls in `tools/art/build_models.py`. Each produces a GLB shared by Reference and the live view, plus a matching portrait, thumbnail, profile and plan.
 
 ## Blender-free pipeline (2027 theatre catalogue)
 
