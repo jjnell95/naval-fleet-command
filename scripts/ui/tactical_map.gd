@@ -56,11 +56,12 @@ enum RangeCircle { OFF, ARMED, FIXED }
 
 const MIN_PPN := 0.2
 const MAX_PPN := 6000.0
+const CHART_HISTORY_LIMIT := 16
 const ZOOM_STEP := 1.25
 const KEYBOARD_ZOOM_RATE := 4.0
 const CLICK_RADIUS_PX := 18.0
-## A difference larger than this makes the nearer contact a deliberate, direct click.
-const CONTACT_PICK_MARGIN_PX := 4.0
+## A difference larger than this makes the nearer symbol a deliberate, direct click.
+const SYMBOL_PICK_MARGIN_PX := 4.0
 const WAYPOINT_HIT_PX := 14.0
 const DRAG_THRESHOLD_PX := 5.0
 const DOUBLE_CLICK_MS := 350
@@ -221,8 +222,11 @@ var keyboard_navigation_enabled := true
 var menu_open := false
 var _trail_reference: Unit
 var _pending_fit := false
+var _fit_records_history := true
 var _fit_center := Vector2.ZERO
 var _fit_extent := 0.0
+var _earlier_views: Array[Dictionary] = []
+var _later_views: Array[Dictionary] = []
 var _font: Font
 var _trails: Dictionary = {}  # Unit -> PackedVector2Array (presentation memory only)
 var _own_numbers: Dictionary = {}  # Unit -> own track number, stable for the mission
@@ -614,6 +618,10 @@ func _witness(pos: Vector2, target: Unit) -> Vector2:
 
 
 func reset_presentation() -> void:
+	_pending_fit = false
+	_earlier_views.clear()
+	_later_views.clear()
+	set_follow_selection(false)
 	_threats.clear()
 	_threat_candidates.clear()
 	_threat_cache_time = -1.0
@@ -657,8 +665,17 @@ func unobstructed_chart_rect() -> Rect2:
 	return Rect2(Vector2(left, 0.0), Vector2(maxf(size.x - left, 1.0), maxf(size.y, 1.0)))
 
 
-func fit_to(center: Vector2, extent_nm: float) -> void:
+## The opening fit gets a second chance after the window lays out its panes. A loaded view
+## cancels this pending fit, even when the load and the first layout happen in the same frame.
+func fit_initial_view(center: Vector2, extent_nm: float) -> void:
+	fit_to(center, extent_nm, false)
+	_pending_fit = true
+	call_deferred("_apply_pending_fit")
+
+
+func fit_to(center: Vector2, extent_nm: float, remember := true) -> void:
 	set_follow_selection(false)
+	_fit_records_history = remember
 	_fit_center = center
 	_fit_extent = extent_nm
 	_pending_fit = true
@@ -669,12 +686,16 @@ func _apply_pending_fit() -> void:
 	if not _pending_fit or size.x <= 0.0 or size.y <= 0.0:
 		return
 	_pending_fit = false
+	var before := chart_view()
 	var chart := unobstructed_chart_rect()
 	ppn = clampf(minf(chart.size.x, chart.size.y) / maxf(_fit_extent, 1.0), MIN_PPN, MAX_PPN)
 	_center_world_in_chart(_fit_center)
+	if _fit_records_history:
+		_remember_chart_jump(before)
 
 
 func _zoom_at(screen_pos: Vector2, factor: float) -> void:
+	_pending_fit = false
 	var anchor := screen_to_world(screen_pos)
 	ppn = clampf(ppn * factor, MIN_PPN, MAX_PPN)
 	center_nm = Vector2(anchor.x - (screen_pos.x - size.x * 0.5) / ppn, anchor.y + (screen_pos.y - size.y * 0.5) / ppn)
@@ -683,8 +704,55 @@ func _zoom_at(screen_pos: Vector2, factor: float) -> void:
 ## Recentres the view on a point without touching zoom. Used to snap back to a unit or track
 ## the player has lost track of on a spread-out picture, without re-fitting the whole scale.
 func center_on(world_pos: Vector2) -> void:
+	var before := chart_view()
+	_pending_fit = false
 	set_follow_selection(false)
 	_center_world_in_chart(world_pos)
+	_remember_chart_jump(before)
+
+
+func chart_view() -> Dictionary:
+	return {"center": center_nm, "ppn": ppn}
+
+
+func restore_chart_view(view: Dictionary) -> void:
+	var center: Variant = view.get("center")
+	var scale_px: float = float(view.get("ppn", ppn))
+	if not center is Vector2 or not center.is_finite() or not is_finite(scale_px) or scale_px <= 0.0:
+		return
+	_pending_fit = false
+	set_follow_selection(false)
+	center_nm = center
+	ppn = clampf(scale_px, MIN_PPN, MAX_PPN)
+	queue_redraw()
+
+
+## Only explicit jumps and fits add history. Following a moving ship and rolling the wheel
+## leave the original view one step away. History contains positions and scale, never units.
+func _remember_chart_jump(before: Dictionary) -> void:
+	if before == chart_view():
+		return
+	_later_views.clear()
+	if _earlier_views.is_empty() or _earlier_views.back() != before:
+		_earlier_views.append(before)
+		if _earlier_views.size() > CHART_HISTORY_LIMIT:
+			_earlier_views.pop_front()
+
+
+func can_revisit_chart_view(forward := false) -> bool:
+	return not (_later_views if forward else _earlier_views).is_empty()
+
+
+func revisit_chart_view(forward := false) -> void:
+	var source := _later_views if forward else _earlier_views
+	var destination := _earlier_views if forward else _later_views
+	var current := chart_view()
+	while not source.is_empty():
+		var view: Dictionary = source.pop_back()
+		if view != current:
+			destination.append(current)
+			restore_chart_view(view)
+			return
 
 
 func _center_world_in_chart(world_pos: Vector2) -> void:
@@ -1260,11 +1328,17 @@ func cycle_priority_track(step := 1) -> Track:
 func _unit_at(screen_pos: Vector2) -> Unit:
 	var best: Unit = null
 	var best_d := CLICK_RADIUS_PX
+	var chosen: Unit = selected[0] if selected.size() == 1 else null
+	var chosen_d := INF
 	for u in _own_units():
 		var d := world_to_screen(SubmarineComms.reported_position(u)).distance_to(screen_pos)
 		if d <= best_d:
 			best = u
 			best_d = d
+		if u == chosen:
+			chosen_d = d
+	if chosen_d <= minf(CLICK_RADIUS_PX, best_d + SYMBOL_PICK_MARGIN_PX):
+		return chosen
 	return best
 
 
@@ -1302,37 +1376,50 @@ func _track_at(screen_pos: Vector2) -> Track:
 			best_d = d
 		if t == selected_track:
 			selected_d = d
-	if selected_d <= minf(CLICK_RADIUS_PX, best_d + CONTACT_PICK_MARGIN_PX):
+	if selected_d <= minf(CLICK_RADIUS_PX, best_d + SYMBOL_PICK_MARGIN_PX):
 		return selected_track
 	return best
 
 
-## The picker appears only where two contact centres are comparably close to the click.
-## Sort by the printed track number so the list stays stable when reports cross.
-func _contacts_at_click(screen_pos: Vector2) -> Array[Track]:
-	var contacts: Array[Track] = []
+## A click can hit several symbols. Offer only those whose centres are comparably close,
+## using the same reported positions, visible tracks and deployed units that the chart draws.
+func _symbols_at_click(screen_pos: Vector2) -> Array:
+	var distances := {}
 	var nearest := CLICK_RADIUS_PX
-	for t: Track in _plotted_tracks():
-		var d := world_to_screen(t.position).distance_to(screen_pos)
-		if not t.confirmed_destroyed and t.status != Track.Status.LOST and d <= CLICK_RADIUS_PX:
-			contacts.append(t)
+	for u: Unit in _own_units():
+		var d := world_to_screen(SubmarineComms.reported_position(u)).distance_to(screen_pos)
+		if d <= CLICK_RADIUS_PX:
+			distances[u] = d
 			nearest = minf(nearest, d)
-	contacts = contacts.filter(func(t: Track) -> bool:
-		return world_to_screen(t.position).distance_to(screen_pos) <= nearest + CONTACT_PICK_MARGIN_PX)
-	contacts.sort_custom(func(a: Track, b: Track) -> bool: return a.id.naturalnocasecmp_to(b.id) < 0)
-	return contacts
+	for t: Track in _plotted_tracks():
+		if t.confirmed_destroyed or t.status == Track.Status.LOST:
+			continue
+		var d := world_to_screen(t.position).distance_to(screen_pos)
+		if d <= CLICK_RADIUS_PX:
+			distances[t] = d
+			nearest = minf(nearest, d)
+	var nearby := distances.keys().filter(func(symbol: RefCounted) -> bool:
+		return distances[symbol] <= nearest + SYMBOL_PICK_MARGIN_PX)
+	if nearby.size() > 1:
+		nearby.sort_custom(func(a: RefCounted, b: RefCounted) -> bool:
+			if a is Unit and b is Unit: return (a as Unit).id < (b as Unit).id
+			if a is Track and b is Track: return (a as Track).id.naturalnocasecmp_to((b as Track).id) < 0
+			return a is Unit)
+	return nearby
 
 
-func choose_plotted_contact(t: Track) -> void:
-	# The watch can run while a native menu is open.
-	if t == null or t.confirmed_destroyed or t.status == Track.Status.LOST or not _plotted_tracks().has(t):
-		post_message("Contact is no longer on this chart")
-		return
-	select_track(t)
+func choose_plotted_symbol(symbol: RefCounted, additive: bool) -> void:
+	# A unit can land or leave the chart, or its observer can lose a report, while the menu is open.
+	if symbol is Unit and _own_units().has(symbol):
+		_select_symbol(symbol, additive)
+	elif symbol is Track and not symbol.confirmed_destroyed and symbol.status != Track.Status.LOST and _plotted_tracks().has(symbol):
+		select_track(symbol)
+	else:
+		post_message("Selection is no longer on this chart")
 
 
 ## Choose by screen distance so clicking the centre of a contact still works in a tight
-## formation. At equal distances keep the chart's own-unit, inbound, contact priority.
+## formation. Keep an inspected contact in a tied stack. Otherwise an own unit wins ties.
 func _symbol_at(screen_pos: Vector2, include_inbound := false) -> RefCounted:
 	var closest: RefCounted = _track_at(screen_pos)
 	var distance := INF
@@ -1346,8 +1433,12 @@ func _symbol_at(screen_pos: Vector2, include_inbound := false) -> RefCounted:
 				closest = inbound
 				distance = d
 	var unit := _unit_at(screen_pos)
-	if unit != null and world_to_screen(SubmarineComms.reported_position(unit)).distance_squared_to(screen_pos) <= distance:
-		return unit
+	if unit != null:
+		var unit_distance := world_to_screen(SubmarineComms.reported_position(unit)).distance_squared_to(screen_pos)
+		if unit_distance <= distance:
+			if closest is Track and closest == inspection_track() and sqrt(distance) <= sqrt(unit_distance) + SYMBOL_PICK_MARGIN_PX:
+				return closest
+			return unit
 	return closest
 
 
@@ -1384,15 +1475,23 @@ func _check_double_click(screen_pos: Vector2) -> void:
 
 ## Returns false when the click opened a chooser and should not also count as a double-click.
 func _click_select(screen_pos: Vector2, additive: bool) -> bool:
-	var symbol := _symbol_at(screen_pos)
+	var symbol: RefCounted
+	if interaction_mode == InteractionMode.SELECT:
+		var nearby := _symbols_at_click(screen_pos)
+		if nearby.size() > 1:
+			context_menu_requested.emit(screen_pos, {"kind": "symbol_stack", "symbols": nearby, "additive": additive})
+			return false
+		symbol = nearby.front() if not nearby.is_empty() else null
+	else:
+		symbol = _symbol_at(screen_pos)
+	_select_symbol(symbol, additive)
+	return true
+
+
+func _select_symbol(symbol: RefCounted, additive: bool) -> void:
 	if symbol is Track:
-		if not additive and interaction_mode == InteractionMode.SELECT:
-			var contacts := _contacts_at_click(screen_pos)
-			if contacts.size() > 1:
-				context_menu_requested.emit(screen_pos, {"kind": "contact_stack", "tracks": contacts})
-				return false
 		select_track(symbol)
-		return true
+		return
 	var hit := symbol as Unit
 	_inspecting_track = false
 	if additive:
@@ -1409,7 +1508,6 @@ func _click_select(screen_pos: Vector2, additive: bool) -> bool:
 			select_track(null)
 	_normalize_interaction_state()
 	selection_changed.emit(selected)
-	return true
 
 
 func _box_select(rect: Rect2, additive: bool) -> void:

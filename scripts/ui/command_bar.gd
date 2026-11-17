@@ -126,6 +126,8 @@ static func chart_items(chart: TacticalMap) -> Array:
 		CdsMenus.sep(),
 		CdsMenus.item("Zoom in", {"kind": "palette", "id": "chart_zoom_in"}),
 		CdsMenus.item("Zoom out", {"kind": "palette", "id": "chart_zoom_out"}),
+		CdsMenus.item("Previous chart view", {"kind": "palette", "id": "previous_chart_view"}, not chart.can_revisit_chart_view(), "Return to the previous chart position and scale with the left bracket key."),
+		CdsMenus.item("Next chart view", {"kind": "palette", "id": "next_chart_view"}, not chart.can_revisit_chart_view(true), "Return to the next chart position and scale with the right bracket key."),
 		CdsMenus.item("Frame selected platforms & target", {"kind": "palette", "id": "focus_selection"}),
 		CdsMenus.item("Find my fleet", {"kind": "palette", "id": "fit_fleet"}),
 		CdsMenus.item("Whole theatre", {"kind": "palette", "id": "fit_theatre"}),

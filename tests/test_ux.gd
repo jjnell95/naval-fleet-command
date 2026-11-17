@@ -574,13 +574,24 @@ func test_overlapping_hit_areas_select_the_symbol_under_the_pointer() -> void:
 	_free_fixture(f)
 
 
-func _left_click(map: TacticalMap, at: Vector2) -> void:
+func _left_click(map: TacticalMap, at: Vector2, shift := false) -> void:
 	for pressed: bool in [true, false]:
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		click.pressed = pressed
 		click.position = at
+		click.shift_pressed = shift
 		map._gui_input(click)
+
+
+func _connect_picker(map: TacticalMap) -> Main:
+	var shell := Main.new()
+	shell.map = map
+	shell._cds_menus = CdsMenus.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(shell._cds_menus)
+	map.context_menu_requested.connect(shell._on_map_context)
+	shell._cds_menus.action_chosen.connect(shell._run_cds_action)
+	return shell
 
 
 func test_crowded_contact_picker_uses_the_held_picture_and_retains_the_chosen_track() -> void:
@@ -591,12 +602,7 @@ func test_crowded_contact_picker_uses_the_held_picture_and_retains_the_chosen_tr
 	two.position = one.position
 	var at := map.world_to_screen(one.position)
 	map.select_units([f["ship"]])
-	var shell := Main.new()
-	shell.map = map
-	shell._cds_menus = CdsMenus.new()
-	(Engine.get_main_loop() as SceneTree).root.add_child(shell._cds_menus)
-	map.context_menu_requested.connect(shell._on_map_context)
-	shell._cds_menus.action_chosen.connect(shell._run_cds_action)
+	var shell := _connect_picker(map)
 	for i in 40:
 		var distant := _track("D%d" % i, "UNKNOWN", Vector2(32 + i, 35))
 		(f["tracks"] as TrackManager)._tracks["BLUE"].append(distant)
@@ -631,6 +637,59 @@ func test_crowded_contact_picker_uses_the_held_picture_and_retains_the_chosen_tr
 	shell._cds_menus.free()
 	shell.free()
 	_free_fixture(f)
+
+
+func test_chart_picker_disambiguates_own_units_and_contacts_and_keeps_shift_selection() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f.map
+	var ship: Unit = f.ship
+	ship.callsign = "North"
+	var aircraft := _unit("usn_helo_mh60r", "BLUE", ship.position)
+	aircraft.callsign = "Merlin"
+	aircraft.flight_state = Unit.FlightState.AIRBORNE
+	f.manager.add_unit(aircraft)
+	var shell := _connect_picker(map)
+	var at := map.world_to_screen(ship.position)
+	_left_click(map, at)
+	var popup := shell._cds_menus._root
+	assert_true(popup != null and popup.visible and map.selected.is_empty(), "an ordinary friendly/friendly tie asks which unit before selecting")
+	if popup != null:
+		_choose_picker_label(popup, ship.callsign)
+		assert_eq(map.selected, [ship])
+		assert_eq(map.context_at(at).unit, ship, "a following right-click can address the chosen friendly unit")
+		aircraft.position += Vector2(0.5, 0)  # Two screen pixels from the ship.
+		var contact: Track = f.hostile
+		contact.position = ship.position
+		_left_click(map, at)
+		popup = shell._cds_menus._root
+		assert_eq(popup.item_count, 5, "both friendly platforms and the held report can be picked")
+		_choose_picker_label(popup, DataDisplay.track_number_for_track(contact))
+		assert_eq(map.inspection_track(), contact)
+		assert_eq(map.selected, [ship], "inspecting the report keeps the command selection")
+		assert_eq(map.context_at(at).track, contact, "a following right-click still addresses the inspected contact")
+		_left_click(map, at, true)
+		_choose_picker_label(shell._cds_menus._root, aircraft.callsign)
+		assert_eq(map.selected, [ship, aircraft], "Shift adds the chosen unit to the existing group")
+		_left_click(map, at, true)
+		_choose_picker_label(shell._cds_menus._root, ship.callsign)
+		assert_eq(map.selected, [aircraft], "Shift removes only the chosen group member")
+		_left_click(map, at)
+		aircraft.flight_state = Unit.FlightState.STOWED
+		map.select_units([ship])
+		_choose_picker_label(shell._cds_menus._root, aircraft.callsign)
+		assert_eq(map.selected, [ship], "a unit that has landed since the menu opened cannot replace the selection")
+		assert_true(f.events.attack.is_empty() and f.events.move.is_empty(), "opening the chooser or picking an entry issues no order")
+	shell._cds_menus.free()
+	shell.free()
+	_free_fixture(f)
+
+
+func _choose_picker_label(popup: PopupMenu, label: String) -> void:
+	for i in popup.item_count:
+		if not popup.is_item_disabled(i) and popup.get_item_text(i).contains(label):
+			popup.id_pressed.emit(popup.get_item_id(i))
+			return
+	assert_true(false, "missing picker entry for " + label)
 
 
 func test_stowed_aircraft_and_unsupported_system_orders_are_refused() -> void:
@@ -678,8 +737,12 @@ func test_contact_cycle_uses_the_visible_filtered_track_file() -> void:
 	air.domain = "air"
 	var surface := _track("T3002", "HOSTILE", Vector2(3, 0))
 	surface.domain = "surface"
+	var hidden := _track("T3003", "UNKNOWN", Vector2(10, 0))
+	hidden.domain = "air"
+	var neutral := _track("T3004", "NEUTRAL", Vector2(12, 0))
+	neutral.domain = "air"
 	var manager := TrackManager.new()
-	manager._tracks["BLUE"] = [surface, air]
+	manager._tracks["BLUE"] = [neutral, surface, hidden, air]
 	var map := TacticalMap.new()
 	map.track_manager = manager
 	map.select_units([reference])
@@ -689,10 +752,74 @@ func test_contact_cycle_uses_the_visible_filtered_track_file() -> void:
 	var root := (Engine.get_main_loop() as SceneTree).root
 	root.add_child(panel)
 	panel._filter = "AIR"
+	map.show_unknowns = false
 	panel.refresh()
-	assert_eq(panel.visible_track_count(), 1)
+	assert_eq(panel.visible_track_count(), 3, "the file retains each air report")
+	assert_eq(panel.plotted_track_count(), 2, "the palette counts only plotted air contacts")
 	assert_eq(panel.cycle_visible_track(1), air)
-	assert_eq(map.selected_track, air, "shortcut/button cycling cannot select a row hidden by the active filter")
+	assert_eq(panel.cycle_visible_track(-1), neutral, "reverse cycling wraps past the hidden report")
+	assert_eq(panel.cycle_visible_track(1), air)
+	map.set_follow_selection(true)
+	var view := map.chart_view()
+	panel._next_btn.pressed.emit()
+	assert_eq(map.inspection_track(), hidden, "the board arrow can inspect the hidden report")
+	assert_eq(map.chart_view(), view, "inspecting a hidden report leaves the chart in place")
+	assert_true(panel._focus_btn.disabled and not map.follow_selection, "the chart cannot locate or follow the hidden report")
+	assert_eq(panel.cycle_visible_track(1), neutral, "chart navigation resumes in file order from the inspected row")
+	map.show_hostiles = false
+	map.show_neutrals = false
+	assert_eq(panel.plotted_track_count(), 0)
+	view = map.chart_view()
+	assert_eq(panel.cycle_visible_track(-1), null)
+	assert_eq(map.chart_view(), view)
+	assert_eq(map.selected_track, neutral, "no plotted rows leaves the selection alone")
+	panel.free()
+	map.free()
+	manager.free()
+
+
+func test_track_file_locates_the_activated_row_only_while_held_and_in_the_filter() -> void:
+	var reference := _unit()
+	var air := _track("T3003", "UNKNOWN", Vector2(9, 0))
+	air.domain = "air"
+	var surface := _track("T3004", "UNKNOWN", Vector2(6, 0))
+	surface.domain = "surface"
+	var manager := TrackManager.new()
+	manager._tracks["BLUE"] = [air, surface]
+	var map := TacticalMap.new()
+	map.track_manager = manager
+	map.select_units([reference])
+	map.select_track(surface)
+	var panel := ContactPanel.new()
+	panel.track_manager = manager
+	panel.map = map
+	(Engine.get_main_loop() as SceneTree).root.add_child(panel)
+	panel.track_chosen.connect(map.select_track)
+	var locations: Array[Vector2] = []
+	panel.track_located.connect(func(point: Vector2) -> void: locations.append(point))
+	panel._filter = "AIR"
+	panel.refresh()
+	assert_true(panel._focus_btn.disabled, "the current hook is outside this filter")
+	panel._focus_current()
+	assert_true(locations.is_empty())
+	panel._list.item_activated.emit(0)
+	assert_eq(locations, [air.position], "activation uses the report in the activated row")
+	assert_eq(map.inspection_track(), air)
+	assert_eq(map.selected, [reference])
+	map.show_unknowns = false
+	panel.refresh()
+	assert_true(panel._focus_btn.disabled and panel._focus_btn.tooltip_text.contains("identity filters"))
+	panel._list.item_activated.emit(0)
+	assert_eq(locations.size(), 1, "a chart filter can hide the symbol without hiding the report in the list")
+	map.show_unknowns = true
+	# The visible row may briefly outlive a report removed by the next simulation tick.
+	manager._tracks["BLUE"].erase(air)
+	panel._focus_current()
+	map.select_track(surface)
+	panel._list.item_selected.emit(0)
+	panel._list.item_activated.emit(0)
+	assert_eq(map.selected_track, surface, "a removed report cannot replace the player's current hook")
+	assert_eq(locations.size(), 1)
 	panel.free()
 	map.free()
 	manager.free()

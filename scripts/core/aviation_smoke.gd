@@ -95,7 +95,52 @@ static func run(main: Main) -> void:
 	main._toggle_air_operations()
 	checks["reopening a selected one-aircraft deck during launch keeps that host and its cycling aircraft"] = escort.launch_spots_busy() == 1 and panel._base == escort and panel._deck_rows == escort.embarked and panel._launch.disabled
 	main._close_air_operations()
+	await _check_roster_navigation(main, checks)
 	_finish(main, checks)
+
+
+static func _check_roster_navigation(main: Main, checks: Dictionary) -> void:
+	# A crowded airborne roster and a previously inspected contact far from the air wing.
+	var airborne: Array[Unit] = []
+	for a: Unit in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+		if a.is_aircraft():
+			a.flight_state = Unit.FlightState.AIRBORNE
+			airborne.append(a)
+	var wanted := airborne.back() as Unit
+	var reported_ship := Unit.new()
+	reported_ship.faction = "NEUTRAL"
+	reported_ship.spec = DataDB.platform("civ_fishing_trawler")
+	var held := main.simulation.track_manager.report_intel(main.simulation.player_faction, reported_ship, wanted.position + Vector2(150, 90), 2.0, SimClock.sim_time, "Exercise contact report")
+	main.map.select_units([wanted])
+	main.map.select_track(held)
+	var zoom := main.map.ppn
+	main._toggle_air_operations()
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	var panel := main._air_operations
+	var row := panel._roster.get_selected()
+	var bounds := panel._roster.get_item_area_rect(row) if row != null else Rect2()
+	var visible_row := row != null and bounds.position.y >= 0.0 and bounds.end.y <= panel._roster.size.y
+	if not visible_row or not panel._roster.has_focus():
+		print("[Aviation smoke] Hooked row ", bounds, " in roster ", panel._roster.size, ", focused ", panel._roster.has_focus(), ", scroll ", panel._roster.get_scroll())
+	checks["F3 focuses and scrolls to the hooked airframe in a crowded airborne roster"] = panel._roster.has_focus() and visible_row and row.get_metadata(0) == wanted
+	panel._focus.pressed.emit()
+	checks["Show on Chart centers that aircraft at the same scale and keeps the previously held contact"] = not panel.visible and main.map.selected == [wanted] and main.map.selected_track == held and is_equal_approx(main.map.ppn, zoom) and main.map.world_to_screen(wanted.position).distance_to(main.map.unobstructed_chart_rect().get_center()) < 1.0
+	main._toggle_world_full()
+	main._toggle_air_operations()
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	await main.get_tree().process_frame
+	for down: bool in [true, false]:
+		var key := InputEventKey.new()
+		key.keycode = KEY_ENTER
+		key.pressed = down
+		main.get_viewport().push_input(key, true)
+		await main.get_tree().process_frame
+	checks["Enter on the hooked roster row returns from full-screen 3D to its aircraft on the visible chart"] = not panel.visible and main.map.selected == [wanted] and not main._world_full and main.map.is_visible_in_tree()
+	if panel.visible:
+		main._close_air_operations()
 
 
 static func _find(main: Main, callsign: String) -> Unit:

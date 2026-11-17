@@ -63,6 +63,7 @@ func run(scene_tree: SceneTree) -> void:
 		if unknown != null: break
 	checks["sensors produce an investigable unknown"] = unknown != null
 	if unknown != null:
+		await _track_file_location(unknown)
 		await _hover_readout(unknown)
 		await _contact_and_investigation(unknown)
 	await _aircraft_and_engagement()
@@ -77,13 +78,15 @@ func _find_intro_units() -> void:
 
 
 func _comms_location() -> void:
-	var original_center := main.map.center_nm
-	var original_zoom := main.map.ppn
+	var original_view := main.map.chart_view()
 	var original_camera := main._world_view.camera_mode()
 	var reported := host.position
 	main.status_boards.restore_messages(["[b]08:00[/b]   Earlier text-only report"])
 	main.radio.flash("Position report", "info", host)
 	host.position += Vector2(4, 3)
+	main.map.center_on(reported + Vector2(18, -11))
+	main.map.zoom_at_center(1.5)
+	var saved_view := main.map.chart_view()
 	var previous_root := SaveGame.root_override
 	SaveGame.root_override = output_dir.path_join("engagements")
 	var path := SaveGame.slot_path("comms-location")
@@ -95,6 +98,8 @@ func _comms_location() -> void:
 	if loaded != "":
 		host.position = reported
 		return
+	await _frames()
+	checks["The saved chart position and zoom survive the first frames after load"] = main.map.chart_view() == saved_view
 	_find_intro_units()
 	main.map.set_follow_selection(true)
 	await _click(main.data_display.get_global_transform_with_canvas() * main.data_display._lamp_rect.get_center())
@@ -104,9 +109,9 @@ func _comms_location() -> void:
 	var inset := comms.get_theme_stylebox("normal").get_offset()
 	await _click(comms.get_global_transform_with_canvas() * (inset + Vector2(12, comms.get_line_height(0) * 0.5)))
 	checks["Clicking Locate returns to the position at report time after restore"] = not main.status_boards.visible and main.map.world_to_screen(reported).distance_to(main.map.unobstructed_chart_rect().get_center()) < 1.0
-	checks["Locate preserves the command selection, zoom and camera mode"] = main.map.selected == [frigate] and main.map.ppn == original_zoom and main._world_view.camera_mode() == original_camera and not main.map.follow_selection
+	checks["Locate preserves the command selection, zoom and camera mode"] = main.map.selected == [frigate] and main.map.ppn == saved_view.ppn and main._world_view.camera_mode() == original_camera and not main.map.follow_selection
 	host.position = reported
-	main.map.center_nm = original_center
+	main.map.restore_chart_view(original_view)
 	main.status_boards.close_boards()
 
 
@@ -190,6 +195,80 @@ func _move(point: Vector2) -> void:
 	motion.position = point
 	main.get_viewport().push_input(motion, true)
 	await _frames()
+
+
+func _track_file_location(track: Track) -> void:
+	var chart := main.map
+	var panel := main.contact_panel
+	var rows := panel._list
+	var original_center := chart.center_nm
+	var original_zoom := chart.ppn
+	chart.select_units([frigate])
+	for action in ["button", "Enter", "double-click"]:
+		chart.select_track(null)
+		chart.center_on(frigate.position)
+		main.status_boards.open_board(StatusBoards.BOARD_TRACKS)
+		panel.refresh()
+		await _frames()
+		var index := panel.visible_tracks().find(track)
+		if index < 0:
+			checks["Track File contains reported contact"] = false
+			break
+		var point := rows.get_item_rect(index).get_center()
+		var scroll := rows.get_v_scroll_bar()
+		scroll.value = point.y - rows.size.y * 0.5
+		point = rows.get_global_transform_with_canvas() * (point - Vector2(0, scroll.value))
+		await _click(point)
+		checks["Single-click inspects the held contact in the Track File"] = main.status_boards.visible and chart.inspection_track() == track and chart.selected == [frigate]
+		match action:
+			"button":
+				await _shot("track-file-selection")
+				await _click_control(panel._focus_btn)
+				await _shot("track-file-chart")
+			"Enter":
+				var key := InputEventKey.new()
+				key.keycode = KEY_ENTER
+				key.pressed = true
+				main.get_viewport().push_input(key, true)
+				key.pressed = false
+				main.get_viewport().push_input(key, true)
+				await _frames()
+			"double-click":
+				await _click(point, MOUSE_BUTTON_LEFT, false, true)
+		checks["Track File %s reveals the contact on the chart" % action] = not main.status_boards.visible and chart.world_to_screen(track.position).distance_to(chart.unobstructed_chart_rect().get_center()) < 1.0 and chart.has_focus()
+		checks["Track File %s keeps the command selection and scale" % action] = chart.selected == [frigate] and chart.inspection_track() == track and chart.ppn == original_zoom
+		main.status_boards.close_boards()
+	await _restore_inspected_subject(track)
+	chart.center_nm = original_center
+
+
+func _restore_inspected_subject(track: Track) -> void:
+	var chart := main.map
+	var orders: Array[Order] = []
+	var observe := func(_unit: Unit, order: Order) -> void: orders.append(order)
+	main.simulation.unit_manager.order_issued.connect(observe)
+	for inspect_contact: bool in [true, false]:
+		chart.select_track(track)
+		if not inspect_contact:
+			chart.select_units([frigate]) # The contact remains hooked while the readout shows the ship.
+		var subject := track.position if inspect_contact else SubmarineComms.reported_position(frigate)
+		chart.center_on(subject + Vector2(24, -16))
+		chart.set_follow_selection(true)
+		var saved: Dictionary = bytes_to_var(var_to_bytes(main._capture_presentation()))
+		chart.clear_selection()
+		main._restore_presentation(saved)
+		await _frames()
+		var name := "contact" if inspect_contact else "own ship"
+		var expected_hook: Track = track if inspect_contact else null
+		var number := DataDisplay.track_number_for_track(track) if inspect_contact else chart.track_number_text(frigate)
+		var readout := DataDisplay.rows_text(main.data_display.build_rows()).split("\n")
+		checks["Restoring the %s readout keeps both the command and contact" % name] = (
+			chart.selected == [frigate] and chart.selected_track == track
+			and chart.inspection_track() == expected_hook and readout.has("TRACK #: " + number))
+		checks["Restored follow centers the inspected %s" % name] = chart.follow_selection and chart.world_to_screen(subject).distance_to(chart.unobstructed_chart_rect().get_center()) < 1.0
+	main.simulation.unit_manager.order_issued.disconnect(observe)
+	checks["Restoring either inspected subject issues no order"] = orders.is_empty()
+	chart.set_follow_selection(false)
 
 
 func _contact_and_investigation(track: Track) -> void:
@@ -464,7 +543,7 @@ func _chart_click(world: Vector2, button := MOUSE_BUTTON_LEFT, shift := false) -
 	await _click(main.map.get_global_transform_with_canvas() * main.map.world_to_screen(world), button, shift)
 
 
-func _click(point: Vector2, button := MOUSE_BUTTON_LEFT, shift := false) -> void:
+func _click(point: Vector2, button := MOUSE_BUTTON_LEFT, shift := false, double_click := false) -> void:
 	var motion := InputEventMouseMotion.new()
 	motion.position = point
 	main.get_viewport().push_input(motion, true)
@@ -474,6 +553,7 @@ func _click(point: Vector2, button := MOUSE_BUTTON_LEFT, shift := false) -> void
 		event.position = point
 		event.pressed = pressed
 		event.shift_pressed = shift
+		event.double_click = double_click and pressed
 		main.get_viewport().push_input(event, true)
 		await tree.process_frame
 	await _frames()

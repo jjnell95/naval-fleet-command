@@ -3,8 +3,10 @@ extends PanelContainer
 ## Right panel: the player's track picture. Reads Tracks only — never enemy Units.
 
 signal track_chosen(track: Track)
+signal track_located(position: Vector2)
 
 const REFRESH_S := 0.5
+const LOCATE_HINT := "Close the Track File and center the selected contact at the current zoom"
 const RowList = preload("res://scripts/ui/tactical_row_list.gd")
 
 var track_manager: TrackManager
@@ -65,15 +67,15 @@ func _ready() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 4)
 	v.add_child(actions)
-	_prev_btn = _nav_button("", "Previous priority contact  [Shift+N]", func() -> void: cycle_visible_track(-1))
+	_prev_btn = _nav_button("", "Inspect the previous report in the Track File", func() -> void: cycle_visible_track(-1, true))
 	UIIcons.apply(_prev_btn, "chevron_left", 18)
 	_prev_btn.custom_minimum_size.x = 36
 	actions.add_child(_prev_btn)
-	_focus_btn = _nav_button("FOCUS CONTACT", "Center the selected contact without changing zoom  [C]", _focus_current)
+	_focus_btn = _nav_button("SHOW ON CHART", LOCATE_HINT, _focus_current)
 	UIIcons.apply(_focus_btn, "focus", 16)
 	_focus_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(_focus_btn)
-	_next_btn = _nav_button("", "Next priority contact  [N]", func() -> void: cycle_visible_track(1))
+	_next_btn = _nav_button("", "Inspect the next report in the Track File", func() -> void: cycle_visible_track(1, true))
 	UIIcons.apply(_next_btn, "chevron_right", 18)
 	_next_btn.custom_minimum_size.x = 36
 	actions.add_child(_next_btn)
@@ -86,9 +88,9 @@ func _ready() -> void:
 	_list.size_flags_stretch_ratio = 1.1
 	_list.resized.connect(func() -> void: _list.fixed_column_width = maxi(int(_list.size.x) - 24, 100))
 	_list.focus_mode = Control.FOCUS_ALL
-	_list.tooltip_text = "Held contacts, ordered by identity, freshness and distance. Enter focuses a selected contact."
-	_list.item_selected.connect(_on_item_selected)
-	_list.item_activated.connect(func(_i: int) -> void: _focus_current())
+	_list.tooltip_text = "Click a contact to inspect it. Double-click or press Enter to show it on the chart."
+	_list.item_selected.connect(_choose_row)
+	_list.item_activated.connect(_on_item_activated)
 	v.add_child(_list)
 	# The contact's detail and the air-defence board share the page's width: on the boards the
 	# page is wide and not tall, and stacked they overflowed it.
@@ -128,7 +130,11 @@ func _sync_nav_buttons() -> void:
 	if _focus_btn == null:
 		return
 	var empty := _rows.is_empty()
-	_focus_btn.disabled = map == null or map.selected_track == null
+	var track := map.selected_track if map != null else null
+	var held := track != null and track.status != Track.Status.LOST and _rows.has(track)
+	var filtered := held and not map.identity_shown(track.identity)
+	_focus_btn.disabled = not held or filtered
+	_focus_btn.tooltip_text = "This contact is hidden by the chart’s identity filters." if filtered else LOCATE_HINT
 	_prev_btn.disabled = empty
 	_next_btn.disabled = empty
 
@@ -137,27 +143,41 @@ func visible_track_count() -> int:
 	return _rows.size()
 
 
+func plotted_track_count() -> int:
+	return _rows.filter(_plotted_on_chart).size()
+
+
+func _plotted_on_chart(track: Track) -> bool:
+	return map != null and map.identity_shown(track.identity)
+
+
 func visible_tracks() -> Array:
 	return _rows.duplicate()
 
 
-## Buttons, N/Shift-N, and the command palette share this filtered sequence so the selected
-## contact always remains present in the visible Track File.
-func cycle_visible_track(step: int) -> Track:
+## The file's arrows inspect every row in the domain filter. Chart shortcuts skip hidden
+## identities while keeping their place in that same priority order.
+func cycle_visible_track(step: int, browse_file := false) -> Track:
 	if map == null:
 		return null
 	refresh()
-	if _rows.is_empty():
-		return null
 	var index := _rows.find(map.selected_track)
-	index = posmod(index + step, _rows.size()) if index >= 0 else (_rows.size() - 1 if step < 0 else 0)
-	var next := _rows[index] as Track
-	map.select_track(next)
-	map.set_follow_selection(false)
-	map.center_on(next.position)
-	refresh()
-	call_deferred("_ensure_selected_visible")
-	return next
+	if index < 0:
+		index = 0 if step < 0 else -1
+	for i in _rows.size():
+		index = posmod(index + step, _rows.size())
+		var next := _rows[index] as Track
+		var plotted := _plotted_on_chart(next)
+		if not browse_file and not plotted:
+			continue
+		map.set_follow_selection(false)
+		map.select_track(next)
+		if plotted:
+			map.center_on(next.position)
+		refresh()
+		call_deferred("_ensure_selected_visible")
+		return next
+	return null
 
 
 func _ensure_selected_visible() -> void:
@@ -170,10 +190,14 @@ func _ensure_selected_visible() -> void:
 
 
 func _focus_current() -> void:
-	if map == null or map.selected_track == null:
-		return
-	map.set_follow_selection(false)
-	map.center_on(map.selected_track.position)
+	if map != null:
+		_on_item_activated(_rows.find(map.selected_track))
+
+
+func _on_item_activated(index: int) -> void:
+	var track := _choose_row(index)
+	if track != null and map != null and map.identity_shown(track.identity):
+		track_located.emit(track.position)
 
 
 func _process(delta: float) -> void:
@@ -297,6 +321,12 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 	return "\n".join(lines)
 
 
-func _on_item_selected(i: int) -> void:
-	if i >= 0 and i < _rows.size():
-		track_chosen.emit(_rows[i])
+func _choose_row(index: int) -> Track:
+	if index < 0 or index >= _rows.size():
+		return null
+	var track: Track = _rows[index]
+	# A report can leave the current picture between a list refresh and a click.
+	if track.status == Track.Status.LOST or (map != null and not map._visible_tracks().has(track)):
+		return null
+	track_chosen.emit(track)
+	return track

@@ -392,6 +392,120 @@ func test_fleet_board_distinguishes_one_selected_escort_from_its_whole_group() -
 	sim.free()
 
 
+func test_task_group_search_selects_friendly_ships_and_deck_aircraft_in_a_large_fleet() -> void:
+	var um := UnitManager.new()
+	ScenarioLoader.populate(um, ScenarioWorkshop.generate({"blue_ships": 48, "red_ships": 48, "blue_carriers": 1, "aircraft_per_carrier": 10}))
+	var own := um.get_faction_units("BLUE")
+	var ship: Unit = own.filter(func(u: Unit) -> bool: return u.callsign == "BLUE 48")[0]
+	var plane: Unit = own.filter(func(u: Unit) -> bool: return u.is_aircraft() and not u.in_flight())[0]
+	var map := TacticalMap.new()
+	map.unit_manager = um
+	map.select_units([ship, plane])
+	var panel := UnitPanel.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(panel)
+	var roster := panel.roster
+	roster.map = map
+	var search: LineEdit = panel.find_child("FleetSearch", true, false)
+	search.text_changed.emit("  blUe 48  ")
+	assert_eq(roster._rows, [ship])
+	assert_eq(map.selected, [ship, plane], "typing only filters the roster")
+	assert_true(roster.is_selected(0))
+	search.text_submitted.emit("blue 48")
+	assert_eq(map.selected, [ship], "Enter selects the one matching ship")
+	search.text_changed.emit(plane.spec.short_name.to_lower())
+	assert_true(roster._rows.has(plane), "class search includes aircraft on deck")
+	for u: Unit in roster._rows:
+		assert_eq(u.faction, "BLUE")
+	var index := roster._rows.find(plane)
+	var ctrl := InputEventKey.new()
+	ctrl.keycode = KEY_CTRL
+	ctrl.pressed = true
+	Input.parse_input_event(ctrl)
+	Input.flush_buffered_events()
+	roster.select(index, false)
+	roster.multi_selected.emit(index, true)
+	var release := InputEventKey.new()
+	release.keycode = KEY_CTRL
+	Input.parse_input_event(release)
+	Input.flush_buffered_events()
+	assert_eq(map.selected, [ship, plane], "Ctrl adds a match to a ship hidden by the query")
+	search.text_changed.emit(plane.callsign)
+	assert_true(roster._rows.size() > 1, "the carrier wing shares callsign text")
+	search.text_submitted.emit(plane.callsign)
+	assert_eq(map.selected, [plane], "an exact callsign wins even when other aircraft match the same words")
+	map.select_units([ship, plane])
+	search.text_changed.emit("missing-contact")
+	assert_eq(roster._rows.size(), 0)
+	assert_true(roster.is_item_disabled(0), "empty results have no selectable placeholder")
+	search.text_submitted.emit("missing-contact")
+	assert_eq(map.selected, [ship, plane])
+	search.text_changed.emit("")
+	assert_eq(roster._rows.size(), own.size())
+	assert_true(roster.is_selected(roster._rows.find(ship)) and roster.is_selected(roster._rows.find(plane)))
+	map.selection_changed.connect(panel.set_units)
+	panel.hide()
+	map.select_units([plane])
+	panel.show()
+	assert_eq(roster.get_selected_items(), PackedInt32Array([roster._rows.find(plane)]), "opening Task Group immediately highlights the chart selection")
+	map.select_units([ship])
+	assert_eq(roster.get_selected_items(), PackedInt32Array([roster._rows.find(ship)]), "a visible roster follows chart selection without waiting for the status timer")
+	search.text = ship.callsign
+	search.text_changed.emit(search.text)
+	panel.hide()
+	panel.show()
+	assert_eq(search.text, ship.callsign)
+	assert_eq(roster._rows, [ship], "the same engagement keeps its search when the board reopens")
+	panel.clear_roster_search()
+	assert_eq(search.text, "")
+	assert_eq(roster._rows, own, "resetting for an engagement restores every friendly row")
+	panel.free()
+	map.free()
+	um.free()
+
+
+func test_task_group_locates_the_activated_row_at_its_reported_position() -> void:
+	var um := UnitManager.new()
+	var host := _ship()
+	host.position = Vector2(10, 20)
+	var plane := _ship()
+	plane.spec = DataDB.platform("usn_helo_mh60r")
+	plane.position = Vector2(12, 15)
+	plane.home = host
+	plane.flight_state = Unit.FlightState.STOWED
+	var boat := _ship()
+	boat.spec = DataDB.platform("usn_ssn_virginia")
+	boat.position = Vector2(20, 30)
+	boat.depth_m = 150
+	boat.comms_enabled = true
+	boat.comms_report = {"position": Vector2(21, 32)}
+	for unit: Unit in [host, plane, boat]:
+		um.add_unit(unit)
+	var map := TacticalMap.new()
+	map.unit_manager = um
+	map.select_units([host, boat])
+	var retained := Track.new()
+	retained.position = Vector2(250, -240)
+	map.select_track(retained)
+	var roster := FleetRoster.new()
+	roster.map = map
+	(Engine.get_main_loop() as SceneTree).root.add_child(roster)
+	roster.filter_by("")
+	var plots: Array[Vector2] = []
+	roster.unit_located.connect(func(at: Vector2) -> void: plots.append(at))
+	roster.item_activated.emit(roster._rows.find(plane))
+	plane.flight_state = Unit.FlightState.RECOVERING
+	roster.item_activated.emit(roster._rows.find(plane))
+	roster.item_activated.emit(roster._rows.find(boat))
+	boat.comms_report.clear()
+	roster.item_activated.emit(roster._rows.find(boat))
+	assert_eq(plots, [host.position, plane.position, Vector2(21, 32)], "deck, approach, and last reported submarine plots each use their own source")
+	assert_eq(map.selected, [host, boat])
+	assert_eq(map.selected_track, retained)
+	roster.free()
+	map.free()
+	um.free()
+
+
 func test_defence_tab_shows_actual_missile_mode_and_issues_the_intercept_order() -> void:
 	var panel := OrdersPanel.new()
 	(Engine.get_main_loop() as SceneTree).root.add_child(panel)

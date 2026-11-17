@@ -296,6 +296,8 @@ func _ready() -> void:
 	_roster.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_roster.custom_minimum_size.y = 100
 	_roster.accessibility_name = "Friendly aircraft status roster"
+	_roster.tooltip_text = "Double-click an airframe or press Enter to show it on the chart."
+	_roster.item_activated.connect(_show_aircraft_on_chart)
 	var columns := ["AIRFRAME / TYPE", "STATE", "FUEL", "BASE", "CYCLE", "MISSION"]
 	for i in columns.size():
 		_roster.set_column_title(i, columns[i])
@@ -328,9 +330,7 @@ func _ready() -> void:
 	recovery_row.add_child(_destination)
 	_return = _button("RETURN & LAND", _return_selected)
 	recovery_row.add_child(_return)
-	_focus = _button("SHOW ON CHART", func() -> void:
-		if _aircraft != null and _aircraft.is_engageable():
-			aircraft_selected.emit(_aircraft))
+	_focus = _button("SHOW ON CHART", _show_aircraft_on_chart)
 	_focus.tooltip_text = "Close this dialog and hook the airframe on the chart"
 	recovery_row.add_child(_focus)
 
@@ -437,9 +437,22 @@ func open_for(selection: Array) -> void:
 	refresh()
 	if _aircraft != null:
 		_lower_tabs.current_tab = 0
+		_focus_aircraft_row.call_deferred()
+	else:
+		_base_picker.grab_focus.call_deferred()
 	_count.value = mini(1, int(_count.max_value))
 	_refresh_launch()
-	_base_picker.call_deferred("grab_focus")
+
+
+func _focus_aircraft_row() -> void:
+	# Wait for the newly populated Tree to lay out its rows and scrollbar on reopen.
+	await get_tree().process_frame
+	if not is_visible_in_tree():
+		return
+	var row := _roster.get_selected()
+	if row != null:
+		_roster.grab_focus()
+		_roster.scroll_to_item(row, true)
 
 
 ## Opens on a strike at a held contact: from the contact menu's "Air strike...".
@@ -903,6 +916,11 @@ func _refresh_recovery_hint() -> void:
 		_return.tooltip_text = reason if reason != "" else "Return to %s, land, then refuel and rearm. Replaces the aircraft's current route." % base.callsign
 	else:
 		_return.tooltip_text = "Select an airborne aircraft and a compatible friendly carrier or airfield."
+
+
+func _show_aircraft_on_chart() -> void:
+	if _aircraft != null and _aircraft.is_engageable():
+		aircraft_selected.emit(_aircraft)
 
 
 func _return_selected() -> void:

@@ -6,8 +6,8 @@ extends Control
 ## each own radiating radar's horizon is a translucent disc.
 ##
 ## Mouse: drag inside the rectangle pans the tactical chart, a click elsewhere recentres it there,
-## the wheel zooms it. Information rules as the chart: own units from `map._own_units()` and contacts
-## from `map._visible_tracks()` only, never hostile truth.
+## the wheel zooms it. Friendly dots use their reported positions, and contact dots follow the
+## tactical chart's identity filters.
 
 const COL_VIEW := Color("c040c0")
 const COL_HOOK := Color.WHITE
@@ -125,13 +125,13 @@ func view_rect() -> Rect2:
 
 
 ## Discs for the player's radiating radars: centre and horizon range in world nm, largest first.
-## Own units only, and only while their radar is actually on the air.
+## Only connected friendly units can contribute current coverage.
 func radar_coverage() -> Array[Vector3]:
 	var out: Array[Vector3] = []
 	if map == null:
 		return out
 	for u: Unit in map._own_units():
-		if not u.alive or not u.radar_emitting():
+		if not u.alive or not SubmarineComms.connected(u) or not u.radar_emitting():
 			continue
 		var r := Detection.nominal_radar_ring_nm(u)
 		if r > 0.0:
@@ -181,7 +181,7 @@ func _draw() -> void:
 		return
 	var t0 := Time.get_ticks_usec()
 	var pane := Rect2(Vector2.ZERO, size)
-	for t: Track in map._visible_tracks():
+	for t: Track in map._plotted_tracks():
 		var p := world_to_regional(t.position)
 		if pane.has_point(p):
 			var col := map.track_color(t)
@@ -191,7 +191,7 @@ func _draw() -> void:
 			if t == map.selected_track:
 				draw_arc(p, DOT_RADIUS + 2.5, 0.0, TAU, 16, COL_HOOK, 1.0, true)
 	for u: Unit in map._own_units():
-		var p := world_to_regional(u.position)
+		var p := world_to_regional(SubmarineComms.reported_position(u))
 		if pane.has_point(p):
 			draw_circle(p, DOT_RADIUS, TacticalMap.COL_FRIENDLY)
 			if map.selected.has(u):

@@ -198,6 +198,55 @@ func test_land_fill_is_one_mesh_for_every_landmass() -> void:
 
 # --- Regional map -----------------------------------------------------------------------
 
+# Record the world positions sent to the renderer. Projecting everything off the pane keeps
+# this synchronous check independent of a canvas or a graphics driver.
+class RegionalPlotProbe extends RegionalMap:
+	var positions: Array[Vector2] = []
+
+	func world_to_regional(world: Vector2) -> Vector2:
+		positions.append(world)
+		return Vector2(-1, -1)
+
+
+func test_regional_dots_follow_chart_filters_and_friendly_position_reports() -> void:
+	var manager := UnitManager.new()
+	var tracks := TrackManager.new()
+	var map := TacticalMap.new()
+	var regional := RegionalPlotProbe.new()
+	map.unit_manager = manager
+	map.track_manager = tracks
+	regional.map = map
+	var boat := Unit.new()
+	boat.spec = DataDB.platform("usn_ssn_virginia")
+	boat.faction = "BLUE"
+	boat.position = Vector2(-60, -40)
+	boat.depth_m = 120.0
+	manager.add_unit(boat)
+	manager.configure_submarine_comms("BLUE", true)
+	var reported := boat.position
+	boat.position = Vector2(30, 40)
+	var neutral := tracks.report_intel("BLUE", _unit("CIV"), Vector2(60, 50), 1.0, 0.0, "Report")
+	neutral.identity = "NEUTRAL"
+	var unknown := tracks.report_intel("BLUE", _unit("RED"), Vector2(-50, 10), 1.0, 0.0, "Report")
+	map.show_neutrals = false
+	regional._draw()
+	assert_true(regional.positions.has(unknown.position), "the visible contact stays on the overview")
+	assert_true(not regional.positions.has(neutral.position), "hiding neutral contacts clears their overview dots")
+	assert_true(regional.positions.has(reported), "a disconnected boat stays at its last report")
+	assert_true(not regional.positions.has(boat.position), "the overview cannot follow its private motion")
+	boat.depth_m = 0.0
+	map.show_neutrals = true
+	regional.positions.clear()
+	regional._draw()
+	assert_true(regional.positions.has(neutral.position), "showing neutral contacts restores their dots")
+	assert_true(regional.positions.has(boat.position), "a check-in moves the dot to the current position")
+	assert_true(not regional.positions.has(reported), "the old position clears")
+	regional.free()
+	map.free()
+	tracks.free()
+	manager.free()
+
+
 func _regional_fixture() -> Dictionary:
 	var sim := Simulation.new()
 	sim.map_center = Vector2.ZERO
@@ -219,6 +268,51 @@ func _free(f: Dictionary) -> void:
 	(f["map"] as Node).free()
 	(f["manager"] as Node).free()
 	(f["sim"] as Node).free()
+
+
+func test_chart_jumps_restore_position_and_scale_and_allow_a_new_branch() -> void:
+	var map := TacticalMap.new()
+	map.size = Vector2(1000, 600)
+	map.fit_initial_view(Vector2(3, 4), 120.0)
+	map._apply_pending_fit()
+	var opening := map.chart_view()
+	assert_true(not map.can_revisit_chart_view(), "initial layout starts a fresh chart history")
+	map.center_on(Vector2(19, 23))
+	var report := map.chart_view()
+	map.fit_to(Vector2(80, 62), 75.0)
+	var area := map.chart_view()
+	assert_true(area.ppn != report.ppn)
+	map.revisit_chart_view()
+	assert_eq(map.chart_view(), report)
+	map.center_on(Vector2(19, 23))
+	assert_true(map.can_revisit_chart_view(true), "locating the same symbol preserves the forward view")
+	map.revisit_chart_view()
+	assert_eq(map.chart_view(), opening)
+	map.revisit_chart_view(true)
+	assert_eq(map.chart_view(), report)
+	map.revisit_chart_view(true)
+	assert_eq(map.chart_view(), area)
+	map.revisit_chart_view()
+	map.center_on(Vector2(-30, 11))
+	assert_true(not map.can_revisit_chart_view(true), "a different destination starts a new branch")
+	map.revisit_chart_view()
+	assert_eq(map.chart_view(), report)
+	map.free()
+
+
+func test_saved_chart_view_survives_initial_layout_and_clears_previous_scenario_history() -> void:
+	var map := TacticalMap.new()
+	map.size = Vector2(1000, 600)
+	map.center_on(Vector2(47, 13))
+	map.zoom_at_center(1.5)
+	var saved := map.chart_view()
+	map.reset_presentation()
+	map.fit_initial_view(Vector2(-20, 30), 250.0)
+	map.restore_chart_view(saved)
+	map._apply_pending_fit()
+	assert_eq(map.chart_view(), saved, "the opening fit cannot overwrite the saved view on the next frame")
+	assert_true(not map.can_revisit_chart_view() and not map.can_revisit_chart_view(true))
+	map.free()
 
 
 func test_regional_view_rectangle_follows_the_chart() -> void:

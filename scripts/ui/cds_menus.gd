@@ -42,17 +42,24 @@ static func submenu(text: String, children: Array, disabled := false, tooltip :=
 	return {"text": text, "children": children, "disabled": disabled or children.is_empty(), "tooltip": tooltip}
 
 
-static func contact_stack_items(contacts: Array, selected: Track) -> Array:
-	var items: Array = [{"text": "Choose contact", "disabled": true}, sep()]
-	for t: Track in contacts:
-		var description := t.description()
-		if description == "":
-			description = "Contact"
-		var number := DataDisplay.track_number_for_track(t)
-		var label := "%s   %s" % [number if number != "" else t.id, description]
-		if t.identity != "UNKNOWN" or description != "UNKNOWN CONTACT":
-			label += "  ·  " + t.identity.capitalize()
-		items.append(item(label, {"kind": "choose_contact", "track": t}, false, "", 1 if t == selected else -1))
+static func symbol_stack_items(symbols: Array, map: TacticalMap, additive: bool) -> Array:
+	var items: Array = [{"text": "Choose chart symbol", "disabled": true}, sep()]
+	for symbol: RefCounted in symbols:
+		var number := map.track_number_text(symbol)
+		var label := ""
+		var checked := -1
+		if symbol is Unit:
+			var u := symbol as Unit
+			label = "%s   %s  ·  Own %s" % [number, u.callsign, u.spec.short_name]
+			checked = 1 if map.selected.has(u) else 0
+		else:
+			var t := symbol as Track
+			var description := t.description()
+			label = "%s   %s" % [number if number != "" else t.id, description if description != "" else "Contact"]
+			if t.identity != "UNKNOWN" or description != "UNKNOWN CONTACT":
+				label += "  ·  " + t.identity.capitalize()
+			checked = 1 if t == map.inspection_track() else -1
+		items.append(item(label, {"kind": "choose_symbol", "symbol": symbol, "additive": additive}, false, "", checked))
 	return items
 
 

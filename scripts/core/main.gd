@@ -111,11 +111,9 @@ func _ready() -> void:
 	status_boards.finish_boards()
 	status_boards.hide()
 	status_boards.closed.connect(_focus_map_if_clear)
-	status_boards.report_located.connect(func(position: Vector2) -> void:
-		if _world_full:
-			_toggle_world_full()
-		status_boards.close_boards()
-		map.center_on(position))
+	status_boards.report_located.connect(_show_chart_location)
+	contact_panel.track_located.connect(_show_chart_location)
+	unit_panel.roster.unit_located.connect(_show_chart_location)
 	status_boards.visibility_changed.connect(_sync_overlay)
 	radio.map = map
 	radio.display = data_display
@@ -465,14 +463,14 @@ func _reset_command_screen() -> void:
 		_arrange_views()
 	var chart: Dictionary = simulation.scenario.get("map", {})
 	var focus: Array = chart.get("focus_center_nm", [simulation.map_center.x, simulation.map_center.y])
-	map.fit_to(Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
-	map.call_deferred("fit_to", Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
+	map.fit_initial_view(Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
 	radio.clear()
 	voice.stop()
 	radio.set_scenario_name(simulation.scenario_name)
 	status_boards.close_boards()
 	unit_panel.set_units([])
 	unit_panel.clear_events()
+	unit_panel.clear_roster_search()
 	orders_panel.set_units([], false, false)
 	orders_panel.set_target_track(null)
 	var own := simulation.unit_manager.get_faction_units(simulation.player_faction)
@@ -633,7 +631,10 @@ func _capture_presentation() -> Dictionary:
 		"control_groups": _control_groups.duplicate(true),
 		"own_numbers": numbers,
 		"selected": selected,
-		"view": {"center": map.center_nm, "ppn": map.ppn},
+		"view": map.chart_view(),
+		"selected_track": map.selected_track.id if map.selected_track != null else "",
+		"inspecting_track": map.inspection_track() != null,
+		"follow_selection": map.follow_selection,
 		"autosaved_at": _autosaved_at,
 		# The rules the engagement is fought under; a load continues under them (_install_engagement).
 		"options": engagement_options(),
@@ -667,11 +668,18 @@ func _restore_presentation(d: Dictionary) -> void:
 		if by_id.has(int(id)) and (by_id[int(id)] as Unit).alive:
 			selected.append(by_id[int(id)])
 	map.select_units(selected)
-	var view: Dictionary = d.get("view", {})
-	if view.has("center"):
-		map.center_nm = view["center"]
-		map.ppn = float(view.get("ppn", map.ppn))
-		map.queue_redraw()
+	var track_id := str(d.get("selected_track", ""))
+	var inspecting: bool = d.get("inspecting_track", true)
+	if track_id != "":
+		for t: Track in map._visible_tracks():
+			if t.id == track_id and t.status != Track.Status.LOST and not t.confirmed_destroyed:
+				map.select_track(t)
+				if not inspecting:
+					map.select_units(selected)
+				break
+	map.restore_chart_view(d.get("view", {}))
+	if d.get("follow_selection", false) and (not inspecting or map.inspection_track() != null):
+		map.set_follow_selection(true)
 	_autosaved_at = float(d.get("autosaved_at", SimClock.sim_time))
 	_command_guide.restore(d.get("command_guide", {}))
 
@@ -857,7 +865,7 @@ func _build_screens() -> void:
 	_air_operations.aircraft_selected.connect(func(a: Unit) -> void:
 		_close_air_operations()
 		map.select_units([a])
-		map.center_on_selection())
+		_show_chart_location(SubmarineComms.reported_position(a)))
 	add_child(_air_operations)
 	_air_operations.hide()
 	_key_help = KeyCommands.new()
@@ -1317,7 +1325,7 @@ func _palette_actions() -> Array[Dictionary]:
 	var controllable := _all_controllable(map.selected)
 	var movable := _all_movable(map.selected)
 	var has_target := map.selected_track != null
-	var contacts := contact_panel.visible_track_count()
+	var contacts := contact_panel.plotted_track_count()
 	var radar_state := orders_panel._selection_state("radar")
 	var sonar_state := orders_panel._selection_state("sonar")
 	var emcon_state := orders_panel._selection_state("emcon")
@@ -1342,12 +1350,14 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "weapon_control", "label": "Weapon control", "description": "Commit mixed weapons, inspect target quality and cancel queued rounds.", "shortcut": "Shift+E", "enabled": controllable},
 		{"id": "open_defence", "label": "Defence commands", "description": "Countermeasures, evasion and interceptor policy for the hooked platforms.", "shortcut": "", "enabled": controllable},
 		{"id": "open_engagement", "label": "Engagement board", "description": "Weapon, salvo, range and time of flight for the hooked contact.", "shortcut": "", "enabled": controllable and has_target, "state": map.selected_track.id if has_target else "no target", "reason": "Hook a shooter and a contact first."},
-		{"id": "next_contact", "label": "Next priority contact", "description": "Cycle hostile, unknown, fresh, and nearby contacts first.", "shortcut": "N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
-		{"id": "previous_contact", "label": "Previous priority contact", "description": "Cycle backward through the priority contact stack.", "shortcut": "Shift+N", "enabled": contacts > 0, "state": "%d held" % contacts, "reason": "No contacts are held."},
+		{"id": "next_contact", "label": "Next priority contact", "description": "Cycle forward through plotted contacts in the Track File’s domain filter.", "shortcut": "N", "enabled": contacts > 0, "state": "%d plotted" % contacts, "reason": "No plotted contacts match the current filters."},
+		{"id": "previous_contact", "label": "Previous priority contact", "description": "Cycle backward through plotted contacts in the Track File’s domain filter.", "shortcut": "Shift+N", "enabled": contacts > 0, "state": "%d plotted" % contacts, "reason": "No plotted contacts match the current filters."},
 		{"id": "next_platform", "label": "Next own platform", "description": "Hook the next platform of the task group.", "shortcut": ".", "enabled": true},
 		{"id": "focus_selection", "label": "Centre on selection and target", "description": "Center one item or fit the complete shooter-target problem.", "shortcut": "C", "enabled": not map.selected.is_empty() or has_target, "reason": "Hook a platform or contact first."},
 		{"id": "follow_selection", "label": "Follow selection or target", "description": "Keep the hooked contact or single hooked platform centered.", "shortcut": "F", "enabled": map.selected.size() == 1 or has_target, "state": "on" if map.follow_selection else "off", "reason": "Hook one platform or a contact first."},
 		{"id": "fit_fleet", "label": "Fit friendly force", "description": "Frame every deployed friendly unit.", "shortcut": "Home", "enabled": true},
+		{"id": "previous_chart_view", "label": "Previous chart view", "description": "Return to the position and scale before a chart jump.", "shortcut": "[", "enabled": map.can_revisit_chart_view()},
+		{"id": "next_chart_view", "label": "Next chart view", "description": "Go forward through the chart views you revisited.", "shortcut": "]", "enabled": map.can_revisit_chart_view(true)},
 		{"id": "fit_theatre", "label": "Fit operation area", "description": "Return to the scenario's full chart extent.", "shortcut": "", "enabled": true},
 		{"id": "toggle_radar", "label": "Toggle radar", "description": "Mixed or silent selections converge active; all-active selections go silent.", "shortcut": "R", "enabled": controllable and radar_state >= 0, "state": _state_name(radar_state, "off", "on"), "reason": "The selection has no controllable radar."},
 		{"id": "toggle_sonar", "label": "Toggle active sonar", "description": "Mixed or passive selections converge active; all-active selections go passive.", "shortcut": "P", "enabled": controllable and sonar_state >= 0, "state": _state_name(sonar_state, "passive", "active"), "reason": "The selection has no controllable sonar."},
@@ -1515,6 +1525,8 @@ func _run_palette_action(id: String) -> void:
 			map.set_follow_selection(not map.follow_selection)
 		"fit_fleet":
 			map.fit_to_fleet()
+		"previous_chart_view", "next_chart_view":
+			map.revisit_chart_view(id == "next_chart_view")
 		"fit_theatre":
 			map.fit_to(simulation.map_center, simulation.map_extent_nm)
 		"toggle_radar":
@@ -1835,6 +1847,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_show_briefing()
 		KEY_HOME:
 			map.fit_to_fleet()
+		KEY_BRACKETLEFT, KEY_BRACKETRIGHT:
+			map.revisit_chart_view(k.keycode == KEY_BRACKETRIGHT)
 		KEY_C:
 			map.center_on_selection()
 		KEY_L:
@@ -1991,9 +2005,11 @@ func _on_selection_changed(units: Array) -> void:
 
 
 func _on_track_selected(t: Track) -> void:
-	CommandTraining.record_inspection(simulation, t)
-	if _command_guide != null:
-		_command_guide.record_inspection(t)
+	# Restoring a saved selection refreshes the displays before the player takes command.
+	if _command_taken:
+		CommandTraining.record_inspection(simulation, t)
+		if _command_guide != null:
+			_command_guide.record_inspection(t)
 	contact_panel.refresh()
 	orders_panel.set_target_track(t)
 	if _world_view != null:
@@ -2002,10 +2018,17 @@ func _on_track_selected(t: Track) -> void:
 		orders_panel.open_engagement()
 
 
+func _show_chart_location(position: Vector2) -> void:
+	if _world_full:
+		_toggle_world_full()
+	status_boards.close_boards()
+	map.center_on(position)
+
+
 func _cycle_priority_track(step: int) -> void:
 	var next := contact_panel.cycle_visible_track(step)
 	if next == null:
-		radio.advise("No contacts held on this picture")
+		radio.advise("No plotted contacts match the current filters")
 		return
 	radio.flash("TARGET %s · %s %s" % [next.id, next.identity, next.domain.to_upper()], "alert" if next.identity == "HOSTILE" else "info")
 
@@ -2418,8 +2441,8 @@ func _on_waypoint_delete_requested(u: Unit, index: int) -> void:
 func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 	var items: Array = []
 	match str(context.get("kind", "")):
-		"contact_stack":
-			items = CdsMenus.contact_stack_items(context["tracks"], map.selected_track)
+		"symbol_stack":
+			items = CdsMenus.symbol_stack_items(context["symbols"], map, context["additive"])
 		"own_unit":
 			var u: Unit = context.get("unit")
 			if u != null and not map.selected.has(u):
@@ -2464,8 +2487,8 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 
 func _run_cds_action(action: Dictionary) -> void:
 	match str(action.get("kind", "")):
-		"choose_contact":
-			map.choose_plotted_contact(action["track"])
+		"choose_symbol":
+			map.choose_plotted_symbol(action["symbol"], action["additive"])
 		"order":
 			_apply_order_to_selection(action["order"])
 		"unit_orders":

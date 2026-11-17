@@ -21,6 +21,7 @@ const COMMANDS := [
 		["Right-drag, arrows", "Pan"],
 		["Wheel, + / -", "Zoom"],
 		["Home / C / F", "Fit force / centre / follow"],
+		["[ / ]", "Previous / next chart view"],
 		["W", "Plot a route; Shift chains waypoints"],
 		["Shift+W", "Patrol area: click two opposite corners"],
 		["S", "Return to station after a task or refuelling"],

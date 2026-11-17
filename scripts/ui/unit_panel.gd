@@ -17,6 +17,7 @@ var _units: Array = []
 var _events: PackedStringArray = []
 var _accum := 0.0
 var roster: FleetRoster
+var _roster_search: LineEdit
 var _portrait: PlatformPortrait
 
 
@@ -26,13 +27,24 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	add_child(v)
+	var heading := HBoxContainer.new()
+	v.add_child(heading)
 	var hl := Label.new()
 	hl.text = "TASK GROUP"
-	hl.tooltip_text = "Select a platform to command it. Shift adds to the selection."
+	hl.tooltip_text = "Select a friendly platform to command it."
 	hl.mouse_filter = Control.MOUSE_FILTER_PASS
 	hl.theme_type_variation = "HeaderLabel"
-	v.add_child(hl)
+	heading.add_child(hl)
 	roster = FleetRoster.new()
+	_roster_search = LineEdit.new()
+	_roster_search.name = "FleetSearch"
+	_roster_search.placeholder_text = "Find by callsign or class"
+	_roster_search.tooltip_text = "Filter friendly ships and aircraft. Enter selects an exact callsign or a single match."
+	_roster_search.clear_button_enabled = true
+	_roster_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_roster_search.text_changed.connect(roster.filter_by)
+	_roster_search.text_submitted.connect(roster.focus_results)
+	heading.add_child(_roster_search)
 	roster.custom_minimum_size.y = 124
 	v.add_child(roster)
 	_header = Label.new()
@@ -103,6 +115,8 @@ func _units_near(u: Unit) -> Array:
 
 func set_units(units: Array) -> void:
 	_units = units.duplicate()
+	if roster.is_visible_in_tree():
+		roster.sync_selection(units)
 	_refresh()
 
 
@@ -134,6 +148,11 @@ func add_event(text: String, severity := "info") -> void:
 func clear_events() -> void:
 	_events = PackedStringArray()
 	_log.text = ""
+
+
+func clear_roster_search() -> void:
+	_roster_search.text = ""
+	roster.filter_by("")
 
 
 func _flight_state_text(a: Unit) -> String:
