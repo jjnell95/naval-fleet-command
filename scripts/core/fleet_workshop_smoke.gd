@@ -151,6 +151,17 @@ static func run(main: Main) -> void:
 	await main.get_tree().process_frame
 	checks["fleet board groups all friendly surface platforms"] = main._fleet_operations._groups.any(func(g: Dictionary) -> bool: return g["members"].size() == own.size())
 	checks["fleet board fits the viewport"] = main._fleet_operations.get_minimum_size().x <= main.get_viewport_rect().size.x
+	var policy_received := false
+	var refusal_shown := false
+	for button: Button in main._fleet_operations.find_children("*", "Button", true, false):
+		if button.text == "CONSERVE":
+			button.pressed.emit()
+			policy_received = own.all(func(u: Unit) -> bool: return u.defence_policy == "conserve") and main._fleet_operations._receipt.text.contains("%d orders accepted" % own.size())
+		if button.text == "EVADE":
+			button.pressed.emit()
+			refusal_shown = main._fleet_operations._receipt.text == main.radio.last_advice and main.radio.last_advice.contains("refused")
+	checks["fleet policy button reaches all selected members and gives a visible receipt"] = policy_received
+	checks["fleet order refusal appears on the open board"] = refusal_shown
 	await _shot(main, "workshop-fleet")
 	main._close_fleet_operations()
 	var flagship: Unit = own[0]
@@ -181,6 +192,16 @@ static func run(main: Main) -> void:
 	await _shot(main, "workshop-defence")
 	main._apply_order_to_selection(Order.resume_plan())
 	checks["resume-plan command ends emergency steering"] = flagship.evasion_remaining_s == 0
+	var escort: Unit = own[1]
+	main.simulation.threat_manager.mark_detected("BLUE", threat, 0, escort)
+	main.simulation.unit_manager.issue_order(flagship, Order.set_roe(Unit.Roe.HOLD))
+	main.map.select_units([escort, flagship])
+	main._run_palette_action("intercept_inbound")
+	var receipt := main.radio.latest_text
+	checks["a mixed intercept reports the accepted order and both counts"] = receipt.begins_with("Engaging inbound weapons") and receipt.contains("1 order accepted / 1 refused")
+	main.simulation.unit_manager.issue_order(escort, Order.set_roe(Unit.Roe.HOLD))
+	main._run_palette_action("intercept_inbound")
+	checks["a wholly refused intercept retains the reason"] = main.radio.latest_text == "Cannot intercept: weapons hold"
 	main.start_scenario(first_path)
 	checks["scenario replacement clears stale selection groups"] = main._control_groups.is_empty()
 	main._show_editor()

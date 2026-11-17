@@ -129,7 +129,7 @@ func test_close_range_radar_gives_a_probable_type_on_an_aircraft_but_not_on_a_sh
 
 func test_the_ai_does_not_fire_at_an_aircraft_the_side_has_seen_go_down() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/systems/ai_controller.gd")
-	assert_true(src.contains("t.damage_estimate >= 100.0"), "the engagement picker skips recorded kills")
+	assert_true(src.contains("t.confirmed_destroyed"), "the engagement picker skips recorded kills")
 	assert_eq(AIController.AIR_ROUNDS_IN_FLIGHT, 2)
 
 
@@ -186,7 +186,7 @@ func test_an_aircraft_coming_straight_in_is_shot_from_further_out_than_one_runni
 
 func test_a_kill_the_side_has_seen_drops_out_of_the_ai_picture() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/systems/ai_controller.gd")
-	assert_true(src.contains("if t.identity == \"HOSTILE\" and t.damage_estimate >= 100.0:"), "killed hostiles are not chased")
+	assert_true(src.contains("if t.identity == \"HOSTILE\" and t.confirmed_destroyed:"), "killed hostiles are not chased")
 
 
 func test_a_closing_aircraft_gets_a_lighter_margin_not_none() -> void:

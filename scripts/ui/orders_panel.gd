@@ -59,7 +59,7 @@ var _launch_btn: Button
 var _air_ops_btn: Button
 var _rtb_btn: Button
 var _buoy_btn: Button
-var _mag_signature := ""
+var _weapon_list_signature := ""
 var _shown_weapon: WeaponSpec
 
 
@@ -263,7 +263,9 @@ func _ready() -> void:
 	_defence_buttons["resume"] = _add_button(response, "RESUME PLAN", func() -> void: _emit_raw(Order.resume_plan()))
 	var policy := HBoxContainer.new()
 	defence.add_child(policy)
-	policy.add_child(_label("INTERCEPTORS"))
+	var intercept := _add_button(policy, "INTERCEPT [X]", func() -> void: _emit_raw(Order.intercept()))
+	intercept.tooltip_text = "Order the selected platforms to engage detected inbound weapons. Manual missile defence requires this order."
+	_defence_buttons["intercept"] = intercept
 	for kind: String in ["conserve", "balanced", "saturation"]:
 		var b := _add_button(policy, kind.to_upper(), func() -> void: _emit_raw(Order.set_defence_policy(kind)))
 		b.tooltip_text = "Conserve: one guided shot until urgent. Balanced: two. Saturation: three. Close-in weapons keep a separate allowance."
@@ -387,11 +389,13 @@ func _sync_defence() -> void:
 	var acoustic := 0
 	var active := 0
 	var evading := 0
+	var manual := 0
 	for u: Unit in _units:
 		packs += u.decoys
 		acoustic += u.torpedo_decoys
 		active += int(u.countermeasure_remaining_s > 0)
 		evading += int(u.evasion_remaining_s > 0)
+		manual += int(not u.auto_air_defence)
 	for kind: String in ["radar", "infrared", "acoustic"]:
 		var ready := false
 		var ready_count := 0
@@ -412,7 +416,10 @@ func _sync_defence() -> void:
 		if ("AUTO" if u.auto_countermeasures else "MANUAL") != automatic:
 			automatic = "MIXED"
 	var detail := DefensiveResponse.status(_units[0]) if _units.size() == 1 else "%d active / %d evading" % [active, evading]
-	_defence_summary.text = "%d RF/IR packs / %d acoustic / %s / CM %s / %s" % [packs, acoustic, policy.to_upper(), automatic, detail]
+	var missile_mode := "AUTO" if manual == 0 else ("MANUAL" if manual == _units.size() else "MIXED")
+	_defence_summary.text = "Missile defence %s / %s / CM %s / %d RF/IR packs / %d acoustic / %s" % [missile_mode, policy.to_upper(), automatic, packs, acoustic, detail]
+	if _units.is_empty():
+		_defence_summary.text = "Select a friendly platform to see its defence settings"
 	_defence_summary.tooltip_text = _defence_summary.text
 
 
@@ -469,10 +476,7 @@ func _process(delta: float) -> void:
 		_sync_live_eligibility()
 		_sync_quick_actions()
 		if _controllable:
-			if _magazine_signature() != _mag_signature:
-				_rebuild_weapons()
-			else:
-				_refresh_envelope()
+			refresh()
 
 
 func set_units(units: Array, controllable: bool, movable := controllable) -> void:
@@ -577,8 +581,10 @@ func _refresh_layer_button() -> void:
 
 ## Cheap change detector so spent magazines are reflected in the weapon list without rebuilding
 ## the dropdown every frame.
-func _magazine_signature() -> String:
-	var parts := PackedStringArray()
+func _current_weapon_list_signature() -> String:
+	# A held contact gains its domain in place. The available choices change even when
+	# it is still the same selected object and no magazine count has changed.
+	var parts := PackedStringArray([_target.domain if _target != null else "no contact"])
 	for u: Unit in _units:
 		for wid in _weapon_ids:
 			parts.append("%d" % u.magazine_count(wid))
@@ -660,7 +666,7 @@ func set_target_track(t: Track) -> void:
 	if changed:
 		_rebuild_weapons()
 	else:
-		_refresh_envelope()
+		refresh()
 
 
 func select_weapon(spec: WeaponSpec) -> void:
@@ -683,7 +689,10 @@ func current_weapon_spec() -> WeaponSpec:
 
 
 func refresh() -> void:
-	_refresh_envelope()
+	if _current_weapon_list_signature() != _weapon_list_signature:
+		_rebuild_weapons()
+	else:
+		_refresh_envelope()
 
 
 func _rebuild_weapons() -> void:
@@ -717,7 +726,7 @@ func _rebuild_weapons() -> void:
 		if _weapon_ids[i] == previous:
 			_weapon_option.select(i)
 	_weapon_option.disabled = _weapon_ids.is_empty()
-	_mag_signature = _magazine_signature()
+	_weapon_list_signature = _current_weapon_list_signature()
 	_refresh_envelope()
 
 
@@ -732,7 +741,13 @@ func _refresh_envelope() -> void:
 	_salvo.editable = _controllable and spec != null and _target != null
 	if not _controllable or spec == null:
 		_engage_btn.disabled = true
+		_envelope.modulate = UITheme.COL_DIM
 		_envelope.text = ""
+		if _controllable and _target != null:
+			if _target.domain == "":
+				_envelope.text = "%s · Awaiting contact classification" % _target.id
+			else:
+				_envelope.text = "%s · Selected platforms have no compatible system" % _target.id
 		return
 	if _target == null:
 		_engage_btn.disabled = true
@@ -804,7 +819,7 @@ func _fmt_tof(seconds: float) -> String:
 func _on_engage() -> bool:
 	# Recheck at the gesture, rather than trusting the last 0.3 s dock refresh.
 	_sync_live_eligibility()
-	_refresh_envelope()
+	refresh()
 	var spec := current_weapon_spec()
 	if not _controllable or spec == null or _target == null or _engage_btn.disabled:
 		return false

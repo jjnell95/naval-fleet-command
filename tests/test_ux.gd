@@ -538,12 +538,39 @@ func test_context_classification_reads_the_chart_under_the_cursor() -> void:
 	map.toggle_layer("hostiles")
 	assert_eq(map.context_at(Vector2(580, 352))["kind"], "water", "a filtered contact cannot be clicked")
 	map.toggle_layer("hostiles")
-	var near_both := map.context_at(Vector2(420, 350))
-	(f["ship"] as Unit).position = Vector2(20, 1)
-	assert_eq(map.context_at(Vector2(580, 350))["kind"], "own_unit", "an own unit wins over a contact under it")
-	assert_eq(near_both["kind"], "own_unit")
+	(f["ship"] as Unit).position = (f["hostile"] as Track).position
+	assert_eq(map.context_at(Vector2(580, 350))["kind"], "own_unit", "an own unit wins an exact tie")
 	Terrain.load_from({"terrain": {"land": [{"id": "isle", "name": "Isle", "elevation_m": 50.0, "points_nm": [[40, 40], [60, 40], [60, 60], [40, 60]]}]}})
 	assert_eq(map.context_at(map.world_to_screen(Vector2(50, 50)))["kind"], "empty", "land the chart shows")
+	_free_fixture(f)
+
+
+func test_overlapping_hit_areas_select_the_symbol_under_the_pointer() -> void:
+	var f := _right_click_fixture()
+	var map: TacticalMap = f["map"]
+	var ship: Unit = f["ship"]
+	var contact: Track = f["hostile"]
+	ship.position = contact.position + Vector2(2, 0)
+	map.select_units([ship])
+	var at := map.world_to_screen(contact.position)
+	map._mouse = at
+	map._mouse_inside = true
+	assert_eq(map.hovered_track(), contact)
+	assert_eq(map.hover_cursor_shape(at), Control.CURSOR_CROSS)
+	for pressed: bool in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = pressed
+		click.position = at
+		map._gui_input(click)
+	assert_eq(map.selected_track, contact)
+	assert_eq(map.selected, [ship], "inspecting the contact retains the command selection")
+	_right_click(map, at)
+	assert_eq(f["events"]["attack"], [contact])
+	assert_eq(map.context_at(map.world_to_screen(ship.position))["unit"], ship)
+	ship.position = contact.position
+	_right_click(map, at, false, true)
+	assert_eq(f["events"]["engage"], [contact], "the explicit contact gesture can pick an exactly stacked track")
 	_free_fixture(f)
 
 
@@ -633,6 +660,29 @@ func test_orders_panel_selection_state_reports_none_off_on_and_mixed() -> void:
 	assert_eq(panel._selection_state("emcon"), 2, "different EMCON settings report mixed")
 	a.emcon = Unit.Emcon.SILENT
 	assert_eq(panel._selection_state("emcon"), 1, "both silent is on")
+	panel.free()
+
+
+func test_orders_panel_updates_choices_as_the_selected_track_is_classified() -> void:
+	var panel := OrdersPanel.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(panel)
+	var ship := _unit()
+	var system := DataDB.weapon("rgm_84_harpoon")
+	ship.weapons.append(system)
+	ship.magazines[system.id] = 2
+	panel.set_units([ship], true)
+	var contact := _track("T1007", "UNKNOWN", Vector2(5, 0))
+	panel.set_target_track(contact)
+	assert_true(panel._weapon_option.disabled)
+	assert_true(panel._envelope.text.contains("Awaiting contact classification"))
+	contact.domain = "surface"
+	panel._process(0.31)
+	assert_eq(panel.current_weapon_spec(), system)
+	assert_true(not panel._weapon_option.disabled)
+	contact.domain = "air"
+	panel._process(0.31)
+	assert_true(panel._weapon_option.disabled)
+	assert_true(panel._envelope.text.contains("no compatible system"))
 	panel.free()
 
 

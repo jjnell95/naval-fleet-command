@@ -255,7 +255,7 @@ static func engage_hostile_aircraft(unit_manager: UnitManager, track_manager: Tr
 		if not sams:
 			continue
 		for t: Track in track_manager.tracks_for(u):
-			if t.domain != "air" or t.identity != "HOSTILE" or t.status != Track.Status.ACTIVE or t.is_bearing_only() or t.damage_estimate >= 100.0:
+			if t.domain != "air" or t.identity != "HOSTILE" or t.status != Track.Status.ACTIVE or t.is_bearing_only() or t.confirmed_destroyed:
 				continue
 			if weapon_manager.faction_commitment(u.faction, t) >= AIRCRAFT_ROUNDS_IN_FLIGHT:
 				continue

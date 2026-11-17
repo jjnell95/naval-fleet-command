@@ -303,7 +303,8 @@ func progress(um: UnitManager, now: float) -> String:
 		return "awaiting previous task"
 	match kind:
 		Kind.FORCE_DESTROYED:
-			return "%d remaining" % um.get_engageable_units(faction).size()
+			var remaining := um.get_engageable_units(faction).size()
+			return "%d remaining · goal %d or fewer" % [remaining, max_alive] if max_alive > 0 else "%d remaining" % remaining
 		Kind.ALL_UNITS_LOST:
 			var afloat := 0
 			for name in callsigns:

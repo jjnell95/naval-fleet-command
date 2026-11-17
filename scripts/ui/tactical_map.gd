@@ -975,6 +975,11 @@ func _handle_mouse_button(e: InputEventMouseButton) -> void:
 ## otherwise hook what is under the cursor and ask the shell for a menu. Shift always asks for
 ## the menu on a contact, for the weapon and salvo choices.
 func _right_click(e: InputEventMouseButton) -> void:
+	if e.ctrl_pressed or e.meta_pressed:
+		var contact := _track_at(e.position)
+		if contact != null:
+			engage_requested.emit(contact)
+			return
 	var ctx := context_at(e.position)
 	match String(ctx["kind"]):
 		"weapon":
@@ -983,9 +988,6 @@ func _right_click(e: InputEventMouseButton) -> void:
 				return
 		"track":
 			var t: Track = ctx["track"]
-			if e.ctrl_pressed or e.meta_pressed:
-				engage_requested.emit(t)
-				return
 			select_track(t)
 			if not e.shift_pressed and _has_controllable_selection():
 				match default_contact_verb(t):
@@ -1015,7 +1017,7 @@ func _right_click(e: InputEventMouseButton) -> void:
 ## calls hostile, "investigate" one it has not yet classified, "" (the menu) for a neutral or
 ## friendly one, a classified contact of unknown allegiance, or a contact already lost.
 static func default_contact_verb(t: Track) -> String:
-	if t == null or t.status == Track.Status.LOST or t.is_bearing_only():
+	if t == null or t.confirmed_destroyed or t.status == Track.Status.LOST or t.is_bearing_only():
 		return ""
 	if t.identity == "HOSTILE":
 		return "attack"
@@ -1029,13 +1031,14 @@ static func default_contact_verb(t: Track) -> String:
 func hover_cursor_shape(screen_pos: Vector2) -> Control.CursorShape:
 	if interaction_mode != InteractionMode.SELECT:
 		return Control.CURSOR_CROSS
-	if not station_handle_at(screen_pos).is_empty():
+	var hit := _symbol_at(screen_pos, true)
+	if hit == null and not station_handle_at(screen_pos).is_empty():
 		return Control.CURSOR_DRAG
-	if not _has_controllable_selection() or _unit_at(screen_pos) != null:
+	if not _has_controllable_selection():
 		return Control.CURSOR_ARROW
-	if str(context_at(screen_pos)["kind"]) == "weapon":
-		return Control.CURSOR_CROSS  # a right-click intercepts it
-	match default_contact_verb(_track_at(screen_pos)):
+	if hit is Weapon:
+		return Control.CURSOR_CROSS
+	match default_contact_verb(hit as Track):
 		"attack":
 			return Control.CURSOR_CROSS
 		"investigate":
@@ -1045,26 +1048,22 @@ func hover_cursor_shape(screen_pos: Vector2) -> Control.CursorShape:
 
 ## What a right-click at this chart pixel is on, for the shell's menus: kind is "own_unit",
 ## "weapon" (a detected inbound round), "track", "waypoint", "water" (open water) or "empty" (land
-## the chart shows); the matching fields are filled and the rest are null / -1. Own units win over
-## an inbound round, the round over contacts, and all of them over a waypoint.
+## the chart shows). The nearest plotted symbol wins over a waypoint.
 func context_at(screen_pos: Vector2) -> Dictionary:
 	var world := screen_to_world(screen_pos)
 	var ctx := {"kind": "water", "unit": null, "weapon": null, "track": null, "waypoint_unit": null, "waypoint_index": -1, "world_pos": world}
-	var u := _unit_at(screen_pos)
-	if u != null:
+	var hit := _symbol_at(screen_pos, true)
+	if hit is Unit:
 		ctx["kind"] = "own_unit"
-		ctx["unit"] = u
+		ctx["unit"] = hit
 		return ctx
-	# Only a round this picture holds (_weapon_at asks the threat picture), and never one of ours.
-	var w := _weapon_at(screen_pos, true)
-	if w != null:
+	if hit is Weapon:
 		ctx["kind"] = "weapon"
-		ctx["weapon"] = w
+		ctx["weapon"] = hit
 		return ctx
-	var t := _track_at(screen_pos)
-	if t != null:
+	if hit is Track:
 		ctx["kind"] = "track"
-		ctx["track"] = t
+		ctx["track"] = hit
 		return ctx
 	var wp := _waypoint_at(screen_pos)
 	if not wp.is_empty():
@@ -1293,6 +1292,26 @@ func _track_at(screen_pos: Vector2) -> Track:
 	return best
 
 
+## Choose by screen distance so clicking the centre of a contact still works in a tight
+## formation. At equal distances keep the chart's own-unit, inbound, contact priority.
+func _symbol_at(screen_pos: Vector2, include_inbound := false) -> RefCounted:
+	var closest: RefCounted = _track_at(screen_pos)
+	var distance := INF
+	if closest is Track:
+		distance = world_to_screen((closest as Track).position).distance_squared_to(screen_pos)
+	if include_inbound:
+		var inbound := _weapon_at(screen_pos, true)
+		if inbound != null:
+			var d := world_to_screen(inbound.position).distance_squared_to(screen_pos)
+			if d <= distance:
+				closest = inbound
+				distance = d
+	var unit := _unit_at(screen_pos)
+	if unit != null and world_to_screen(SubmarineComms.reported_position(unit)).distance_squared_to(screen_pos) <= distance:
+		return unit
+	return closest
+
+
 ## The nearest own waypoint marker to the cursor, if any is close enough to act on. Shared by the
 ## right-click handler (delete that leg) and the hover card (hint that it is clickable).
 func _waypoint_at(screen_pos: Vector2) -> Dictionary:
@@ -1313,13 +1332,11 @@ func _check_double_click(screen_pos: Vector2) -> void:
 	var now := Time.get_ticks_msec()
 	var is_double := now - _last_click_ms <= DOUBLE_CLICK_MS and screen_pos.distance_to(_last_click_pos) <= DRAG_THRESHOLD_PX
 	if is_double:
-		var u := _unit_at(screen_pos)
-		if u != null:
-			center_on(SubmarineComms.reported_position(u))
-		else:
-			var t := _track_at(screen_pos)
-			if t != null:
-				center_on(t.position)
+		var hit := _symbol_at(screen_pos)
+		if hit is Unit:
+			center_on(SubmarineComms.reported_position(hit))
+		elif hit is Track:
+			center_on((hit as Track).position)
 		_last_click_ms = -1000000
 	else:
 		_last_click_ms = now
@@ -1327,12 +1344,11 @@ func _check_double_click(screen_pos: Vector2) -> void:
 
 
 func _click_select(screen_pos: Vector2, additive: bool) -> void:
-	var hit := _unit_at(screen_pos)
-	if hit == null:
-		var t := _track_at(screen_pos)
-		if t != null:
-			select_track(t)
-			return
+	var symbol := _symbol_at(screen_pos)
+	if symbol is Track:
+		select_track(symbol)
+		return
+	var hit := symbol as Unit
 	_inspecting_track = false
 	if additive:
 		if hit != null:
@@ -1383,14 +1399,12 @@ func select_track(t: Track) -> void:
 
 
 ## The contact under the cursor, by the same rules the hover card uses: the chart in plain select
-## mode, no drag or menu open, and no own platform under the cursor (own units win, as they do
-## for a click). The data display reads it when nothing is hooked.
+## mode, no drag or menu open, and the same nearest symbol as a left click. The data display
+## reads it when nothing is hooked.
 func hovered_track() -> Track:
 	if not _mouse_inside or _drag_mode != DragMode.NONE or menu_open or interaction_mode != InteractionMode.SELECT:
 		return null
-	if _unit_at(_mouse) != null:
-		return null
-	return _track_at(_mouse)
+	return _symbol_at(_mouse) as Track
 
 
 ## Which contact the player is inspecting, independently of the retained command selection.
@@ -2836,21 +2850,20 @@ func _symbol_key_rect() -> Rect2:
 func _draw_hover_card() -> void:
 	if not _mouse_inside or _drag_mode != DragMode.NONE or menu_open or interaction_mode != InteractionMode.SELECT:
 		return
-	var wp := _waypoint_at(_mouse)
-	if not wp.is_empty():
-		var wu: Unit = wp["unit"]
-		var lines := PackedStringArray()
-		lines.append("%s waypoint %d/%d" % [wu.callsign, int(wp["index"]) + 1, wu.waypoints.size()])
-		lines.append("Right-click for leg options")
-		_draw_card(lines)
+	var symbol := _symbol_at(_mouse)
+	if symbol is Unit:
+		_draw_card(own_hover_lines(symbol, SimClock.sim_time))
 		return
 	var lines := PackedStringArray()
-	var u := _unit_at(_mouse)
-	if u != null:
-		_draw_card(own_hover_lines(u, SimClock.sim_time))
-		return
-	var t := _track_at(_mouse)
+	var t := symbol as Track
 	if t == null:
+		var wp := _waypoint_at(_mouse)
+		if not wp.is_empty():
+			var wu: Unit = wp["unit"]
+			lines.append("%s waypoint %d/%d" % [wu.callsign, int(wp["index"]) + 1, wu.waypoints.size()])
+			lines.append("Right-click for leg options")
+			_draw_card(lines)
+			return
 		var lw := screen_to_world(_mouse)
 		var l := Terrain.land_at(lw) if not Terrain.is_empty() else null
 		if l == null:

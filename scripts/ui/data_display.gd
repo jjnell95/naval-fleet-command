@@ -496,6 +496,8 @@ static func identity_key(identity: String) -> String:
 ## The battle damage assessment as the data display states it: an estimate from our own hits.
 static func damage_text(t: Track) -> String:
 	# No assessed hit is not evidence of an undamaged hull.
+	if t.confirmed_destroyed:
+		return "100 (destroyed)"
 	if t.damage_estimate <= 0.0:
 		return "not assessed"
 	return "%d (est)" % int(round(clampf(t.damage_estimate, 0.0, 100.0)))

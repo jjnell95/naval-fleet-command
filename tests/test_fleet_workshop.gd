@@ -311,6 +311,32 @@ func test_recipe_is_reproducible_and_different_seeds_change_the_mix() -> void:
 	assert_true(JSON.stringify(a["units"]) != JSON.stringify(c["units"]))
 
 
+func test_builder_opening_distance_preserves_the_standard_start_and_seeded_fleets() -> void:
+	var editor := ScenarioEditor.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(editor)
+	var picker: OptionButton = editor._recipe_popup.find_child("StartingFleetDistance", true, false)
+	editor._recipe["blue_ships"] = 48
+	editor._recipe["red_ships"] = 48
+	var standard := ScenarioWorkshop.generate(editor._recipe)
+	assert_eq(standard["units"][0]["position_nm"], [-38.0, -6.0])
+	for choice in [1, 2, 0]:
+		picker.select(choice)
+		picker.item_selected.emit(choice)
+		var sc := ScenarioWorkshop.generate(editor._recipe)
+		var red: Dictionary = sc["units"].filter(func(u: Dictionary) -> bool: return u["callsign"] == "RED 01")[0]
+		var blue_position: Array = sc["units"][0]["position_nm"]
+		var red_position: Array = red["position_nm"]
+		if choice == 0:
+			assert_eq(sc, standard, "returning to Standard restores the complete original recipe")
+			assert_eq(red_position, [38.0, 6.0])
+		else:
+			assert_near(Vector2(blue_position[0], blue_position[1]).distance_to(Vector2(red_position[0], red_position[1])), float(picker.get_item_id(choice)), 0.001)
+			assert_eq(sc, ScenarioWorkshop.generate(sc["recipe"]), "same recipe reproduces every position")
+			for i in sc["units"].size():
+				assert_eq(sc["units"][i]["platform"], standard["units"][i]["platform"], "spacing leaves the seeded fleet mix intact")
+	editor.free()
+
+
 func test_generated_fleets_validate_in_every_theatre_and_both_eras() -> void:
 	for region in 4:
 		for year in [1990, 2027]:
@@ -337,6 +363,58 @@ func test_big_recipe_loads_finite_wings_and_unique_surface_stations() -> void:
 	um.free()
 
 
+func test_fleet_board_distinguishes_one_selected_escort_from_its_whole_group() -> void:
+	var root := (Engine.get_main_loop() as SceneTree).root
+	var sim := Simulation.new()
+	root.add_child(sim)
+	var recipe := {"blue_ships": 48, "red_ships": 1, "blue_carriers": 0, "blue_subs": 0, "red_subs": 0}
+	ScenarioLoader.populate(sim.unit_manager, ScenarioWorkshop.generate(recipe))
+	var members := sim.unit_manager.get_engageable_units("BLUE")
+	var escort := members[1]
+	escort.defence_policy = "conserve"
+	var board := FleetOperations.new()
+	board.simulation = sim
+	root.add_child(board)
+	var selected: Array = [escort]
+	board.selection_requested.connect(func(units: Array) -> void: selected.assign(units))
+	board.open_for(selected)
+	assert_true(board._list.get_selected_items().is_empty(), "a single escort must not highlight the entire fleet")
+	assert_true(board._list.get_item_text(0).contains("1/48 SELECTED"))
+	assert_true(board._list.get_item_text(0).contains("MIXED"), "the flagship's policy does not describe this group")
+	assert_true(board._receipt.text.contains("1 platform selected"))
+	assert_eq(selected, [escort], "opening the board preserves the chart selection")
+	board._list.select(0)
+	board._list.multi_selected.emit(0, true)
+	assert_eq(selected.size(), 48)
+	assert_true(not board._list.get_item_text(0).contains("1/48 SELECTED"))
+	assert_true(board._receipt.text.contains("48 platforms selected"))
+	board.free()
+	sim.free()
+
+
+func test_defence_tab_shows_actual_missile_mode_and_issues_the_intercept_order() -> void:
+	var panel := OrdersPanel.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(panel)
+	var first := _ship()
+	var second := _ship()
+	first.auto_air_defence = false
+	panel.set_units([first], true)
+	assert_true(panel._defence_summary.text.contains("Missile defence MANUAL"))
+	var orders: Array = []
+	panel.order_requested.connect(func(order: Order) -> void: orders.append(order.type))
+	panel._defence_buttons["intercept"].pressed.emit()
+	assert_eq(orders, [Order.Type.INTERCEPT])
+	panel.set_units([first, second], true)
+	assert_true(panel._defence_summary.text.contains("Missile defence MIXED"))
+	panel.set_units([second], true)
+	assert_true(panel._defence_summary.text.contains("Missile defence AUTO"))
+	panel.set_units([], false)
+	assert_true(panel._defence_buttons["intercept"].disabled)
+	panel._defence_buttons["intercept"].pressed.emit()
+	assert_eq(orders.size(), 1)
+	panel.free()
+
+
 func test_reinforcements_are_exported_once_and_do_not_allow_an_early_victory() -> void:
 	Terrain.clear()
 	var sc := ScenarioWorkshop.generate({"blue_ships": 1, "red_ships": 1, "blue_carriers": 0, "blue_subs": 0, "red_subs": 0})
@@ -359,6 +437,54 @@ func test_reinforcements_are_exported_once_and_do_not_allow_an_early_victory() -
 		if u.faction == "RED":
 			u.alive = false
 	mm.tick(301)
+	assert_eq(mm.result, MissionManager.Result.VICTORY)
+	mm.free()
+	um.free()
+
+
+func test_large_custom_fleet_victory_uses_the_edited_opponent_and_threshold() -> void:
+	Terrain.clear()
+	var sc := ScenarioWorkshop.generate({"blue_ships": 48, "red_ships": 48, "blue_carriers": 0, "red_carriers": 0, "blue_subs": 0, "red_subs": 0})
+	sc["player_faction"] = "RED"
+	sc["objectives"]["victory"] = [{"id": "win", "type": "time_elapsed", "seconds": 3600}]
+	sc["objectives"]["loss"] = []
+	var editor := ScenarioEditor.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(editor)
+	editor.load_dict(sc)
+	editor._objective_kind.select(1)
+	editor._objective_kind.item_selected.emit(1)
+	editor._max_opponents.value = 3
+	var exported: Dictionary = JSON.parse_string(editor.to_json())
+	assert_eq(exported["objectives"]["victory"][0]["faction"], "BLUE")
+	assert_eq(exported["objectives"]["victory"][0]["max_alive"], 3)
+	editor.load_dict(exported)
+	assert_eq(int(editor._max_opponents.value), 3)
+	assert_true(editor._max_opponents.is_visible_in_tree())
+	# A later edit must keep an imported task's explicitly named faction and briefing text.
+	exported["objectives"]["victory"][0]["text"] = "Reduce the visiting fleet"
+	editor.load_dict(exported)
+	editor._max_opponents.value = 2
+	exported = JSON.parse_string(editor.to_json())
+	assert_eq(exported["objectives"]["victory"][0]["text"], "Reduce the visiting fleet")
+	assert_eq(exported["objectives"]["victory"][0]["faction"], "BLUE")
+	assert_eq(ScenarioWorkshop.validate(exported), "")
+	editor.free()
+
+	var um := UnitManager.new()
+	ScenarioLoader.populate(um, exported)
+	var mm := MissionManager.new()
+	mm.player_faction = "RED"
+	mm.unit_manager = um
+	mm.configure(exported)
+	var opponents := um.get_engageable_units("BLUE")
+	assert_eq(opponents.size(), 48)
+	for i in 45:
+		opponents[i].alive = false
+	mm.tick(10)
+	assert_eq(mm.result, MissionManager.Result.RUNNING)
+	assert_eq(mm.victory_objectives[0].progress(um, 10), "3 remaining · goal 2 or fewer")
+	opponents[45].alive = false
+	mm.tick(11)
 	assert_eq(mm.result, MissionManager.Result.VICTORY)
 	mm.free()
 	um.free()
@@ -426,6 +552,18 @@ func test_coastal_large_recipes_do_not_stack_ships_on_the_same_water_point() -> 
 			assert_true(not seen.has(p), "coastal placement has independent stations")
 			seen[p] = true
 		assert_true(not sc["map"].has("focus_center_nm"), "a template's camera cannot hide the generated fleet")
+
+
+func test_close_custom_fleets_keep_clearance_on_each_coastline() -> void:
+	for region in 4:
+		var sc := ScenarioWorkshop.generate({"region": region, "coastlines": true, "opening_separation_nm": 12, "blue_ships": 48, "red_ships": 48})
+		assert_eq(ScenarioWorkshop.validate(sc), "", "all units are in water")
+		var occupied: Array[Vector2] = []
+		for unit: Dictionary in sc["units"]:
+			var pos: Array = unit["position_nm"]
+			var point := Vector2(pos[0], pos[1])
+			assert_true(ScenarioWorkshop._clear_point(point, occupied), "nearby fleets retain spacing between units")
+			occupied.append(point)
 
 
 func test_a_nested_formation_paces_its_slowest_descendant() -> void:

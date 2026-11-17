@@ -303,7 +303,7 @@ func test_rounds_still_queued_are_returned_once_the_plot_records_the_kill() -> v
 	assert_true(c[0][2].launch(ship, sam, c[2], 3, 0.0))
 	assert_eq(ship.magazine_count("area"), 17)
 	assert_eq(c[0][2].committed_rounds(ship, sam, c[2], true), 2, "two still on the rail")
-	(c[2] as Track).damage_estimate = 100.0
+	(c[2] as Track).confirmed_destroyed = true
 	c[0][2].tick(0.25, 0.25)
 	assert_eq(c[0][2].committed_rounds(ship, sam, c[2], true), 0)
 	assert_eq(ship.magazine_count("area"), 19, "both queued rounds are back in the magazine")

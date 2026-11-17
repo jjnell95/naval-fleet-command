@@ -35,6 +35,23 @@ func test_unobserved_death_does_not_reveal_itself_by_dropping_the_track() -> voi
 	tm.free()
 
 
+func test_unwitnessed_loss_does_not_remove_a_stale_bearing_or_intel_report() -> void:
+	var tm := TrackManager.new()
+	var target := _target()
+	tm.observe("BLUE", target, Vector2(10, 0), 0.5, 1.0, 0.0, 1.0, 10.0)
+	tm.tick(80.0, 80.0)
+	var stale := tm.find_track("BLUE", target)
+	tm.observe_contact("GREEN", _bearing(target, Vector2(10, 0)), 80.0, 1.0)
+	var bearing := tm.find_track("GREEN", target)
+	var intel := tm.report_intel("ORANGE", target, Vector2.ZERO, 15.0, 80.0, "Exercise report")
+	tm.record_kill(target)
+	tm.tick(81.0, 1.0)
+	for track: Track in [stale, bearing, intel]:
+		assert_true(not track.confirmed_destroyed)
+		assert_eq(tm.find_track(track.owner_faction, target), track)
+	tm.free()
+
+
 func test_firm_fix_after_a_bearing_is_independent_of_sensor_order() -> void:
 	var u := _target()
 	var firm := SensorContact.make(u, Vector2(0, 20), 0.3, 0.5, 1.0, 20.0)

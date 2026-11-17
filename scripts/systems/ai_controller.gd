@@ -216,7 +216,7 @@ func _update_unit(u: Unit, now: float) -> void:
 		if t.status == Track.Status.LOST:
 			continue
 		# A hostile the side has seen go down is nothing to close on, shadow or shoot at.
-		if t.identity == "HOSTILE" and t.damage_estimate >= 100.0:
+		if t.identity == "HOSTILE" and t.confirmed_destroyed:
 			continue
 		var mine := u.can_engage_domain(t.domain) or (t.domain == "subsurface" and TowedArray.capable(u))
 		if t.identity == "HOSTILE":
@@ -433,7 +433,7 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			bucket = _plan_bucket(u, t, task)
 			if bucket < 0:
 				continue  # neither the plan's business nor close enough to be a threat
-		if t.status != Track.Status.ACTIVE or t.damage_estimate >= 100.0:
+		if t.status != Track.Status.ACTIVE or t.confirmed_destroyed:
 			continue  # never shoot at a stale track, nor at one the side has already seen go down
 		if t.classification < Track.Classification.CLASS_KNOWN:
 			continue  # not confirmed hostile yet
@@ -1025,7 +1025,7 @@ func _plan_target(p: AIPlan) -> Track:
 	var current: Track = null
 	var current_rank := 1 << 30
 	for t: Track in track_manager.get_tracks(faction):
-		if t.status == Track.Status.LOST or t.identity != "HOSTILE" or t.damage_estimate >= 100.0:
+		if t.status == Track.Status.LOST or t.identity != "HOSTILE" or t.confirmed_destroyed:
 			continue
 		var rank := p.priority_rank(t)
 		if rank < 0:

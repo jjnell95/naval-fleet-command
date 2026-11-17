@@ -29,12 +29,15 @@ var scenario_name := ""
 var objective_text := ""
 ## The newest interface advice, for tools and tests; advice keeps no history.
 var last_advice := ""
+## The current chart message, available to dialogs that cover the chart while issuing orders.
+var latest_text := ""
 
 
 ## Puts a message on the net. `speaker` is the unit or track talking, if any: the line reads
 ## "<callsign>: <text>" and the speaker's symbol is ringed while the line shows.
 func flash(msg: String, severity := "info", speaker: RefCounted = null) -> void:
 	var line := format_line(msg, speaker)
+	latest_text = line
 	var stamped := "%s  %s" % [SimClock.datetime_string(), line]
 	history.push_front(stamped)
 	journal.append(stamped)
@@ -57,6 +60,7 @@ func flash(msg: String, severity := "info", speaker: RefCounted = null) -> void:
 ## not the comms board, not the lamp, not the debrief journal, and it is never spoken.
 func advise(msg: String) -> void:
 	last_advice = msg
+	latest_text = msg
 	if map != null:
 		map.post_message(msg, ADVICE)
 
@@ -86,6 +90,7 @@ func clear() -> void:
 	journal_omitted = 0
 	objective_text = ""
 	last_advice = ""
+	latest_text = ""
 	if display != null:
 		display.unread_alerts = 0
 		display.threat_text = ""

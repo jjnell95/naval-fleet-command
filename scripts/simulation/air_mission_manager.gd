@@ -247,10 +247,10 @@ func _strike_target_rejection(base: Unit, target: Track) -> String:
 		return "Choose a held contact to strike"
 	if target.owner_faction != "" and target.owner_faction != base.faction:
 		return "Contact is not held by this force"
+	if target.confirmed_destroyed:
+		return "Contact already destroyed"
 	if target.status == Track.Status.LOST:
 		return "Contact lost"
-	if target.damage_estimate >= 100.0:
-		return "Contact already destroyed"
 	if target.identity in ["NEUTRAL", "FRIENDLY"]:
 		return "Protected identity"
 	if target.is_bearing_only() or not target.position.is_finite():

@@ -67,6 +67,7 @@ var _sequence: CheckBox
 var _scope: OptionButton
 var _objective_radius: SpinBox
 var _objective_count: SpinBox
+var _max_opponents: SpinBox
 var _victory_mode: OptionButton
 var _arrival: SpinBox
 var _unit_policy: OptionButton
@@ -262,9 +263,11 @@ func _ready() -> void:
 	props.add_child(_scope)
 	_objective_radius = _spin(props, "Area radius (nm)", 1, 100, 1, func(_v: float) -> void: _apply_objective())
 	_objective_count = _spin(props, "Platforms / sorties required", 1, 96, 1, func(_v: float) -> void: _apply_objective())
+	_max_opponents = _spin(props, "Opponents allowed to remain", 0, 300, 1, func(_v: float) -> void: _apply_objective())
+	_max_opponents.allow_greater = true
 	_sequence = CheckBox.new()
 	_sequence.text = "After the preceding task"
-	_sequence.toggled.connect(func(_on: bool) -> void: _apply_objective())
+	_sequence.toggled.connect(func(_on: bool) -> void: _apply_objective(true))
 	props.add_child(_sequence)
 	_objective_text = _line(props, "Mission statement", func(t: String) -> void: scenario["objectives"]["text"] = t)
 	var area_hint := Label.new()
@@ -600,7 +603,7 @@ func _sync_from_model() -> void:
 	_chart.queue_redraw()
 
 
-func _apply_objective() -> void:
+func _apply_objective(change_sequence := false) -> void:
 	if _syncing or scenario.is_empty():
 		return
 	var kind := _objective_kind.selected
@@ -617,7 +620,12 @@ func _apply_objective() -> void:
 		0:
 			objective = {"type": "time_elapsed", "seconds": int(_minutes.value) * 60, "text": "Survive for %d minutes" % int(_minutes.value)}
 		1:
-			objective = {"type": "force_destroyed", "faction": "RED", "text": "Defeat the opposing force"}
+			if original.get("type", "") == "force_destroyed":
+				objective = original.duplicate(true)
+			else:
+				var opponent := "BLUE" if scenario.get("player_faction", "BLUE") == "RED" else "RED"
+				objective = {"type": "force_destroyed", "faction": opponent, "text": "Defeat the opposing force"}
+			objective["max_alive"] = int(_max_opponents.value)
 		2, 3:
 			if existing_area.is_empty():
 				var c: Array = scenario["map"]["center_nm"]
@@ -637,8 +645,13 @@ func _apply_objective() -> void:
 		objective["callsigns"] = [_scope.get_item_text(_scope.selected)]
 	else:
 		objective["callsigns"] = []
-	if _sequence.button_pressed and _task_index > 0:
-		objective["after"] = [victory[_task_index - 1]["id"]]
+	if change_sequence:
+		if _sequence.button_pressed and _task_index > 0:
+			objective["after"] = [victory[_task_index - 1]["id"]]
+		else:
+			objective.erase("after")
+	elif original.has("after"):
+		objective["after"] = original["after"].duplicate()
 	victory[_task_index] = objective
 	_sync_tasks()
 	_sync_task()
@@ -1094,6 +1107,8 @@ func _sync_task() -> void:
 	_objective_radius.get_parent().visible = kind in [2, 3]
 	_objective_count.value = int(o.get("count", 1))
 	_objective_count.get_parent().visible = kind in [2, 3, 4]
+	_max_opponents.value = int(o.get("max_alive", 0))
+	_max_opponents.get_parent().visible = kind == 1
 	_scope.clear()
 	_scope.add_item("Any player platform")
 	var names: Array = o.get("callsigns", [])
@@ -1243,6 +1258,23 @@ func _build_recipe_popup() -> void:
 		formation.add_item(pattern.capitalize())
 	formation.item_selected.connect(func(i: int) -> void: _recipe["formation"] = ["screen", "column", "abreast", "wedge", "dispersed"][i])
 	options.add_child(formation)
+	var separation_row := HBoxContainer.new()
+	box.add_child(separation_row)
+	var separation_label := Label.new()
+	separation_label.text = "Starting fleet distance"
+	separation_row.add_child(separation_label)
+	var separation := OptionButton.new()
+	separation.name = "StartingFleetDistance"
+	separation.add_item("Standard (about 77 nm)")
+	separation.add_item("Close (%d nm)" % ScenarioWorkshop.CLOSE_SEPARATION_NM, ScenarioWorkshop.CLOSE_SEPARATION_NM)
+	separation.add_item("Wide (%d nm)" % ScenarioWorkshop.WIDE_SEPARATION_NM, ScenarioWorkshop.WIDE_SEPARATION_NM)
+	separation.tooltip_text = "Distance between the two flagships in open water. Coastlines and nearby ships can shift their starting positions."
+	separation.item_selected.connect(func(i: int) -> void:
+		if i == 0:
+			_recipe.erase("opening_separation_nm")
+		else:
+			_recipe["opening_separation_nm"] = separation.get_item_id(i))
+	separation_row.add_child(separation)
 	var sides := HBoxContainer.new()
 	box.add_child(sides)
 	for side: String in ["blue", "red"]:

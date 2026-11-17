@@ -77,6 +77,9 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if shooter == null or spec == null or track == null:
 		out["reason"] = "NO TARGET"
 		return out
+	if track.confirmed_destroyed:
+		out["reason"] = "TARGET DESTROYED"
+		return out
 	out["range_nm"] = shooter.position.distance_to(track.position)
 	if not shooter.alive:
 		out["reason"] = "UNIT LOST"

@@ -254,17 +254,17 @@ func tick(now: float, dt: float) -> void:
 		var list: Array = _tracks[faction]
 		for i in range(list.size() - 1, -1, -1):
 			var t: Track = list[i]
-			if is_equal_approx(t.last_seen_time, now):
-				continue
 			var age := t.age_s(now)
-			# Loss of sensor contact is the only evidence here. Hidden destruction must
-			# not reveal itself by expiring this track earlier than an unseen survivor.
-			if age > Track.LOST_AFTER_S:
+			# Retain the plot through the destruction event so its radio report has a track number.
+			if t.confirmed_destroyed or age > Track.LOST_AFTER_S:
 				t.status = Track.Status.LOST
 				list.remove_at(i)
 				if _by_target.has(faction):
 					_by_target[faction].erase(t.truth)
-				track_lost.emit(faction, t)
+				if not t.confirmed_destroyed:
+					track_lost.emit(faction, t)
+				continue
+			if is_equal_approx(t.last_seen_time, now):
 				continue
 			if age > Track.STALE_AFTER_S:
 				t.status = Track.Status.STALE
@@ -299,13 +299,14 @@ static func assessed_health(t: Track, hint_id := "") -> float:
 	return GENERIC_HEALTH
 
 
-## A kill the plot sees: every picture still holding a track on the unit marks it destroyed, as
-## the radio already reports it under that track's label.
+## Record a loss only on pictures with a current fix. A stale plot, bearing or unverified
+## intelligence report continues to age like any other unwitnessed contact.
 func record_kill(target: Unit) -> void:
 	for key in _by_target:
 		var index: Dictionary = _by_target[key]
 		var t: Track = index.get(target)
-		if t != null and t.status != Track.Status.LOST:
+		if t != null and t.status == Track.Status.ACTIVE and not t.is_bearing_only() and not t.reported:
+			t.confirmed_destroyed = true
 			t.damage_estimate = 100.0
 
 

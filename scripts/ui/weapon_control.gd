@@ -133,7 +133,7 @@ func _ready() -> void:
 	_group_cancel.tooltip_text = "End the group attack on this contact: queued group rounds return to the magazines; rounds already away fly on."
 	_group_status = _wrapped_label(_group_row, "")
 	_group_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_wrapped_label(box, "LEFT excludes reserved rounds. AWAY includes payloads already delivered. TOF is flight time; queued launches add delay. Automatic missile defence remains active after you return to the chart.")
+	_wrapped_label(box, "LEFT excludes reserved rounds. AWAY includes payloads already delivered. TOF is flight time; queued launches add delay.")
 	_receipt = _wrapped_label(box, "")
 
 

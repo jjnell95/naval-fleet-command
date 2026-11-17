@@ -3,6 +3,9 @@ class_name ScenarioWorkshop
 ## scripted battle. Geography can be reused without inheriting a template's story or enemies.
 
 const REGIONS := ["north_atlantic", "west_pacific", "arabian_sea", "mediterranean"]
+const STANDARD_FLEET_OFFSET := Vector2(38, 6)
+const CLOSE_SEPARATION_NM := 12
+const WIDE_SEPARATION_NM := 140
 ## Geography only: each region borrows a shipped mission's coastline, never its forces or story.
 ## The Norwegian Sea comes from the 1990 carrier watch, whose open-water origin sits at 68°N 4°E.
 const CHARTS := ["cold_war_03_carrier", "pacific_02_taiwan_strait", "gulf_01_hormuz", "med_01_tartus"]
@@ -44,6 +47,10 @@ static func generate(recipe: Dictionary) -> Dictionary:
 	var occupied: Array[Vector2] = []
 	for entry in terrain.get("land", []):
 		land.append(Landmass.from_dict(entry))
+	var opening_offset := STANDARD_FLEET_OFFSET
+	if recipe.has("opening_separation_nm"):
+		var distance_nm := clampf(float(recipe["opening_separation_nm"]), CLOSE_SEPARATION_NM, WIDE_SEPARATION_NM)
+		opening_offset = opening_offset.normalized() * distance_nm * 0.5
 	for faction: String in ["BLUE", "RED"]:
 		var prefix := faction.to_lower()
 		var count := clampi(int(recipe.get(prefix + "_ships", 6)), 1, 48)
@@ -56,7 +63,7 @@ static func generate(recipe: Dictionary) -> Dictionary:
 			# The 1990 recipe keeps the period boundary; a second Nimitz is a fictional opposing
 			# force, rather than silently borrowing a modern STOBAR air wing.
 			carrier_id = "cw90_nimitz" if cold else "pla_cv_shandong"
-		var origin := Vector2(-38, -6) if faction == "BLUE" else Vector2(38, 6)
+		var origin := -opening_offset if faction == "BLUE" else opening_offset
 		origin = _water_point(origin, land)
 		var heading := 90.0 if faction == "BLUE" else 270.0
 		var leader_name := "%s 01" % faction

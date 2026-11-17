@@ -41,6 +41,8 @@ var reported := false
 ## once the plot sees it destroyed. Never a read of the target's true condition; see
 ## TrackManager.record_hit.
 var damage_estimate := 0.0
+## A recorded destruction on this picture. Estimated damage can reach 100 on a surviving unit.
+var confirmed_destroyed := false
 ## Which of our own units have contributed to this track, and whether any of them is on the
 ## network. A contact held only by something off the link is ours alone until it reconnects.
 var contributors: Dictionary = {}

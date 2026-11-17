@@ -148,7 +148,7 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 	# solution. Accept coherent instructions into the queue, then run the full checks when
 	# the communication window delivers them; a lost contact is never attacked blindly.
 	if SubmarineComms.should_queue(u, order) and order.type in [Order.Type.ENGAGE, Order.Type.ATTACK, Order.Type.INVESTIGATE]:
-		if order.track == null or (order.track.owner_faction != "" and order.track.owner_faction != u.faction):
+		if order.track == null or order.track.confirmed_destroyed or (order.track.owner_faction != "" and order.track.owner_faction != u.faction):
 			return false
 		if order.type == Order.Type.ENGAGE:
 			return u.get_weapon(order.weapon_id) != null
@@ -302,6 +302,8 @@ static func investigation_rejection(u: Unit, track: Track) -> String:
 		return "Aircraft must be airborne and available for tasking"
 	if track == null or (track.owner_faction != "" and track.owner_faction != u.faction):
 		return "Contact is not available to this unit"
+	if track.confirmed_destroyed:
+		return "Target destroyed"
 	if track.status == Track.Status.LOST:
 		return "Contact lost"
 	if not track.visible_to(u):
@@ -409,6 +411,8 @@ static func attack_rejection(u: Unit, track: Track, weapon_id := "") -> String:
 		return "Aircraft must be airborne and available for tasking"
 	if track == null or (track.owner_faction != "" and track.owner_faction != u.faction):
 		return "Contact is not available to this unit"
+	if track.confirmed_destroyed:
+		return "Target destroyed"
 	if track.status == Track.Status.LOST:
 		return "Contact lost"
 	if not track.visible_to(u):

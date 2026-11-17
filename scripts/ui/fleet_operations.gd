@@ -12,7 +12,7 @@ var _list: ItemList
 var _summary: Label
 var _receipt: Label
 var _groups: Array = []
-var _selected_ids: Array = []
+var _selected_ids: Dictionary = {}
 
 
 func _ready() -> void:
@@ -72,8 +72,8 @@ func _ready() -> void:
 	var formations := HFlowContainer.new()
 	box.add_child(formations)
 	for pattern: String in ["aaw_screen", "asw_screen", "transit", "abreast", "dispersed"]:
-		_button(formations, pattern.replace("_", " ").to_upper(), func() -> void: formation_requested.emit(pattern); refresh())
-	_button(formations, "BREAK FORMATION", func() -> void: order_requested.emit(Order.break_formation()); refresh())
+		_button(formations, pattern.replace("_", " ").to_upper(), func() -> void: formation_requested.emit(pattern))
+	_button(formations, "BREAK FORMATION", func() -> void: order_requested.emit(Order.break_formation()))
 	_receipt = Label.new()
 	_receipt.clip_text = true
 	box.add_child(_receipt)
@@ -111,13 +111,13 @@ static func groups_for(um: UnitManager, faction: String) -> Array:
 func open_for(units: Array) -> void:
 	_selected_ids.clear()
 	for u: Unit in units:
-		_selected_ids.append(u.id)
+		_selected_ids[u.id] = true
 	show()
 	refresh()
 	_list.grab_focus()
 
 
-func refresh() -> void:
+func refresh(order_result := "") -> void:
 	if simulation == null or _list == null:
 		return
 	_groups = groups_for(simulation.unit_manager, simulation.player_faction)
@@ -130,7 +130,7 @@ func refresh() -> void:
 		var packs := 0
 		var gap := 0.0
 		var casualties := 0
-		var selected := false
+		var policy := leader.defence_policy
 		for u: Unit in group["members"]:
 			hulls += int(not u.is_aircraft())
 			flying += int(u.in_flight())
@@ -140,15 +140,38 @@ func refresh() -> void:
 				gap = maxf(gap, u.position.distance_to(Formation.station_for(u)))
 			for spec in u.defensive_weapons():
 				rounds += u.magazine_count(spec.id)
-			selected = selected or _selected_ids.has(u.id)
-		var text := "%s  |  %d platforms  |  station %.1f nm  |  %d defensive rounds  |  %d CM  |  %s" % [leader.callsign, group["members"].size(), gap, rounds, packs, leader.defence_policy.to_upper()]
+			if u.defence_policy != policy:
+				policy = "mixed"
+		var text := "%s  |  %d platforms  |  station %.1f nm  |  %d defensive rounds  |  %d CM  |  %s" % [leader.callsign, group["members"].size(), gap, rounds, packs, policy.to_upper()]
 		if casualties > 0:
 			text += "  |  %d damaged" % casualties
 		_list.add_item(text)
+		_list.set_item_metadata(_list.item_count - 1, text)
 		_list.set_item_tooltip(_list.item_count - 1, "Worst station error, usable interceptor ammunition and expendable countermeasure packs. Aircraft aboard are managed separately in Air Operations.")
-		if selected:
-			_list.select(_list.item_count - 1, false)
 	_summary.text = "%d task groups / independent units   |   %d ships and boats   |   %d airborne aircraft" % [_groups.size(), hulls, flying]
+	_sync_group_selection()
+	if order_result != "":
+		_receipt.text = order_result
+		_receipt.tooltip_text = order_result
+
+
+func _sync_group_selection() -> void:
+	var total := 0
+	for i in _groups.size():
+		var members: Array = _groups[i]["members"]
+		var count := 0
+		for u: Unit in members:
+			if _selected_ids.has(u.id):
+				count += 1
+		total += count
+		var text: String = _list.get_item_metadata(i)
+		if count == members.size():
+			_list.select(i, false)
+		elif count > 0:
+			text = "%d/%d SELECTED  |  %s" % [count, members.size(), text]
+		_list.set_item_text(i, text)
+	_receipt.text = "Select a group or platform type to issue orders" if total == 0 else "%d platform%s selected for orders" % [total, "" if total == 1 else "s"]
+	_receipt.tooltip_text = _receipt.text
 
 
 func _choose() -> void:
@@ -156,11 +179,11 @@ func _choose() -> void:
 	_selected_ids.clear()
 	for i in _list.get_selected_items():
 		for u: Unit in _groups[i]["members"]:
-			if not units.has(u):
+			if not _selected_ids.has(u.id):
 				units.append(u)
-				_selected_ids.append(u.id)
+				_selected_ids[u.id] = true
 	selection_requested.emit(units)
-	_receipt.text = "%d platforms selected for group orders" % units.size()
+	_sync_group_selection()
 
 
 func _select_domain(domain: String) -> void:
@@ -169,7 +192,6 @@ func _select_domain(domain: String) -> void:
 	for u in simulation.unit_manager.get_engageable_units(simulation.player_faction):
 		if u.spec.domain == domain:
 			units.append(u)
-			_selected_ids.append(u.id)
+			_selected_ids[u.id] = true
 	selection_requested.emit(units)
 	refresh()
-	_receipt.text = "%d %s platforms selected" % [units.size(), domain]

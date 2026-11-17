@@ -569,7 +569,7 @@ func test_no_strike_is_flown_at_a_contact_the_plot_scores_destroyed() -> void:
 	_advance(20.0)
 	var launched := m.launched_total
 	assert_true(launched < 4, "some of the strike is still queued")
-	t.damage_estimate = 100.0  # the plot scores it destroyed
+	_sim.track_manager.record_kill(ship)
 	_advance(600.0)
 	assert_eq(m.launched_total, launched, "no strike launches against a contact the plot scores destroyed")
 	for a in AirMissionManager.airframes_of(cdg, "fra_fighter_rafale_m"):

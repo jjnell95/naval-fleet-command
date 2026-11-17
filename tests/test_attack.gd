@@ -155,6 +155,37 @@ func _harness(units: Array) -> Harness:
 
 # --- The loop ---------------------------------------------------------------------------
 
+func test_confirmed_loss_retires_contact_and_refuses_followup_orders() -> void:
+	var spec := _asm(60.0)
+	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [spec])
+	var target := _unit("RED", Vector2(0, 20))
+	var h := _harness([shooter, target])
+	var tm := TrackManager.new()
+	tm.observe("BLUE", target, target.position, 1.0, 1.0, 1.0, 1.0, 20.0)
+	var t := tm.find_track("BLUE", target)
+	t.domain = "surface"
+	t.identity = "HOSTILE"
+	t.damage_estimate = 100.0
+	assert_true(h.um.issue_order(shooter, Order.attack(t)), "a damage estimate is not a kill report")
+	assert_true(h.wm.engagement_check(shooter, spec, t, 1.0).ok)
+	h.wm.unit_destroyed.connect(tm.on_unit_destroyed)
+	h.wm.unit_destroyed.emit(target, "BLUE")
+	assert_eq(shooter.attack_track, null)
+	assert_true(t.confirmed_destroyed)
+	assert_eq(TacticalMap.default_contact_verb(t), "")
+	assert_eq(UnitManager.attack_rejection(shooter, t), "Target destroyed")
+	assert_true(not h.um.issue_order(shooter, Order.attack(t)))
+	var retry := Order.engage(t, spec.id, 1)
+	assert_true(not h.um.issue_order(shooter, retry))
+	assert_eq(retry.receipt, "target destroyed")
+	tm.tick(1.0, 0.25)
+	assert_true(tm.get_tracks("BLUE").is_empty())
+	assert_eq(tm.find_track("BLUE", target), null)
+	assert_eq(t.status, Track.Status.LOST)
+	tm.free()
+	h.free_all()
+
+
 func test_attack_order_plots_the_intercept_then_closes_and_fires_without_further_orders() -> void:
 	var asm := _asm(60.0)
 	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [asm])

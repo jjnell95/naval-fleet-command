@@ -860,8 +860,10 @@ func _build_screens() -> void:
 	_fleet_operations.selection_requested.connect(func(units: Array) -> void: map.select_units(units))
 	_fleet_operations.order_requested.connect(func(order: Order) -> void:
 		_apply_order_to_selection(order)
-		_fleet_operations.refresh())
-	_fleet_operations.formation_requested.connect(_apply_formation)
+		_fleet_operations.refresh(radio.latest_text))
+	_fleet_operations.formation_requested.connect(func(pattern: String) -> void:
+		_apply_formation(pattern)
+		_fleet_operations.refresh(radio.latest_text))
 	add_child(_fleet_operations)
 	_fleet_operations.hide()
 	_weapon_control = WeaponControl.new()
@@ -2554,7 +2556,7 @@ func _apply_order_to_selection(order: Order) -> void:
 	if receipt != "":
 		receipt += " · %d rounds committed" % rounds_committed
 	if order.type == Order.Type.INTERCEPT:
-		order.receipt = refusal
+		order.receipt = refusal if accepted == 0 else ""
 		if accepted > 0:
 			var away := int(_stats.get("launched", 0)) - interceptors_before
 			receipt = _order_acknowledgement(order) + (" · %d interceptor%s away" % [away, "" if away == 1 else "s"] if away > 0 else " · cleared to fire as it closes")
@@ -2622,7 +2624,7 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 		var speaker: Unit = map.selected[0] if map.selected.size() == 1 else null
 		if not _receives_report(speaker): speaker = null
 		if speaker == null or accepted > 1:
-			receipt += " · %d orders accepted" % accepted
+			receipt += " · %d order%s accepted" % [accepted, "" if accepted == 1 else "s"]
 		if refused > 0:
 			receipt += " / %d refused" % refused
 		radio.flash(receipt, "warn" if refused > 0 else "good", speaker)
