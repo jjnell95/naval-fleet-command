@@ -119,6 +119,7 @@ func _ready() -> void:
 	voice = CrewVoice.new()
 	voice.name = "CrewVoice"
 	voice.muted = func() -> bool: return not SoundFx.enabled
+	voice.speaking_changed.connect(SoundFx.set_crew_speaking)
 	add_child(voice)
 	data_display.map = map
 	data_display.simulation = simulation
@@ -329,7 +330,7 @@ func _ready() -> void:
 		SoundFx.enabled = false
 	# A player launches with no arguments, in the browser or on the desktop. Anything else is a
 	# driven run (a smoke, a probe, a screenshot), which never saves preferences and never reaches
-	# the operating system's speech.
+	# crew audio playback.
 	_driven_run = scripted or CrewVoice.automated_run() or not args.is_empty()
 	InterfaceScale.initialize(get_window(), _driven_run, args)
 	if _driven_run:
@@ -411,7 +412,8 @@ func start_scenario(path: String) -> void:
 	_briefing.configure(simulation.scenario_name, simulation.scenario.get("forces", ""), simulation.scenario.get("description", ""), simulation.scenario.get("environment", {}), simulation.scenario)
 	_briefing.set_mode(true)
 	var coast := "" if Terrain.is_empty() else ", %d landmass%s charted" % [Terrain.landmasses.size(), "" if Terrain.landmasses.size() == 1 else "es"]
-	radio.flash("%s loaded — sea state %d, %s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), coast])
+	var dark := "" if Detection.light >= 0.999 else ", %s: lookouts identify at %d%% of their daylight range" % [Detection.light_name(), int(round(Detection.visual_light_factor() * 100.0))]
+	radio.flash("%s loaded — sea state %d, %s%s%s" % [simulation.scenario_name, Detection.sea_state, Detection.sea_state_name(), dark, coast])
 
 
 func _close_engagement_dialogs() -> void:
@@ -1375,7 +1377,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "editor", "label": "Scenario editor", "description": "Build or change an operation.", "shortcut": "Ctrl+E", "enabled": true},
 		{"id": "restart", "label": "Restart mission", "description": "Start this operation again; press twice to confirm.", "shortcut": "Ctrl+F10", "enabled": true},
 		{"id": "sound", "label": "Sound on or off", "description": "Mute or restore the game's sounds.", "shortcut": "Ctrl+M", "enabled": true, "state": "on" if SoundFx.enabled else "off"},
-		{"id": "voice", "label": "Crew voice", "description": "Spoken crew reports through the system's text-to-speech.", "shortcut": "", "enabled": true, "state": "on" if voice.enabled else "off"},
+		{"id": "voice", "label": "Crew voice", "description": "Short crew reports over the radio.", "shortcut": "", "enabled": true, "state": "on" if voice.enabled else "off"},
 		{"id": "ambient", "label": "Ambient sea and machinery", "description": "Sea wash by sea state and the hooked platform's engine or rotor.", "shortcut": "", "enabled": true, "state": "on" if SoundFx.ambient_enabled else "off"},
 		{"id": "intercept_inbound", "label": "Engage inbound weapons", "description": "Fire interceptors from the hooked ships at the inbound rounds they hold. With manual missile defence the SAMs fire only on this order; close-in guns answer by themselves.", "shortcut": "X", "enabled": controllable, "reason": "Hook your ships first."},
 		{"id": "preset_normal", "label": "Gameplay: Normal", "description": GameOptions.preset_description(GameOptions.NORMAL) + ".", "shortcut": "", "enabled": true, "state": "selected" if options.preset() == GameOptions.NORMAL else ""},
@@ -2025,7 +2027,7 @@ func _on_round_fired(shooter: Unit, spec: WeaponSpec, _track: Track) -> void:
 	if not _receives_report(shooter): return
 	map.add_effect(shooter.position, "launch", true)
 	_world_view.add_effect(shooter.position, "launch", true)
-	SoundFx.play("launch")
+	SoundFx.play(SoundFx.launch_cue(spec))
 	# Deferred a frame: a ready launcher fires inside issue_order, before the order's own
 	# acknowledgement is said, and the acknowledgement should come first.
 	if spec.is_torpedo():
@@ -2069,8 +2071,10 @@ func _announce_threat(w: Weapon) -> void:
 	SimClock.drop_to_realtime()
 	_stats["hostile_rounds"] += 1
 	var seconds := int(w.time_to_reach_s(_nearest_own_unit_pos(w)))
-	var label := "TORPEDO IN THE WATER" if w.spec.is_torpedo() else ("BALLISTIC INBOUND" if w.threat_class() == "ballistic" else "INCOMING")
+	var label := "TORPEDO IN THE WATER" if w.spec.is_torpedo() else ("BALLISTIC INBOUND" if w.threat_class() == "ballistic" else ("ANTI-RADIATION MISSILE INBOUND" if w.spec.is_anti_radiation() else "INCOMING"))
 	radio.flash("%s — %s, impact in ~%d s" % [label, w.spec.display_name, seconds], "alert")
+	if w.spec.is_anti_radiation():
+		radio.advise("It homes on a radar that is transmitting. A silent ship that keeps moving is not where it remembers; a ship with SAMs can shoot it down instead.")
 	SoundFx.play("torpedo" if w.spec.is_torpedo() else "alarm", 1.0)
 	voice.say("torpedo_inbound" if w.spec.is_torpedo() else "inbound_missile", _nearest_own_unit(w))
 	Debug.event("[Defence] inbound %s detected at %.1f nm" % [w.spec.display_name, w.position.distance_to(_nearest_own_unit_pos(w))])
@@ -2114,7 +2118,7 @@ func _on_interceptor_launched(shooter: Unit, spec: WeaponSpec, threat: Weapon, r
 		if not _receives_report(shooter): return
 		map.add_effect(shooter.position, "launch", true)
 		_world_view.add_effect(shooter.position, "launch", true)
-		SoundFx.play("launch", 0.4)
+		SoundFx.play(SoundFx.launch_cue(spec), 0.4)
 	Debug.event("[Defence] %s fires %d x %s at inbound %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, threat.spec.display_name, shooter.position.distance_to(threat.position)])
 
 
@@ -2176,6 +2180,14 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 			voice.say("fire_out", u)
 		"flooding_controlled":
 			radio.flash("Flooding under control", "good", u)
+		"battery_low":
+			radio.flash("Battery %d%%. Request permission to snorkel" % int(round(u.battery * 100.0)), "warn", u)
+		"battery_critical":
+			radio.flash("Battery critical, %d%%. We must charge" % int(round(u.battery * 100.0)), "alert", u)
+		"battery_flat":
+			radio.flash("Battery flat. Steerage way only until we snorkel", "alert", u)
+		"battery_charged":
+			radio.flash("Charge complete. Snorkel secured, returning to depth", "good", u)
 
 
 ## Why one of the commander's own rounds ended without reaching anything, in plain words. A hit

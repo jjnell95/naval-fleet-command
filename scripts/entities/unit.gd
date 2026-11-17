@@ -51,6 +51,7 @@ var attack_standoff_nm := 0.0  # where the shooter holds once inside the envelop
 var attack_rounds_fired := 0
 var attack_assess_until_s := -1.0  # a pause between salvos to read the plot again
 var attack_stall_s := 0.0  # time held unable to fire; past UnitManager.ATTACK_STALL_S the task ends
+var attack_stale_s := 0.0  # uninterrupted time without a fresh plot, even while closing
 ## The standing assignment: where this platform belongs when no temporary task holds it. A patrol
 ## circuit (an air station is one too) or a formation station on a guide. Attack, Investigate,
 ## evasion and air-to-air refuelling suspend it; an explicit replacement order from the commander (a
@@ -126,6 +127,20 @@ var formation_axis_deg := -1.0  # negative follows the guide's heading; otherwis
 var station_axis_deg := -1.0
 var depth_m := 0.0
 var ordered_depth_m := 0.0
+## Diesel-electric boats only (SubmarinePower.fitted). The charge left, 1.0 full; the seconds of
+## air-independent running used; whether the snorkel is ordered up; and the depth the boat goes
+## back to when the charge is done or the snorkel is secured (negative: none remembered).
+var battery := 1.0
+var aip_used_s := 0.0
+var snorkel_on := false
+var snorkel_return_depth_m := -1.0
+## How the last snorkel ended ("charged", "secured: evading"), for the data display.
+var snorkel_note := ""
+## A boat's habit of clearing its baffles: every this many seconds on a steady course it swings off
+## it for a look astern (Movement). Zero is no habit. The AI's captains set it while they patrol or
+## search; the clock runs with the boat.
+var baffle_clear_interval_s := 0.0
+var baffle_clock_s := 0.0
 ## Water under the hull, cached by Acoustics.bottom_m() until the unit moves or the chart changes.
 var bottom_depth_m := -1.0
 var bottom_sampled_at := Vector2.INF
@@ -466,16 +481,18 @@ const DETACHING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.ST
 func apply_order(order: Order) -> void:
 	DippingSonar.on_order(self, order)
 	TowedArray.on_order(self, order)
-	# A second attack order on the contact already under attack keeps the task, its round count
-	# and its assessment pause; only the chosen weapon can change.
-	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
-		attack_weapon_id = order.weapon_id
-		return
+	SubmarinePower.on_order(self, order)
 	if order.type in NAVIGATION_ORDERS:
 		order_generation += 1
 		if order.origin != "crew":
 			player_order_generation += 1
 		station_note = ""
+	# Repeating an attack keeps its rounds and assessment, but the commander's confirmation
+	# takes ownership of a crew-issued pursuit (including the CAP boundary override).
+	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
+		attack_weapon_id = order.weapon_id
+		task_generation = order_generation
+		return
 	var keeping_station := in_formation()
 	if order.type in DETACHING_ORDERS:
 		formation_leader = null
@@ -627,6 +644,8 @@ func apply_order(order: Order) -> void:
 			pass  # routed to AirMissionManager by Simulation
 		Order.Type.GROUP_ATTACK, Order.Type.CANCEL_GROUP_ATTACK:
 			pass  # routed to GroupAttackManager by Simulation; the group never steers its members
+		Order.Type.SNORKEL:
+			pass  # SubmarinePower.on_order has already raised or secured the mast
 
 
 func set_station(kind: String, label: String) -> void:
@@ -743,7 +762,10 @@ func attack_reach_nm(track: Track, weapon_id := "") -> float:
 		if suitable.is_empty():
 			return 0.0
 		spec = suitable[0]
-	return UnitManager.ATTACK_STANDOFF_FRACTION * Combat.effective_range_nm(self, spec)
+	var reach := Combat.effective_range_nm(self, spec)
+	if track.domain == "air":
+		reach = Combat.air_no_escape_range_nm(spec, track, position, reach)
+	return UnitManager.ATTACK_STANDOFF_FRACTION * reach
 
 
 ## Other navigation replaces the attack as well; a finished attack keeps its result readable.
@@ -760,6 +782,7 @@ func clear_attack() -> void:
 	attack_rounds_fired = 0
 	attack_assess_until_s = -1.0
 	attack_stall_s = 0.0
+	attack_stale_s = 0.0
 
 
 func in_formation() -> bool:
@@ -769,7 +792,8 @@ func in_formation() -> bool:
 func status_line() -> String:
 	var base := "HDG %s  SPD %.1f kn" % [Geo.format_bearing(heading_deg), speed_kn]
 	if is_submarine():
-		return base + "  DEP %.0f m" % depth_m
+		base += "  DEP %.0f m" % depth_m
+		return base + "  BATT %d%%" % int(round(battery * 100.0)) if SubmarinePower.fitted(self) else base
 	if is_aircraft():
 		return base + "  ALT %.0f m  FUEL %.0f%%" % [altitude_m, fuel_fraction() * 100.0]
 	return base

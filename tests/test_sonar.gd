@@ -211,6 +211,7 @@ func test_pinging_is_heard_much_further_than_it_reaches() -> void:
 	emitter.active_sonar_on = true
 	var listener := _unit(_boat_spec(0.05), "BLUE", Vector2(0.0, 25.0), 4.0, 100.0)
 	listener.sensors.append(_sonar(20.0, 10.0))
+	listener.heading_deg = 180.0  # bows on: the pinger is not in the boat's baffles
 	var heard := Detection.active_sonar_detection_nm(listener, emitter)
 	assert_true(heard > 12.0, "the transmission carries beyond the sonar's own reach")
 	emitter.active_sonar_on = false

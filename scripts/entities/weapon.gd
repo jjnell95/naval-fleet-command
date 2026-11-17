@@ -52,6 +52,11 @@ var searching_on := false
 ## Fired from a battery ashore: the round climbs out over its own coast before the ordinary rule
 ## that a low-flying weapon ends at the first ground it meets applies to it.
 var launched_ashore := false
+## Anti-radiation rounds. Where the emitter was when it was last heard, and whether it has since
+## gone silent: the round then flies to that point on memory, with a poorer chance of a hit and
+## none at all if the emitter has moved off it.
+var emitter_point := Vector2.INF
+var emitter_silent := false
 
 
 func flight_altitude_m() -> float:

@@ -79,6 +79,8 @@ func requires_fire_control_channel() -> bool:
 func seeker_band() -> String:
 	if is_torpedo():
 		return "acoustic" if guidance.contains("acoustic") else "none"
+	if is_anti_radiation():
+		return "none"  # it listens for a radar; chaff and flares give it nothing to look at
 	if guidance.contains("infrared"):
 		return "infrared"
 	if guidance.contains("radar") or guidance == "inertial_active":
@@ -88,6 +90,12 @@ func seeker_band() -> String:
 	if guidance in ["fire_control_directed", "semi_active_abstract", "track_via_missile"]:
 		return "radar"
 	return "none"
+
+
+## An anti-radiation missile: a passive seeker that homes on a radar's own transmission. It needs
+## no position, only an emitter somewhere down its bearing, and it is beaten by switching off.
+func is_anti_radiation() -> bool:
+	return guidance == "passive_radar_homing"
 
 
 func is_gun() -> bool:

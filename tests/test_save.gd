@@ -362,6 +362,34 @@ func test_references_come_back_as_the_same_objects() -> void:
 	_free()
 
 
+func test_stale_attack_grace_period_survives_a_reload_and_older_saves_default_safely() -> void:
+	_fresh(PASSAGE, 31)
+	var shooter := _unit("USS Truxtun (DDG 103)")
+	var t := Track.new()
+	t.id = "T9998"
+	t.owner_faction = "BLUE"
+	t.domain = "surface"
+	t.identity = "HOSTILE"
+	t.status = Track.Status.STALE
+	t.position = shooter.position + Vector2(0, 200)
+	_sim.track_manager._tracks["BLUE"] = [t]
+	assert_true(_sim.unit_manager.issue_order(shooter, Order.attack(t)))
+	_sim.unit_manager._step_attack(shooter, UnitManager.ATTACK_STALE_S - 1.0)
+	var saved := SimSnapshot.capture(_sim)
+	assert_eq(_sim.restore_snapshot(saved), "")
+	shooter = _unit("USS Truxtun (DDG 103)")
+	assert_near(shooter.attack_stale_s, UnitManager.ATTACK_STALE_S - 1.0, 0.001)
+	_sim.unit_manager._step_attack(shooter, 2.0)
+	assert_eq(shooter.attack_result, "Contact stale: no fresh plot to fire on")
+	for record: Dictionary in saved["units"]:
+		record.erase("attack_stale_s")
+	assert_eq(_sim.restore_snapshot(saved), "")
+	shooter = _unit("USS Truxtun (DDG 103)")
+	assert_eq(shooter.attack_stale_s, 0.0, "older saves have a full grace period")
+	assert_true(shooter.attack_track != null)
+	_free()
+
+
 func test_the_sea_floor_cache_survives_a_reload() -> void:
 	_fresh(PASSAGE, 31)
 	SimClock.advance(300.0)

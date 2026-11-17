@@ -566,7 +566,10 @@ static func restore(sim: Simulation, snap: Dictionary) -> String:
 		_fill(u, d, refs)
 		u.bottom_generation = Bathymetry.generation if bool(d.get("bottom_cache_valid", false)) else -1
 	for i in snap["tracks"].size():
-		_fill(refs.tracks_by_ref[i], snap["tracks"][i], refs)
+		var track: Track = refs.tracks_by_ref[i]
+		_fill(track, snap["tracks"][i], refs)
+		# A legacy 100% estimate alone cannot distinguish a recorded loss from an overestimate.
+		track.damage_estimate = 100.0 if track.confirmed_destroyed else minf(track.damage_estimate, 99.0)
 	for d: Dictionary in snap["weapons"]:
 		_fill(refs.weapons_by_id[int(d["id"])], d, refs)
 	for d: Dictionary in snap.get("air_missions", []):

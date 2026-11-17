@@ -127,6 +127,7 @@ func load_scenario(path: String) -> bool:
 	director.configure(scenario, variation_seed if variation_seed >= 0 else base_seed)
 	_build_ai()
 	SimClock.reset(ScenarioLoader.start_unix_time(scenario))
+	_update_light()
 	return true
 
 
@@ -151,6 +152,7 @@ func _install_scenario(sc: Dictionary, path: String) -> void:
 	aviation_manager.map_center = map_center
 	aviation_manager.map_extent_nm = map_extent_nm
 	Detection.set_environment(scenario.get("environment", {}))
+	_light_key = []  # worked out once the clock is set: at the end of a load, or on the first tick of a restore
 	Terrain.load_from(scenario)
 	Bathymetry.load_for(scenario)
 	track_manager.neutral_factions = PackedStringArray()
@@ -305,8 +307,28 @@ func _on_tick(dt: float) -> void:
 	_in_tick = false
 
 
+## Daylight for the lookouts, from the scenario's clock and chart position. Worked out afresh each
+## simulated minute as a pure function of that minute, so a reloaded engagement gets exactly the
+## value the uninterrupted one had.
+var _light_key: Array = []
+
+
+func _update_light() -> void:
+	if SimClock.start_unix_time <= 0:
+		return  # an undated scenario is fought in daylight
+	var minute := int(floorf(SimClock.sim_time / 60.0))
+	var chart: Dictionary = scenario.get("map", {})
+	var key := [SimClock.start_unix_time, minute, chart.get("anchor_lat", 60.0), chart.get("anchor_lon", 0.0)]
+	if key == _light_key:
+		return
+	_light_key = key
+	var sun := WorldPresentation.sun_angles(float(SimClock.start_unix_time) + minute * 60.0, float(key[2]), float(key[3]))
+	Detection.set_sun_elevation(sun.x)
+
+
 func _step(dt: float) -> void:
 	var profile_at := Time.get_ticks_usec()
+	_update_light()
 	_tick_operation_events(SimClock.sim_time)
 	unit_manager.tick(dt, SimClock.sim_time)
 	for e: Dictionary in Damage.tick(unit_manager.units, dt):
@@ -316,6 +338,8 @@ func _step(dt: float) -> void:
 			# Lost to fire or flooding after the fact: the same destruction every other system
 			# already listens for, credited to whoever started it.
 			weapon_manager.unit_destroyed.emit(u, u.last_attacker)
+	for e: Dictionary in SubmarinePower.take_events():
+		casualty_event.emit(e["unit"], e["event"])
 	Debug.time_add("sim/units", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()
 	sensor_manager.tick(dt)

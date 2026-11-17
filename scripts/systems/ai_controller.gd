@@ -232,6 +232,7 @@ func _update_unit(u: Unit, now: float) -> void:
 				unknowns.append(t)
 
 	_note_torpedo_datum(u, b, now)
+	_manage_battery(u, all_hostiles, all_unknowns)
 	# A plan member does its part of the plan; everything else, and every unit of a side without
 	# a plan, decides exactly as it always has.
 	var task: Dictionary = _plan_task(u) if not plans.is_empty() else {}
@@ -254,6 +255,10 @@ func _update_unit(u: Unit, now: float) -> void:
 	if new_state != b["state"]:
 		b["state"] = new_state
 		b["since"] = now
+	if u.is_submarine():
+		# A captain with nothing in hand clears his baffles; one who is closing, shooting or
+		# running keeps his course.
+		u.baffle_clear_interval_s = BAFFLE_CLEAR_INTERVAL_S if new_state in [State.PATROL, State.SEARCH] else 0.0
 	if task.is_empty():
 		_act(u, b, hostiles, unknowns, inbound, now)
 	else:
@@ -624,6 +629,12 @@ enum DepthIntent { HIDE, TRACK, MISSILE_SHOT }
 func _manage_depth(u: Unit, intent: DepthIntent) -> void:
 	if not u.is_submarine():
 		return
+	if u.snorkel_on:
+		# Charging. Only a boat that has to hide gives the charge up, and only if it has the
+		# battery to go anywhere afterwards; a shot is taken from where it is.
+		if intent != DepthIntent.HIDE or u.battery <= SubmarinePower.CRITICAL:
+			return
+		unit_manager.issue_order(u, Order.snorkel(false))
 	var wanted := u.spec.patrol_depth_m
 	match intent:
 		DepthIntent.HIDE:
@@ -635,6 +646,37 @@ func _manage_depth(u: Unit, intent: DepthIntent) -> void:
 	wanted = floorf(wanted / 5.0) * 5.0
 	if absf(u.ordered_depth_m - wanted) > 1.0:
 		unit_manager.issue_order(u, Order.set_depth(wanted))
+
+
+## A conventional boat's captain watches his battery. He charges when it is low and nothing he
+## holds is close enough to hear or see him doing it, breaks the charge off when something closes,
+## and with the battery all but flat charges whatever is about, because the alternative is to stop.
+## Read from the boat's own plot only.
+const SNORKEL_CLEAR_NM := 15.0  # GAMEPLAY_ESTIMATE
+const BAFFLE_CLEAR_INTERVAL_S := 900.0  # GAMEPLAY_ESTIMATE
+const SNORKEL_NO_CHOICE := 0.04
+
+
+func _manage_battery(u: Unit, hostiles: Array, unknowns: Array) -> void:
+	if not SubmarinePower.fitted(u):
+		return
+	var crowded := u.evasion_remaining_s > 0.0
+	if not crowded and threat_manager != null:
+		for w: Weapon in (_cycle_torpedoes if _in_decision_cycle else threat_manager.get_threats(faction)):
+			if w.phase != Weapon.Phase.DEAD and w.spec.is_torpedo() and threat_manager.visible_to(u, w) and w.position.distance_to(u.position) <= SNORKEL_CLEAR_NM:
+				crowded = true
+				break
+	if not crowded:
+		for t: Track in hostiles + unknowns:
+			if not t.bearing_only and t.position.distance_to(u.position) <= SNORKEL_CLEAR_NM:
+				crowded = true
+				break
+	if u.snorkel_on:
+		if crowded and u.battery > SubmarinePower.CRITICAL:
+			unit_manager.issue_order(u, Order.snorkel(false))
+	elif u.battery < SubmarinePower.FULL and u.evasion_remaining_s <= 0.0:
+		if (u.battery <= SubmarinePower.LOW and not crowded) or u.battery <= SNORKEL_NO_CHOICE:
+			unit_manager.issue_order(u, Order.snorkel(true))
 
 
 func _best_strike_range(u: Unit) -> float:
@@ -1707,6 +1749,30 @@ func _guiding_rounds(u: Unit) -> bool:
 	return false
 
 
+## An anti-radiation round this unit knows of, coming roughly its way and near enough to hear it.
+const ARM_SHUTDOWN_CONE_DEG := 45.0  # GAMEPLAY_ESTIMATE
+
+
+func _anti_radiation_inbound(u: Unit) -> bool:
+	if threat_manager == null:
+		return false
+	for w: Weapon in threat_manager.get_threats(faction):
+		if w.phase == Weapon.Phase.DEAD or not w.spec.is_anti_radiation() or not threat_manager.visible_to(u, w):
+			continue
+		if w.position.distance_to(u.position) > w.spec.acquisition_radius_nm() * 1.5:
+			continue
+		if absf(Geo.heading_delta(w.heading_deg, Geo.bearing_deg(w.position, u.position))) <= ARM_SHUTDOWN_CONE_DEG:
+			return true
+	return false
+
+
+func _can_shoot_missiles(u: Unit) -> bool:
+	for w: WeaponSpec in u.defensive_weapons():
+		if w.type == "sam":
+			return true
+	return false
+
+
 func _manage_emissions(u: Unit, need_radar: bool) -> void:
 	if u.is_aircraft():
 		if u.has_radar() and not u.radar_on:
@@ -1719,5 +1785,9 @@ func _manage_emissions(u: Unit, need_radar: bool) -> void:
 	if not u.has_radar():
 		return
 	var want := need_radar or not u.has_esm() or _guiding_rounds(u)
+	# A radar with nothing to shoot back with is only a beacon for the missile coming down its
+	# beam. A ship that can engage the round keeps its picture and fights it.
+	if want and not _guiding_rounds(u) and not _can_shoot_missiles(u) and _anti_radiation_inbound(u):
+		want = false
 	if want != u.radar_on:
 		unit_manager.issue_order(u, Order.activate_radar() if want else Order.silence_radar())

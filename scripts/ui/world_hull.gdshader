@@ -32,6 +32,7 @@ const int FITTING = 8;
 const int ORDNANCE = 9;
 const int GROUND = 10;
 const float SUN_RESPONSE = 0.78;
+const float SKY_AZIMUTH_CONTRAST = 0.42;
 
 uniform vec3 albedo : source_color = vec3(0.5);
 uniform float roughness : hint_range(0.0, 1.0) = 0.6;
@@ -43,6 +44,7 @@ global uniform vec4 world_sky_color;      // ambient from above
 global uniform vec4 world_sea_color;      // ambient from below: the sea's dark bounce
 global uniform vec4 world_horizon_color;  // what a grazing reflection sees
 global uniform float world_ambient;       // the hemisphere's strength for the time of day
+global uniform vec4 world_sun_dir;        // xyz toward the sun (or the moon at night), w how far it is up
 
 // 1 for a hull in the water (waterline, wetness, bow spray), 0 for anything aloft or ashore.
 // Material uniforms, not instance uniforms: WorldMaterials keeps one variant per band of speed
@@ -144,6 +146,15 @@ void fragment() {
 
 	// The hemisphere: the sky above, the sea below, a vertical face half of each.
 	vec3 hemi = mix(world_sea_color.rgb, world_sky_color.rgb, clamp(nw.y * 0.5 + 0.5, 0.0, 1.0));
+	// The sky is not one colour all the way round: it is brightest about the sun and darkest
+	// opposite it. A hemisphere that only knows up from down lit every bulkhead on the shadowed
+	// side alike, and a ship seen against the light went flat. Faces turned toward the sun's
+	// quarter take more of the sky and faces turned away take less, so the shadowed side keeps
+	// its shape. Overhead and underneath are left as they were.
+	vec2 face = nw.xz;
+	vec2 sunward = world_sun_dir.xz;
+	float turned = dot(face, sunward) / max(length(sunward), 1e-4);
+	hemi *= 1.0 + SKY_AZIMUTH_CONTRAST * turned * world_sun_dir.w;
 	vec3 lit = base * hemi * world_ambient * (1.0 - 0.85 * metal);
 	// The sky mirrored at a grazing angle, by what a reflection off this face would see.
 	vec3 r = normalize((INV_VIEW_MATRIX * vec4(reflect(-VIEW, NORMAL), 0.0)).xyz);

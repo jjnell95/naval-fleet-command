@@ -52,6 +52,7 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 		u.torpedo_decoys = int(ud.get("torpedo_decoys", spec.torpedo_decoy_count))
 		u.depth_m = clampf(float(ud.get("depth_m", 0.0)), 0.0, spec.max_depth_m)
 		u.ordered_depth_m = u.depth_m
+		u.battery = clampf(float(ud.get("battery", 1.0)), 0.0, 1.0)  # a diesel boat's charge at the start
 		u.ai_posture = ud.get("ai_posture", "standard")
 		u.ai_plan_id = str(ud.get("ai_plan", ""))
 		u.ai_role = str(ud.get("ai_role", ""))

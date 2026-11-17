@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-14",
+  "base_commit": "69722e0af9592196e805ad68268edd826ae29df9",
+  "godot": "4.7.2.stable.official.ed1daf0bf",
+  "headless": {
+    "tests": 1087,
+    "failed": 0
+  },
+  "focused_final": {
+    "tests": 49,
+    "failed": 0
+  },
+  "native_command": {
+    "checks": 50,
+    "failed": 0,
+    "resolution": [
+      1600,
+      900
+    ]
+  },
+  "native_audio": {
+    "checks": 13,
+    "failed": 0,
+    "errors": [],
+    "mix": {
+      "seconds": 16.253968253968253,
+      "sample_rate": 44100,
+      "peak_dbfs": -5.36,
+      "clipped_samples": 0,
+      "nonzero_samples": 1351126
+    }
+  },
+  "browser_audio": {
+    "checks": {
+      "Web Audio runs after player input": true,
+      "a paused order produces a full spoken report": true,
+      "master mute silences orders and speech": true,
+      "unmuting restores recorded crew reports": true,
+      "audio-thread probe installed": true,
+      "no operating-system speech calls": true,
+      "no clipped browser output": true,
+      "no browser errors": true
+    },
+    "page_errors": [],
+    "console_errors": [],
+    "before_order": {
+      "samples": 1157,
+      "active_windows": 4,
+      "peak": 0.060918595641851425
+    },
+    "order_audio": {
+      "active_windows": 15,
+      "peak": 0.31233590841293335,
+      "context_states": [
+        "running"
+      ]
+    },
+    "muted_peak": 0,
+    "restored_active_windows": 24,
+    "tts_calls": 0,
+    "probe_errors": []
+  },
+  "browser_saves": {
+    "started": true,
+    "save_persisted_after_reload": true,
+    "save_restored": true,
+    "deletion_persisted_after_reload": true,
+    "page_errors": [],
+    "console_errors": [],
+    "console_warnings": 0
+  },
+  "audio_bank": {
+    "files": 104,
+    "crew_clips": 76,
+    "bytes": 1615338,
+    "manifest_sha256": "534aead086866f9a14904c87162544bb3fdc84129dc71cc69c1756e5aff95bd9"
+  },
+  "web_pack": {
+    "bytes": 60209480,
+    "sha256": "f8c109baa68c814b488783c663257f69bc9ae683e8643a69326bd08be9bb5155"
+  },
+  "evidence_directory": "work/audio-authoring",
+  "preview": "work/audio-authoring/audio-preview.mp3",
+  "delivery": "Source changes and rebuilt browser pack for normal main-branch publishing."
+}

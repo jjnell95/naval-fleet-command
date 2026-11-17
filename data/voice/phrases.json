@@ -1,103 +1,26 @@
 {
-  "version": 1,
-  "note": "Spoken crew traffic for CrewVoice. Original wording in ordinary radio and naval phraseology. {track} is spoken digit by digit, {name} is a platform's spoken name. Each event keeps at least one variant with no placeholder, for when the field is not known.",
+  "version": 2,
+  "note": "Short, complete radio performances. Ship names, track numbers and detailed reasons remain in the on-screen radio report; speech never splices arbitrary names or digits into a performance.",
+  "voices": {"watch": "am_michael", "bridge": "am_fenrir"},
   "events": {
-    "order_ack": [
-      "Aye aye.",
-      "Roger, wilco.",
-      "Understood, executing now.",
-      "Copy, carrying out."
-    ],
-    "attack_ack": [
-      "Engaging track {track}.",
-      "Copy, prosecuting track {track}.",
-      "Target assigned, engaging.",
-      "Attacking now, aye."
-    ],
-    "investigate_ack": [
-      "Closing track {track} to identify.",
-      "Copy, moving to investigate track {track}.",
-      "Aye, closing to get eyes on."
-    ],
-    "order_refused": [
-      "Unable to comply.",
-      "Negative, we can't execute that.",
-      "Unable. Request fresh orders."
-    ],
-    "missile_away": [
-      "Missile away.",
-      "Bird away, tracking.",
-      "Launch confirmed, round is flying."
-    ],
-    "torpedo_away": [
-      "Torpedo away.",
-      "Fish in the water, running normal.",
-      "Weapon launched, running hot and straight."
-    ],
-    "inbound_missile": [
-      "Vampire, vampire! Missile inbound.",
-      "Inbound missile, all stations stand by to defend.",
-      "Missile inbound, engaging with everything we have."
-    ],
-    "torpedo_inbound": [
-      "Torpedo, torpedo, torpedo!",
-      "Torpedo in the water, coming our way!",
-      "Hydrophone effect, torpedo inbound!"
-    ],
-    "interceptor_kill": [
-      "Splash one.",
-      "Good kill, threat destroyed.",
-      "Intercept confirmed, threat is down."
-    ],
-    "target_destroyed": [
-      "Track {track} destroyed.",
-      "Kill confirmed on track {track}.",
-      "Target destroyed.",
-      "Good hits, the target is going down."
-    ],
-    "attack_broken_off": [
-      "Breaking off the attack on track {track}.",
-      "Attack on track {track} ended, awaiting orders.",
-      "Breaking off, awaiting orders."
-    ],
-    "own_ship_hit": [
-      "We're hit! Damage control parties away.",
-      "Hit, hit! Damage control to stations.",
-      "Taking damage, assessing now."
-    ],
-    "unit_lost": [
-      "We've lost {name}.",
-      "{name} is gone.",
-      "We've lost a unit.",
-      "Contact lost with one of ours. She's gone."
-    ],
-    "new_contact": [
-      "New contact, track {track}.",
-      "Contact, designate track {track}.",
-      "New contact on the plot."
-    ],
-    "contact_hostile": [
-      "Track {track} evaluated hostile.",
-      "Track {track} is hostile.",
-      "Contact classified hostile."
-    ],
-    "aircraft_rtb": [
-      "Bingo fuel, returning to base.",
-      "Bingo, heading home.",
-      "Fuel state critical, coming back to mother."
-    ],
-    "fire_out": [
-      "Fire is out, reflash watch set.",
-      "Fire extinguished.",
-      "Fire out, damage control standing by."
-    ],
-    "mission_won": [
-      "Mission accomplished. Well done, all stations.",
-      "Objectives achieved. Stand down from action stations."
-    ],
-    "mission_lost": [
-      "Mission failed. All units, break off.",
-      "We have failed the mission. Disengage and withdraw."
-    ]
+    "order_ack": ["Aye aye.", "Roger. Wilco."],
+    "attack_ack": ["Target assigned. Engaging.", "Roger. Commencing attack."],
+    "investigate_ack": ["Roger. Closing to identify.", "Investigating contact."],
+    "order_refused": ["Unable to comply.", "Negative. Unable to execute."],
+    "missile_away": ["Missile away.", "Launch confirmed."],
+    "torpedo_away": ["Torpedo away.", "Weapon in the water."],
+    "inbound_missile": ["Vampire. Vampire. Missile inbound.", "Inbound missile. Stand by to defend."],
+    "torpedo_inbound": ["Torpedo in the water.", "Torpedo inbound."],
+    "interceptor_kill": ["Splash one.", "Threat destroyed."],
+    "target_destroyed": ["Target destroyed.", "Kill confirmed."],
+    "attack_broken_off": ["Breaking off. Awaiting orders.", "Attack ended. Standing by."],
+    "own_ship_hit": ["We're hit. Damage control to stations.", "Taking damage. Assessing."],
+    "unit_lost": ["We've lost a friendly unit.", "Friendly unit lost."],
+    "new_contact": ["New contact on the plot.", "New contact. Designating."],
+    "contact_hostile": ["Contact evaluated hostile.", "Contact classified hostile."],
+    "aircraft_rtb": ["Returning to base.", "Returning to mother."],
+    "fire_out": ["Fire is out. Reflash watch set.", "Fire extinguished."],
+    "mission_won": ["Mission accomplished. Well done, all stations.", "Objectives achieved. Stand down."],
+    "mission_lost": ["Mission failed. All units, break off.", "All units. Disengage and withdraw."]
   }
 }

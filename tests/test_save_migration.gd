@@ -56,3 +56,28 @@ func test_legacy_engagement_restores_brief_and_resaves_deterministically() -> vo
 	assert_true(var_to_bytes(SimSnapshot.capture(sim)) == var_to_bytes(resaved), "a migrated engagement has a stable subsequent save/load")
 	sim.unit_manager.clear()
 	sim.free()
+
+
+func test_only_an_explicit_kill_report_survives_as_confirmed_on_restore() -> void:
+	var sim := Simulation.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario(PASSAGE))
+	var target := sim.unit_manager.get_faction_units("RED")[0]
+	sim.track_manager.observe("BLUE", target, target.position, 1.0, 1.0, 1.0, 1.0, 20.0)
+	sim.track_manager.record_kill(target)
+	var plot := sim.track_manager.find_track("BLUE", target)
+	var snapshot := SimSnapshot.capture(sim)
+	assert_eq(sim.restore_snapshot(snapshot), "")
+	var restored := sim.track_manager.find_track("BLUE", sim.unit_manager.get_faction_units("RED")[0])
+	assert_true(restored.confirmed_destroyed)
+	assert_eq(restored.damage_estimate, 100.0)
+	for row: Dictionary in snapshot.tracks:
+		if row.id == plot.id and row.owner_faction == "BLUE":
+			row.erase("confirmed_destroyed")
+	assert_eq(sim.restore_snapshot(snapshot), "")
+	restored = sim.track_manager.find_track("BLUE", sim.unit_manager.get_faction_units("RED")[0])
+	assert_true(not restored.confirmed_destroyed)
+	assert_eq(restored.damage_estimate, 99.0)
+	assert_eq(DataDisplay.damage_text(restored), "99 (est)")
+	sim.unit_manager.clear()
+	sim.free()

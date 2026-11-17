@@ -107,7 +107,7 @@ static func option_tooltip(key: String) -> String:
 		"submarine_comms":
 			return "Full orders and reports wait until 150 ft / 46 m or shallower (Classic gameplay abstraction). Submarines continue their tasks and check in on schedule."
 		"voice":
-			return "Spoken crew reports through the system's text-to-speech."
+			return "Short crew reports over the radio."
 		"ambient":
 			return "Sea wash by sea state and the hooked platform's engine or rotor."
 	return ""
@@ -263,7 +263,7 @@ static func scales_to(ceiling_x: float) -> Array[float]:
 # --- The player's preference ---------------------------------------------------------------
 
 ## The player's stored options. Sound comes from the keys CrewVoice and SoundFx already use, with
-## their defaults: voice on where the system speaks out of the box, ambient on.
+## their defaults: bundled crew reports and ambient sound on.
 static func load_preferred() -> GameOptions:
 	var d := {
 		"time_scales": UserSettings.get_value(SECTION, "time_scales", NORMAL_SCALES),

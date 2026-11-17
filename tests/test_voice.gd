@@ -1,7 +1,7 @@
 extends TestCase
-## The crew you can hear: phrase table, spoken track numbers, pacing (alerts pre-empt, stale and
+## The crew you can hear: complete performances, report metadata, pacing (alerts pre-empt, stale and
 ## compressed routine lines are dropped), interface advice that is never spoken or journaled, the
-## ambient bed and the preferences file. No test here may reach the operating system's speech.
+## ambient bed and the preferences file. Audio playback is explicitly exercised by audio_playtest.gd.
 
 const SCRATCH_SETTINGS := "user://test_voice_settings.cfg"
 
@@ -61,41 +61,53 @@ func test_phrase_table_has_two_variants_for_every_event() -> void:
 		assert_true(CrewVoice.EVENTS.has(event))
 
 
-func test_track_numbers_are_spoken_digit_by_digit() -> void:
-	assert_eq(CrewVoice.spoken_digits("1003"), "one zero zero three")
-	assert_eq(CrewVoice.spoken_digits("0917"), "zero niner one seven")
-	assert_eq(CrewVoice.spoken_digits(""), "")
+func test_complete_performances_keep_contact_details_as_metadata() -> void:
 	var t := Track.new()
 	t.id = "T1003"
 	var v := _voice()
-	var heard_numbers := 0
 	for i in 6:
 		var line := v.compose("new_contact", null, {"track": t})
-		assert_true(not str(line["text"]).contains("1003"), "never the numerals")
-		if str(line["text"]).contains("track one zero zero three"):
-			heard_numbers += 1
-	assert_true(heard_numbers > 0, "the track is named digit by digit")
-	var bare := v.compose("new_contact", null, {"track": null})
-	assert_true(not str(bare["text"]).contains("{") and not str(bare["text"]).contains("track ."), "an unknown track falls back to a plain phrase")
+		assert_eq(line["track"], "T1003", "report metadata keeps the exact track")
+		assert_true(not str(line["text"]).contains("1003"), "no digits spliced into a performance")
+		assert_true(v.phrases["new_contact"].has(line["text"]), "the caption matches the whole clip")
+	var bare := v.compose("new_contact")
+	assert_eq(bare["track"], "")
+	assert_true(not str(bare["text"]).contains("{"))
 	v.free()
 
 
-func test_speaker_names_and_character_are_stable_per_unit() -> void:
+func test_speakers_keep_their_recorded_voice_without_pitch_or_speed_shifts() -> void:
 	assert_eq(CrewVoice.spoken_name("USS Bulkeley (DDG 84)"), "Bulkeley")
 	assert_eq(CrewVoice.spoken_name("HMS Iron Duke (F234)"), "Iron Duke")
-	assert_eq(CrewVoice.spoken_name("Admiral Gorshkov"), "Admiral Gorshkov")
 	var v := _voice()
 	var a := v.compose("missile_away", _ship(3))
 	var b := v.compose("missile_away", _ship(3))
-	assert_eq(a["pitch"], b["pitch"], "a ship keeps its pitch")
-	assert_eq(a["rate"], b["rate"], "and its rate")
-	assert_true(str(a["text"]).begins_with("Bulkeley, "), "the unit that acts is the speaker")
+	assert_eq(a["voice"], b["voice"], "a ship keeps the same performer")
+	assert_true(a["clip"] != b["clip"], "successive calls have alternate takes")
+	assert_eq(a["speaker"], "Bulkeley")
 	var characters := {}
 	for id in 12:
 		var line := v.compose("order_ack", _ship(id))
-		characters["%.2f/%.2f" % [line["pitch"], line["rate"]]] = true
-	assert_true(characters.size() >= 4, "ships sound different (%d characters)" % characters.size())
+		characters[line["voice"]] = true
+		assert_eq(line["pitch"], 1.0)
+		assert_eq(line["rate"], 1.0)
+		assert_true(not str(line["text"]).contains("Bulkeley"), "no arbitrary name splicing")
+	assert_eq(characters.size(), CrewVoice.PROFILES.size())
 	v.free()
+
+
+func test_every_performance_is_bundled_playable_and_non_looping() -> void:
+	var table := CrewVoice.load_phrases()
+	for profile: String in CrewVoice.PROFILES:
+		for event: String in CrewVoice.EVENTS:
+			for index in table[event].size():
+				var path := "%s/%s/%s_%d.ogg" % [CrewVoice.CLIP_ROOT, profile, event, index]
+				assert_true(ResourceLoader.exists(path), path)
+				var clip := load(path) as AudioStreamOggVorbis
+				assert_true(clip != null, path + " decodes")
+				if clip != null:
+					assert_true(clip.get_length() > 0.25 and clip.get_length() < 6.0, path + " is a short transmission")
+					assert_true(not clip.loop, path + " ends")
 
 
 func test_alert_preempts_routine() -> void:
@@ -199,16 +211,16 @@ func test_advise_is_never_spoken_or_journaled() -> void:
 	v.free()
 
 
-func test_the_sink_is_never_the_os_in_tests() -> void:
-	assert_true(CrewVoice.automated_run(), "a test run is an automated run")
-	assert_true(CrewVoice.os_speech_blocker(true) != "", "the OS is blocked even when asked for")
+func test_automated_runs_never_install_playback_implicitly() -> void:
+	assert_true(CrewVoice.automated_run())
 	_with_scratch_settings(func() -> void:
 		var v := CrewVoice.new()
 		v.configure_from_settings()
-		assert_true(not v.os_speech, "configuring from settings never installs the OS sink here")
-		assert_true(not v.sink.is_valid(), "and leaves no sink at all")
-		v.toggle()
-		assert_true(not v.os_speech and not v.sink.is_valid(), "toggling on does not reach the OS either")
+		assert_true(not v.sink.is_valid(), "settings do not install an audio sink in tests")
+		v.set_enabled(false, false)
+		v.toggle(false)
+		assert_true(v.enabled and not v.sink.is_valid(), "toggling on stays silent in a driven run")
+		assert_true(v._player == null)
 		v.free())
 
 
@@ -242,11 +254,12 @@ func test_menus_offer_the_voice_and_ambient_toggles() -> void:
 
 func test_ambient_bed_follows_sea_state_pause_and_mute() -> void:
 	var fx: Node = SoundFx
-	var sea: AudioStreamWAV = fx._ambient["sea"]
-	assert_eq(sea.loop_mode, AudioStreamWAV.LOOP_FORWARD, "the sea wash loops")
-	assert_eq(sea.loop_end, sea.data.size() / 2)
-	for hum: String in ["engine", "rotor", "jet"]:
-		assert_true(fx._ambient.has(hum), "a %s hum is generated" % hum)
+	var sea: AudioStreamOggVorbis = fx._ambient["sea"]
+	assert_true(sea.loop, "the sea wash loops")
+	assert_true(sea.get_length() >= 15.0, "the sea is not a short repeating pulse")
+	for hum: String in ["engine", "boat", "rotor", "jet"]:
+		assert_true(fx._ambient.has(hum), "a %s bed is bundled" % hum)
+		assert_true(fx._ambient[hum].get_length() >= 9.0)
 	var saved_paused := SimClock.paused
 	var saved_enabled: bool = fx.enabled
 	var saved_ambient: bool = fx.ambient_enabled
@@ -276,6 +289,82 @@ func test_ambient_bed_follows_sea_state_pause_and_mute() -> void:
 	SimClock.paused = saved_paused
 	fx.enabled = saved_enabled
 	fx.ambient_enabled = saved_ambient
+
+
+func test_mission_result_waits_for_the_transmission_without_getting_stale() -> void:
+	var v := _voice()
+	v.say("inbound_missile", _ship(1))
+	_speaking = true
+	v.say("mission_lost")
+	assert_eq(_heard.size(), 1, "a result does not cut the warning off")
+	_now += CrewVoice.STALE_S + 1.0
+	_speed = 8.0
+	v._process(0.016)
+	assert_eq(_heard.size(), 1)
+	_speaking = false
+	v._process(0.016)
+	assert_eq(_heard.size(), 2, "the mission result survives compression and the routine timeout")
+	assert_eq(_heard[1]["event"], "mission_lost")
+	assert_true(not bool(_heard[1]["interrupt"]))
+	v.free()
+
+
+func test_muting_discards_waiting_reports_and_mission_results() -> void:
+	var v := _voice()
+	_speaking = true
+	v.say("order_ack", _ship(1))
+	v.say("mission_won")
+	v.muted = func() -> bool: return true
+	v._process(0.016)
+	v.muted = Callable()
+	_speaking = false
+	_now += 3.0
+	v._process(0.016)
+	assert_true(_heard.is_empty(), "unmuting does not release old traffic")
+	assert_true(v.pending().is_empty() and v._final_pending.is_empty())
+	v.free()
+
+
+func test_speech_ducks_the_bed_and_effects_but_preserves_the_warning() -> void:
+	var fx: Node = SoundFx
+	var was_paused := SimClock.paused
+	var was_enabled: bool = fx.enabled
+	var was_ambient: bool = fx.ambient_enabled
+	SimClock.paused = false
+	fx.enabled = true
+	fx.ambient_enabled = true
+	fx.set_ambient(true, 3, "engine")
+	fx.set_crew_speaking(false)
+	var before: Vector2 = fx.ambient_targets()
+	var launch_db: float = fx.cue_volume("launch")
+	var warning_db: float = fx.cue_volume("alarm")
+	fx.set_crew_speaking(true)
+	var during: Vector2 = fx.ambient_targets()
+	assert_near(before.x - during.x, fx.DUCK_DB)
+	assert_near(before.y - during.y, fx.DUCK_DB)
+	assert_near(launch_db - fx.cue_volume("launch"), 6.0)
+	assert_near(warning_db - fx.cue_volume("alarm"), 2.0)
+	fx.set_crew_speaking(false)
+	assert_eq(fx.ambient_targets(), before, "the bed returns after the report")
+	fx.set_ambient(false, 0, "")
+	fx._stop_ambient()
+	fx.enabled = was_enabled
+	fx.ambient_enabled = was_ambient
+	SimClock.paused = was_paused
+
+
+func test_weapon_classes_use_distinct_launch_effects() -> void:
+	var spec := WeaponSpec.new()
+	var cues := {}
+	for kind: String in ["missile", "torpedo", "gun", "bomb"]:
+		spec.type = kind
+		cues[SoundFx.launch_cue(spec)] = true
+	assert_eq(cues.size(), 4, "a torpedo tube, gun, rocket and bomb rack do not sound alike")
+	spec.type = "ciws"
+	assert_eq(SoundFx.launch_cue(spec), "gun")
+	for cue: String in SoundFx.CUE_DB:
+		for stream: AudioStream in SoundFx._streams[cue]:
+			assert_true(stream != null and stream.get_length() > 0.02, "%s is bundled and decodes" % cue)
 
 
 static func _find(items: Array, text: String) -> Dictionary:

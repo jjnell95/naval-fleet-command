@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="WeaponSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/weapon_spec.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pla_yj91"
+display_name = "YJ-91 anti-radiation missile"
+short_name = "YJ-91"
+family = "YJ-91"
+type = "asm"
+guidance = "passive_radar_homing"
+profile = "high"
+target_types = PackedStringArray("surface", "land")
+max_range_nm = 60.0
+min_range_nm = 5.0
+speed_kn = 1400.0
+turn_rate_deg_s = 20.0
+seeker_range_nm = 25.0
+seeker_half_angle_deg = 45.0
+damage = 16.0
+base_pk = 0.75
+salvo_default = 2
+launch_interval_s = 3.0
+defensive_difficulty = 1.25
+signature_factor = 0.13
+altitude_m = 9000.0
+source_status = "PUBLIC: designation, role as an anti-radiation missile and broad speed and range band. GAMEPLAY_ESTIMATE: every performance, seeker, combat, signature and loadout value, and the abstraction of homing, emitter memory and radar shutdown. Fictional scenario fit, not an operational capability claim."

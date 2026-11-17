@@ -1,4 +1,7 @@
 {
+ "agm88_harm": {
+  "kind": "weapon"
+ },
  "agm_84_harpoon": {
   "kind": "weapon"
  },
@@ -128,6 +131,9 @@
  "jmsdf_type07_vla": {
   "kind": "weapon"
  },
+ "kh31p": {
+  "kind": "weapon"
+ },
  "mdcn": {
   "kind": "weapon"
  },
@@ -179,6 +185,9 @@
   "domain": "subsurface",
   "waterline_y": 0.2542,
   "recognition_revision": "2026-10-02"
+ },
+ "pla_yj91": {
+  "kind": "weapon"
  },
  "raf_fighter_typhoon": {
   "kind": "platform",

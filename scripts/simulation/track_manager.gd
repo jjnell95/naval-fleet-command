@@ -176,6 +176,8 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t.altitude_m = c.altitude_m
 	t.status = Track.Status.ACTIVE
 	t.last_seen_time = now
+	if c.source == "esm":
+		t.last_esm_time = now
 	_update_classification(faction, t, c, gain)
 	if c.bearing_only and c.bearing_key != "":
 		BearingSolution.add(t.bearing_history, c, now)
@@ -284,9 +286,11 @@ func record_hit(faction: String, spec: WeaponSpec, target: Unit) -> void:
 	if spec == null or target == null:
 		return
 	var t := find_track(faction, target)
-	if t == null or t.status == Track.Status.LOST:
+	if t == null or t.status == Track.Status.LOST or t.confirmed_destroyed:
 		return
-	t.damage_estimate = minf(t.damage_estimate + 100.0 * spec.damage / assessed_health(t, spec.id), 100.0)
+	# Estimated damage cannot confirm destruction: catalogue health and actual damage can
+	# differ. Reserve the 100% readout for a confirmed loss.
+	t.damage_estimate = minf(t.damage_estimate + 100.0 * spec.damage / assessed_health(t, spec.id), 99.0)
 
 
 ## The damage pool a side assumes for a contact: the catalogue health of the class its track

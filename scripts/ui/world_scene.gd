@@ -334,6 +334,8 @@ func set_time_of_day(sun_dir: Vector3, elevation_deg: float) -> void:
 	RenderingServer.global_shader_parameter_set("world_sea_color", Color(0.09, 0.1, 0.14).lerp(Color(0.2, 0.23, 0.3), day))
 	RenderingServer.global_shader_parameter_set("world_horizon_color", horizon)
 	RenderingServer.global_shader_parameter_set("world_ambient", 0.1 + 0.2 * twilight + 0.42 * day)
+	# Which quarter of the sky is the bright one: the sun's by day, fading to nothing at night.
+	RenderingServer.global_shader_parameter_set("world_sun_dir", Vector4(sun_dir.x, sun_dir.y, sun_dir.z, twilight))
 	RenderingServer.global_shader_parameter_set("world_daylight", daylight)
 	_lamps_lit = daylight < LAMPS_BELOW_DAYLIGHT
 	land.set_daylight(daylight)

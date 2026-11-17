@@ -114,6 +114,13 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 			var blocked: bool = d[1] == -2.0 and under < 0.0
 			depths.append(item(d[0], {"kind": "depth", "metres": d[1]}, blocked, under_layer_reason(under, floor_m) if d[1] == -2.0 else ""))
 		navigation.append(submenu("Depth", depths, not controllable, why))
+		var diesel := diving.filter(func(u: Unit) -> bool: return SubmarinePower.fitted(u))
+		if not diesel.is_empty():
+			var can_raise := diesel.any(func(u: Unit) -> bool: return UnitManager.can_accept_order(u, Order.snorkel(true)))
+			var can_secure := diesel.any(func(u: Unit) -> bool: return UnitManager.can_accept_order(u, Order.snorkel(false)))
+			var why_not: String = SubmarinePower.snorkel_rejection(diesel[0], true)
+			navigation.append(item("Snorkel and charge", order_action(Order.snorkel(true)), not controllable or not can_raise, "Come to %d m and charge on the diesels: loud, a radar target, and no faster than %d knots. The crew secures by itself when the charge is complete or the boat has to evade." % [int(SubmarinePower.SNORKEL_DEPTH_M), int(SubmarinePower.SNORKEL_SPEED_KN)] if can_raise else why_not))
+			navigation.append(item("Secure snorkel", order_action(Order.snorkel(false)), not controllable or not can_secure, "Lower the mast and go back to the depth the boat came up from."))
 		var communicating := diving.filter(func(u: Unit) -> bool: return u.comms_enabled)
 		if not communicating.is_empty():
 			var windows: Array = [item("Request check-in now", order_action(Order.request_sub_checkin()), false, "Transmit a brief receive-only summons. The boat comes to communication depth before receiving detailed orders.")]

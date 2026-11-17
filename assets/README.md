@@ -163,3 +163,8 @@ xvfb-run -a -s "-screen 0 1600x900x24" godot --path . --resolution 1600x900 \
     "--subject=USS Truxtun (DDG 103)" --spacing=0.2 --sun-side=22 --range=1.25 --pitch=4
 godot --headless --path . --import --quit
 ```
+
+## Command audio
+
+See [audio/README.md](audio/README.md) for the bundled crew performances, authored effects,
+licensing, processing and reproducible build instructions. No model weights are shipped.

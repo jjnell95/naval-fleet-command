@@ -5,6 +5,8 @@ Six abstract silhouettes for the loadout thumbnails, chosen from the game's own 
 recognition icons in the style of the existing weapon renders, not models of any real item.
 Nose at +X, metres.
 """
+import math
+
 from ordnance_bodies import slender_body, ogive, fin_set
 from ordnance_extra import cone_body, blunt_body
 from ordnance_mounts import mount
@@ -44,6 +46,12 @@ def weapon_model(m, spec):
         heavy = rng >= 400.0
         L, R = (10.0, .65) if heavy else (8.6, .34)
         cone_body(m, L, R, heavy)
+    elif "agm-88" in words:
+        # A slim body with four broad double-delta wings at mid-length and small fixed tail fins.
+        L, R = 4.2, .127
+        ogive(m, L, R)
+        fin_set(m, -L * .37, L * .09, -L * .43, R * 2.6)
+        fin_set(m, L * .13, L * .24, -L * .04, R * 4.2, phase=math.pi / 4, name="mid_wing")
     elif speed >= 1000.0:
         L, R = 7.0, .30
         slender_body(m, L, R, tail=2.6, ducts=4)
