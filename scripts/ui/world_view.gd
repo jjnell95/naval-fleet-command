@@ -122,23 +122,6 @@ func _ready() -> void:
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_default_unix = Time.get_unix_time_from_datetime_string(DEFAULT_START_TIME)
-	_container = SubViewportContainer.new()
-	_container.name = "ViewportContainer"
-	_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_container.stretch = true
-	_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_container)
-	_viewport = SubViewport.new()
-	_viewport.own_world_3d = true
-	_viewport.transparent_bg = false
-	_viewport.msaa_3d = Viewport.MSAA_4X
-	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	_viewport.gui_disable_input = true
-	_container.add_child(_viewport)
-	_scene = WorldScene.new()
-	_viewport.add_child(_scene)
-	_scene.build()
-	_frame_lookup = _scene.focus_frame
 	_rain = ColorRect.new()
 	_rain.name = "Rain"
 	_rain.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -206,6 +189,29 @@ func set_orbit(az_deg: float, pitch_deg := NAN, zoom_factor := NAN) -> void:
 	if not is_nan(zoom_factor):
 		rig.zoom = clampf(zoom_factor, WorldCamera.MIN_ZOOM, WorldCamera.MAX_ZOOM)
 	rig.cut()
+
+
+func capture_camera_view() -> Dictionary:
+	return rig.capture_view(_focus.get("key", ""))
+
+
+## Rebuild the focus from the restored player's picture. A lost subject gets the normal
+## fallback framing; a saved eye is usable only for the subject the observer can still show.
+func restore_camera_view(saved: Dictionary) -> void:
+	var mode: Variant = saved.get("mode")
+	var azimuth: Variant = saved.get("azimuth")
+	var pitch: Variant = saved.get("pitch")
+	var zoom: Variant = saved.get("zoom")
+	if not mode is int or mode < 0 or mode >= WorldCamera.MODE_NAMES.size():
+		return
+	if not azimuth is float or not pitch is float or not zoom is float:
+		return
+	if not is_finite(azimuth) or not is_finite(pitch) or not is_finite(zoom):
+		return
+	set_camera_mode(mode)
+	set_orbit(azimuth, pitch, zoom)
+	_focus = _pick_focus(simulation.unit_manager.get_faction_units(simulation.player_faction), true)
+	rig.restore_station(saved, _focus.get("key", ""))
 
 
 ## The hook changed: if that changes the subject, the next frame cuts to it instead of sweeping.
@@ -366,8 +372,33 @@ func _live() -> bool:
 	return is_visible_in_tree() and not suspended and size.x >= 2.0 and size.y >= 2.0
 
 
+## Allocate the terrain, sky and render targets when the pane is first shown. The operations
+## desk and briefing keep the camera controls available without constructing the 3D world.
+func _build_observer() -> void:
+	_container = SubViewportContainer.new()
+	_container.name = "ViewportContainer"
+	_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_container.stretch = true
+	_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_container)
+	move_child(_container, 0)
+	_viewport = SubViewport.new()
+	_viewport.own_world_3d = true
+	_viewport.transparent_bg = false
+	_viewport.msaa_3d = Viewport.MSAA_4X
+	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_viewport.gui_disable_input = true
+	_container.add_child(_viewport)
+	_scene = WorldScene.new()
+	_viewport.add_child(_scene)
+	_scene.build()
+	_frame_lookup = _scene.focus_frame
+
+
 func _sync_visibility() -> void:
 	var live := _live()
+	if live and _viewport == null:
+		_build_observer()
 	if _viewport != null:
 		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if live else SubViewport.UPDATE_DISABLED
 	set_process(live)

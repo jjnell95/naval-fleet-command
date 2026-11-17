@@ -57,6 +57,7 @@ enum RangeCircle { OFF, ARMED, FIXED }
 const MIN_PPN := 0.2
 const MAX_PPN := 6000.0
 const CHART_HISTORY_LIMIT := 16
+const IDLE_REFRESH_S := 0.1
 const ZOOM_STEP := 1.25
 const KEYBOARD_ZOOM_RATE := 4.0
 const CLICK_RADIUS_PX := 18.0
@@ -238,6 +239,11 @@ var _range_radius_nm := 0.0
 var _trail_last_s := -1.0e9
 var _effects: Array = []  # {pos, t0, kind, color}
 var _anim := 0.0
+var _last_draw_at := -INF
+var _drawn_sim_time := -INF
+var _awaiting_symbol_art := false
+var _drawn_center := Vector2.INF
+var _drawn_ppn := -1.0
 var _threats: Array = []
 var _threat_candidates: Array = []
 var _threat_cache_time := -1.0
@@ -274,12 +280,21 @@ func _ready() -> void:
 	# Graphic symbols draw 500-800 px plan views at 28-56 px: sample their mipmaps, not a shimmer.
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_font = UITheme.body_font()
-	mouse_entered.connect(func() -> void: _mouse_inside = true)
-	mouse_exited.connect(func() -> void: _mouse_inside = false)
+	mouse_entered.connect(func() -> void:
+		_mouse_inside = true
+		queue_redraw())
+	mouse_exited.connect(func() -> void:
+		_mouse_inside = false
+		queue_redraw())
 	resized.connect(_apply_pending_fit)
 	resized.connect(_labels.clear)
-	selection_changed.connect(func(_units: Array) -> void: _labels.clear())
-	track_selected.connect(func(_track: Track) -> void: _labels.clear())
+	selection_changed.connect(func(_units: Array) -> void:
+		_labels.clear()
+		queue_redraw())
+	track_selected.connect(func(_track: Track) -> void:
+		_labels.clear()
+		queue_redraw())
+	interaction_mode_changed.connect(func(_moving: bool) -> void: queue_redraw())
 	# The shaded chart: sea floor first, then the scenario's land, both behind this item's own drawing.
 	_floor = ChartFloor.new()
 	_floor.name = "ChartFloor"
@@ -333,6 +348,7 @@ func toggle_layer(layer: String) -> bool:
 		return false
 	var member: String = LAYERS[layer]
 	set(member, not bool(get(member)))
+	queue_redraw()
 	return bool(get(member))
 
 
@@ -349,6 +365,7 @@ func cycle_symbol_mode() -> SymbolMode:
 
 func set_symbol_mode(mode: int) -> void:
 	symbol_mode = clampi(mode, 0, SymbolMode.size() - 1) as SymbolMode
+	queue_redraw()
 
 
 func symbol_mode_name() -> String:
@@ -359,6 +376,7 @@ func symbol_mode_name() -> String:
 ## hooked contact when no own unit is hooked) through the cursor; the second fixes its radius; the
 ## third clears it. Returns the new state; with nothing hooked it stays off.
 func toggle_range_circle() -> RangeCircle:
+	queue_redraw()
 	match range_circle:
 		RangeCircle.OFF:
 			_range_unit = selected[0] if not selected.is_empty() else null
@@ -481,11 +499,16 @@ func _normalize_interaction_state() -> void:
 ## while the line is up.
 func post_message(text: String, severity := "info", speaker = null) -> void:
 	_radio.post(text, severity, speaker, _anim)
+	queue_redraw()
 
 
 func _process(delta: float) -> void:
 	_anim += delta
-	coverage_discs = SensorCoverage.discs(_own_units()) if show_coverage and unit_manager != null else []
+	if is_visible_in_tree():
+		if show_coverage and unit_manager != null:
+			coverage_discs = SensorCoverage.discs(_own_units())
+		elif not coverage_discs.is_empty():
+			coverage_discs = []
 	if selected_track != null and not _visible_tracks().has(selected_track):
 		select_track(null)
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
@@ -502,7 +525,12 @@ func _process(delta: float) -> void:
 	_record_wrecks()
 	if (_range_unit != null and not _range_unit.alive) or (_range_track != null and _range_track.status == Track.Status.LOST):
 		_clear_range_circle()
-	queue_redraw()
+	# Plotted positions change on simulation ticks. Between ticks Godot retains
+	# the last draw; keep navigation, symbol preparation and animation at display speed.
+	if SimClock.sim_time != _drawn_sim_time or center_nm != _drawn_center or ppn != _drawn_ppn \
+			or _anim - _last_draw_at >= IDLE_REFRESH_S or _awaiting_symbol_art or _hit_flash > 0.0 \
+			or not _effects.is_empty() or not _threats.is_empty() or _radio.is_fading(_anim):
+		queue_redraw()
 
 
 ## Own platforms lost this mission, remembered where they went down so the plot shows them in
@@ -851,6 +879,7 @@ func _keyboard_zoom(delta: float) -> void:
 # --- Input ------------------------------------------------------------------------------
 
 func _gui_input(event: InputEvent) -> void:
+	queue_redraw()
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		# A drag owns its matching release even when the pointer leaves the chart. Otherwise the
@@ -1257,12 +1286,7 @@ static func own_hover_lines(u: Unit, now: float) -> PackedStringArray:
 func _own_units() -> Array[Unit]:
 	if unit_manager == null:
 		return []
-	var out: Array[Unit] = []
-	for u in unit_manager.get_faction_units(player_faction):
-		if u.is_aircraft() and not u.in_flight():
-			continue
-		out.append(u)
-	return out
+	return unit_manager.get_engageable_units(player_faction)
 
 
 func _visible_tracks() -> Array:
@@ -1614,10 +1638,10 @@ func reference_unit() -> Unit:
 	for u: Unit in selected:
 		if u.home != null and u.home.alive:
 			return u.home
-	for u in _own_units():
+	var own := _own_units()
+	for u in own:
 		if not u.is_aircraft():
 			return u
-	var own := _own_units()
 	return own[0] if not own.is_empty() else null
 
 
@@ -1643,6 +1667,10 @@ func _refresh_threats() -> void:
 
 func _draw() -> void:
 	var t0 := Time.get_ticks_usec()
+	_last_draw_at = _anim
+	_drawn_sim_time = SimClock.sim_time
+	_drawn_center = center_nm
+	_drawn_ppn = ppn
 	_refresh_threats()
 	var t1 := Time.get_ticks_usec()
 	_draw_ocean()
@@ -1701,6 +1729,7 @@ func _draw() -> void:
 		_draw_key()
 		_draw_air_board()
 		_draw_hover_card()
+	_awaiting_symbol_art = MapSymbols.deferred_graphics_frame == Engine.get_process_frames()
 	var t5 := Time.get_ticks_usec()
 	# The whole chart, and where it went (the parts add up to the whole).
 	Debug.time_add("chart", t5 - t0)
@@ -1737,10 +1766,10 @@ func _draw_move_preview() -> void:
 		var hit := Terrain.first_land_contact(start, target) if u.needs_sea_room() and not Terrain.is_empty() else -1.0
 		if hit >= 0.0:
 			var beach := world_to_screen(start.lerp(target, hit))
-			draw_dashed_line(a, beach, COL_ROUTE, 1.0, 6.0)
-			draw_dashed_line(beach, _mouse, Color(COL_HOSTILE, 0.9), 1.0, 6.0)
+			_draw_chart_dashes(a, beach, COL_ROUTE, 1.0, 6.0)
+			_draw_chart_dashes(beach, _mouse, Color(COL_HOSTILE, 0.9), 1.0, 6.0)
 		else:
-			draw_dashed_line(a, _mouse, COL_ROUTE, 1.0, 6.0)
+			_draw_chart_dashes(a, _mouse, COL_ROUTE, 1.0, 6.0)
 	var col := COL_HOSTILE if accepted == 0 else COL_ROUTE
 	var m := _mouse.round() + Vector2(0.5, 0.5)
 	draw_arc(m, 7.0, 0.0, TAU, 24, col, 1.0, true)
@@ -1766,7 +1795,7 @@ func _draw_pick_preview() -> void:
 		var r := world_to_screen(at + Vector2(_pick_radius_nm, 0)).x - _mouse.x
 		draw_arc(_mouse, absf(r), 0.0, TAU, 48, Color(col, 0.8), 1.0, true)
 	if _pick_origin.is_finite():
-		draw_dashed_line(world_to_screen(_pick_origin), _mouse, Color(col, 0.7), 1.0, 6.0)
+		_draw_chart_dashes(world_to_screen(_pick_origin), _mouse, Color(col, 0.7), 1.0, 6.0)
 		label += "  ·  %.0f nm %s from the deck" % [_pick_origin.distance_to(at), Geo.format_bearing(Geo.bearing_deg(_pick_origin, at))]
 	var m := _mouse.round() + Vector2(0.5, 0.5)
 	for d: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
@@ -1793,7 +1822,7 @@ func _draw_patrol_preview() -> void:
 		for i in patrol.route.size():
 			var a := world_to_screen(patrol.route[i])
 			var b := world_to_screen(patrol.route[(i + 1) % patrol.route.size()])
-			draw_dashed_line(a, b, col, 1.0, 6.0)
+			_draw_chart_dashes(a, b, col, 1.0, 6.0)
 			_draw_plus(a, 4.0, col)
 		var span := (screen_to_world(_mouse) - _patrol_corner).abs()
 		label = "PATROL %.1f × %.1f NM — click to assign (%d/%d)" % [span.x, span.y, accepted, selected.size()] if accepted > 0 else reason
@@ -2097,7 +2126,7 @@ func _draw_air_missions() -> void:
 			if m.target == null or m.base == null or not m.base.alive:
 				continue
 			var tp := world_to_screen(m.target.position)
-			draw_dashed_line(world_to_screen(m.base.position), tp, col, 1.0, 8.0)
+			_draw_chart_dashes(world_to_screen(m.base.position), tp, col, 1.0, 8.0)
 			_queue_caption(tp + Vector2(0.0, -18.0), "STRIKE %d" % m.id, 11, COL_READOUT, true)
 			continue
 		var preview := m == _drag_mission and _drag_moved
@@ -2225,6 +2254,42 @@ func _ring_label(c: Vector2, r: float, text: String) -> void:
 	_queue_caption(c + Vector2(0.0, -r - 4.0), text, 10, Color(COL_READOUT, 0.8), true)
 
 
+## A long leg can span hundreds of thousands of pixels at close zoom. Godot builds
+## one pair of vertices per dash, including those outside the clipped Control.
+func _draw_chart_dashes(start: Vector2, end: Vector2, color: Color, width: float, dash: float) -> void:
+	var bounds := Rect2(Vector2.ZERO, size).grow(width + dash)
+	if bounds.has_point(start) and bounds.has_point(end):
+		draw_dashed_line(start, end, color, width, dash)
+		return
+	var segment := visible_dash_segment(start, end, bounds, dash)
+	if not segment.is_empty():
+		draw_dashed_line(segment[0], segment[1], color, width, dash)
+
+
+## Intersect the line with the two axis intervals. Keep whole dash-and-gap periods
+## at the clipped ends so panning the chart does not shift the visible pattern.
+static func visible_dash_segment(start: Vector2, end: Vector2, bounds: Rect2, dash: float) -> PackedVector2Array:
+	var length := start.distance_to(end)
+	var direction := start.direction_to(end)
+	var enter := 0.0
+	var leave := length
+	for axis in 2:
+		if direction[axis] == 0.0:
+			if start[axis] < bounds.position[axis] or start[axis] > bounds.end[axis]:
+				return PackedVector2Array()
+			continue
+		var a := (bounds.position[axis] - start[axis]) / direction[axis]
+		var b := (bounds.end[axis] - start[axis]) / direction[axis]
+		enter = maxf(enter, minf(a, b))
+		leave = minf(leave, maxf(a, b))
+		if enter > leave:
+			return PackedVector2Array()
+	var period := 2.0 * dash
+	var trim_start := floorf(enter / period) * period
+	var trim_end := floorf((length - leave) / period) * period
+	return PackedVector2Array([start + direction * trim_start, end - direction * trim_end])
+
+
 func _draw_dashed_circle(c: Vector2, r: float, col: Color, segs: int) -> void:
 	for i in segs:
 		if i % 2 == 1:
@@ -2283,7 +2348,7 @@ func _draw_weapon_ring() -> void:
 			continue
 		var aim: Vector2 = check.aim_point
 		var ap := world_to_screen(aim)
-		draw_dashed_line(sp, ap, Color(col, 0.6), 1.0, 6.0)
+		_draw_chart_dashes(sp, ap, Color(col, 0.6), 1.0, 6.0)
 		draw_arc(ap, 6.0, 0.0, TAU, 16, col, 1.0, true)
 		draw_line(ap + Vector2(-9, 0), ap + Vector2(9, 0), col, 1.0)
 		draw_line(ap + Vector2(0, -9), ap + Vector2(0, 9), col, 1.0)
@@ -2538,7 +2603,7 @@ func _draw_units() -> void:
 		if u.station_kind == "formation" and u.station_leader != null and u.station_leader.alive:
 			var preview := u == _drag_escort and _drag_moved
 			var station := _mouse if preview else world_to_screen(escort_station_point(u))
-			draw_dashed_line(sp, station, Color(COL_ROUTE, 0.3), 1.0, 3.0)
+			_draw_chart_dashes(sp, station, Color(COL_ROUTE, 0.3), 1.0, 3.0)
 			draw_rect(Rect2(station - Vector2(4, 4), Vector2(8, 8)), COL_SELECT if preview else Color(COL_ROUTE, 0.7), false, 1.0)
 			if preview:
 				_centred_text(station + Vector2(0, -12), "RELEASE TO MOVE STATION · ESC CANCELS", 11)
@@ -2574,7 +2639,7 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 			# The leg is legal to order but the coast is in the way; show where.
 			var beach := world_to_screen(prev_world.lerp(wp, hit))
 			draw_line(prev, beach, COL_ROUTE, 1.0, true)
-			draw_dashed_line(beach, wsp, Color(COL_HOSTILE, 0.8), 1.0, 5.0)
+			_draw_chart_dashes(beach, wsp, Color(COL_HOSTILE, 0.8), 1.0, 5.0)
 			draw_line(beach - Vector2(4, 4), beach + Vector2(4, 4), COL_HOSTILE, 1.5, true)
 			draw_line(beach - Vector2(4, -4), beach + Vector2(4, -4), COL_HOSTILE, 1.5, true)
 		else:
@@ -2584,7 +2649,7 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 		prev = wsp
 		prev_world = wp
 	if u.patrol_active and u.waypoints.size() >= 3:
-		draw_dashed_line(prev, first, COL_ROUTE, 1.0, 5.0)
+		_draw_chart_dashes(prev, first, COL_ROUTE, 1.0, 5.0)
 		_shadow_text(first + Vector2(8, -8), u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL", 11, COL_ROUTE)
 
 
@@ -2641,8 +2706,8 @@ func _draw_relative_motion() -> void:
 		return
 	var own_end := world_to_screen(solution.own_position)
 	var contact_end := world_to_screen(solution.contact_position)
-	draw_dashed_line(world_to_screen(SubmarineComms.reported_position(ref)), own_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
-	draw_dashed_line(world_to_screen(selected_track.position), contact_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
+	_draw_chart_dashes(world_to_screen(SubmarineComms.reported_position(ref)), own_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
+	_draw_chart_dashes(world_to_screen(selected_track.position), contact_end, Color(COL_ROUTE, 0.6), 1.0, 6.0)
 	draw_line(own_end, contact_end, Color(COL_ROUTE, 0.85), 1.0, true)
 	for endpoint: Vector2 in [own_end, contact_end]:
 		draw_arc(endpoint, 4.0, 0.0, TAU, 16, Color(COL_ROUTE, 0.85), 1.0, true)
@@ -2680,7 +2745,7 @@ func _draw_weapons() -> void:
 		if w.is_interceptor() and w.intercept_target != null and (hooked or selected.has(w.intercept_target.acquired)):
 			draw_line(sp, world_to_screen(w.intercept_target.position), Color(col, 0.3), 1.0, true)
 		elif own and hooked and w.target_track != null and w.phase == Weapon.Phase.CRUISE:
-			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.3), 1.0, 5.0)
+			_draw_chart_dashes(sp, world_to_screen(w.aim_point), Color(col, 0.3), 1.0, 5.0)
 		if _weapon_trails.has(w.id):
 			var arr: PackedVector2Array = _weapon_trails[w.id]
 			var points := PackedVector2Array()
@@ -2709,7 +2774,7 @@ func _draw_weapons() -> void:
 				label_slots[cell] = slot + 1
 				_queue_caption(sp + Vector2(20, 25 + 13 * slot), w.spec.compact_name(), 10, WeaponPresentation.color(w.spec))
 		if Debug.enabled:
-			draw_dashed_line(sp, world_to_screen(w.aim_point), Color(col, 0.4), 1.0, 5.0)
+			_draw_chart_dashes(sp, world_to_screen(w.aim_point), Color(col, 0.4), 1.0, 5.0)
 
 	if not trail_points.is_empty():
 		draw_multiline_colors(trail_points, trail_colors, 1.0, true)

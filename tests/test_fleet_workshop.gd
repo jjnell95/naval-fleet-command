@@ -506,6 +506,51 @@ func test_task_group_locates_the_activated_row_at_its_reported_position() -> voi
 	um.free()
 
 
+func test_hidden_task_group_defers_rendering_and_opens_with_current_selection_roster_and_log() -> void:
+	var um := UnitManager.new()
+	var first := _ship()
+	first.callsign = "First"
+	um.add_unit(first)
+	var map := TacticalMap.new()
+	map.unit_manager = um
+	var boards := StatusBoards.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(boards)
+	var panel := UnitPanel.new()
+	boards.host(Control.new(), StatusBoards.BOARD_ORDERS)
+	boards.host(panel, StatusBoards.BOARD_TASK_GROUP)
+	boards.host(Control.new(), StatusBoards.BOARD_TRACKS)
+	boards.finish_boards()
+	panel.roster.map = map
+	map.selection_changed.connect(panel.set_units)
+	boards.open_board(StatusBoards.BOARD_TASK_GROUP)
+	map.select_units([first])
+	assert_eq(panel._header.text, first.callsign)
+	assert_eq(panel.roster._rows, [first])
+	boards.close_boards()
+	assert_true(not panel.is_processing() and not panel.roster.is_processing())
+	assert_true(not panel._portrait.is_processing() and not panel._bars.is_processing())
+	var second := _ship()
+	second.callsign = "Second"
+	um.add_unit(second)
+	map.select_units([second])
+	panel.add_event("New fleet report")
+	boards.open_board(StatusBoards.BOARD_ORDERS)
+	assert_eq(panel._header.text, first.callsign, "opening another board must not render the closed Task Group")
+	assert_eq(panel.roster._rows, [first])
+	assert_true(not panel._log.text.contains("New fleet report"))
+	boards.open_board(StatusBoards.BOARD_TASK_GROUP)
+	assert_true(panel.is_processing() and panel.roster.is_processing())
+	assert_eq(panel._header.text, second.callsign)
+	assert_eq(panel.roster._rows, [first, second])
+	assert_eq(panel.roster.get_selected_items(), PackedInt32Array([1]))
+	var tabs := panel._log.get_parent() as TabContainer
+	tabs.current_tab = 1
+	assert_true(panel._log.text.contains("New fleet report"), "the event is available the moment the log becomes visible")
+	boards.free()
+	map.free()
+	um.free()
+
+
 func test_defence_tab_shows_actual_missile_mode_and_issues_the_intercept_order() -> void:
 	var panel := OrdersPanel.new()
 	(Engine.get_main_loop() as SceneTree).root.add_child(panel)

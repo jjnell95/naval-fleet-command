@@ -152,6 +152,7 @@ func _ready() -> void:
 	map.simulation = simulation
 	map.player_faction = simulation.player_faction
 	_world_view = WorldView.new()
+	_world_view.set_suspended(true)  # The operations desk and briefing open before the observer.
 	_world_view.name = "WorldView"
 	_world_view.map = map
 	_world_view.simulation = simulation
@@ -632,6 +633,9 @@ func _capture_presentation() -> Dictionary:
 		"own_numbers": numbers,
 		"selected": selected,
 		"view": map.chart_view(),
+		"camera": _world_view.capture_camera_view(),
+		"views_swapped": _views_swapped,
+		"world_full": _world_full,
 		"selected_track": map.selected_track.id if map.selected_track != null else "",
 		"inspecting_track": map.inspection_track() != null,
 		"follow_selection": map.follow_selection,
@@ -677,6 +681,12 @@ func _restore_presentation(d: Dictionary) -> void:
 				if not inspecting:
 					map.select_units(selected)
 				break
+	var camera: Variant = d.get("camera")
+	if camera is Dictionary:
+		_views_swapped = d.get("views_swapped", false) == true
+		_world_full = d.get("world_full", false) == true
+		_arrange_views()
+		_world_view.restore_camera_view(camera)
 	map.restore_chart_view(d.get("view", {}))
 	if d.get("follow_selection", false) and (not inspecting or map.inspection_track() != null):
 		map.set_follow_selection(true)

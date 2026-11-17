@@ -7,6 +7,7 @@ var map: TacticalMap
 var _rows: Array[Unit] = []
 var _timer := 0.0
 var _terms := PackedStringArray()
+var _reset_scroll_on_open := false
 
 func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
@@ -17,9 +18,15 @@ func _ready() -> void:
 	item_selected.connect(func(_i: int) -> void: _push_selection())
 	multi_selected.connect(func(_i: int, _selected: bool) -> void: _push_selection())
 	item_activated.connect(_locate_row)
-	visibility_changed.connect(func() -> void:
-		if is_visible_in_tree():
-			_refresh())
+	visibility_changed.connect(_sync_visibility)
+	_sync_visibility()
+
+
+func _sync_visibility() -> void:
+	set_process(is_visible_in_tree())
+	if is_processing():
+		_refresh(_reset_scroll_on_open)
+		_reset_scroll_on_open = false
 
 
 func _locate_row(index: int) -> void:
@@ -55,7 +62,13 @@ func _push_selection() -> void:
 
 func filter_by(query: String) -> void:
 	_terms = query.to_lower().split(" ", false)
-	_refresh(true)
+	if is_visible_in_tree():
+		_refresh(true)
+	else:
+		# A new engagement resets the filter while the board is closed.
+		_rows.clear()
+		clear()
+		_reset_scroll_on_open = true
 
 
 func focus_results(query: String) -> void:

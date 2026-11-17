@@ -68,10 +68,13 @@ func test_radio_line_holds_six_seconds_then_fades_over_one() -> void:
 	assert_near(RadioLine.alpha_at(7.0), 0.0)
 	var radio := RadioLine.new()
 	radio.post("Contact bearing 045", "info", null, 10.0)
+	assert_true(not radio.is_fading(15.9), "a held line is static on a paused chart")
+	assert_true(radio.is_fading(16.0), "redraw every frame once the fade begins")
 	assert_eq(radio.visible(12.0).size(), 1, "showing during the hold")
 	assert_eq(radio.visible(16.8).size(), 1, "still fading")
 	assert_eq(radio.visible(17.1).size(), 0, "gone after hold plus fade")
 	assert_true(radio.entries.is_empty(), "a faded line is dropped")
+	assert_true(not radio.is_fading(17.1))
 
 
 func test_radio_line_keeps_the_newest_three_with_the_latest_last() -> void:
@@ -196,26 +199,34 @@ func test_land_fill_is_one_mesh_for_every_landmass() -> void:
 	assert_eq(ChartLand.land_mesh(), null, "no land, no mesh")
 
 
+func test_paused_tactical_rasters_can_clear_and_restore_coverage() -> void:
+	var manager := UnitManager.new()
+	manager.add_unit(_unit("BLUE", Vector2(10, 8)))
+	var map := TacticalMap.new()
+	map.unit_manager = manager
+	(Engine.get_main_loop() as SceneTree).root.add_child(map)
+	for enabled: bool in [true, false, false, true]:
+		map.show_coverage = enabled
+		map._process(0.0)
+		for layer: ChartLayer in [map._floor, map._land]:
+			layer._process(0.0)
+			assert_eq(layer.sensor_coverage_on, enabled)
+			assert_eq(not layer.sensor_coverage.is_empty(), enabled, "both rasters follow the switch without advancing the clock")
+	map.free()
+	manager.free()
+
+
 # --- Regional map -----------------------------------------------------------------------
-
-# Record the world positions sent to the renderer. Projecting everything off the pane keeps
-# this synchronous check independent of a canvas or a graphics driver.
-class RegionalPlotProbe extends RegionalMap:
-	var positions: Array[Vector2] = []
-
-	func world_to_regional(world: Vector2) -> Vector2:
-		positions.append(world)
-		return Vector2(-1, -1)
-
 
 func test_regional_dots_follow_chart_filters_and_friendly_position_reports() -> void:
 	var manager := UnitManager.new()
 	var tracks := TrackManager.new()
 	var map := TacticalMap.new()
-	var regional := RegionalPlotProbe.new()
+	var regional := RegionalMap.new()
 	map.unit_manager = manager
 	map.track_manager = tracks
 	regional.map = map
+	regional.size = Vector2(360, 360)
 	var boat := Unit.new()
 	boat.spec = DataDB.platform("usn_ssn_virginia")
 	boat.faction = "BLUE"
@@ -229,18 +240,17 @@ func test_regional_dots_follow_chart_filters_and_friendly_position_reports() -> 
 	neutral.identity = "NEUTRAL"
 	var unknown := tracks.report_intel("BLUE", _unit("RED"), Vector2(-50, 10), 1.0, 0.0, "Report")
 	map.show_neutrals = false
-	regional._draw()
-	assert_true(regional.positions.has(unknown.position), "the visible contact stays on the overview")
-	assert_true(not regional.positions.has(neutral.position), "hiding neutral contacts clears their overview dots")
-	assert_true(regional.positions.has(reported), "a disconnected boat stays at its last report")
-	assert_true(not regional.positions.has(boat.position), "the overview cannot follow its private motion")
+	regional._process(0.0)
+	assert_true(regional._points.has(regional.world_to_regional(unknown.position)), "the visible contact stays on the overview")
+	assert_true(not regional._points.has(regional.world_to_regional(neutral.position)), "hiding neutral contacts clears their overview dots")
+	assert_true(regional._points.has(regional.world_to_regional(reported)), "a disconnected boat stays at its last report")
+	assert_true(not regional._points.has(regional.world_to_regional(boat.position)), "the overview cannot follow its private motion")
 	boat.depth_m = 0.0
 	map.show_neutrals = true
-	regional.positions.clear()
-	regional._draw()
-	assert_true(regional.positions.has(neutral.position), "showing neutral contacts restores their dots")
-	assert_true(regional.positions.has(boat.position), "a check-in moves the dot to the current position")
-	assert_true(not regional.positions.has(reported), "the old position clears")
+	regional._process(0.0)
+	assert_true(regional._points.has(regional.world_to_regional(neutral.position)), "showing neutral contacts restores their dots")
+	assert_true(regional._points.has(regional.world_to_regional(boat.position)), "a check-in moves the dot to the current position")
+	assert_true(not regional._points.has(regional.world_to_regional(reported)), "the old position clears")
 	regional.free()
 	map.free()
 	tracks.free()
@@ -375,6 +385,43 @@ func test_regional_radar_coverage_is_own_radiating_radars_only() -> void:
 	assert_near(discs[0].z, Detection.nominal_radar_ring_nm(own), 0.001, "the disc is the radar's horizon")
 	assert_true(not regional.toggle_radar_coverage(), "the coverage layer starts on and turns off")
 	_free(f)
+
+
+func test_regional_pane_refreshes_on_reveal_and_paused_display_changes() -> void:
+	var f := _regional_fixture()
+	var map: TacticalMap = f.map
+	var regional: RegionalMap = f.regional
+	var ship := _unit("BLUE", Vector2(14, -7))
+	(f.manager as UnitManager).add_unit(ship)
+	var strip := Control.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(strip)
+	strip.add_child(regional)
+	assert_eq(regional._floor.coverage, regional.radar_coverage())
+	assert_eq(regional._points, PackedVector2Array([regional.world_to_regional(ship.position)]))
+	assert_true(not regional._floor.is_processing() and not regional._land.is_processing(), "the overview drives its backgrounds")
+	regional.toggle_radar_coverage()
+	regional._process(0.0)
+	assert_true(regional._floor.coverage.is_empty(), "turning off coverage immediately clears the raster")
+	regional.toggle_radar_coverage()
+	map.select_units([ship])
+	map.show_terrain = false
+	ship.radar_on = false
+	regional._process(0.0)
+	assert_eq(regional._hooked, PackedByteArray([1]), "selection refreshes without advancing the clock")
+	assert_true(regional._floor.coverage.is_empty() and regional._land.coverage.is_empty(), "both backgrounds clear a silent unit's coverage")
+	assert_true(not regional._floor.relief_on and not regional._land.relief_on)
+	strip.hide()
+	assert_true(not regional.is_processing(), "full-screen 3D suspends overview work")
+	ship.position += Vector2(20, 10)
+	ship.radar_on = true
+	map.center_on(ship.position)
+	strip.show()
+	assert_true(regional.is_processing())
+	assert_eq(regional._points, PackedVector2Array([regional.world_to_regional(ship.position)]), "the first visible frame uses the current plot")
+	assert_eq(regional._floor.coverage, regional.radar_coverage(), "coverage also catches up on reveal")
+	assert_eq(regional._view_box.position, regional.view_rect().position.round() + Vector2(0.5, 0.5), "the rectangle catches up to chart navigation")
+	_free(f)
+	strip.free()
 
 
 # --- Coastline --------------------------------------------------------------------------
@@ -559,6 +606,7 @@ func test_graphic_symbols_are_made_within_a_per_frame_budget() -> void:
 	MapSymbols._prep_frame = Engine.get_process_frames()
 	MapSymbols._prep_usec = MapSymbols.GRAPHIC_PREP_BUDGET_USEC
 	assert_eq(MapSymbols.graphic_texture_in_budget(id, 28.0), null, "a frame that has spent its budget makes no more symbols")
+	assert_eq(MapSymbols.deferred_graphics_frame, Engine.get_process_frames(), "the chart can retry deferred symbols on the next display frame")
 	assert_true(not MapSymbols._graphics.has(key), "and loads nothing")
 	MapSymbols._prep_frame = -1  # the next frame
 	var tex := MapSymbols.graphic_texture_in_budget(id, 28.0)
@@ -704,6 +752,26 @@ func test_cancelling_a_drag_releases_the_chart_and_the_regional_map() -> void:
 	regional.cancel_drag()
 	assert_true(not regional._dragging)
 	_free(f)
+
+
+func test_long_dashed_legs_are_bounded_to_the_chart_without_shifting_dashes() -> void:
+	var chart := Rect2(0, 0, 400, 200)
+	var start := Vector2(-65431, 75)
+	var end := Vector2(67567, 75)
+	var clipped := TacticalMap.visible_dash_segment(start, end, chart, 5)
+	assert_eq(clipped.size(), 2)
+	assert_true(clipped[0].x <= 0 and clipped[0].x > -10)
+	assert_true(clipped[1].x >= 400 and clipped[1].x < 410)
+	assert_near(fmod(start.distance_to(clipped[0]), 10.0), 0.0, 0.001)
+	assert_near(fmod(end.distance_to(clipped[1]), 10.0), 0.0, 0.001)
+	assert_eq(TacticalMap.visible_dash_segment(end, start, chart, 5), PackedVector2Array([clipped[1], clipped[0]]))
+	assert_true(TacticalMap.visible_dash_segment(Vector2(-1000, -2), Vector2(9000, -2), chart, 5).is_empty())
+	assert_true(TacticalMap.visible_dash_segment(Vector2(-200, 5), Vector2(1, -196), chart, 5).is_empty())
+	var vertical := TacticalMap.visible_dash_segment(Vector2(80, 25), Vector2(80, 9000), chart, 5)
+	assert_eq(vertical[0], Vector2(80, 25))
+	assert_true(vertical[1].y >= 200 and vertical[1].y < 210)
+	var point := Vector2(80, 25)
+	assert_eq(TacticalMap.visible_dash_segment(point, point, chart, 5), PackedVector2Array([point, point]))
 
 
 # --- Track numbers and tags -------------------------------------------------------------------

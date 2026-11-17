@@ -28,6 +28,8 @@ var sensor_coverage_on := false
 
 var _material: ShaderMaterial
 var _bound_generation := -1
+var _view_terrain_generation := -1
+var _view_depth_generation := -1
 
 
 func _init() -> void:
@@ -38,6 +40,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	resized.connect(queue_redraw)
 	_material = ShaderMaterial.new()
 	_material.shader = _shader()
 	material = _material
@@ -50,6 +53,13 @@ func _shader() -> Shader:
 
 func _process(_delta: float) -> void:
 	if map != null:
+		# Reuse the existing canvas commands and shader uniforms for an unchanged view.
+		if view_center_nm == map.center_nm and px_per_nm == map.ppn and relief_on == map.show_terrain \
+				and sensor_coverage_on == map.show_coverage and sensor_coverage == map.coverage_discs \
+				and _view_terrain_generation == Terrain.generation and _view_depth_generation == Bathymetry.generation:
+			return
+		_view_terrain_generation = Terrain.generation
+		_view_depth_generation = Bathymetry.generation
 		view_center_nm = map.center_nm
 		px_per_nm = map.ppn
 		relief_on = map.show_terrain

@@ -166,6 +166,37 @@ func reset_orbit() -> void:
 	zoom = 1.0
 
 
+## Fixed eyes are chart coordinates (nm east, nm north, metres up), independent of the
+## floating origin and viewport size. They belong to the subject that established them.
+func capture_view(subject_key: String) -> Dictionary:
+	var saved := {"mode": mode, "azimuth": orbit_az, "pitch": orbit_pitch, "zoom": zoom}
+	if mode == DETACHED and _detached_valid:
+		saved["eye_chart"] = _detached
+	elif mode == FLYBY and _station_valid:
+		saved["eye_chart"] = _station
+		saved["station_range_m"] = _station_range_m
+	if saved.has("eye_chart"):
+		saved["subject"] = subject_key
+	return saved
+
+
+func restore_station(saved: Dictionary, subject_key: String) -> void:
+	var eye: Variant = saved.get("eye_chart")
+	if not eye is Vector3 or not eye.is_finite():
+		return
+	if subject_key.is_empty() or subject_key != saved.get("subject", ""):
+		return
+	if mode == DETACHED:
+		_detached = eye
+		_detached_valid = true
+	elif mode == FLYBY:
+		var distance: Variant = saved.get("station_range_m")
+		if distance is float and is_finite(distance) and distance >= 0.0:
+			_station = eye
+			_station_valid = true
+			_station_range_m = distance
+
+
 # --- Action events -----------------------------------------------------------------------
 
 ## Something Action may cut to. The caller has already decided the player may see it: a launch of

@@ -60,6 +60,7 @@ func _ready() -> void:
 	_portrait.panel = self
 	_portrait.custom_minimum_size.y = 108
 	v.add_child(_portrait)
+	_portrait.set_process(false) # The portrait changes with the selection.
 	var inspect := Button.new()
 	inspect.text = "INSPECT IN 3D"
 	inspect.tooltip_text = "Open this class in the fleet recognition library"
@@ -74,6 +75,7 @@ func _ready() -> void:
 	_bars = ReadinessBars.new()
 	_bars.custom_minimum_size.y = 0
 	v.add_child(_bars)
+	_bars.set_process(false) # Refresh the bars with the other readiness details.
 	var tabs := TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(tabs)
@@ -102,7 +104,17 @@ func _ready() -> void:
 	_log.custom_minimum_size.y = 120
 	_log.add_theme_font_size_override("normal_font_size", 11)
 	tabs.add_child(_log)
-	set_units([])
+	_log.visibility_changed.connect(_refresh_log)
+	visibility_changed.connect(_sync_visibility)
+	_sync_visibility()
+
+
+func _sync_visibility() -> void:
+	set_process(is_visible_in_tree())
+	if is_processing():
+		_accum = 0.0
+		_portrait.queue_redraw()
+		_refresh()
 
 
 ## The ships that could lend a hand alongside, for the fire state. Read from the roster's map, which
@@ -115,9 +127,10 @@ func _units_near(u: Unit) -> Array:
 
 func set_units(units: Array) -> void:
 	_units = units.duplicate()
-	if roster.is_visible_in_tree():
+	if is_visible_in_tree():
 		roster.sync_selection(units)
-	_refresh()
+		_portrait.queue_redraw()
+		_refresh()
 
 
 func _process(delta: float) -> void:
@@ -142,7 +155,12 @@ func add_event(text: String, severity := "info") -> void:
 	_events.append("[color=%s]%s[/color]  [color=%s]%s[/color]" % [UITheme.HEX_MUTED, SimClock.datetime_string().substr(11), col, text])
 	if _events.size() > MAX_EVENTS:
 		_events.remove_at(0)
-	_log.text = "\n".join(_events)
+	_refresh_log()
+
+
+func _refresh_log() -> void:
+	if _log.is_visible_in_tree():
+		_log.text = "\n".join(_events)
 
 
 func clear_events() -> void:
@@ -200,6 +218,7 @@ func _kv(k: String, v: String) -> String:
 
 
 func _refresh() -> void:
+	_bars.queue_redraw()
 	if _units.is_empty():
 		_header.text = "No selection"
 		_subtitle.text = "Click a symbol on the tactical picture"

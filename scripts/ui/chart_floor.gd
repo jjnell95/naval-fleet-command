@@ -36,6 +36,7 @@ func _process(delta: float) -> void:
 	if key != _charted_key:
 		_charted_key = key
 		_charted = charted_box(simulation)
+		queue_redraw()
 	super(delta)
 
 

@@ -240,6 +240,7 @@ func trail_count() -> int:
 
 
 func _trail_append(t: Dictionary, p: Vector3) -> void:
+	t.erase("paused_ribbon")
 	var pts: PackedVector4Array = t["pts"]
 	var s: PackedFloat32Array = t["s"]
 	var along := 0.0
@@ -284,7 +285,7 @@ func _retire_trail(key: String) -> void:
 	_trails.erase(key)
 
 
-## Rebuilds every ribbon for this frame's origin and eye, and lets go of the ones that have faded.
+## Keeps the ribbons facing this frame's eye and lets go of those that have faded.
 func draw_trails() -> void:
 	var gone: Array[String] = []
 	var shade := 0.3 + 0.7 * daylight
@@ -298,6 +299,13 @@ func draw_trails() -> void:
 		if mi == null:
 			mi = _acquire_trail_mesh()
 			t["mi"] = mi
+		if rate == 0.0:
+			var pose := [_clock, origin_nm, eye, wind, daylight, t["live"], t["head"]]
+			if t.get("paused_ribbon") == pose:
+				continue
+			t["paused_ribbon"] = pose
+		else:
+			t.erase("paused_ribbon")
 		var im := mi.mesh as ImmediateMesh
 		im.clear_surfaces()
 		var n := _collect(t)

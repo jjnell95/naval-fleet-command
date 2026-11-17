@@ -1014,7 +1014,7 @@ func _apply_trails(rec: Dictionary, e: Dictionary, base: Vector3, heading: float
 	if moving:
 		if not _trails.has(key):
 			_seed_trail(key, pos, heading, _speed_kn(e), spacing_nm)
-		_sample_trail(key, pos, spacing_nm)
+		_sample_trail(rec, pos, spacing_nm)
 		var stern := base - WorldPresentation.heading_vector(heading) * length * 0.46
 		stern.y = 0.0
 		_build_wake(rec, stern, -WorldPresentation.heading_vector(heading), beam, spread, life)
@@ -1030,10 +1030,12 @@ func _trail_spacing(e: Dictionary) -> float:
 	return clampf(_speed_kn(e) * 0.5144 * 0.12, 25.0, 140.0)
 
 
-func _sample_trail(key: String, pos: Vector2, spacing_nm: float) -> void:
+func _sample_trail(rec: Dictionary, pos: Vector2, spacing_nm: float) -> void:
+	var key: String = rec["key"]
 	var trail: Array = _trails.get(key, [])
 	if trail.is_empty() or Vector2(trail[-1].x, trail[-1].y).distance_to(pos) >= spacing_nm:
 		trail.append(Vector3(pos.x, pos.y, sim_now))
+		rec.erase("paused_wake")
 		while trail.size() > WAKE_SAMPLES:
 			trail.pop_front()
 	_trails[key] = trail
@@ -1090,6 +1092,15 @@ func _build_wake(rec: Dictionary, stern: Vector3, astern: Vector3, beam: float, 
 	if mi == null:
 		mi = _acquire_strip(_wake_material)
 		rec["wake"] = mi
+	var eye := camera.global_position if camera != null else Vector3.ZERO
+	if paused:
+		# Only horizontal eye position changes wake detail. The shader still animates the foam and swell.
+		var pose := [sim_now, origin_nm, stern, astern, beam, spread, life, daylight, Vector2(eye.x, eye.z)]
+		if mi.visible and rec.get("paused_wake") == pose:
+			return
+		rec["paused_wake"] = pose
+	else:
+		rec.erase("paused_wake")
 	var im := mi.mesh as ImmediateMesh
 	im.clear_surfaces()
 	var points: Array[Vector3] = [stern]
@@ -1106,7 +1117,6 @@ func _build_wake(rec: Dictionary, stern: Vector3, astern: Vector3, beam: float, 
 		return
 	# Laid flat and lifted onto the swell by the wake shader, so near the eye no stretch between
 	# two vertices may be long enough to cut through a crest.
-	var eye := camera.global_position if camera != null else Vector3.ZERO
 	var dense: Array[Vector3] = [points[0]]
 	var dense_t: Array[float] = [times[0]]
 	for i in range(1, points.size()):

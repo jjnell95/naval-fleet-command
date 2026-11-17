@@ -825,6 +825,55 @@ func test_track_file_locates_the_activated_row_only_while_held_and_in_the_filter
 	manager.free()
 
 
+func test_closed_track_file_reads_current_reports_and_reopens_on_the_keyboard_hook() -> void:
+	var manager := TrackManager.new()
+	var first := _track("T4101", "HOSTILE", Vector2(3, 0))
+	first.domain = "air"
+	manager._tracks["BLUE"] = [first]
+	var map := TacticalMap.new()
+	map.track_manager = manager
+	var host := Control.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(host)
+	var panel := ContactPanel.new()
+	panel.track_manager = manager
+	panel.map = map
+	panel._filter = "AIR"
+	host.add_child(panel)
+	panel.refresh()
+	assert_eq(panel._list.item_count, 1)
+	host.hide()
+	assert_true(not panel.is_processing(), "the hidden ancestor suspends list updates")
+	var next := _track("T4102", "UNKNOWN", Vector2(6, 0))
+	next.domain = "air"
+	var surface := _track("T4103", "HOSTILE", Vector2(2, 0))
+	surface.domain = "surface"
+	manager._tracks["BLUE"] = [surface, next]
+	panel.refresh()
+	assert_true(panel._list.get_item_text(0).contains(first.id), "an external refresh leaves hidden widgets alone")
+	map.show_unknowns = false
+	assert_eq(panel.visible_track_count(), 1)
+	assert_eq(panel.plotted_track_count(), 0)
+	assert_eq(panel.visible_tracks(), [next])
+	assert_eq(panel.cycle_visible_track(1), null)
+	map.show_unknowns = true
+	assert_eq(panel.cycle_visible_track(1), next, "the closed-board shortcut uses the new picture")
+	host.show()
+	assert_true(panel.is_processing())
+	assert_true(panel._list.get_item_text(0).contains(next.id) and panel._list.is_selected(0))
+	assert_true(panel._detail.text.contains(next.id), "reopening refreshes before the next timer tick")
+	panel._list.grab_focus()
+	panel._list.set_item_metadata(0, "existing row")
+	next.classification = Track.Classification.CLASS_KNOWN
+	next.known_class = "Example airframe"
+	panel.refresh()
+	assert_eq(panel._list.get_item_metadata(0), "existing row", "a live report update keeps its native row")
+	assert_true(panel._list.has_focus() and panel._list.is_selected(0))
+	assert_true(panel._list.get_item_text(0).contains(next.known_class) and panel._list.get_item_tooltip(0).contains(next.known_class))
+	host.free()
+	map.free()
+	manager.free()
+
+
 func test_orders_panel_selection_state_reports_none_off_on_and_mixed() -> void:
 	var panel := OrdersPanel.new()
 	assert_eq(panel._selection_state("radar"), -1, "no capable selection is unavailable")

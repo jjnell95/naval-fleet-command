@@ -28,6 +28,10 @@ static func alpha_at(age: float) -> float:
 	return clampf(1.0 - (age - HOLD_S) / FADE_S, 0.0, 1.0)
 
 
+func is_fading(now: float) -> bool:
+	return not entries.is_empty() and now - float(entries[0]["t0"]) >= HOLD_S
+
+
 ## Drops lines that have faded out; returns what is still showing, oldest first.
 func visible(now: float) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []

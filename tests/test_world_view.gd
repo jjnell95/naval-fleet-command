@@ -1082,6 +1082,33 @@ func test_paused_sun_cache_relights_when_cloud_cover_changes() -> void:
 	view.free()
 
 
+func test_suspended_observer_builds_once_when_command_is_taken() -> void:
+	var view := WorldView.new()
+	view.set_suspended(true)
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(view)
+	view.size = Vector2(702, 282)
+	assert_true(view.find_children("*", "SubViewport", true, false).is_empty(), "the desk and briefing need no observer render targets")
+	view.set_camera_mode(WorldView.CAM_DETACHED)
+	view.set_orbit(142.0, 29.0, 1.3)
+	view.reset_presentation()
+	view.set_suspended(false)
+	var viewport := view._viewport
+	var scene := view._scene
+	assert_true(viewport != null and scene != null and scene.camera != null, "taking command installs the camera and its renderer")
+	assert_eq(viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
+	assert_eq(view.camera_mode(), WorldView.CAM_DETACHED)
+	assert_near(view.rig.orbit_az, 142.0)
+	view.set_suspended(true)
+	view.hide()
+	view.set_suspended(false)
+	assert_eq(viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "a hidden pane stays stopped after closing the modal")
+	view.show()
+	assert_true(view._scene == scene and view._viewport == viewport, "the same camera and render targets resume")
+	root.remove_child(view)
+	view.free()
+
+
 func test_world_view_fills_its_slot_names_its_cameras_and_stops_behind_a_modal() -> void:
 	var view := WorldView.new()
 	var root := (Engine.get_main_loop() as SceneTree).root
@@ -1817,3 +1844,72 @@ func test_a_pursued_round_takes_a_hit_drawn_at_an_uncertain_plot() -> void:
 	cam.notify("hit", Vector3(9.0, 0.0, 9), "", {"label": "Track 1005"})
 	cam.update(WorldCamera.MIN_SHOT_S + 0.1, Vector2.ZERO, ship, gone)
 	assert_eq(cam.action().get("kind", ""), "hit", "and a hit reported a moment later can still take over")
+
+
+func test_saved_engagement_restores_the_observer_and_underlying_swapped_layout() -> void:
+	var old_root := SaveGame.root_override
+	SaveGame.root_override = "user://test-saved-camera-%d" % Time.get_ticks_usec()
+	var main: Main = preload("res://scenes/main/Main.tscn").instantiate()
+	(Engine.get_main_loop() as SceneTree).root.add_child(main)
+	main.start_scenario("res://data/scenarios/training_missile_defence.json")
+	main._on_briefing_start()
+	SimClock.set_paused(true)
+	var view := main._world_view
+	main._swap_views()
+	main._toggle_world_full()
+	# The synchronous suite does not yield a frame for the parent containers' layout.
+	view.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	view.size = Vector2(640, 360)
+	view.set_orbit(127.0, 34.0, 0.65)
+	view.set_camera_mode(WorldCamera.DETACHED)
+	view._process(0.016)
+	var saved := view.capture_camera_view()
+	assert_true(saved.has("eye_chart"), "the detached observer has taken its station")
+	assert_eq(main.save_engagement("camera", "manual", "Observer"), "")
+	var path := SaveGame.slot_path("camera")
+	main._toggle_world_full()
+	main._swap_views()
+	view.set_camera_mode(WorldCamera.TETHER)
+	view.set_orbit(240.0, 15.0, 2.0)
+	assert_eq(main.load_engagement(path), "")
+	view._process(0.016)
+	assert_eq(view.capture_camera_view(), saved, "mode, orbit, zoom and fixed chart eye survive a real save")
+	assert_eq(view._camera_select.selected, WorldCamera.DETACHED)
+	assert_true(main._world_full and main._views_swapped and not main.map.visible, "full observer layout restored")
+	main._toggle_world_full()
+	assert_true(main._views_swapped and view.get_parent() == main._upper and main.map.visible, "Back returns to the swapped chart")
+
+	# Earlier engagements carry no observer snapshot. Their established behaviour is to open
+	# on the chart and keep the local session's camera preferences.
+	var legacy := SaveGame.read(path)
+	for key in ["camera", "world_full", "views_swapped"]:
+		legacy.payload.presentation.erase(key)
+	assert_eq(SaveGame.write(path, legacy.header, legacy.payload), "")
+	view.set_camera_mode(WorldCamera.ACTION)
+	view.set_orbit(221.0, 43.0, 0.9)
+	assert_eq(main.load_engagement(path), "")
+	assert_true(not main._world_full and not main._views_swapped and main.map.visible)
+	assert_eq(view.camera_mode(), WorldCamera.ACTION)
+	assert_eq(view.rig.orbit_az, 221.0)
+	assert_eq(view.rig.zoom, 0.9)
+	DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute(SaveGame.root_override)
+	SaveGame.root_override = old_root
+	main.free()
+
+
+func test_fixed_flyby_station_requires_the_same_subject_in_the_restored_picture() -> void:
+	var frame := {"position": Vector3.ZERO, "length": 90.0, "heading": 40.0, "domain": "surface"}
+	var rig := WorldCamera.new()
+	rig.set_mode(WorldCamera.FLYBY)
+	rig.update(0.016, Vector2(40.0, 16.0), frame, Callable())
+	var saved := rig.capture_view("u:17")
+	assert_true(saved.has("eye_chart") and saved.has("station_range_m"))
+	rig.reset()
+	rig.restore_station(saved, "u:17")
+	assert_eq(rig.capture_view("u:17"), saved, "the matching fly-by keeps its chart coordinates and starting distance")
+	rig.reset()
+	rig.restore_station(saved, "force")
+	assert_true(not rig.capture_view("force").has("eye_chart"), "a fallback subject receives a fresh camera station")
+	rig.update(0.016, Vector2(-60.0, 23.0), frame, Callable())
+	assert_true(rig.capture_view("force").get("eye_chart") != saved.get("eye_chart"))

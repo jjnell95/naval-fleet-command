@@ -23,7 +23,7 @@ var _prev_btn: Button
 var _next_btn: Button
 var _rows: Array = []
 var _accum := REFRESH_S
-var _shown_selection: Track
+var _shown_selection_id := 0
 
 
 func _ready() -> void:
@@ -113,6 +113,8 @@ func _ready() -> void:
 	board.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	lower.add_child(board)
 	_sync_nav_buttons()
+	visibility_changed.connect(_sync_visibility)
+	_sync_visibility()
 
 
 func _nav_button(text: String, tip: String, action: Callable) -> Button:
@@ -140,11 +142,11 @@ func _sync_nav_buttons() -> void:
 
 
 func visible_track_count() -> int:
-	return _rows.size()
+	return _filtered_tracks().size()
 
 
 func plotted_track_count() -> int:
-	return _rows.filter(_plotted_on_chart).size()
+	return _filtered_tracks().filter(_plotted_on_chart).size()
 
 
 func _plotted_on_chart(track: Track) -> bool:
@@ -152,7 +154,21 @@ func _plotted_on_chart(track: Track) -> bool:
 
 
 func visible_tracks() -> Array:
-	return _rows.duplicate()
+	var tracks := _filtered_tracks().duplicate()
+	var ref := _reference_unit()
+	tracks.sort_custom(func(a: Track, b: Track) -> bool: return TacticalMap._track_precedes(a, b, ref))
+	return tracks
+
+
+## Chart shortcuts and palette counts read the current reports even while this board is closed.
+func _filtered_tracks() -> Array:
+	if track_manager == null:
+		return []
+	var tracks := map._visible_tracks() if map != null else track_manager.get_tracks(player_faction)
+	if _filter == "ALL":
+		return tracks
+	var domain: String = {"AIR": "air", "SURF": "surface", "SUB": "subsurface"}[_filter]
+	return tracks.filter(func(t: Track) -> bool: return t.domain == domain or (domain == "surface" and t.domain == "land"))
 
 
 ## The file's arrows inspect every row in the domain filter. Chart shortcuts skip hidden
@@ -160,13 +176,13 @@ func visible_tracks() -> Array:
 func cycle_visible_track(step: int, browse_file := false) -> Track:
 	if map == null:
 		return null
-	refresh()
-	var index := _rows.find(map.selected_track)
+	var tracks := visible_tracks()
+	var index := tracks.find(map.selected_track)
 	if index < 0:
 		index = 0 if step < 0 else -1
-	for i in _rows.size():
-		index = posmod(index + step, _rows.size())
-		var next := _rows[index] as Track
+	for i in tracks.size():
+		index = posmod(index + step, tracks.size())
+		var next := tracks[index] as Track
 		var plotted := _plotted_on_chart(next)
 		if not browse_file and not plotted:
 			continue
@@ -174,14 +190,16 @@ func cycle_visible_track(step: int, browse_file := false) -> Track:
 		map.select_track(next)
 		if plotted:
 			map.center_on(next.position)
-		refresh()
-		call_deferred("_ensure_selected_visible")
+		if is_visible_in_tree():
+			if _shown_selection_id != next.get_instance_id() or _rows != tracks:
+				refresh()
+			call_deferred("_ensure_selected_visible")
 		return next
 	return null
 
 
 func _ensure_selected_visible() -> void:
-	if _list == null or map == null:
+	if _list == null or map == null or not is_visible_in_tree():
 		return
 	var index := _rows.find(map.selected_track)
 	if index >= 0:
@@ -207,17 +225,24 @@ func _process(delta: float) -> void:
 		refresh()
 
 
+func _sync_visibility() -> void:
+	set_process(is_visible_in_tree())
+	if is_visible_in_tree():
+		_accum = 0.0
+		refresh()
+	else:
+		# Closed boards can span scenario changes. Keep scroll and row text without retaining old reports.
+		_rows.clear()
+
+
 func refresh() -> void:
-	if track_manager == null:
+	if track_manager == null or not is_visible_in_tree():
 		return
 	var now := SimClock.sim_time
 	var ref := _reference_unit()
-	var tracks: Array = map.priority_tracks() if map != null else (track_manager.tracks_for(ref) if ref != null else track_manager.get_tracks(player_faction)).duplicate()
-	if _filter != "ALL":
-		var domain: String = {"AIR": "air", "SURF": "surface", "SUB": "subsurface"}[_filter]
-		tracks = tracks.filter(func(t: Track) -> bool: return t.domain == domain or (domain == "surface" and t.domain == "land"))
-	if map == null:
-		tracks.sort_custom(func(a: Track, b: Track) -> bool: return TacticalMap._track_precedes(a, b, ref))
+	var tracks := visible_tracks()
+	var order_changed := tracks != _rows
+	var rebuild_rows := tracks.size() != _list.item_count
 	_rows = tracks
 	var hostile := 0
 	var unknown := 0
@@ -232,8 +257,11 @@ func refresh() -> void:
 	_header.text = "%d contact%s" % [tracks.size(), "" if tracks.size() == 1 else "s"]
 	_summary.text = "%d hostile · %d unknown · %d stale" % [hostile, unknown, stale]
 	var scroll := _list.get_v_scroll_bar().value
-	var selection_changed := map != null and map.selected_track != _shown_selection
-	_list.clear_rows()
+	var selected := map.selected_track if map != null else null
+	var selected_id := selected.get_instance_id() if selected != null else 0
+	var selection_changed := selected_id != _shown_selection_id
+	if rebuild_rows:
+		_list.clear_rows()
 	var sel_idx := -1
 	for i in tracks.size():
 		var t: Track = tracks[i]
@@ -254,20 +282,27 @@ func refresh() -> void:
 		var col := map.track_color(t) if map != null else TacticalMap.COL_UNKNOWN
 		if t.status == Track.Status.STALE:
 			col.a = 0.6
-		_list.add_row(title, detail, col)
-		_list.set_item_tooltip(i, title + "\n" + detail + "\n" + t.identity)
-		if map != null and map.selected_track == t:
-			sel_idx = i
-	if sel_idx >= 0:
-		_list.select(sel_idx)
-		if selection_changed:
-			call_deferred("_ensure_selected_visible")
+		if rebuild_rows:
+			_list.add_row(title, detail, col)
 		else:
-			_list.get_v_scroll_bar().set_deferred("value", scroll)
-	else:
+			_list.set_row(i, title, detail, col)
+		var tip := title + "\n" + detail + "\n" + t.identity
+		if _list.get_item_tooltip(i) != tip:
+			_list.set_item_tooltip(i, tip)
+		if selected == t:
+			sel_idx = i
+	if sel_idx >= 0 and not _list.is_selected(sel_idx):
+		_list.select(sel_idx)
+	elif sel_idx < 0 and _list.is_anything_selected():
+		_list.deselect_all()
+	if sel_idx >= 0 and selection_changed:
+		call_deferred("_ensure_selected_visible")
+	elif order_changed:
 		_list.get_v_scroll_bar().set_deferred("value", scroll)
-	_shown_selection = map.selected_track if map != null else null
-	_detail.text = _detail_text(map.selected_track if map != null else null, ref, now)
+	_shown_selection_id = selected_id
+	var detail_text := _detail_text(selected, ref, now)
+	if _detail.text != detail_text:
+		_detail.text = detail_text
 	_sync_nav_buttons()
 
 

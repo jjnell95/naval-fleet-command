@@ -11,6 +11,15 @@ var _font: Font
 func _ready() -> void:
 	_font = UITheme.body_font()
 	tooltip_text = "Detected inbound weapons only. Channel load counts anti-aircraft and missile interception engagements. Magazine counts are rounds, not VLS cells. Emissions and damage affect readiness."
+	visibility_changed.connect(_sync_visibility)
+	_sync_visibility()
+
+
+func _sync_visibility() -> void:
+	set_process(is_visible_in_tree())
+	if is_visible_in_tree():
+		_timer = 0.0
+		queue_redraw()
 
 
 func _process(delta: float) -> void:

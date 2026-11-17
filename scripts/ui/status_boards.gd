@@ -5,9 +5,8 @@ extends PanelContainer
 ## and event log, the track file with the air-defence board, and the comms history. The game keeps
 ## running while they are open; they are a window onto the watch, not a pause screen.
 ##
-## The panels themselves are the same ones the deck has always used, re-hosted here. They keep
-## refreshing while hidden where other controls depend on them (the track file's filtered rows
-## drive N and Shift+N).
+## The Track File renders when its tab is visible. Chart shortcuts and palette counts read its
+## filtered reports directly while the boards are closed.
 
 signal closed
 ## The comms history came on screen, by any route: the lamp, A, or a click on the COMMS tab.
@@ -89,8 +88,8 @@ func finish_boards() -> void:
 
 
 func open_board(board: int) -> void:
-	show()
 	_tabs.current_tab = clampi(board, 0, _tabs.get_tab_count() - 1)
+	show()
 
 
 func toggle(board := -1) -> void:

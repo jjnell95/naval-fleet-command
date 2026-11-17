@@ -128,3 +128,74 @@ func test_mast_rises_from_the_sail_only_at_observed_periscope_depth() -> void:
 	_apply(r, u)
 	assert_true(not (r["node"].get_node("OperationalFittings") as Node3D).visible)
 	r["parent"].free()
+
+
+func test_paused_ship_wake_reuses_the_mesh_until_its_position_detail_or_appearance_changes() -> void:
+	var scene := WorldScene.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(scene)
+	scene.build()
+	scene.paused = true
+	var ship := _unit("cw90_ticonderoga")
+	ship.speed_kn = 18.0
+	var entry := WorldPresentation.own_entry(ship)
+	scene.update(0.016, [entry], entry.key)
+	var wake: MeshInstance3D = scene._records[entry.key].wake
+	var mesh := wake.mesh as ImmediateMesh
+	var uploads: Array[int] = []
+	mesh.changed.connect(func() -> void: uploads.append(1))
+	scene.update(0.016, [entry], entry.key)
+	assert_eq(uploads.size(), 0, "an idle wake stays on the renderer")
+	var near_vertices := mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array
+	scene.camera.position = Vector3(18000.0, 200.0, 0.0)
+	scene.update(0.016, [entry], entry.key)
+	var far_vertices := mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array
+	assert_true(far_vertices.size() < near_vertices.size(), "moving the camera out restores the coarse wake")
+	scene.origin_nm = Vector2(3.0, 0.0)
+	scene.update(0.016, [entry], entry.key)
+	var shifted_vertices := mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array
+	assert_near(shifted_vertices[0].x - far_vertices[0].x, -3.0 * WorldPresentation.NM_TO_M, 0.1)
+	scene.daylight = 0.1
+	scene.update(0.016, [entry], entry.key)
+	assert_eq(uploads.size(), 3, "changing the daylight recolors the wake")
+	ship.speed_kn = 0.0
+	scene.update(0.016, [entry], entry.key)
+	assert_true(not wake.visible)
+	ship.speed_kn = 18.0
+	scene.update(0.016, [entry], entry.key)
+	assert_true(wake.visible, "resuming motion at the same paused time restores the foam")
+	scene.paused = false
+	scene.sim_now = 2.0
+	scene.update(0.016, [entry], entry.key)
+	assert_eq(uploads.size(), 5, "the wake follows the advancing simulation again")
+	scene.free()
+
+
+func test_paused_smoke_reuses_its_ribbon_and_still_turns_to_the_eye_and_fades_on_resume() -> void:
+	var effects := WorldEffects.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(effects)
+	effects.rate = 0.0
+	effects.eye = Vector3(200.0, 25.0, 30.0)
+	effects.trail_extend("visible", Vector2(0.0, 0.4), 20.0, 30.0, PackedVector3Array([Vector3(0.0, 0.0, 20.0)]))
+	effects.draw_trails()
+	var mesh: ImmediateMesh = effects._trails.visible.mi.mesh
+	var uploads: Array[int] = []
+	mesh.changed.connect(func() -> void: uploads.append(1))
+	effects.tick(0.016)
+	effects.draw_trails()
+	assert_eq(uploads.size(), 0, "an unchanged paused ribbon stays on the renderer")
+	var original := mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array
+	effects.eye = Vector3(20.0, 175.0, 30.0)
+	effects.draw_trails()
+	var rotated := mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array
+	assert_true(rotated != original, "smoke still faces a new camera position while paused")
+	effects.trail_extend("visible", Vector2(0.0, 0.41), 25.0, 30.0)
+	effects.draw_trails()
+	assert_eq(uploads.size(), 2, "moving the ribbon head by less than one sample updates the geometry")
+	effects.trail_release("visible")
+	effects.draw_trails()
+	assert_eq(uploads.size(), 3, "releasing the head changes the displayed ribbon immediately")
+	effects.rate = 1.0
+	effects.tick(WorldEffects.TRAIL_LIFE_S + 1.0)
+	effects.draw_trails()
+	assert_true(not effects.has_trail("visible"), "released smoke expires once the clock resumes")
+	effects.free()

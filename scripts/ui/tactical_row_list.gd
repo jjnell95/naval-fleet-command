@@ -43,6 +43,17 @@ func add_row(title: String, detail: String, color := Color.TRANSPARENT, badge :=
 	add_item(title + " · " + detail, _spacer)
 
 
+## Changing a live row in place keeps the native selection, search and scroll position.
+func set_row(index: int, title: String, detail: String, color: Color) -> void:
+	if row_titles[index] != title or row_details[index] != detail:
+		row_titles[index] = title
+		row_details[index] = detail
+		set_item_text(index, title + " · " + detail)
+	if row_colors[index] != color:
+		row_colors[index] = color
+		queue_redraw()
+
+
 func clear_rows() -> void:
 	clear()
 	row_titles.clear()

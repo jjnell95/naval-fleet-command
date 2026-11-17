@@ -47,6 +47,7 @@ static var _class_platforms: Dictionary = {}
 static var _graphics: Dictionary = {}  # "platform@px" -> Texture2D or null
 static var _prep_frame := -1
 static var _prep_usec := 0
+static var deferred_graphics_frame := -1
 
 
 static func frame_for_identity(identity: String) -> Frame:
@@ -291,6 +292,7 @@ static func graphic_texture_in_budget(platform_id: String, length_px: float) -> 
 		_prep_frame = frame
 		_prep_usec = 0
 	elif _prep_usec >= GRAPHIC_PREP_BUDGET_USEC:
+		deferred_graphics_frame = frame
 		return null
 	var t0 := Time.get_ticks_usec()
 	var tex := graphic_texture(platform_id, length_px)
