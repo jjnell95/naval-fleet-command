@@ -25,8 +25,10 @@ const PLANS := {
 	"med_01_tartus": ["direct_transit", "screen_first"],
 }
 ## A trial that has not ended by the operation's own watch or deadline, plus a margin, stops there.
+## Carrier Watch also needs an aircraft recovered after a sortie, and a CAP kept up with reliefs
+## for the whole watch lands its first section after it, so its margin is half an hour.
 const CAP_S := {
-	"cold_war_01_convoy": 10860.0, "cold_war_02_barrier": 10860.0, "cold_war_03_carrier": 7260.0,
+	"cold_war_01_convoy": 10860.0, "cold_war_02_barrier": 10860.0, "cold_war_03_carrier": 9000.0,
 	"aegis_bastion": 14460.0, "pacific_02_taiwan_strait": 18060.0, "gulf_01_hormuz": 36060.0,
 	"med_01_tartus": 30000.0,
 }
@@ -270,6 +272,17 @@ func _step() -> void:
 			for t in _reports():
 				if _once("viking_to_report"):
 					_air(EISENHOWER, AirMission.Kind.RECON, "cw90_s3a", 1, t.position, 15.0)
+			# A contact the plot already holds gets no report datum (TrackManager.report_intel), and
+			# the Hawkeye usually has the cruiser on radar before the Norwegian report is read out.
+			# Then the Viking looks at the nearest surface contact nobody has identified.
+			if sim.director.fired.has("cruiser_report") and not _done.has("viking_to_report"):
+				var nearest: Track = null
+				for t: Track in sim.track_manager.get_tracks(player):
+					if t.domain == "surface" and t.status == Track.Status.ACTIVE and t.identity == "UNKNOWN" and not t.is_bearing_only():
+						if nearest == null or _origin.distance_to(t.position) < _origin.distance_to(nearest.position):
+							nearest = t
+				if nearest != null and _once("viking_to_report"):
+					_air(EISENHOWER, AirMission.Kind.RECON, "cw90_s3a", 1, nearest.position, 15.0)
 			_strike(EISENHOWER, "cw90_a6e", 4, func(t: Track) -> bool: return t.domain == "surface", 4)
 			if now >= 1800.0 and _once("second_cap"):
 				_air(EISENHOWER, AirMission.Kind.CAP, "cw90_f14a", 4, _origin + Vector2(25.0, 5.0), 15.0, null, true)

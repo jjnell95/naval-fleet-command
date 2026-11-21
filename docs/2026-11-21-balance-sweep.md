@@ -64,10 +64,31 @@ The trace of that trial shows two more things about the harness plan, neither se
 
 Whether those are the harness falling behind the reworked scenario or the game refusing orders a player could give was not determined.
 
+## Carrier Watch, repaired the same day
+
+The cause was in the harness, not the game. Two changes to `tools/opening_plans_run.gd`, no change to the simulation or the scenario:
+
+- **The strike.** The plan sent its Viking only to a contact report, and struck only a surface contact already called hostile. But `TrackManager.report_intel` leaves alone a contact the plot already holds, and the Hawkeye has Slava on radar as an unidentified surface contact by 300 s, before the Norwegian report at 647 s. So no report datum ever appeared, nothing identified the cruiser, and she stayed UNKNOWN for the whole watch while firing sixteen Bazalts. The plan now does what the tasking update tells a commander to do: once the report has been read out, the Viking goes to the nearest unidentified surface contact. She is identified, and four Intruders launch.
+- **The cap.** Carrier Watch stops at 9,000 s, not 7,260 s, so an all-CAP watch has time to land its first section and meet the recovery objective.
+
+| Plan | Seed | Before | After |
+|---|---|---|---|
+| all_cap | 2 | RUNNING, 49% | VICTORY, 79%, at 7,866 s |
+| all_cap | 13 | RUNNING, 47% | VICTORY, 77%, at 7,866 s |
+| strike_slava | 2 | RUNNING, 49% | VICTORY, 100%, Slava sunk |
+| strike_slava | 13 | RUNNING, 47% | VICTORY, 98%, Slava sunk, one aircraft lost |
+
+These are close to M36's figures for the operation (77% and 78%; 92% and 100%). In the seed 2 strike, eight Harpoons were fired and four hit.
+
+Two things a player would meet that the harness had hidden, left as they are:
+
+- When the cruiser is already on the plot, the tasking update names her and gives a position, but nothing on the chart ties that message to the unidentified track beside it. That is `report_intel` working as written. Whether the held track should be marked as the subject of the report is a design question.
+- The Tomcats never engage a Backfire. Each bomber releases its Kh-22 from outside the CAP stations the plan chose and turns away. Not investigated.
+
 ## Not done
 
 - Finding the M40 to M42 change behind the Northern Convoy defeat.
-- Fixing the Carrier Watch plan: either a longer cap or, closer to what a commander would do, recalling an aircraft before the watch ends; and finding why the strike and the Viking never launch.
+- Re-flying the other six operations after the harness change. It touches only the Carrier Watch plan and cap, so their results stand.
 - More than two seeds. Every claim here rests on seeds 2 and 13.
 
 ## Evidence

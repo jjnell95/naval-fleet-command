@@ -23,9 +23,9 @@ Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is n
 
 Stack pickers for overlapping symbols, roster search, Show on Chart and Locate with back and forward, clearer fleet and defence boards, kills as held reports, a starting distance and working victory settings for custom fleets, F7 on whatever is displayed, four rebuilt recognition models, less rendering work per frame, and saved views. Preceded by the unnumbered [command bug review](docs/2026-11-14-command-bug-review.md) and [audio](docs/2026-11-14-audio.md) merges of 14 November. See [the M43 note](docs/2026-11-17-commanding-a-large-fleet.md).
 
-The [balance sweep of 21 November](docs/2026-11-21-balance-sweep.md) found the 14 to 17 November work moved no operation by more than two points. It also found two things from before M43: Northern Convoy's close escort loses on seed 2 since #42, and the sweep's Carrier Watch plan stops before the operation can be won and never flies its strike.
+The [balance sweep of 21 November](docs/2026-11-21-balance-sweep.md) found the 14 to 17 November work moved no operation by more than two points. It also found two things from before M43: Northern Convoy's close escort loses on seed 2 since #42, and the sweep's Carrier Watch plan stopped before the operation could be won and never flew its strike. The plan was repaired the same day and Carrier Watch wins all four trials, 77% to 100%.
 
-Next: find the M40 to M42 change behind the Northern Convoy defeat; repair the Carrier Watch plan in `tools/opening_plans_run.gd`; then the M42 follow-ups: baffle the torpedo warning and the coverage shading, give the player a clear-baffles order, and have AI escorts zigzag. Measure a large fleet's frame time.
+Next: find the M40 to M42 change behind the Northern Convoy defeat; then the M42 follow-ups: baffle the torpedo warning and the coverage shading, give the player a clear-baffles order, and have AI escorts zigzag. Measure a large fleet's frame time.
 
 ## M42 Ships against the light, fire, and the baffles
 
