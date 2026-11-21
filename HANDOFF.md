@@ -1,6 +1,16 @@
 # Handoff
 
-Latest: M42, [ships against the light, fire, and the baffles](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+Latest: M43, [commanding a large fleet](docs/2026-11-17-commanding-a-large-fleet.md). Written up after the fact from the diffs; no sweep was run.
+- **Kills.** `Track.confirmed_destroyed` is the only test for a dead contact: `Combat.check_engagement` (TARGET DESTROYED), standing attacks, `AirMissionManager`, `AirDefence` and `AIController` all read it. Do not test `damage_estimate >= 100`; hit estimates stop at 99. `TrackManager` sets it only on an ACTIVE track that is not bearing-only and not `reported`, holds the track through the destruction event, then retires it without `track_lost`.
+- **Picking.** `TacticalMap._symbols_at_click`, `_contacts_at_click`, `choose_plotted_symbol`, `choose_plotted_contact`; `SYMBOL_PICK_MARGIN_PX` and `CONTACT_PICK_MARGIN_PX` (4 px) decide a direct click from a stack. Menus come from `CdsMenus.symbol_stack_items` and `contact_stack_items`. `WorldScene.pick_entry` is the 3D pick; `_land_hides_pick` blocks it.
+- **Chart view.** `TacticalMap.chart_view`, `restore_chart_view`, `revisit_chart_view(forward)`, `CHART_HISTORY_LIMIT` (16). `fit_to(center, extent, remember)` records a jump; `fit_initial_view` does not. `Main._show_chart_location` is the one entry point for Locate and Show on Chart.
+- **Locate.** `RadioNet.flash` and `StatusBoards.add_message` take a `reported_position`; signals `report_located`, `track_located` (`ContactPanel`) and `unit_located` (`FleetRoster`). `FleetRoster.filter_by` and `focus_results` are the search.
+- **Idle drawing.** `TacticalMap.IDLE_REFRESH_S` (0.1): the chart redraws on a sim tick, a view change or a live animation, else at 10 Hz. A new chart animation must be added to that condition or it will stutter. Boards use `_sync_visibility` and do not rebuild while hidden; a test that reads a hidden board's rows must show it first.
+- **Observer.** `WorldView._build_observer` builds the 3D world when the pane is first shown, not at startup. `capture_camera_view` and `restore_camera_view`, with `WorldCamera.capture_view` and `restore_station`, carry the camera through a save.
+- **Workshop.** `ScenarioWorkshop.CLOSE_SEPARATION_NM` (12), `WIDE_SEPARATION_NM` (140), `STANDARD_FLEET_OFFSET`; the recipe key is `opening_separation_nm` and its absence means the old start.
+- **Reference.** `PlatformSpec.recognition_note`; `DataDB.platforms_by_short_name`; `PlatformLibrary.inspect_track` and `basing_options`; `ModelStage.spin_changed`. The MH-60R and Tu-142 are built in `tools/art/build_air_subs.py`, the trawler and Maud in `tools/art/build_models.py`.
+
+Previously: M42, [ships against the light, fire, and the baffles](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
 - **Hull lighting.** `world_sun_dir` is a new global shader parameter (declared in `project.godot`, set in `WorldScene.set_time_of_day`; w is the twilight factor). `SKY_AZIMUTH_CONTRAST` in `world_hull.gdshader`.
 - **Effects.** `_flame_ramp` and `_black_ramp` in `world_effects.gd`; `_black_ramp` multiplies the emitter colour and runs above one. It is shared by the fire column and two other black-smoke emitters.
 - **Ocean.** Wave trains fade between 0.12 and 0.5 wavelengths per pixel; the swell slope also fades with footprint.
