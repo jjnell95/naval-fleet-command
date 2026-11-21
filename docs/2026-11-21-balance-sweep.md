@@ -37,7 +37,7 @@ The sweep [M43](2026-11-17-commanding-a-large-fleet.md) skipped, and the first f
 | Tartus | screen_first | 2 | VICTORY, 81% | VICTORY, 83% |
 | Tartus | screen_first | 13 | VICTORY, 81% | VICTORY, 82% |
 
-**The 14 to 17 November work did not unbalance anything.** No trial moved by more than two points of effectiveness, with one exception that improved: Iceland–Faroe Barrier, gate defence, seed 13. At M42 the Victor III sank USS Dallas; now Spruance's second attack sinks the Victor. Hormuz is within a point of the M42 note's figures on all four trials.
+**The 14 to 17 November work did not unbalance anything.** No trial moved by more than two points of effectiveness, with one exception that improved: Iceland–Faroe Barrier, gate defence, seed 13. At M42 USS Dallas was lost and the trial was a defeat at 33%; now the Victor III is sunk and Dallas survives. Hormuz is within a point of the M42 note's figures on all four trials.
 
 Six operations have two openings that win on both seeds, once Carrier Watch is read correctly (below). Northern Convoy does not.
 
@@ -53,7 +53,7 @@ Both were invisible because M37 to M42 re-flew only Hormuz.
 | `59b96c7` (#37) to `ce5333b` (#41) | VICTORY, 93% |
 | `58439ee` (#42) and `main` | DEFEAT, 23% |
 
-Up to #41 the escorts' order log shows the plan attacking a second corvette; from #42 it shows one attack and the merchant lost at 6,402 s. Which of the M40 to M42 changes is responsible was not determined. One seed of one plan is thin evidence of a balance problem, but it is a 70-point swing on a scripted opening and the other three Northern Convoy trials did not move.
+From #37 to #41 the escorts sink both corvettes. From #42 the order log shows a single attack on the first, one corvette sunk, and the merchant lost at 6,402 s. Which of the M40 to M42 changes is responsible was not determined. One seed of one plan is thin evidence of a balance problem, but it is a 70-point swing on a scripted opening and the other three Northern Convoy trials did not move.
 
 **Carrier Watch reads RUNNING in the sweep, and that is the harness.** #36 added a second victory condition, recovering at least one aircraft after a sortie, and `opening_plans_run.gd` still stops the trial at 7,260 s. The plan keeps its CAP up with reliefs and nothing lands in time. With `--cap=12000` the same trial (strike Slava, seed 2) is a VICTORY at 79%, ending at 7,866 s when the first aircraft recovers. All four trials have read RUNNING at 47% to 49% since #36.
 
