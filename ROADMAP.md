@@ -19,11 +19,15 @@
 Initial platforms (M1–M5 only): Arleigh Burke DDG, Fridtjof Nansen FFG, Admiral Gorshkov FFG,
 Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is needed.
 
+## M43 Commanding a large fleet
+
+Stack pickers for overlapping symbols, roster search, Show on Chart and Locate with back and forward, clearer fleet and defence boards, kills as held reports, a starting distance and working victory settings for custom fleets, F7 on whatever is displayed, four rebuilt recognition models, less rendering work per frame, and saved views. Preceded by the unnumbered [command bug review](docs/2026-11-14-command-bug-review.md) and [audio](docs/2026-11-14-audio.md) merges of 14 November. See [the M43 note](docs/2026-11-17-commanding-a-large-fleet.md).
+
+Next: run the balance sweep M43 skipped, across all seven operations; then the M42 follow-ups: baffle the torpedo warning and the coverage shading, give the player a clear-baffles order, and have AI escorts zigzag. Measure a large fleet's frame time.
+
 ## M42 Ships against the light, fire, and the baffles
 
 Hull lighting that keeps a ship's shape on its shadowed side, relit fire and smoke, no banding on the sea; sonar baffles with a chart display and AI captains who clear them; Hormuz re-flown and unchanged. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
-
-Next: sweep the other six operations, baffle the torpedo warning and the coverage shading, give the player a clear-baffles order, and have AI escorts zigzag.
 
 ## M41 A softer horizon, a dark night and holds that fit
 

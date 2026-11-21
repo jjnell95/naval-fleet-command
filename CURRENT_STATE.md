@@ -1,4 +1,10 @@
-# Current State: M42 Ships against the light, fire, and the baffles
+# Current State: M43 Commanding a large fleet
+
+A custom fleet of forty or fifty hulls a side can now be commanded without fighting the screen. A click on overlapping symbols offers a list of callsigns and track numbers; Task Group searches the roster; the Track File, Air Operations and each comms report can show their subject on the chart, and `[` and `]` step back and forward through those jumps. Fleet Operations says whether orders go to one escort or the whole group and shows the real missile-defence mode. A kill is now a held report (`Track.confirmed_destroyed`), set only on a picture with a current fix, and no longer inferred from a 100% damage estimate. Fleet Builder sets the starting distance, and a custom victory uses the edited opponent and threshold. F7 follows the data display; four recognition models were rebuilt. The chart and the 3D view do less work per frame, and a saved engagement restores the chart view, selection, camera and pane layout. No balance sweep was run. See [the M43 note](docs/2026-11-17-commanding-a-large-fleet.md).
+
+Between M42 and M43, two reviews merged on 14 November without a milestone number: the [command and combat bug review](docs/2026-11-14-command-bug-review.md) (attack lifecycle and contact handling) and [crew radio and sound effects](docs/2026-11-14-audio.md) (76 recorded radio performances replacing device text-to-speech).
+
+# Previous: M42 Ships against the light, fire, and the baffles
 
 A ship's shadowed side now keeps its shape against the light; fire has a hot base under orange and red tongues and smoke that is lit from below and thins as it rises; the banding across the sea's middle distance is gone. A hull-mounted sonar is deaf within 30° of dead astern, the chart shows the gap, and the AI's submarine captains clear their baffles every fifteen minutes. Hormuz was re-flown on both opening plans and two seeds and came out within two points of `main`. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
 
