@@ -686,18 +686,21 @@ func test_an_attack_with_no_clear_water_in_reach_ends_instead_of_steering_at_the
 	h.free_all()
 
 
-func test_a_hull_pressed_against_a_coast_on_its_way_to_fire_gives_the_attack_back() -> void:
+func test_a_hull_with_a_bar_of_land_across_its_way_to_fire_sails_round_it() -> void:
 	var ship := _unit("BLUE", Vector2.ZERO, 100.0, [_asm(60.0)])
 	var target := _unit("RED", Vector2(0, 100), 800.0)
 	var h := _harness([ship, target])
 	_land([[-60, 8], [60, 8], [60, 10], [-60, 10]])
 	assert_true(h.um.issue_order(ship, Order.attack(_track(target))))
 	assert_true(ship.has_route(), "she sets off for her firing point")
-	# She runs onto the bar that lies across the leg: engines turning, a route, and no way made.
-	assert_true(h.until(func() -> bool: return not h.ended.is_empty(), 3600.0), "the attack does not stay open for ever with her aground")
-	assert_true(str(h.ended[0][2]).begins_with("Cannot engage"), str(h.ended[0][2]))
-	assert_true(h.now < 1800.0 + UnitManager.ATTACK_STALL_S, "within minutes of stopping (ended at %.0f s)" % h.now)
-	assert_eq(ship.attack_rounds_fired, 0)
+	assert_true(ship.waypoints.size() > 1, "by the way round the bar that lies across the straight leg")
+	# She is never held against it: she keeps her way on all the way round, and fires.
+	var slowest := [INF]
+	assert_true(h.until(func() -> bool: return ship.attack_rounds_fired > 0, 6.0 * 3600.0, func() -> void:
+		if h.now > 120.0:
+			slowest[0] = minf(slowest[0], ship.speed_kn)), "she gets round it and fires")
+	assert_true(h.ended.is_empty(), "the attack was never given back as a stall")
+	assert_true(slowest[0] > 10.0, "and she was never stopped by the coast (slowest %.1f kn)" % slowest[0])
 	Terrain.clear()
 	h.free_all()
 

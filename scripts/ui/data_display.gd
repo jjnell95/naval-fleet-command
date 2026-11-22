@@ -404,6 +404,9 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null, group_att
 		return "Patrol circuit (%d legs sailed)" % u.patrol_legs_completed
 	if not u.waypoints.is_empty():
 		return "Transit (%d wpt%s)" % [u.waypoints.size(), "" if u.waypoints.size() == 1 else "s"]
+	# Stopped against a coast: why she is not moving comes before where she belongs.
+	if u.coast_blocked:
+		return "Blocked by coast" + _off_station_hint(u)
 	if u.has_station():
 		return "Off station" + _off_station_hint(u)
 	if u.station_note != "":
