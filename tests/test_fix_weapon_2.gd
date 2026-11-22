@@ -395,3 +395,144 @@ func test_a_consort_on_weapons_hold_covers_the_ship_beside_it() -> void:
 	assert_eq(round.dead_reason, "INTERCEPTED")
 	assert_near(merchant.health, 100.0, 1e-3)
 	_cleanup(h)
+
+
+# --- Manual missile defence: self-defence weapons fire, area missiles wait for the commander ------
+
+func _manual(ship: Unit, h: Array) -> void:
+	assert_true(h[0].issue_order(ship, Order.set_air_defence_mode(false)))
+
+
+func test_on_manual_defence_the_point_missiles_and_guns_fire_unordered() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, [_sam("area", 60.0, 1.0), _sam("point", 10.0, 1.0), _sam("gun", 1.2, 1.0, "ciws")])
+	var h := _harness([ship])
+	_manual(ship, h)
+	var log := _watch(h[2])
+	var round := _incoming(h[2], _asm(), Vector2(0, 40), ship)
+	_run(h, 400.0)
+	assert_eq(_count(log, "area"), 0, "the area missile waits for the commander")
+	assert_true(_count(log, "point") > 0, "the point-defence missile is the crew's to fire")
+	assert_eq(round.dead_reason, "INTERCEPTED")
+	assert_near(ship.health, 100.0, 1e-3, "an unordered ship still defends itself")
+	_cleanup(h)
+
+
+func test_on_manual_defence_a_gun_is_all_that_answers_for_a_ship_with_only_area_missiles() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, [_sam("area", 60.0, 1.0), _sam("gun", 1.2, 0.0, "ciws")])
+	var h := _harness([ship])
+	_manual(ship, h)
+	var log := _watch(h[2])
+	_incoming(h[2], _asm(), Vector2(0, 40), ship)
+	_run(h, 400.0)
+	assert_eq(_count(log, "area"), 0, "no area missile leaves unordered")
+	assert_true(_count(log, "gun") > 0, "the gun fires by itself")
+	assert_true(ship.health < 100.0, "and with the gun missing, the round arrives")
+	_cleanup(h)
+
+
+func test_range_decides_which_missiles_are_self_defence() -> void:
+	assert_true(_sam("gun", 1.2, 1.0, "ciws").is_self_defence())
+	assert_true(_sam("point", 10.0, 1.0).is_self_defence())
+	assert_true(not _sam("area", 60.0, 1.0).is_self_defence())
+	var flagged := _sam("flagged", 60.0, 1.0)
+	flagged.defence_layer = "point"
+	assert_true(flagged.is_self_defence(), "the data can say so outright")
+	assert_true(not _asm().is_self_defence(), "an attack weapon never is")
+
+
+# --- Manual missile defence: the intercept order with no round named clears the raid --------------
+
+## A ship on manual defence with only an area missile, a first round held, and the order given.
+func _cleared_for_raid() -> Array:
+	var ship := _ship("BLUE", Vector2.ZERO, [_sam("area", 60.0, 1.0)])
+	var h := _harness([ship])
+	_manual(ship, h)
+	var first := _incoming(h[2], _asm(), Vector2(0, 50), ship, 900)
+	_run(h, 1.0)
+	var result := AirDefence.order_intercept(ship, null, h[0], h[1], h[2], 1.0)
+	assert_eq(int(result["cleared"]), 1, str(result["reason"]))
+	return [ship, h, first]
+
+
+func test_one_intercept_order_covers_the_rounds_of_the_raid_that_arrive_later() -> void:
+	var set := _cleared_for_raid()
+	var ship: Unit = set[0]
+	var h: Array = set[1]
+	var log := _watch(h[2])
+	_run(h, 24.0, null, 1.0)
+	var second := _incoming(h[2], _asm(), Vector2(0, 50), ship, 901)
+	_run(h, 25.0, null, 25.0)
+	var third := _incoming(h[2], _asm(), Vector2(3, 50), ship, 902)
+	_run(h, 500.0, null, 50.0)
+	for round: Weapon in [set[2], second, third]:
+		assert_eq(round.dead_reason, "INTERCEPTED", "round %d is engaged on the one order" % round.id)
+	assert_true(log.any(func(e: Dictionary) -> bool: return e["threat"] == third and e["spec"] == "area"), "the area missile takes the last round too")
+	assert_near(ship.health, 100.0, 1e-3)
+	_cleanup(h)
+
+
+func test_the_clearance_lapses_once_the_sky_has_been_quiet() -> void:
+	var set := _cleared_for_raid()
+	var ship: Unit = set[0]
+	var h: Array = set[1]
+	_run(h, 100.0, null, 1.0)
+	assert_eq((set[2] as Weapon).dead_reason, "INTERCEPTED")
+	assert_true(ship.cleared_for_raid(101.0), "the clearance outlasts the last round by a while")
+	_run(h, AirDefence.RAID_QUIET_S, null, 101.0)
+	var now := 101.0 + AirDefence.RAID_QUIET_S
+	assert_true(not ship.cleared_for_raid(now), "a quiet sky ends it")
+	var log := _watch(h[2])
+	_incoming(h[2], _asm(), Vector2(0, 50), ship, 903)
+	_run(h, 500.0, null, now)
+	assert_eq(log.size(), 0, "the next raid waits for the commander again")
+	assert_true(ship.health < 100.0)
+	_cleanup(h)
+
+
+func test_weapons_hold_withdraws_the_clearance() -> void:
+	var set := _cleared_for_raid()
+	var ship: Unit = set[0]
+	var h: Array = set[1]
+	var first: Weapon = set[2]
+	# Out of reach yet: the order cleared the round and nothing has left.
+	first.position = Vector2(0, 80)
+	ship.roe = Unit.Roe.HOLD
+	_run(h, 2.0, null, 1.0)
+	assert_true(not ship.cleared_for_raid(3.0))
+	assert_true(not first.intercept_cleared.has(ship.id), "the round named goes back to waiting as well")
+	ship.roe = Unit.Roe.FREE
+	var log := _watch(h[2])
+	_run(h, 700.0, null, 3.0)
+	assert_eq(log.size(), 0, "lifting the hold does not release missiles on the old order")
+	_cleanup(h)
+
+
+func test_the_rounds_waiting_on_the_commander_are_counted_until_he_clears_them() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, [_sam("area", 60.0, 1.0), _sam("point", 10.0, 1.0)])
+	var h := _harness([ship])
+	_manual(ship, h)
+	_incoming(h[2], _asm(), Vector2(0, 50), ship, 900)
+	_incoming(h[2], _asm(), Vector2(1, 52), ship, 901)
+	_run(h, 1.0)
+	assert_eq(AirDefence.awaiting_clearance(h[0], h[1], "BLUE").size(), 2, "both rounds wait on the order")
+	assert_eq(AirDefence.awaiting_clearance(h[0], h[1], "RED").size(), 0)
+	AirDefence.order_intercept(ship, null, h[0], h[1], h[2], 1.0)
+	assert_eq(AirDefence.awaiting_clearance(h[0], h[1], "BLUE").size(), 0, "cleared, the prompt goes")
+	_incoming(h[2], _asm(), Vector2(-1, 55), ship, 902)
+	_run(h, 1.0, null, 1.0)
+	assert_eq(AirDefence.awaiting_clearance(h[0], h[1], "BLUE").size(), 0, "a later round of a cleared raid needs no new order")
+	_cleanup(h)
+
+
+func test_a_ship_on_automatic_defence_has_nothing_waiting_on_the_commander() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, [_sam("area", 60.0, 1.0)])
+	var h := _harness([ship])
+	_incoming(h[2], _asm(), Vector2(0, 50), ship, 900)
+	_run(h, 1.0)
+	assert_eq(AirDefence.awaiting_clearance(h[0], h[1], "BLUE").size(), 0)
+	_cleanup(h)
+
+
+func test_the_raid_clearance_is_part_of_a_saved_game() -> void:
+	assert_true(SimSnapshot.script_variables(Unit.new()).has("raid_clearance_until_s"))
+	assert_true(not SimSnapshot.UNIT_SKIP.has("raid_clearance_until_s"))

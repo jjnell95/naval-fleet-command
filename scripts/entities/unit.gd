@@ -898,3 +898,15 @@ func status_line() -> String:
 	if is_aircraft():
 		return base + "  ALT %.0f m  FUEL %.0f%%" % [altitude_m, fuel_fraction() * 100.0]
 	return base
+
+
+# --- Missile defence state ------------------------------------------------------------------------
+
+## Manual missile defence: the simulation time until which the commander's clearance to engage the
+## raid stands (AirDefence.order_intercept with no round named), or -1 with none given. While it
+## stands the ship's area missiles engage inbound rounds as they arrive.
+var raid_clearance_until_s := -1.0
+
+
+func cleared_for_raid(now: float) -> bool:
+	return raid_clearance_until_s >= 0.0 and now <= raid_clearance_until_s

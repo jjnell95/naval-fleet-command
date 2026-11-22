@@ -3,12 +3,14 @@ class_name AirDefence
 ## decides emissions, position and magazines, not individual interception shots.
 ##
 ## A ship on manual missile defence (`Unit.auto_air_defence` off, the Classic option) keeps its
-## area and point SAMs for the rounds the commander orders intercepted (`order_intercept`, which
-## marks them in `Weapon.intercept_cleared`); once cleared, a round is engaged by the same layers,
-## budgets and fire-control channels as automatic defence would use. What stays automatic: the
-## close-in guns, the last-ditch layer a crew fires at whatever leaks through, and chaff and
-## flares, which follow `auto_countermeasures` as before. Torpedo defence is not affected: the
-## option is about missiles.
+## area SAMs for the rounds the commander orders intercepted (`order_intercept`, which marks them
+## in `Weapon.intercept_cleared`); once cleared, a round is engaged by the same layers, limits and
+## fire-control channels as automatic defence would use. An intercept order that names no round is
+## a clearance for the raid: it stands for the rounds that arrive later too, until the sky has been
+## quiet for RAID_QUIET_S or the ship is put on weapons hold. What stays automatic: the ship's
+## self-defence weapons (`WeaponSpec.is_self_defence`: the close-in guns and the point-defence
+## missiles), and chaff and flares, which follow `auto_countermeasures` as before. Torpedo defence
+## is not affected: the option is about missiles.
 ##
 ## Weapons hold stops a ship attacking. It does not stop it defending: interceptors are fired only
 ## at weapons in flight, and a ship on hold fires them at rounds threatening the force as any other
@@ -32,6 +34,9 @@ const SECOND_LOOK_S := 10.0
 ## Rounds of a ballistic-capable missile a ship keeps back from cruise missiles while it has
 ## anything else that can take them. GAMEPLAY_ESTIMATE.
 const BALLISTIC_RESERVE_ROUNDS := 8
+## Seconds with no inbound round held after which a clearance to engage the raid lapses.
+## GAMEPLAY_ESTIMATE.
+const RAID_QUIET_S := 120.0
 const DECOY_RANGE_NM := 2.5
 
 
@@ -160,6 +165,8 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 	for u in unit_manager.units:
 		if not u.is_engageable():
 			continue
+		if u.raid_clearance_until_s >= 0.0 and (now > u.raid_clearance_until_s or u.roe == Unit.Roe.HOLD or u.auto_air_defence):
+			u.raid_clearance_until_s = -1.0
 		if not by_faction.has(u.faction):
 			by_faction[u.faction] = []
 		by_faction[u.faction].append(u)
@@ -184,6 +191,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 		for entry in inbound:
 			if (entry["weapon"] as Weapon).threat_class() == "ballistic":
 				ballistic_held = true
+		_carry_raid_clearances(by_faction[faction], inbound, threat_manager, now)
 		for pass_index in 2:
 			var first_pass := pass_index == 0
 			for entry in inbound:
@@ -308,10 +316,59 @@ static func own_aircraft_in_basket(unit_manager: UnitManager, shooter: Unit, spe
 	return false
 
 
-## Whether this ship's area and point SAMs may engage this round now: always on automatic
-## defence; on manual only once the commander has ordered it intercepted.
-static func engages_guided(u: Unit, w: Weapon) -> bool:
-	return u.auto_air_defence or w.intercept_cleared.has(u.id)
+## Whether this ship may fire this missile at this round now: always on automatic defence, and
+## always a self-defence missile; an area missile on manual defence only once the commander has
+## ordered the round intercepted, and not while the ship is on weapons hold.
+static func engages_guided(u: Unit, w: Weapon, spec: WeaponSpec) -> bool:
+	if u.auto_air_defence or spec.is_self_defence():
+		return true
+	return u.roe != Unit.Roe.HOLD and w.intercept_cleared.has(u.id)
+
+
+## A ship cleared to engage the raid is cleared for every round of it its picture comes to hold,
+## and the clearance stands while rounds keep coming. Weapons hold takes back the clearances a
+## ship was given round by round as well, so lifting it does not release missiles on an old order.
+static func _carry_raid_clearances(force: Array, inbound: Array, threat_manager: ThreatManager, now: float) -> void:
+	for u: Unit in force:
+		if u.roe == Unit.Roe.HOLD and not u.auto_air_defence:
+			for entry: Dictionary in inbound:
+				(entry["weapon"] as Weapon).intercept_cleared.erase(u.id)
+		if u.raid_clearance_until_s < 0.0:
+			continue
+		u.raid_clearance_until_s = now + RAID_QUIET_S
+		for entry: Dictionary in inbound:
+			var w: Weapon = entry["weapon"]
+			if not w.intercept_cleared.has(u.id) and threat_rejection(u, w, threat_manager) == "":
+				w.intercept_cleared.append(u.id)
+
+
+## Inbound rounds an area missile is waiting on the commander for: held by a ship on manual
+## defence that has a missile it may not fire at them unordered, and cleared for none. For the
+## interface, which prompts for the intercept order while there are any.
+static func awaiting_clearance(unit_manager: UnitManager, threat_manager: ThreatManager, faction: String) -> Array[Weapon]:
+	var out: Array[Weapon] = []
+	var manual: Array[Unit] = []
+	for u: Unit in unit_manager.units:
+		if u.faction == faction and u.is_engageable() and not u.auto_air_defence and intercept_rejection(u) == "":
+			manual.append(u)
+	if manual.is_empty():
+		return out
+	for entry: Dictionary in inbound_threats(unit_manager, threat_manager, faction):
+		var w: Weapon = entry["weapon"]
+		if (entry["target"] as Unit).is_aircraft() or not w.intercept_cleared.is_empty():
+			continue
+		for u: Unit in manual:
+			if _waits_for_orders(u, w) and threat_manager.visible_to(u, w):
+				out.append(w)
+				break
+	return out
+
+
+static func _waits_for_orders(u: Unit, w: Weapon) -> bool:
+	for spec: WeaponSpec in u.defensive_weapons():
+		if not spec.is_self_defence() and _can_intercept(spec, w):
+			return true
+	return false
 
 
 ## Why this unit cannot be ordered to intercept, or "": its own state, before any round is named.
@@ -353,10 +410,11 @@ static func threat_rejection(u: Unit, w: Weapon, threat_manager: ThreatManager) 
 
 
 ## The commander's intercept order for one unit: clears it to engage `threat`, or with none named
-## every inbound round its picture holds against the force, and takes the first shot now when a
-## layer has the round in reach and a channel free. Later shots come from the defence cycle, with
-## the usual layering and budgets. Returns {cleared, fired, reason}: how many rounds were cleared,
-## how many interceptors left now, and why nothing was cleared.
+## every inbound round its picture holds against the force and those of the same raid that come
+## after (`Unit.raid_clearance_until_s`), and takes the first shot now when a layer has the round
+## in reach and a channel free. Later shots come from the defence cycle, with the usual layering
+## and limits. Returns {cleared, fired, reason}: how many rounds were cleared, how many
+## interceptors left now, and why nothing was cleared.
 static func order_intercept(u: Unit, threat: Weapon, unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> Dictionary:
 	var why := intercept_rejection(u)
 	if why != "":
@@ -374,6 +432,8 @@ static func order_intercept(u: Unit, threat: Weapon, unit_manager: UnitManager, 
 				targets.append(w)
 		if targets.is_empty():
 			return {"cleared": 0, "fired": 0, "reason": "No inbound weapon this unit can engage is held"}
+		if not u.auto_air_defence:
+			u.raid_clearance_until_s = now + RAID_QUIET_S
 	var fired := 0
 	var airborne := interceptors_airborne(weapon_manager)
 	var victims := {}
@@ -517,7 +577,7 @@ static func _ship_plan(u: Unit, w: Weapon, tti: float, layers: Array, ballistic_
 	var last_chance := {}
 	var point_later := {}
 	for spec: WeaponSpec in layers:
-		if not _can_intercept(spec, w) or not engages_guided(u, w):
+		if not _can_intercept(spec, w) or not engages_guided(u, w, spec):
 			continue
 		if d < spec.min_range_nm or _kept_for_ballistic(u, spec, w, layers, ballistic_held):
 			continue
