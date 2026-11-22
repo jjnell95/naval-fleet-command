@@ -27,6 +27,10 @@ const COMMIT_MARGIN_NM := 60.0
 const CLOSING_COS := 0.5
 ## A reconnaissance or ASW aircraft looks at contacts this far beyond its search area.
 const SEARCH_MARGIN_NM := 5.0
+## An unarmed sensor aircraft keeps at least this far from a ship it has not identified as
+## harmless: it is the one aircraft on the plot that cannot answer a missile, and its radar and
+## ESM do their work from here. GAMEPLAY_ESTIMATE, about a ship's area-defence missile reach.
+const SENSOR_STANDOFF_NM := 40.0
 ## Interceptors sent at one hostile contact; unknown contacts get one look each.
 const INTERCEPTORS_PER_TRACK := 2
 ## An airframe within this of its station centre plus radius counts as on station.
@@ -476,6 +480,7 @@ func revise(base: Unit, order: Order) -> AirMission:
 func _relocate_airframe(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var half := maxf(station_half_nm(m.kind, m.radius_nm), (UnitManager.patrol_min_leg_nm(a) + 0.2) * 0.5)
 	task["half"] = half
+	task["centre"] = m.station
 	var circuit := Order.patrol_box(m.station - Vector2(half, half), m.station + Vector2(half, half))
 	if a.on_station() and a.attack_track == null and a.investigation_track == null and a.tanking_on == null and a.evasion_remaining_s <= 0.0:
 		_assign_station(m, a, task)
@@ -586,8 +591,10 @@ const QUICK_IDENTIFY_RADIUS_NM := 6.0
 
 ## The aircraft type this deck should send on a quick mission: the type with the most airframes it
 ## can have for the job. Reconnaissance prefers an unarmed sensor aircraft or a helicopter over a
-## fighter, so a quick look does not spend a deck's strike or CAP airframes. "" when none fits.
-func quick_type(base: Unit, kind: int, target: Track = null) -> String:
+## fighter, so a quick look does not spend a deck's strike or CAP airframes; but a look at a ship
+## (`look`) is a job for a helicopter or an armed jet, never for an aircraft that cannot answer
+## the ship's missiles. "" when none fits.
+func quick_type(base: Unit, kind: int, target: Track = null, look: Track = null) -> String:
 	if base == null:
 		return ""
 	var best := ""
@@ -603,7 +610,12 @@ func quick_type(base: Unit, kind: int, target: Track = null) -> String:
 		if n <= 0:
 			continue
 		var score := float(n)
-		if kind == AirMission.Kind.RECON and (a.is_sensor_aircraft() or a.spec.can_hover):
+		if kind == AirMission.Kind.RECON and look != null and _ship_to_avoid(look):
+			if a.spec.can_hover or not a.spec.weapon_loadout.is_empty():
+				score += 1000.0
+			elif a.is_sensor_aircraft():
+				continue
+		elif kind == AirMission.Kind.RECON and (a.is_sensor_aircraft() or a.spec.can_hover):
 			score += 1000.0
 		if kind == AirMission.Kind.ASW and (a.spec.sonobuoy_count > 0 or _dips(a)):
 			score += 1000.0
@@ -618,10 +630,11 @@ func quick_order(base: Unit, kind: int, at: Vector2, target: Track = null, why: 
 	# A strike and an intercept are laid on their contact. A look at a contact is a small search
 	# area round it: the contact only sets where and how wide.
 	var identify := target != null and kind == AirMission.Kind.RECON
+	var look := target if identify else null
 	var intercept := target != null and kind == AirMission.Kind.CAP and target.identity == "HOSTILE" and _probably_air(target)
 	if kind != AirMission.Kind.STRIKE and not intercept:
 		target = null
-	var pid := quick_type(base, kind, target)
+	var pid := quick_type(base, kind, target, look)
 	if pid == "":
 		why.append("No %s aircraft ready on %s" % [AirMission.KIND_NAMES[kind], base.callsign if base != null else "a deck"])
 		return null
@@ -638,6 +651,7 @@ func quick_order(base: Unit, kind: int, at: Vector2, target: Track = null, why: 
 
 ## The nearest of this side's decks that can fly a quick mission of this kind to `at`, or null.
 func quick_deck(faction: String, kind: int, at: Vector2, target: Track = null) -> Unit:
+	var look := target if kind == AirMission.Kind.RECON else null
 	if kind != AirMission.Kind.STRIKE:
 		target = null
 	var best: Unit = null
@@ -645,7 +659,8 @@ func quick_deck(faction: String, kind: int, at: Vector2, target: Track = null) -
 	for u: Unit in unit_manager.units:
 		if u.faction != faction or not u.alive or u.is_aircraft() or u.spec.aircraft_capacity <= 0 or not u.is_engageable():
 			continue
-		if quick_type(u, kind, target) == "" or mission_rejection(u, kind, quick_type(u, kind, target), at, target) != "":
+		var pid := quick_type(u, kind, target, look)
+		if pid == "" or mission_rejection(u, kind, pid, at, target) != "":
 			continue
 		var d := u.position.distance_to(at)
 		if d < best_d:
@@ -1042,8 +1057,10 @@ func _step_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 		task["state"] = AirMission.HOLDING
 		_look(m, a, task)
 		return
+	if _keep_standoff(m, a, task):
+		return
 	var half := float(task.get("half", m.radius_nm)) + STATION_ARRIVAL_MARGIN_NM
-	var offset := a.position - m.station
+	var offset := a.position - (task.get("centre", m.station) as Vector2)
 	task["state"] = AirMission.ON_STATION if absf(offset.x) <= half and absf(offset.y) <= half else AirMission.TRANSITING
 	# The mission sets the speed when the airframe's state changes (out at transit, on station at
 	# patrol), not every second: a dash the commander orders on station stands until the next change.
@@ -1068,10 +1085,13 @@ func _look(m: AirMission, a: Unit, task: Dictionary) -> void:
 
 ## The station is a circuit round the chosen point, flown by the existing patrol: fuel, recovery,
 ## evasion and refuelling all already know how to interrupt and resume one.
-func _assign_station(m: AirMission, a: Unit, task: Dictionary) -> void:
+func _assign_station(m: AirMission, a: Unit, task: Dictionary, centre := Vector2.INF) -> void:
+	if not centre.is_finite():
+		centre = m.station
 	var half := maxf(station_half_nm(m.kind, m.radius_nm), (UnitManager.patrol_min_leg_nm(a) + 0.2) * 0.5)
 	task["half"] = half
-	var circuit := Order.patrol_box(m.station - Vector2(half, half), m.station + Vector2(half, half))
+	task["centre"] = centre
+	var circuit := Order.patrol_box(centre - Vector2(half, half), centre + Vector2(half, half))
 	circuit.station_label = m.station_label()
 	circuit.mission_id = m.id
 	# Reconnaissance never fires: not on its own looks, nor on one the commander adds while it
@@ -1086,6 +1106,48 @@ func _assign_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 	task["state"] = AirMission.TRANSITING
 	if m.kind == AirMission.Kind.ASW and a.spec.max_altitude_m > 0.0:
 		_crew(a, Order.set_altitude(ASW_ALTITUDE_M))
+
+
+## An unarmed sensor aircraft flies its circuit no nearer than the stand-off to any ship the plot
+## does not call friendly or neutral: the circuit is moved out along the line from the ship, and
+## back when the ship has gone. Returns true when it was moved this second.
+func _keep_standoff(m: AirMission, a: Unit, task: Dictionary) -> bool:
+	if not _unarmed_fixed_wing(a):
+		return false
+	var half := float(task.get("half", m.radius_nm))
+	var clear := SENSOR_STANDOFF_NM + half * sqrt(2.0)
+	var centre := m.station
+	var from := ""
+	for t: Track in _nearby(m, a, INF):
+		if not _ship_to_avoid(t) or t.position.distance_to(centre) >= clear:
+			continue
+		var away := centre - t.position
+		if away.length() < 0.01:
+			away = m.base.position - t.position
+		centre = t.position + away.normalized() * clear
+		from = t.id
+	var current: Vector2 = task.get("centre", m.station)
+	if centre.distance_to(current) < 2.0:
+		return false
+	_assign_station(m, a, task, centre)
+	if from != "" and from != str(task.get("standoff_from", "")):
+		_report(m, "%s keeping %.0f nm off track %s" % [a.callsign, SENSOR_STANDOFF_NM, from], true)
+	task["standoff_from"] = from
+	return true
+
+
+## An aircraft that carries sensors and nothing to fight with, and has to keep moving to fly.
+static func _unarmed_fixed_wing(a: Unit) -> bool:
+	return a.is_sensor_aircraft() and not a.spec.can_hover
+
+
+## A held ship or installation that might shoot: not one the plot calls friendly or neutral.
+static func _ship_to_avoid(t: Track) -> bool:
+	if t.identity in ["FRIENDLY", "NEUTRAL"] or t.confirmed_destroyed:
+		return false
+	if t.domain != "":
+		return t.domain in ["surface", "land"]
+	return not _probably_air(t)
 
 
 ## Half the side of the square circuit flown on station. A CAP orbits on the circle's edge; a
@@ -1229,6 +1291,10 @@ func _recon_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var best_d := INF
 	for t: Track in _nearby(m, a, m.radius_nm + SEARCH_MARGIN_NM):
 		if t.classification >= Track.Classification.CLASS_KNOWN or _committed(m.faction, t, false) > 0:
+			continue
+		# A contact already hostile needs no look, and a look at a ship is close enough to be shot
+		# at: an unarmed sensor aircraft leaves ships to its radar and ESM from the stand-off.
+		if t.identity == "HOSTILE" or (_unarmed_fixed_wing(a) and _ship_to_avoid(t)):
 			continue
 		# A look from the air identifies what can be seen. A submarine contact is the ASW
 		# mission's: an early-warning aircraft sent to circle one would circle it until bingo.

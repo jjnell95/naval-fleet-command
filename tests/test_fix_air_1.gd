@@ -279,3 +279,76 @@ func test_a_full_recall_loses_nothing_to_fuel() -> void:
 	assert_eq(flying, 0, "every airframe is aboard")
 	_sim.aviation_manager.aircraft_lost.disconnect(on_lost)
 	_done()
+
+
+# --- Reconnaissance stand-off ------------------------------------------------------------
+
+func _ship_contact(at: Vector2, id: String, identity: String) -> Track:
+	var t := _plot(at, id, 0.0)
+	t.domain = "surface"
+	t.identity = identity
+	t.classification = Track.Classification.SURFACE
+	return t
+
+
+func _nearest_approach(a: Unit, t: Track, seconds: int) -> float:
+	var nearest := INF
+	for i in seconds:
+		_advance(1.0)
+		if a.alive and a.in_flight():
+			nearest = minf(nearest, a.position.distance_to(t.position))
+	return nearest
+
+
+## A Hawkeye searching an area with an unidentified ship in it does not fly over to look: it keeps
+## its circuit at least 40 nm off and leaves the ship to its radar and ESM.
+func test_a_hawkeye_keeps_its_stand_off_from_an_unknown_ship() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var station := cv.position + Vector2(0, 60)
+	var ship := _ship_contact(station + Vector2(10, 0), "T1970", "UNKNOWN")
+	var o := Order.air_mission(AirMission.Kind.RECON, "cw90_e2c", 1, station, 25.0, null, false, true)
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	var m: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
+	_advance(200.0)
+	var hawkeye: Unit = m.aircraft[0]
+	var nearest := _nearest_approach(hawkeye, ship, 2400)
+	assert_true(nearest >= 38.0, "closest approach %.1f nm" % nearest)
+	assert_true(hawkeye.investigation_track != ship, "no look flown at the ship")
+	assert_true(hawkeye.alive and not hawkeye.returning, "still searching")
+	_done()
+
+
+## Nor is a relief sent to look at a contact the plot already calls hostile, by any aircraft.
+func test_reconnaissance_does_not_look_at_a_hostile_contact() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var station := cv.position + Vector2(0, 40)
+	var raider := _plot(station + Vector2(5, 0), "T1971", 6000.0)
+	raider.domain = "air"
+	raider.identity = "HOSTILE"
+	var o := Order.air_mission(AirMission.Kind.RECON, "cw90_f14a", 1, station, 20.0, null, false, true)
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	var m: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
+	for i in 900:
+		_advance(1.0)
+		for a in m.aircraft:
+			assert_true(a.investigation_track != raider, "no look at a contact already hostile")
+	_done()
+
+
+## "Send aircraft to identify" on an unknown ship sends a helicopter or an armed jet, not the
+## Hawkeye.
+func test_a_quick_look_at_a_ship_is_not_flown_by_an_unarmed_aircraft() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var ship := _ship_contact(cv.position + Vector2(0, 60), "T1972", "UNKNOWN")
+	var o := _sim.air_mission_manager.quick_order(cv, AirMission.Kind.RECON, ship.position, ship)
+	assert_true(o != null)
+	var spec := DataDB.platform(o.aircraft_id)
+	assert_true(spec.can_hover or not spec.weapon_loadout.is_empty(), "%s for a look at a ship" % o.aircraft_id)
+	var look_at_air := _plot(cv.position + Vector2(0, 60), "T1973", 7000.0)
+	var air := _sim.air_mission_manager.quick_order(cv, AirMission.Kind.RECON, look_at_air.position, look_at_air)
+	assert_true(DataDB.platform(air.aircraft_id).weapon_loadout.is_empty() or DataDB.platform(air.aircraft_id).can_hover, "an air contact is still the Hawkeye's or a helicopter's")
+	_done()
+
