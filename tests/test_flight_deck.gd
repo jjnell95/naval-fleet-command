@@ -183,6 +183,7 @@ func test_an_aircraft_back_at_a_busy_deck_holds_in_the_marshal_stack_astern() ->
 	var ship := _unit(_ship_spec(2), "BLUE", Vector2.ZERO, 15.0)
 	var first := _airborne(_helo_spec(), Vector2(0, -1.5))
 	var second := _airborne(_jet_spec(), Vector2(0, -20))
+	first.spec.recovery_time_s = 240.0  # still on the spot when the jet arrives
 	_embark(ship, first)
 	_embark(ship, second)
 	var h := _harness([ship, first, second])

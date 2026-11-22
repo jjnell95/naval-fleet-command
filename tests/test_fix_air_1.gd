@@ -198,3 +198,84 @@ func test_quick_and_dialog_caps_pursue_at_least_sixty_miles() -> void:
 	assert_true(AirMissionManager.COMMIT_MARGIN_NM >= 60.0)
 	assert_true(AirMission.new().pursuit_nm >= 60.0)
 	_done()
+
+
+# --- Recovery order ----------------------------------------------------------------------
+
+## Two Tomcats and a Sea King back at the carrier together: the Tomcat with less fuel is called
+## down first though the other is nearer, and the Sea King does not wait behind the jets.
+func test_the_deck_takes_the_thirstiest_first_and_helicopters_have_their_own_spot() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var av := _sim.aviation_manager
+	var flight := av.launch_flight(cv, 2, "cw90_f14a")
+	var helo: Unit = null
+	for a in cv.stowed_aircraft():
+		if a.spec.id == "cw90_sh3h":
+			helo = av.launch(cv, a.callsign)
+			break
+	assert_eq(flight.size(), 2)
+	assert_true(helo != null)
+	_advance(200.0)
+	var full: Unit = flight[0]
+	var thirsty: Unit = flight[1]
+	var astern := -Geo.heading_to_vector(cv.heading_deg)
+	full.position = cv.position + astern * 3.0
+	thirsty.position = cv.position + astern * 6.0
+	helo.position = cv.position + astern * 4.0
+	full.fuel_s = full.spec.endurance_s * 0.6
+	thirsty.fuel_s = thirsty.spec.endurance_s * 0.3
+	helo.fuel_s = helo.spec.endurance_s * 0.3
+	for a in [full, thirsty, helo]:
+		a.altitude_m = 300.0
+		assert_true(_sim.unit_manager.issue_order(a, Order.return_to_base()))
+	var first_jet: Unit = null
+	var helo_down_at := -1.0
+	var jets_down_at := -1.0
+	for i in 1800:
+		_advance(1.0)
+		for jet in [full, thirsty]:
+			if first_jet == null and jet.flight_state == Unit.FlightState.RECOVERING:
+				first_jet = jet
+		if helo_down_at < 0.0 and helo.flight_state == Unit.FlightState.TURNAROUND:
+			helo_down_at = SimClock.sim_time
+		if jets_down_at < 0.0 and full.flight_state == Unit.FlightState.TURNAROUND and thirsty.flight_state == Unit.FlightState.TURNAROUND:
+			jets_down_at = SimClock.sim_time
+		if helo_down_at > 0.0 and jets_down_at > 0.0:
+			break
+	assert_eq(first_jet, thirsty, "the Tomcat on 30% is called down before the one on 60%")
+	assert_true(helo_down_at > 0.0 and jets_down_at > 0.0, "all three aboard")
+	assert_true(helo_down_at < jets_down_at, "the Sea King is aboard before the second Tomcat")
+	_done()
+
+
+## Carrier Watch with everything the deck has in the air, then "Recall all aircraft": every one of
+## the twenty-eight comes aboard and none runs dry in the stack.
+func test_a_full_recall_loses_nothing_to_fuel() -> void:
+	_load(CARRIER_WATCH, true)
+	var cv := _unit(IKE)
+	var lost: Array[String] = []
+	var on_lost := func(a: Unit, reason: String) -> void:
+		if a.faction == "BLUE":
+			lost.append("%s %s" % [a.callsign, reason])
+	_sim.aviation_manager.aircraft_lost.connect(on_lost)
+	var um := _sim.unit_manager
+	_advance(1.0)
+	assert_true(um.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 4, cv.position + Vector2(40, 45), 12.0, null, false, true)))
+	assert_true(um.issue_order(cv, Order.air_mission(AirMission.Kind.ASW, "cw90_s3a", 4, cv.position + Vector2(-15, 12), 10.0, null, false, true)))
+	assert_true(um.issue_order(cv, Order.air_mission(AirMission.Kind.ASW, "cw90_sh3h", 4, cv.position + Vector2(8, -8), 6.0, null, false, true)))
+	assert_true(um.issue_order(cv, Order.air_mission(AirMission.Kind.RECON, "cw90_e2c", 1, cv.position + Vector2(30, 35), 25.0, null, false, true)))
+	_advance(1999.0)
+	assert_true(um.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 8, cv.position + Vector2(-40, 45), 12.0, null, false, true)))
+	assert_true(um.issue_order(cv, Order.air_mission(AirMission.Kind.RECON, "cw90_e2c", 3, cv.position + Vector2(-30, 35), 25.0, null, false, true)))
+	_advance(600.0)
+	assert_true(um.issue_order(cv, Order.air_mission(AirMission.Kind.RECON, "cw90_a6e", 4, cv.position + Vector2(0, -50), 25.0, null, false, true)))
+	_advance(3700.0)
+	var told := _sim.air_mission_manager.recall_all(cv)
+	assert_true(told >= 24, "most of the air wing is up: %d" % told)
+	_advance(5000.0)
+	assert_eq(lost, [] as Array[String], "nothing lost: %s" % [lost])
+	var flying := cv.embarked.filter(func(a: Unit) -> bool: return a.alive and a.in_flight()).size()
+	assert_eq(flying, 0, "every airframe is aboard")
+	_sim.aviation_manager.aircraft_lost.disconnect(on_lost)
+	_done()
