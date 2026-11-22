@@ -292,22 +292,9 @@ func faction_commitment(faction: String, track: Track, queued_only := false) -> 
 ## automatic defence, or for the rounds a commander's intercept order cleared (AirDefence
 ## order_intercept), through the same layers and checks either way. Returns the rounds launched.
 func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int, now: float) -> int:
-	if not shooter.alive or not shooter.can_fire() or shooter.roe == Unit.Roe.HOLD or threat.phase == Weapon.Phase.DEAD:
-		return 0
-	if not AirDefence._can_intercept(spec, threat):
-		return 0
-	if not guidance_available(shooter, spec, threat):
+	if shooter.roe == Unit.Roe.HOLD or interceptor_wait_s(shooter, spec, threat, now) != 0.0:
 		return 0
 	now_s = now
-	if now < _ready_time(shooter, spec):
-		return 0
-	var distance := shooter.position.distance_to(threat.position)
-	if distance < spec.min_range_nm or distance > spec.max_range_nm:
-		return 0
-	if not Combat.firing_arc_check(shooter, spec, threat.position).ok:
-		return 0
-	if spec.requires_fire_control_channel() and not channel_available(shooter, threat):
-		return 0
 	# SAMs leave one at a time at the authored launch interval. A CIWS round count is a
 	# short burst abstraction, so the whole burst is expended in one firing cycle.
 	var available := mini(rounds, shooter.magazine_count(spec.id))
@@ -331,13 +318,8 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		w.aim_point = threat.position
 		w.phase = Weapon.Phase.TERMINAL
 		in_flight.append(w)
-	if spec.type == "ciws":
-		threat.close_in_bursts_committed += 1
-		threat.close_in_commitments[shooter.id] = int(threat.close_in_commitments.get(shooter.id, 0)) + 1
-	else:
+	if spec.type != "ciws":
 		threat.guided_interceptors_committed += available
-		var layer := AirDefence.layer_key(spec, shooter)
-		threat.defence_commitments[layer] = int(threat.defence_commitments.get(layer, 0)) + available
 	if _channel_batch and spec.requires_fire_control_channel():
 		var held: Dictionary = _channel_cache.get(shooter, {})
 		held[threat] = true
@@ -345,6 +327,26 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 	revision += 1
 	interceptor_launched.emit(shooter, spec, threat, available)
 	return available
+
+
+## Seconds until this interceptor could leave for this round: zero when it can go now, the rest of
+## the launcher's cycle when that is all it waits for, INF when it cannot engage the round from
+## here at all (out of its envelope or arc, no guidance, no fire-control channel to spare).
+func interceptor_wait_s(shooter: Unit, spec: WeaponSpec, threat: Weapon, now: float) -> float:
+	if not shooter.alive or not shooter.can_fire() or threat.phase == Weapon.Phase.DEAD:
+		return INF
+	if not AirDefence._can_intercept(spec, threat):
+		return INF
+	var distance := shooter.position.distance_to(threat.position)
+	if distance < spec.min_range_nm or distance > spec.max_range_nm:
+		return INF
+	if not guidance_available(shooter, spec, threat):
+		return INF
+	if not Combat.firing_arc_check(shooter, spec, threat.position).ok:
+		return INF
+	if spec.requires_fire_control_channel() and not channel_available(shooter, threat):
+		return INF
+	return maxf(_ready_time(shooter, spec) - now, 0.0)
 
 
 ## A defensive round has taken the launcher: strike rounds queued on the same launcher group wait

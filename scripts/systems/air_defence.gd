@@ -10,13 +10,23 @@ class_name AirDefence
 ## silences them), and chaff and flares, which follow `auto_countermeasures` as before. Torpedo
 ## defence is not affected: the option is about missiles.
 ##
-## Layering falls out of the data. `Unit.defensive_weapons()` returns interceptors longest-reach
-## first, so the outermost layer that can shoot takes the shot, and shorter-ranged layers get
-## their chance only as the round closes.
+## The doctrine is to defend the ship, not an allowance. What is limited is the number of
+## interceptors in the air at one round across the whole force, never the rounds ever fired at it:
+## a round that survives is shot at again for as long as it flies. Where time allows the force
+## shoots, looks and shoots again; a second round goes up at once only when the first would leave
+## no time for another look. Each ship answers with the cheapest layer that can still reach the
+## round with that time in hand, so the area missiles are kept for what the point layer cannot
+## cover, and rounds built for ballistic targets are kept for them while one is held or the
+## magazine is low. Close-in guns fire every time they have cycled while a round is in reach.
 
 const CPA_THREAT_NM := 3.0  # a round passing wider than this is not treated as inbound
-const MAX_INTERCEPTORS_PER_THREAT := 2  # in the air against one round at any moment
-const MAX_CLOSE_IN_BURSTS_PER_THREAT := 2  # a round crosses the close-in envelope in seconds
+const MAX_INTERCEPTORS_PER_THREAT := 2  # in the air against one round at any moment, across the force
+## Seconds a round must still have to run, after the interceptors going for it have met it, for the
+## force to see the result and get another one out to it. GAMEPLAY_ESTIMATE.
+const SECOND_LOOK_S := 10.0
+## Rounds of a ballistic-capable missile a ship keeps back from cruise missiles while it has
+## anything else that can take them. GAMEPLAY_ESTIMATE.
+const BALLISTIC_RESERVE_ROUNDS := 8
 const DECOY_RANGE_NM := 2.5
 
 
@@ -96,20 +106,26 @@ static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatMan
 		if u.faction == faction and u.is_engageable():
 			candidates.append(u)
 			velocities[u] = Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn)
+	var exposed := {}
 	for w in threat_manager.get_threats(faction):
 		if observer != null and not threat_manager.visible_to(observer, w):
 			continue
 		var victim := threatened_unit(unit_manager, faction, w, candidates, velocities)
 		if victim != null:
 			out.append({"weapon": w, "target": victim, "time_s": w.time_to_reach_s(victim.position)})
+			if not exposed.has(victim):
+				exposed[victim] = victim.defensive_weapons().is_empty()
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		# Imminent arrivals win first. Within one short arrival band, protect high-value units.
+		# Imminent arrivals win first. Within one short arrival band a ship with nothing of its own
+		# to shoot with comes before one that can look after itself, then the high-value units.
 		var a_band := floori(float(a["time_s"]) / 15.0)
 		var b_band := floori(float(b["time_s"]) / 15.0)
 		if a_band != b_band:
 			return a_band < b_band
 		var a_target: Unit = a["target"]
 		var b_target: Unit = b["target"]
+		if exposed[a_target] != exposed[b_target]:
+			return exposed[a_target]
 		if a_target.defence_priority != b_target.defence_priority:
 			return a_target.defence_priority > b_target.defence_priority
 		return a["time_s"] < b["time_s"])
@@ -123,17 +139,18 @@ static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatMan
 ## stationing near a thinner-skinned ship.
 ##
 ## The force allocates as one: the raid is worked through twice. On the first pass every inbound
-## round gets one interceptor from the best-placed ship that can take it; only then, on the second,
-## are budgets topped up and the close-in guns given their turn. Working one round at a time let
-## the two nearest ships both shoot the first round while the second was not answered at all until
-## a launcher came free. Within a pass a ship with a guidance channel to spare is asked before a
-## nearer one that is saturated, so a raid spreads across the screen instead of queuing on one hull.
+## round with nothing in the air at it gets one interceptor from the best-placed ship that can take
+## it; only then, on the second, are rounds with no time left for a look given their second, and
+## the close-in guns their turn. Working one round at a time let the two nearest ships both shoot
+## the first round while the second was not answered at all until a launcher came free. Within a
+## pass a ship with a guidance channel to spare is asked before a nearer one that is saturated, so
+## a raid spreads across the screen instead of queuing on one hull.
 static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> int:
 	weapon_manager.begin_channel_batch()
-	var fits := {}
+	var missiles := {}  # unit -> its missile layers with rounds left, innermost first
+	var guns := {}  # unit -> its close-in weapons with rounds left
 	var reaches := {}
 	var launched := 0
-	var committed := _count_committed(weapon_manager)
 	var by_faction: Dictionary = {}
 	for u in unit_manager.units:
 		if not u.is_engageable():
@@ -141,51 +158,57 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 		if not by_faction.has(u.faction):
 			by_faction[u.faction] = []
 		by_faction[u.faction].append(u)
-		fits[u] = u.defensive_weapons()
+		var layers: Array[WeaponSpec] = []
+		var close_in: Array[WeaponSpec] = []
 		var reach := DECOY_RANGE_NM
-		for spec: WeaponSpec in fits[u]:
+		for spec: WeaponSpec in u.defensive_weapons():
 			reach = maxf(reach, spec.max_range_nm)
+			if spec.type == "ciws":
+				close_in.append(spec)
+			else:
+				layers.push_front(spec)
+		missiles[u] = layers
+		guns[u] = close_in
 		reaches[u] = reach * reach
+	var airborne := interceptors_airborne(weapon_manager)
 	for faction: String in by_faction:
 		var inbound := inbound_threats(unit_manager, threat_manager, faction)
 		if inbound.is_empty():
 			continue
+		var ballistic_held := false
+		for entry in inbound:
+			if (entry["weapon"] as Weapon).threat_class() == "ballistic":
+				ballistic_held = true
 		for pass_index in 2:
 			var first_pass := pass_index == 0
 			for entry in inbound:
 				var w: Weapon = entry["weapon"]
 				if w.phase == Weapon.Phase.DEAD:
 					continue
-				var tti := float(entry["time_s"])
-				var shot_this_pass := false
+				var defenders: Array = []
 				for u: Unit in _rank_defenders(by_faction[faction], w, reaches, weapon_manager):
 					if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
 						continue
 					if first_pass:
 						_try_decoy(u, w, weapon_manager)
-					# A missile chasing an aircraft is the aircraft's to beat with countermeasures and a
-					# hard turn; a ship spending interceptors on it is shooting at the wrong thing.
-					if (entry["target"] as Unit).is_aircraft():
-						continue
-					if w.phase == Weapon.Phase.DEAD or u.roe == Unit.Roe.HOLD or not u.can_fire():
-						continue
-					var already: int = committed.get(w.id, 0)
-					var limit := guided_budget(u, tti)
-					if first_pass:
-						limit = mini(limit, 1)
-					var guided_allowed := not shot_this_pass and already < limit and engages_guided(u, w)
-					if not guided_allowed and first_pass:
-						continue  # the guns wait for the second pass; nothing else to offer here
-					var before := w.guided_interceptors_committed
-					var fired := _engage_threat(u, w, weapon_manager, guided_allowed, now, fits[u], tti, not first_pass)
-					if fired > 0:
-						# Increment the shared assignment, rather than rescanning every weapon twice
-						# after every shot. Each launcher still validates its own guidance support.
-						var guided := w.guided_interceptors_committed - before
-						committed[w.id] = int(committed.get(w.id, 0)) + guided
-						if guided > 0:
-							shot_this_pass = true
-						launched += fired
+					if u.roe != Unit.Roe.HOLD and u.can_fire():
+						defenders.append(u)
+				# A missile chasing an aircraft is the aircraft's to beat with countermeasures and a
+				# hard turn; a ship spending interceptors on it is shooting at the wrong thing.
+				if w.phase == Weapon.Phase.DEAD or (entry["target"] as Unit).is_aircraft():
+					continue
+				var tti := float(entry["time_s"])
+				var up: Dictionary = airborne.get(w.id, {})
+				var count := int(up.get("count", 0))
+				# On the first pass the rounds nobody has answered come before any top-up.
+				if count == 0 or not first_pass:
+					var shot := _missile_shot(defenders, w, tti, count, float(up.get("resolve_s", 0.0)), missiles, ballistic_held, weapon_manager, now)
+					if not shot.is_empty() and weapon_manager.launch_interceptor(shot["unit"], shot["spec"], w, 1, now) > 0:
+						airborne[w.id] = {"count": count + 1, "resolve_s": maxf(float(up.get("resolve_s", 0.0)), float(shot["meet_s"]))}
+						launched += 1
+				if not first_pass:
+					for u: Unit in defenders:
+						launched += _close_in_burst(u, w, guns[u], weapon_manager, now)
 	weapon_manager.end_channel_batch()
 	return launched
 
@@ -215,13 +238,6 @@ static func engaging_units(weapon_manager: WeaponManager, threat: Weapon) -> Arr
 		if w.phase != Weapon.Phase.DEAD and w.intercept_target == threat and w.shooter != null and not out.has(w.shooter):
 			out.append(w.shooter)
 	return out
-
-
-## The key a layer's lifetime allowance is kept under: per layer and per ship. Each ship's inner
-## layer keeps its own shots at a round, so an escort's point-defence missiles fired at a round
-## aimed at the carrier cannot use up the carrier's own last-ditch missiles.
-static func layer_key(spec: WeaponSpec, shooter: Unit) -> String:
-	return "%s:%d" % [spec.defensive_layer(), shooter.id if shooter != null else -1]
 
 
 ## Rounds a side keeps in the air at one hostile aircraft before another ship adds more, and the
@@ -352,23 +368,34 @@ static func order_intercept(u: Unit, threat: Weapon, unit_manager: UnitManager, 
 		if targets.is_empty():
 			return {"cleared": 0, "fired": 0, "reason": "No inbound weapon this unit can engage is held"}
 	var fired := 0
-	var committed := _count_committed(weapon_manager)
+	var airborne := interceptors_airborne(weapon_manager)
 	var victims := {}
+	var ballistic_held := false
 	for entry: Dictionary in inbound_threats(unit_manager, threat_manager, u.faction, u):
 		victims[entry["weapon"]] = float(entry["time_s"])
+		if (entry["weapon"] as Weapon).threat_class() == "ballistic":
+			ballistic_held = true
+	var layers: Array[WeaponSpec] = []
+	var guns: Array[WeaponSpec] = []
+	for spec: WeaponSpec in u.defensive_weapons():
+		if spec.type == "ciws":
+			guns.append(spec)
+		else:
+			layers.push_front(spec)
 	for w: Weapon in targets:
 		if not w.intercept_cleared.has(u.id):
 			w.intercept_cleared.append(u.id)
 		var tti := float(victims.get(w, w.time_to_reach_s(u.position)))
-		var guided_allowed := int(committed.get(w.id, 0)) < guided_budget(u, tti)
-		var before := w.guided_interceptors_committed
-		var shot := _engage_threat(u, w, weapon_manager, guided_allowed, now, [], tti)
-		if shot > 0:
-			committed[w.id] = int(committed.get(w.id, 0)) + w.guided_interceptors_committed - before
-			fired += shot
+		var up: Dictionary = airborne.get(w.id, {})
+		var shot := _missile_shot([u], w, tti, int(up.get("count", 0)), float(up.get("resolve_s", 0.0)), {u: layers}, ballistic_held, weapon_manager, now)
+		if not shot.is_empty():
+			fired += weapon_manager.launch_interceptor(u, shot["spec"], w, 1, now)
+		fired += _close_in_burst(u, w, guns, weapon_manager, now)
 	return {"cleared": targets.size(), "fired": fired, "reason": ""}
 
 
+## The most interceptors a ship's policy lets the force keep in the air at one round. Within it
+## the cycle shoots, looks and shoots again while there is time to look.
 static func guided_budget(u: Unit, tti_s: float) -> int:
 	if u.defence_policy == "saturation":
 		return 3
@@ -377,12 +404,53 @@ static func guided_budget(u: Unit, tti_s: float) -> int:
 	return MAX_INTERCEPTORS_PER_THREAT
 
 
+## Missiles in the air at each inbound round, keyed by the round's id.
 static func _count_committed(weapon_manager: WeaponManager) -> Dictionary:
 	var out: Dictionary = {}
 	for w in weapon_manager.in_flight:
 		if w.phase != Weapon.Phase.DEAD and w.intercept_target != null and w.spec.type == "sam":
 			out[w.intercept_target.id] = int(out.get(w.intercept_target.id, 0)) + 1
 	return out
+
+
+## The same with the time the last of them needs to reach its round: id -> {count, resolve_s}.
+static func interceptors_airborne(weapon_manager: WeaponManager) -> Dictionary:
+	var out: Dictionary = {}
+	for w in weapon_manager.in_flight:
+		if w.phase == Weapon.Phase.DEAD or w.intercept_target == null or w.spec.type != "sam":
+			continue
+		var threat := w.intercept_target
+		var entry: Dictionary = out.get(threat.id, {"count": 0, "resolve_s": 0.0})
+		entry["count"] = int(entry["count"]) + 1
+		entry["resolve_s"] = maxf(float(entry["resolve_s"]), meet_time_s(w.position, w.spec, threat))
+		out[threat.id] = entry
+	return out
+
+
+## Seconds an interceptor of this type needs from `from` to meet the round on its present course.
+## INF when it cannot catch it.
+static func meet_time_s(from: Vector2, spec: WeaponSpec, threat: Weapon) -> float:
+	var speed := Geo.knots_to_nm_per_s(spec.speed_kn)
+	if speed <= 0.0:
+		return INF
+	var point := Combat.intercept_point(from, spec.speed_kn, threat.position, threat.heading_deg, threat.spec.speed_kn, true)
+	return from.distance_to(point) / speed if point.is_finite() else INF
+
+
+## Seconds until the round, held on its present course, comes within `range_nm` of `from`. Zero
+## when it is inside already, INF when its course never brings it that close.
+static func _time_to_enter_s(from: Vector2, range_nm: float, threat: Weapon) -> float:
+	var offset := threat.position - from
+	var c := offset.length_squared() - range_nm * range_nm
+	if c <= 0.0:
+		return 0.0
+	var velocity := Geo.heading_to_vector(threat.heading_deg) * threat.speed_nm_per_s()
+	var a := velocity.length_squared()
+	var b := offset.dot(velocity)
+	if a <= 1e-12 or b >= 0.0:
+		return INF
+	var disc := b * b - a * c
+	return (-b - sqrt(disc)) / a if disc >= 0.0 else INF
 
 
 ## Distinct rounds each ship currently has interceptors in the air against. A ship cannot guide
@@ -399,37 +467,117 @@ static func _can_intercept(spec: WeaponSpec, threat: Weapon) -> bool:
 	return spec.target_types.has(threat.threat_class()) and threat.flight_altitude_m() >= spec.intercept_min_altitude_m and threat.flight_altitude_m() <= spec.intercept_max_altitude_m
 
 
-## Close-in weapons are the last-ditch layer: self-contained, so they neither consume a guidance
-## channel nor count against the missile allowance, and whatever leaks past always gets a final
-## engagement. They get their own small burst allowance, because a round crosses that envelope in
-## seconds rather than minutes.
-static func _engage_threat(u: Unit, threat: Weapon, weapon_manager: WeaponManager, guided_allowed: bool, now: float, fit: Array = [], tti_s := -1.0, close_in_allowed := true) -> int:
-	var d := u.position.distance_to(threat.position)
-	# One time-to-impact for the whole decision: the round's time to the ship it is going for,
-	# as the cycle ranked it. Budgeting on the time to this defender instead let the conserve
-	# policy pass one check and fail the other for the same shot.
-	var tti := tti_s if tti_s >= 0.0 else threat.time_to_reach_s(u.position)
-	var budget := guided_budget(u, tti)
-	for spec: WeaponSpec in (u.defensive_weapons() if fit.is_empty() else fit):
-		if not _can_intercept(spec, threat):
+## The force's next missile at one round, as {unit, spec, meet_s}, or {} when none should go now.
+## `up` interceptors are in the air at it and the last of them meets it in `resolve_s`. With time
+## to see how those do, nothing more is sent (a saturation policy keeps a pair up regardless);
+## without it the round gets its second at once. Among the ships that could shoot, one that leaves
+## time for another look comes first, then a point-defence layer before an area one, then the
+## best placed. An area missile waits while some ship's point layer will have the round in reach
+## with time to shoot twice.
+static func _missile_shot(defenders: Array, w: Weapon, tti: float, up: int, resolve_s: float, missiles: Dictionary, ballistic_held: bool, weapon_manager: WeaponManager, now: float) -> Dictionary:
+	var look_pending := up > 0 and tti - resolve_s >= SECOND_LOOK_S
+	var best := {}
+	var best_score := -1
+	var point_layer_coming := false
+	for u: Unit in defenders:
+		var cap := guided_budget(u, tti)
+		if up >= (maxi(cap - 1, 1) if look_pending else cap):
 			continue
-		if d > spec.max_range_nm or d < spec.min_range_nm:
+		var plan := _ship_plan(u, w, tti, missiles[u], ballistic_held, weapon_manager, now)
+		if plan.is_empty():
 			continue
-		var is_close_in := spec.type == "ciws"
-		var spent := int(threat.defence_commitments.get(layer_key(spec, u), 0))
-		if is_close_in:
-			if not close_in_allowed or int(threat.close_in_commitments.get(u.id, 0)) >= MAX_CLOSE_IN_BURSTS_PER_THREAT:
+		if not bool(plan["now"]):
+			point_layer_coming = true
+			continue
+		var score := (2 if bool(plan["look"]) else 0) + (0 if bool(plan["area"]) else 1)
+		if score > best_score:
+			best = plan
+			best["unit"] = u
+			best_score = score
+	if best.is_empty() or (bool(best["area"]) and point_layer_coming):
+		return {}
+	return best
+
+
+## What one ship would do about one round: {spec, now, look, area, meet_s}, or {} for nothing.
+## Its layers are tried innermost first, so the cheapest missile that leaves time for another look
+## takes the shot; `now` false says a point-defence layer will have the round in reach, with that
+## time in hand, later on, which is what an area missile waits for. With no time for a look left
+## the ship fires the cheapest thing that bears.
+static func _ship_plan(u: Unit, w: Weapon, tti: float, layers: Array, ballistic_held: bool, weapon_manager: WeaponManager, now: float) -> Dictionary:
+	var d := u.position.distance_to(w.position)
+	var shot := {}
+	var last_chance := {}
+	var point_later := {}
+	for spec: WeaponSpec in layers:
+		if not _can_intercept(spec, w) or not engages_guided(u, w):
+			continue
+		if d < spec.min_range_nm or _kept_for_ballistic(u, spec, w, layers, ballistic_held):
+			continue
+		var area := spec.defensive_layer() == "area"
+		if d > spec.max_range_nm:
+			if area or not point_later.is_empty() or not WeaponManager.radar_support_available(u, spec):
 				continue
-		elif not guided_allowed or spent >= budget:
+			# Only a round coming well inside the envelope: one that clips its edge on the way to
+			# a consort gives the layer no shot worth waiting for.
+			if float(closest_approach(u, w)["cpa_nm"]) > spec.max_range_nm * 0.5:
+				continue
+			var enters := _time_to_enter_s(u.position, spec.max_range_nm, w)
+			var flight := spec.max_range_nm / maxf(Geo.knots_to_nm_per_s(spec.speed_kn) + w.speed_nm_per_s(), 1e-6)
+			if tti - enters - flight >= SECOND_LOOK_S:
+				point_later = {"spec": spec, "now": false, "look": true, "area": false, "meet_s": 0.0}
 			continue
-		var allowance := spec.salvo_default if is_close_in else budget - spent
-		var rounds := mini(mini(spec.salvo_default, u.magazine_count(spec.id)), allowance)
-		if rounds <= 0:
+		var wait_s := weapon_manager.interceptor_wait_s(u, spec, w, now)
+		var meet_s := meet_time_s(u.position, spec, w)
+		# A round going away is met, if at all, beyond the missile's own legs.
+		if is_inf(wait_s) or meet_s * Geo.knots_to_nm_per_s(spec.speed_kn) > spec.max_range_nm:
 			continue
-		var fired := weapon_manager.launch_interceptor(u, spec, threat, rounds, now)
-		if fired > 0:
-			return fired
-	return 0
+		var look := tti - wait_s - meet_s >= SECOND_LOOK_S
+		if wait_s > 0.0:
+			# The launcher is cycling: the layer has the round, a moment from now.
+			if look and not area and point_later.is_empty():
+				point_later = {"spec": spec, "now": false, "look": true, "area": false, "meet_s": 0.0}
+			continue
+		var plan := {"spec": spec, "now": true, "look": look, "area": area, "meet_s": meet_s}
+		if look:
+			shot = plan
+			break
+		if last_chance.is_empty():
+			last_chance = plan
+	if not shot.is_empty():
+		return point_later if bool(shot["area"]) and not point_later.is_empty() else shot
+	if not last_chance.is_empty() and not bool(last_chance["area"]):
+		return last_chance
+	return point_later if not point_later.is_empty() else last_chance
+
+
+## A missile that can take a ballistic round is not spent on a cruise missile while the force
+## holds a ballistic round or the magazine is down to its reserve, unless it is all the ship has
+## that can engage the round at all: then the ship defends itself with what is aboard.
+static func _kept_for_ballistic(u: Unit, spec: WeaponSpec, w: Weapon, layers: Array, ballistic_held: bool) -> bool:
+	if w.threat_class() == "ballistic" or not spec.target_types.has("ballistic"):
+		return false
+	if not ballistic_held and u.magazine_count(spec.id) > BALLISTIC_RESERVE_ROUNDS:
+		return false
+	for other: WeaponSpec in layers:
+		if other != spec and not other.target_types.has("ballistic") and _can_intercept(other, w):
+			return true
+	return false
+
+
+## Close-in weapons are the last-ditch layer: self-contained, so they neither take a guidance
+## channel nor count against the missiles in the air, and a mount fires every time it has cycled
+## while the round is inside its envelope.
+static func _close_in_burst(u: Unit, threat: Weapon, guns: Array, weapon_manager: WeaponManager, now: float) -> int:
+	var d := u.position.distance_to(threat.position)
+	var fired := 0
+	for spec: WeaponSpec in guns:
+		if threat.phase == Weapon.Phase.DEAD:
+			break
+		if d > spec.max_range_nm or d < spec.min_range_nm or not _can_intercept(spec, threat):
+			continue
+		fired += weapon_manager.launch_interceptor(u, spec, threat, mini(spec.salvo_default, u.magazine_count(spec.id)), now)
+	return fired
 
 
 ## Chaff and flares against a missile's seeker. A torpedo's is acoustic, and chaff does nothing to

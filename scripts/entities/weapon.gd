@@ -32,10 +32,9 @@ var acoustic_decoy_tried: Dictionary = {}
 ## Anti-torpedo rounds ever fired at this torpedo, by any ship.
 var hard_kill_shots := 0
 var seductions := 0  # times decoys have pulled this round off a lock
-var guided_interceptors_committed := 0  # SAMs ever fired at this round
-var defence_commitments: Dictionary = {}  # AirDefence.layer_key (layer and ship) -> shots fired at this round
-var close_in_commitments: Dictionary = {}  # defending unit id -> bursts
-var close_in_bursts_committed := 0  # close-in engagements; a round is only in that envelope briefly
+## SAMs ever fired at this round, for the record. What limits the defence is how many are in the
+## air at it now (AirDefence), never this.
+var guided_interceptors_committed := 0
 ## Ids of the units the commander has ordered to intercept this round (Order.intercept). A ship
 ## on manual missile defence engages only rounds it is cleared for; one on automatic needs none.
 var intercept_cleared: Array[int] = []

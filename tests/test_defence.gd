@@ -435,14 +435,25 @@ func test_rounds_threatening_nobody_are_ignored() -> void:
 	_cleanup(h)
 
 
-func test_inner_sam_layer_retains_shots_after_outer_layer_misses() -> void:
+func test_the_point_layer_takes_a_round_it_will_reach_in_time_and_the_area_layer_holds() -> void:
 	var ship := _ship("BLUE", Vector2.ZERO, 100, [_sam("area", 50, 0), _sam("point", 12, 1)])
 	var h := _harness([ship])
 	var incoming := _incoming(h[2], _asm(), "RED", Vector2(0, 20), ship)
 	_run(h, 180)
 	assert_eq(incoming.dead_reason, "INTERCEPTED")
-	assert_eq(ship.magazine_count("area"), 30, "outer layer gets two attempts")
-	assert_true(ship.magazine_count("point") < 32, "inner SAMs can stop the leaker")
+	assert_eq(ship.magazine_count("area"), 32, "no area missile is spent on a round the point layer has time to take twice")
+	assert_eq(ship.magazine_count("point"), 31, "one point-defence missile, and a look before any second")
+	assert_near(ship.health, 100, 0.01)
+	_cleanup(h)
+
+
+func test_a_layer_that_keeps_missing_keeps_shooting_until_the_round_is_dead() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, 100, [_sam("point", 12, 0.5)])
+	var h := _harness([ship])
+	h[2].rng.seed = 5
+	var incoming := _incoming(h[2], _asm(), "RED", Vector2(0, 20), ship)
+	_run(h, 180)
+	assert_eq(incoming.dead_reason, "INTERCEPTED", "an even chance a shot, and as many shots as the round's flight allows")
 	assert_near(ship.health, 100, 0.01)
 	_cleanup(h)
 
@@ -487,16 +498,18 @@ func test_radar_dependent_sam_loses_support_but_active_seeker_does_not() -> void
 	_cleanup(h)
 
 
-func test_each_ship_retains_its_own_close_in_burst_allowance() -> void:
+func test_every_close_in_gun_in_reach_fires_each_time_it_has_cycled() -> void:
 	var ciws := _sam("ciws", 2, 0, 3, "ciws")
 	var first := _ship("BLUE", Vector2.ZERO, 100, [ciws])
 	var second := _ship("BLUE", Vector2(0.1, 0), 100, [ciws])
 	var h := _harness([first, second])
 	var incoming := _incoming(h[2], _asm(), "RED", Vector2(0, 1.5), first)
-	incoming.close_in_commitments[first.id] = 2
-	assert_eq(AirDefence._engage_threat(first, incoming, h[2], false, 0), 0)
-	assert_eq(AirDefence._engage_threat(second, incoming, h[2], false, 0), 3, "consort still has a last-ditch shot")
-	assert_true(AirDefence._count_committed(h[2]).is_empty(), "gun bursts do not occupy SAM allowance")
+	h[1].mark_detected("BLUE", incoming, 0)
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 0), 6, "both ships' guns fire a burst")
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 0.5), 0, "a mount that has not cycled does not fire")
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 1), 6, "and each fires again once it has: no allowance of bursts runs out")
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 2), 6)
+	assert_true(AirDefence._count_committed(h[2]).is_empty(), "gun bursts are not missiles in the air")
 	_cleanup(h)
 
 
