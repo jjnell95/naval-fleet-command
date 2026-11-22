@@ -206,21 +206,36 @@ static func standoff_point(from: Vector2, target_pos: Vector2, standoff_nm: floa
 
 
 ## A sea point within `standoff_nm` of the target from which a surface-bound round has an open
-## line to it: the standoff ring swung round the target, then drawn in. Vector2.INF when the
-## coast leaves none, which ends an attack rather than parking it behind a headland.
-static func clear_standoff_point(from: Vector2, target_pos: Vector2, standoff_nm: float) -> Vector2:
+## line to it: rings round the target at the shooter's own range and at fractions of the standoff,
+## each swung both ways from the shooter's bearing. Of those, the one nearest the shooter that it
+## can get to: a hull (`by_sea`) must be able to sail there, so a point with a perfect line of fire
+## on the far side of a peninsula is not chosen over a short move along the near shore.
+## Vector2.INF when the coast leaves none, which ends an attack rather than parking it behind a
+## headland.
+static func clear_standoff_point(from: Vector2, target_pos: Vector2, standoff_nm: float, by_sea := true) -> Vector2:
 	if Terrain.is_empty():
 		return standoff_point(from, target_pos, standoff_nm)
 	var bearing := (from - target_pos).normalized()
 	if bearing.length() < 0.001:
 		bearing = Vector2(0.0, -1.0)
-	for fraction: float in [1.0, 0.75, 0.5, 0.3]:
+	var rings: Array[float] = [standoff_nm, standoff_nm * 0.75, standoff_nm * 0.5, standoff_nm * 0.3]
+	var range_nm := from.distance_to(target_pos)
+	if range_nm < standoff_nm:
+		rings.append(range_nm)
+	var best := Vector2.INF
+	var best_d := INF
+	for ring: float in rings:
 		for step: float in STANDOFF_ARC_DEG:
 			for side: float in [1.0, -1.0]:
-				var candidate := target_pos + bearing.rotated(deg_to_rad(step * side)) * standoff_nm * fraction
-				if not Terrain.is_land(candidate) and not Terrain.blocks_path(candidate, target_pos):
-					return candidate
-	return Vector2.INF
+				var candidate := target_pos + bearing.rotated(deg_to_rad(step * side)) * ring
+				var d := from.distance_squared_to(candidate)
+				if d >= best_d or Terrain.is_land(candidate) or Terrain.blocks_path(candidate, target_pos):
+					continue
+				if by_sea and not Terrain.reachable_by_sea(from, candidate):
+					continue
+				best = candidate
+				best_d = d
+	return best
 
 
 ## The no-escape range: how far off an aircraft can be and still be caught if it turns and runs the

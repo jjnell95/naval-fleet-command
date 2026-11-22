@@ -52,6 +52,21 @@ var attack_rounds_fired := 0
 var attack_assess_until_s := -1.0  # a pause between salvos to read the plot again
 var attack_stall_s := 0.0  # time held unable to fire; past UnitManager.ATTACK_STALL_S the task ends
 var attack_stale_s := 0.0  # uninterrupted time without a fresh plot, even while closing
+## The commander gave a speed while the attack ran: it stands for the closing leg and the hold alike.
+var attack_speed_ordered := false
+## Settled in the range band rather than closing. The band is wider to leave than to enter, so a
+## platform at its edge does not hunt between the two.
+var attack_holding := false
+## Where the platform was at the last attack step, to tell a hull that is making way toward its
+## firing point from one that is pressed against a coast with its engines turning.
+var attack_progress_pos := Vector2.INF
+## What a temporary task interrupted, remembered once when the task takes the steering: the route
+## and the ordered course and speed. Until then an attack fires from wherever the platform's own
+## orders take it. A formation or patrol station is not copied here; the station fields keep it.
+var plan_kept := false
+var plan_waypoints: Array[Vector2] = []
+var plan_heading_deg := 0.0
+var plan_speed_kn := 0.0
 ## The standing assignment: where this platform belongs when no temporary task holds it. A patrol
 ## circuit (an air station is one too) or a formation station on a guide. Attack, Investigate,
 ## evasion and air-to-air refuelling suspend it; an explicit replacement order from the commander (a
@@ -70,8 +85,9 @@ var station_mission_id := -1
 ## is attacked on the crew's initiative (engagement after identification), even on a look the
 ## commander ordered. Cleared with the station.
 var station_identify_only := false
-## Go back to the station by itself once an identification, interception or attack ends.
-var auto_return := false
+## Go back to the station by itself once an identification, interception or attack ends. Off, the
+## platform carries on from where the task ended until it is ordered back.
+var auto_return := true
 ## Bumped by every order that changes where this platform is going. A temporary task remembers the
 ## generation it started under and hands back to the station only if nothing newer has arrived, so
 ## a task that completes late can never overwrite a newer order.
@@ -494,6 +510,11 @@ func apply_order(order: Order) -> void:
 		task_generation = order_generation
 		return
 	var keeping_station := in_formation()
+	# A task that replaces a task hands on the plan the first one interrupted.
+	var carrying := plan_kept and order.type in [Order.Type.INVESTIGATE, Order.Type.ATTACK]
+	# The crew going back to station is the end of a task, not a new instruction: what the task
+	# found stays on the read-out until the commander sends the platform somewhere.
+	var crew_return := order.type == Order.Type.RETURN_TO_STATION and order.origin == "crew"
 	if order.type in DETACHING_ORDERS:
 		formation_leader = null
 	if order.origin != "crew":
@@ -508,39 +529,47 @@ func apply_order(order: Order) -> void:
 	# course and takes up the station after it, as RESUME PLAN would.
 	if order.type == Order.Type.RETURN_TO_STATION and order.origin != "crew":
 		evasion_remaining_s = 0.0
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
+	# A task leaves the circuit when it takes the steering: an investigation at once, an attack
+	# only when it has to close, which UnitManager decides.
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.RETURN_TO_STATION]:
 		patrol_active = false
 	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
-		clear_investigation()
-		clear_attack()
+		var found := [investigation_track_id, investigation_result, attack_track_id, attack_result]
+		clear_investigation(true)
+		clear_attack(true)
+		if not carrying:
+			forget_plan()
+		if crew_return:
+			investigation_track_id = found[0]
+			investigation_result = found[1]
+			attack_track_id = found[2]
+			attack_result = found[3]
 	match order.type:
 		Order.Type.INVESTIGATE:
-			# A temporary task: the formation or patrol is suspended, not forgotten.
-			formation_leader = null
+			# A temporary task: the route, formation or patrol is suspended, not forgotten.
+			take_steering()
 			task_generation = order_generation
 			investigation_track = order.track
 			investigation_track_id = order.track.id
 			investigation_identify_only = order.identify_only
 			waypoints.assign([order.track.position])
-			if ordered_speed_kn <= 0.0:
-				ordered_speed_kn = spec.cruise_speed_kn
-			investigation_speed_kn = ordered_speed_kn
+			investigation_speed_kn = task_speed_kn(false)
+			ordered_speed_kn = investigation_speed_kn
 		Order.Type.ATTACK:
-			formation_leader = null
 			task_generation = order_generation
 			attack_track = order.track
 			attack_track_id = order.track.id
 			attack_weapon_id = order.weapon_id
 			attack_phase = "Intercept track"
-			if ordered_speed_kn <= 0.0:
-				ordered_speed_kn = spec.cruise_speed_kn
-			attack_speed_kn = ordered_speed_kn
-			# Out of range, the intercept leg is plotted at once, so a paused order already shows
+			attack_speed_kn = task_speed_kn(true)
+			# In reach, nothing else changes: the platform fires from where its orders have it.
+			# Out of reach, the intercept leg is plotted at once, so a paused order already shows
 			# where the platform will go; UnitManager refines it every tick as the plot moves.
-			waypoints.clear()
 			var reach := attack_reach_nm(order.track, order.weapon_id)
-			if reach > 0.0 and position.distance_to(order.track.position) > reach / UnitManager.ATTACK_STANDOFF_FRACTION:
-				waypoints.append(Combat.standoff_point(position, order.track.position, reach))
+			if reach > 0.0 and position.distance_to(order.track.position) > reach / UnitManager.ATTACK_STANDOFF_FRACTION and not DippingSonar.holds_bearing(self, order.track):
+				take_steering()
+				waypoints.assign([Combat.standoff_point(position, order.track.position, reach)])
+				ordered_speed_kn = attack_speed_kn
 		Order.Type.PATROL:
 			formation_leader = null
 			patrol_active = true
@@ -576,6 +605,7 @@ func apply_order(order: Order) -> void:
 				investigation_speed_kn = ordered_speed_kn
 			if attack_track != null:
 				attack_speed_kn = ordered_speed_kn
+				attack_speed_ordered = true
 		Order.Type.STOP:
 			waypoints.clear()
 			ordered_speed_kn = 0.0
@@ -611,7 +641,8 @@ func apply_order(order: Order) -> void:
 			# would simply fire again after its assessment. Rounds already away continue.
 			if attack_track != null and (order.track == null or order.track == attack_track):
 				var number := attack_track_id
-				clear_attack()
+				# The interrupted plan is kept: UnitManager hands the platform back to it.
+				clear_attack(true)
 				attack_track_id = number
 				attack_result = "Fire cancelled"
 				order.stopped_attack = true
@@ -742,10 +773,77 @@ func _resume_station() -> void:
 			waypoints.clear()
 
 
+## The speed a task is carried out at. An attack that has to close does not dawdle at convoy
+## speed: a ship goes at most of what her plant will give, a boat at the cruise she can still hear
+## at, and an aircraft never flies either task slower than its cruise (a helicopter ordered off a
+## hover would otherwise creep away at the hover's knot or two). A speed order given while the task
+## runs replaces it.
+func task_speed_kn(attacking: bool) -> float:
+	var speed := ordered_speed_kn if ordered_speed_kn > 0.0 else spec.cruise_speed_kn
+	if is_aircraft() or is_submarine():
+		speed = maxf(speed, spec.cruise_speed_kn)
+	elif attacking:
+		speed = maxf(speed, UnitManager.ATTACK_CLOSING_FRACTION * effective_max_speed())
+	return minf(speed, effective_max_speed())
+
+
+## A temporary task takes the steering. What it interrupts is remembered once, so a task that
+## follows a task still hands back to the first one's plan, and the platform leaves its formation
+## or circuit; whatever is streamed or lowered comes in before it moves off.
+func take_steering() -> void:
+	DippingSonar.recover(self)
+	TowedArray.recover(self)
+	if not plan_kept:
+		plan_kept = true
+		plan_waypoints.clear()
+		# The station fields already hold a circuit or a formation station, and a hold laid for
+		# want of orders is not a route anyone chose.
+		if not on_station() and not holding():
+			plan_waypoints.assign(waypoints)
+		plan_heading_deg = ordered_heading_deg
+		plan_speed_kn = ordered_speed_kn
+		waypoints.clear()
+	formation_leader = null
+	patrol_active = false
+	hold_active = false
+
+
+func forget_plan() -> void:
+	plan_kept = false
+	plan_waypoints.clear()
+	plan_heading_deg = 0.0
+	plan_speed_kn = 0.0
+
+
+## Back to what the task interrupted, once it is over and UnitManager has found no station to go
+## back to: the route at the speed it was being sailed at. With no route, a hull holds the course
+## the task left her on at the speed she had before it, a helicopter hovers where it is, and a
+## fixed-wing aircraft holds where it is rather than flying on until its fuel runs out.
+func resume_plan() -> void:
+	var route := plan_waypoints.duplicate()
+	var speed := plan_speed_kn
+	forget_plan()
+	hold_active = false
+	waypoints.assign(route)
+	if not waypoints.is_empty():
+		ordered_speed_kn = speed if speed > 0.0 else spec.cruise_speed_kn
+		return
+	ordered_heading_deg = heading_deg
+	if Movement.must_keep_flying(self):
+		Movement.enter_hold(self, position)
+	elif is_aircraft():
+		ordered_speed_kn = 0.0
+	else:
+		ordered_speed_kn = speed
+
+
 ## Other navigation replaces this task; a completed task may keep a readable result until then.
-func clear_investigation() -> void:
+## The interrupted plan goes with it unless the caller is handing the platform back to that plan.
+func clear_investigation(keep_plan := false) -> void:
 	if investigation_track != null:
 		waypoints.clear()
+	if not keep_plan:
+		forget_plan()
 	investigation_track = null
 	investigation_track_id = ""
 	investigation_result = ""
@@ -769,9 +867,15 @@ func attack_reach_nm(track: Track, weapon_id := "") -> float:
 
 
 ## Other navigation replaces the attack as well; a finished attack keeps its result readable.
-func clear_attack() -> void:
-	if attack_track != null:
+## Only an attack that took the steering has a route of its own to drop.
+func clear_attack(keep_plan := false) -> void:
+	if attack_track != null and plan_kept:
 		waypoints.clear()
+	if not keep_plan:
+		forget_plan()
+	attack_speed_ordered = false
+	attack_holding = false
+	attack_progress_pos = Vector2.INF
 	attack_track = null
 	attack_track_id = ""
 	attack_weapon_id = ""

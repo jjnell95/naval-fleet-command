@@ -55,6 +55,9 @@ func test_domain_classification_continues_but_known_class_completes_once() -> vo
 	t.classification = Track.Classification.CLASS_KNOWN
 	t.known_class = "Merchant"
 	um.tick(0.25)
+	assert_eq(u.investigation_track, t, "a probable class is not an identity: the look goes on")
+	t.identity = "NEUTRAL"
+	um.tick(0.25)
 	assert_eq(u.investigation_track, null)
 	assert_eq(u.investigation_result, "Contact classified")
 	assert_eq(u.investigation_track_id, t.id)
@@ -101,7 +104,9 @@ func test_invalid_contact_is_rejected_without_replacing_current_navigation() -> 
 			"lost": t.status = Track.Status.LOST
 			"hidden": t.networked = false
 			"bearing": t.bearing_only = true
-			"classified": t.classification = Track.Classification.CLASS_KNOWN
+			"classified":
+				t.classification = Track.Classification.CLASS_KNOWN
+				t.identity = "NEUTRAL"
 			"invalid": t.position = Vector2(NAN, 0)
 		assert_true(not um.issue_order(u, Order.investigate(t)), change)
 		assert_eq(u.waypoints, [course], change)
@@ -241,6 +246,7 @@ func test_fixed_wing_keeps_flying_at_plot_and_after_classification() -> void:
 	um.tick(0.25)
 	assert_true(a.ordered_speed_kn > 0, "arrival must not make a fixed-wing aircraft hover")
 	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "NEUTRAL"
 	um.tick(0.25)
 	assert_eq(a.investigation_track, null)
 	assert_true(a.ordered_speed_kn >= a.spec.flight_speed("patrol") - 0.01, "completed aircraft maintains forward flight")

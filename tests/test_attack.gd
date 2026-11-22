@@ -198,7 +198,7 @@ func test_attack_order_plots_the_intercept_then_closes_and_fires_without_further
 	assert_eq(shooter.waypoints.size(), 1, "the intercept leg is plotted while still paused")
 	assert_near(shooter.waypoints[0].distance_to(t.position), 48.0, 0.01, "to a standoff inside the envelope, not its edge")
 	assert_eq(shooter.magazines[asm.id], 8, "nothing is fired out of range")
-	assert_eq(shooter.ordered_speed_kn, shooter.spec.cruise_speed_kn, "a stopped ship gets under way at cruise")
+	assert_near(shooter.ordered_speed_kn, 0.85 * shooter.spec.max_speed_kn, 0.01, "a ship that has to close does not dawdle at cruise")
 	h.um.issue_order(shooter, Order.set_speed(28.0))
 	var fired := h.until(func() -> bool: return shooter.attack_rounds_fired > 0, 3600.0)
 	assert_true(fired, "the ship closes and fires on its own")
@@ -302,7 +302,7 @@ func test_the_last_salvo_is_followed_until_it_resolves_before_returning_to_stati
 	assert_eq(shooter.magazine_count(asm.id), 0)
 	assert_true(h.wm.committed_rounds(shooter, asm, t) > 0, "the final salvo is still in flight")
 	assert_eq(shooter.attack_track, t, "the crew still supports and observes its final salvo")
-	assert_true(not shooter.on_station(), "automatic station return waits for the salvo")
+	assert_true(shooter.on_station(), "in reach from her circuit, she fires from it and never leaves it")
 	assert_true(h.ended.is_empty(), "empty magazines are not a completed engagement while rounds are away")
 	assert_true(h.until(func() -> bool: return not h.ended.is_empty(), 900.0))
 	assert_eq(h.wm.committed_rounds(shooter, asm, t), 0)
@@ -434,8 +434,8 @@ func test_stale_plot_holds_fire_and_a_lost_contact_ends_the_task() -> void:
 func test_evasion_suspends_the_attack_and_hands_back() -> void:
 	var asm := _asm(60.0)
 	var shooter := _unit("BLUE", Vector2.ZERO, 100.0, [asm])
-	var target := _unit("RED", Vector2(0, 56), 800.0)
-	var t := _track(target, Vector2(0, 56))
+	var target := _unit("RED", Vector2(0, 90), 800.0)
+	var t := _track(target, Vector2(0, 90))
 	var h := _harness([shooter, target])
 	h.um.issue_order(shooter, Order.attack(t))
 	h.advance(1.0)
@@ -451,20 +451,32 @@ func test_evasion_suspends_the_attack_and_hands_back() -> void:
 	h.free_all()
 
 
-func test_fixed_wing_aircraft_keeps_flying_inside_the_envelope_and_after_the_attack() -> void:
+func test_fixed_wing_aircraft_holds_off_after_release_and_holds_where_the_attack_ends() -> void:
 	var asm := _asm(60.0)
 	var strike := _unit("BLUE", Vector2.ZERO, 100.0, [asm], 2, true)
-	var target := _unit("RED", Vector2(0, 30), 800.0)
-	var t := _track(target, Vector2(0, 30))
+	strike.speed_kn = strike.spec.cruise_speed_kn
+	strike.ordered_speed_kn = strike.spec.cruise_speed_kn
+	var target := _unit("RED", Vector2(0, 46), 800.0)
+	var t := _track(target, Vector2(0, 46))
 	var h := _harness([strike, target])
 	assert_true(h.um.issue_order(strike, Order.attack(t)))
 	h.advance(DT)
-	assert_eq(strike.attack_rounds_fired, 2)
-	assert_true(strike.ordered_speed_kn >= strike.spec.cruise_speed_kn, "an aircraft does not stop to hold station")
-	var done := h.until(func() -> bool: return not h.ended.is_empty(), 1200.0)
+	assert_eq(strike.attack_rounds_fired, 2, "in range, it releases at once")
+	var released_at := strike.position.distance_to(target.position)
+	var closest := [released_at]
+	var slowest := [strike.speed_kn]
+	var done := h.until(func() -> bool:
+		closest[0] = minf(closest[0], strike.position.distance_to(target.position))
+		slowest[0] = minf(slowest[0], strike.speed_kn)
+		return not h.ended.is_empty(), 1200.0)
 	assert_true(done)
 	assert_eq(h.ended[0][2], "Magazines empty")
-	assert_true(strike.ordered_speed_kn >= strike.spec.cruise_speed_kn, "and keeps flying when the attack ends")
+	assert_true(closest[0] >= 0.7 * released_at, "it never flies in on the target after release: closest %.1f of %.1f nm" % [closest[0], released_at])
+	assert_true(slowest[0] >= strike.spec.flight_speed("patrol") * Movement.MIN_FLYING_FRACTION, "and never stops flying")
+	assert_true(strike.holding(), "when the attack ends it holds, with no station or route to go back to")
+	var ended_at := strike.position
+	h.advance(1200.0)
+	assert_true(strike.position.distance_to(ended_at) < 25.0, "and is still there twenty minutes later, not on a straight line to bingo")
 	h.free_all()
 
 
