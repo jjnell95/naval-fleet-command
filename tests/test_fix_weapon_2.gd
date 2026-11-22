@@ -625,3 +625,31 @@ func test_a_fast_closing_aircraft_gets_a_pair_and_then_a_look() -> void:
 	assert_eq(AirDefence.aircraft_salvo(h[0].units[0], c[2]), 1, "one at a fast aircraft going away")
 	c[1].free()
 	_cleanup(c[0])
+
+
+# --- A detected round with no lock yet threatens what its seeker will find ------------------------
+
+func _unlocked(wm: WeaponManager, ship: Unit, abeam_nm: float) -> Weapon:
+	var w := _incoming(wm, _asm(), Vector2(abeam_nm, 30.0), ship)
+	w.acquired = null
+	w.phase = Weapon.Phase.CRUISE
+	w.heading_deg = 180.0
+	return w
+
+
+func test_a_round_aimed_a_few_miles_abeam_is_engaged_as_soon_as_it_is_seen() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, [_sam("area", 60.0, 1.0)])
+	var h := _harness([ship])
+	var w := _unlocked(h[2], ship, 3.6)
+	assert_eq(AirDefence.threatened_unit(h[0], "BLUE", w), ship, "its seeker opens with the hull inside the basket")
+	h[1].mark_detected("BLUE", w, 0.0, ship)
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 0.0), 1, "the first missile goes on detection, not when the seeker locks")
+	_cleanup(h)
+
+
+func test_a_round_whose_seeker_will_never_see_the_ship_is_not_charged_to_it() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO)
+	var h := _harness([ship])
+	var w := _unlocked(h[2], ship, 12.0)
+	assert_true(AirDefence.threatened_unit(h[0], "BLUE", w) == null, "passing 12 nm clear with an 8 nm seeker")
+	_cleanup(h)

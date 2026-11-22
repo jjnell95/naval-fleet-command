@@ -85,13 +85,15 @@ static func is_inbound(u: Unit, w: Weapon) -> bool:
 
 
 ## Which friendly ship a detected round is actually going for, or null if it threatens nobody.
+## A round with no lock yet threatens a ship its course brings inside its own seeker's reach, not
+## only one it is pointed at: a seeker opening a few miles abeam finds the hull all the same.
 static func threatened_unit(unit_manager: UnitManager, faction: String, w: Weapon, candidates: Array = [], velocities: Dictionary = {}) -> Unit:
 	if w.faction == faction or w.phase == Weapon.Phase.DEAD or w.is_interceptor():
 		return null
 	if w.acquired != null and w.acquired.alive and w.acquired.faction == faction:
 		return w.acquired
 	var best: Unit = null
-	var best_cpa := CPA_THREAT_NM
+	var best_cpa := maxf(CPA_THREAT_NM, w.spec.acquisition_radius_nm())
 	var weapon_velocity := Geo.heading_to_vector(w.heading_deg) * w.speed_nm_per_s()
 	for u: Unit in (unit_manager.units if candidates.is_empty() else candidates):
 		if not u.alive or u.faction != faction or not u.is_engageable():
