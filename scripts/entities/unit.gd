@@ -499,6 +499,9 @@ const NAVIGATION_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.S
 ## RETURN_TO_BASE reaches here only once UnitManager has checked the landing can be made.
 const STATION_REPLACING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.RETURN_TO_BASE]
 ## Steering orders that take a consort out of its formation: it cannot keep station and go there.
+## They interrupt a formation station rather than end it: an escort sent to look at something on
+## the bow is still part of the screen, and Return to Station takes her back. Only BREAK_FORMATION
+## or a new assignment ends it.
 const DETACHING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP]
 
 
@@ -530,7 +533,8 @@ func apply_order(order: Order) -> void:
 		formation_leader = null
 	if order.origin != "crew":
 		# Clearing the route of a consort that is keeping station changes nothing; it has none.
-		if order.type in STATION_REPLACING_ORDERS and not (order.type == Order.Type.CLEAR_WAYPOINTS and keeping_station):
+		var interrupts_formation := order.type in DETACHING_ORDERS and station_kind == "formation"
+		if order.type in STATION_REPLACING_ORDERS and not (order.type == Order.Type.CLEAR_WAYPOINTS and keeping_station) and not interrupts_formation:
 			clear_station()
 		elif order.type == Order.Type.BREAK_FORMATION and station_kind == "formation":
 			clear_station()
