@@ -92,7 +92,7 @@ The research ranked fourteen gaps by how much they cost the feeling, then by how
 
 ## Validation
 
-All of this ran on the final source in a cloud container, headless and under Xvfb with software rendering; the browser package was booted in headless Chromium. GitHub's own CI run on the commit also passed. [validation-m34.json](validation-m34.json) holds every count, the per-run sweep results and the package hash.
+All of this ran on the final source in a cloud container, headless and under Xvfb with software rendering; the browser package was booted in headless Chromium. GitHub's own CI run on the commit also passed. validation-m34.json holds every count, the per-run sweep results and the package hash.
 
 | Check | Result |
 |---|---|

@@ -21,35 +21,35 @@ Steregushchiy corvette. P-8A deferred until aviation/off-map sensor support is n
 
 ## M43 Commanding a large fleet
 
-Stack pickers for overlapping symbols, roster search, Show on Chart and Locate with back and forward, clearer fleet and defence boards, kills as held reports, a starting distance and working victory settings for custom fleets, F7 on whatever is displayed, four rebuilt recognition models, less rendering work per frame, and saved views. Preceded by the unnumbered [command bug review](docs/2026-11-14-command-bug-review.md) and [audio](docs/2026-11-14-audio.md) merges of 14 November. See [the M43 note](docs/2026-11-17-commanding-a-large-fleet.md).
+Stack pickers for overlapping symbols, roster search, Show on Chart and Locate with back and forward, clearer fleet and defence boards, kills as held reports, a starting distance and working victory settings for custom fleets, F7 on whatever is displayed, four rebuilt recognition models, less rendering work per frame, and saved views. Preceded by the unnumbered command bug review and audio merges of 14 November. See the M43 note.
 
-The [balance sweep of 21 November](docs/2026-11-21-balance-sweep.md) found the 14 to 17 November work moved no operation by more than two points. It also found two things from before M43: Northern Convoy's close escort loses on seed 2 since #42, and the sweep's Carrier Watch plan stopped before the operation could be won and never flew its strike. The plan was repaired the same day and Carrier Watch wins all four trials, 77% to 100%.
+The balance sweep of 21 November found the 14 to 17 November work moved no operation by more than two points. It also found two things from before M43: Northern Convoy's close escort loses on seed 2 since #42, and the sweep's Carrier Watch plan stopped before the operation could be won and never flew its strike. The plan was repaired the same day and Carrier Watch wins all four trials, 77% to 100%.
 
 Next: find the M40 to M42 change behind the Northern Convoy defeat; then the M42 follow-ups: baffle the torpedo warning and the coverage shading, give the player a clear-baffles order, and have AI escorts zigzag. Measure a large fleet's frame time.
 
 ## M42 Ships against the light, fire, and the baffles
 
-Hull lighting that keeps a ship's shape on its shadowed side, relit fire and smoke, no banding on the sea; sonar baffles with a chart display and AI captains who clear them; Hormuz re-flown and unchanged. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+Hull lighting that keeps a ship's shape on its shadowed side, relit fire and smoke, no banding on the sea; sonar baffles with a chart display and AI captains who clear them; Hormuz re-flown and unchanged. See the M42 note.
 
 ## M41 A softer horizon, a dark night and holds that fit
 
-The sea pales into the sky, the anti-radiation missiles have their own models, long signals wrap; lookouts see less at night, an inbound anti-radiation missile is named, and holds fit the airframe. See [the M41 note](docs/2026-11-10-horizon-night-and-holds.md).
+The sea pales into the sky, the anti-radiation missiles have their own models, long signals wrap; lookouts see less at night, an inbound anti-radiation missile is named, and holds fit the airframe. See the M41 note.
 
 ## M40 Diesel boats, anti-radiation missiles and a core review
 
-Conventional submarines run on a battery with an air-independent plant and a snorkel; three anti-radiation missiles make radiating dangerous and can be fired down a bearing; seven defects found reading the simulation core are fixed with tests. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+Conventional submarines run on a battery with an air-independent plant and a snorkel; three anti-radiation missiles make radiating dangerous and can be fired down a bearing; seven defects found reading the simulation core are fixed with tests. See the M40 note.
 
 Next: re-sweep the operations (Hormuz first, where the Kilo can no longer sprint for long), give the AI plan a suppression role, name an inbound anti-radiation round for the player, and build an AGM-88 model.
 
 ## M36 Missions, saves and an enemy with a plan
 
-Aircraft fly CAP, reconnaissance, ASW search and strike missions with a launch queue and opt-in relief; ships and aircraft keep standing stations and return to them with S; battles save and reload exactly (quicksave, autosaves, the browser included); ships share group attacks under one round budget; the enemy can pursue a mission objective, and every operation now gives it one; a Classic preset offers the 1999 game's 4× ceiling, manual missile defence and engagement after identification; the operations react to the battle and vary by seed, with a 1990 strike element in Carrier Watch; and the largest late battle's sensor cycle costs a third of what it did, with orders reaching the screen in about 65 ms at 60×. See [the M36 note](docs/2026-10-02-m36-missions-saves-and-an-enemy-with-a-plan.md).
+Aircraft fly CAP, reconnaissance, ASW search and strike missions with a launch queue and opt-in relief; ships and aircraft keep standing stations and return to them with S; battles save and reload exactly (quicksave, autosaves, the browser included); ships share group attacks under one round budget; the enemy can pursue a mission objective, and every operation now gives it one; a Classic preset offers the 1999 game's 4× ceiling, manual missile defence and engagement after identification; the operations react to the battle and vary by seed, with a 1990 strike element in Carrier Watch; and the largest late battle's sensor cycle costs a third of what it did, with orders reaching the screen in about 65 ms at 60×. See the M36 note.
 
 Next: Hormuz is the one operation where neither tested opening wins on both seeds; review light-torpedo effectiveness against a decoying diesel submarine, or move the Kilo, and validate over more seeds. Decide whether the area-defence allowance per incoming round (two shots across the force, three on Saturation) should leave an inner layer for ballistic rounds. Then the M36 note's ranked gaps: rally points and launch alert states, a tutorial, debrief replay, and the AI using group attacks.
 
 ## M35 Nine missions, a crew and campaigns
 
-The mission list cut from 23 to nine, one distinct command problem each, through the generators (which now reproduce `data/` byte for byte). The seven operations also run as two campaigns gated on the commander's log. The crew speaks, an ambient bed plays, contacts read out with source and estimated damage, and the Action camera follows a strike to its impact anywhere the plot witnessed it. A landmass index cuts the heaviest chart's sight-line cost. See [the M35 note](docs/2026-10-01-m35-nine-missions-a-crew-and-campaigns.md).
+The mission list cut from 23 to nine, one distinct command problem each, through the generators (which now reproduce `data/` byte for byte). The seven operations also run as two campaigns gated on the commander's log. The crew speaks, an ambient bed plays, contacts read out with source and estimated damage, and the Action camera follows a strike to its impact anywhere the plot witnessed it. A landmass index cuts the heaviest chart's sight-line cost. See the M35 note.
 
 Next: the sensor cycle's cost still grows with radiating aircraft (about 8 ms a tick early in the Taiwan Strait, 22 ms forty minutes in), so high time compression cannot keep up late in the largest battle. Report unchanged held pairs less often, then re-baseline the sweep. After that, the M34 note's remaining ranked gaps: global options with a Classic preset, tasking that arrives during the fight, and launching a mission rather than an airframe.
 
@@ -59,17 +59,17 @@ The standing Attack order, right-click defaults with cursor feedback, the author
 
 ## M32 Command Watch
 
-Repeating player patrol areas, a persistent command strip, a more legible relief chart, maritime daylight and three original escort models improve the fleet-command experience. Patrols integrate with movement, emissions, fuel, recovery, formation and evasion. See the [M32 guide](docs/2026-09-30-command-watch.md).
+Repeating player patrol areas, a persistent command strip, a more legible relief chart, maritime daylight and three original escort models improve the fleet-command experience. Patrols integrate with movement, emissions, fuel, recovery, formation and evasion. See the M32 guide.
 
 ## M31 Northern Passage and the next playability milestone
 
-An original escort is accessible directly from the operations desk. Standing convoy orders, player-attributed neutral-loss objectives and an observed-event debrief complete a tested first-operation loop on the existing simulation. See the [M31 guide](docs/2026-09-30-northern-passage.md).
+An original escort is accessible directly from the operations desk. Standing convoy orders, player-attributed neutral-loss objectives and an observed-event debrief complete a tested first-operation loop on the existing simulation. See the M31 guide.
 
 Next: versioned mid-engagement save/load, including simulation time, PRNG state, units, orders, formation and aviation references, sensor/track history, weapons and launch queues, cooldowns, objectives and the observed journal. Validate save/reload continuation against an uninterrupted seeded run before expanding campaign scope. Current custom-mission JSON saves only scenario definitions.
 
 ## M30 weapon control and catalogue accuracy
 
-Mixed salvos across selected units, visible launch queues, role-specific envelopes and observer-held firing solutions retain the classic CDS workflow. ASW rockets now deliver a separate underwater payload; aircraft altitude and several national weapon fits are corrected. See [the M30 guide](docs/2026-09-29-weapon-control.md) and [validation record](docs/validation-m30.json).
+Mixed salvos across selected units, visible launch queues, role-specific envelopes and observer-held firing solutions retain the classic CDS workflow. ASW rockets now deliver a separate underwater payload; aircraft altitude and several national weapon fits are corrected. See the M30 guide and validation record.
 
 The next fidelity gap is the loading model: aircraft station restrictions and individual launcher modules remain abstracted. The current catalogue describes representative scenario fits, not every certified configuration.
 
@@ -80,7 +80,7 @@ hemisphere with shadows when the view is large, sitting wet in the water with bo
 wakes, and showing navigation lights on their arcs after dark; the seven flat-tops in the operations
 rebuilt; MdCN on the French FREMM and Suffren; torpedoes fought with acoustic decoys and Paket-NK
 instead of chaff; the data display's weapons in columns; and the browser build rebuilt. See the
-[M28 notes](docs/2026-09-28-live-view.md).
+M28 notes.
 
 The most useful next steps are torpedo countermeasures for the navies no public source fits yet (the
 PLAN and Japanese hulls are the ones that matter in the operations), class-specific geometry for the
@@ -89,13 +89,13 @@ rebuilt), and an underwater view for a submerged subject; the camera stays above
 
 ## M27 ship fits and the reach line
 
-A weapon-fit audit of the whole fleet: seven hulls corrected to their public fits, two weapons added, the hulls that are thin in service left thin and pinned by test, and the reach of each hull's weapons stated on the data display. See the [M27 notes](docs/2026-09-28-ship-fits.md).
+A weapon-fit audit of the whole fleet: seven hulls corrected to their public fits, two weapons added, the hulls that are thin in service left thin and pinned by test, and the reach of each hull's weapons stated on the data display. See the M27 notes.
 
 The most useful next steps are a torpedo-defence system (a towed decoy, a hard-kill rocket) once torpedo fights matter in the operations, the MdCN cruise missile for the French hulls, and a layout that fits the largest hulls' weapon lists on the data display.
 
 ## M26 final QC and optimisation
 
-Every screen reviewed, the frame budget measured (`--perf`) and the chart's script cost roughly halved in the largest operations, the surviving screen defects fixed with tests, and the console, the test runner, the code and the docs cleared of noise. See the [M26 notes](docs/2026-09-28-final-qc.md).
+Every screen reviewed, the frame budget measured (`--perf`) and the chart's script cost roughly halved in the largest operations, the surviving screen defects fixed with tests, and the console, the test runner, the code and the docs cleared of noise. See the M26 notes.
 
 The most useful next steps are a per-view mesh for the coastline stroke (the last few milliseconds of the chart's frame in Norway), a frame budget measured on real GPUs in the browser, and a look at the sensor cycle's cost in the 115-unit operations at full time compression.
 
@@ -107,22 +107,22 @@ The most useful next steps are a measured frame budget for the always-on 3D view
 
 ## M23 world theatres, shore batteries and the world view
 
-Four Natural Earth chart regions, a 2027 Pacific, Gulf and Mediterranean catalogue of 45 platforms with art and models, installations ashore that fight and can be struck, ski-jump carriers, seven new operations (22 in all) with full briefing cards on every mission, theatre shelves on the operations desk, and a 3D world view that obeys the information model. See the [M23 notes](docs/2026-09-27-world-theatres.md).
+Four Natural Earth chart regions, a 2027 Pacific, Gulf and Mediterranean catalogue of 45 platforms with art and models, installations ashore that fight and can be struck, ski-jump carriers, seven new operations (22 in all) with full briefing cards on every mission, theatre shelves on the operations desk, and a 3D world view that obeys the information model. See the M23 notes.
 
 The most useful next steps are a campaign thread across a theatre with persistent losses and magazines, replenishment at sea, mine warfare for the Gulf, and coast-guard and maritime-militia traffic for the South China Sea.
 
 ## M22 command deck redesign and browser release
 
-The interface was rebuilt around the chart on a code-defined design system. Twelve defects were fixed, each with a test, and a lighter browser build (71 MB first load) now publishes through GitHub Pages. CI runs the tests on every pull request. See the [M22 notes](docs/2026-09-24-presentation-and-browser.md).
+The interface was rebuilt around the chart on a code-defined design system. Twelve defects were fixed, each with a test, and a lighter browser build (71 MB first load) now publishes through GitHub Pages. CI runs the tests on every pull request. See the M22 notes.
 
 The most useful next steps are an introductory mission that requires the player to identify and engage, and keyboard-free touch controls if phone play ever matters.
 
 ## M20 air operations
 
-Aircraft-type selection, explicit carrier/airfield landing, recovery reservations, visible approach and complete sortie turnaround are implemented. A no-opposition qualification exercise teaches the workflow. The roster adds 18 platforms and 12 weapon families with full recognition art. See the [M20 guide](docs/2026-09-23-air-operations.md) and [validation record](docs/validation-m20.json).
+Aircraft-type selection, explicit carrier/airfield landing, recovery reservations, visible approach and complete sortie turnaround are implemented. A no-opposition qualification exercise teaches the workflow. The roster adds 18 platforms and 12 weapon families with full recognition art. See the M20 guide and validation record.
 
 Further aviation work should prioritize finite base stores, sustained sortie planning and weather/deck constraints before adding more nominal airframe variants. These are future features, not claims about the present model.
 
 ## M19 follow-on
 
-Contact fidelity and stability are locally implemented and validated; see [M19 notes](docs/2026-09-23-contact-fidelity.md). Remaining priorities are an observability-based passive tracker, full-duration mission balance runs, and measured rendering/simulation performance budgets. Publication and deployment are separate from local validation.
+Contact fidelity and stability are locally implemented and validated; see M19 notes. Remaining priorities are an observability-based passive tracker, full-duration mission balance runs, and measured rendering/simulation performance budgets. Publication and deployment are separate from local validation.

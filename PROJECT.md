@@ -28,4 +28,4 @@ No copyrighted assets from existing games.
 
 ## Current weapon-control scope
 
-M30 exposes every fitted system in a CDS firing board with per-system quantities, ammunition reservations and launch queues. Type-colored ranges supplement the original NTDS identity symbols. Targeting consumes the player’s held track picture; hidden enemy state does not become a firing solution. Public source corrections and remaining abstractions are recorded in [the weapon-control guide](docs/2026-09-29-weapon-control.md).
+M30 exposes every fitted system in a CDS firing board with per-system quantities, ammunition reservations and launch queues. Type-colored ranges supplement the original NTDS identity symbols. Targeting consumes the player’s held track picture; hidden enemy state does not become a firing solution. Public source corrections and remaining abstractions are recorded in the weapon-control guide.

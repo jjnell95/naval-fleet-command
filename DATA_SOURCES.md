@@ -1,6 +1,6 @@
 # Current source review
 
-See [M23 2027 theatres ledger](docs/THEATRES_2027.md) for the PLAN, Japanese, Iranian, Russian coastal and civilian records, [M21 Cold War 1990 sources and model limits](docs/COLD_WAR_1990.md), [M20 aviation and fleet catalogue](docs/AVIATION_ROSTER_M20.md), [M18 sea floor, acoustics and damage notes](docs/REALISM_M18.md) and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; later ledgers supersede conflicting fit and coastline claims.
+See [M23 2027 theatres ledger](docs/THEATRES_2027.md) for the PLAN, Japanese, Iranian, Russian coastal and civilian records, [M21 Cold War 1990 sources and model limits](docs/COLD_WAR_1990.md), [M20 aviation and fleet catalogue](docs/AVIATION_ROSTER_M20.md), M18 sea floor, acoustics and damage notes and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; later ledgers supersede conflicting fit and coastline claims.
 
 # Data Sources
 
@@ -420,7 +420,7 @@ Carrier Watch's detachment is 28 aircraft (12 F-14A+, 4 E-2C, 4 A-6E, 4 S-3A, 4 
 
 ## Weapon control and catalogue audit, 29 September 2026
 
-M30's [audit and source ledger](docs/2026-09-29-weapon-control.md#sources-and-uncertainty) records the JASSM, Mk 54/VL-ASROC, F-35B, Astute, APR-3 and Orion fit corrections. It separates verified roles from representative payload choices and gameplay estimates. The new bomb and ASW delivery models are abstractions, not certified launch envelopes or combat performance predictions.
+M30's audit and source ledger records the JASSM, Mk 54/VL-ASROC, F-35B, Astute, APR-3 and Orion fit corrections. It separates verified roles from representative payload choices and gameplay estimates. The new bomb and ASW delivery models are abstractions, not certified launch envelopes or combat performance predictions.
 
 ## Northern Passage, 30 September 2026
 
@@ -432,11 +432,11 @@ The route is two water-clear legs of 3 and 5 nautical miles in the shipped Natur
 
 No primary source was consulted for M40, and none is cited. What is taken as public is general only: that conventional submarines run submerged on a battery whose endurance falls steeply with speed, recharge by snorkelling on diesels, and that the Gotland and Type 039A/B classes carry air-independent plants and Taigei a lithium-ion battery; that the AGM-88, Kh-31P and YJ-91 are air-launched anti-radiation missiles, the YJ-91 derived from the Kh-31P; and that switching a radar off is the classic defence against one. The EA-18G, Su-34 and J-16 fits are fictional scenario allocations and their integration is not verified here.
 
-Every number is a GAMEPLAY_ESTIMATE: the battery hotel, sprint and charge hours, the air-independent hours and speeds, snorkel depth, speed, noise and radar signature, the missiles' ranges, speeds, seeker reach and cone, the 40% emitter-memory chance, the quarter-mile memory radius and the sensor damage of a hit. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+Every number is a GAMEPLAY_ESTIMATE: the battery hotel, sprint and charge hours, the air-independent hours and speeds, snorkel depth, speed, noise and radar signature, the missiles' ranges, speeds, seeker reach and cone, the 40% emitter-memory chance, the quarter-mile memory radius and the sensor damage of a hit. See the M40 note.
 
 ## Sonar baffles, 10 November 2026
 
-No source was consulted for M42. That a hull-mounted sonar has a blind arc astern, and that submarines turn to clear it, is taken as general public knowledge. The 30° half-angle, the 150-second clearing turn of 70° and the fifteen-minute interval are GAMEPLAY_ESTIMATE values, not any navy's practice. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+No source was consulted for M42. That a hull-mounted sonar has a blind arc astern, and that submarines turn to clear it, is taken as general public knowledge. The 30° half-angle, the 150-second clearing turn of 70° and the fifteen-minute interval are GAMEPLAY_ESTIMATE values, not any navy's practice. See the M42 note.
 
 ## Catalogue review: guns, torpedoes, sonars and noise, 22 November 2026
 
