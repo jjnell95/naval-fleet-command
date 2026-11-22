@@ -215,3 +215,25 @@ func test_a_course_order_to_a_stopped_ship_gets_way_on_and_steers_it() -> void:
 	assert_near(ship.heading_deg, 90.0, 2.0, "she comes round to the ordered course")
 	assert_true(ship.speed_kn > 5.0 and ship.position.distance_to(lay) > 1.0, "with way on, making %.1f kn" % ship.speed_kn)
 	um.free()
+
+
+func test_a_last_waypoint_inside_the_turning_circle_is_reached_not_dropped() -> void:
+	Terrain.clear()
+	for abeam: float in [0.15, 0.25, 0.35]:
+		var um := UnitManager.new()
+		var ship := _ship(Vector2.ZERO, "Ship")
+		ship.speed_kn = 20.0
+		ship.ordered_speed_kn = 20.0
+		um.add_unit(ship)
+		var point := Vector2(abeam, 0.0)
+		assert_true(um.issue_order(ship, Order.move(point)))
+		_run(um, DT)
+		assert_true(not ship.waypoints.is_empty(), "a point %.2f nm abeam is not dropped on the first tick" % abeam)
+		var closest := INF
+		var now := 0.0
+		while now < 600.0 and not ship.waypoints.is_empty():
+			now = _run(um, DT, now)
+			closest = minf(closest, ship.position.distance_to(point))
+		assert_true(closest <= 0.12, "she opens out and comes back to it: closest %.2f nm" % closest)
+		assert_true(ship.waypoints.is_empty(), "and arrives there")
+		um.free()

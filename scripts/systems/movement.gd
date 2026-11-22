@@ -56,6 +56,24 @@ static func _passing_inside_turn(u: Unit, wp: Vector2) -> bool:
 	return wp.distance_to(u.position + abeam) < inside or wp.distance_to(u.position - abeam) < inside
 
 
+## A last point inside the turning circle is not an arrival: steering for it she would only circle
+## it. She stands on for a tactical diameter, from where the point lies outside both circles, and
+## comes round to it. A point on the way is simply passed for the next. A fixed-wing aircraft
+## holds through the point instead, and a hull with no sea room ahead counts it as reached.
+static func _open_out(u: Unit, wp: Vector2) -> bool:
+	if must_keep_flying(u):
+		return false
+	var rate := turn_rate_now(u)
+	if rate <= 0.0:
+		return false
+	var diameter := 2.0 * Geo.knots_to_nm_per_s(u.speed_kn) / deg_to_rad(rate)
+	var out := u.position + Geo.heading_to_vector(u.heading_deg) * diameter
+	if u.needs_sea_room() and not Terrain.is_empty() and (Terrain.is_land(out) or not Terrain.sea_leg_clear(u.position, out)):
+		return false
+	u.waypoints.push_front(out)
+	return true
+
+
 ## Clearing baffles. A boat with the habit swings BAFFLE_CLEAR_TURN_DEG off its course for the last
 ## BAFFLE_CLEAR_S of every interval, to alternate sides, so the arc its hull sonar cannot hear
 ## (Detection.baffled) sweeps over what was dead astern. The route itself is not changed.
@@ -129,7 +147,10 @@ static func step(u: Unit, dt: float) -> void:
 	if not evading and not u.waypoints.is_empty():
 		var wp: Vector2 = u.waypoints[0]
 		var arrive := maxf(ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
-		if u.position.distance_to(wp) <= arrive or _passing_inside_turn(u, wp):
+		var inside_turn := u.position.distance_to(wp) > arrive and _passing_inside_turn(u, wp)
+		if inside_turn and u.waypoints.size() == 1 and not u.patrol_active and _open_out(u, wp):
+			pass  # the point is kept, and the leg out from it now leads
+		elif u.position.distance_to(wp) <= arrive or inside_turn:
 			u.waypoints.pop_front()
 			# Only the corners of the circuit come round again: the way a hull was given round a
 			# coast to reach its first corner is sailed once.
