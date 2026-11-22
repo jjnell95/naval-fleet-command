@@ -348,7 +348,7 @@ func test_a_manual_ship_holds_its_sams_while_the_other_side_still_defends_itself
 	_cleanup(h)
 
 
-func test_close_in_guns_answer_on_manual_but_not_under_weapons_hold() -> void:
+func test_close_in_guns_answer_on_manual_and_under_weapons_hold() -> void:
 	for roe: int in [Unit.Roe.FREE, Unit.Roe.HOLD]:
 		var ciws := _sam("ciws", 1.2, "ciws", 3)
 		var ship := _ship("BLUE", Vector2.ZERO, [_sam("essm", 25.0), ciws])
@@ -358,10 +358,7 @@ func test_close_in_guns_answer_on_manual_but_not_under_weapons_hold() -> void:
 		_incoming(h[2], "RED", Vector2(0, 10), ship)
 		_run(h, 75.0)
 		assert_eq(ship.magazine_count("essm"), 32, "the SAMs wait for an order")
-		if roe == Unit.Roe.FREE:
-			assert_true(ship.magazine_count("ciws") < 32, "the last-ditch guns stay automatic")
-		else:
-			assert_eq(ship.magazine_count("ciws"), 32, "weapons hold silences even the guns")
+		assert_true(ship.magazine_count("ciws") < 32, "the last-ditch guns stay automatic, weapons hold or not: hold is an order not to attack")
 		_cleanup(h)
 
 

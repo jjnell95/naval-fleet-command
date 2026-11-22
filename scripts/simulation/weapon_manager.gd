@@ -291,8 +291,10 @@ func faction_commitment(faction: String, track: Track, queued_only := false) -> 
 ## Fires interceptors at a weapon already in flight. Used by the air-defence system: by itself on
 ## automatic defence, or for the rounds a commander's intercept order cleared (AirDefence
 ## order_intercept), through the same layers and checks either way. Returns the rounds launched.
+## Weapons hold does not come into it: this is never an attack, and what a holding ship may defend
+## against is the air-defence system's decision.
 func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int, now: float) -> int:
-	if shooter.roe == Unit.Roe.HOLD or interceptor_wait_s(shooter, spec, threat, now) != 0.0:
+	if interceptor_wait_s(shooter, spec, threat, now) != 0.0:
 		return 0
 	now_s = now
 	# SAMs leave one at a time at the authored launch interval. A CIWS round count is a

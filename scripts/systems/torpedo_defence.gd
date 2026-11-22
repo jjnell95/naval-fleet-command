@@ -55,7 +55,8 @@ static func hard_kill_weapon(u: Unit) -> WeaponSpec:
 
 
 static func _hard_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager, now: float) -> int:
-	if u.roe == Unit.Roe.HOLD or not u.can_fire() or w.hard_kill_shots >= MAX_HARD_KILL_SHOTS:
+	# Weapons hold is an order not to attack; the ship still shoots at a torpedo homing on it.
+	if not u.can_fire() or w.hard_kill_shots >= MAX_HARD_KILL_SHOTS:
 		return 0
 	var spec := hard_kill_weapon(u)
 	if spec == null:

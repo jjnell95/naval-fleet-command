@@ -359,3 +359,39 @@ func test_a_ship_with_nothing_else_defends_itself_with_its_ballistic_capable_mis
 	_run(h, 120.0)
 	assert_eq(round.dead_reason, "INTERCEPTED", "a reserve is not kept at the cost of the ship")
 	_cleanup(h)
+
+
+# --- Weapons hold stops attacks, not self-defence -------------------------------------------------
+
+func test_a_ship_on_weapons_hold_still_shoots_down_a_round_coming_at_it() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, [_sam("point", 25.0, 1.0), _sam("gun", 1.2, 1.0, "ciws")])
+	var h := _harness([ship])
+	assert_true(h[0].issue_order(ship, Order.set_roe(Unit.Roe.HOLD)))
+	var round := _incoming(h[2], _asm(), Vector2(0, 20), ship)
+	_run(h, 200.0)
+	assert_eq(round.dead_reason, "INTERCEPTED", "hold is an order not to attack; the ship still defends itself")
+	assert_near(ship.health, 100.0, 1e-3)
+	_cleanup(h)
+
+
+func test_the_guns_of_a_ship_on_weapons_hold_fire_at_a_leaker() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO, [_sam("gun", 1.2, 1.0, "ciws")], 60)
+	var h := _harness([ship])
+	ship.roe = Unit.Roe.HOLD
+	var round := _incoming(h[2], _asm(), Vector2(0, 3), ship)
+	_run(h, 40.0)
+	assert_true(ship.magazine_count("gun") < 60, "the close-in gun fired")
+	assert_eq(round.dead_reason, "INTERCEPTED")
+	_cleanup(h)
+
+
+func test_a_consort_on_weapons_hold_covers_the_ship_beside_it() -> void:
+	var escort := _ship("BLUE", Vector2(1.0, 0), [_sam("point", 25.0, 1.0)])
+	var merchant := _ship("BLUE", Vector2.ZERO)
+	var h := _harness([escort, merchant])
+	escort.roe = Unit.Roe.HOLD
+	var round := _incoming(h[2], _asm(), Vector2(0, 20), merchant)
+	_run(h, 200.0)
+	assert_eq(round.dead_reason, "INTERCEPTED")
+	assert_near(merchant.health, 100.0, 1e-3)
+	_cleanup(h)

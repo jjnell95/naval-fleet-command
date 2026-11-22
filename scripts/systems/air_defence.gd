@@ -6,9 +6,14 @@ class_name AirDefence
 ## area and point SAMs for the rounds the commander orders intercepted (`order_intercept`, which
 ## marks them in `Weapon.intercept_cleared`); once cleared, a round is engaged by the same layers,
 ## budgets and fire-control channels as automatic defence would use. What stays automatic: the
-## close-in guns, the last-ditch layer a crew fires at whatever leaks through (weapons hold still
-## silences them), and chaff and flares, which follow `auto_countermeasures` as before. Torpedo
-## defence is not affected: the option is about missiles.
+## close-in guns, the last-ditch layer a crew fires at whatever leaks through, and chaff and
+## flares, which follow `auto_countermeasures` as before. Torpedo defence is not affected: the
+## option is about missiles.
+##
+## Weapons hold stops a ship attacking. It does not stop it defending: interceptors are fired only
+## at weapons in flight, and a ship on hold fires them at rounds threatening the force as any other
+## would. Hold does withdraw the commander's clearances under manual defence, so the missiles that
+## wait for an order go back to waiting.
 ##
 ## The doctrine is to defend the ship, not an allowance. What is limited is the number of
 ## interceptors in the air at one round across the whole force, never the rounds ever fired at it:
@@ -191,7 +196,9 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 						continue
 					if first_pass:
 						_try_decoy(u, w, weapon_manager)
-					if u.roe != Unit.Roe.HOLD and u.can_fire():
+					# Weapons hold is an order not to attack. A ship holding fire still defends itself
+					# and its consorts against a round on its way in.
+					if u.can_fire():
 						defenders.append(u)
 				# A missile chasing an aircraft is the aircraft's to beat with countermeasures and a
 				# hard turn; a ship spending interceptors on it is shooting at the wrong thing.
