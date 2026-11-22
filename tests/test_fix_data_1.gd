@@ -508,7 +508,7 @@ func test_the_seahawk_radar_finds_a_periscope_before_an_eye_does() -> void:
 
 ## The heavyweights a submarine or a ship fires down a tube and steers by wire. A wire-guided
 ## round follows the plot its firing unit holds; the others keep the launch solution.
-const WIRE_GUIDED := ["cw90_mk48", "mk48_adcap", "spearfish", "f21_torpedo", "jmsdf_type18_torpedo", "pla_yu6", "ugst_torpedo", "cw90_test71", "irn_test71me", "torpedo62"]
+const WIRE_GUIDED := ["cw90_mk48", "mk48_adcap", "spearfish", "f21_torpedo", "jmsdf_type18_torpedo", "pla_yu6", "ugst_torpedo", "cw90_test71", "irn_test71me", "torpedo62", "torpedo47"]
 
 
 func test_tube_launched_heavyweights_are_wire_guided() -> void:
