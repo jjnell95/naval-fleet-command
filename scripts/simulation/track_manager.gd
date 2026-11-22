@@ -27,6 +27,8 @@ const MIN_BEARING_RANGE_NM := 0.3
 const SOUND_SOLUTION_QUALITY := 0.6
 const HOLDER_SILENT_S := 2.5
 const LINE_LAG_S := 1.0 / BearingSolution.SMOOTH_GAIN
+## How far outside a dropped track's ellipse a new plot may fall and still be the same contact.
+const SAME_CONTACT_MARGIN_NM := 2.0
 const TMA_DECAY_PER_S := 0.0008  # a solution goes off while contact is lost
 const FIRM_HOLD_S := 1.5  # a firm plot this recent outranks any bearing
 const HISTORY_INTERVAL_S := 30.0
@@ -48,6 +50,10 @@ var _tracks: Dictionary = {}  # faction -> Array[Track]
 var _by_target: Dictionary = {}  # picture key -> reported target association -> Track
 var _local_keys: Dictionary = {}
 var _track_ids: Dictionary = {}
+## Contacts a side has dropped from every picture: side and unit key -> the number the track had,
+## where it was last plotted and how wide its ellipse was. A new plot inside that ellipse is the
+## same contact found again and takes the number back; anywhere else it is a new contact.
+var _dropped_ids: Dictionary = {}
 var _next_number: Dictionary = {}  # faction -> int
 
 
@@ -137,7 +143,12 @@ func _new_track(key: String, faction: String, target: Unit, position: Vector2, n
 	t.truth = target
 	var identity_key := "%s:%s" % [faction, _unit_key(target)]
 	if not _track_ids.has(identity_key):
-		_track_ids[identity_key] = "T%d" % _next_id(faction)
+		var dropped: Dictionary = _dropped_ids.get(identity_key, {})
+		_dropped_ids.erase(identity_key)
+		if not dropped.is_empty() and position.distance_to(dropped["position"]) <= float(dropped["error"]) + SAME_CONTACT_MARGIN_NM:
+			_track_ids[identity_key] = dropped["id"]
+		else:
+			_track_ids[identity_key] = "T%d" % _next_id(faction)
 	t.id = _track_ids[identity_key]
 	t.position = position
 	t.first_seen_time = now
@@ -158,7 +169,7 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t = _new_track(key, faction, target, c.position, now)
 	var already_this_cycle := (not is_new) and is_equal_approx(t.last_seen_time, now)
 	if not already_this_cycle:
-		var reacquired := not is_new and t.age_s(now) > Track.STALE_AFTER_S
+		var reacquired := not is_new and t.age_s(now) > t.stale_after_s()
 		# The side's own first look at a reported contact replaces the report outright: neither its
 		# position nor its age is evidence the sensor should be blended with.
 		var from_report := t.reported
@@ -358,19 +369,22 @@ func tick(now: float, dt: float) -> void:
 			var t: Track = list[i]
 			var age := t.age_s(now)
 			# Retain the plot through the destruction event so its radio report has a track number.
-			if t.confirmed_destroyed or age > Track.LOST_AFTER_S:
+			if t.confirmed_destroyed or age > t.lost_after_s():
 				t.status = Track.Status.LOST
 				list.remove_at(i)
 				if _by_target.has(faction):
 					_by_target[faction].erase(t.truth)
+				_release_number(t)
 				if not t.confirmed_destroyed:
 					track_lost.emit(faction, t)
 				continue
 			if is_equal_approx(t.last_seen_time, now):
 				continue
-			if age > Track.STALE_AFTER_S:
+			if age > t.stale_after_s():
 				t.status = Track.Status.STALE
-			if t.has_kinematics:
+			# Dead reckoning is worth something while the ellipse is small. Past that the contact
+			# has had time to go anywhere in it, and the plot stays where it is and fades.
+			if t.has_kinematics and t.position_error_nm < Track.COAST_LIMIT_NM:
 				t.position += Geo.heading_to_vector(t.course_deg) * Geo.knots_to_nm_per_s(t.speed_kn) * dt
 			var growth := t.error_growth_nm_per_s() * dt
 			t.error_major_nm += growth
@@ -386,12 +400,24 @@ func tick(now: float, dt: float) -> void:
 func record_hit(faction: String, spec: WeaponSpec, target: Unit) -> void:
 	if spec == null or target == null:
 		return
+	_mark_datum(faction, target)
 	var t := find_track(faction, target)
 	if t == null or t.status == Track.Status.LOST or t.confirmed_destroyed:
 		return
 	# Estimated damage cannot confirm destruction: catalogue health and actual damage can
 	# differ. Reserve the 100% readout for a confirmed loss.
 	t.damage_estimate = minf(t.damage_estimate + 100.0 * spec.damage / assessed_health(t, spec.id), 99.0)
+
+
+## A hit on a contact nobody is holding tells the shooter's side one thing: its round found
+## something where the plot was. Whatever that was is not sailing on at its old course and speed,
+## so every picture of that side that holds the contact only as a stale plot keeps it as a fixed
+## datum from here, until someone looks again or it ages out.
+func _mark_datum(faction: String, target: Unit) -> void:
+	for key in _by_target:
+		var t: Track = (_by_target[key] as Dictionary).get(target)
+		if t != null and t.owner_faction == faction and t.status == Track.Status.STALE:
+			_reset_kinematics(t)
 
 
 ## The damage pool a side assumes for a contact: the catalogue health of the class its track
@@ -422,6 +448,21 @@ func on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool
 
 func on_unit_destroyed(target: Unit, _killer_faction: String) -> void:
 	record_kill(target)
+
+
+## Gives up a dropped track's number once no picture of its side holds the contact any longer.
+## A contact confirmed destroyed keeps its number: there is nothing left to find again.
+func _release_number(t: Track) -> void:
+	if t.confirmed_destroyed or t.truth == null:
+		return
+	for key in _by_target:
+		var other: Track = (_by_target[key] as Dictionary).get(t.truth)
+		if other != null and other.owner_faction == t.owner_faction:
+			return
+	var identity_key := "%s:%s" % [t.owner_faction, _unit_key(t.truth)]
+	if _track_ids.get(identity_key, "") == t.id:
+		_track_ids.erase(identity_key)
+		_dropped_ids[identity_key] = {"id": t.id, "position": t.position, "error": t.position_error_nm}
 
 
 func _any_contributor_linked(t: Track) -> bool:
@@ -602,4 +643,5 @@ func clear() -> void:
 	_tracks.clear()
 	_local_keys.clear()
 	_track_ids.clear()
+	_dropped_ids.clear()
 	_next_number.clear()

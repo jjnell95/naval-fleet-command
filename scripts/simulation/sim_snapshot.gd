@@ -47,7 +47,7 @@ const GROUP_SKIP := {}
 ## once in Simulation._ready), catalogue data, or recomputed within a single tick.
 const MANAGER_FIELDS := {
 	"UnitManager": ["now_s", "_next_id", "engage_on_hostile_id"],
-	"TrackManager": ["_tracks", "_by_target", "_local_keys", "_track_ids", "_next_number"],
+	"TrackManager": ["_tracks", "_by_target", "_local_keys", "_track_ids", "_dropped_ids", "_next_number"],
 	"SensorManager": ["_accum", "_last_heading", "_manoeuvre"],
 	"ThreatManager": ["_observers", "_detected", "_first_seen"],
 	"WeaponManager": ["in_flight", "_next_id", "_launcher_ready_at", "now_s", "_pending", "_pending_dirty"],

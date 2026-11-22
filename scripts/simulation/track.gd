@@ -7,6 +7,8 @@ enum Classification { UNKNOWN, SURFACE, CLASS_KNOWN, IDENTIFIED }
 enum Status { ACTIVE, STALE, LOST }
 
 const STALE_AFTER_S := 60.0
+## An aircraft not seen for this long is no longer where the plot has it.
+const STALE_AFTER_AIR_S := 20.0
 ## The longest any contact is kept unseen: a submarine, a fixed site, or a report from outside.
 const LOST_AFTER_S := 1800.0
 const CLASS_TIMES_S: Array[float] = [0.0, 30.0, 180.0, 600.0]  # cumulative observation time
@@ -193,6 +195,18 @@ func mover() -> String:
 	if altitude_m > 0.0 or (has_kinematics and speed_kn > FASTEST_SHIP_KN):
 		return "air"
 	return ""
+
+
+## How long after it was last held the plot stops counting as current.
+func stale_after_s() -> float:
+	return STALE_AFTER_AIR_S if mover() == "air" else STALE_AFTER_S
+
+
+## Whether anything but a torpedo may still be laid on this plot: this side's own sensors are
+## holding it now. A stale plot is where the contact was, and a report from outside was never a
+## fire-control solution; a missile sent to either finds empty sea, or whatever has since arrived.
+func fire_control_quality() -> bool:
+	return status == Status.ACTIVE and not reported and not confirmed_destroyed
 
 
 ## How long the contact is kept after it was last held, and how long a range is trusted once only

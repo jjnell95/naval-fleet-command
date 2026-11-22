@@ -425,3 +425,104 @@ func test_a_plot_takes_its_domain_from_the_sensor_and_a_bearing_waits() -> void:
 		tm.observe_contact("BLUE", _look(heard, Vector2.ZERO, 45.0, "ship", 1.5), float(second), 1.0)
 	assert_eq(t.domain, "surface", "listening long enough classifies it")
 	tm.free()
+
+
+# --- Lost contacts --------------------------------------------------------------------------------
+
+## A contact held on radar for 70 s on a steady course, then never seen again.
+func _held_then_lost(domain: String, speed_kn: float, altitude_m: float) -> Array:
+	var tm := TrackManager.new()
+	var u := _target_unit()
+	u.spec.domain = domain
+	var step := Geo.knots_to_nm_per_s(speed_kn)
+	for second in range(1, 71):
+		var c := SensorContact.make(u, Vector2(0.0, 50.0 - step * second), 0.5, 0.5, 1.0, 50.0, "sonar_active" if domain == "subsurface" else "radar")
+		c.altitude_m = altitude_m
+		tm.observe_contact("BLUE", c, float(second), 1.0)
+		tm.tick(float(second), 1.0)
+	u.depth_m = 100.0 if domain == "subsurface" else 0.0
+	return [tm, u]
+
+
+func _coast(tm: TrackManager, from: int, to: int) -> void:
+	for second in range(from, to + 1):
+		tm.tick(float(second), 1.0)
+
+
+func test_a_lost_aircraft_stops_being_a_target_and_is_dropped_in_minutes() -> void:
+	var held := _held_then_lost("air", 480.0, 9000.0)
+	var tm: TrackManager = held[0]
+	var t := tm.find_track("BLUE", held[1])
+	assert_true(t.has_kinematics and t.fire_control_quality(), "held, with a course, and fit to shoot at")
+	var last_seen := t.position
+	_coast(tm, 71, 100)
+	assert_eq(t.status, Track.Status.STALE, "thirty seconds unseen, an aircraft's plot is stale")
+	assert_true(not t.fire_control_quality(), "and nothing but a torpedo may be laid on a stale plot")
+	_coast(tm, 101, 180)
+	assert_true(last_seen.distance_to(t.position) < 10.0, "the plot stops flying on once its ellipse is large (moved %.0f nm)" % last_seen.distance_to(t.position))
+	assert_true(t.position_error_nm >= last_seen.distance_to(t.position), "and the ellipse covers how far it was moved (%.1f nm)" % t.position_error_nm)
+	_coast(tm, 181, 200)
+	assert_true(tm.find_track("BLUE", held[1]) == null, "two minutes unseen, the aircraft is dropped")
+	tm.free()
+
+
+func test_a_lost_ship_is_kept_ten_minutes_and_a_submarine_thirty() -> void:
+	var ship := _held_then_lost("surface", 18.0, -1.0)
+	var tm: TrackManager = ship[0]
+	_coast(tm, 71, 400)
+	var t := tm.find_track("BLUE", ship[1])
+	assert_true(t != null and t.status == Track.Status.STALE, "a ship five minutes unseen is still plotted, stale")
+	if t != null:
+		assert_true(t.position_error_nm > 1.5 and t.position_error_nm < 6.0, "with an ellipse a ship could have covered (%.1f nm)" % t.position_error_nm)
+	_coast(tm, 401, 700)
+	assert_true(tm.find_track("BLUE", ship[1]) == null, "and dropped after ten")
+	tm.free()
+	var boat := _held_then_lost("subsurface", 6.0, -1.0)
+	tm = boat[0]
+	_coast(tm, 71, 1500)
+	assert_true(tm.find_track("BLUE", boat[1]) != null, "a submarine datum is worth keeping for twenty minutes and more")
+	_coast(tm, 1501, 1900)
+	assert_true(tm.find_track("BLUE", boat[1]) == null, "and is dropped after thirty")
+	tm.free()
+
+
+## A missile sent at a plot five minutes old finds the ship. Nobody is watching; the plot was moving.
+func test_a_hit_on_a_stale_plot_leaves_a_fixed_datum() -> void:
+	var held := _held_then_lost("surface", 28.0, -1.0)
+	var tm: TrackManager = held[0]
+	var u: Unit = held[1]
+	_coast(tm, 71, 300)
+	var t := tm.find_track("BLUE", u)
+	assert_true(t.status == Track.Status.STALE and t.has_kinematics, "a stale plot still dead-reckoning")
+	var round := WeaponSpec.new()
+	round.damage = 500.0
+	tm.on_weapon_impact("BLUE", round, u, true)
+	u.alive = false
+	tm.on_unit_destroyed(u, "BLUE")
+	var at := t.position
+	_coast(tm, 301, 500)
+	assert_true(tm.find_track("BLUE", u) == t, "the plot is kept: nobody saw what the round did")
+	assert_near(t.position.distance_to(at), 0.0, 0.01, "but it is a datum where the round went in, not a ship sailing on")
+	assert_true(not t.has_kinematics, "with no course and speed")
+	tm.free()
+
+
+# --- Track numbers --------------------------------------------------------------------------------
+
+func test_a_contact_dropped_and_found_elsewhere_gets_a_new_number() -> void:
+	var tm := TrackManager.new()
+	var u := _target_unit()
+	u.spec.domain = "surface"
+	u.id = 41
+	tm.observe("BLUE", u, Vector2(0, 30), 0.5, 1.0, 1.0, 1.0, 30.0)
+	var first := tm.find_track("BLUE", u).id
+	_coast(tm, 2, 700)
+	assert_true(tm.find_track("BLUE", u) == null, "the contact was dropped")
+	tm.observe("BLUE", u, Vector2(60, -20), 0.5, 1.0, 701.0, 1.0, 60.0)
+	var again := tm.find_track("BLUE", u)
+	assert_true(again.id != first, "found again seventy miles away it is a new contact, not the old number (%s then %s)" % [first, again.id])
+	_coast(tm, 702, 1400)
+	assert_true(tm.find_track("BLUE", u) == null)
+	tm.observe("BLUE", u, again.position + Vector2(1.0, 0.5), 0.5, 1.0, 1401.0, 1.0, 60.0)
+	assert_eq(tm.find_track("BLUE", u).id, again.id, "found again inside the ellipse it was dropped with, it is the same contact")
+	tm.free()
