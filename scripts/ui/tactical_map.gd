@@ -2140,7 +2140,7 @@ func _draw_air_missions() -> void:
 		var title := "%s %d · %.0f nm" % [m.kind_name(), m.id, radius_nm]
 		if m.kind == AirMission.Kind.CAP:
 			title += " · " + m.intent_label()
-		_queue_caption(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), title, 11, COL_READOUT, true)
+		_queue_ring_title(sp, r, title)
 		if preview:
 			_centred_text(sp + Vector2(0, maxf(r, 8.0) + 18.0), "RELEASE TO APPLY · ESC CANCELS", 11)
 		if m.kind == AirMission.Kind.CAP and (preview or selected.any(func(u: Unit) -> bool: return m.aircraft.has(u))):
@@ -2156,7 +2156,7 @@ func _draw_objectives() -> void:
 		var sp := world_to_screen(mark["center"])
 		var r := float(mark["radius_nm"]) * ppn
 		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), COL_ROUTE, 1.0, true)
-		_queue_caption(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), mark["text"], 11, COL_READOUT, true)
+		_queue_ring_title(sp, r, mark["text"])
 
 
 ## The areas the chart marks, one circle and one name each: {center, radius_nm, text}. Several
@@ -2249,6 +2249,23 @@ func _draw_convergence_zones(sp: Vector2) -> void:
 
 
 ## A ring's name over its top, in the readout style.
+## An area's name over its ring; when something already prints there, under it, then beside it.
+func _queue_ring_title(c: Vector2, r: float, text: String) -> void:
+	var lift := maxf(r, 8.0) + 5.0
+	var ascent := _readout_font().get_ascent(11)
+	var aside := lift + _text_width(text, 11) * 0.5
+	var level := lift + ascent * 0.5
+	_queue_caption(c + Vector2(0.0, -lift), text, 11, COL_READOUT, true, Vector2.INF, [Vector2(0.0, 2.0 * lift + ascent), Vector2(aside, level), Vector2(-aside, level)])
+
+
+## A caption set up and to the right of a point, `gap` px off, with the other three corners round
+## the same point as its alternative places, nearest first.
+func _corner_alts(text: String, font_size: int, gap: float) -> Array:
+	var across := -(_text_width(text, font_size) + 2.0 * gap)
+	var down := 2.0 * gap + _readout_font().get_ascent(font_size)
+	return [Vector2(0.0, down), Vector2(across, 0.0), Vector2(across, down)]
+
+
 func _ring_label(c: Vector2, r: float, text: String) -> void:
 	_queue_caption(c + Vector2(0.0, -r - 4.0), text, 10, Color(COL_READOUT, 0.8), true)
 
@@ -2700,7 +2717,25 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 		prev_world = wp
 	if u.patrol_active and u.waypoints.size() >= 3:
 		_draw_chart_dashes(prev, first, COL_ROUTE, 1.0, 5.0)
-		_shadow_text(first + Vector2(8, -8), u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL", 11, COL_ROUTE)
+		_queue_patrol_caption(u, first)
+
+
+## The name a patrol circuit carries on the chart, or "" for an airframe flying its own side's air
+## mission station: the mission's ring is titled already, and one name per airframe stacked on
+## the circuit's corner only covered it.
+func patrol_caption(u: Unit) -> String:
+	if u.station_kind == "patrol" and u.station_mission_id >= 0 and simulation != null and simulation.air_mission_manager != null:
+		var m := simulation.air_mission_manager.mission_by_id(u.station_mission_id)
+		if m != null and m.active and m.faction == player_faction and m.kind != AirMission.Kind.STRIKE:
+			return ""
+	return u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL"
+
+
+## The circuit's name beside its first corner, placed with the other captions.
+func _queue_patrol_caption(u: Unit, first: Vector2) -> void:
+	var text := patrol_caption(u)
+	if text != "":
+		_queue_caption(first + Vector2(8, -8), text, 11, COL_ROUTE, false, Vector2.INF, _corner_alts(text, 11, 8.0))
 
 
 ## A 2 px dot for trails and plot history: a filled square, which costs a fraction of an
@@ -2742,7 +2777,8 @@ func _draw_threat_marks(u: Unit, sp: Vector2) -> void:
 		MapSymbols.draw_threat_ring(self, sp, COL_HOSTILE, _anim)
 		var wp := world_to_screen(w.position)
 		draw_line(wp, sp, Color(COL_HOSTILE, 0.35), 1.0, true)
-		_queue_caption((wp + sp) * 0.5 + Vector2(4.0, -4.0), "%ds" % int(entry["time_s"]), 11, COL_READOUT)
+		var time_to_go := "%ds" % int(entry["time_s"])
+		_queue_caption((wp + sp) * 0.5 + Vector2(4.0, -4.0), time_to_go, 11, COL_READOUT, false, Vector2.INF, _corner_alts(time_to_go, 11, 4.0))
 
 
 ## The hooked pair's relative motion (the hooked own unit and its target): where each will be at
@@ -2762,7 +2798,8 @@ func _draw_relative_motion() -> void:
 	for endpoint: Vector2 in [own_end, contact_end]:
 		draw_arc(endpoint, 4.0, 0.0, TAU, 16, Color(COL_ROUTE, 0.85), 1.0, true)
 	var middle := own_end.lerp(contact_end, 0.5)
-	_queue_caption(middle + Vector2(4, -4), "%sCPA %.1f nm / %s" % ["LAST REPORT · " if not SubmarineComms.connected(ref) else "", solution.distance_nm, Track._fmt_age(solution.time_s)], 11, COL_READOUT)
+	var cpa := "%sCPA %.1f nm / %s" % ["LAST REPORT · " if not SubmarineComms.connected(ref) else "", solution.distance_nm, Track._fmt_age(solution.time_s)]
+	_queue_caption(middle + Vector2(4, -4), cpa, 11, COL_READOUT, false, Vector2.INF, _corner_alts(cpa, 11, 4.0))
 
 
 ## Rounds in flight: own ones always, an opposing one only while the plot holds it. Each is a small
