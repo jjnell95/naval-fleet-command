@@ -1,28 +1,28 @@
 # Current State: M43 Commanding a large fleet
 
-A custom fleet of forty or fifty hulls a side can now be commanded without fighting the screen. A click on overlapping symbols offers a list of callsigns and track numbers; Task Group searches the roster; the Track File, Air Operations and each comms report can show their subject on the chart, and `[` and `]` step back and forward through those jumps. Fleet Operations says whether orders go to one escort or the whole group and shows the real missile-defence mode. A kill is now a held report (`Track.confirmed_destroyed`), set only on a picture with a current fix, and no longer inferred from a 100% damage estimate. Fleet Builder sets the starting distance, and a custom victory uses the edited opponent and threshold. F7 follows the data display; four recognition models were rebuilt. The chart and the 3D view do less work per frame, and a saved engagement restores the chart view, selection, camera and pane layout. The balance sweep was run afterwards, on 21 November: [nothing M43 touched moved](docs/2026-11-21-balance-sweep.md), and two older problems turned up, one of them (the sweep's own Carrier Watch plan) since repaired. See [the M43 note](docs/2026-11-17-commanding-a-large-fleet.md).
+A custom fleet of forty or fifty hulls a side can now be commanded without fighting the screen. A click on overlapping symbols offers a list of callsigns and track numbers; Task Group searches the roster; the Track File, Air Operations and each comms report can show their subject on the chart, and `[` and `]` step back and forward through those jumps. Fleet Operations says whether orders go to one escort or the whole group and shows the real missile-defence mode. A kill is now a held report (`Track.confirmed_destroyed`), set only on a picture with a current fix, and no longer inferred from a 100% damage estimate. Fleet Builder sets the starting distance, and a custom victory uses the edited opponent and threshold. F7 follows the data display; four recognition models were rebuilt. The chart and the 3D view do less work per frame, and a saved engagement restores the chart view, selection, camera and pane layout. The balance sweep was run afterwards, on 21 November: nothing M43 touched moved, and two older problems turned up, one of them (the sweep's own Carrier Watch plan) since repaired. See the M43 note.
 
-Between M42 and M43, two reviews merged on 14 November without a milestone number: the [command and combat bug review](docs/2026-11-14-command-bug-review.md) (attack lifecycle and contact handling) and [crew radio and sound effects](docs/2026-11-14-audio.md) (76 recorded radio performances replacing device text-to-speech).
+Between M42 and M43, two reviews merged on 14 November without a milestone number: the command and combat bug review (attack lifecycle and contact handling) and crew radio and sound effects (76 recorded radio performances replacing device text-to-speech).
 
 # Previous: M42 Ships against the light, fire, and the baffles
 
-A ship's shadowed side now keeps its shape against the light; fire has a hot base under orange and red tongues and smoke that is lit from below and thins as it rises; the banding across the sea's middle distance is gone. A hull-mounted sonar is deaf within 30° of dead astern, the chart shows the gap, and the AI's submarine captains clear their baffles every fifteen minutes. Hormuz was re-flown on both opening plans and two seeds and came out within two points of `main`. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+A ship's shadowed side now keeps its shape against the light; fire has a hot base under orange and red tongues and smoke that is lit from below and thins as it rises; the banding across the sea's middle distance is gone. A hull-mounted sonar is deaf within 30° of dead astern, the chart shows the gap, and the AI's submarine captains clear their baffles every fifteen minutes. Hormuz was re-flown on both opening plans and two seeds and came out within two points of `main`. See the M42 note.
 
 # Previous: M41 A softer horizon, a dark night and holds that fit
 
-The 3D view's sea now pales into the sky instead of ending in a hard line; the three anti-radiation missiles have models and renders built by the art pipeline, the AGM-88 its own; a long radio signal wraps inside the chart. Lookouts identify at 35% of their daylight range at night, from the scenario's clock and position; an inbound anti-radiation missile is named with what to do about it; a holding pattern is sized to the airframe's turn. See [the M41 note](docs/2026-11-10-horizon-night-and-holds.md).
+The 3D view's sea now pales into the sky instead of ending in a hard line; the three anti-radiation missiles have models and renders built by the art pipeline, the AGM-88 its own; a long radio signal wraps inside the chart. Lookouts identify at 35% of their daylight range at night, from the scenario's clock and position; an inbound anti-radiation missile is named with what to do about it; a holding pattern is sized to the airframe's turn. See the M41 note.
 
 # Previous: M40 Diesel boats, anti-radiation missiles and a core review
 
-Conventional submarines now live on a battery: about an hour at full speed, days at a crawl, an air-independent plant for the two boats that have one, and a snorkel that charges the battery at the price of being four times as loud, a radar target and held to 8 knots. Three anti-radiation missiles (AGM-88, Kh-31P, YJ-91) home on a transmitting radar, can be fired down an ESM bearing, and are beaten by switching off, which leaves the radar off. A read of the simulation core found seven defects, all fixed with tests: ASW torpedoes could not follow a boat above 20 m, torpedoes died at a passive plot's guessed range, a periscope was identified at 6 nm, jets could be slowed to a stop, waypoints inside the turning circle were orbited for ever, and two ranges ignored sensor damage or a stale altitude. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+Conventional submarines now live on a battery: about an hour at full speed, days at a crawl, an air-independent plant for the two boats that have one, and a snorkel that charges the battery at the price of being four times as loud, a radar target and held to 8 knots. Three anti-radiation missiles (AGM-88, Kh-31P, YJ-91) home on a transmitting radar, can be fired down an ESM bearing, and are beaten by switching off, which leaves the radar off. A read of the simulation core found seven defects, all fixed with tests: ASW torpedoes could not follow a boat above 20 m, torpedoes died at a passive plot's guessed range, a periscope was identified at 6 nm, jets could be slowed to a stop, waypoints inside the turning circle were orbited for ever, and two ranges ignored sensor damage or a stale altitude. See the M40 note.
 
 # Previous: M39 Air combat regressions fixed
 
-The four air-combat results M38 left worse than before are fixed. A shot at an aircraft is held to its no-escape range, worked out from the reported type's turn rate, acceleration and top speed. That brings SM-2's first shot at a bomber flying straight in back out to 42 nm. A fighter closes at dash until it has a shot, then cranks 50° off the bearing instead of turning tail. A round at an aircraft that finds nothing at its aim point keeps searching until its fuel runs out. The 2027 AMRAAM and R-77 families reach 60 nm, so the PL-15 outranges them by a third rather than three-quarters. F/A-18E against J-15 from 80 nm went from 18 losses against 4 to 17 against 15. See [the M39 note](docs/2026-10-04-air-combat-regressions.md).
+The four air-combat results M38 left worse than before are fixed. A shot at an aircraft is held to its no-escape range, worked out from the reported type's turn rate, acceleration and top speed. That brings SM-2's first shot at a bomber flying straight in back out to 42 nm. A fighter closes at dash until it has a shot, then cranks 50° off the bearing instead of turning tail. A round at an aircraft that finds nothing at its aim point keeps searching until its fuel runs out. The 2027 AMRAAM and R-77 families reach 60 nm, so the PL-15 outranges them by a third rather than three-quarters. F/A-18E against J-15 from 80 nm went from 18 losses against 4 to 17 against 15. See the M39 note.
 
 # Previous: M38 Sensor coverage, air combat and one-click air tasking
 
-The chart is lit where your own radars and sonars reach and dark beyond them, so switching a sensor visibly changes the picture; stale contacts fade as they age. Air combat was measured end to end and fixed: fighters close into their own air-to-air envelopes instead of fleeing, shots are held until the target cannot simply outrun them, any hit downs an aircraft, radar recognises aircraft at close range, overkill and shots at dead aircraft are gone, SAMs keep guidance, and your lost rounds say why. A deck's menu flies a CAP, search or ASW mission with one chart click; a contact's menu offers an intercept, strike or look from the nearest deck; L sends hooked aircraft home; a live air board lists missions and hooks their aircraft. See [the M38 note](docs/2026-10-03-sensor-coverage-air-combat-and-air-tasking.md).
+The chart is lit where your own radars and sonars reach and dark beyond them, so switching a sensor visibly changes the picture; stale contacts fade as they age. Air combat was measured end to end and fixed: fighters close into their own air-to-air envelopes instead of fleeing, shots are held until the target cannot simply outrun them, any hit downs an aircraft, radar recognises aircraft at close range, overkill and shots at dead aircraft are gone, SAMs keep guidance, and your lost rounds say why. A deck's menu flies a CAP, search or ASW mission with one chart click; a contact's menu offers an intercept, strike or look from the nearest deck; L sends hooked aircraft home; a live air board lists missions and hooks their aircraft. See the M38 note.
 
 # Previous: M37 Integrated air defence, weapon fixes and flight operations
 
@@ -48,17 +48,17 @@ The chart is lit where your own radars and sonars reach and dark beyond them, so
 - CAP intercepts are flown at dash.
 - A deck can hold 2 or 4 fighters on ready alert and scrambles them toward a raid itself.
 
-The [M37 note](docs/2026-10-03-integrated-air-defence-and-flight-ops.md) gives the audit findings, the design, before-and-after battle measurements and what was deliberately left alone.
+The M37 note gives the audit findings, the design, before-and-after battle measurements and what was deliberately left alone.
 
 # Previous: M36 + Command and recognition improvements
 
-22 aircraft and all 14 submarine entries now use improved original recognition models, with matching portraits, thumbnails, profiles and tactical-map plans. Aircraft have tapered wings, framed canopies, intake openings and clearer family silhouettes. Submarines have rounded bows, faired sails, corrected bow/sail planes, class-specific stern controls and open pump-jet shrouds or screws. The [combined art and command review](docs/2026-10-02-aircraft-submarines-and-integration.md) records scope and integration checks.
+22 aircraft and all 14 submarine entries now use improved original recognition models, with matching portraits, thumbnails, profiles and tactical-map plans. Aircraft have tapered wings, framed canopies, intake openings and clearer family silhouettes. Submarines have rounded bows, faired sails, corrected bow/sail planes, class-specific stern controls and open pump-jet shrouds or screws. The combined art and command review records scope and integration checks.
 
-Classic now uses 1×/2×/4×/8× actual time and leaves attacks on the commander's orders; the old 4×/auto-attack combination is preserved as Custom when loaded. Northern Passage offers a saved, dismissible command guide with real launch, patrol, report, investigation and return/recovery steps. Bearing-only reports explain why investigation is unavailable and offer an honest skip. The 3D picture uses reported class and altitude, labels sightings versus estimates, gives sensor-only class models a provisional tint and masks visual sightings behind terrain. See [the deeper review](docs/2026-10-02-deep-command-review.md).
+Classic now uses 1×/2×/4×/8× actual time and leaves attacks on the commander's orders; the old 4×/auto-attack combination is preserved as Custom when loaded. Northern Passage offers a saved, dismissible command guide with real launch, patrol, report, investigation and return/recovery steps. Bearing-only reports explain why investigation is unavailable and offer an honest skip. The 3D picture uses reported class and altitude, labels sightings versus estimates, gives sensor-only class models a provisional tint and masks visual sightings behind terrain. See the deeper review.
 
-The earlier command-screen refinement reduced the strip to nine controls. **Orders** opens task-first route, patrol and return-to-station commands; navigation settings and view/status controls are grouped below. Contact menus lead with investigation for positioned unknowns and attack for positioned hostiles, while weapon-specific choices sit under **Weapon selection**. Readouts distinguish live plots, stale/lost reports and contact reports, and say **not assessed** when no damage has been assessed. Hover cards have an opaque backing. See [that earlier review](docs/2026-10-02-command-screen-refinement.md).
+The earlier command-screen refinement reduced the strip to nine controls. **Orders** opens task-first route, patrol and return-to-station commands; navigation settings and view/status controls are grouped below. Contact menus lead with investigation for positioned unknowns and attack for positioned hostiles, while weapon-specific choices sit under **Weapon selection**. Readouts distinguish live plots, stale/lost reports and contact reports, and say **not assessed** when no damage has been assessed. Hover cards have an opaque backing. See that earlier review.
 
-Aircraft fly **missions** from Air Operations: a combat air patrol, a reconnaissance or ASW search area, or a strike on a held contact, chosen on the chart. The deck launches what it has ready, queues the rest and shows each airframe's state from queued to recovering. A CAP identifies unknown aircraft and intercepts only hostile ones; reconnaissance never fires; relief is opt-in per mission. Every ship and aircraft keeps its **standing station** through investigations, attacks, evasion and refuelling, and **S** sends it back. Two or more ships can share a **group attack** with one round budget and a shared assessment pause. The [M36 note](docs/2026-10-02-m36-missions-saves-and-an-enemy-with-a-plan.md) gives the design, the measurements and what was not verified.
+Aircraft fly **missions** from Air Operations: a combat air patrol, a reconnaissance or ASW search area, or a strike on a held contact, chosen on the chart. The deck launches what it has ready, queues the rest and shows each airframe's state from queued to recovering. A CAP identifies unknown aircraft and intercepts only hostile ones; reconnaissance never fires; relief is opt-in per mission. Every ship and aircraft keeps its **standing station** through investigations, attacks, evasion and refuelling, and **S** sends it back. Two or more ships can share a **group attack** with one round budget and a shared assessment pause. The M36 note gives the design, the measurements and what was not verified.
 
 A battle can be **saved and reloaded exactly**: Ctrl+Shift+S, Ctrl+Shift+L, Ctrl+Shift+O for the list (also from the desk), five rotating autosaves, checksummed files, in the browser too. A seeded battle saved and reloaded carries on byte for byte as if never interrupted, in one process and across processes.
 
@@ -68,17 +68,17 @@ The seven operations **react to the battle** and vary by seed: events fire on co
 
 The sensor cycle in the largest late battle costs a third of what it did with identical outcomes, and a per-frame time budget brings an order onto the screen in about 65 ms at 60× instead of about 7 s.
 
-Validation is recorded in [validation-m36.json](docs/validation-m36.json).
+Validation is recorded in validation-m36.json.
 
 # Previous: M35 Nine Missions, a Crew and Campaigns
 
-Nine missions ship, down from 23: one 2027 operation in each chart region (North Cape, Taiwan Strait, Hormuz, Tartus), three 1990 operations and two training missions. The cut was made in the generators, which now reproduce `data/` byte for byte after three earlier hand edits were moved into them. Hormuz's neutral-loss condition now counts only the player's fire. The [M35 note](docs/2026-10-01-m35-nine-missions-a-crew-and-campaigns.md) gives the reasoning, the measurements and what was not verified.
+Nine missions ship, down from 23: one 2027 operation in each chart region (North Cape, Taiwan Strait, Hormuz, Tartus), three 1990 operations and two training missions. The cut was made in the generators, which now reproduce `data/` byte for byte after three earlier hand edits were moved into them. Hormuz's neutral-loss condition now counts only the player's fire. The M35 note gives the reasoning, the measurements and what was not verified.
 
 The desk adds a **Campaigns** shelf: Northern Flank, September 1990 and Four Crises, 2027, each opened one operation at a time by a win at 60% or better in the commander's log. The crew speaks through the system's text-to-speech, interface advice has its own dimmer line, and an ambient sea and machinery bed plays. A contact's data display reads SOURCE (platform and set), %DAMAGE (estimated from your own hits) and plain COURSE and SPEED, a hovered contact reads out with nothing hooked, and F7 opens a classified contact's class. The Action camera follows an own strike round to its impact anywhere on the plot and cuts to any event the plot witnessed; the tether names an out-of-frame event without leaving the hooked ship.
 
 Desk refreshes after the first cost about 0.1 ms instead of 30–55 ms, the shipped scenario data fell from 7.3 MB to 2.6 MB, and a landmass index cuts the Taiwan Strait's sight-line test from 61 to 21 µs. The sensor cycle's growth with radiating aircraft is the main remaining performance gap.
 
-Validation is recorded in [validation-m35.json](docs/validation-m35.json).
+Validation is recorded in validation-m35.json.
 
 # Previous: M34 The Command Loop
 
@@ -88,15 +88,15 @@ A right-click on a hostile contact now orders a standing **Attack**: the hooked 
 
 The operations desk opens on the 14 authored operations again, with **Training** and **My Missions** beside them. Every mission ends with a graded mission effectiveness (task 60 on a win only, force 20, attrition 20, less 25 per neutral the player sinks and a pro-rata share for one damaged; before that penalty a victory grades 60–100% and a defeat 0–40%), and a commander's log keeps each operation's best result and date, shown on the desk.
 
-Validation is recorded in [validation-m34.json](docs/validation-m34.json).
+Validation is recorded in validation-m34.json.
 
 # Previous: M33 Command Intent
 
 Contact inspection now drives data and 3D without discarding selected shooters. A direct contact-menu shot states its finite salvo and checks current ROE, range, guidance and ammunition. Persistent Investigate orders follow only held track positions and end on classification or unavailable/blocked contact, with attributed radio reports. Normal navigation and accepted aircraft recovery supersede them; fixed-wing aircraft retain forward flight.
 
-The command strip exposes Chart and time menus. The live view exposes mouse camera/layout controls, captions the subject/action, frames the horizon by aspect ratio, and renders scenario-authored clouds/rain with a paused weather clock. Northern Passage's maintained generator includes its fictional weather and updated first orders. Original manual research, remaining gaps and verification are in the [M33 guide](docs/2026-09-30-fleet-command-intent.md) and [validation record](docs/validation-m33.json).
+The command strip exposes Chart and time menus. The live view exposes mouse camera/layout controls, captions the subject/action, frames the horizon by aspect ratio, and renders scenario-authored clouds/rain with a paused weather clock. Northern Passage's maintained generator includes its fictional weather and updated first orders. Original manual research, remaining gaps and verification are in the M33 guide and validation record.
 
-The integrated build preserves the current combat cleanup's Attack/Defence controls and missile tracking. It passes 660 regression tests and 231 native checks at 1280 × 720 and 1920 × 1080; fresh scenario results, CI evidence and the current browser-package hash are in the [combined validation record](docs/validation-m33-merge.json). The rebuilt browser package loads without page/script errors; inherited WebGL resize warnings remain. Known contacts use labeled sensor-estimate models, and aircraft cameras clear their own launch ship. The earlier M33 validation record is retained as a historical snapshot.
+The integrated build preserves the current combat cleanup's Attack/Defence controls and missile tracking. It passes 660 regression tests and 231 native checks at 1280 × 720 and 1920 × 1080; fresh scenario results, CI evidence and the current browser-package hash are in the combined validation record. The rebuilt browser package loads without page/script errors; inherited WebGL resize warnings remain. Known contacts use labeled sensor-estimate models, and aircraft cameras clear their own launch ship. The earlier M33 validation record is retained as a historical snapshot.
 
 # Previous: M32 Command Watch
 
@@ -104,7 +104,7 @@ Graphics, UI and tasking now follow the supplied Fleet Command reference more cl
 
 **Patrol / Shift+W** assigns a repeating circuit by clicking two corners. Validation checks platform availability, terrain, approach and turning room. Patrols use actual movement, sensors and endurance, retain evasion/resumption, and yield to navigation changes or aircraft recovery. Their task and legs remain visible while paused.
 
-599 regression tests pass. Native interaction checks cover both 1280 × 720 and 1920 × 1080, with the existing interface suites, seeded Northern Passage outcomes, full scenario sweeps and local browser checks recorded in the [M32 guide](docs/2026-09-30-command-watch.md) and [validation record](docs/validation-m32.json). The inherited WebGL warnings on expanding the browser's 3D view remain; native checks pass. Validation was completed locally before merge; the linked records preserve that evidence.
+599 regression tests pass. Native interaction checks cover both 1280 × 720 and 1920 × 1080, with the existing interface suites, seeded Northern Passage outcomes, full scenario sweeps and local browser checks recorded in the M32 guide and validation record. The inherited WebGL warnings on expanding the browser's 3D view remain; native checks pass. Validation was completed locally before merge; the linked records preserve that evidence.
 
 # Previous: M31 Northern Passage
 
@@ -112,7 +112,7 @@ Graphics, UI and tasking now follow the supplied Fleet Command reference more cl
 
 Loss objectives can now filter responsibility by the firing faction, including later fire/flooding deaths. Civilian sinkings are separate from enemy kills. The after-action report retains objective results, finite ammunition expenditure, losses and a chronological journal of player-observed messages; it does not reveal hidden enemy callsigns. Weapons-free orders warn about unidentified contacts and civilian consequences.
 
-Validation passes 587 regression tests, 115 assertions across seven ordinary-order trials, 29 graphical assertions at each requested resolution, the existing interface suites and 46 full-duration AI scenario runs. The actual-scene command driver verifies delivery, abandonment, deadline expiry and civilian-loss defeat without injecting damage or observations. The same seed is replayed and compared, and graphical checks cover 1280 × 720 and 1920 × 1080. Exact results, commands, screenshots and browser checks are in the [M31 validation note](docs/2026-09-30-northern-passage.md) and [machine-readable record](docs/validation-m31.json).
+Validation passes 587 regression tests, 115 assertions across seven ordinary-order trials, 29 graphical assertions at each requested resolution, the existing interface suites and 46 full-duration AI scenario runs. The actual-scene command driver verifies delivery, abandonment, deadline expiry and civilian-loss defeat without injecting damage or observations. The same seed is replayed and compared, and graphical checks cover 1280 × 720 and 1920 × 1080. Exact results, commands, screenshots and browser checks are in the M31 validation note and machine-readable record.
 
 Chromium/SwiftShader emits WebGL buffer warnings when G expands the 3D view; this also reproduces in the unchanged M30 package. Native checks pass, and the normal browser command view works.
 
@@ -120,7 +120,7 @@ Full mid-engagement save/load remains the next playability milestone; custom sce
 
 # Previous: M30 Weapon Control and Track Solutions
 
-QC follow-up: nested imports, open-water presentation, runtime-error test failures, wall-clock timing, held-track SAM guidance and shared Mk 13 service are repaired. Sensor/defence/AI scans and chart drawing are batched and indexed. See [QC_PERFORMANCE.md](docs/QC_PERFORMANCE.md) for behavior, limits and reproducible checks.
+QC follow-up: nested imports, open-water presentation, runtime-error test failures, wall-clock timing, held-track SAM guidance and shared Mk 13 service are repaired. Sensor/defence/AI scans and chart drawing are batched and indexed. See QC_PERFORMANCE.md for behavior, limits and reproducible checks.
 
 Ships and aircraft can commit multiple weapon types from one firing board, with separate per-unit quantities, launcher queues, ammunition reservations and cancellation. VLS launch service is shared with automatic defence; repeated paused orders no longer bypass launch spacing. Rounds are checked again before release, and weapons hold returns unfired reservations.
 
@@ -130,7 +130,7 @@ The 139-platform / 148-weapon catalogue includes corrected aircraft AAM typing, 
 
 Validation: 564 regression tests, 47 command-screen checks, 19 aviation checks, 32 workshop checks and 24 weapon-control checks at each tested desktop size, plus 52 actual-scene battles of 6,000 seconds. The final 274-actor native sample reached 21.7 fps; frame stalls remain.
 
-See the [operating guide and source review](docs/2026-09-29-weapon-control.md), [validation record](docs/validation-m30.json) and [catalogue audit](docs/catalogue-audit-m30.json). The release includes the editable source and browser package; GitHub Actions records test and Pages deployment status.
+See the operating guide and source review, validation record and catalogue audit. The release includes the editable source and browser package; GitHub Actions records test and Pages deployment status.
 
 # Previous: M29 Fleet Workshop and Defensive Command
 
@@ -142,7 +142,7 @@ Fleet Operations (J) exposes group readiness and orders. Selection groups use Ct
 
 Validation: 545 regression tests, 47 command-screen checks, 19 aviation checks, and 32 exported workshop checks at each of 1600 × 900 and 1280 × 720 pass. All 52 actual-scene battles complete 6,000 simulated seconds without script errors, with no hulls grounded at the end. The 274-actor native stress sample improves from 12.4 to 20.2 fps, with noticeable large-salvo stalls still present.
 
-See the [operating guide](docs/2026-09-29-fleet-workshop.md), [validation record](docs/validation-m29.json) and [source notes](DATA_SOURCES.md#fleet-workshop-and-defensive-responses-29-september-2026). The tested browser package is included in `docs/play` for deployment from `main`.
+See the operating guide, validation record and [source notes](DATA_SOURCES.md#fleet-workshop-and-defensive-responses-29-september-2026). The tested browser package is included in `docs/play` for deployment from `main`.
 
 ## Previous: M28 The Live View, Deep Strike and Torpedo Defence
 
@@ -154,7 +154,7 @@ The browser build is rebuilt (57.1 MB) and runs in headless Chromium with no con
 
 Validation: 514 regression tests (483 before), 47 command-screen checks and 19 aviation checks pass. A before-and-after sweep of the 22 scenarios at two seeds runs clean with every outcome unchanged; 42 of 44 cases fire the same rounds and lose the same units, and the two that change are Hormuz, where Languedoc's MdCN opening leaves the IRGC swarm uncued and the battle quieter. The AI's eight-minute flight-time limit no longer applies to fixed targets, so it now uses MdCN on the Tartus battery and Tomahawk on airfields at their real ranges, keeping the last Tomahawk salvo for ships. A sweep of all 44 cases with that change leaves every outcome as it was; 72 rounds go past the old limit, four shore installations fall where two did, and the kept Tomahawks go at the Russian frigates when they come into reach. The frame budget under the chart is unchanged within a few tenths of a millisecond; full screen with shadows costs 17 more draw calls.
 
-See [the M28 notes](docs/2026-09-28-live-view.md), [validation](docs/validation-m28.json) and [the source ledger](DATA_SOURCES.md#deep-strike-and-torpedo-defence-28-september-2026-later-the-same-day).
+See the M28 notes, validation and [the source ledger](DATA_SOURCES.md#deep-strike-and-torpedo-defence-28-september-2026-later-the-same-day).
 
 ## Previous: M27 Ship Fits and the Reach Line
 
@@ -164,7 +164,7 @@ The data display's WEAPONS line now states each hull's reach, one figure per job
 
 Validation: 483 regression tests (466 before), 46 command-screen checks and 19 aviation checks pass. A before-and-after scenario sweep of all 22 operations at two seeds passed 44 of 44 on each side with no grounded hulls, and changed the outcome in one case of 44 (Bashi Channel at seed 13, running to a win, by ordinary divergence: no Tomahawk was fired in it). The browser build was not rebuilt.
 
-See [the M27 notes](docs/2026-09-28-ship-fits.md) and [the source ledger](DATA_SOURCES.md#ship-fit-review-28-september-2026).
+See the M27 notes and [the source ledger](DATA_SOURCES.md#ship-fit-review-28-september-2026).
 
 ## Previous: M26 Final QC and Optimisation
 
@@ -172,7 +172,7 @@ A pass over the whole game as it stands, on the M24 CDS screen and the M25 opera
 
 Validation: 466 regression tests, 46 command-screen checks and 19 aviation checks pass, with a clean shutdown. The scenario sweep of all 22 operations at two seeds passed. The browser build was rebuilt and booted in headless Chromium with no console errors.
 
-See [the M26 notes](docs/2026-09-28-final-qc.md) and [validation record](docs/validation-m26.json).
+See the M26 notes and validation record.
 
 ## Previous: M25 Fleet Operations
 
@@ -182,7 +182,7 @@ Missile defence has separate area and point-layer budgets, per-ship close-in all
 
 Validation: 461 regression tests, 46 command-screen checks and 19 aviation workflow checks pass. All 22 scenarios passed the stability sweep; extended Northern Convoy and Carrier Watch runs reached victory. Browser deployment and air planning were checked with no console warnings or errors. Baseline shutdown resource warnings remain documented.
 
-See [the M25 change and source notes](docs/2026-09-27-fleet-operations.md) and [validation record](docs/validation-m25.json). The browser package is included in `docs/play` for GitHub Pages publication from `main`.
+See the M25 change and source notes and validation record. The browser package is included in `docs/play` for GitHub Pages publication from `main`.
 
 ## Previous: M24 The CDS Screen
 
@@ -190,7 +190,7 @@ The command screen was rebuilt as a late-1990s fleet-command CDS screen, matched
 
 The chart is a hypsometric relief map: land heights from GMTED2010 (USGS, public domain) on each region's sea-floor grid, the sea in stepped blue bands, NTDS symbols with white track numbers and velocity leaders, and graphic symbols on Tab. Dialogs, menus and the front end wear a 1999 grey skin over an original dusk render from the game's own 3D scene. Several keys moved to make room for the CDS bindings (G swap, F8–F12 cameras, F10 full-screen 3D, A boards, H key commands); H lists them all. See the [M24 notes](docs/2026-09-27-cds-screen.md).
 
-Validation: 445 regression tests; 42 command-screen checks at 1600 × 900 and 19 air-operations checks under Xvfb; a 44-case scenario sweep at 6000 s per case through the new screen, all clean, 0 grounded hulls, with the same outcomes as M23; an adversarial review whose 20 confirmed findings are all fixed; the browser build driven through the desk, briefing, command screen, boards, swap and full-screen 3D in headless Chromium. See [validation-m24.json](docs/validation-m24.json).
+Validation: 445 regression tests; 42 command-screen checks at 1600 × 900 and 19 air-operations checks under Xvfb; a 44-case scenario sweep at 6000 s per case through the new screen, all clean, 0 grounded hulls, with the same outcomes as M23; an adversarial review whose 20 confirmed findings are all fixed; the browser build driven through the desk, briefing, command screen, boards, swap and full-screen 3D in headless Chromium. See validation-m24.json.
 
 ## Previous: M23 World Theatres, Shore Batteries and the World View
 
@@ -202,7 +202,7 @@ Seven operations are new: Bashi Channel, Taiwan Strait, Spratly, the Sea of Japa
 
 A 3D world view (T, or the plot's WORLD button) shows the sea around the selected unit from a bridge, orbit, overhead or chase camera: own ships, aircraft and submarines as models on a sun-lit ocean, contacts only as the plot holds them, weapons only when detected. The browser build carries the new models and art: a first visit downloads 91 MB (53 MB game pack, 38 MB runtime), cached after that.
 
-Validation: 351 regression tests; 29 command-deck checks and 19 air-operations checks under Xvfb; a 44-case scenario sweep at 6000 s per case with 0 grounded hulls; full-watch AI-versus-AI runs of every new operation; the browser build booted in headless Chromium without script errors. See [validation-m23.json](docs/validation-m23.json). See the [M23 notes](docs/2026-09-27-world-theatres.md) and the [2027 theatres ledger](docs/THEATRES_2027.md).
+Validation: 351 regression tests; 29 command-deck checks and 19 air-operations checks under Xvfb; a 44-case scenario sweep at 6000 s per case with 0 grounded hulls; full-watch AI-versus-AI runs of every new operation; the browser build booted in headless Chromium without script errors. See validation-m23.json. See the M23 notes and the [2027 theatres ledger](docs/THEATRES_2027.md).
 
 ## Previous: M22 Command Deck Redesign and Browser Release
 
@@ -210,7 +210,7 @@ The game plays in any modern desktop browser from [GitHub Pages](https://jjnell9
 
 The interface was redesigned around the chart. A quiet design system reserves colour for meaning, uses original vector icons and moves shortcuts into tooltips. The top bar has a segmented time control, and a one-line status rail replaces the watch cards. Floating chart controls and a chart footer (source note, cursor position, scale bar) free the chart to take over half the screen at 1600 × 900. The design size is now 1600 × 900 with expand stretch, so browsers are never letterboxed.
 
-A debugging pass fixed twelve defects, each with a regression test or interface check. The worst were a missile already shot down still hitting its target, and Space firing whichever button had focus. Others: a deck aircraft blanking the contact picture, unwinnable editor objectives, and departed raiders counting as destroyed. See the [M22 notes](docs/2026-09-24-presentation-and-browser.md).
+A debugging pass fixed twelve defects, each with a regression test or interface check. The worst were a missile already shot down still hitting its target, and Space firing whichever button had focus. Others: a deck aircraft blanking the contact picture, unwinnable editor objectives, and departed raiders counting as destroyed. See the M22 notes.
 
 Validation: 319 regression tests; 29 command-deck checks at 1600 × 1000 and 1600 × 900; 19 air-operations checks; a scripted browser session in headless Chromium with no console errors. CI now runs the tests and both interface suites on every pull request.
 
@@ -220,14 +220,14 @@ Four alternate-history 1990 operations now open through a mission desk with era 
 
 The separate period catalogue adds 20 platforms, 28 weapons and 25 sensors. The full game now has 15 missions, 94 platforms, 98 weapons, 106 sensors and 192 inspectable models. Historical sources distinguish dated fits from combat estimates, including Perry's shared magazine, Spruance's VLS refit, F-14A+ and separate hull/towed sonars.
 
-AI submarines recognize usable torpedo ammunition; routed ASW aircraft lay spaced buoy fields on station; actual dipping helicopters resume their search. Breakout ships retain their routes and build their own contact picture. See the [M21 release and validation](docs/2026-09-24-cold-war-1990.md), [period source ledger](docs/COLD_WAR_1990.md) and [complete scenario runs](docs/validation-cold-war-scenarios.json).
+AI submarines recognize usable torpedo ammunition; routed ASW aircraft lay spaced buoy fields on station; actual dipping helicopters resume their search. Breakout ships retain their routes and build their own contact picture. See the M21 release and validation, [period source ledger](docs/COLD_WAR_1990.md) and complete scenario runs.
 
 ## Previous: M20 Air Operations
 
 
 The fleet has 74 platforms, 70 weapons, 81 sensors and 144 inspectable models. Air Operations (AIR / F3) exposes aircraft-type selection, launch quantity, individual readiness, fuel and landing destination. Recovery remains visible through approach, reserves compatible base capacity, transfers ownership only at touchdown and enters a refuel/rearm cycle before relaunch. The eleventh mission, Carrier Qualification, validates shipboard and airfield landings as actual training objectives.
 
-See the [operating guide](docs/2026-09-23-air-operations.md), [source ledger](docs/AVIATION_ROSTER_M20.md) and [current validation record](docs/validation-m20.json).
+See the operating guide, [source ledger](docs/AVIATION_ROSTER_M20.md) and current validation record.
 
 Validation: 291 regression tests, 19 native aviation workflow checks and 24 native UI checks pass. All eleven missions pass two 1,200-second stability runs, plus Northern Vigil at 6,000 seconds. Native desktop/laptop layouts and the browser launch-to-landing exercise are verified.
 
@@ -235,7 +235,7 @@ Validation: 291 regression tests, 19 native aviation workflow checks and 24 nati
 
 M19 improves sensor-report fusion, reacquisition, time-control interruption, relative-motion plotting and fleet cleanup. The Contact Solution panel exposes observation age and uncertainty; unresolved bearings have no claimed measured range. The overview's recurrent coastline triangulation error is fixed.
 
-Validation: 264 tests pass with clean resource shutdown; 24 native interface checks pass; all ten missions pass two 1,200-second AI runs without errors, warnings or grounded hulls. Native desktop/laptop captures and the rebuilt browser flow are verified. See [M19 notes](docs/2026-09-23-contact-fidelity.md) and [validation record](docs/validation-m19.json) for scope and limits.
+Validation: 264 tests pass with clean resource shutdown; 24 native interface checks pass; all ten missions pass two 1,200-second AI runs without errors, warnings or grounded hulls. Native desktop/laptop captures and the rebuilt browser flow are verified. See M19 notes and validation record for scope and limits.
 
 ## Previous: M18 Sea Floor, Water Column and Damage Control
 
@@ -253,7 +253,7 @@ A firm radar or active plot is no longer blurred by a bearing from another senso
 
 **Damage control.** Hits start fires (missiles) and flooding (torpedoes) that grow or shrink against damage control over the next hour. Damage control depends on ship size, remaining condition, time to organize, a per-hit draw and help from a consort within a mile. Ships lost this way are credited to the attacker. Systems are repaired only once the ship is safe. Decoys seduce a missile, which may lock the next ship in its cone. Burning ships trail smoke; fire and flooding have lamps, chips and event-log lines.
 
-Validation: 249 tests pass. They include 13 ocean tests, 10 damage-control tests and 2 AI depth tests, and the 224 earlier tests are unchanged. Northern Vigil at 6,000 simulated seconds runs within about 1% of the previous commit's wall time. See [M18 model notes](docs/REALISM_M18.md) and [validation](docs/validation-m18.json).
+Validation: 249 tests pass. They include 13 ocean tests, 10 damage-control tests and 2 AI depth tests, and the 224 earlier tests are unchanged. Northern Vigil at 6,000 simulated seconds runs within about 1% of the previous commit's wall time. See M18 model notes and validation.
 
 ## Previous: M17 Command Deck UX
 
@@ -269,4 +269,4 @@ Corrected class fits include Flight IIA, Type 45, Nansen, Udaloy, Slava, Gorshko
 
 Read [M16 corrections and public sources](docs/REALISM_M16.md) for the detailed ledger and limits. Natural Earth is 1:10 million cartography, not a hydrographic chart. Bathymetry, measured terrain heights, real acoustic propagation and precise technical ship models remain outside this pass.
 
-Validation: 224 tests pass, including 16 new UX regressions. Native captures at 1,600 × 1,000 and a 1,152 × 720 scaled laptop window verify that the full command deck remains present; a separate rendered capture verifies the Actions palette. Twenty-four native integration checks cover gallery lifecycle, mission-menu focus isolation, palette focus and briefing pause restoration. Existing reference-cycle cleanup warnings remain at native shutdown. See [M17 UX notes](docs/UX_M17.md) and the prior [M16 validation report](docs/VALIDATION_M16.md).
+Validation: 224 tests pass, including 16 new UX regressions. Native captures at 1,600 × 1,000 and a 1,152 × 720 scaled laptop window verify that the full command deck remains present; a separate rendered capture verifies the Actions palette. Twenty-four native integration checks cover gallery lifecycle, mission-menu focus isolation, palette focus and briefing pause restoration. Existing reference-cycle cleanup warnings remain at native shutdown. See M17 UX notes and the prior M16 validation report.

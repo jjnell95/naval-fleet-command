@@ -94,3 +94,59 @@ func test_every_tool_entry_point_is_run_by_ci_documented_or_driven_by_another_to
 			if not used and other != path and (sources[other] as String).contains(path):
 				used = true
 		assert_true(used, "%s is run by CI, documented, or driven by another tool" % path)
+
+
+func _local_links(text: String) -> Array[String]:
+	var out: Array[String] = []
+	var link := RegEx.create_from_string("\\]\\(([^)#\\s]+)(#[^)]*)?\\)|(?:src|href)=\"([^\"#]+)\"")
+	for m: RegExMatch in link.search_all(text):
+		var target := m.get_string(1) if m.get_string(1) != "" else m.get_string(3)
+		if target.contains("://") or target.begins_with("mailto:") or target == "./":
+			continue
+		out.append(target)
+	return out
+
+
+## The reading pages: the top-level notes, the notes kept under docs/ and the landing page.
+func _pages() -> Array[String]:
+	var out: Array[String] = []
+	for name: String in DirAccess.get_files_at("res://"):
+		if name.get_extension() == "md":
+			out.append(name)
+	for name: String in DirAccess.get_files_at("res://docs"):
+		if name.get_extension() in ["md", "html"]:
+			out.append("docs/" + name)
+	return out
+
+
+func test_every_link_in_the_notes_and_landing_page_reaches_a_file() -> void:
+	var pages := _pages()
+	assert_true(pages.has("README.md") and pages.has("docs/index.html"), "the reading pages are found")
+	for page: String in pages:
+		for target: String in _local_links(FileAccess.get_file_as_string("res://" + page)):
+			var path := (page.get_base_dir() + "/" + target).simplify_path().trim_prefix("/")
+			if target.ends_with("/"):
+				assert_true(DirAccess.dir_exists_absolute("res://" + path), "%s links to the folder %s" % [page, target])
+			else:
+				assert_true(FileAccess.file_exists("res://" + path), "%s links to %s, which exists" % [page, target])
+
+
+## docs/ is the published page, its fonts and pictures, and the few notes that still describe the
+## game or that the catalogue cites as its sources; dated milestone records live in git history.
+func test_docs_holds_only_what_a_page_or_the_catalogue_reaches() -> void:
+	var reached := {"docs/index.html": true}
+	for page: String in _pages():
+		for target: String in _local_links(FileAccess.get_file_as_string("res://" + page)):
+			reached[(page.get_base_dir() + "/" + target).simplify_path().trim_prefix("/")] = true
+	var cited := RegEx.create_from_string("docs/[A-Za-z0-9_.-]+\\.md")
+	for dir: String in ["res://data/platforms/aircraft", "res://data/platforms/cold_war", "res://data/platforms/helicopters", "res://data/platforms/submarines", "res://data/platforms/surface", "res://data/platforms/theatres", "res://data/sensors", "res://data/weapons"]:
+		for name: String in DirAccess.get_files_at(dir):
+			for m: RegExMatch in cited.search_all(FileAccess.get_file_as_string(dir + "/" + name)):
+				reached[m.get_string()] = true
+	var listed := 0
+	for name: String in DirAccess.get_files_at("res://docs"):
+		if name.begins_with("."):
+			continue
+		listed += 1
+		assert_true(reached.has("docs/" + name), "docs/%s is reached from a page or cited by the catalogue" % name)
+	assert_true(listed > 3, "docs/ is found")
