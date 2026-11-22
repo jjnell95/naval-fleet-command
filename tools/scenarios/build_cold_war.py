@@ -255,7 +255,7 @@ def catalogue():
     weapon("ak100", "AK-100 100 mm gun", "gun", ["surface", "land"], 10, 1500, 1.5, base_pk=.64)
     weapon("ak176", "AK-176 76 mm gun", "gun", ["surface"], 8, 1500, 1, base_pk=.64)
     weapon("ak630", "AK-630 CIWS", "ciws", ["missile", "air"], 1.1, 2100, 14, base_pk=.37)
-    weapon("set65", "SET-65 anti-submarine torpedo", "torpedo", ["subsurface"], 8, 40, 68)
+    weapon("set65", "SET-65 anti-submarine torpedo", "torpedo", ["subsurface"], 8, 40, 68, wire_guidance=0)
     weapon("test71", "TEST-71M torpedo", "torpedo", ["subsurface"], 10, 40, 72)
     weapon("53_65", "53-65K wake-homing torpedo", "torpedo", ["surface"], 10, 45, 90,
            guidance="wake_homing_abstracted", base_pk=.64)
