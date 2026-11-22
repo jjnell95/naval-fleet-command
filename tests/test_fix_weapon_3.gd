@@ -367,3 +367,49 @@ func test_a_decoyed_torpedo_searches_again_and_sometimes_comes_back() -> void:
 		tm.free()
 		_cleanup(wm)
 	assert_true(reattacked > 0 and decoyed > reattacked, "decoyed %d, came back %d" % [decoyed, reattacked])
+
+
+# --- c-defence#7: a torpedo-defence fit hears for itself, and the ship runs ---------------------
+
+## A ship with a torpedo-defence fit and no hull sonar at all: the fit warns of a torpedo inside
+## its short range, the decoys go, and she turns away from it. Outside that range, or with no fit,
+## nothing is heard.
+func test_a_torpedo_defence_fit_warns_without_a_sonar_and_the_ship_turns_away() -> void:
+	var spec := DataDB.weapon("mk48_adcap")
+	var ship := _decoy_ship(_decoy_hull(false, 4, 0.0), Vector2.ZERO, 1)
+	ship.heading_deg = 90.0
+	var bare := _unit("BLUE", Vector2(20.0, 0.0), "surface", 2)
+	var wm := _harness([ship, bare])
+	var tm := ThreatManager.new()
+	var near := Weapon.new()
+	near.id = 801
+	near.spec = spec
+	near.faction = "RED"
+	near.position = Vector2(0.0, -1.8)  # 1.8 nm to the south, homing
+	near.acquired = ship
+	near.heading_deg = 0.0
+	near.phase = Weapon.Phase.TERMINAL
+	var far := Weapon.new()
+	far.id = 802
+	far.spec = spec
+	far.faction = "RED"
+	far.position = Vector2(0.0, 4.0)
+	far.heading_deg = 180.0
+	var at_bare := Weapon.new()
+	at_bare.id = 803
+	at_bare.spec = spec
+	at_bare.faction = "RED"
+	at_bare.position = Vector2(20.0, -1.0)
+	at_bare.acquired = bare
+	at_bare.phase = Weapon.Phase.TERMINAL
+	wm.in_flight.append_array([near, far, at_bare])
+	assert_true(not ship.has_sonar(), "the ship has no sonar of her own")
+	TorpedoDefence.run_cycle(wm.unit_manager, tm, wm, 0.0)
+	assert_true(tm.visible_to(ship, near), "the fit hears the torpedo at 1.8 nm")
+	assert_true(not tm.visible_to(ship, far), "not one 4 nm off")
+	assert_true(not tm.visible_to(bare, at_bare), "a ship with no fit hears nothing without a sonar")
+	assert_eq(ship.torpedo_decoys, 3, "a canister goes at the torpedo it heard")
+	assert_true(ship.evasion_remaining_s > 0.0, "and she turns away")
+	assert_true(absf(Geo.heading_delta(ship.evasion_course_deg, 0.0)) < 30.0, "running north, away from it (course %03d)" % int(ship.evasion_course_deg))
+	tm.free()
+	_cleanup(wm)

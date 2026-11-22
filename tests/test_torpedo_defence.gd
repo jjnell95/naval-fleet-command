@@ -217,13 +217,15 @@ func test_a_seeker_retargeted_during_the_cycle_gets_the_consorts_response_immedi
 	_cleanup(h)
 
 
+## Beyond the reach of the ship's own torpedo-defence fit only her sonar could hear the torpedo,
+## and it did not this cycle: nothing aboard answers it.
 func test_a_torpedo_nobody_hears_gets_no_answer() -> void:
 	var ship := _ship(_hull(true, 4, 10.0))
 	var h := _harness([ship])
-	var torp := _homing(h, ship, Vector2(0.0, 1.0))
+	var torp := _homing(h, ship, Vector2(0.0, TorpedoDefence.TDS_WARNING_NM + 0.5))
 	(h[1] as ThreatManager).begin_cycle()  # heard last cycle, not this one
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
-	assert_true(torp.acoustic_decoy_tried.is_empty(), "countermeasures are cued by sonar, not by truth")
+	assert_true(torp.heard_by.is_empty() and ship.evasion_remaining_s <= 0.0, "countermeasures are cued by sonar, not by truth")
 	_cleanup(h)
 
 
