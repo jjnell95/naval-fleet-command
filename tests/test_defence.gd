@@ -140,11 +140,44 @@ func test_sea_skimmer_is_detected_far_later_than_a_high_flier() -> void:
 	assert_true(high > skimmer * 1.5, "altitude buys warning time")
 
 
-func test_silent_ship_detects_no_incoming() -> void:
+## A silent ship's radar gives no warning, but she is not blind: her ESM hears a missile whose own
+## radar seeker is transmitting, and her lookouts see any round that is nearly on top of her.
+func test_silent_ship_detects_incoming_by_intercept_and_by_eye_only() -> void:
 	var u := _ship("BLUE", Vector2.ZERO)
 	assert_true(Detection.best_weapon_detection_nm(u, _asm()) > 0.0)
 	u.radar_on = false
-	assert_near(Detection.best_weapon_detection_nm(u, _asm()), 0.0, 1e-6, "no emissions, no warning")
+	assert_near(Detection.best_weapon_detection_nm(u, _asm()), 0.0, 1e-6, "no emissions, no radar warning")
+	var h := _harness([u])
+	var sensors := SensorManager.new()
+	sensors.unit_manager = h[0]
+	sensors.threat_manager = h[1]
+	sensors.weapon_manager = h[2]
+	var homing := _asm()
+	homing.guidance = "active_radar_homing"
+	var seeking := _incoming(h[2], homing, "RED", Vector2(0.0, 10.0), u, 900)
+	var heat := _asm()
+	heat.guidance = "imaging_infrared"
+	var silent := _incoming(h[2], heat, "RED", Vector2(10.0, 0.0), u, 901)
+	sensors._detect_weapons(1.0)
+	assert_true(not h[1].is_detected("BLUE", seeking), "a ship with no ESM set hears nothing ten miles out")
+	var esm := SensorSpec.new()
+	esm.kind = "esm"
+	esm.esm_gain = 2.0
+	esm.antenna_height_m = 26.0
+	u.sensors.append(esm)
+	sensors._detect_weapons(2.0)
+	assert_true(h[1].is_detected("BLUE", seeking), "her ESM hears a radar seeker inside the radio horizon")
+	assert_true(not h[1].is_detected("BLUE", silent), "a round that transmits nothing gives no such warning")
+	seeking.position = Vector2(0.0, 40.0)
+	sensors._detect_weapons(3.0)
+	assert_true(not h[1].is_detected("BLUE", seeking), "nor does a seeker below the horizon")
+	silent.position = Vector2(2.0, 0.0)
+	sensors._detect_weapons(4.0)
+	assert_true(h[1].is_detected("BLUE", silent), "any round two miles off is seen")
+	sensors.free()
+	h[1].free()
+	h[2].free()
+	h[0].free()
 
 
 # --- Threat geometry ---------------------------------------------------------------------

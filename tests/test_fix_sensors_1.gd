@@ -605,3 +605,33 @@ func test_the_track_file_says_what_would_classify_a_contact() -> void:
 	assert_true(listening.begins_with("class in ~") and not listening.contains("~0s"), "a contact being listened to is told how long: %s" % listening)
 	panel.free()
 	tm.free()
+
+
+# --- Radar silence under attack -------------------------------------------------------------------
+
+## A radar-silent destroyer and a frigate that fires four sea-skimmers at her from eighteen miles.
+func test_a_radar_silent_ship_is_warned_of_inbound_missiles_and_defends_herself() -> void:
+	_load([_ship(BURKE, "Burke", "BLUE", [0, 0], 0, 15, false), _ship(GORSHKOV, "Gorshkov", "RED", [0, 20], 180, 10, true)])
+	var burke := _unit("Burke")
+	var frigate := _unit("Gorshkov")
+	_run(90.0)
+	var track := _sim.track_manager.find_track("RED", burke)
+	var missile := frigate.get_weapon("p800_oniks")
+	assert_true(track != null and missile != null, "the frigate holds the destroyer and has her missiles")
+	if track == null or missile == null:
+		_free()
+		return
+	assert_true(_sim.weapon_manager.launch(frigate, missile, track, 4, SimClock.sim_time), "four rounds away")
+	assert_true(not burke.radar_emitting(), "the destroyer is silent when they are fired")
+	var warned := -1.0
+	var launched := SimClock.sim_time
+	for second in 150:
+		_run(1.0)
+		if warned < 0.0 and not _sim.threat_manager.get_threats("BLUE").is_empty():
+			warned = SimClock.sim_time - launched
+	var expended := 0
+	for id: String in burke.magazines:
+		expended += int(burke.spec.weapon_loadout.get(id, 0)) - int(burke.magazines[id])
+	assert_true(warned >= 0.0, "the inbound rounds are detected without her radar")
+	assert_true(expended > 0, "and she fires in her own defence (%d rounds)" % expended)
+	_free()

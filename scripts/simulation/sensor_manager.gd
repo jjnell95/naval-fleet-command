@@ -593,7 +593,28 @@ func _report_buoys(faction: String, target: Unit, buoys: Array, now: float) -> v
 
 
 ## Incoming rounds are found by radar above the water and by sonar below it. A sea-skimming
-## missile stays below the horizon until it is close; a torpedo is heard, not seen.
+## missile stays below the horizon until it is close; a torpedo is heard, not seen. A ship keeping
+## radar silence is not blind for it: an ESM set hears a missile's own radar seeker once that is
+## searching, out to the radio horizon, and anyone on the surface or in the air sees a round that
+## is nearly on top of them.
+const WEAPON_SIGHTING_NM := 3.0  # GAMEPLAY_ESTIMATE: a lookout, a close-in mount's own director
+## A radar seeker is switched on this many seeker ranges short of where it was sent.
+const SEEKER_ON_FACTOR := 1.5
+
+
+## Whether the round is transmitting: one that homes on its own radar, once it is locked on,
+## searching, or near enough its aim point to have switched the seeker on. A round riding someone
+## else's illumination, or homing on heat or on a radar, sends nothing.
+static func seeker_radiating(w: Weapon) -> bool:
+	var guidance := w.spec.guidance
+	if w.spec.is_torpedo() or not guidance.contains("active") or guidance.contains("semi"):
+		return false
+	if w.phase == Weapon.Phase.TERMINAL or w.searching_on:
+		return true
+	var seeker := w.spec.seeker_range_nm * SEEKER_ON_FACTOR
+	return seeker > 0.0 and w.position.distance_squared_to(w.aim_point) <= seeker * seeker
+
+
 func _detect_weapons(now: float) -> void:
 	if threat_manager == null or weapon_manager == null:
 		return
@@ -607,6 +628,7 @@ func _detect_weapons(now: float) -> void:
 	var group_specs: Array[WeaponSpec] = []
 	var group_altitudes := PackedFloat64Array()
 	var group_torpedoes: Array[bool] = []
+	var radiating := PackedByteArray()
 	var groups := {}
 	for w: Weapon in weapon_manager.in_flight:
 		if w.phase == Weapon.Phase.DEAD:
@@ -621,14 +643,25 @@ func _detect_weapons(now: float) -> void:
 			group_torpedoes.append(w.spec.is_torpedo())
 		weapons.append(w)
 		group_indices.append(heights[altitude])
+		radiating.append(1 if seeker_radiating(w) else 0)
+	var sighting := minf(WEAPON_SIGHTING_NM * Detection.visual_light_factor(), float(Detection.environment.get("visibility_nm", 12.0)))
 	for observer in unit_manager.units:
 		if not observer.is_engageable():
 			continue
 		var radar_up := observer.radar_emitting()
 		var sonar_up := observer.has_sonar()
-		if not radar_up and not sonar_up:
+		var surfaced := not observer.submerged()
+		if not radar_up and not sonar_up and not surfaced:
 			continue
+		var esm_root := -1.0
+		if surfaced:
+			for s in observer.sensors:
+				if s.kind == "esm":
+					esm_root = maxf(esm_root, sqrt(maxf(Detection.observer_height_m(observer, s), 0.0)))
+		var esm_efficiency := observer.sensor_efficiency()
 		var reaches := PackedFloat64Array()
+		var passive := PackedFloat64Array()  # the eye, and an intercept of a seeker that is transmitting
+		var intercept := PackedFloat64Array()
 		for group in group_specs.size():
 			var spec := group_specs[group]
 			var altitude := group_altitudes[group]
@@ -636,17 +669,26 @@ func _detect_weapons(now: float) -> void:
 			if not group_torpedoes[group] and radar_up:
 				reach = Detection.best_weapon_detection_nm(observer, spec, altitude) * Detection.weapon_clutter_factor(spec, altitude)
 			reaches.append(reach)
+			var above_water := surfaced and not group_torpedoes[group]
+			passive.append(sighting if above_water else 0.0)
+			intercept.append(Detection.HORIZON_K * (esm_root + sqrt(maxf(altitude, 0.0))) * esm_efficiency if above_water and esm_root >= 0.0 else 0.0)
 		for i in weapons.size():
 			var w := weapons[i]
 			if w.faction == observer.faction or w.phase == Weapon.Phase.DEAD:
 				continue
 			var group := group_indices[i]
+			var d_squared := observer.position.distance_squared_to(w.position)
 			var reach := reaches[group]
-			if reach <= 0.0 or observer.position.distance_squared_to(w.position) > reach * reach:
-				continue
-			if not group_torpedoes[group]:
+			var held := reach > 0.0 and d_squared <= reach * reach
+			if held and not group_torpedoes[group]:
 				reach *= Detection.jam_penalty(observer, w.position)
-			if reach <= 0.0 or observer.position.distance_squared_to(w.position) > reach * reach:
+				held = reach > 0.0 and d_squared <= reach * reach
+			if not held:
+				# Neither needs the ship to transmit, and a jammer blinds neither.
+				held = d_squared <= passive[group] * passive[group]
+				if not held and radiating[i] == 1:
+					held = d_squared <= intercept[group] * intercept[group]
+			if not held:
 				continue
 			if Detection.terrain_hides_weapon(observer, w):
 				continue
