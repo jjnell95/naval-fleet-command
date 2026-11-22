@@ -40,8 +40,8 @@ var radius_nm := 15.0
 var cap_intent := "hold"
 var protected_unit: Unit
 var anchor_offset := Vector2.ZERO
-## Maximum pursuit beyond the station radius, in nautical miles.
-var pursuit_nm := 25.0
+## Maximum pursuit beyond the station radius, in nautical miles (AirMissionManager.COMMIT_MARGIN_NM).
+var pursuit_nm := 60.0
 var target: Track
 var target_id := ""
 ## A CAP laid on one hostile air contact rather than over a point: its fighters go for that contact

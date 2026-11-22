@@ -751,7 +751,8 @@ func test_cap_protects_its_anchor_and_breaks_mission_pursuit_at_boundary() -> vo
 	raid.classification = Track.Classification.CLASS_KNOWN
 	_sim.air_mission_manager._cap_look(m, a, m.tasks[a])
 	assert_eq(a.attack_track, raid)
-	raid.position = m.station + Vector2(40, 0)
+	# Beyond the pursuit and beyond any missile shot from the station, and not closing.
+	raid.position = m.station + Vector2(150, 0)
 	_sim.air_mission_manager._enforce_cap_boundary(m, a, m.tasks[a])
 	assert_eq(a.attack_track, null, "mission pursuit cannot pull the fighter off its defended area")
 	assert_true(a.on_station())
@@ -769,7 +770,7 @@ func test_cap_protects_its_anchor_and_breaks_mission_pursuit_at_boundary() -> vo
 	m = _mission()
 	assert_eq(m.cap_intent, "hold")
 	assert_eq(m.protected_unit, null)
-	assert_eq(m.pursuit_nm, 25.0)
+	assert_eq(m.pursuit_nm, AirMissionManager.COMMIT_MARGIN_NM)
 	assert_true(m.last_report().begins_with("Earlier report"), "legacy history does not invent a timestamp")
 	_done()
 

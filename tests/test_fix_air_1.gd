@@ -137,3 +137,64 @@ func test_an_intercept_keeps_its_contact_wherever_it_flies() -> void:
 	assert_true(m.station.distance_to(raid.position) < 1.0, "the mission follows the raid")
 	assert_true(air.revision_rejection(cv, Order.revise_air_mission(m, cv.position, 12.0, 2, true, true)) != "", "an intercept cannot be turned into a station")
 	_done()
+
+
+# --- When a CAP commits ------------------------------------------------------------------
+
+func _cap_on_station(station_offset: Vector2) -> AirMission:
+	var cv := _unit(IKE)
+	var o := Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, cv.position + station_offset, 12.0)
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	_advance(600.0)
+	var m: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
+	assert_eq(m.aircraft.size(), 1)
+	return m
+
+
+func _raid(at: Vector2, id: String) -> Track:
+	var raid := _plot(at, id, 8000.0)
+	raid.domain = "air"
+	raid.identity = "HOSTILE"
+	raid.classification = Track.Classification.CLASS_KNOWN
+	return raid
+
+
+## On the order's own defaults (12 nm ring, 25 nm pursuit) a raid 50 nm out is outside the ring
+## and the pursuit, but well inside the Tomcat's own missile reach: it goes after it.
+func test_a_cap_commits_on_a_raid_inside_its_own_missile_reach() -> void:
+	_load(CARRIER_WATCH)
+	var m := _cap_on_station(Vector2(0, 40))
+	var a: Unit = m.aircraft[0]
+	var raid := _raid(m.station + Vector2(0, 50), "T1960")
+	_advance(5.0)
+	assert_eq(a.attack_track, raid, "the CAP commits on a raid it can shoot")
+	_done()
+
+
+## A raid 90 nm out, beyond the ring, the pursuit and a missile shot from the station, is met when
+## it is closing on the carrier the CAP covers, and left alone when it is heading away.
+func test_a_cap_meets_a_raid_closing_on_what_it_covers() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var m := _cap_on_station(Vector2(0, 40))
+	var a: Unit = m.aircraft[0]
+	var raid := _raid(m.station + Vector2(0, 90), "T1961")
+	raid.has_kinematics = true
+	raid.speed_kn = 500.0
+	raid.course_deg = Geo.bearing_deg(raid.position, cv.position) + 180.0
+	_advance(5.0)
+	assert_eq(a.attack_track, null, "a raid heading away is not chased")
+	raid.course_deg = Geo.bearing_deg(raid.position, cv.position)
+	_advance(5.0)
+	assert_eq(a.attack_track, raid, "a raid closing on the carrier is met")
+	_done()
+
+
+func test_quick_and_dialog_caps_pursue_at_least_sixty_miles() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var o := _sim.air_mission_manager.quick_order(cv, AirMission.Kind.CAP, cv.position + Vector2(0, 30))
+	assert_true(o.pursuit_nm >= 60.0, "quick CAP pursuit %.0f" % o.pursuit_nm)
+	assert_true(AirMissionManager.COMMIT_MARGIN_NM >= 60.0)
+	assert_true(AirMission.new().pursuit_nm >= 60.0)
+	_done()

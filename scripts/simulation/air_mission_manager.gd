@@ -18,8 +18,13 @@ signal mission_report(mission: AirMission, message: String, good: bool)
 signal mission_ended(mission: AirMission, reason: String)
 
 const CYCLE_DT := 1.0
-## A CAP commits on air contacts this far beyond its station. GAMEPLAY_ESTIMATE.
-const COMMIT_MARGIN_NM := 25.0
+## A CAP commits on air contacts this far beyond its station, by default. However short the
+## pursuit, it always commits on a hostile inside its own missiles' reach, so it never watches a
+## raid it could shoot, and it meets one closing on it or on what it protects further out still: as
+## far as its pursuit plus one missile shot. GAMEPLAY_ESTIMATE.
+const COMMIT_MARGIN_NM := 60.0
+## A held course within about 60 degrees of a point counts as closing on it.
+const CLOSING_COS := 0.5
 ## A reconnaissance or ASW aircraft looks at contacts this far beyond its search area.
 const SEARCH_MARGIN_NM := 5.0
 ## Interceptors sent at one hostile contact; unknown contacts get one look each.
@@ -623,6 +628,7 @@ func quick_order(base: Unit, kind: int, at: Vector2, target: Track = null, why: 
 	var count := mini(int(QUICK_COUNT[kind]), available_for(base, pid, kind, target))
 	var radius := QUICK_IDENTIFY_RADIUS_NM if identify else float(QUICK_RADIUS_NM[kind])
 	var order := Order.air_mission(kind, pid, count, at, radius, target, bool(QUICK_RELIEF[kind]) and not intercept, true)
+	order.pursuit_nm = COMMIT_MARGIN_NM
 	var reason := mission_rejection(base, kind, pid, at, target)
 	if reason != "":
 		why.append(reason)
@@ -1094,11 +1100,13 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var best: Track = null
 	var best_d := INF
 	var attack := false
-	for t: Track in _nearby(m, a, m.radius_nm + m.pursuit_nm):
+	for t: Track in _nearby(m, a, INF):
 		if not _probably_air(t):
 			continue
 		var d := _cap_priority(m, a, t)
 		if t.identity == "HOSTILE":
+			if not cap_commits(m, a, t):
+				continue
 			if _committed(m.faction, t, true) >= INTERCEPTORS_PER_TRACK:
 				continue
 			if UnitManager.attack_rejection(a, t) != "":
@@ -1108,6 +1116,8 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 				best_d = d
 				attack = true
 		elif not attack and t.identity == "UNKNOWN" and t.classification < Track.Classification.CLASS_KNOWN:
+			if t.position.distance_to(m.station) > m.radius_nm + m.pursuit_nm:
+				continue
 			if _committed(m.faction, t, false) > 0 or UnitManager.investigation_rejection(a, t) != "":
 				continue
 			if d < best_d:
@@ -1147,6 +1157,50 @@ static func _cap_priority(m: AirMission, a: Unit, t: Track) -> float:
 	return score
 
 
+## The best reach of the air-to-air weapons this airframe is fitted with, or 0. The fit, not the
+## rounds left: a fighter that has just fired its long-range pair still supports them.
+static func aam_reach_nm(a: Unit) -> float:
+	var best := 0.0
+	for spec: WeaponSpec in a.weapons:
+		if spec.target_types.has("air"):
+			best = maxf(best, spec.max_range_nm)
+	return best
+
+
+## How far from its station a CAP fighter goes after a raid: the ring and the pursuit the commander
+## set, and never less than its own missiles reach.
+static func cap_commit_nm(m: AirMission, a: Unit) -> float:
+	return maxf(m.radius_nm + m.pursuit_nm, aam_reach_nm(a))
+
+
+## Whether a CAP fighter goes after this hostile air contact. Inside its own missiles' reach it
+## always does, which is also how it answers one that has fired on it. Inside its commit reach of
+## the station, or of the group it protects, it does. A raid closing on the CAP, on what it protects
+## or on its deck is met further out: as far as the pursuit plus one missile shot from its edge.
+static func cap_commits(m: AirMission, a: Unit, t: Track) -> bool:
+	var reach := cap_commit_nm(m, a)
+	var shot := aam_reach_nm(a)
+	if t.position.distance_to(a.position) <= shot:
+		return true
+	var guarded: Array[Vector2] = [m.station]
+	if m.cap_intent == "protect" and m.protected_unit != null and m.protected_unit.alive:
+		guarded.append(m.protected_unit.position)
+	for p in guarded:
+		if t.position.distance_to(p) <= reach:
+			return true
+	var d := t.position.distance_to(m.station)
+	if d > reach + shot or not t.has_kinematics or t.speed_kn <= 0.0:
+		return false
+	guarded.append(a.position)
+	if m.cap_intent != "protect" and m.base != null and m.base.alive:
+		guarded.append(m.base.position)
+	var heading := Geo.heading_to_vector(t.course_deg)
+	for p in guarded:
+		if p.distance_to(t.position) > 0.01 and heading.dot((p - t.position).normalized()) > CLOSING_COS:
+			return true
+	return false
+
+
 func _enforce_cap_boundary(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var assigned: Track = task.get("cap_target") as Track
 	if assigned == null or (a.attack_track != assigned and a.investigation_track != assigned):
@@ -1154,7 +1208,13 @@ func _enforce_cap_boundary(m: AirMission, a: Unit, task: Dictionary) -> void:
 	# The player may temporarily override the station. Only mission-issued pursuits are bounded.
 	if a.player_order_generation != int(task.get("cap_player_generation", a.player_order_generation)):
 		return
-	if assigned.position.distance_to(m.station) <= m.radius_nm + m.pursuit_nm:
+	if a.attack_track == assigned:
+		# The fighter goes no further out than its commit reach, and gives up a raid that has
+		# turned away out of it. One with rounds away supports them a missile's flight further.
+		var limit := cap_commit_nm(m, a) + (aam_reach_nm(a) if a.attack_rounds_fired > 0 else 0.0)
+		if cap_commits(m, a, assigned) and a.position.distance_to(m.station) <= limit:
+			return
+	elif assigned.position.distance_to(m.station) <= m.radius_nm + m.pursuit_nm:
 		return
 	if _crew(a, Order.return_to_station()):
 		task.erase("cap_target")
