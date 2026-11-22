@@ -371,9 +371,14 @@ func _sync_quick_actions() -> void:
 			roe_mixed = true
 	var roe_text: String = "MIXED" if roe_mixed else (["HOLD", "TIGHT", "FREE"][roe] if roe >= 0 else "—")
 	_roe_btn.text = "WPNS %s" % roe_text
-	var roe_col := UITheme.COL_AMBER if roe_mixed or roe == Unit.Roe.TIGHT else (UITheme.COL_RED if roe == Unit.Roe.HOLD else UITheme.COL_TEXT)
-	for key in ["font_color", "font_hover_color", "font_focus_color"]:
-		_roe_btn.add_theme_color_override(key, roe_col)
+	# The posture sits on grey chrome, so it takes the inks made for grey: weapons free is the
+	# button's own ink, tight or mixed the dark amber, hold the dark red.
+	var severity := "warn" if roe_mixed or roe == Unit.Roe.TIGHT else ("alert" if roe == Unit.Roe.HOLD else "")
+	for key in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
+		if severity == "":
+			_roe_btn.remove_theme_color_override(key)
+		else:
+			_roe_btn.add_theme_color_override(key, Color(StatusBoards.SEVERITY_COLORS[severity]))
 	_roe_btn.disabled = not _controllable
 	_engagement_tab_btn.disabled = not _controllable
 	_engagement_tab_btn.text = ("ENGAGE " + _target.id) if _target != null else "ENGAGE"
@@ -423,11 +428,12 @@ func _sync_defence() -> void:
 	_defence_summary.tooltip_text = _defence_summary.text
 
 
-## A MIXED selection state reads amber without tinting the whole button.
+## A MIXED selection state reads amber without tinting the whole button: the dark amber made for
+## grey chrome, as the bright one is for the navy data surface.
 func _mark_mixed(button: Button, mixed: bool) -> void:
 	for key in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
 		if mixed:
-			button.add_theme_color_override(key, UITheme.COL_AMBER)
+			button.add_theme_color_override(key, Color(StatusBoards.SEVERITY_COLORS["warn"]))
 		else:
 			button.remove_theme_color_override(key)
 

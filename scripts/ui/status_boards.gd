@@ -19,7 +19,8 @@ const BOARD_TRACKS := 2
 const BOARD_COMMS := 3
 const TITLES := ["ORDERS", "TASK GROUP", "TRACK FILE", "COMMS"]
 const MAX_MESSAGES := 120
-const SEVERITY_COLORS := {"alert": "#c01818", "warn": "#9a5a00", "good": "#0a6a1a"}
+## Inks for grey chrome, each at least 4.5:1 on the lightest button face.
+const SEVERITY_COLORS := {"alert": "#8c0c0c", "warn": "#603600", "good": "#075012"}
 ## The boards dock at the foot of the chart and stand only as tall as their content, so the plot
 ## above stays in view while orders are given. They never reach higher than this below the top.
 const TOP_CLEARANCE := 18.0

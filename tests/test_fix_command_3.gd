@@ -127,3 +127,40 @@ func test_the_key_list_fits_the_window_at_every_interface_size() -> void:
 		assert_true(panel.x <= screen.x - 24.0 and panel.y <= screen.y, "%d%%: the key list %s fits the window %s" % [percent, str(panel), str(screen)])
 		main._key_help.close()
 	_close(main)
+
+
+# --- The weapons posture can be read on its grey button --------------------------------------
+
+func _luminance(c: Color) -> float:
+	var lin := func(v: float) -> float: return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+	return 0.2126 * lin.call(c.r) + 0.7152 * lin.call(c.g) + 0.0722 * lin.call(c.b)
+
+
+func _contrast(a: Color, b: Color) -> float:
+	var la := _luminance(a)
+	var lb := _luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+func test_the_weapons_posture_is_readable_in_every_state() -> void:
+	var main := _open("northern_passage.json")
+	var u := _own(main, "Truxtun")
+	var button: Button = main.orders_panel._roe_btn
+	for roe: int in [Unit.Roe.FREE, Unit.Roe.TIGHT, Unit.Roe.HOLD]:
+		u.roe = roe
+		main.orders_panel.set_units([u], true)
+		for pair: Array in [["font_color", "normal"], ["font_hover_color", "hover"], ["font_focus_color", "normal"]]:
+			var key: String = pair[0]
+			var face: Color = (button.get_theme_stylebox(pair[1]) as JfcStyle).face
+			var ink := button.get_theme_color(key)
+			var ratio := _contrast(ink, face)
+			assert_true(ratio >= 4.5, "%s: %s %s on the face %s is %.2f:1" % [button.text, key, ink.to_html(false), face.to_html(false), ratio])
+	assert_true(button.text == "WPNS HOLD", "the button names the posture: %s" % button.text)
+	_close(main)
+
+
+func test_the_grey_surface_inks_read_on_every_button_face() -> void:
+	for face: Color in [UITheme.JFC_FACE, UITheme.JFC_FACE_HOVER, UITheme.JFC_FACE_DOWN]:
+		for severity: String in StatusBoards.SEVERITY_COLORS:
+			var ratio := _contrast(Color(StatusBoards.SEVERITY_COLORS[severity]), face)
+			assert_true(ratio >= 4.5, "%s on %s is %.2f:1" % [severity, face.to_html(false), ratio])
