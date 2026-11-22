@@ -118,6 +118,7 @@ func test_a_unit_always_on_the_link_files_each_report_once() -> void:
 	var world := _world([
 		{"platform": "usn_ddg_burke_iii", "callsign": "Burke", "faction": "BLUE", "position_nm": [0, 0], "heading_deg": 90, "speed_kn": 10},
 		{"platform": "usn_ssn_virginia", "callsign": "Virginia", "faction": "BLUE", "position_nm": [10, -6], "heading_deg": 0, "speed_kn": 5, "depth_m": 15},
+		{"platform": "usn_helo_mh60r", "callsign": "Seahawk", "faction": "BLUE", "position_nm": [5, 3], "speed_kn": 100},
 		{"platform": "pla_ddg_type055", "callsign": "Nanchang", "faction": "RED", "position_nm": [20, 0], "heading_deg": 270, "speed_kn": 16},
 	])
 	var um: UnitManager = world[0]
@@ -125,11 +126,18 @@ func test_a_unit_always_on_the_link_files_each_report_once() -> void:
 	var sm: SensorManager = world[2]
 	var burke := _named(um, "Burke")
 	var boat := _named(um, "Virginia")
+	var helo := _named(um, "Seahawk")
+	helo.flight_state = Unit.FlightState.AIRBORNE
+	helo.altitude_m = 300.0
 	sm.run_cycle(0.0)
 	assert_true(not TrackManager.keeps_own_picture(burke), "a destroyer on the link never needs a picture of her own")
+	assert_true(not TrackManager.keeps_own_picture(_named(um, "Seahawk")), "nor a helicopter with a datalink, off it only on deck")
 	assert_true(TrackManager.keeps_own_picture(boat), "a boat may dive off the link, and keeps hers")
 	assert_true(not tm._local_keys.has(burke), "no private copy of the destroyer's reports")
 	assert_true(tm._local_keys.has(boat), "the boat's own picture is still kept")
+	assert_true(not tm._local_keys.has(helo), "the helicopter's reports go to the shared plot alone")
+	helo.flight_state = Unit.FlightState.STOWED
+	assert_eq(tm.tracks_for(helo), [], "back on deck she reads no plot at all, as nothing there asks")
 	var held := tm.find_for(burke, _named(um, "Nanchang"))
 	assert_true(held != null and held.networked and held.contributors.has(burke), "the destroyer reads her contact on the shared plot")
 	assert_eq(tm.tracks_for(burke), tm.get_tracks("BLUE"), "her picture is the shared plot")

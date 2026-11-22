@@ -79,11 +79,12 @@ func get_tracks(faction: String) -> Array:
 
 
 ## Whether a unit keeps a picture of its own beside the shared plot: one that can be off the link
-## while it is in the fight (a boat that dives, an aircraft back on a deck, a ship fitted with no
-## datalink) needs what its own sensors hold when it gets there. Any other unit is on the link for
-## as long as it lives, and the shared plot is the only picture it ever reads.
+## while it is in the fight (a boat that dives, a ship or aircraft fitted with no datalink) needs
+## what its own sensors hold when it gets there. Any other unit is on the link whenever it can
+## sense or act (an aircraft with a datalink is off it only on deck, where nothing asks for its
+## picture), and the shared plot is the only picture it ever reads.
 static func keeps_own_picture(u: Unit) -> bool:
-	return u != null and u.spec != null and (not u.spec.has_datalink or u.is_submarine() or u.is_aircraft())
+	return u != null and u.spec != null and (not u.spec.has_datalink or u.is_submarine())
 
 
 ## The picture as one unit actually has it, rather than the faction's whole plot.
