@@ -84,3 +84,21 @@ func test_every_operation_opens_with_its_force_on_route_and_on_station() -> void
 			assert_true(formed >= 2, "%s: the escorts are formed on the guide (%d)" % [id, formed])
 		_close(sim)
 
+
+## USS Nicholas opened the convoy radar-off with no reason in the briefing, so she never defended
+## and Elrod took the hit with Nicholas's 32 Standards still aboard. Every escort formed on a guide
+## now radiates from the start, except where the briefing gives the reason for silence (Provence
+## off Tartus keeps the Bastion battery's picture empty).
+func test_no_escort_opens_blind_without_a_reason() -> void:
+	var silent_by_brief := ["FS Provence (D 652)"]
+	for id: String in OPERATIONS:
+		var sim := _open("res://data/scenarios/%s.json" % id, 7)
+		for u: Unit in sim.unit_manager.get_faction_units(sim.player_faction):
+			if u.in_formation() and u.has_radar() and not silent_by_brief.has(u.callsign):
+				assert_true(u.radar_on, "%s: %s is formed on the guide and radiating" % [id, u.callsign])
+		_close(sim)
+	var convoy := _open("res://data/scenarios/cold_war_01_convoy.json", 2)
+	var nicholas := _named(convoy, "USS Nicholas (FFG 47)")
+	assert_true(nicholas.radar_on and nicholas.emcon != Unit.Emcon.SILENT, "Nicholas radiates and has no silent order")
+	_close(convoy)
+

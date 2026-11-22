@@ -361,7 +361,6 @@
       ],
       "heading_deg": 250,
       "speed_kn": 18,
-      "radar_on": false,
       "aviation_reload_cycles": 2,
       "formation_leader": "USS Dwight D. Eisenhower (CVN 69)",
       "formation_offset_nm": [
