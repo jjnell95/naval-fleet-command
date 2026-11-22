@@ -206,6 +206,8 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 						continue
 					if first_pass:
 						_try_decoy(u, w, weapon_manager)
+						if not u.radar_on and not (entry["target"] as Unit).is_aircraft():
+							_light_radar_to_defend(u, w, unit_manager, weapon_manager, now)
 					# Weapons hold is an order not to attack. A ship holding fire still defends itself
 					# and its consorts against a round on its way in.
 					if u.can_fire():
@@ -228,6 +230,32 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 						launched += _close_in_burst(u, w, guns[u], weapon_manager, now)
 	weapon_manager.end_channel_batch()
 	return launched
+
+
+## A ship with its radar off that has the round inside a missile layer guided by that radar.
+## Unless the commander ordered it radar silent, the crew lights the radar and fights, as any crew
+## would with a missile on its way in; under the silent order it holds fire and says so once a raid.
+static func _light_radar_to_defend(u: Unit, w: Weapon, unit_manager: UnitManager, weapon_manager: WeaponManager, now: float) -> void:
+	if not u.has_radar() or u.submerged() or not u.can_fire() or float(u.components.get("sensors", 1.0)) <= 0.15:
+		return
+	var d := u.position.distance_to(w.position)
+	var wanted := false
+	for spec: WeaponSpec in u.defensive_weapons():
+		if spec.requires_radar_support() and _can_intercept(spec, w) and engages_guided(u, w, spec) \
+				and d >= spec.min_range_nm and d <= spec.max_range_nm:
+			wanted = true
+			break
+	if not wanted:
+		return
+	if u.emcon == Unit.Emcon.SILENT:
+		if u.silent_hold_reported_s < 0.0 or now - u.silent_hold_reported_s > RAID_QUIET_S:
+			weapon_manager.self_defence_emcon.emit(u, false)
+		u.silent_hold_reported_s = now
+		return
+	var order := Order.activate_radar()
+	order.origin = "crew"
+	if unit_manager.issue_order(u, order):
+		weapon_manager.self_defence_emcon.emit(u, true)
 
 
 ## Defenders that can reach this round, best placed first: a ship already guiding against it or

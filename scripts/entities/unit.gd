@@ -908,5 +908,10 @@ func status_line() -> String:
 var raid_clearance_until_s := -1.0
 
 
+## When a ship ordered radar silent last held fire at a round it could otherwise have engaged, or
+## -1: it says so once a raid, not every cycle.
+var silent_hold_reported_s := -1.0
+
+
 func cleared_for_raid(now: float) -> bool:
 	return raid_clearance_until_s >= 0.0 and now <= raid_clearance_until_s

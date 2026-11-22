@@ -16,6 +16,10 @@ signal weapon_resolved(weapon: Weapon)
 signal weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit)
 ## Expendable decoys used, chaff or acoustic, whether or not they worked. A towed decoy is not one.
 signal decoys_spent(unit: Unit, count: int)
+## A ship whose only bar to defending against an inbound round was its own radar being off: `lit`
+## true when the crew switched it on to fight, false when it holds fire because it was ordered
+## radar silent (once a raid).
+signal self_defence_emcon(unit: Unit, lit: bool)
 ## An offensive round left its launcher, with its group tag. A group attack counts what it has
 ## spent from this; rounds that later resolve are gone from in_flight but stay spent.
 signal weapon_fired(weapon: Weapon)

@@ -653,3 +653,47 @@ func test_a_round_whose_seeker_will_never_see_the_ship_is_not_charged_to_it() ->
 	var w := _unlocked(h[2], ship, 12.0)
 	assert_true(AirDefence.threatened_unit(h[0], "BLUE", w) == null, "passing 12 nm clear with an 8 nm seeker")
 	_cleanup(h)
+
+
+# --- An escort with its radar off lights it to defend, unless ordered silent ----------------------
+
+## A thin-skinned ship and an escort beside it with its radar switched off and a missile layer
+## guided by that radar. Returns [harness, ship, escort, round, emcon log].
+func _dark_escort() -> Array:
+	var sam := _sam("sm1", 25.0, 1.0)
+	sam.guidance = "semi_active_radar"
+	var ship := _ship("BLUE", Vector2.ZERO)
+	var escort := _ship("BLUE", Vector2(1.0, 0.0), [sam])
+	escort.radar_on = false
+	var h := _harness([ship, escort])
+	var round := _incoming(h[2], _asm(), Vector2(0, 16), ship)
+	var log: Array = []
+	(h[2] as WeaponManager).self_defence_emcon.connect(func(u: Unit, lit: bool) -> void: log.append([u, lit]))
+	return [h, ship, escort, round, log]
+
+
+func test_an_escort_with_its_radar_off_lights_it_and_defends_the_ship_beside_it() -> void:
+	var c := _dark_escort()
+	var h: Array = c[0]
+	var shots := _watch(h[2])
+	_run(h, 120.0)
+	var escort: Unit = c[2]
+	assert_true(escort.radar_on, "the crew switched the radar on to fight")
+	assert_true(_count(shots, "sm1") > 0, "and fired")
+	assert_eq((c[3] as Weapon).dead_reason, "INTERCEPTED")
+	assert_near((c[1] as Unit).health, 100.0, 1e-3)
+	assert_eq(c[4], [[escort, true]], "the commander is told once")
+	_cleanup(h)
+
+
+func test_an_escort_ordered_radar_silent_holds_fire_and_says_so_once() -> void:
+	var c := _dark_escort()
+	var h: Array = c[0]
+	var escort: Unit = c[2]
+	assert_true(h[0].issue_order(escort, Order.set_emcon(true)))
+	var shots := _watch(h[2])
+	_run(h, 120.0)
+	assert_true(not escort.radar_on, "the silent order stands")
+	assert_eq(_count(shots, "sm1"), 0)
+	assert_eq(c[4], [[escort, false]], "one report that it holds fire, not one a cycle")
+	_cleanup(h)
