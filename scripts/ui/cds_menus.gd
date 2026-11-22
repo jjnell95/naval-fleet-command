@@ -635,6 +635,7 @@ static func cds_items(state: Dictionary) -> Array:
 		item("Range circle  [B]", {"kind": "palette", "id": "range_circle"}),
 		sep(),
 		item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}),
+		item("Battle assessment", {"kind": "board", "board": StatusBoards.BOARD_ASSESSMENT}, false, "Mission effectiveness so far, losses on both sides and each task's state."),
 		item("Air operations  [F3]", {"kind": "palette", "id": "air_operations"}),
 		item("Orders and briefing  [F1]", {"kind": "palette", "id": "briefing"}),
 		item("Debrief", {"kind": "palette", "id": "debrief"}, not bool(state.get("debrief", false)), "The after-action report again, once the mission has ended. F1 opens it then."),

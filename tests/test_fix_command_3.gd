@@ -273,3 +273,54 @@ func test_the_orders_defence_line_has_no_dangling_separator() -> void:
 	var line: String = main.orders_panel._defence_summary.text
 	assert_true(not line.ends_with("/") and not line.ends_with("/ "), "the defence line ends on a value: '%s'" % line)
 	_close(main)
+
+
+# --- The battle assessment board -------------------------------------------------------------
+
+func _enemy_ship(main: Main) -> Unit:
+	var sim := main.simulation
+	for u: Unit in sim.unit_manager.units:
+		if u.faction != sim.player_faction and not sim.track_manager.neutral_factions.has(u.faction) and not u.is_aircraft() and u.alive:
+			return u
+	return null
+
+
+func test_the_assessment_board_shows_effectiveness_losses_and_tasks_while_the_mission_runs() -> void:
+	var main := _open("gulf_01_hormuz.json")
+	var sim := main.simulation
+	main.status_boards.open_board(StatusBoards.BOARD_ASSESSMENT)
+	assert_eq(main.status_boards.current_board(), StatusBoards.BOARD_ASSESSMENT, "the boards carry an assessment")
+	var text: String = main.status_boards._assessment.get_parsed_text()
+	var a := sim.mission_manager.assessment()
+	assert_true(text.contains("MISSION EFFECTIVENESS  %d%%" % int(a["percent"])), "it opens on the mission's running effectiveness: %s" % text.left(200))
+	assert_true(text.contains("ENEMY LOSSES  0") and text.contains("OWN LOSSES  0"), "no losses yet on either side")
+	var first_task: MissionObjective = null
+	for o: MissionObjective in sim.mission_manager.victory_objectives:
+		if not o.phase_only:
+			first_task = o
+			break
+	assert_true(first_task != null and text.contains(first_task.text.left(30)), "each task is listed with its state")
+	# A ship of the other side sunk by the force, and one of the force's own lost.
+	var enemy := _enemy_ship(main)
+	enemy.alive = false
+	sim.weapon_manager.unit_destroyed.emit(enemy, sim.player_faction)
+	var own := _own(main, "Duncan")
+	own.alive = false
+	sim.weapon_manager.unit_destroyed.emit(own, "RED")
+	main.status_boards.render_assessment()
+	text = main.status_boards._assessment.get_parsed_text()
+	assert_true(text.contains("ENEMY LOSSES  1"), "the enemy loss is counted: %s" % text)
+	assert_true(text.contains("OWN LOSSES  1") and text.contains(own.callsign), "the own loss is named")
+	_close(main)
+
+
+func test_the_assessment_board_fits_the_chart() -> void:
+	var main := _open("gulf_01_hormuz.json")
+	for percent: int in SIZES:
+		_window(main, percent)
+		main.status_boards.open_board(StatusBoards.BOARD_ASSESSMENT)
+		_settle(main)
+		var upper: Rect2 = main._upper.get_global_rect()
+		var rect := main.status_boards.get_global_rect()
+		assert_true(_inside(rect, upper), "%d%%: the assessment %s lies inside the chart %s" % [percent, str(rect), str(upper)])
+	_close(main)

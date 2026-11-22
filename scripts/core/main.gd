@@ -126,6 +126,7 @@ func _ready() -> void:
 	status_boards.host(unit_panel, StatusBoards.BOARD_TASK_GROUP)
 	status_boards.host(contact_panel, StatusBoards.BOARD_TRACKS)
 	status_boards.finish_boards()
+	status_boards.assessment_source = _battle_assessment
 	status_boards.hide()
 	status_boards.closed.connect(_focus_map_if_clear)
 	status_boards.report_located.connect(_show_chart_location)
@@ -838,6 +839,15 @@ func _arrange_views() -> void:
 	call_deferred("_focus_map_if_clear")
 
 
+## The battle as the commander's staff would put it: the mission's running score and its tasks,
+## the kills the plot has confirmed and the force's own losses.
+func _battle_assessment() -> Dictionary:
+	var mm := simulation.mission_manager
+	if mm == null or simulation.unit_manager == null:
+		return {}
+	return {"assessment": mm.assessment(), "objectives": mm.victory_objectives, "kills": _kills, "losses": _losses}
+
+
 ## The status boards sit over the top area; while they are up the chart there draws no readouts
 ## under them. A chart in the bottom pane (G) is not covered.
 func _sync_overlay() -> void:
@@ -1442,7 +1452,8 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "camera_flyby", "label": "Fly-by camera", "description": "Hold a point ahead of the hooked platform and let it pass.", "shortcut": "F11", "enabled": true},
 		{"id": "camera_action", "label": "Action camera", "description": "Cut to launches, hits and deck events you can see, then back.", "shortcut": "F12", "enabled": true},
 		{"id": "camera_detached", "label": "Detached camera", "description": "Stop the camera where it is and watch the platform move away.", "shortcut": "F8", "enabled": true},
-		{"id": "status_boards", "label": "Status boards", "description": "Orders, task group, track file and comms boards over the chart.", "shortcut": "A", "enabled": true, "state": "open" if status_boards.visible else "closed"},
+		{"id": "status_boards", "label": "Status boards", "description": "Orders, task group, track file, comms and assessment boards over the chart.", "shortcut": "A", "enabled": true, "state": "open" if status_boards.visible else "closed"},
+		{"id": "battle_assessment", "label": "Battle assessment", "description": "Mission effectiveness so far, losses on both sides and each task's state.", "shortcut": "", "enabled": true},
 		{"id": "plot_move", "label": "Plot route", "description": "Arm a left-click route; Shift chains waypoints. Right-click water moves the hooked platform at once.", "shortcut": "W", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Hook a deployed mobile platform first."},
 		{"id": "return_to_station", "label": "Return to station", "description": "Resume the patrol, screen or air station that an investigation, attack or refuelling interrupted.", "shortcut": "S", "enabled": movable and map.selected.any(func(u: Unit) -> bool: return u.has_station()), "reason": "The hooked platforms hold no station."},
 		{"id": "auto_return", "label": "Auto-return to station", "description": "Go back to station by itself once an identification, interception or attack ends. A newer order always stands.", "shortcut": "", "enabled": movable, "state": _auto_return_state(), "reason": "Hook a deployed mobile platform first."},
@@ -1591,6 +1602,8 @@ func _run_palette_action(id: String) -> void:
 			_world_view.set_camera_mode(WorldView.CAM_DETACHED)
 		"status_boards":
 			_toggle_boards()
+		"battle_assessment":
+			_toggle_boards(StatusBoards.BOARD_ASSESSMENT)
 		"plot_move":
 			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
 			map.grab_focus()
