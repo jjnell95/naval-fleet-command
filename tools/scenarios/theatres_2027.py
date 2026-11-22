@@ -235,8 +235,10 @@ def catalogue():
     weapon("pla_hpj11_ciws", "H/PJ-11 eleven-barrel 30 mm CIWS", "ciws", ["missile", "air"], 1.4, 3200, 15, base_pk=0.42)
     weapon("pla_hpj12_ciws", "H/PJ-12 (Type 730) 30 mm CIWS", "ciws", ["missile", "air"], 1.2, 3000, 15, base_pk=0.38)
     weapon("pla_hpj13_30mm", "H/PJ-13 30 mm gun mount", "ciws", ["missile", "air"], 1.0, 2600, 12, base_pk=0.30)
-    weapon("pla_hpj45_130mm", "H/PJ-45A 130 mm gun", "gun", ["surface"], 12, 1600, 11, base_pk=0.52)
-    weapon("pla_hpj26_76mm", "H/PJ-26 76 mm gun", "gun", ["surface"], 8, 1600, 6, base_pk=0.50, salvo_default=8)
+    # Shell damage is on the missiles' scale (a 130 mm round is about a fourteenth of a YJ-83);
+    # the heavy gun also bombards, the 76 mm does not.
+    weapon("pla_hpj45_130mm", "H/PJ-45A 130 mm gun", "gun", ["surface", "land"], 12, 1600, 3, base_pk=0.52)
+    weapon("pla_hpj26_76mm", "H/PJ-26 76 mm gun", "gun", ["surface"], 8, 1600, 1, base_pk=0.50, salvo_default=8)
     weapon("pla_yu6", "Yu-6 heavyweight torpedo", "torpedo", ["surface", "subsurface"], 24, 50, 90,
            base_pk=0.70, run_to_enable_nm=1.0, acoustic_signature=0.7)
     weapon("pla_yu7", "Yu-7 lightweight torpedo", "torpedo", ["subsurface"], 6, 43, 55, base_pk=0.68, run_to_enable_nm=0.4)

@@ -183,8 +183,11 @@ def catalogue():
            guidance="inertial_active", base_pk=.52, min_range_nm=3.0, altitude_m=10000.0, midcourse_updates=True)
     weapon("aim9m", "AIM-9M Sidewinder", "aam", ["air"], 8, 1600, 34,
            guidance="infrared_homing", base_pk=.65, min_range_nm=.5, altitude_m=6000.0)
-    weapon("mk45", "Mk 45 5-inch/54 gun", "gun", ["surface"], 11, 1500, 5, base_pk=.65)
-    weapon("mk75", "Mk 75 76 mm gun", "gun", ["surface"], 8, 1600, 3, base_pk=.65)
+    # Shells are on the missiles' damage scale: a 5-inch round is a sixteenth of a Harpoon, so a gun
+    # action is decided by weight of fire over minutes, not by the first few hits. The larger
+    # calibres also bombard: they may be laid on a contact ashore.
+    weapon("mk45", "Mk 45 5-inch/54 gun", "gun", ["surface", "land"], 11, 1500, 2.5, base_pk=.65)
+    weapon("mk75", "Mk 75 76 mm gun", "gun", ["surface"], 8, 1600, 1, base_pk=.65)
     weapon("phalanx", "Phalanx Block 0/1 CIWS", "ciws", ["missile", "air"], 1.2, 2200, 15,
            base_pk=.40)
     weapon("moskit", "P-270 Moskit / SS-N-22 Sunburn", "asm", ["surface"], 60, 1350, 62,
@@ -201,9 +204,9 @@ def catalogue():
            base_pk=.51, min_range_nm=.6)
     weapon("osa_m", "Osa-M / SA-N-4 Gecko", "sam", ["missile", "air"], 5, 1600, 26,
            base_pk=.43, min_range_nm=.7)
-    weapon("ak130", "AK-130 twin 130 mm gun", "gun", ["surface"], 12, 1500, 7, base_pk=.66)
-    weapon("ak100", "AK-100 100 mm gun", "gun", ["surface"], 10, 1500, 5, base_pk=.64)
-    weapon("ak176", "AK-176 76 mm gun", "gun", ["surface"], 8, 1500, 3, base_pk=.64)
+    weapon("ak130", "AK-130 twin 130 mm gun", "gun", ["surface", "land"], 12, 1500, 3, base_pk=.66)
+    weapon("ak100", "AK-100 100 mm gun", "gun", ["surface", "land"], 10, 1500, 1.5, base_pk=.64)
+    weapon("ak176", "AK-176 76 mm gun", "gun", ["surface"], 8, 1500, 1, base_pk=.64)
     weapon("ak630", "AK-630 CIWS", "ciws", ["missile", "air"], 1.1, 2100, 14, base_pk=.37)
     weapon("set65", "SET-65 anti-submarine torpedo", "torpedo", ["subsurface"], 8, 40, 68)
     weapon("test71", "TEST-71M torpedo", "torpedo", ["subsurface"], 10, 40, 72)
