@@ -176,6 +176,9 @@ func _ready() -> void:
 	_world_view.simulation = simulation
 	_world_view.swap_requested.connect(_swap_views)
 	_world_view.fullscreen_requested.connect(_toggle_world_full)
+	# The 3D pane's right-click asks for the same menu as the data display's, once it emits one.
+	if _world_view.has_signal("platform_menu_requested"):
+		_world_view.connect("platform_menu_requested", _on_display_menu)
 	_view_frame.add_child(_world_view)
 	map.context_menu_requested.connect(_on_map_context)
 	contact_panel.track_manager = simulation.track_manager
@@ -2456,11 +2459,15 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 		return
 	# The chart and the 3D view show only a hit someone could witness; the clock and the speaker
 	# keep to the same rule.
+	# Only what the plot holds: the contact's track, never its true name or health. A hit is never
+	# good news on a contact held as no enemy, nor on an unidentified one the round was not fired at.
+	var t := _held_track(target) if not own_target else null
+	var stray := t != null and t.identity != "HOSTILE" and faction == simulation.player_faction and _hit_off_target(spec, target)
+	var protected := t != null and (t.identity in ["NEUTRAL", "FRIENDLY"] or stray)
 	if observed:
-		# A hit taken always stops the clock, and so does one on a ship the plot holds as no enemy.
+		# A hit taken always stops the clock, and so does one on a ship that was not the enemy's.
 		# The commander's own hits in an engagement already running are its routine.
-		var held := _held_track(target)
-		var routine := not own_target and faction == simulation.player_faction and held != null and held.identity not in ["NEUTRAL", "FRIENDLY"] and not _opens_engagement(held.id)
+		var routine := t != null and not protected and faction == simulation.player_faction and not _opens_engagement(t.id)
 		if not routine:
 			SimClock.drop_to_realtime()
 		SoundFx.play("impact", 0.2)
@@ -2474,19 +2481,29 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 			casualties += " · FLOODING"
 		radio.flash("Hit — %s%s" % [Damage.condition_text(target).to_lower(), casualties], "alert", target)
 		voice.say("own_ship_hit", target)
-	else:
-		# Only what the plot holds: the contact's track label, never its true name or health.
-		var t := _held_track(target)
-		if t != null and t.identity in ["NEUTRAL", "FRIENDLY"]:
-			# Never good news, whoever fired: an own round on a ship the plot holds as no enemy is
-			# the commander's to stop, and another side's is still an attack on shipping.
-			var whose := " by our weapon — check fire" if faction == simulation.player_faction else ""
-			radio.flash("Hit on %s %s%s" % [t.identity.to_lower(), t.label(), whose], "alert", null, radio._reported_position(t))
-		elif t != null:
-			radio.flash("Hit", "good", t)
-		elif faction == simulation.player_faction:
-			radio.flash("Weapon hit", "good")
+	elif protected:
+		# Whoever fired: an own round on such a ship is the commander's to stop, and another side's
+		# is still an attack on shipping.
+		var what := t.label() if t.identity == "UNKNOWN" else "%s %s" % [t.identity.to_lower(), t.label()]
+		var whose := ""
+		if faction == simulation.player_faction:
+			whose = " by our weapon — %s" % ("not the contact fired at" if stray else "check fire")
+		radio.flash("Hit on %s%s" % [what, whose], "alert", null, radio._reported_position(t))
+	elif t != null:
+		radio.flash("Hit", "good", t)
+	elif faction == simulation.player_faction:
+		radio.flash("Weapon hit", "good")
 	Debug.event("[Combat] %s hit %s (%s, %.0f%%)" % [spec.display_name, target.callsign, Damage.condition_text(target), Damage.health_fraction(target) * 100.0])
+
+
+## Whether the own round that has just hit this unit was fired at some other contact: a seeker
+## that took the wrong ship. The round is still in the weapon manager's hands while its impact is
+## announced, and its track is matched to the unit it follows by the one sanctioned association.
+func _hit_off_target(spec: WeaponSpec, target: Unit) -> bool:
+	for w: Weapon in simulation.weapon_manager.in_flight:
+		if w.faction == simulation.player_faction and w.spec == spec and w.acquired == target and w.dead_reason == "HIT":
+			return w.target_track != null and w.target_track.truth != null and w.target_track.truth != target
+	return false
 
 
 func _on_unit_destroyed(u: Unit, killer_faction: String) -> void:
@@ -2692,9 +2709,11 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 
 ## Right-click on the data display: the menu of what it is reading out. The contact being
 ## inspected, else the hooked platforms, else the CDS menu.
-func _on_display_menu(viewport_pos: Vector2) -> void:
+func _on_display_menu(viewport_pos := Vector2.INF) -> void:
 	if _has_visible_modal():
 		return
+	if not viewport_pos.is_finite():
+		viewport_pos = get_viewport().get_mouse_position()
 	var t := map.inspection_track()
 	if t != null:
 		_on_map_context(Vector2.ZERO, {"kind": "track", "track": t, "viewport_pos": viewport_pos})

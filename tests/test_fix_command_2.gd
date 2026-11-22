@@ -324,10 +324,15 @@ const MISSILE := "tomahawk_block_v"
 
 
 ## Two own ships and one held hostile ten miles off, nobody shooting back: {main, own, enemy, track}.
-func _range() -> Dictionary:
+## `bystander` puts a merchant of a neutral flag beside the target.
+func _range(bystander := false) -> Dictionary:
 	var path := "user://test-command-two-range.json"
+	var scenario: Dictionary = RANGE.duplicate(true)
+	if bystander:
+		scenario["neutral_factions"] = ["NEUTRAL"]
+		scenario["units"].append({"platform": "civ_merchant_bulk", "callsign": "MV Bystander", "faction": "NEUTRAL", "position_nm": [7, 9], "speed_kn": 0})
 	var file := FileAccess.open(path, FileAccess.WRITE)
-	file.store_string(JSON.stringify(RANGE))
+	file.store_string(JSON.stringify(scenario))
 	file.close()
 	var main := _open(path)
 	var sim := main.simulation
@@ -706,4 +711,39 @@ func test_hotkeys_do_not_reach_the_mission_behind_the_readout_dialog() -> void:
 	assert_true(not main._menu.visible and not main._briefing.visible, "M and F1 do not open screens behind the dialog")
 	assert_eq(SimClock.speed_index, speed, "and the time scale is left alone")
 	main.data_display.close_details()
+	_close(main)
+
+
+# --- A round that takes a ship it was not fired at ---------------------------------------------
+
+func test_an_own_round_that_hits_an_unidentified_ship_it_was_not_fired_at_is_an_alert() -> void:
+	var f := _range(true)
+	var main: Main = f["main"]
+	var sim := main.simulation
+	var merchant: Unit = sim.unit_manager.get_engageable_units("NEUTRAL")[0]
+	sim.track_manager.observe("BLUE", merchant, merchant.position, 1, 1, SimClock.sim_time, 1, 10)
+	var bystander := sim.track_manager.find_track("BLUE", merchant)
+	# A class from her radar and no allegiance yet: the plot does not hold her as neutral.
+	bystander.identity = "UNKNOWN"
+	bystander.classification = Track.Classification.CLASS_KNOWN
+	bystander.known_class = "MV Merchant"
+	main._apply_order_to_selection(Order.engage(f["track"], MISSILE, 1))
+	var rounds := _own_rounds(main)
+	assert_eq(rounds.size(), 1, "one round is away at the hostile")
+	var w: Weapon = rounds[0]
+	# Its seeker takes the merchant instead.
+	w.acquired = merchant
+	w.phase = Weapon.Phase.DEAD
+	w.dead_reason = "HIT"
+	var fast := SimClock.speeds().size() - 1
+	SimClock.set_speed_index(fast)
+	sim.weapon_manager.weapon_impact.emit(sim.player_faction, w.spec, merchant, true)
+	var line := str(main.radio.journal[-1])
+	assert_true(line.contains("Hit on %s" % bystander.label()) and line.contains("not the contact fired at"), "the radio says the round took another ship: %s" % line)
+	assert_eq(str(main.map._radio.entries[-1]["severity"]), "alert", "as an alert, not a good hit")
+	assert_eq(SimClock.speed_index, 0, "and the clock stops for it")
+	# The same weapon on the contact it was fired at is the good line.
+	sim.weapon_manager.weapon_impact.emit(sim.player_faction, w.spec, f["enemy"], true)
+	assert_true(str(main.radio.journal[-1]).ends_with("Hit"), str(main.radio.journal[-1]))
+	assert_eq(str(main.map._radio.entries[-1]["severity"]), "good")
 	_close(main)
