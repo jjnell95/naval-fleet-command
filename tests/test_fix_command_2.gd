@@ -505,10 +505,47 @@ func test_a_partly_refused_group_order_names_who_refused_and_why() -> void:
 	refuser.roe = Unit.Roe.FREE
 	refuser.decoys = 0
 	main._apply_order_to_selection(Order.deploy_countermeasures("radar"))
-	line = main.radio.latest_text
-	assert_true(line.contains("1 refused") and line.contains(refuser.callsign + ": no chaff or flare countermeasures aboard"), "every order type gives its reason: %s" % line)
+	assert_eq(_journal(main, ["1 refused", refuser.callsign + ": no chaff or flare countermeasures aboard"]).size(), 1, "every order type gives its reason: %s" % str(main.radio.journal.slice(-2)))
 	# A sensor order, through the per-platform route the boards use.
 	main._apply_unit_orders([[taker, Order.set_altitude(500.0)], [refuser, Order.set_roe(Unit.Roe.TIGHT)]])
 	line = main.radio.latest_text
 	assert_true(line.contains("1 refused") and line.contains(taker.callsign + ": not airborne"), "and so does a board's order: %s" % line)
+	_close(main)
+
+
+# --- Chaff with nothing to work on ------------------------------------------------------------
+
+func _inbound(main: Main, at: Unit, distance_nm: float) -> Weapon:
+	var w := Weapon.new()
+	w.id = 99001
+	w.spec = DataDB.weapon("cw90_harpoon")
+	w.faction = "RED"
+	w.position = at.position + Vector2(0, distance_nm)
+	w.heading_deg = 180
+	w.acquired = at
+	w.phase = Weapon.Phase.TERMINAL
+	main.simulation.weapon_manager.in_flight.append(w)
+	main.simulation.threat_manager.mark_detected("BLUE", w, 0, at)
+	return w
+
+
+func test_chaff_ordered_with_no_seeker_in_reach_says_so() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	var ship: Unit = f["own"][0]
+	var packs := ship.decoys
+	var w := _inbound(main, ship, 15.0)
+	assert_eq(w.spec.seeker_band(), "radar")
+	var before := main.radio.journal.size()
+	_key(main, KEY_D)
+	assert_eq(ship.decoys, packs - 1, "the order is kept: a pack is fired")
+	var said: Array = main.radio.journal.slice(before)
+	assert_true(said.any(func(line: String) -> bool: return line.contains("Chaff away with no radar seeker inside 2.5 nm") and line.contains("15.0 nm")), "and the radio says it has nothing to work on: %s" % str(said))
+	# With the seeker inside the reach of chaff there is nothing to add.
+	ship.countermeasure_reload_s = 0.0
+	w.position = ship.position + Vector2(0, 2.0)
+	before = main.radio.journal.size()
+	_key(main, KEY_D)
+	assert_eq(ship.decoys, packs - 2)
+	assert_true(not main.radio.journal.slice(before).any(func(line: String) -> bool: return line.contains("away with no")), "chaff against a seeker in reach draws no warning: %s" % str(main.radio.journal.slice(before)))
 	_close(main)

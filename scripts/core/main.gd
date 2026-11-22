@@ -2786,6 +2786,7 @@ func _apply_order_to_selection(order: Order) -> void:
 	var interceptors_before := int(_stats.get("launched", 0))
 	var refusal := ""
 	var refused_by := ""
+	var deployed: Array[Unit] = []
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
 			var before := _committed_for_order(u, order)
@@ -2793,6 +2794,7 @@ func _apply_order_to_selection(order: Order) -> void:
 			if simulation.unit_manager.issue_order(u, order):
 				accepted += 1
 				if order.receipt.begins_with("Queued for submarine"): queued += 1
+				elif order.type == Order.Type.DEPLOY_COUNTERMEASURES: deployed.append(u)
 				if order.type == Order.Type.ENGAGE:
 					rounds_committed += maxi(_committed_for_order(u, order) - before, 0)
 			else:
@@ -2811,6 +2813,28 @@ func _apply_order_to_selection(order: Order) -> void:
 	if queued > 0:
 		receipt = "Queued for submarine check-in · %d orders" % queued if queued == accepted else "%d orders sent · %d queued for submarine check-in" % [accepted - queued, queued]
 	_report_orders(order, accepted, refused, receipt, "%s: %s" % [refused_by, refusal.to_lower()] if refusal != "" else "")
+	_report_idle_countermeasures(deployed, order.countermeasure_kind)
+
+
+## A pack fired with nothing for it to work on is still fired, and the commander is told: decoys
+## act only on a seeker of their own kind that is close, and the cloud does not last.
+func _report_idle_countermeasures(units: Array[Unit], kind: String) -> void:
+	if units.is_empty():
+		return
+	var reach := DefensiveResponse.ACOUSTIC_RANGE_NM if kind == "acoustic" else DefensiveResponse.MISSILE_RANGE_NM
+	var nearest := INF
+	for entry: Dictionary in _commander_inbound():
+		var w: Weapon = entry["weapon"]
+		if w.spec.seeker_band() != kind:
+			continue
+		for u: Unit in units:
+			nearest = minf(nearest, u.position.distance_to(w.position))
+	if nearest <= reach:
+		return
+	var what: String = {"radar": "Chaff", "infrared": "Flares", "acoustic": "Decoy"}.get(kind, "Countermeasures")
+	var seeker: String = {"radar": "radar seeker", "infrared": "heat seeker", "acoustic": "homing torpedo"}.get(kind, "seeker")
+	var where := "the nearest is at %.1f nm" % nearest if nearest < INF else "none is held inbound"
+	radio.flash("%s away with no %s inside %.1f nm: %s. It lasts %d s" % [what, seeker, reach, where, int(DefensiveResponse.ACTIVE_SECONDS)], "warn", units[0] if units.size() == 1 and _receives_report(units[0]) else null)
 
 
 ## Why one platform refused an order, in the words of the rule that refused it. Empty when the
