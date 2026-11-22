@@ -847,7 +847,7 @@ func _refresh_details() -> void:
 		_details_signature = signature
 	_details_alert.text = threat_text
 	_details_alert.visible = threat_text != ""
-	_details_clock.text = "%s · %s" % [clock_text(), "PAUSED" if SimClock.paused else "%dx — simulation running" % int(SimClock.multiplier())]
+	_details_clock.text = "%s · %s" % [clock_text(), "PAUSED" if SimClock.paused else "%s — simulation running" % SimClock.rate_text()]
 
 func _font() -> Font:
 	return UITheme.data_font()
@@ -973,8 +973,10 @@ func _draw() -> void:
 		for i in bars:
 			draw_rect(Rect2(bx + i * 9.0, footer_y + line_h * 0.5 - 3.0, 6.0, 6.0), COL_BARS)
 		scale_end = bx + bars * 9.0
-		draw_string(font, Vector2(scale_end + 6.0, footer_y + ascent), "%dx" % int(SimClock.multiplier()), HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2, Color(COL_BARS, 0.85))
-		scale_end += 6.0 + font.get_string_size("%dx" % int(SimClock.multiplier()), HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2).x
+		# The rate asked for, and beside it the rate delivered when the battle is too heavy for it.
+		var rate := SimClock.rate_text()
+		draw_string(font, Vector2(scale_end + 6.0, footer_y + ascent), rate, HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2, Color(COL_ALERT if SimClock.rate_short() else COL_BARS, 0.85))
+		scale_end += 6.0 + font.get_string_size(rate, HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2).x
 	_scale_rect = Rect2(sx, footer_y, scale_end - sx, line_h)
 	_lamp_rect = Rect2(size.x - MARGIN.x - 11.0, footer_y + line_h * 0.5 - 5.5, 11.0, 11.0)
 	var lit := _lamp_lit()

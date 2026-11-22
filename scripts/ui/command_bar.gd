@@ -89,11 +89,16 @@ func refresh() -> void:
 	if map == null or buttons.is_empty():
 		return
 	buttons["weapon_control"].disabled = map.selected.is_empty()
-	buttons["time_menu"].text = "%d× ▾" % int(SimClock.multiplier())
+	# The asked rate, with what is delivered beside it while the battle cannot keep up.
+	buttons["time_menu"].text = "%s ▾" % SimClock.rate_text().replace("x", "×")
+	var speed_tip := "Choose time acceleration. Combat returns the watch to 1×."
+	if SimClock.rate_short():
+		speed_tip += "\nRunning at %d× of the %d× asked: the battle is too heavy for this speed." % [maxi(1, roundi(SimClock.achieved_rate())), int(SimClock.multiplier())]
+	buttons["time_menu"].tooltip_text = speed_tip
 	buttons["options_menu"].text = options_label
 	buttons["options_menu"].tooltip_text = "Gameplay options: choose Normal, Classic or single options.\n" + options_tooltip
 	buttons["open_defence"].disabled = map.selected.is_empty()
-	buttons["toggle_pause"].text = "RESUME  ▷" if SimClock.paused else "PAUSE  %d×" % int(SimClock.multiplier())
+	buttons["toggle_pause"].text = "RESUME  ▷" if SimClock.paused else "PAUSE  %s" % SimClock.rate_text().replace("x", "×")
 	if map.interaction_mode == TacticalMap.InteractionMode.PATROL:
 		_hint.text = "PATROL: two corners • allow turning room • right-click cancels"
 	elif map.interaction_mode == TacticalMap.InteractionMode.MOVE:

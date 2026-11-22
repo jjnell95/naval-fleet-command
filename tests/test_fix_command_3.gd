@@ -324,3 +324,47 @@ func test_the_assessment_board_fits_the_chart() -> void:
 		var rect := main.status_boards.get_global_rect()
 		assert_true(_inside(rect, upper), "%d%%: the assessment %s lies inside the chart %s" % [percent, str(rect), str(upper)])
 	_close(main)
+
+
+# --- The true time rate ----------------------------------------------------------------------
+
+const ClockScript := preload("res://scripts/simulation/sim_clock.gd")
+
+
+func test_over_budget_ticks_lower_the_achieved_rate_and_the_screen_says_so() -> void:
+	var clock := ClockScript.new()
+	clock.set_speed_index(5)
+	clock.set_paused(false)
+	# A light battle delivers what 60x asks for.
+	for frame in 30:
+		clock._process(0.1)
+	assert_near(clock.achieved_rate(), 60.0, 0.5, "a light battle runs at the asked rate")
+	assert_eq(clock.rate_text(), "60x", "and the screen says only the asked rate")
+	# A heavy one: each tick costs longer than the whole frame budget, so a frame steps once.
+	clock.frame_budget_usec = 1
+	clock.tick.connect(func(_dt: float) -> void: OS.delay_usec(200))
+	for frame in 150:
+		clock._process(0.1)
+	# One tick of 0.25 s per 0.1 s frame is 2.5x.
+	assert_near(clock.achieved_rate(), 2.5, 0.5, "the achieved rate falls to what the frames step: %.1f" % clock.achieved_rate())
+	assert_true(clock.rate_short(), "the shortfall is noticed")
+	assert_eq(clock.rate_text(), "60x > 3x", "the screen shows what is asked and what is delivered")
+	# A new speed starts from its own figure.
+	clock.set_speed_index(0)
+	assert_near(clock.achieved_rate(), 1.0, 0.001)
+	clock.free()
+
+
+func test_the_command_bar_and_data_display_show_the_achieved_rate_when_short() -> void:
+	var main := _open("northern_passage.json")
+	SimClock.set_speed_index(5)
+	SimClock.set_paused(false)
+	SimClock._achieved = 18.0
+	main.command_bar.refresh()
+	assert_eq(main.command_bar.buttons["time_menu"].text, "60× > 18× ▾", "the speed button shows both rates")
+	assert_true(main.command_bar.buttons["toggle_pause"].text.ends_with("60× > 18×"), main.command_bar.buttons["toggle_pause"].text)
+	SimClock._achieved = 58.0
+	main.command_bar.refresh()
+	assert_eq(main.command_bar.buttons["time_menu"].text, "60× ▾", "within a tenth of the asked rate only the asked rate shows")
+	SimClock.set_paused(true)
+	_close(main)

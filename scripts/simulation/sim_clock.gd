@@ -21,6 +21,11 @@ const MAX_TICKS_PER_FRAME := 480
 ## frames (about a sixth of the throughput with 10 ms frames) and only while the simulation cannot
 ## keep up; a light battle does not reach it. At least one tick always runs, however slow.
 const FRAME_BUDGET_USEC := 50000
+## How long the achieved rate takes to follow a change (seconds of wall time): long enough to read
+## steadily through the tick quantisation at 1x, short enough to show a heavy moment as it comes.
+const RATE_SMOOTHING_S := 1.5
+## The achieved rate is shown beside the asked one once it falls below this share of it.
+const RATE_SHORTFALL := 0.9
 
 var sim_time := 0.0  # seconds since scenario start
 var start_unix_time := 0
@@ -30,6 +35,9 @@ var paused := true
 var frame_budget_usec := FRAME_BUDGET_USEC
 var _accum := 0.0
 var _last_wall_usec := 0
+## Simulation seconds actually stepped per wall second, smoothed. It is the asked rate until a frame
+## has to drop backlog it had no time for. Presentation only: no tick reads it.
+var _achieved := 1.0
 ## The time scales the player may choose from, slowest first; always starts at real time. Only
 ## how fast the fixed ticks are emitted depends on it, never what they compute.
 var _speeds: Array[float] = SPEEDS.duplicate()
@@ -65,9 +73,40 @@ func _advance_frame(delta: float) -> void:
 		sim_time += TICK_DT
 		n += 1
 		tick.emit(TICK_DT)
+	var dropped := 0.0
 	if n >= MAX_TICKS_PER_FRAME or over_budget:
+		dropped = _accum
 		_accum = 0.0  # drop backlog instead of spiralling
+	_note_rate(delta, delta * multiplier() - dropped)
 	Debug.time_add("sim", Time.get_ticks_usec() - t0)
+
+
+## Folds one frame into the achieved rate: the simulation time the frame was owed, less what it
+## dropped for want of time, over the wall time it took.
+func _note_rate(wall_s: float, sim_s: float) -> void:
+	if wall_s <= 0.0:
+		return
+	var sample := maxf(sim_s, 0.0) / wall_s
+	_achieved += (sample - _achieved) * (1.0 - exp(-wall_s / RATE_SMOOTHING_S))
+
+
+## The time rate the simulation is actually running at, smoothed over the last second or two.
+func achieved_rate() -> float:
+	return _achieved
+
+
+## True when the simulation is running well short of the asked rate: the battle costs more per
+## tick than the frame budget allows at this speed.
+func rate_short() -> bool:
+	return not paused and _achieved < multiplier() * RATE_SHORTFALL
+
+
+## The rate for the screen: "60x", or "60x > 18x" while the simulation delivers less than asked.
+func rate_text() -> String:
+	var asked := "%dx" % int(multiplier())
+	if not rate_short():
+		return asked
+	return "%s > %dx" % [asked, maxi(1, roundi(_achieved))]
 
 
 ## Synchronously advance the simulation (dev/test use). Emits ticks immediately.
@@ -111,6 +150,7 @@ func set_speeds(list: Array) -> void:
 	speed_index = index
 	if changed:
 		_accum = 0.0
+		_achieved = multiplier()
 		speed_changed.emit(speed_index, multiplier())
 
 
@@ -147,6 +187,8 @@ func set_speed_index(i: int) -> void:
 	# advancing the battle after the player has been handed control at real time.
 	_accum = 0.0
 	speed_index = i
+	# A new speed is taken at its word until frames show otherwise.
+	_achieved = multiplier()
 	speed_changed.emit(speed_index, multiplier())
 
 
@@ -155,6 +197,7 @@ func set_paused(p: bool) -> void:
 		return
 	_accum = 0.0
 	_last_wall_usec = 0
+	_achieved = multiplier()
 	paused = p
 	paused_changed.emit(paused)
 
@@ -172,6 +215,7 @@ func reset(start_unix := 0) -> void:
 	sim_time = 0.0
 	_accum = 0.0
 	_last_wall_usec = 0
+	_achieved = multiplier()
 	start_unix_time = start_unix
 
 
