@@ -20,15 +20,21 @@ const SMOOTH_GAIN := 0.25
 const SMOOTH_GAP_S := 5.0
 ## Averaging the looks inside one sample cannot beat a set's systematic error.
 const SAMPLE_SIGMA_FLOOR_DEG := 0.3
-## Bearing-rate ranging: the shortest leg worth a rate, how alike two velocities are to be one leg
-## and how far apart to be two, and the target speed its range is allowed to drift at afterwards.
+## Bearing-rate ranging: the shortest leg worth a rate, and how alike two velocities are to be one
+## leg and how far apart to be two.
+const REFINE_PASSES := 4
+## The refinement is started again from this many times the first answer's range, or half the
+## reach the contact was heard at if that is further, along the newest bearing. Where both
+## starts settle apart and fit about equally (within two standard deviations), the bearings do
+## not say which, and the answer is no better than the distance between them.
+const FAR_START_FACTOR := 3.0
+const AMBIGUITY_ALLOWANCE := 4.0
+## One standard deviation of a ship's speed along each axis, before any bearing says otherwise.
+const LIKELY_SPEED_KN := 15.0
 const LEG_MIN_S := 80.0
 const LEG_MIN_SAMPLES := 5
 const LEG_SAME_KN := 1.5
 const LEG_CHANGE_KN := 2.0
-const RATE_SIGNIFICANCE := 2.5
-const RATE_DRIFT_KN := 8.0
-const RATE_QUALITY_CAP := 0.7
 
 
 ## Files one bearing and returns the stored report. Besides the latest look, a report carries the
@@ -96,14 +102,14 @@ static func estimate(history: Array, now: float, speed_limit_kn := -1.0) -> Dict
 	if limit <= 0.0:
 		return _fit(samples, now, false) if _observer_spread(samples) >= MIN_BASELINE_NM else {}
 	if samples.size() < 12 or now - float(samples[0]["time"]) < 120.0:
-		return _bearing_rate_range(samples, now)
+		return _bearing_rate_range(samples, now, limit)
 	# Straight, constant-speed own motion cannot separate unknown target velocity and range.
 	# The four-unknown fit is only attempted after a useful departure from that baseline.
 	if _observer_manoeuvre(samples) >= 0.15:
 		var fitted := _fit(samples, now, true, limit)
 		if not fitted.is_empty():
 			return fitted
-	return _bearing_rate_range(samples, now)
+	return _bearing_rate_range(samples, now, limit)
 
 
 ## The history as one averaged look per sample: the same reports, with each one's bearing, origin
@@ -204,6 +210,27 @@ static func _fit(reports: Array, now: float, motion: bool, speed_limit_kn := -1.
 		for j in dim:
 			value += float(inverse[i][j]) * float(rhs[j])
 		state.append(value)
+	var spread := -1.0
+	var ambiguity := 0.0
+	if motion:
+		# The straight-line fit weighs every look alike and reads short when the bearings are noisy
+		# for the geometry, and a contact close by and fast can fit thin geometry as well as one
+		# far off and slow. Refine from the first answer and from well beyond it.
+		var anchor: Vector2 = reports[-1]["origin"]
+		var near := _refine(reports, now, state)
+		var first := Vector2(float(state[0]), float(state[1])) - anchor
+		var beyond := Geo.heading_to_vector(float(reports[-1]["bearing"])) * maxf(first.length() * FAR_START_FACTOR, float(reports[-1]["limit"]) * 0.5)
+		var far := _refine(reports, now, [anchor.x + beyond.x, anchor.y + beyond.y, 0.0, 0.0])
+		var far_wins := near.is_empty() or (not far.is_empty() and float(far["misfit"]) < float(near["misfit"]))
+		var chosen := far if far_wins else near
+		var other := near if far_wins else far
+		if chosen.is_empty():
+			return {}
+		state = chosen["state"]
+		inverse = chosen["covariance"]
+		spread = chosen["spread"]
+		if not other.is_empty() and float(other["misfit"]) - float(chosen["misfit"]) <= AMBIGUITY_ALLOWANCE * maxf(spread, 1.0):
+			ambiguity = Vector2(float(state[0]) - float(other["state"][0]), float(state[1]) - float(other["state"][1])).length()
 	var position := Vector2(state[0], state[1])
 	var velocity := Vector2(state[2], state[3]) / WINDOW_S if motion else Vector2.ZERO
 	var fastest := speed_limit_kn if speed_limit_kn >= 0.0 else float(reports[-1].get("speed_limit", SHIP_SPEED_LIMIT_KN))
@@ -226,11 +253,14 @@ static func _fit(reports: Array, now: float, motion: bool, speed_limit_kn := -1.
 	# Successive bearing errors are correlated; never award unlimited precision for waiting.
 	var correlation := maxf(float(reports.size()) / 48.0, 1.0) if motion else 1.0
 	variance = maxf(variance / reports.size(), residual / maxf(reports.size() - dim, 1)) * correlation
+	if spread >= 0.0:
+		# The refined fit's own covariance, widened if the looks scatter more than their sets say.
+		variance = maxf(spread, 1.0) * correlation
 	var a := float(inverse[0][0]) * variance
 	var b := float(inverse[0][1]) * variance
 	var d := float(inverse[1][1]) * variance
 	var root := sqrt(maxf(pow(a - d, 2.0) + 4.0 * b * b, 0.0))
-	var major := maxf(2.0 * sqrt(maxf((a + d + root) * 0.5, 0.0)), 0.2)
+	var major := maxf(maxf(2.0 * sqrt(maxf((a + d + root) * 0.5, 0.0)), 0.2), ambiguity)
 	var minor := maxf(2.0 * sqrt(maxf((a + d - root) * 0.5, 0.0)), 0.1)
 	var quality := clampf(1.0 - major / maxf(mean_range * 0.5, 0.5), 0.0, 0.95)
 	if quality < MIN_QUALITY:
@@ -243,9 +273,10 @@ static func _fit(reports: Array, now: float, motion: bool, speed_limit_kn := -1.
 ## Range from the change in bearing rate across the listener's last change of course or speed.
 ## On each steady leg the bearing drifts at (target minus own velocity across the line) over the
 ## range; the target's share is the same on both, so the difference in rate is the difference in
-## own velocity over the range. It needs two legs of a few minutes, not a long history, and does
-## not care what the target did before them.
-static func _bearing_rate_range(samples: Array, now: float) -> Dictionary:
+## own velocity over the range. Solved as the steady-target fit through those two legs alone, so
+## it needs a few minutes either side of one turn, not a long history, and does not care what the
+## target did before them.
+static func _bearing_rate_range(samples: Array, now: float, speed_limit_kn := -1.0) -> Dictionary:
 	if samples.is_empty():
 		return {}
 	var key: String = samples[-1]["key"]
@@ -259,50 +290,17 @@ static func _bearing_rate_range(samples: Array, now: float) -> Dictionary:
 	if later.is_empty():
 		return {}
 	# Skip the turn itself: step back until the listener is steady again on a different velocity.
-	var earlier := {}
 	var end := int(later["first"]) - 1
 	while end >= LEG_MIN_SAMPLES - 1:
-		var candidate := _leg_ending_at(own, end)
-		if not candidate.is_empty() and ((candidate["velocity"] as Vector2) - (later["velocity"] as Vector2)).length() * 3600.0 >= LEG_CHANGE_KN:
-			earlier = candidate
-			break
+		var earlier := _leg_ending_at(own, end)
+		if not earlier.is_empty() and ((earlier["velocity"] as Vector2) - (later["velocity"] as Vector2)).length() * 3600.0 >= LEG_CHANGE_KN:
+			return _fit(own.slice(int(earlier["first"])), now, true, speed_limit_kn)
 		end -= 1
-	if earlier.is_empty():
-		return {}
-	var turn_time := 0.5 * (float(own[int(earlier["last"])]["time"]) + float(own[int(later["first"])]["time"]))
-	var bearing_at_turn := 0.5 * (_leg_bearing(earlier, turn_time) + _leg_bearing(later, turn_time))
-	var across := Geo.heading_to_vector(bearing_at_turn + 90.0)
-	var rate_change := deg_to_rad(float(later["rate"]) - float(earlier["rate"]))
-	var rate_sigma := deg_to_rad(sqrt(pow(float(later["rate_sigma"]), 2.0) + pow(float(earlier["rate_sigma"]), 2.0)))
-	if absf(rate_change) < RATE_SIGNIFICANCE * rate_sigma or rate_sigma <= 0.0:
-		return {}
-	var range_at_turn := ((earlier["velocity"] as Vector2) - (later["velocity"] as Vector2)).dot(across) / rate_change
-	var latest: Dictionary = own[-1]
-	if range_at_turn <= 0.1 or range_at_turn > float(latest["limit"]) * 1.5:
-		return {}
-	# Since the turn the listener has opened or closed along the line by its own motion; what the
-	# target has done along it is not known and goes into the error instead.
-	var since := maxf(now - turn_time, 0.0)
-	var line := _leg_bearing(later, now)
-	var along := Geo.heading_to_vector(line)
-	var range_now := range_at_turn - (later["velocity"] as Vector2).dot(along) * since
-	if range_now <= 0.1:
-		return {}
-	var sigma := range_at_turn * rate_sigma / absf(rate_change)
-	var major := maxf(2.0 * sigma, 0.2) + Geo.knots_to_nm_per_s(RATE_DRIFT_KN) * since
-	var quality := clampf(1.0 - major / maxf(range_now * 0.5, 0.5), 0.0, RATE_QUALITY_CAP)
-	if quality < MIN_QUALITY:
-		return {}
-	var origin: Vector2 = latest["origin"]
-	var target_across := range_at_turn * deg_to_rad(float(later["rate"])) + (later["velocity"] as Vector2).dot(across)
-	return {"position": origin + (later["velocity"] as Vector2) * (now - float(latest["time"])) + along * range_now,
-		"velocity": across * target_across, "major": major,
-		"minor": minf(maxf(range_now * tan(deg_to_rad(float(later["line_sigma"]) * 2.0)), 0.1), major),
-		"axis": fposmod(line, 360.0), "quality": quality}
+	return {}
 
 
 ## The steady leg that ends at sample `last`: the longest run back from it over which the listener
-## held one velocity, with the straight line fitted through its bearings. Empty when too short.
+## held one velocity. Empty when too short.
 static func _leg_ending_at(own: Array, last: int) -> Dictionary:
 	if last < 1:
 		return {}
@@ -325,41 +323,55 @@ static func _leg_ending_at(own: Array, last: int) -> Dictionary:
 	if n < LEG_MIN_SAMPLES or span < LEG_MIN_S:
 		return {}
 	velocity = ((own[last]["origin"] as Vector2) - (own[first]["origin"] as Vector2)) / span
-	# Bearings unwrapped about the first, so a leg across north is still a straight line.
-	var base := float(own[first]["bearing"])
-	var mean_t := 0.0
-	var mean_b := 0.0
-	var offsets := PackedFloat64Array()
-	for i in range(first, last + 1):
-		var offset := Geo.heading_delta(base, float(own[i]["bearing"]))
-		offsets.append(offset)
-		mean_t += float(own[i]["time"])
-		mean_b += offset
-	mean_t /= n
-	mean_b /= n
-	var stt := 0.0
-	var stb := 0.0
-	for i in n:
-		var dt := float(own[first + i]["time"]) - mean_t
-		stt += dt * dt
-		stb += dt * (offsets[i] - mean_b)
-	if stt <= 0.0:
-		return {}
-	var rate := stb / stt  # degrees a second
-	var residual := 0.0
-	var sigma := 0.0
-	for i in n:
-		var dt := float(own[first + i]["time"]) - mean_t
-		residual += pow(offsets[i] - mean_b - rate * dt, 2.0)
-		sigma += pow(float(own[first + i]["sigma"]), 2.0)
-	var scatter := sqrt(maxf(residual / maxf(n - 2, 1), sigma / n))
-	return {"first": first, "last": last, "velocity": velocity, "rate": rate,
-		"rate_sigma": scatter / sqrt(stt), "line_sigma": scatter / sqrt(float(n)),
-		"base": base + mean_b, "mean_time": mean_t}
+	return {"first": first, "last": last, "velocity": velocity}
 
 
-static func _leg_bearing(leg: Dictionary, at: float) -> float:
-	return float(leg["base"]) + float(leg["rate"]) * (at - float(leg["mean_time"]))
+## A few passes on the bearings themselves, each weighed by its own error, with what is known of
+## ships (they are seldom fast) to settle what thin geometry leaves open. Returns the state, its
+## covariance, how badly it misses and how far the looks scatter about it relative to their stated
+## errors; empty if it falls apart.
+static func _refine(reports: Array, now: float, start: Array) -> Dictionary:
+	var state := start.duplicate()
+	var inverse := []
+	var chi := 0.0
+	var prior := 1.0 / pow(Geo.knots_to_nm_per_s(LIKELY_SPEED_KN) * WINDOW_S, 2.0)
+	for pass_index in REFINE_PASSES + 1:
+		var normal := []
+		var rhs := [0.0, 0.0, 0.0, 0.0]
+		for i in 4:
+			normal.append([0.0, 0.0, 0.0, 0.0])
+		chi = 0.0
+		for report: Dictionary in reports:
+			var tau := (float(report["time"]) - now) / WINDOW_S
+			var delta: Vector2 = Vector2(float(state[0]) + float(state[2]) * tau, float(state[1]) + float(state[3]) * tau) - (report["origin"] as Vector2)
+			var distance := delta.length()
+			if distance < 0.05:
+				return {}
+			var sight := delta / distance
+			var miss := asin(clampf(sight.cross(Geo.heading_to_vector(float(report["bearing"]))), -1.0, 1.0))
+			var weight := 1.0 / pow(deg_to_rad(float(report["sigma"])), 2.0)
+			var turn := Vector2(-sight.y, sight.x) / distance
+			var row := [turn.x, turn.y, turn.x * tau, turn.y * tau]
+			chi += weight * miss * miss
+			for i in 4:
+				rhs[i] += weight * row[i] * miss
+				for j in 4:
+					normal[i][j] += weight * row[i] * row[j]
+		for i in [2, 3]:
+			normal[i][i] += prior
+			rhs[i] -= prior * float(state[i])
+		inverse = _inverse(normal)
+		if inverse.is_empty():
+			return {}
+		if pass_index == REFINE_PASSES:
+			break  # the last pass only measures the fit it has arrived at
+		for i in 4:
+			for j in 4:
+				state[i] += float(inverse[i][j]) * float(rhs[j])
+			if not is_finite(float(state[i])):
+				return {}
+	var speed := prior * (pow(float(state[2]), 2.0) + pow(float(state[3]), 2.0))
+	return {"state": state, "covariance": inverse, "misfit": chi + speed, "spread": chi / maxf(reports.size() - 4, 1)}
 
 
 static func _inverse(matrix: Array) -> Array:

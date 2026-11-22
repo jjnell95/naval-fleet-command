@@ -148,3 +148,103 @@ func test_a_bearing_after_a_fix_keeps_the_range_and_gives_it_up_when_old() -> vo
 	assert_true(t.position.distance_to(Vector2(0, 30)) < 0.5, "giving the range up does not move the plot to a guess")
 	assert_true(not t.has_kinematics, "no range, so no course and speed")
 	tm.free()
+
+
+# --- Passive ranging ----------------------------------------------------------------------------
+
+func _target_unit() -> Unit:
+	var u := Unit.new()
+	u.spec = PlatformSpec.new()
+	u.spec.short_name = "TEST"
+	u.faction = "RED"
+	return u
+
+
+func _look(u: Unit, origin: Vector2, bearing: float, key: String, accuracy: float, limit := 30.0) -> SensorContact:
+	var c := SensorContact.new()
+	c.target = u
+	c.bearing_only = true
+	c.bearing_key = key
+	c.bearing_origin = origin
+	c.bearing_accuracy_deg = accuracy
+	c.bearing_range_limit_nm = limit
+	c.error_axis_deg = bearing
+	c.position = origin + Geo.heading_to_vector(bearing) * 4.0
+	c.range_nm = 4.0
+	c.error_major_nm = 4.0
+	c.error_minor_nm = 0.3
+	c.source = "sonar_passive"
+	return c
+
+
+## A boat at 6 kn hearing a submarine five miles off on a set good to 1.6 degrees a look, as shipped.
+## Returns [seconds until the plot held a range (-1 for never), the track, the target's position].
+func _listen(zigzag: bool, seconds: int) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	var tm := TrackManager.new()
+	var u := _target_unit()
+	var own := Vector2.ZERO
+	var target := Vector2(1.5, 5.0)
+	var target_velocity := Geo.heading_to_vector(200.0) * Geo.knots_to_nm_per_s(7.0)
+	var course := 300.0
+	var resolved := -1
+	for second in range(1, seconds + 1):
+		if zigzag and second % 300 == 0:
+			course = 80.0 if course > 180.0 else 300.0
+		own += Geo.heading_to_vector(course) * Geo.knots_to_nm_per_s(6.0)
+		target += target_velocity
+		var bearing := Geo.bearing_deg(own, target) + rng.randfn(0.0, 1.6)
+		tm.observe_contact("BLUE", _look(u, own, bearing, "boat", 1.6), float(second), 1.0)
+		tm.tick(float(second), 1.0)
+		if resolved < 0 and not tm.find_track("BLUE", u).is_bearing_only():
+			resolved = second
+	var t := tm.find_track("BLUE", u)
+	tm.free()
+	return [resolved, t, target]
+
+
+func test_a_change_of_course_resolves_a_passive_range_in_minutes() -> void:
+	var run := _listen(true, 900)
+	var resolved: int = run[0]
+	var t: Track = run[1]
+	var truth: Vector2 = run[2]
+	assert_true(resolved > 0 and resolved <= 720, "two legs either side of a turn give a range (resolved at %d s)" % resolved)
+	assert_true(not t.is_bearing_only(), "and the plot still holds it after a third leg")
+	assert_true(t.position.distance_to(truth) <= maxf(t.position_error_nm * 1.5, 1.0), "the contact lies inside the ellipse the plot claims (%.1f nm off, claimed %.1f)" % [t.position.distance_to(truth), t.position_error_nm])
+	assert_true(t.position_error_nm < 4.0, "the estimate is worth having")
+
+
+func test_a_steady_course_never_resolves_a_passive_range() -> void:
+	var run := _listen(false, 900)
+	assert_eq(run[0], -1, "no manoeuvre, no range")
+	assert_true((run[1] as Track).is_bearing_only())
+
+
+## A quiet boat heard at a mile and a half on a set whose catalogue reach is 38 nm.
+func test_the_first_range_guess_comes_from_the_reach_the_contact_was_heard_at() -> void:
+	var tm := TrackManager.new()
+	var sm := SensorManager.new()
+	sm.track_manager = tm
+	sm.rng.seed = 5
+	var listener := Unit.new()
+	listener.spec = PlatformSpec.new()
+	listener.spec.short_name = "HELO"
+	listener.faction = "BLUE"
+	listener.position = Vector2(10, 10)
+	var set := SensorSpec.new()
+	set.kind = "sonar"
+	set.passive_sensitivity_nm = 38.0
+	set.bearing_accuracy_deg = 1.6
+	var boat := _target_unit()
+	boat.position = Vector2(10, 11.5)
+	sm._report_passive(listener, boat, 1.5, 3.0, set, 1.0, 10.0)
+	var t := tm.find_for(listener, boat)
+	assert_true(t != null and t.is_bearing_only())
+	if t != null:
+		var plotted := t.position.distance_to(listener.position)
+		assert_true(plotted <= 3.0, "the line ends inside the reach it was heard at (%.1f nm), not at half the catalogue range" % plotted)
+		assert_true(t.error_major_nm <= 3.0, "and its length is that reach")
+		assert_true(t.bearing_origin.distance_to(listener.position) < 0.01, "the plot records where the bearing was taken from")
+	sm.free()
+	tm.free()
