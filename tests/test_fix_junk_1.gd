@@ -150,3 +150,50 @@ func test_docs_holds_only_what_a_page_or_the_catalogue_reaches() -> void:
 		listed += 1
 		assert_true(reached.has("docs/" + name), "docs/%s is reached from a page or cited by the catalogue" % name)
 	assert_true(listed > 3, "docs/ is found")
+
+
+func _export_excludes() -> PackedStringArray:
+	var config := ConfigFile.new()
+	assert_eq(config.load("res://export_presets.cfg"), OK, "the export presets load")
+	assert_eq(config.get_value("preset.0", "export_filter", ""), "all_resources", "the browser pack starts from every resource")
+	return str(config.get_value("preset.0", "exclude_filter", "")).split(",", false)
+
+
+func _excluded(path: String, excludes: PackedStringArray) -> bool:
+	for pattern: String in excludes:
+		if path.matchn(pattern) or path.get_file().matchn(pattern):
+			return true
+	return false
+
+
+## The browser pack carries the game, not the suites that drive it. A suite the harness loads by
+## path only under its own flag stays out; one a shipped script names by class or preloads must
+## stay in, or the shipped script would not compile in the browser.
+func test_the_browser_pack_leaves_out_the_flag_only_suites_and_keeps_what_shipped_code_names() -> void:
+	var excludes := _export_excludes()
+	for suite: String in ["scripts/core/fleet_workshop_smoke.gd", "scripts/core/weapon_control_smoke.gd"]:
+		assert_true(_excluded(suite, excludes), "%s, loaded only under its smoke flag, is not packed for players" % suite)
+	var scripts: Array[String] = []
+	var dirs: Array[String] = ["scripts"]
+	while not dirs.is_empty():
+		var dir: String = dirs.pop_back()
+		for sub: String in DirAccess.get_directories_at("res://" + dir):
+			dirs.append(dir + "/" + sub)
+		for name: String in DirAccess.get_files_at("res://" + dir):
+			if name.get_extension() == "gd":
+				scripts.append(dir + "/" + name)
+	var class_of := RegEx.create_from_string("(?m)^class_name\\s+(\\w+)")
+	var left_out := {}
+	for path: String in scripts:
+		if _excluded(path, excludes):
+			var m := class_of.search(FileAccess.get_file_as_string("res://" + path))
+			left_out[path] = m.get_string(1) if m != null else ""
+	for path: String in scripts:
+		if _excluded(path, excludes):
+			continue
+		var source := FileAccess.get_file_as_string("res://" + path)
+		for gone: String in left_out:
+			assert_true(not source.contains("preload(\"res://%s\")" % gone), "%s preloads %s, which the pack leaves out" % [path, gone])
+			var named: String = left_out[gone]
+			if named != "":
+				assert_true(not RegEx.create_from_string("\\b%s\\b" % named).search(source), "%s names %s, which the pack leaves out" % [path, named])
