@@ -115,3 +115,65 @@ func test_a_hit_on_a_track_held_neutral_is_an_alert_and_never_a_good_hit() -> vo
 		assert_true(str(main.radio.journal[-1]).ends_with("Hit"), "a hit on any other contact reads as before: %s" % str(main.radio.journal.slice(before)))
 		assert_eq(str(main.map._radio.entries[-1]["severity"]), "good")
 	_close(main)
+
+
+# --- The pre-mission briefing has one way into the mission ------------------------------------
+
+func test_escape_or_f1_on_the_first_briefing_returns_to_the_desk() -> void:
+	for keycode: Key in [KEY_ESCAPE, KEY_F1]:
+		var main := _boot("northern_passage.json")
+		main._show_briefing()
+		assert_true(main._briefing.visible and not main._command_taken, "the pre-mission briefing is up")
+		_key(main, keycode)
+		assert_true(not main._briefing.visible, "the briefing closed")
+		assert_true(main._menu.visible, "to the operations desk, not to the chart")
+		assert_true(not main._command_taken, "command was not taken")
+		_key(main, KEY_SPACE)
+		assert_true(SimClock.paused, "Space cannot run a mission nobody took command of")
+		assert_eq(SimClock.sim_time, 0.0)
+		assert_true(main.save_refusal() != "", "and there is nothing to save")
+		_close(main)
+
+
+func test_the_in_mission_briefing_still_closes_to_the_chart() -> void:
+	var main := _open("northern_passage.json")
+	_key(main, KEY_F1)
+	assert_true(main._briefing.visible, "F1 opens the orders board in the mission")
+	_key(main, KEY_ESCAPE)
+	assert_true(not main._briefing.visible)
+	assert_true(not main._menu.visible, "Esc closes it to the chart")
+	assert_true(main._command_taken)
+	_close(main)
+
+
+# --- The debrief stays up until it is closed, and can be opened again --------------------------
+
+func test_space_does_not_dismiss_the_debrief_and_it_reopens() -> void:
+	var main := _open("northern_passage.json")
+	SimClock.advance(20.0)
+	main.simulation.mission_manager._finish(MissionManager.Result.DEFEAT, "The convoy was lost")
+	assert_true(main._report.visible, "the debrief is up")
+	# The report focuses its first button a frame later; give it the focus it will have.
+	main._report._review.grab_focus()
+	_key(main, KEY_SPACE)
+	assert_true(main._report.visible, "Space leaves the debrief on screen")
+	_key(main, KEY_ESCAPE)
+	assert_true(not main._report.visible, "Esc closes it to review the picture")
+	_key(main, KEY_F1)
+	assert_true(main._report.visible, "F1 brings the debrief back once the mission has ended")
+	assert_true(main._report._body.text.contains("The convoy was lost") or main._report._body.text.length() > 100, "with the report it closed with")
+	_key(main, KEY_F1)
+	assert_true(not main._report.visible, "and F1 closes it again")
+	var entry := {}
+	for it: Dictionary in CdsMenus.cds_items(main._cds_state()):
+		if str(it.get("text", "")) == "Debrief":
+			entry = it
+	assert_true(not entry.is_empty() and not bool(entry["disabled"]), "the chart menu offers the debrief")
+	main._run_cds_action(entry["action"])
+	assert_true(main._report.visible, "and opens it")
+	main.restart_scenario()
+	assert_true(not main._report.visible)
+	for it: Dictionary in CdsMenus.cds_items(main._cds_state()):
+		if str(it.get("text", "")) == "Debrief":
+			assert_true(bool(it["disabled"]), "a fresh mission has no debrief to show")
+	_close(main)

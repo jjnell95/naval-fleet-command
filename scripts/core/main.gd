@@ -75,6 +75,9 @@ var _stats := {}
 var _losses: PackedStringArray = []
 var _kills: PackedStringArray = []
 var _civilian_incidents: PackedStringArray = []
+## What the debrief was shown with when the mission ended, so it can be opened again; empty while
+## the mission runs.
+var _last_report: Array = []
 ## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
 ## a consort off the link). Each is announced once, when it reaches the picture.
 var _unannounced: Array[Weapon] = []
@@ -495,6 +498,7 @@ func _reset_command_screen() -> void:
 	_unannounced.clear()
 	_contacts_called.clear()
 	_report.hide()
+	_last_report = []
 	_autosaved_at = SimClock.sim_time
 
 
@@ -1319,6 +1323,18 @@ func _close_report() -> void:
 	call_deferred("_focus_map_if_clear")
 
 
+## The debrief again, as it stood when the mission ended (F1, the CDS menu, Actions).
+func _show_debrief() -> void:
+	if _last_report.is_empty():
+		radio.advise("No debrief yet: the mission is still running")
+		return
+	if _has_visible_modal():
+		return
+	SimClock.set_paused(true)
+	_set_background_input_enabled(false)
+	_report.callv("show_report", _last_report)
+
+
 func _focus_map_if_clear() -> void:
 	if not _has_visible_modal() and map.focus_mode != Control.FOCUS_NONE and map.is_visible_in_tree():
 		map.grab_focus()
@@ -1423,6 +1439,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "toggle_key", "label": "Symbol key", "description": "The NTDS symbol key.", "shortcut": "F2", "enabled": true, "state": _on_off(layers, "key")},
 		{"id": "range_circle", "label": "Range circle", "description": "A range ring from the hooked platform through the cursor; B again fixes it, then clears it.", "shortcut": "B", "enabled": true},
 		{"id": "toggle_pause", "label": "Pause or resume time", "description": "Stop or resume simulation time without changing acceleration.", "shortcut": "Space", "enabled": true, "state": "paused" if SimClock.paused else "running"},
+		{"id": "debrief", "label": "Debrief", "description": "The after-action report again, once the mission has ended.", "shortcut": "F1", "enabled": not _last_report.is_empty(), "reason": "The mission is still running."},
 		{"id": "briefing", "label": "Orders and briefing", "description": "Objectives, failure conditions, environment and controls.", "shortcut": "F1", "enabled": true},
 		{"id": "library", "label": "Reference", "description": "Platforms and weapons, with models; opens on a hooked contact's class once it is classified.", "shortcut": "F7", "enabled": true},
 		{"id": "air_operations", "label": "Air operations: launch and recover", "description": "Select aircraft types, manage sorties, and choose a carrier or airfield for landing.", "shortcut": "F3", "enabled": true},
@@ -1469,7 +1486,7 @@ static func _on_off(state: Dictionary, key: String) -> String:
 ## What the chart and the regional map are currently showing, for the menus' check marks.
 func _cds_state() -> Dictionary:
 	var state := {"symbol_mode": map.symbol_mode, "radar_coverage": regional.show_radar_coverage, "sound": SoundFx.enabled, "voice": voice.enabled, "ambient": SoundFx.ambient_enabled,
-		"options": options}
+		"options": options, "debrief": not _last_report.is_empty()}
 	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "coverage", "graticule", "key"]:
 		state[layer] = map.has_layer(layer)
 	return state
@@ -1613,6 +1630,8 @@ func _run_palette_action(id: String) -> void:
 			SimClock.toggle_pause()
 		"briefing":
 			_show_briefing()
+		"debrief":
+			_show_debrief()
 		"library":
 			_open_reference()
 		"air_operations":
@@ -1665,9 +1684,14 @@ func _input(event: InputEvent) -> void:
 		_close_library()
 		get_viewport().set_input_as_handled()
 		return
+	var focus := get_viewport().gui_get_focus_owner()
+	# The debrief opens with its first button focused, and Space is the key a commander has under
+	# his hand as the mission ends: it must not dismiss the report unread. Enter still presses.
+	if k.keycode == KEY_SPACE and _report.visible and not (focus is LineEdit or focus is TextEdit):
+		get_viewport().set_input_as_handled()
+		return
 	if (k.keycode != KEY_SPACE and k.keycode != KEY_TAB) or _has_visible_modal():
 		return
-	var focus := get_viewport().gui_get_focus_owner()
 	if focus is LineEdit or focus is TextEdit:
 		return
 	if k.keycode == KEY_SPACE:
@@ -1748,11 +1772,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if _briefing.visible:
 		if k.keycode in [KEY_F1, KEY_ESCAPE]:
-			_hide_screens()
+			# Only the in-mission board closes to the chart. Before command is taken the way out
+			# of the briefing is back to the desk: TAKE COMMAND is the one way into the mission.
+			if _command_taken:
+				_hide_screens()
+			else:
+				_show_menu()
 			get_viewport().set_input_as_handled()
 		return
 	if _report.visible:
-		if k.keycode == KEY_ESCAPE:
+		if k.keycode in [KEY_ESCAPE, KEY_F1]:
 			_close_report()
 		elif k.keycode == KEY_F10 and (k.ctrl_pressed or k.meta_pressed):
 			restart_scenario()
@@ -1890,7 +1919,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_X:
 			_run_palette_action("intercept_inbound")
 		KEY_F1:
-			_show_briefing()
+			# Once the mission has ended its board is the debrief.
+			if _last_report.is_empty():
+				_show_briefing()
+			else:
+				_show_debrief()
 		KEY_HOME:
 			_fit_force()
 		KEY_BRACKETLEFT, KEY_BRACKETRIGHT:
@@ -2435,7 +2468,8 @@ func _on_mission_ended(result: String, summary: String) -> void:
 	# The log records when the commander set the score, as the 1999 log did, not the operation's date.
 	var logged := CommanderLog.record(str(simulation.scenario.get("id", "")), result, int(assessment["percent"]), Time.get_datetime_string_from_system(false, true)) if _command_taken and not simulation.ai_plays_player and not _scripted_session else {}
 	radio.flash("Mission effectiveness %d%%%s" % [int(assessment["percent"]), " — a new best" if bool(logged.get("improved", false)) and int(logged.get("attempts", 1)) > 1 else ""], "good" if int(assessment["percent"]) >= 50 else "warn")
-	_report.show_report(result, summary, _stats, objectives, _losses, _kills, SimClock.sim_time, radio.journal, _civilian_incidents, mm.loss_objectives, radio.journal_omitted, assessment, logged, str(simulation.scenario.get("id", "")))
+	_last_report = [result, summary, _stats.duplicate(), objectives, _losses.duplicate(), _kills.duplicate(), SimClock.sim_time, radio.journal.duplicate(), _civilian_incidents.duplicate(), mm.loss_objectives, radio.journal_omitted, assessment, logged, str(simulation.scenario.get("id", ""))]
+	_report.callv("show_report", _last_report)
 	SoundFx.play("victory" if result == "VICTORY" else "defeat")
 	Debug.event("[Mission] %s — %s" % [result, summary])
 	_briefing.set_mode(false)

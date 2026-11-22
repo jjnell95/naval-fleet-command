@@ -615,6 +615,7 @@ static func cds_items(state: Dictionary) -> Array:
 		item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}),
 		item("Air operations  [F3]", {"kind": "palette", "id": "air_operations"}),
 		item("Orders and briefing  [F1]", {"kind": "palette", "id": "briefing"}),
+		item("Debrief", {"kind": "palette", "id": "debrief"}, not bool(state.get("debrief", false)), "The after-action report again, once the mission has ended. F1 opens it then."),
 		item("Reference  [F7]", {"kind": "palette", "id": "library"}),
 		item("Swap 2D and 3D  [G]", {"kind": "palette", "id": "swap_views"}),
 		item("3D full screen  [F10]", {"kind": "palette", "id": "world_full"}),

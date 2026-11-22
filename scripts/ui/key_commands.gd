@@ -50,7 +50,7 @@ const COMMANDS := [
 		["R / P / E", "Radar / active sonar / emission control"],
 		["A", "Status boards: orders, task group, track file, comms"],
 		["F3", "Air operations"],
-		["F1", "Orders and briefing"],
+		["F1", "Orders and briefing; the debrief once the mission has ended"],
 		["F7", "Reference for the selected platform or inspected contact"],
 		["Ctrl+K", "Actions"],
 		["M / Ctrl+E", "Missions / scenario editor"],
