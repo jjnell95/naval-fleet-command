@@ -253,6 +253,11 @@ static func reach_spans(u: Unit) -> Array:
 	var best := {}
 	for w in u.weapons:
 		best[w.type] = maxf(float(best.get(w.type, 0.0)), w.max_range_nm)
+	# Rocket-thrown and tube torpedoes do one job, anti-submarine: a hull with both states the one
+	# farthest reach, so the line keeps to one row on the biggest loadouts.
+	if best.has("asw_rocket") and best.has("torpedo"):
+		best["asw_rocket"] = maxf(float(best["asw_rocket"]), float(best["torpedo"]))
+		best.erase("torpedo")
 	var spans: Array = []
 	for job: Array in REACH_JOBS:
 		if best.has(job[1]):

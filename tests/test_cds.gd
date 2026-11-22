@@ -120,6 +120,17 @@ func test_the_weapons_line_states_reach_one_figure_per_job() -> void:
 	assert_true(head.ends_with(" NM"), "the unit is stated once, at the end")
 
 
+func test_a_hull_with_asw_rockets_and_tubes_states_one_anti_submarine_reach() -> void:
+	# The Type 055 carries rocket-thrown Yu-8 and tube-launched Yu-7: one ASW figure, the farther,
+	# and no separate TORP, or the reach line wraps and pushes weapon cells behind +MORE.
+	var head := ""
+	for line in _text(DataDisplay.unit_rows(_unit("pla_ddg_type055"))).split("\n"):
+		if line.begins_with("WEAPONS:"):
+			head = line
+	assert_true(head.contains("ASW 16"), head)
+	assert_true(not head.contains("TORP"), head)
+
+
 func test_a_hull_with_one_close_in_gun_reads_as_exactly_that() -> void:
 	var head := ""
 	for line in _text(DataDisplay.unit_rows(_unit("rn_cvf_queen_elizabeth"))).split("\n"):
