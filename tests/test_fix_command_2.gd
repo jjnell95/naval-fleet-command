@@ -177,3 +177,94 @@ func test_space_does_not_dismiss_the_debrief_and_it_reopens() -> void:
 		if str(it.get("text", "")) == "Debrief":
 			assert_true(bool(it["disabled"]), "a fresh mission has no debrief to show")
 	_close(main)
+
+
+# --- Manual missile defence: X and the cue ----------------------------------------------------
+
+## Classic rules in the Strait until the commander holds inbound missiles. Returns them.
+func _classic_raid(main: Main) -> Array:
+	for step in 40:
+		SimClock.advance(5.0)
+		var held: Array = main._commander_inbound().filter(func(e: Dictionary) -> bool: return not (e["weapon"] as Weapon).spec.is_torpedo())
+		if held.size() >= 2:
+			return held
+	return []
+
+
+func _cleared(w: Weapon) -> bool:
+	return not w.intercept_cleared.is_empty()
+
+
+func test_classic_x_with_nothing_hooked_orders_the_force_to_engage() -> void:
+	var main := _open("gulf_01_hormuz.json", GameOptions.classic())
+	var held := _classic_raid(main)
+	assert_true(held.size() >= 2, "the raid is held (%d rounds)" % held.size())
+	assert_true(held.all(func(e: Dictionary) -> bool: return not _cleared(e["weapon"])), "manual defence: no SAM is cleared before the order")
+	var sams_before := int(main._stats["launched"])
+	main._process(1.0)
+	assert_true(main.data_display.threat_text.contains("X ENGAGES %d UNCLEARED" % held.size()), "the banner says X engages, and how many wait: %s" % main.data_display.threat_text)
+	main.map.clear_selection()
+	_key(main, KEY_X)
+	assert_true(main.radio.last_advice != "Select a controllable platform first", "the order is not refused for want of a hook")
+	assert_true(held.any(func(e: Dictionary) -> bool: return _cleared(e["weapon"])), "the force's ships are cleared on the rounds they hold")
+	assert_true(_journal(main, ["Force engaging inbound weapons"]).size() == 1, "one receipt for the force: %s" % main.radio.latest_text)
+	SimClock.advance(10.0)
+	assert_true(int(main._stats["launched"]) > sams_before, "and interceptors are away (%d)" % (int(main._stats["launched"]) - sams_before))
+	_close(main)
+
+
+func test_classic_x_with_a_helicopter_or_a_contact_hooked_still_reaches_the_force() -> void:
+	var main := _open("gulf_01_hormuz.json", GameOptions.classic())
+	var held := _classic_raid(main)
+	assert_true(held.size() >= 2)
+	var bystander: Unit = null
+	for u: Unit in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+		if u.is_engageable() and not CdsMenus.carries_interceptors(u):
+			bystander = u
+			break
+	assert_true(bystander != null, "the force has a unit with no anti-missile weapons (the tanker)")
+	main.map.select_units([bystander])
+	_key(main, KEY_X)
+	assert_true(held.any(func(e: Dictionary) -> bool: return _cleared(e["weapon"])), "X with %s hooked goes to the ships that can engage" % bystander.callsign)
+	_close(main)
+
+
+func test_a_hooked_ship_that_refuses_the_intercept_still_says_why() -> void:
+	var main := _open("gulf_01_hormuz.json", GameOptions.classic())
+	var held := _classic_raid(main)
+	assert_true(held.size() >= 2)
+	var ship: Unit = null
+	for u: Unit in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+		if CdsMenus.carries_interceptors(u):
+			ship = u
+			break
+	ship.roe = Unit.Roe.HOLD
+	main.map.select_units([ship])
+	_key(main, KEY_X)
+	assert_eq(main.radio.last_advice, "Cannot intercept: weapons hold", "a hooked missile-defence ship keeps her own answer")
+	assert_true(held.all(func(e: Dictionary) -> bool: return not _cleared(e["weapon"])), "and nobody else fires for her")
+	_close(main)
+
+
+func test_the_x_cue_counts_every_uncleared_round_not_only_the_first() -> void:
+	var main := _open("gulf_01_hormuz.json", GameOptions.classic())
+	var held := _classic_raid(main)
+	assert_true(held.size() >= 2)
+	var ship: Unit = null
+	for u: Unit in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+		if AirDefence.intercept_rejection(u) == "":
+			ship = u
+			break
+	# The most urgent round was cleared by an earlier order; the ones behind it were not.
+	var first: Weapon = main._commander_inbound()[0]["weapon"]
+	first.intercept_cleared.append(ship.id)
+	main._process(1.0)
+	var waiting: int = main._commander_inbound().filter(func(e: Dictionary) -> bool: return not (e["weapon"] as Weapon).spec.is_torpedo() and not _cleared(e["weapon"])).size()
+	assert_true(waiting >= 1)
+	assert_true(main.data_display.threat_text.contains("X ENGAGES %d UNCLEARED" % waiting), "the cue stays for the %d rounds still waiting: %s" % [waiting, main.data_display.threat_text])
+	for e: Dictionary in main._commander_inbound():
+		if not (e["weapon"] as Weapon).intercept_cleared.has(ship.id):
+			(e["weapon"] as Weapon).intercept_cleared.append(ship.id)
+	main._process(1.0)
+	assert_true(not main.data_display.threat_text.contains("X ENGAGES"), "and goes once every held round is cleared: %s" % main.data_display.threat_text)
+	_close(main)

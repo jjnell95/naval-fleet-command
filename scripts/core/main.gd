@@ -394,10 +394,28 @@ func _process(delta: float) -> void:
 		var primary: Dictionary = threats[0]
 		var weapon: Weapon = primary["weapon"]
 		var label := "TORPEDO IN THE WATER" if weapon.spec.is_torpedo() else ("BALLISTIC INBOUND" if weapon.threat_class() == "ballistic" else "MISSILE INBOUND")
-		# On manual missile defence the SAMs wait for the commander: say which key sends them.
-		var cue := " - X ENGAGES" if options.manual_missile_defence() and not weapon.spec.is_torpedo() and weapon.intercept_cleared.is_empty() else ""
+		# On manual missile defence the SAMs wait for the commander: say which key sends them, and
+		# for how many rounds, for as long as any round he holds is still waiting on the order.
+		var waiting := _uncleared_inbound(threats) if options.manual_missile_defence() else 0
+		var cue := " - X ENGAGES %d UNCLEARED" % waiting if waiting > 0 else ""
 		radio.set_alert("%s - %d - %d s%s" % [label, threats.size(), maxi(int(primary["time_s"]), 0), cue])
 	Debug.time_add("shell", Time.get_ticks_usec() - t0)
+
+
+## How many inbound missiles on the commander's picture no ship of the force has been cleared to
+## engage with its SAMs. Nothing when no ship could take the order: the cue must not promise a key
+## that would be refused.
+func _uncleared_inbound(threats: Array) -> int:
+	var ships := simulation.unit_manager.get_faction_units(simulation.player_faction).filter(func(u: Unit) -> bool:
+		return u.alive and _receives_report(u) and AirDefence.intercept_rejection(u) == "")
+	if ships.is_empty():
+		return 0
+	var waiting := 0
+	for entry: Dictionary in threats:
+		var w: Weapon = entry["weapon"]
+		if not w.spec.is_torpedo() and not ships.any(func(u: Unit) -> bool: return AirDefence.engages_guided(u, w)):
+			waiting += 1
+	return waiting
 
 
 func _objective_summary() -> String:
@@ -1453,7 +1471,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "sound", "label": "Sound on or off", "description": "Mute or restore the game's sounds.", "shortcut": "Ctrl+M", "enabled": true, "state": "on" if SoundFx.enabled else "off"},
 		{"id": "voice", "label": "Crew voice", "description": "Short crew reports over the radio.", "shortcut": "", "enabled": true, "state": "on" if voice.enabled else "off"},
 		{"id": "ambient", "label": "Ambient sea and machinery", "description": "Sea wash by sea state and the hooked platform's engine or rotor.", "shortcut": "", "enabled": true, "state": "on" if SoundFx.ambient_enabled else "off"},
-		{"id": "intercept_inbound", "label": "Engage inbound weapons", "description": "Fire interceptors from the hooked ships at the inbound rounds they hold. With manual missile defence the SAMs fire only on this order; close-in guns answer by themselves.", "shortcut": "X", "enabled": controllable, "reason": "Hook your ships first."},
+		{"id": "intercept_inbound", "label": "Engage inbound weapons", "description": "Fire interceptors from the hooked ships at the inbound rounds they hold, or from every ship of the force when no missile-defence ship is hooked. With manual missile defence the SAMs fire only on this order; close-in guns answer by themselves.", "shortcut": "X", "enabled": true},
 		{"id": "preset_normal", "label": "Gameplay: Normal", "description": GameOptions.preset_description(GameOptions.NORMAL) + ".", "shortcut": "", "enabled": true, "state": "selected" if options.preset() == GameOptions.NORMAL else ""},
 		{"id": "preset_classic", "label": "Gameplay: Classic", "description": GameOptions.preset_description(GameOptions.CLASSIC) + ".", "shortcut": "", "enabled": true, "state": "selected" if options.preset() == GameOptions.CLASSIC else ""},
 	]
@@ -2653,6 +2671,11 @@ func _depth_orders(metres: float) -> Array:
 ## One order goes to every selected unit. The acknowledgement makes group commands legible: a
 ## mixed force may accept an order only on the platforms that support it, and that is never silent.
 func _apply_order_to_selection(order: Order) -> void:
+	# The intercept order is the one given with seconds to spare. With no missile-defence ship on
+	# the hook (nothing, a contact, a helicopter) it goes to the force rather than being refused.
+	if order.type == Order.Type.INTERCEPT and not map.selected.any(func(u: Unit) -> bool: return u.faction == simulation.player_faction and CdsMenus.carries_interceptors(u)):
+		_order_force_intercept(order.threat)
+		return
 	var accepted := 0
 	var refused := 0
 	var queued := 0
@@ -2683,6 +2706,33 @@ func _apply_order_to_selection(order: Order) -> void:
 	if queued > 0:
 		receipt = "Queued for submarine check-in · %d orders" % queued if queued == accepted else "%d orders sent · %d queued for submarine check-in" % [accepted - queued, queued]
 	_report_orders(order, accepted, refused, receipt)
+
+
+## The intercept order to every ship of the force that can take it: each clears the rounds its own
+## picture holds (or the one named) and fires what is in reach now.
+func _order_force_intercept(threat: Weapon) -> void:
+	var accepted := 0
+	var refusal := ""
+	var first: Unit = null
+	var away_before := int(_stats.get("launched", 0))
+	for u: Unit in simulation.unit_manager.get_faction_units(simulation.player_faction):
+		if not u.alive or not _receives_report(u) or not CdsMenus.carries_interceptors(u):
+			continue
+		var order := Order.intercept(threat)
+		if simulation.unit_manager.issue_order(u, order):
+			accepted += 1
+			if first == null:
+				first = u
+		elif refusal == "":
+			refusal = "%s: %s" % [u.callsign, (order.receipt if order.receipt != "" else AirDefence.intercept_rejection(u)).to_lower()]
+	if accepted == 0:
+		radio.advise("Cannot intercept: " + (refusal if refusal != "" else "no ship of the force carries anti-missile weapons"))
+		return
+	SoundFx.play("click", 0.05)
+	var away := int(_stats.get("launched", 0)) - away_before
+	var what := "inbound #%d" % threat.id if threat != null else "inbound weapons"
+	radio.flash("Force engaging %s · %d ship%s cleared%s" % [what, accepted, "" if accepted == 1 else "s", " · %d interceptor%s away" % [away, "" if away == 1 else "s"] if away > 0 else " · firing as they close"], "good")
+	voice.say("order_ack", first)
 
 
 ## Orders that carry a different value for each platform, such as each airframe's cruise altitude.

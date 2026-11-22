@@ -269,19 +269,31 @@ static func defence_items(units: Array, movable: bool) -> Array:
 
 ## A detected inbound weapon under the cursor: intercept it with the hooked ships, or turn away.
 static func weapon_items(w: Weapon, units: Array, controllable: bool, movable: bool) -> Array:
-	var why := "Hook your ships first" if not controllable else ""
-	if why == "":
-		why = "No hooked ship can engage it"
+	# With no missile-defence ship hooked the order is the force's, and Main sends it there.
+	var hooked := units.any(func(u: Unit) -> bool: return carries_interceptors(u))
+	var why := ""
+	if hooked:
+		why = "Hook your ships first" if not controllable else "No hooked ship can engage it"
 		for u: Unit in units:
-			if AirDefence.intercept_rejection(u) == "":
+			if controllable and AirDefence.intercept_rejection(u) == "":
 				why = ""
 				break
 	return [
 		{"text": "Inbound #%d  %s" % [w.id, w.spec.display_name], "disabled": true},
-		item("Engage with interceptors  [X]", order_action(Order.intercept(w)), why != "", why if why != "" else "Fire interceptors at this round from the hooked ships, within their channels and magazines."),
+		item("Engage with interceptors  [X]", order_action(Order.intercept(w)), why != "", why if why != "" else ("Fire interceptors at this round from the hooked ships, within their channels and magazines." if hooked else "No missile-defence ship is hooked: every ship of the force that holds this round engages it.")),
 		item("Evade  [V]", order_action(Order.evade()), not movable, "Turn the hooked ships to open the round's approach; the route resumes after."),
 		item("Defence commands", {"kind": "palette", "id": "open_defence"}, not controllable),
 	]
+
+
+## A ship the intercept order is meant for: one that carries anti-missile weapons, loaded or not.
+static func carries_interceptors(u: Unit) -> bool:
+	if u == null or not u.is_engageable():
+		return false
+	for spec: WeaponSpec in u.weapons:
+		if spec.is_interceptor() and (spec.target_types.has("missile") or spec.target_types.has("ballistic")):
+			return true
+	return false
 
 
 ## The gameplay options, as a menu: the two presets and the options one at a time. Shared by the
