@@ -61,6 +61,8 @@ var _rtb_btn: Button
 var _buoy_btn: Button
 var _weapon_list_signature := ""
 var _shown_weapon: WeaponSpec
+var _course_unit: Unit
+var _course_shown := -1
 
 
 func _ready() -> void:
@@ -490,11 +492,24 @@ func set_units(units: Array, controllable: bool, movable := controllable) -> voi
 	_command_authorized = controllable and not units.is_empty()
 	_movement_authorized = movable and _command_authorized
 	_sync_live_eligibility(true)
-	if units.size() == 1:
-		var u: Unit = units[0]
-		var heading := u.ordered_heading_deg if SubmarineComms.connected(u) else SubmarineComms.reported_heading(u)
-		_heading.value = posmod(roundi(heading), 360)
+	_load_course(true)
 	_sync_quick_actions()
+
+
+## The COURSE box shows the course the hooked platform (the lead of a group) is steering, as the
+## ship's own course changes: a new leg, a turn for a station. A figure the commander is typing,
+## or has stepped to and not yet set, is left alone until the ship's own course moves.
+func _load_course(force := false) -> void:
+	if _heading == null or _units.is_empty():
+		return
+	var u: Unit = _units[0]
+	var heading := u.ordered_heading_deg if SubmarineComms.connected(u) else SubmarineComms.reported_heading(u)
+	var course := posmod(roundi(heading), 360)
+	if not force and (u == _course_unit and course == _course_shown or _heading.get_line_edit().has_focus()):
+		return
+	_course_unit = u
+	_course_shown = course
+	_heading.value = course
 
 
 ## Ownership and hull capability persist while an aircraft changes deck state; active command
@@ -697,6 +712,7 @@ func current_weapon_spec() -> WeaponSpec:
 
 
 func refresh() -> void:
+	_load_course()
 	if _current_weapon_list_signature() != _weapon_list_signature:
 		_rebuild_weapons()
 	else:

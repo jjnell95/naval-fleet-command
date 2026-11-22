@@ -164,3 +164,36 @@ func test_the_grey_surface_inks_read_on_every_button_face() -> void:
 		for severity: String in StatusBoards.SEVERITY_COLORS:
 			var ratio := _contrast(Color(StatusBoards.SEVERITY_COLORS[severity]), face)
 			assert_true(ratio >= 4.5, "%s on %s is %.2f:1" % [severity, face.to_html(false), ratio])
+
+
+# --- The COURSE box reads the course the hooked ship steers ----------------------------------
+
+func test_the_course_box_loads_the_hooked_ships_ordered_course() -> void:
+	var main := _open("northern_passage.json")
+	var sim := main.simulation
+	var u := _own(main, "Truxtun")
+	main.map.select_units([u])
+	main.status_boards.open_board(StatusBoards.BOARD_ORDERS)
+	var spinner: SpinBox = main.orders_panel._heading
+	# A move to a point well off her bow: she comes round to steer for it.
+	var goal := u.position + Vector2.from_angle(deg_to_rad(229.0 - 90.0)) * 30.0
+	sim.unit_manager.issue_order(u, Order.move(goal))
+	SimClock.advance(1.0)
+	main.orders_panel.refresh()
+	var steering := posmod(roundi(u.ordered_heading_deg), 360)
+	assert_true(absi(steering - 90) > 20, "the ship now steers away from the opening course (%d)" % steering)
+	assert_eq(int(spinner.value), steering, "the COURSE box reads the course she steers")
+	# A figure the commander steps to is kept while her course stands, and replaced when it moves.
+	spinner.value = 10
+	main.orders_panel.refresh()
+	assert_eq(int(spinner.value), 10, "a figure not yet set is left alone")
+	sim.unit_manager.issue_order(u, Order.set_course(300.0))
+	main.orders_panel.refresh()
+	assert_eq(int(spinner.value), 300, "a new ordered course replaces it")
+	# A group shows its lead's course.
+	var other := _own(main, "Amundsen")
+	sim.unit_manager.issue_order(other, Order.set_course(45.0))
+	main.map.select_units([other, u])
+	main.orders_panel.refresh()
+	assert_eq(int(spinner.value), 45, "a hooked group reads its lead's course")
+	_close(main)
