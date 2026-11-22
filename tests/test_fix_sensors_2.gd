@@ -164,6 +164,42 @@ func test_a_linked_ship_still_attributes_a_launch_it_watched() -> void:
 	_free(world)
 
 
+## A fixed site has no course and speed: one held before anyone knew it stood ashore loses any
+## motion fitted to its plots once it is known for what it is, and is never dead-reckoned.
+func test_a_contact_known_to_stand_ashore_keeps_no_course_or_speed() -> void:
+	var world := _world([
+		{"platform": "usn_ddg_burke_iii", "callsign": "Burke", "faction": "BLUE", "position_nm": [0, 0], "heading_deg": 90, "speed_kn": 10},
+		{"platform": "pla_battery_yj12b", "callsign": "Battery", "faction": "RED", "position_nm": [30, 0]},
+	])
+	var um: UnitManager = world[0]
+	var tm: TrackManager = world[1]
+	var sm: SensorManager = world[2]
+	var burke := _named(um, "Burke")
+	var battery := _named(um, "Battery")
+	tm.observe_contact("BLUE", SensorContact.make(battery, battery.position, 0.5, 0.5, 0.1, 30.0, "radar", burke), 0.0, 1.0)
+	var t := tm.find_track("BLUE", battery)
+	assert_eq(t.domain, "land", "a measured plot of a site ashore says so")
+	# Motion as a fit through a scatter of plots would leave it.
+	t.has_kinematics = true
+	t.course_deg = 236.0
+	t.speed_kn = 2.0
+	var before := t.position
+	tm.tick(1.0, 1.0)
+	assert_eq(t.position, before, "the plot of a site ashore is not carried along a course")
+	# Held before it was known for what it is, and then classified on an intercept.
+	t.domain = ""
+	t.observation_time_s = Track.CLASS_TIMES_S[1] - 0.01
+	var esm: SensorSpec = null
+	for s in burke.sensors:
+		if s.kind == "esm":
+			esm = s
+	var bearing := sm._bearing_contact(battery, burke, Geo.bearing_deg(burke.position, battery.position), 2.0, 60.0, "esm", esm)
+	tm.observe_contact("BLUE", bearing, 1.5, 1.0)
+	assert_eq(t.domain, "land", "the classification says it stands ashore")
+	assert_true(not t.has_kinematics and t.speed_kn == 0.0, "and it keeps no course or speed")
+	_free(world)
+
+
 ## The cost of the cycle in a fixed seeded battle, counted as work done rather than timed: a gross
 ## regression (every pair weighed again, every report filed twice) fails here on any machine.
 func test_the_sensor_cycle_work_in_a_seeded_battle_stays_bounded() -> void:

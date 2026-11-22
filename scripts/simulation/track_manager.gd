@@ -435,7 +435,7 @@ func tick(now: float, dt: float) -> void:
 				t.last_esm_time = -1.0e9
 			# Dead reckoning is worth something while the ellipse is small. Past that the contact
 			# has had time to go anywhere in it, and the plot stays where it is and fades.
-			if t.has_kinematics and t.position_error_nm < Track.COAST_LIMIT_NM:
+			if t.has_kinematics and t.domain != "land" and t.position_error_nm < Track.COAST_LIMIT_NM:
 				t.position += Geo.heading_to_vector(t.course_deg) * Geo.knots_to_nm_per_s(t.speed_kn) * dt
 			var growth := t.error_growth_nm_per_s() * dt
 			t.error_major_nm += growth
@@ -604,6 +604,9 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 		# Markings provide positive affiliation, independently of a library's probable class.
 		t.identity = "NEUTRAL" if neutral_factions.has(c.target.faction) else ("FRIENDLY" if c.target.faction == faction else "HOSTILE")
 		t.identity_evidence = "Visual markings"
+	if t.domain == "land" and t.has_kinematics:
+		# Known now to stand ashore: whatever motion was fitted before was the scatter of its plots.
+		_reset_kinematics(t)
 	if previous != [t.classification, t.identity]:
 		if t.networked:
 			track_classified.emit(faction, t)
