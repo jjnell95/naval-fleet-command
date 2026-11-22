@@ -43,7 +43,9 @@ static func tracks(track_manager: TrackManager, unit_manager: UnitManager, facti
 	var out: Array = plot
 	var added := {}
 	for u: Unit in unit_manager.units:
-		if u.faction != faction or not reports_privately(u):
+		# Asked several times a frame of every unit afloat. A unit with a datalink that is not under
+		# water is on the link or stowed on a deck, and is turned away here on plain field reads.
+		if u.faction != faction or (u.spec.has_datalink and u.depth_m <= 0.0) or not reports_privately(u):
 			continue
 		for t: Track in track_manager.tracks_for(u):
 			if t.status == Track.Status.LOST or added.has(t.id) or plotted(track_manager, faction, t.truth) != null:
