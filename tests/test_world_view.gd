@@ -139,7 +139,7 @@ func test_bearing_only_track_is_absent() -> void:
 	var m := _managers([own, red])
 	var t := _hold(m["tm"], "T1001", red, Vector2(38, 2), Track.Classification.SURFACE)
 	t.bearing_only = true
-	t.tma_quality = 0.2
+	t.tma_quality = 0.1
 	var entries := WorldPresentation.unit_entries(m["um"], m["tm"], "BLUE", ENV)
 	assert_eq(entries.size(), 1, "a bearing has no range to put a contact at")
 	t.tma_quality = 0.9

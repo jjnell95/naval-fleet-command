@@ -79,6 +79,7 @@ const TAG_FONT_SIZE := 11
 const STALE_ALPHA := 0.55
 const UNCERTAINTY_ALPHA := 0.35
 const BEARING_LINE_ALPHA := 0.6
+const BEARING_END_PX := 5.0  # half the bar that closes a bearing line, where its number sits
 const SENSOR_RING_ALPHA := 0.45
 ## A sunk or shot-down own platform stays on the plot in grey this long (sim seconds).
 const WRECK_S := 600.0
@@ -2424,6 +2425,18 @@ static func stale_alpha(t: Track, now: float) -> float:
 	return lerpf(STALE_ALPHA, STALE_FLOOR_ALPHA, clampf(age / STALE_FADE_S, 0.0, 1.0))
 
 
+## Where a bearing-only contact's line starts: the symbol of the unit that took the bearing (for
+## a boat out of touch, where it last reported from), else the place it was taken from. Only a
+## plot with no record of that falls back on the reference unit.
+static func bearing_line_start(t: Track, ref: Unit) -> Vector2:
+	var holder := t.bearing_unit()
+	if holder != null:
+		return SubmarineComms.reported_position(holder)
+	if t.bearing_origin.is_finite():
+		return t.bearing_origin
+	return SubmarineComms.reported_position(ref) if ref != null else Vector2.INF
+
+
 func _draw_tracks() -> void:
 	var ref := reference_unit()
 	var view := Rect2(Vector2.ZERO, size).grow(64.0)
@@ -2432,14 +2445,27 @@ func _draw_tracks() -> void:
 		var col := track_color(t)
 		if t.status == Track.Status.STALE:
 			col.a = stale_alpha(t, SimClock.sim_time)
+		if t.is_bearing_only():
+			# A bearing is all this is: a line from the unit that took it, with the contact's number
+			# at its far end. No symbol and no ellipse, because there is no place to put either.
+			var from := bearing_line_start(t, ref)
+			var end_bar := Vector2.ZERO
+			if from.is_finite():
+				var start := world_to_screen(from)
+				draw_line(start, sp, Color(col, col.a * BEARING_LINE_ALPHA), 1.0, true)
+				end_bar = (sp - start).normalized().orthogonal() * BEARING_END_PX
+			if not view.has_point(sp):
+				continue
+			sp = sp.round()
+			if end_bar != Vector2.ZERO:
+				draw_line(sp - end_bar, sp + end_bar, col, 1.5, true)
+			if selected_track == t:
+				MapSymbols.draw_brackets(self, sp, COL_SELECT if selected.is_empty() else track_color(t), _bracket_box(BEARING_END_PX))
+			_queue_label("t:" + t.id, sp, BEARING_END_PX, MapSymbols.track_number(t.id), t.description(), col.a, selected_track == t)
+			continue
 		_draw_uncertainty(sp, t, col)
 		if show_trails:
 			_draw_track_history(t, col)
-		if t.is_bearing_only() and ref != null:
-			# A bearing line from the listener through the contact: this is all it really is.
-			var from := SubmarineComms.reported_position(ref)
-			var far := from + (t.position - from).normalized() * (from.distance_to(t.position) + t.error_major_nm)
-			draw_line(world_to_screen(from), world_to_screen(far), Color(col, col.a * BEARING_LINE_ALPHA), 1.0, true)
 		if not view.has_point(sp):
 			continue
 		sp = sp.round()

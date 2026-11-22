@@ -13,10 +13,15 @@ const OBS_SIGMA_PER_NM := 0.003
 const ACTIVE_SONAR_SIGMA_NM := 0.12
 const MANOEUVRE_FULL_DEG := 3.0  # heading change per cycle that counts as fully manoeuvring
 const INITIAL_RANGE_FRACTION := 0.55  # what an operator assumes before working the problem
+## How far past the reach it was heard at a contact's worked-out range may lie before the solution
+## is thrown out as impossible.
+const REACH_MARGIN := 1.5
 const ESM_CLASSIFY_BONUS := 2.2  # a radar type is a fingerprint
 const CZ_BEARING_PENALTY := 1.5  # a zone bearing is blurred by the long refracted path
 const CZ_QUALITY := 0.25
 const CZ_CLASSIFY_FACTOR := 0.5
+## An emitter at height is heard far past the nominal line: a crossed fix out to here is believed.
+const ESM_SOLUTION_LIMIT_NM := 400.0
 
 var unit_manager: UnitManager
 var track_manager: TrackManager
@@ -254,10 +259,14 @@ func _sonar_pass(observer: Unit, now: float) -> void:
 	for z: Dictionary in Acoustics.zones():
 		cz_outer = maxf(cz_outer, float(z["range_nm"]) + float(z["half_width_nm"]))
 	for target in unit_manager.units:
-		if target == observer or not target.is_engageable() or target.faction == observer.faction or target.is_aircraft():
+		if target == observer or not target.is_engageable() or target.faction == observer.faction:
+			continue
+		# An aircraft is nothing to a sonar except while its dipping set is pinging in the water.
+		var airborne := target.is_aircraft()
+		if airborne and not target.active_sonar_emitting():
 			continue
 		var d := observer.position.distance_to(target.position)
-		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling else 0.0
+		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling and not airborne else 0.0
 		var passive := Detection.best_passive_sonar(observer, target)
 		var reach: float = passive["range_nm"]
 		var sensor: SensorSpec = passive["sensor"]
@@ -300,10 +309,11 @@ func _sonar_pass_indexed(facts: CycleFacts, oi: int, cz_outer: float, now: float
 	var active_ceiling := Detection.best_active_sonar_nm(observer)
 	for ti: int in facts.others[observer.faction]:
 		var target := facts.units[ti]
-		if target.is_aircraft():
+		var airborne := target.is_aircraft()
+		if airborne and not target.active_sonar_emitting():
 			continue
 		var d := observer.position.distance_to(target.position)
-		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling else 0.0
+		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling and not airborne else 0.0
 		# Detection.best_passive_sonar, without a dictionary for every pair.
 		var reach := 0.0
 		var sensor: SensorSpec = null
@@ -363,30 +373,32 @@ func _report_active(observer: Unit, target: Unit, d: float, reach: float, rate: 
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
-## A bearing report uses the set's nominal search area for its chart datum. Range and
-## confidence come only from crossing measurements in TrackManager, never target range.
+## A bearing report is a line as long as the reach the contact was heard at: a quiet boat heard at
+## all is close, whatever the set's catalogue range against a loud one. Range and confidence come
+## only from crossing measurements in TrackManager, never the target's range.
 func _report_passive(observer: Unit, target: Unit, d: float, reach: float, sensor: SensorSpec, rate: float, now: float) -> void:
 	var bearing := Geo.bearing_deg(observer.position, target.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
-	var search_range := maxf(sensor.passive_sensitivity_nm, 1.0)
-	var c := _bearing_contact(target, observer, bearing, sensor.bearing_accuracy_deg, search_range, "sonar_passive", sensor)
+	var c := _bearing_contact(target, observer, bearing, sensor.bearing_accuracy_deg, reach, "sonar_passive", sensor)
 	c.quality = clampf(1.0 - d / reach, 0.0, 1.0)
 	c.classify_rate = rate
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
+## `search_range` is how far along the bearing the contact can be: the line's length.
 func _bearing_contact(target: Unit, observer: Unit, bearing: float, accuracy: float, search_range: float, source: String, sensor: SensorSpec) -> SensorContact:
 	var c := SensorContact.new()
 	var estimate := maxf(search_range * INITIAL_RANGE_FRACTION, 0.3)
+	c.range_nm = estimate
 	c.target = target
 	c.observer = observer
 	c.bearing_origin = observer.position
 	c.bearing_key = "unit:" + TrackManager._unit_key(observer) + ":" + source
 	c.bearing_accuracy_deg = accuracy
-	c.bearing_range_limit_nm = search_range * 6.0
+	c.bearing_range_limit_nm = search_range * REACH_MARGIN
 	c.bearing_speed_limit_kn = 1200.0 if source == "esm" else 70.0
 	c.position = observer.position + Geo.heading_to_vector(bearing) * estimate
 	c.error_minor_nm = maxf(estimate * tan(deg_to_rad(accuracy * 2.0)), 0.2)
-	c.error_major_nm = maxf(search_range * 0.8, c.error_minor_nm)
+	c.error_major_nm = maxf(search_range * 0.5, c.error_minor_nm)
 	c.error_axis_deg = bearing
 	c.bearing_only = true
 	c.source = source
@@ -401,6 +413,8 @@ func _report_cz(observer: Unit, target: Unit, _d: float, zone: Dictionary, senso
 	var zone_range: float = zone["range_nm"]
 	var half_width: float = zone["half_width_nm"]
 	var c := _bearing_contact(target, observer, bearing, accuracy, zone_range, "sonar_cz", sensor)
+	c.bearing_range_limit_nm = (zone_range + half_width) * REACH_MARGIN
+	c.range_nm = zone_range
 	c.position = observer.position + Geo.heading_to_vector(bearing) * zone_range
 	c.error_minor_nm = maxf(zone_range * tan(deg_to_rad(accuracy * 2.0)), 0.3)
 	c.error_major_nm = maxf(half_width, c.error_minor_nm)
@@ -413,8 +427,8 @@ func _report_cz(observer: Unit, target: Unit, _d: float, zone: Dictionary, senso
 ## what kind of ship is at the other end, without the listener radiating at all. It is the reason
 ## turning a radar off is a decision rather than a handicap.
 func _esm_pass(observer: Unit, now: float) -> void:
-	if not observer.has_esm():
-		return
+	if not observer.has_esm() or observer.submerged():
+		return  # an aerial under water hears nothing
 	for emitter in unit_manager.units:
 		if emitter == observer or not emitter.is_engageable() or emitter.faction == observer.faction:
 			continue
@@ -445,7 +459,7 @@ func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 			sets.append(s)
 			gains.append(s.esm_gain)
 			height_root.append(sqrt(maxf(Detection.observer_height_m(observer, s), 0.0)))
-	if sets.is_empty():
+	if sets.is_empty() or observer.submerged():
 		return
 	var efficiency := observer.sensor_efficiency()
 	var from := facts.position[oi]
@@ -473,9 +487,13 @@ func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 		_report_esm(observer, facts.units[ti], d, reach, sensor, now)
 
 
+## The line is as long as the set's nominal reach against a ship's search radar. The reach against
+## this emitter is not used for it: that follows the emitter's own height, which an intercept does
+## not measure.
 func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: SensorSpec, now: float) -> void:
 	var bearing := Geo.bearing_deg(observer.position, emitter.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
-	var c := _bearing_contact(emitter, observer, bearing, sensor.bearing_accuracy_deg, reach, "esm", sensor)
+	var c := _bearing_contact(emitter, observer, bearing, sensor.bearing_accuracy_deg, Detection.nominal_esm_range_nm(observer, sensor), "esm", sensor)
+	c.bearing_range_limit_nm = maxf(c.bearing_range_limit_nm, ESM_SOLUTION_LIMIT_NM)
 	c.quality = clampf(1.0 - d / reach, 0.0, 1.0)
 	c.classify_rate = sensor.classify_rate * ESM_CLASSIFY_BONUS
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
@@ -486,6 +504,9 @@ func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: 
 const PERISCOPE_SIGHTING_NM := 1.5  # GAMEPLAY_ESTIMATE
 const SNORKEL_SIGHTING_NM := 3.0
 const PERISCOPE_HEIGHT_M := 1.0
+## A class is recognised at the limit of a look; a name is read at this fraction of it.
+const VISUAL_NAME_FRACTION := 0.5
+const METRES_PER_NM := 1852.0
 
 
 func _visual_pass(observer: Unit, now: float) -> void:
@@ -506,7 +527,9 @@ func _visual_pass(observer: Unit, now: float) -> void:
 			error = 0.3
 		# Darkness shortens what the eye can recognise; the weather caps it either way.
 		limit = minf(limit * Detection.visual_light_factor(), float(Detection.environment.get("visibility_nm", 12.0)))
-		if d > limit:
+		# The eye works along the sight line: an aircraft miles above a ship is miles from it.
+		var slant := Vector2(d, (Detection.mast_or_altitude_m(observer) - height) / METRES_PER_NM).length()
+		if slant > limit:
 			continue
 		if d > Detection.radar_horizon_nm(Detection.mast_or_altitude_m(observer), height):
 			continue
@@ -514,6 +537,7 @@ func _visual_pass(observer: Unit, now: float) -> void:
 			continue
 		var c := SensorContact.make(target, target.position + Vector2(rng.randfn(0.0, error), rng.randfn(0.0, error)) if error > 0.1 else target.position, error, 1.0, 1.0, d, "visual", observer)
 		c.visual_identification = true
+		c.visual_named = slant <= limit * VISUAL_NAME_FRACTION
 		c.sensor_id = "lookout"
 		c.sensor_name = "Visual recognition"
 		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
@@ -552,7 +576,9 @@ func _report_buoys(faction: String, target: Unit, buoys: Array, now: float) -> v
 	for b: Sonobuoy in buoys:
 		var c := SensorContact.new()
 		var bearing := Geo.bearing_deg(b.position, target.position) + rng.randfn(0.0, 1.5)
-		var estimate := b.sensitivity_nm * INITIAL_RANGE_FRACTION
+		var reach := maxf(b.reach_against(target), 0.5)
+		var estimate := reach * INITIAL_RANGE_FRACTION
+		c.range_nm = estimate
 		c.target = target
 		c.classify_rate = 0.8
 		c.source = "sonobuoy"
@@ -561,18 +587,39 @@ func _report_buoys(faction: String, target: Unit, buoys: Array, now: float) -> v
 		c.bearing_origin = b.position
 		c.bearing_key = "buoy:%d" % b.id
 		c.bearing_accuracy_deg = 1.5
-		c.bearing_range_limit_nm = b.sensitivity_nm * 6.0
+		c.bearing_range_limit_nm = reach * REACH_MARGIN
 		c.bearing_only = true
 		c.position = b.position + Geo.heading_to_vector(bearing) * estimate
 		c.error_axis_deg = bearing
-		c.error_major_nm = b.sensitivity_nm * 0.8
+		c.error_major_nm = reach * 0.5
 		c.error_minor_nm = maxf(estimate * tan(deg_to_rad(3.0)), 0.2)
 		c.quality = 0.5
 		track_manager.observe_contact(faction, c, now, SENSOR_DT)
 
 
 ## Incoming rounds are found by radar above the water and by sonar below it. A sea-skimming
-## missile stays below the horizon until it is close; a torpedo is heard, not seen.
+## missile stays below the horizon until it is close; a torpedo is heard, not seen. A ship keeping
+## radar silence is not blind for it: an ESM set hears a missile's own radar seeker once that is
+## searching, out to the radio horizon, and anyone on the surface or in the air sees a round that
+## is nearly on top of them.
+const WEAPON_SIGHTING_NM := 3.0  # GAMEPLAY_ESTIMATE: a lookout, a close-in mount's own director
+## A radar seeker is switched on this many seeker ranges short of where it was sent.
+const SEEKER_ON_FACTOR := 1.5
+
+
+## Whether the round is transmitting: one that homes on its own radar, once it is locked on,
+## searching, or near enough its aim point to have switched the seeker on. A round riding someone
+## else's illumination, or homing on heat or on a radar, sends nothing.
+static func seeker_radiating(w: Weapon) -> bool:
+	var guidance := w.spec.guidance
+	if w.spec.is_torpedo() or not guidance.contains("active") or guidance.contains("semi"):
+		return false
+	if w.phase == Weapon.Phase.TERMINAL or w.searching_on:
+		return true
+	var seeker := w.spec.seeker_range_nm * SEEKER_ON_FACTOR
+	return seeker > 0.0 and w.position.distance_squared_to(w.aim_point) <= seeker * seeker
+
+
 func _detect_weapons(now: float) -> void:
 	if threat_manager == null or weapon_manager == null:
 		return
@@ -586,6 +633,7 @@ func _detect_weapons(now: float) -> void:
 	var group_specs: Array[WeaponSpec] = []
 	var group_altitudes := PackedFloat64Array()
 	var group_torpedoes: Array[bool] = []
+	var radiating := PackedByteArray()
 	var groups := {}
 	for w: Weapon in weapon_manager.in_flight:
 		if w.phase == Weapon.Phase.DEAD:
@@ -600,14 +648,26 @@ func _detect_weapons(now: float) -> void:
 			group_torpedoes.append(w.spec.is_torpedo())
 		weapons.append(w)
 		group_indices.append(heights[altitude])
+		radiating.append(1 if seeker_radiating(w) else 0)
+	var sighting := minf(WEAPON_SIGHTING_NM * Detection.visual_light_factor(), float(Detection.environment.get("visibility_nm", 12.0)))
 	for observer in unit_manager.units:
 		if not observer.is_engageable():
 			continue
 		var radar_up := observer.radar_emitting()
 		var sonar_up := observer.has_sonar()
-		if not radar_up and not sonar_up:
+		var surfaced := not observer.submerged()
+		if not radar_up and not sonar_up and not surfaced:
 			continue
+		var esm_root := -1.0
+		if surfaced:
+			for s in observer.sensors:
+				if s.kind == "esm":
+					esm_root = maxf(esm_root, sqrt(maxf(Detection.observer_height_m(observer, s), 0.0)))
+		var esm_efficiency := observer.sensor_efficiency()
 		var reaches := PackedFloat64Array()
+		var passive := PackedFloat64Array()  # the eye, and an intercept of a seeker that is transmitting
+		var intercept := PackedFloat64Array()
+		var furthest := 0.0
 		for group in group_specs.size():
 			var spec := group_specs[group]
 			var altitude := group_altitudes[group]
@@ -615,17 +675,32 @@ func _detect_weapons(now: float) -> void:
 			if not group_torpedoes[group] and radar_up:
 				reach = Detection.best_weapon_detection_nm(observer, spec, altitude) * Detection.weapon_clutter_factor(spec, altitude)
 			reaches.append(reach)
+			var above_water := surfaced and not group_torpedoes[group]
+			passive.append(sighting if above_water else 0.0)
+			intercept.append(Detection.HORIZON_K * (esm_root + sqrt(maxf(altitude, 0.0))) * esm_efficiency if above_water and esm_root >= 0.0 else 0.0)
+			furthest = maxf(furthest, maxf(reach, maxf(passive[group], intercept[group])))
+		if furthest <= 0.0:
+			continue
+		var furthest_squared := furthest * furthest
 		for i in weapons.size():
 			var w := weapons[i]
 			if w.faction == observer.faction or w.phase == Weapon.Phase.DEAD:
 				continue
+			var d_squared := observer.position.distance_squared_to(w.position)
+			if d_squared > furthest_squared:
+				continue
 			var group := group_indices[i]
 			var reach := reaches[group]
-			if reach <= 0.0 or observer.position.distance_squared_to(w.position) > reach * reach:
-				continue
-			if not group_torpedoes[group]:
+			var held := reach > 0.0 and d_squared <= reach * reach
+			if held and not group_torpedoes[group]:
 				reach *= Detection.jam_penalty(observer, w.position)
-			if reach <= 0.0 or observer.position.distance_squared_to(w.position) > reach * reach:
+				held = reach > 0.0 and d_squared <= reach * reach
+			if not held:
+				# Neither needs the ship to transmit, and a jammer blinds neither.
+				held = d_squared <= passive[group] * passive[group]
+				if not held and radiating[i] == 1:
+					held = d_squared <= intercept[group] * intercept[group]
+			if not held:
 				continue
 			if Detection.terrain_hides_weapon(observer, w):
 				continue
