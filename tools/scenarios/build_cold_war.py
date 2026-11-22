@@ -480,7 +480,7 @@ def scenarios():
     gate=s.xy(61.43,1.95)
     cargo="MV North Star"
     s.unit("perry","USS Elrod (FFG 55)","BLUE",61.13,1.50,35,16)
-    s.unit("perry","USS Nicholas (FFG 47)","BLUE",61.04,1.52,35,16,radar_on=False,air_wing=[])
+    s.unit("perry","USS Nicholas (FFG 47)","BLUE",61.04,1.52,35,16,air_wing=[])
     s.unit("merchant",cargo,"BLUE",60.99,1.36,s.heading_to(60.99,1.36,gate),14)
     s.unit("nanuchka","Soviet missile corvette (Nanuchka III)","RED",61.49,2.10,220,16,
            patrol_nm=[s.xy(61.10,1.60),s.xy(61.5,2.20)])
@@ -532,7 +532,7 @@ def scenarios():
     cg="USS Bunker Hill (CG 52)"
     s.unit("nimitz",cv,"BLUE",67.83,3.55,250,18)
     s.unit("ticonderoga",cg,"BLUE",68.01,3.85,250,18)
-    s.unit("spruance","USS Spruance (DD 963)","BLUE",67.82,4.15,250,18,radar_on=False)
+    s.unit("spruance","USS Spruance (DD 963)","BLUE",67.82,4.15,250,18)
     s.unit("slava","Slava","RED",69.05,8.1,225,16,patrol_nm=[s.xy(68.5,6.3),s.xy(69.2,8.4)])
     for i,lat in enumerate([71.40,71.48]):
         s.unit("tu22m3","Backfire raid %d"%(i+1),"RED",lat,9.1+i*.2,215,490,

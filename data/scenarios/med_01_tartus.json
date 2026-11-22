@@ -6339,7 +6339,7 @@
         -118.8163,
         -15.0
       ],
-      "heading_deg": 80,
+      "heading_deg": 99.4,
       "speed_kn": 16,
       "patrol_nm": [
         [
@@ -6347,7 +6347,8 @@
           -33.0
         ]
       ],
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "follow_route": true
     },
     {
       "platform": "fra_cvn_charles_de_gaulle",
@@ -6357,8 +6358,8 @@
         -99.0136,
         -3.0
       ],
-      "heading_deg": 80,
-      "speed_kn": 18,
+      "heading_deg": 99.4,
+      "speed_kn": 16,
       "air_wing": [
         {
           "platform": "fra_fighter_rafale_m",
@@ -6389,7 +6390,12 @@
           "first_modex": 41
         }
       ],
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "FS Mistral (L 9013)",
+      "formation_offset_nm": [
+        -15.1,
+        17.6
+      ]
     },
     {
       "platform": "ita_ddg_horizon",
@@ -6399,9 +6405,14 @@
         -81.6862,
         3.0
       ],
-      "heading_deg": 80,
-      "speed_kn": 18,
-      "aviation_reload_cycles": 2
+      "heading_deg": 99.4,
+      "speed_kn": 16,
+      "aviation_reload_cycles": 2,
+      "formation_leader": "FS Mistral (L 9013)",
+      "formation_offset_nm": [
+        -23.8,
+        33.7
+      ]
     },
     {
       "platform": "fra_ffg_fremm",
@@ -6411,10 +6422,15 @@
         -91.5876,
         -21.0
       ],
-      "heading_deg": 80,
-      "speed_kn": 18,
+      "heading_deg": 99.4,
+      "speed_kn": 16,
       "radar_on": false,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "FS Mistral (L 9013)",
+      "formation_offset_nm": [
+        1.5,
+        27.8
+      ]
     },
     {
       "platform": "fra_ssn_suffren",
@@ -6989,7 +7005,7 @@
     }
   },
   "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
-  "operation_revision": 27,
+  "operation_revision": 29,
   "collection": "operations",
   "operation_plan": [
     {

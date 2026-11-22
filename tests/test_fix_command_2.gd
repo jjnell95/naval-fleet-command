@@ -181,9 +181,10 @@ func test_space_does_not_dismiss_the_debrief_and_it_reopens() -> void:
 
 # --- Manual missile defence: X and the cue ----------------------------------------------------
 
-## Classic rules in the Strait until the commander holds inbound missiles. Returns them.
+## Classic rules in the Strait until the commander holds inbound missiles, once the shore battery
+## has come out of its hides. Returns them.
 func _classic_raid(main: Main) -> Array:
-	for step in 40:
+	for step in 340:
 		SimClock.advance(5.0)
 		var held: Array = main._commander_inbound().filter(func(e: Dictionary) -> bool: return not (e["weapon"] as Weapon).spec.is_torpedo())
 		if held.size() >= 2:

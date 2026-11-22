@@ -79,13 +79,19 @@ func _warning_lines(main: Main) -> int:
 	return n
 
 
-## Strait of Hormuz for two minutes with the hook as given: "default" leaves the opening hook
-## alone, "merchant" hooks the tanker, "none" clears the hook.
+## Strait of Hormuz for two minutes from the moment the Qeshm battery comes out of its hides, with
+## the hook as given: "default" leaves the opening hook alone, "merchant" hooks the tanker, "none"
+## clears the hook.
 func _hormuz_watch(hook: String) -> void:
 	var main := _open("gulf_01_hormuz.json")
 	var sim := main.simulation
 	var tanker := _own(main, "Gulf Horizon")
 	assert_true(tanker != null and not tanker.spec.has_datalink, "the tanker is in the force and off the link")
+	for wait in 300:
+		if sim.director.fired.has("qeshm_battery_up"):
+			break
+		SimClock.advance(5.0)
+	assert_true(sim.director.fired.has("qeshm_battery_up"), "[%s] the shore battery came out" % hook)
 	match hook:
 		"merchant":
 			main.map.select_units([tanker])

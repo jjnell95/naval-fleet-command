@@ -299,8 +299,11 @@ def bmd_picket():
            patrol=[s.xy(71.2, 29.6), s.xy(70.3, 34.0)])
     s.unit("rfn_fsg_steregushchiy", "Soobrazitelny (531)", "RED", s.xy(70.4, 33.8), 290, 17,
            patrol=[s.xy(71.0, 30.4), s.xy(70.1, 34.6)])
-    s.unit("rfn_ssk_kilo_877", "Kaluga (B-800)", "RED", s.xy(71.4, 31.4), 260, 5,
-           depth_m=120, radar_on=False, patrol=[s.xy(71.3, 28.6), s.xy(71.5, 32.4)])
+    # Inside the screen, as the briefing and the P-3C's report say: between the pickets' line and
+    # the carrier, working across the group's track. Placed east of the pickets she spent the
+    # watch 47 nm outside them and never reached a firing position.
+    s.unit("rfn_ssk_kilo_877", "Kaluga (B-800)", "RED", s.xy(71.45, 26.4), 260, 5,
+           depth_m=120, radar_on=False, patrol=[s.xy(71.4, 25.2), s.xy(71.55, 27.4)])
     s.unit("shore_air_station", "Monchegorsk Air Base", "RED", s.near("monchegorsk"), 0, 0,
            air_wing=red_air_regiment(foxhounds=3, flankers=4, orlan=1,
                                      isr_patrol=[s.xy(71.4, 30.5), s.xy(71.6, 25.0),
