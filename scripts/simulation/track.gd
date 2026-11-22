@@ -28,6 +28,8 @@ const RANGE_HELD_QUALITY := 0.2
 ## Once the ellipse of an unseen contact is this long, moving the plot along its last course is
 ## no better than leaving it where it is.
 const COAST_LIMIT_NM := 5.0
+## A unit this close to where a bearing was taken from is the unit that took it.
+const BEARING_UNIT_NM := 0.5
 
 var id := ""
 var owner_faction := ""
@@ -170,6 +172,17 @@ func radiating() -> bool:
 ## True when the contact is held on a bearing alone, with no usable range.
 func is_bearing_only() -> bool:
 	return bearing_only and tma_quality < RANGE_HELD_QUALITY
+
+
+## The own unit whose bearing the plot is following: the contributor still where the last bearing
+## was taken from. Null for a line from a buoy, or once that unit has moved on or been lost.
+func bearing_unit() -> Unit:
+	if not bearing_origin.is_finite():
+		return null
+	for u: Unit in contributors:
+		if u != null and u.alive and u.position.distance_to(bearing_origin) <= BEARING_UNIT_NM:
+			return u
+	return null
 
 
 ## What the contact moves like, from what the plot itself holds: its domain once that is known,
