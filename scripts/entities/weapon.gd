@@ -48,12 +48,14 @@ var dead_reason := ""
 ## A round fired at an aircraft that reached its aim point with nothing in its seeker flies on along
 ## its heading, still searching, until its fuel runs out (`WeaponManager._try_acquire`).
 var searching_on := false
-## An interceptor: seconds it has flown its endgame without guidance. It coasts on its last
-## solution for a moment before it is lost (WeaponManager.INTERCEPT_COAST_S).
+## A missile fired at a missile or an aircraft: seconds it has flown without guidance. It coasts on
+## its last solution for a moment before it is lost (WeaponManager.INTERCEPT_COAST_S).
 var unguided_s := 0.0
 ## The unit this round was locked on sank, dived or landed, and it has found nothing since: it is
-## searching on down its heading and ends as TARGET LOST if its range runs out first.
+## searching on down its heading and ends as TARGET LOST at `search_on_end_nm` flown, a few seeker
+## radii past where it lost the target, or when its range runs out if that comes first.
 var lost_lock := false
+var search_on_end_nm := -1.0
 ## Fired from a battery ashore: the round climbs out over its own coast before the ordinary rule
 ## that a low-flying weapon ends at the first ground it meets applies to it.
 var launched_ashore := false

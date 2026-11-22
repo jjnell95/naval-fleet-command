@@ -47,6 +47,9 @@ const VLS_SERVICE_S := 1.0
 ## Seconds an interceptor flies on its last solution without guidance before it is lost. A single
 ## missed look from the illuminator is not a lost missile. GAMEPLAY_ESTIMATE.
 const INTERCEPT_COAST_S := 3.0
+## How far past a lost target, in its own seeker radii, a round searches on before it is spent: far
+## enough to find the rest of a group, not so far it takes a merchant down range. GAMEPLAY_ESTIMATE.
+const SEARCH_ON_SEEKER_RADII := 3.0
 ## Anti-radiation missiles. A round whose emitter switches off flies on to where it last heard it:
 ## ARM_MEMORY_PK of its ordinary chance if the emitter is still within ARM_MEMORY_NM of that
 ## point, nothing if it has moved away. A hit wrecks antennas before it sinks anything.
@@ -449,14 +452,19 @@ func _step(w: Weapon, dt: float) -> void:
 	if w.phase == Weapon.Phase.DEAD:
 		return
 	w.time_alive_s += dt
-	if w.intercept_target == null and not radar_support_available(w.shooter, w.spec) and network_track_guide(w.shooter, w.spec, w.target_track) == null:
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "GUIDANCE LOST"
-		return
-	if w.intercept_target == null and w.target_track != null and not track_guidance_available(w.shooter, w.spec, w.target_track):
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "GUIDANCE LOST"
-		return
+	if w.intercept_target == null:
+		var guided := (radar_support_available(w.shooter, w.spec) or network_track_guide(w.shooter, w.spec, w.target_track) != null) \
+				and (w.target_track == null or track_guidance_available(w.shooter, w.spec, w.target_track))
+		if guided:
+			w.unguided_s = 0.0
+		else:
+			# A missile fired at an aircraft rides out a moment's break in its guidance on the last
+			# solution, as one fired at a missile does; anything else is lost at once.
+			w.unguided_s += dt
+			if w.spec.type != "sam" or w.unguided_s > INTERCEPT_COAST_S:
+				w.phase = Weapon.Phase.DEAD
+				w.dead_reason = "GUIDANCE LOST"
+				return
 	if w.intercept_target != null:
 		_step_interceptor(w, dt)
 		return
@@ -483,11 +491,13 @@ func _step(w: Weapon, dt: float) -> void:
 		# The target sank, dived or landed under it. The round is still flying and its seeker is
 		# still on: it carries on down its heading, not back to the wreck, and takes the next thing
 		# it finds. That is what the rest of a salvo is for once the first round has done the job.
+		# It searches a few seeker radii on, not to the end of its fuel.
 		w.acquired = null
 		w.lost_lock = true
 		w.searching_on = true
 		w.phase = Weapon.Phase.CRUISE
-		w.aim_point = w.position + Geo.heading_to_vector(w.heading_deg) * maxf(w.spec.max_range_nm - w.distance_flown_nm, 0.0)
+		w.search_on_end_nm = minf(w.spec.max_range_nm, w.distance_flown_nm + SEARCH_ON_SEEKER_RADII * w.spec.acquisition_radius_nm())
+		w.aim_point = w.position + Geo.heading_to_vector(w.heading_deg) * maxf(w.search_on_end_nm - w.distance_flown_nm, 0.0)
 		goal = w.aim_point
 		revision += 1
 
@@ -543,6 +553,9 @@ func _step(w: Weapon, dt: float) -> void:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "MISS"
 		weapon_impact.emit(w.faction, w.spec, w.acquired, false)
+	elif w.phase != Weapon.Phase.DEAD and w.lost_lock and w.search_on_end_nm >= 0.0 and w.distance_flown_nm >= w.search_on_end_nm:
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "TARGET LOST"
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "TARGET LOST" if w.lost_lock else ("NO ACQUISITION" if w.searching_on else "RANGE EXHAUSTED")

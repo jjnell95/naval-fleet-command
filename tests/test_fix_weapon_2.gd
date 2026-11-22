@@ -697,3 +697,92 @@ func test_an_escort_ordered_radar_silent_holds_fire_and_says_so_once() -> void:
 	assert_eq(_count(shots, "sm1"), 0)
 	assert_eq(c[4], [[escort, false]], "one report that it holds fire, not one a cycle")
 	_cleanup(h)
+
+
+# --- A missile fired at an aircraft rides out a moment's break in its guidance --------------------
+
+## A semi-active missile in flight from `ship` at a hostile aircraft held on a track.
+func _sam_at_aircraft(h: Array, ship: Unit) -> Weapon:
+	var plane := Unit.new()
+	plane.spec = _platform()
+	plane.spec.domain = "air"
+	plane.faction = "RED"
+	plane.position = Vector2(0.0, 20.0)
+	plane.altitude_m = 3000.0
+	plane.flight_state = Unit.FlightState.AIRBORNE
+	(h[0] as UnitManager).add_unit(plane)
+	var t := Track.new()
+	t.id = "T1300"
+	t.owner_faction = "BLUE"
+	t.truth = plane
+	t.position = plane.position
+	t.status = Track.Status.ACTIVE
+	t.domain = "air"
+	t.altitude_m = plane.altitude_m
+	var spec := _sam("sm1", 25.0, 1.0)
+	spec.target_types = PackedStringArray(["air"])
+	spec.guidance = "semi_active_radar"
+	var w := Weapon.new()
+	w.id = 950
+	w.spec = spec
+	w.faction = "BLUE"
+	w.shooter = ship
+	w.target_track = t
+	w.position = ship.position
+	w.aim_point = plane.position
+	w.heading_deg = 0.0
+	w.phase = Weapon.Phase.CRUISE
+	(h[2] as WeaponManager).in_flight.append(w)
+	return w
+
+
+func _tick(wm: WeaponManager, seconds: float, from := 0.0) -> float:
+	var now := from
+	for i in int(seconds / DT):
+		now += DT
+		wm.tick(DT, now)
+	return now
+
+
+func test_a_missile_at_an_aircraft_coasts_through_a_short_break_in_its_guidance() -> void:
+	var ship := _ship("BLUE", Vector2.ZERO)
+	var h := _harness([ship])
+	var w := _sam_at_aircraft(h, ship)
+	ship.radar_on = false
+	var now := _tick(h[2], 1.5)
+	assert_true(w.phase != Weapon.Phase.DEAD, "a missed look does not lose the missile: %s" % w.dead_reason)
+	ship.radar_on = true
+	now = _tick(h[2], 1.0, now)
+	ship.radar_on = false
+	_tick(h[2], 2.5, now)
+	assert_true(w.phase != Weapon.Phase.DEAD, "the coast starts again once guidance has come back")
+	_tick(h[2], 2.0, now + 2.5)
+	assert_eq(w.dead_reason, "GUIDANCE LOST", "a lasting loss still costs the missile")
+	_cleanup(h)
+
+
+# --- A round whose target is gone searches a little way on, not to the end of its fuel ------------
+
+func test_a_round_whose_target_sinks_under_it_does_not_take_a_merchant_far_down_range() -> void:
+	var target := _ship("BLUE", Vector2.ZERO)
+	var merchant := _ship("GREEN", Vector2(0.0, -60.0))
+	var h := _harness([target, merchant])
+	var round := _incoming(h[2], _asm(), Vector2(0.0, 10.0), target)
+	target.alive = false
+	_tick(h[2], 600.0)
+	assert_eq(round.dead_reason, "TARGET LOST")
+	assert_true(round.distance_flown_nm <= 10.0 + WeaponManager.SEARCH_ON_SEEKER_RADII * round.spec.acquisition_radius_nm() + 0.5,
+		"it gave up a few seeker radii past the wreck, not %0.1f nm on" % round.distance_flown_nm)
+	assert_near(merchant.health, 100.0, 1e-3, "the merchant 60 nm down range is left alone")
+	_cleanup(h)
+
+
+func test_a_round_searching_on_still_takes_the_next_ship_of_the_group() -> void:
+	var target := _ship("BLUE", Vector2.ZERO)
+	var consort := _ship("BLUE", Vector2(0.0, -6.0))
+	var h := _harness([target, consort])
+	var round := _incoming(h[2], _asm(), Vector2(0.0, 10.0), target)
+	target.alive = false
+	_tick(h[2], 300.0)
+	assert_true(consort.health < 100.0, "the rest of the group, close past the wreck, is still found")
+	_cleanup(h)
