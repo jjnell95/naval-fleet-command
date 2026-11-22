@@ -693,7 +693,7 @@ func apply_order(order: Order) -> void:
 			else:
 				radar_on = has_radar()
 		Order.Type.SET_ALTITUDE:
-			ordered_altitude_m = clampf(order.altitude_m, 0.0, spec.max_altitude_m)
+			ordered_altitude_m = clampf(order.altitude_m, minf(min_altitude_m(), spec.max_altitude_m), spec.max_altitude_m)
 		Order.Type.LAUNCH_AIRCRAFT, Order.Type.RETURN_TO_BASE, Order.Type.DEPLOY_SONOBUOY:
 			pass  # routed to AviationManager by Simulation
 		Order.Type.AIR_MISSION, Order.Type.CANCEL_AIR_MISSION:
@@ -966,6 +966,16 @@ func clear_attack(keep_plan := false) -> void:
 	attack_assess_until_s = -1.0
 	attack_stall_s = 0.0
 	attack_stale_s = 0.0
+
+
+## The lowest altitude over the sea this airframe will be ordered to: a helicopter can work
+## just above the waves, a fixed-wing aircraft needs room to recover from a gust. GAMEPLAY_ESTIMATE.
+const MIN_ALTITUDE_ROTARY_M := 15.0
+const MIN_ALTITUDE_FIXED_WING_M := 30.0
+
+
+func min_altitude_m() -> float:
+	return MIN_ALTITUDE_ROTARY_M if spec.can_hover else MIN_ALTITUDE_FIXED_WING_M
 
 
 func in_formation() -> bool:

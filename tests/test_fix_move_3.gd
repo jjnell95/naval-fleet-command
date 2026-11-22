@@ -272,3 +272,41 @@ func test_a_snorkel_order_delivered_at_check_in_is_not_undone_when_the_window_cl
 	assert_true(not boat.snorkel_on, "the crew secures when the charge is complete")
 	assert_near(boat.ordered_depth_m, 200.0, 0.1, "and takes her back to the depth she came up from")
 	um.free()
+
+
+# --- Aircraft keep their height over the ground --------------------------------------------
+
+func test_an_aircraft_ordered_low_climbs_over_high_ground_and_never_flies_into_it() -> void:
+	Terrain.load_from({"terrain": {"land": [{"id": "ridge", "name": "Ridge", "elevation_m": 900.0, "points_nm": [[-20.0, 20.0], [20.0, 20.0], [20.0, 40.0], [-20.0, 40.0]]}]}})
+	var um := UnitManager.new()
+	var jet := _ship(Vector2.ZERO, "Jet", "usn_fighter_fa18e")
+	jet.speed_kn = 420.0
+	jet.ordered_speed_kn = 420.0
+	um.add_unit(jet)
+	assert_true(um.issue_order(jet, Order.set_altitude(150.0)))
+	assert_true(um.issue_order(jet, Order.move(Vector2(0.0, 60.0))))
+	var lowest_over_land := INF
+	var now := 0.0
+	while now < 600.0 and jet.position.y < 45.0:
+		now = _run(um, 1.0, now)
+		if Terrain.elevation_at(jet.position) > 0.0:
+			lowest_over_land = minf(lowest_over_land, jet.altitude_m - Terrain.elevation_at(jet.position))
+	assert_true(jet.position.y >= 45.0, "she crossed the ridge")
+	assert_true(lowest_over_land >= Movement.TERRAIN_CLEARANCE_FIXED_WING_M * 0.9, "with a safety height over it all the way: %.0f m at the lowest" % lowest_over_land)
+	_run(um, 300.0, now)
+	assert_near(jet.altitude_m, 150.0, 1.0, "and comes back down to the ordered height over the sea")
+	Terrain.clear()
+	um.free()
+
+
+func test_an_altitude_order_is_held_above_the_sea() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var jet := _ship(Vector2.ZERO, "Jet", "usn_fighter_fa18e")
+	jet.speed_kn = 420.0
+	jet.ordered_speed_kn = 420.0
+	um.add_unit(jet)
+	assert_true(um.issue_order(jet, Order.set_altitude(0.0)))
+	_run(um, 600.0)
+	assert_true(jet.alive and jet.altitude_m >= Unit.MIN_ALTITUDE_FIXED_WING_M - 0.01, "a jet is not flown into the sea: %.0f m" % jet.altitude_m)
+	um.free()
