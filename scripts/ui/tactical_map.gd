@@ -264,6 +264,9 @@ var _radio := RadioLine.new()
 var _labels := ChartLabels.new()
 var _label_queue: Array = []
 var _chart_captions: Array = []
+## The radio line laid out for this frame (see `radio_layout`), placed before the labels so they
+## can keep out of its band.
+var _radio_layout: Dictionary = {}
 var _text_widths: Dictionary = {}  # "text@size" -> px
 ## A status board covers the chart: its readouts and radio line are not drawn under it.
 var overlay_covered := false
@@ -2523,7 +2526,8 @@ func _queue_label(key: String, sp: Vector2, extent: float, number: String, tag: 
 
 ## Collect captions before drawing so geographic names and range labels cannot obscure
 ## numbered contacts. A town's cross stays with its name whenever the label is displayed.
-func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, centered := false, marker := Vector2.INF) -> void:
+## `alts` are other places for the caption (offsets from its own), tried in order when it is taken.
+func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, centered := false, marker := Vector2.INF, alts: Array = []) -> void:
 	var width := _text_width(text, font_size)
 	var font := _readout_font()
 	if centered:
@@ -2532,20 +2536,45 @@ func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, cen
 	var rect := Rect2(at - Vector2(0, font.get_ascent(font_size)), Vector2(width, font.get_height(font_size)))
 	if marker.is_finite():
 		rect = rect.merge(Rect2(marker - Vector2(4, 4), Vector2(8, 8)))
-	if Rect2(Vector2.ZERO, size).encloses(rect):
-		_chart_captions.append({"key": _chart_captions.size(), "rect": rect, "at": at, "text": text, "font_size": font_size, "color": color, "marker": marker})
+	var chart := Rect2(Vector2.ZERO, size)
+	var places: Array = []
+	for offset: Vector2 in alts:
+		places.append(offset.round())
+	if not chart.encloses(rect):
+		# Off the chart in its own place, the caption may still fit in one of the others.
+		var inside := places.filter(func(offset: Vector2) -> bool: return chart.encloses(Rect2(rect.position + offset, rect.size)))
+		if inside.is_empty():
+			return
+		var first: Vector2 = inside[0]
+		at += first
+		rect.position += first
+		if marker.is_finite():
+			marker += first
+		places = inside.slice(1).map(func(offset: Vector2) -> Vector2: return offset - first)
+	_chart_captions.append({"key": _chart_captions.size(), "rect": rect, "at": at, "text": text, "font_size": font_size, "color": color, "marker": marker, "alts": places})
+
+
+## Places the queued track numbers and captions clear of each other and of the radio line's band.
+func _place_labels() -> void:
+	_radio_layout = radio_layout() if not overlay_covered else {}
+	var obstacles: Array = []
+	if _radio_layout.has("plate"):
+		obstacles.append(_radio_layout["plate"])
+	var count := _label_queue.size() + _chart_captions.size()
+	if _labels.due(_anim, count, obstacles):
+		_labels.assign(_label_queue, _anim, Rect2(Vector2.ZERO, size), _chart_captions, obstacles)
 
 
 func _draw_labels() -> void:
-	var count := _label_queue.size() + _chart_captions.size()
-	if _labels.due(_anim, count):
-		_labels.assign(_label_queue, _anim, Rect2(Vector2.ZERO, size), _chart_captions)
+	_place_labels()
 	for caption: Dictionary in _chart_captions:
-		if _labels.slot(caption.key) == ChartLabels.HIDDEN:
+		var k := _labels.slot(caption.key)
+		if k == ChartLabels.HIDDEN:
 			continue
+		var shift := ChartLabels.caption_rect(caption, k).position - (caption.rect as Rect2).position
 		if (caption.marker as Vector2).is_finite():
-			_draw_plus(caption.marker, 3.0, COL_READOUT, 1.0, true)
-		_shadow_text(caption.at, caption.text, caption.font_size, caption.color)
+			_draw_plus(caption.marker + shift, 3.0, COL_READOUT, 1.0, true)
+		_shadow_text(caption.at + shift, caption.text, caption.font_size, caption.color)
 	_chart_captions.clear()
 	for l: Dictionary in _label_queue:
 		var k := _labels.slot(l["key"])
@@ -2934,6 +2963,9 @@ func _depth_readout(w: Vector2) -> String:
 ## Bottom-centre: the newest radio lines, the latest at the bottom, each fading after its hold.
 ## Width kept clear at each side of the radio line, for the corner readouts.
 const RADIO_SIDE_CLEAR_PX := 230.0
+## The plate behind the radio rows: this much margin round the text, deep sea blue, mostly opaque.
+const RADIO_PLATE_PAD := Vector2(10.0, 3.0)
+const COL_RADIO_PLATE := Color(0.02, 0.05, 0.12, 0.7)
 
 
 ## Splits a signal into rows no wider than `width`, breaking between words.
@@ -2952,19 +2984,44 @@ static func wrap_radio_text(font: Font, text: String, font_size: int, width: flo
 	return rows
 
 
-func _draw_radio_line() -> void:
+## The radio line as it will be drawn: {rows: [{text, baseline, color}], plate: Rect2}, the rows
+## bottom-up, or {} with nothing on the air. The plate is the band the rows reserve: chart names
+## and track numbers are placed clear of it and it is shaded behind the rows, so a message never
+## reads through a place name, a symbol or a range ring.
+func radio_layout() -> Dictionary:
 	var lines := _radio.visible(_anim)
+	if lines.is_empty():
+		return {}
+	var font := _readout_font()
 	var baseline := size.y - RADIO_BOTTOM_PX - 3.0
+	var bottom := baseline + font.get_descent(READOUT_FONT_SIZE)
+	var widest := 0.0
+	var strongest := 0.0
+	var out: Array[Dictionary] = []
 	for i in range(lines.size() - 1, -1, -1):
 		var e: Dictionary = lines[i]
 		var alpha := RadioLine.alpha_at(_anim - float(e["t0"]))
+		strongest = maxf(strongest, alpha)
 		var col := COL_RADIO_ALERT if e["severity"] == "alert" else (COL_RADIO_ADVICE if e["severity"] == RadioNet.ADVICE else COL_READOUT)
 		# A long signal wraps inside the middle of the chart: it used to run off both edges and
 		# over the position and scale readout in the corner.
-		var rows := wrap_radio_text(_readout_font(), e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
+		var rows := wrap_radio_text(font, e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
 		for r in range(rows.size() - 1, -1, -1):
-			_shadow_text(Vector2(0.0, baseline), rows[r], READOUT_FONT_SIZE, Color(col, alpha * col.a), HORIZONTAL_ALIGNMENT_CENTER, size.x)
+			widest = maxf(widest, _text_width(rows[r], READOUT_FONT_SIZE))
+			out.append({"text": rows[r], "baseline": baseline, "color": Color(col, alpha * col.a)})
 			baseline -= READOUT_LINE_H
+	var top := baseline + READOUT_LINE_H - font.get_ascent(READOUT_FONT_SIZE)
+	var plate := Rect2(roundf((size.x - widest) * 0.5 - RADIO_PLATE_PAD.x), roundf(top - RADIO_PLATE_PAD.y), roundf(widest + 2.0 * RADIO_PLATE_PAD.x), 0.0)
+	plate.end.y = roundf(bottom + RADIO_PLATE_PAD.y)
+	return {"rows": out, "plate": plate, "alpha": strongest}
+
+
+func _draw_radio_line() -> void:
+	if _radio_layout.is_empty():
+		return
+	draw_rect(_radio_layout["plate"], Color(COL_RADIO_PLATE, COL_RADIO_PLATE.a * float(_radio_layout["alpha"])))
+	for row: Dictionary in _radio_layout["rows"]:
+		_shadow_text(Vector2(0.0, row["baseline"]), row["text"], READOUT_FONT_SIZE, row["color"], HORIZONTAL_ALIGNMENT_CENTER, size.x)
 
 
 ## A white circle round each platform whose message is on the radio line: it is transmitting.

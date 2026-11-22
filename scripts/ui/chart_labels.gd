@@ -3,10 +3,16 @@ extends RefCounted
 ## Places track labels and chart captions in one collision grid. The inspected contact gets
 ## first choice, followed by the selected platforms. A crowded primary label can move farther
 ## from its symbol and connect to it with a leader. Other labels need a clear adjacent space.
+## Obstacles are screen rectangles nothing may print over (the radio line's plate). A caption may
+## offer alternative places (`alts`, offsets of its rect) for when its first place is taken.
 
 ## Offset signs (x, y) tried in order: lower right, upper right, lower left, upper left.
 const OFFSETS: Array[Vector2] = [Vector2(1.0, 1.0), Vector2(1.0, -1.0), Vector2(-1.0, 1.0), Vector2(-1.0, -1.0)]
 const HIDDEN := -1
+## Grid owners for the reservations that belong to no label.
+const _OWNER_PLACED := -1
+const _OWNER_CAPTION := -2
+const _OWNER_OBSTACLE := -3
 ## The classic place: the number's left edge and baseline this far from the centre of a 16 px
 ## symbol; a larger graphic symbol pushes it out a little further.
 const OFFSET_PX := Vector2(7.0, 17.0)
@@ -20,17 +26,20 @@ const CALLOUT_LEVELS := 6
 var _slots: Dictionary = {}  # key -> offset index, or HIDDEN
 var _last_s := -INF
 var _last_count := -1
+var _last_obstacles: Array = []
 
 
-## True when the assignment should be remade: a quarter second on, or a changed number of labels.
-func due(now: float, count: int) -> bool:
-	return now - _last_s >= REPLACE_S or now < _last_s or count != _last_count
+## True when the assignment should be remade: a quarter second on, a changed number of labels, or
+## an obstacle that came, went or changed size (a radio line arriving clears its band at once).
+func due(now: float, count: int, obstacles: Array = []) -> bool:
+	return now - _last_s >= REPLACE_S or now < _last_s or count != _last_count or obstacles != _last_obstacles
 
 
-func assign(labels: Array, now: float, bounds := Rect2(), captions: Array = []) -> void:
-	_slots = place(labels, bounds, captions)
+func assign(labels: Array, now: float, bounds := Rect2(), captions: Array = [], obstacles: Array = []) -> void:
+	_slots = place(labels, bounds, captions, obstacles)
 	_last_s = now
 	_last_count = labels.size() + captions.size()
+	_last_obstacles = obstacles.duplicate()
 
 
 ## The offset index a label was given (the classic place for one not yet assigned), or HIDDEN.
@@ -42,6 +51,15 @@ func clear() -> void:
 	_slots.clear()
 	_last_s = -INF
 	_last_count = -1
+	_last_obstacles = []
+
+
+## A caption's rect in the place it was given: slot 0 is its own place, slot k its (k-1)th alternative.
+static func caption_rect(caption: Dictionary, slot_index: int) -> Rect2:
+	var rect: Rect2 = caption.rect
+	if slot_index > 0:
+		rect.position += caption.alts[slot_index - 1] as Vector2
+	return rect
 
 
 ## The text block's box for one offset. `at` is the symbol's centre, `extent` its half-size, `size`
@@ -68,13 +86,15 @@ static func slot_box(label: Dictionary, slot_index: int) -> Rect2:
 	return rect
 
 
-static func place(labels: Array, bounds := Rect2(), captions: Array = []) -> Dictionary:
+static func place(labels: Array, bounds := Rect2(), captions: Array = [], obstacles: Array = []) -> Dictionary:
 	var slots := {}
 	var grid := {}
 	var rects: Array[Rect2] = []
 	var owners := PackedInt32Array()
 	var order := PackedInt32Array()
 	var ordinary := PackedInt32Array()
+	for obstacle: Rect2 in obstacles:
+		_insert(grid, rects, owners, obstacle, _OWNER_OBSTACLE)
 	for i in labels.size():
 		var l: Dictionary = labels[i]
 		var e: float = l.extent
@@ -100,17 +120,20 @@ static func place(labels: Array, bounds := Rect2(), captions: Array = []) -> Dic
 				inside = k
 			if _clear(grid, rects, owners, r.grow(GAP_PX), i):
 				slots[l.key] = k
-				_insert(grid, rects, owners, r, -1)
+				_insert(grid, rects, owners, r, _OWNER_PLACED)
 				break
 		if i == primary and int(slots[l.key]) == HIDDEN and inside != HIDDEN:
 			slots[l.key] = inside
-			_insert(grid, rects, owners, slot_box(l, inside), -1)
+			_insert(grid, rects, owners, slot_box(l, inside), _OWNER_PLACED)
 	for caption: Dictionary in captions:
-		var rect: Rect2 = caption.rect
-		var clear := (not bounds.has_area() or bounds.encloses(rect)) and _clear(grid, rects, owners, rect.grow(GAP_PX), -2)
-		slots[caption.key] = 0 if clear else HIDDEN
-		if clear:
-			_insert(grid, rects, owners, rect, -1)
+		slots[caption.key] = HIDDEN
+		var places := 1 + (caption.alts as Array).size() if caption.has("alts") else 1
+		for k in places:
+			var rect := caption_rect(caption, k)
+			if (not bounds.has_area() or bounds.encloses(rect)) and _clear(grid, rects, owners, rect.grow(GAP_PX), _OWNER_CAPTION):
+				slots[caption.key] = k
+				_insert(grid, rects, owners, rect, _OWNER_PLACED)
+				break
 	return slots
 
 
