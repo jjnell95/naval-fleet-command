@@ -424,7 +424,9 @@ func _sync_defence() -> void:
 			automatic = "MIXED"
 	var detail := DefensiveResponse.status(_units[0]) if _units.size() == 1 else "%d active / %d evading" % [active, evading]
 	var missile_mode := "AUTO" if manual == 0 else ("MANUAL" if manual == _units.size() else "MIXED")
-	_defence_summary.text = "Missile defence %s / %s / CM %s / %d RF/IR packs / %d acoustic / %s" % [missile_mode, policy.to_upper(), automatic, packs, acoustic, detail]
+	_defence_summary.text = "Missile defence %s / %s / CM %s / %d RF/IR packs / %d acoustic" % [missile_mode, policy.to_upper(), automatic, packs, acoustic]
+	if detail != "":
+		_defence_summary.text += " / " + detail
 	if _units.is_empty():
 		_defence_summary.text = "Select a friendly platform to see its defence settings"
 	_defence_summary.tooltip_text = _defence_summary.text

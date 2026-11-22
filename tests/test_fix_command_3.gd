@@ -197,3 +197,79 @@ func test_the_course_box_loads_the_hooked_ships_ordered_course() -> void:
 	main.orders_panel.refresh()
 	assert_eq(int(spinner.value), 45, "a hooked group reads its lead's course")
 	_close(main)
+
+
+# --- The air-defence board -------------------------------------------------------------------
+
+## Detected rounds of `spec_id` running at `at`, fired by the other side, as the plot holds them.
+func _raid(main: Main, at: Unit, spec_id: String, count: int, first_id := 99100) -> Array:
+	var sim := main.simulation
+	var enemy := ""
+	for u: Unit in sim.unit_manager.units:
+		if u.faction != sim.player_faction and not sim.track_manager.neutral_factions.has(u.faction):
+			enemy = u.faction
+			break
+	var out := []
+	for i in count:
+		var w := Weapon.new()
+		w.id = first_id + i
+		w.spec = DataDB.weapon(spec_id)
+		w.faction = enemy
+		w.position = at.position + Vector2(0.4 * i, 8.0 + 0.5 * i)
+		w.heading_deg = 0
+		w.acquired = at
+		w.phase = Weapon.Phase.TERMINAL
+		sim.weapon_manager.in_flight.append(w)
+		sim.threat_manager.mark_detected(sim.player_faction, w, 0, at)
+		out.append(w)
+	return out
+
+
+func _defence_board(main: Main) -> DefenceBoard:
+	return main.contact_panel.find_children("*", "DefenceBoard", true, false)[0]
+
+
+func test_the_air_defence_board_names_rounds_short_lists_what_fits_and_counts_bmd_rounds() -> void:
+	var main := _open("gulf_01_hormuz.json")
+	var target := _own(main, "Paul Ignatius")
+	_raid(main, target, "irn_qader", 9)
+	var board := _defence_board(main)
+	board.size = Vector2(560, 240)
+	var shown := board.layout()
+	assert_eq(int(shown["inbound"]), 9, "nine rounds inbound")
+	var rows: Array = shown["rows"]
+	assert_true(rows.size() > 4, "the board lists every row its height has room for, not four: %d" % rows.size())
+	assert_eq(rows.size() + int(shown["more"]), 9, "and counts the rest")
+	for row: Dictionary in rows:
+		assert_true(str(row["weapon"]).begins_with("MSL Qader"), "the round goes by its short name: %s" % row["weapon"])
+		assert_true(str(row["target"]) in ["→ Paul Ignatius (DDG 117)", "→ Paul Ignatius", "→ Paul"], "the ship's name is not cut inside a word: %s" % row["target"])
+	# A tall board lists all nine.
+	board.size = Vector2(560, 460)
+	shown = board.layout()
+	assert_eq((shown["rows"] as Array).size(), 9, "a board with room lists all nine")
+	assert_eq(int(shown["more"]), 0)
+	var interceptors := str(shown["rounds"])
+	assert_true(interceptors.contains(" SAM / ") and interceptors.ends_with(" BMD"), "a force with ballistic-capable rounds counts them beside the SAMs: %s" % interceptors)
+	# A narrow board cuts at a word, never inside one.
+	assert_eq(board.fit_words("→ Paul Ignatius (DDG 117)", 60.0, 10), "→ Paul", "a tight column keeps whole words")
+	_close(main)
+
+
+func test_a_gun_round_reads_as_gunfire_on_the_board() -> void:
+	var main := _open("gulf_01_hormuz.json")
+	var target := _own(main, "Paul Ignatius")
+	assert_true(DataDB.weapon("a190_100mm_gun").is_gun(), "the round is a gun's")
+	var rounds := _raid(main, target, "a190_100mm_gun", 1)
+	assert_eq(DefenceBoard.threat_kind(rounds[0]), "GUN", "a shell is gunfire, not a missile")
+	assert_eq(DefenceBoard.threat_kind(_raid(main, target, "irn_qader", 1, 99200)[0]), "MSL")
+	_close(main)
+
+
+func test_the_orders_defence_line_has_no_dangling_separator() -> void:
+	var main := _open("northern_passage.json")
+	var u := _own(main, "Truxtun")
+	main.map.select_units([u])
+	main.orders_panel._sync_defence()
+	var line: String = main.orders_panel._defence_summary.text
+	assert_true(not line.ends_with("/") and not line.ends_with("/ "), "the defence line ends on a value: '%s'" % line)
+	_close(main)
