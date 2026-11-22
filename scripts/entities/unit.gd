@@ -61,11 +61,10 @@ var attack_holding := false
 ## firing point from one that is pressed against a coast with its engines turning.
 var attack_progress_pos := Vector2.INF
 ## What a temporary task interrupted, remembered once when the task takes the steering: the route
-## and the ordered course and speed. Until then an attack fires from wherever the platform's own
-## orders take it. A formation or patrol station is not copied here; the station fields keep it.
+## and the ordered speed. Until then an attack fires from wherever the platform's own orders take
+## it. A formation or patrol station is not copied here; the station fields keep it.
 var plan_kept := false
 var plan_waypoints: Array[Vector2] = []
-var plan_heading_deg := 0.0
 var plan_speed_kn := 0.0
 ## The standing assignment: where this platform belongs when no temporary task holds it. A patrol
 ## circuit (an air station is one too) or a formation station on a guide. Attack, Investigate,
@@ -800,7 +799,6 @@ func take_steering() -> void:
 		# want of orders is not a route anyone chose.
 		if not on_station() and not holding():
 			plan_waypoints.assign(waypoints)
-		plan_heading_deg = ordered_heading_deg
 		plan_speed_kn = ordered_speed_kn
 		waypoints.clear()
 	formation_leader = null
@@ -811,7 +809,6 @@ func take_steering() -> void:
 func forget_plan() -> void:
 	plan_kept = false
 	plan_waypoints.clear()
-	plan_heading_deg = 0.0
 	plan_speed_kn = 0.0
 
 

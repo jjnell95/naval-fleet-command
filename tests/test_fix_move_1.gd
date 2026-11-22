@@ -498,7 +498,7 @@ func test_the_remembered_plan_survives_a_save() -> void:
 	var names := SimSnapshot.script_variables(ship)
 	var refs := SimSnapshot.Refs.new()
 	var saved := {}
-	for field: String in ["plan_kept", "plan_waypoints", "plan_heading_deg", "plan_speed_kn", "attack_holding", "attack_speed_ordered", "attack_progress_pos"]:
+	for field: String in ["plan_kept", "plan_waypoints", "plan_speed_kn", "attack_holding", "attack_speed_ordered", "attack_progress_pos"]:
 		assert_true(names.has(field) and not SimSnapshot.UNIT_SKIP.has(field), "%s is saved" % field)
 		saved[field] = refs.enc(ship.get(field))
 	var loaded := Unit.new()

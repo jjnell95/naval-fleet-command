@@ -788,7 +788,11 @@ func _hold_band(u: Unit, track: Track, standoff_nm: float) -> void:
 	if not u.attack_speed_ordered:
 		speed = minf(u.spec.cruise_speed_kn, ATTACK_QUIET_KN if u.is_submarine() else u.attack_speed_kn)
 	var course := 0.0
-	if track.has_kinematics and track.speed_kn >= ATTACK_PARALLEL_MIN_KN:
+	if track.domain == "air":
+		# Nothing a hull does keeps station on an aircraft: she holds the course she is on.
+		course = u.ordered_heading_deg
+		error = 0.0
+	elif track.has_kinematics and track.speed_kn >= ATTACK_PARALLEL_MIN_KN:
 		course = track.course_deg
 		if not u.attack_speed_ordered:
 			var ceiling := u.spec.cruise_speed_kn if u.is_submarine() else u.attack_speed_kn
