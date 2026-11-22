@@ -399,7 +399,7 @@ func test_only_land_attack_rounds_can_strike_a_shore_station() -> void:
 		var w := DataDB.weapon(wid)
 		if w != null:
 			assert_true(not WeaponManager.can_target(w, station), "%s cannot strike a land target" % wid)
-	for wid in ["tomahawk_block_v", "nsm_strike_missile", "agm_158b_jassm_er"]:
+	for wid in ["tomahawk_block_v", "nsm_strike_missile", "tomahawk_tlam_v"]:
 		var w := DataDB.weapon(wid)
 		if w != null:
 			assert_true(WeaponManager.can_target(w, station), "%s is a land-attack round" % wid)

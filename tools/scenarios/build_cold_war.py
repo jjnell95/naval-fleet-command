@@ -71,6 +71,13 @@ SHORT_NAMES = {
 }
 
 
+# How hard each torpedo's seeker is to pull onto a decoy (WeaponSpec.soft_kill_resistance; 1.0 is
+# the scale's par, a current digital seeker). These are 1990 weapons: the analogue Soviet seekers
+# sit lowest, the American ones of the early 1980s a little under par. A wake-homer does not
+# listen at all, so an acoustic decoy has almost nothing to offer it.
+DECOY_RESISTANCE = {"mk46": .9, "mk48": .9, "set65": .8, "test71": .85, "at1": .8, "53_65": 4.0}
+
+
 def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     d = dict(display_name=name, short_name=SHORT_NAMES[key], family=name, type=kind, target_types=targets,
              guidance="fire_control_directed" if kind in ["sam", "ciws"] else "active_radar_homing",
@@ -81,7 +88,17 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     if kind == "torpedo":
         d.update(guidance="acoustic_homing", profile="subsurface", min_range_nm=.4,
                  seeker_range_nm=2.0, turn_rate_deg_s=12.0, launch_interval_s=20.0,
-                 run_to_enable_nm=.7, acoustic_signature=.65, soft_kill_resistance=.7)
+                 run_to_enable_nm=.7, acoustic_signature=.65,
+                 soft_kill_resistance=DECOY_RESISTANCE[key])
+    if kind == "asw_rocket":
+        # A missile that carries a torpedo through the air and drops it at the datum. The flight
+        # is the rocket's; from water entry everything is the payload's, so the figures a reader
+        # sees here are copied from the payload already written above.
+        payload = WEAPONS[ident(kw["delivery_payload_id"])]
+        kw["delivery_payload_id"] = payload["id"]
+        d.update(guidance="inertial_delivery", profile="high", altitude_m=300.0, turn_rate_deg_s=12.0,
+                 launch_interval_s=20.0, **{k: payload[k] for k in [
+                     "seeker_range_nm", "base_pk", "run_to_enable_nm", "acoustic_signature", "soft_kill_resistance"]})
     if kind in ["gun", "ciws"]:
         d.update(profile="direct", min_range_nm=.1, seeker_range_nm=0.0,
                  guidance="ballistic" if kind == "gun" else "radar_directed", salvo_default=1,
@@ -212,14 +229,17 @@ def catalogue():
     weapon("test71", "TEST-71M torpedo", "torpedo", ["subsurface"], 10, 40, 72)
     weapon("53_65", "53-65K wake-homing torpedo", "torpedo", ["surface"], 10, 45, 90,
            guidance="wake_homing_abstracted", base_pk=.64)
-    weapon("rastrub", "Rastrub-B / SS-N-14 ASW delivery", "torpedo", ["subsurface"], 25, 240, 65,
-           guidance="rocket_delivery_abstracted", run_to_enable_nm=.3)
     weapon("kh22", "Kh-22 / AS-4 Kitchen", "asm", ["surface"], 180, 1900, 90,
            profile="high", altitude_m=12000.0, base_pk=.59, defensive_difficulty=1.6, salvo_default=1)
     weapon("p120", "P-120 Malakhit / SS-N-9 Siren", "asm", ["surface"], 60, 560, 65,
            base_pk=.69, altitude_m=40.0, salvo_default=3)
     weapon("at1", "AT-1M helicopter ASW torpedo", "torpedo", ["subsurface"], 4, 35, 60,
            run_to_enable_nm=.3)
+    # A winged missile flown out at just under the speed of sound to drop a lightweight homing
+    # torpedo over the contact; the air-dropped AT-1M stands for its torpedo. Twenty-five miles in
+    # two and a half minutes, then a short-legged torpedo that has to be put close.
+    weapon("rastrub", "Rastrub-B / SS-N-14 ASW missile", "asw_rocket", ["subsurface"], 25, 620, 60,
+           min_range_nm=2.0, delivery_payload_id="at1")
 
     platform("perry", "Oliver Hazard Perry long-hull frigate", "FFG Perry", "USA", "frigate",
              ["sps49", "sqs56", "slq32"], {"sm1mr":32, "harpoon":8, "mk46":12, "mk75":260, "phalanx":60},

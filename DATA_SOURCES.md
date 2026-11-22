@@ -295,13 +295,10 @@ endurance, sensor envelope, loadout, signature, deck timing — is a GAMEPLAY_ES
 | id | Family | Game values (range nm / speed kn / damage / pk) |
 |---|---|---|
 | agm_158c_lrasm | LRASM | 200 / 550 / 70 / 0.80 |
-| agm_158b_jassm_er | JASSM-ER | 500 / 520 / 65 / 0.72 |
-| jsm_missile | NSM/JSM | 150 / 520 / 50 / 0.78 |
 | agm_114_hellfire | Hellfire | 4.5 / 800 / 14 / 0.85 |
 | apkws_rocket | APKWS | 3 / 900 / 7 / 0.75 |
 | sea_venom | Sea Venom / ANL | 11 / 560 / 26 / 0.80 |
 | martlet_lmm | Martlet | 3.5 / 950 / 8 / 0.72 |
-| kh38_family | Kh-38 | 22 / 1100 / 32 / 0.74 |
 | oneway_attack_drone | Generic OWA drone | 350 / 100 / 22 / 0.55 |
 | aim9x_air | Sidewinder (air fit) | 12 / 1600 / 25 / 0.70 |
 
@@ -315,7 +312,7 @@ detection horizon from the aircraft's altitude, not the listed antenna height.
 
 `searchwater_2000`, `e801_oko`, `an_zpy_8`, `mq25_eo_ir`, `scaneagle_eo`, `skeldar_eo`,
 `orion_sar`, `orlan_eo`, `novella_p38`, `seaspray_7400`, `enr_nh90`, `fits_dipping`,
-`an_aqs_13f`, `mq25_esm`.
+`mq25_esm`.
 
 ## M18: bathymetry and the water column
 | Data | Source | Use |

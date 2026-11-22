@@ -24,4 +24,4 @@ launch_interval_s = 20.0
 run_to_enable_nm = 1.0
 acoustic_signature = 0.70
 source_status = "PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
-soft_kill_resistance = 0.7
+soft_kill_resistance = 1.4

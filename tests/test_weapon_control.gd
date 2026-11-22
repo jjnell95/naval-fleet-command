@@ -215,7 +215,7 @@ func test_asroc_flies_then_hands_off_to_an_independent_torpedo() -> void:
 	assert_true(wm.launch(u, rocket, t, 1, 0))
 	var w: Weapon = wm.in_flight[0]
 	assert_eq(w.threat_class(), "missile")
-	for now in range(1, 33):
+	for now in range(1, 14):
 		wm.tick(1, now)
 	assert_eq(w.spec.id, "mk54_lwt")
 	assert_eq(w.threat_class(), "torpedo")
@@ -224,7 +224,7 @@ func test_asroc_flies_then_hands_off_to_an_independent_torpedo() -> void:
 	assert_true(w.delivery_spec == rocket)
 	var goal := w.aim_point
 	t.position = Vector2(100, 100)
-	wm.tick(1, 33)
+	wm.tick(1, 14)
 	assert_eq(w.aim_point, goal, "waterborne payload does not receive magic track steering")
 	assert_eq(wm.committed_rounds(u, rocket, t), 1, "the board still accounts for the delivered payload")
 	_clean(wm)
@@ -265,13 +265,11 @@ func test_unpowered_bomb_needs_height_and_descends() -> void:
 
 
 func test_corrected_roles_and_aircraft_fits() -> void:
-	assert_eq(Array(DataDB.weapon("agm_158b_jassm_er").target_types), ["land"])
 	assert_eq(DataDB.weapon("aim9x_air").type, "aam")
 	assert_eq(Array(DataDB.weapon("mk54_lwt").target_types), ["subsurface"])
 	var uk := DataDB.platform("rn_fighter_f35b")
 	assert_true(uk.weapon_loadout.has("paveway_iv") and uk.weapon_loadout.has("asraam_aam"))
-	assert_true(not uk.weapon_loadout.has("jsm_missile"))
-	assert_true(not DataDB.platform("jasdf_fighter_f35b").weapon_loadout.has("jsm_missile"))
+	assert_true(DataDB.weapon("jsm_missile") == null, "no F-35 here carries the JSM, so the catalogue does not list it")
 	assert_true(DataDB.platform("rn_ssn_astute").weapon_loadout.has("tomahawk_tlam_v"))
 	assert_eq(Array(DataDB.weapon("tomahawk_tlam_v").target_types), ["land"])
 	assert_eq(DataDB.weapon("jmsdf_type07_vla").delivery_payload_id, "jmsdf_type97_torpedo")

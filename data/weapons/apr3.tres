@@ -24,4 +24,4 @@ launch_interval_s = 20.0
 run_to_enable_nm = 0.5
 acoustic_signature = 0.60
 source_status = "M30: Rosoboronexport Aerospace Systems catalogue (2005), p129, describes APR-3E as an airborne anti-submarine weapon with a turbo water-jet motor. This resource represents the family; release, descent and acquisition are simplified, and speed remains game tuning. PUBLIC: platform identity and broad system roles; see docs/REALISM.md. GAMEPLAY_ESTIMATE: signatures, ranges, effectiveness, channels, loadouts, endurance and combat parameters. Fictional scenario fit; not an operational capability claim."
-soft_kill_resistance = 0.7
+soft_kill_resistance = 1.0

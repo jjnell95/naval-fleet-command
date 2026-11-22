@@ -20,7 +20,7 @@ PLATFORMS, WEAPONS, SENSORS = {}, {}, {}
 ## Modern-catalogue resources these platforms carry as fitted. Listed so the manifest is complete.
 SHARED_WEAPONS = ["sm2_family", "sm3_family", "sm6_family", "essm_family", "ram_block2", "phalanx_ciws",
                   "mk45_mod4_gun", "rgm_84_harpoon", "agm_84_harpoon", "oto_76mm_gun", "mk8_114mm_gun",
-                  "aim120_family", "aim9x_air", "jsm_missile", "p800_oniks", "oneway_attack_drone", "mk54_lwt",
+                  "aim120_family", "aim9x_air", "p800_oniks", "oneway_attack_drone", "mk54_lwt",
                   "pla_yj91"]
 SHARED_SENSORS = ["an_spy_1d_v", "an_apg_81", "an_asq_239", "civil_nav_radar", "mp_405", "nato_esm_suite"]
 
@@ -82,6 +82,16 @@ SHORT_NAMES = {
 }
 
 
+# How hard each torpedo's seeker is to pull onto a decoy (WeaponSpec.soft_kill_resistance), by
+# seeker generation: 1.0 is a current digital seeker, the newest heavyweights sit above it and an
+# export weapon of 1980s design a little below. A wake-homer does not listen at all, so an
+# acoustic decoy has almost nothing to offer it.
+DECOY_RESISTANCE = {
+    "pla_yu6": 1.1, "pla_yu7": 1.0, "jmsdf_type12_torpedo": 1.2, "jmsdf_type97_torpedo": 1.1,
+    "jmsdf_type18_torpedo": 1.3, "irn_test71me": 0.9, "irn_53_65ke": 4.0,
+}
+
+
 def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     d = dict(display_name=name, short_name=SHORT_NAMES[key], family=name.split(" /")[0], type=kind, target_types=targets,
              guidance="fire_control_directed" if kind in ["sam", "ciws"] else "active_radar_homing",
@@ -93,7 +103,8 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     if kind == "torpedo":
         d.update(guidance="acoustic_homing", profile="subsurface", min_range_nm=0.4,
                  seeker_range_nm=2.2, turn_rate_deg_s=12.0, launch_interval_s=20.0,
-                 run_to_enable_nm=0.8, acoustic_signature=0.65, soft_kill_resistance=0.7, altitude_m=0.0)
+                 run_to_enable_nm=0.8, acoustic_signature=0.65,
+                 soft_kill_resistance=DECOY_RESISTANCE[key], altitude_m=0.0)
     if kind in ["gun", "ciws"]:
         d.update(profile="direct" if kind == "gun" else "high", min_range_nm=0.4 if kind == "gun" else 0.05,
                  seeker_range_nm=0.0 if kind == "gun" else 1.0,
@@ -103,6 +114,14 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
         d.update(min_range_nm=1.0, altitude_m=8000.0, signature_factor=0.05)
     note = kw.pop("note", "")
     payload = kw.pop("delivery_payload_id", "")
+    if kind == "asw_rocket":
+        # A rocket that throws a torpedo to the datum. The flight is the rocket's; from water entry
+        # everything is the payload's, so the figures shown here are copied from the payload
+        # already written above.
+        carried = WEAPONS[payload]
+        d.update(guidance="inertial_delivery", profile="high", altitude_m=300.0, min_range_nm=0.4,
+                 turn_rate_deg_s=12.0, launch_interval_s=20.0, **{k: carried[k] for k in [
+                     "seeker_range_nm", "base_pk", "run_to_enable_nm", "acoustic_signature", "soft_kill_resistance"]})
     # Supported update-capable fits; an active terminal seeker alone does not imply a datalink.
     if key in {"pla_pl15", "jasdf_aam4b", "jmsdf_type17_ssm", "jgsdf_type12_ssm"}:
         d["midcourse_updates"] = True
@@ -242,8 +261,9 @@ def catalogue():
     weapon("pla_yu6", "Yu-6 heavyweight torpedo", "torpedo", ["surface", "subsurface"], 24, 50, 90,
            base_pk=0.70, run_to_enable_nm=1.0, acoustic_signature=0.7)
     weapon("pla_yu7", "Yu-7 lightweight torpedo", "torpedo", ["subsurface"], 6, 43, 55, base_pk=0.68, run_to_enable_nm=0.4)
-    weapon("pla_yu8", "Yu-8 rocket-delivered ASW torpedo", "torpedo", ["subsurface"], 16, 240, 55,
-           vls_pack=1, base_pk=0.66, run_to_enable_nm=0.3, guidance="rocket_delivery_abstracted")
+    # Thrown from a vertical cell at about the speed of sound; the Yu-7 it carries does the rest.
+    weapon("pla_yu8", "Yu-8 rocket-delivered ASW torpedo", "asw_rocket", ["subsurface"], 16, 600, 55,
+           vls_pack=1, delivery_payload_id="pla_yu7")
     weapon("pla_yj82", "YJ-82 submarine-launched anti-ship missile", "asm", ["surface"], 22, 480, 35,
            min_range_nm=2.0, base_pk=0.70)
     weapon("pla_pl15", "PL-15 active-radar air-to-air missile", "aam", ["air"], 80, 2600, 45, base_pk=0.55, min_range_nm=1.5)
@@ -402,14 +422,13 @@ def catalogue():
     weapon("jmsdf_type17_ssm", "Type 17 ship-to-ship missile", "asm", ["surface"], 110, 490, 48,
            base_pk=0.82, salvo_default=4, defensive_difficulty=1.15, altitude_m=8.0, soft_kill_resistance=1.3, signature_factor=0.1)
     weapon("jmsdf_type90_ssm", "Type 90 ship-to-ship missile", "asm", ["surface"], 81, 480, 45, base_pk=0.78, salvo_default=4)
-    weapon("jmsdf_type07_vla", "Type 07 vertical-launch ASW rocket", "torpedo", ["subsurface"], 12, 240, 55,
-           vls_pack=1, base_pk=0.68, run_to_enable_nm=0.4, type="asw_rocket", guidance="inertial_delivery",
-           delivery_payload_id="jmsdf_type97_torpedo", profile="high", altitude_m=300.0,
-           note=("M30: modeled rocket delivery followed by a Type 97-family underwater payload. Payload selection and "
-                 "trajectory are representative gameplay assumptions; public JMSDF records identify the Type 07 as a "
-                 "torpedo-delivery rocket."))
     weapon("jmsdf_type12_torpedo", "Type 12 lightweight torpedo", "torpedo", ["subsurface"], 6, 45, 55, base_pk=0.70, run_to_enable_nm=0.4)
     weapon("jmsdf_type97_torpedo", "Type 97 air-launched torpedo", "torpedo", ["subsurface"], 6, 45, 55, base_pk=0.70, run_to_enable_nm=0.3)
+    weapon("jmsdf_type07_vla", "Type 07 vertical-launch ASW rocket", "asw_rocket", ["subsurface"], 12, 600, 55,
+           vls_pack=1, delivery_payload_id="jmsdf_type97_torpedo",
+           note=("Rocket delivery followed by a Type 97-family underwater payload. Payload selection and "
+                 "trajectory are representative gameplay assumptions; public JMSDF records identify the Type 07 as a "
+                 "torpedo-delivery rocket."))
     weapon("jmsdf_type18_torpedo", "Type 18 heavyweight torpedo", "torpedo", ["surface", "subsurface"], 27, 55, 95,
            base_pk=0.76, run_to_enable_nm=1.0, acoustic_signature=0.7)
     weapon("jasdf_asm3", "ASM-3 supersonic anti-ship missile", "asm", ["surface"], 108, 1750, 60,
