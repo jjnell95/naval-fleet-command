@@ -1,7 +1,7 @@
 class_name Unit
 extends RefCounted
 ## Ground-truth simulation entity. Not a Node: owned by UnitManager, rendered by TacticalMap.
-## Enemy units are never shown to the player directly; from Milestone 2 they are perceived via Tracks.
+## Enemy units are never shown to the player directly; they are perceived via Tracks.
 
 const PERISCOPE_DEPTH_M := 20.0
 const HOVER_SPEED_KN := 12.0  # at or below this a helicopter counts as stopped
