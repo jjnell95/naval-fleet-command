@@ -200,13 +200,25 @@ func test_land_blocks_surface_investigation_but_aircraft_can_overfly() -> void:
 	var t := _track()
 	t.position = Vector2(5, 0)
 	um.add_unit(u)
-	assert_true(not um.issue_order(u, Order.investigate(t)), "initial route cannot cross land")
+	# A contact behind an island is closed by sea, round it: never across it, and never refused.
+	assert_true(um.issue_order(u, Order.investigate(t)), "a hull is sent round the island")
+	assert_true(u.waypoints.size() > 1, "by more than the one straight leg")
+	var at := u.position
+	for p: Vector2 in u.waypoints:
+		assert_true(Terrain.first_land_contact(at, p) < 0.0, "no leg of the way crosses the island")
+		at = p
+	assert_eq(u.waypoints.back(), t.position)
 	assert_eq(UnitManager.investigation_rejection(_unit(true), t), "")
 	t.position = Vector2(-5, 10)
 	assert_true(um.issue_order(u, Order.investigate(t)))
 	t.position = Vector2(5, 0)
 	um.tick(0.25)
-	assert_eq(u.investigation_track, null, "a fresh plot cannot send a hull across an island")
+	assert_eq(u.investigation_track, t, "a fresh plot behind the island is followed round it")
+	assert_true(u.waypoints.size() > 1 and u.ordered_speed_kn > 0.0)
+	# A plot that falls ashore is still nowhere a hull can go.
+	t.position = Vector2(0, 0)
+	um.tick(0.25)
+	assert_eq(u.investigation_track, null, "a plot ashore cannot send a hull onto the island")
 	assert_true(u.investigation_result.contains("Land blocks"))
 	assert_eq(u.ordered_speed_kn, 0.0)
 	um.free()

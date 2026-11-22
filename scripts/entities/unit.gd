@@ -66,6 +66,15 @@ var attack_progress_pos := Vector2.INF
 var plan_kept := false
 var plan_waypoints: Array[Vector2] = []
 var plan_speed_kn := 0.0
+## Where the way a task has laid round a coast ends: the firing point or the plot it was planned
+## for. The route stands while the task's goal stays near this, so the search is run again when
+## the picture changes and not every tick. Vector2.INF while the platform steers straight.
+var nav_goal := Vector2.INF
+## How long a hull has been held by a coast without making the way its engines ask for, and
+## whether it has stopped and reported it. The report is made once: the mark clears when the hull
+## is given somewhere else to go or makes way again.
+var coast_blocked_s := 0.0
+var coast_blocked := false
 ## The standing assignment: where this platform belongs when no temporary task holds it. A patrol
 ## circuit (an air station is one too) or a formation station on a guide. Attack, Investigate,
 ## evasion and air-to-air refuelling suspend it; an explicit replacement order from the commander (a
@@ -502,6 +511,9 @@ func apply_order(order: Order) -> void:
 		if order.origin != "crew":
 			player_order_generation += 1
 		station_note = ""
+		coast_blocked = false
+		coast_blocked_s = 0.0
+		nav_goal = Vector2.INF
 	# Repeating an attack keeps its rounds and assessment, but the commander's confirmation
 	# takes ownership of a crew-issued pursuit (including the CAP boundary override).
 	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
@@ -551,7 +563,8 @@ func apply_order(order: Order) -> void:
 			investigation_track = order.track
 			investigation_track_id = order.track.id
 			investigation_identify_only = order.identify_only
-			waypoints.assign([order.track.position])
+			if not steer_for(order.track.position):
+				waypoints.assign([order.track.position])  # UnitManager ends the task on its first step
 			investigation_speed_kn = task_speed_kn(false)
 			ordered_speed_kn = investigation_speed_kn
 		Order.Type.ATTACK:
@@ -567,13 +580,15 @@ func apply_order(order: Order) -> void:
 			var reach := attack_reach_nm(order.track, order.weapon_id)
 			if reach > 0.0 and position.distance_to(order.track.position) > reach / UnitManager.ATTACK_STANDOFF_FRACTION and not DippingSonar.holds_bearing(self, order.track):
 				take_steering()
-				waypoints.assign([Combat.standoff_point(position, order.track.position, reach)])
+				var firing_point := Combat.standoff_point(position, order.track.position, reach)
+				if not steer_for(firing_point):
+					waypoints.assign([firing_point])  # UnitManager ends the task on its first step
 				ordered_speed_kn = attack_speed_kn
 		Order.Type.PATROL:
 			formation_leader = null
 			patrol_active = true
 			patrol_legs_completed = 0
-			waypoints.assign(order.route)
+			waypoints.assign(sea_legs_through(order.route))
 			if ordered_speed_kn <= 0.0:
 				ordered_speed_kn = spec.cruise_speed_kn
 			set_station("patrol", order.station_label if order.station_label != "" else "PATROL")
@@ -588,9 +603,12 @@ func apply_order(order: Order) -> void:
 		Order.Type.SET_READY_ALERT:
 			ready_alert = clampi(order.aircraft_count, 0, AirMissionManager.MAX_READY_ALERT)
 		Order.Type.MOVE:
+			# A hull is given the way round whatever land lies on the straight course; UnitManager
+			# has already refused a destination with no way to it.
+			var leg_from := waypoints.back() as Vector2 if order.append and not waypoints.is_empty() else position
 			if not order.append:
 				waypoints.clear()
-			waypoints.append(order.target_pos)
+			waypoints.append_array(sea_legs(leg_from, order.target_pos))
 			if ordered_speed_kn <= 0.0:
 				ordered_speed_kn = spec.cruise_speed_kn
 		Order.Type.SET_COURSE:
@@ -763,13 +781,64 @@ func _resume_station() -> void:
 			formation_leader = null
 			patrol_active = true
 			patrol_legs_completed = 0
-			waypoints.assign(station_circuit_from_here())
+			waypoints.assign(sea_legs_through(station_circuit_from_here()))
 			ordered_speed_kn = station_speed()
 		"formation":
 			formation_leader = station_leader
 			formation_offset = station_offset
 			formation_axis_deg = station_axis_deg
 			waypoints.clear()
+
+
+## The legs to steer from `from` to `to`: the point itself for anything that flies, and for a hull
+## the way by sea, round whatever coast lies on the straight course. Never empty: with no way by
+## sea the straight leg is returned, for the callers that have nothing better to do with it.
+func sea_legs(from: Vector2, to: Vector2) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	if needs_sea_room():
+		out.assign(Terrain.sea_route(from, to))
+	if out.is_empty():
+		out.append(to)
+	return out
+
+
+## A route taken up from where the platform is now: the way by sea to its first point, then the
+## rest as given. The points added on the way to a patrol circuit are not corners of it, and
+## Movement drops them once passed instead of sailing them round again.
+func sea_legs_through(route: Array[Vector2]) -> Array[Vector2]:
+	if route.is_empty():
+		return route.duplicate()
+	var out := sea_legs(position, route[0])
+	out.append_array(route.slice(1))
+	return out
+
+
+## Lays the way to where a task wants the platform, for a goal that moves from tick to tick. A
+## straight leg whenever the water is open. With land in the way a hull takes the sea route, and
+## keeps the one it has while the goal has not moved far from where that route ends, so the
+## search is not run again until the picture has changed. False when a hull has no way there.
+const NAV_REPLAN_NM := 1.0
+const NAV_REPLAN_FRACTION := 0.05
+
+
+func steer_for(goal: Vector2) -> bool:
+	if not needs_sea_room() or Terrain.is_empty() or Terrain.sea_leg_clear(position, goal):
+		waypoints.assign([goal])
+		nav_goal = Vector2.INF
+		return true
+	if on_sea_route() and nav_goal.distance_to(goal) <= maxf(NAV_REPLAN_NM, position.distance_to(goal) * NAV_REPLAN_FRACTION):
+		return true
+	var route := Terrain.sea_route(position, goal)
+	if route.is_empty():
+		return false
+	waypoints.assign(route)
+	nav_goal = goal
+	return true
+
+
+## Following a way a task laid round a coast, rather than steering straight for its goal.
+func on_sea_route() -> bool:
+	return nav_goal.is_finite() and not waypoints.is_empty() and waypoints.back() == nav_goal
 
 
 ## The speed a task is carried out at. An attack that has to close does not dawdle at convoy
@@ -801,6 +870,7 @@ func take_steering() -> void:
 			plan_waypoints.assign(waypoints)
 		plan_speed_kn = ordered_speed_kn
 		waypoints.clear()
+		nav_goal = Vector2.INF
 	formation_leader = null
 	patrol_active = false
 	hold_active = false
@@ -821,7 +891,9 @@ func resume_plan() -> void:
 	var speed := plan_speed_kn
 	forget_plan()
 	hold_active = false
-	waypoints.assign(route)
+	nav_goal = Vector2.INF
+	# The task may have ended on the far side of a headland from the route it interrupted.
+	waypoints.assign(sea_legs_through(route))
 	if not waypoints.is_empty():
 		ordered_speed_kn = speed if speed > 0.0 else spec.cruise_speed_kn
 		return
@@ -839,6 +911,7 @@ func resume_plan() -> void:
 func clear_investigation(keep_plan := false) -> void:
 	if investigation_track != null:
 		waypoints.clear()
+		nav_goal = Vector2.INF
 	if not keep_plan:
 		forget_plan()
 	investigation_track = null
@@ -868,6 +941,7 @@ func attack_reach_nm(track: Track, weapon_id := "") -> float:
 func clear_attack(keep_plan := false) -> void:
 	if attack_track != null and plan_kept:
 		waypoints.clear()
+		nav_goal = Vector2.INF
 	if not keep_plan:
 		forget_plan()
 	attack_speed_ordered = false

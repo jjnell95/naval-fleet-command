@@ -58,7 +58,9 @@ static func profile_is_surface_bound(spec: WeaponSpec) -> bool:
 
 
 ## Whether the path a round would actually fly crosses land. Tested against the lead point rather
-## than the track, so the check and the firing solution drawn on the map agree.
+## than the track, so the check and the firing solution drawn on the map agree; and against the
+## coastline itself, which is what stops the round in flight, so a shot that is cleared here is
+## not then flown into a headland the coarser chart of ground heights had missed.
 static func crosses_land(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
 	if Terrain.is_empty() or not profile_is_surface_bound(spec):
 		return false
@@ -68,7 +70,7 @@ static func crosses_land(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
 	if track.domain == "land" or shooter.spec.domain == "land":
 		return false
 	var aim := intercept_point(shooter.position, spec.speed_kn, track.position, track.course_deg, track.speed_kn, track.has_kinematics)
-	return Terrain.blocks_path(shooter.position, aim)
+	return not Terrain.sea_leg_clear(shooter.position, aim)
 
 
 ## Whether `shooter` may fire `spec` at `track` right now. Returns {ok, reason, range_nm}.
@@ -208,10 +210,18 @@ static func standoff_point(from: Vector2, target_pos: Vector2, standoff_nm: floa
 ## A sea point within `standoff_nm` of the target from which a surface-bound round has an open
 ## line to it: rings round the target at the shooter's own range and at fractions of the standoff,
 ## each swung both ways from the shooter's bearing. Of those, the one nearest the shooter that it
-## can get to: a hull (`by_sea`) must be able to sail there, so a point with a perfect line of fire
-## on the far side of a peninsula is not chosen over a short move along the near shore.
-## Vector2.INF when the coast leaves none, which ends an attack rather than parking it behind a
-## headland.
+## can get to. A hull (`by_sea`) takes one it can sail straight to before any other, so a point
+## with a perfect line of fire on the far side of a peninsula is not chosen over a short move along
+## the near shore; with none of those, the nearest it has a way round the coast to, provided the
+## way round is a detour and not a voyage. Vector2.INF when the coast leaves none, which ends an
+## attack rather than parking it behind a headland.
+const CLEARING_ROUTE_TRIES := 4
+## The longest way round worth sailing for a line of fire, as a multiple of the straight distance
+## plus an allowance. GAMEPLAY_ESTIMATE.
+const CLEARING_DETOUR_FACTOR := 3.0
+const CLEARING_DETOUR_NM := 10.0
+
+
 static func clear_standoff_point(from: Vector2, target_pos: Vector2, standoff_nm: float, by_sea := true) -> Vector2:
 	if Terrain.is_empty():
 		return standoff_point(from, target_pos, standoff_nm)
@@ -224,18 +234,29 @@ static func clear_standoff_point(from: Vector2, target_pos: Vector2, standoff_nm
 		rings.append(range_nm)
 	var best := Vector2.INF
 	var best_d := INF
+	var round_the_coast: Array = []
 	for ring: float in rings:
 		for step: float in STANDOFF_ARC_DEG:
 			for side: float in [1.0, -1.0]:
 				var candidate := target_pos + bearing.rotated(deg_to_rad(step * side)) * ring
 				var d := from.distance_squared_to(candidate)
-				if d >= best_d or Terrain.is_land(candidate) or Terrain.blocks_path(candidate, target_pos):
+				if d >= best_d or Terrain.is_land(candidate) or Terrain.first_land_contact(candidate, target_pos) >= 0.0:
 					continue
-				if by_sea and not Terrain.reachable_by_sea(from, candidate):
+				if by_sea and not Terrain.sea_leg_clear(from, candidate):
+					round_the_coast.append([d, round_the_coast.size(), candidate])
 					continue
 				best = candidate
 				best_d = d
-	return best
+	if best.is_finite() or round_the_coast.is_empty():
+		return best
+	# Nothing in a straight line. The search for a way round is bounded: the few nearest, in turn.
+	round_the_coast.sort()
+	for i in mini(round_the_coast.size(), CLEARING_ROUTE_TRIES):
+		var candidate: Vector2 = round_the_coast[i][2]
+		var route := Terrain.sea_route(from, candidate)
+		if not route.is_empty() and Terrain.route_length_nm(from, route) <= from.distance_to(candidate) * CLEARING_DETOUR_FACTOR + CLEARING_DETOUR_NM:
+			return candidate
+	return Vector2.INF
 
 
 ## The no-escape range: how far off an aircraft can be and still be caught if it turns and runs the

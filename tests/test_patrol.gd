@@ -114,9 +114,19 @@ func test_land_crossing_and_blocked_approach_are_rejected_but_aircraft_can_overf
 	ship.position = Vector2(-5, 0)
 	var crossed := Order.patrol_box(Vector2(-4, 0), Vector2(4, 5))
 	assert_true(UnitManager.patrol_rejection(ship, crossed.route).contains("crosses land"))
-	var blocked := Order.patrol_box(Vector2(4, 0), Vector2(8, 5))
-	assert_true(UnitManager.patrol_rejection(ship, blocked.route).contains("approach"))
+	# A circuit on the far side of the island is taken up by sea, round it, not refused.
+	var beyond := Order.patrol_box(Vector2(4, 0), Vector2(8, 5))
+	assert_eq(UnitManager.patrol_rejection(ship, beyond.route), "")
 	assert_eq(UnitManager.patrol_rejection(_unit(true), crossed.route), "")
+	# One with no way to it at all still is: an island walled in by a second landmass round it.
+	Terrain.load_from({"terrain": {"land": [
+		{"points_nm": [[-30, -30], [30, -30], [30, -20], [-30, -20]], "name": "South"},
+		{"points_nm": [[-30, 20], [30, 20], [30, 30], [-30, 30]], "name": "North"},
+		{"points_nm": [[-30, -30], [-20, -30], [-20, 30], [-30, 30]], "name": "West"},
+		{"points_nm": [[20, -30], [30, -30], [30, 30], [20, 30]], "name": "East"}]}})
+	ship.position = Vector2(-60, 0)
+	var walled := Order.patrol_box(Vector2(-5, -5), Vector2(5, 5))
+	assert_true(UnitManager.patrol_rejection(ship, walled.route).contains("No sea route"))
 	Terrain.clear()
 
 func test_bingo_fuel_breaks_patrol_and_prevents_retasking_the_returning_aircraft() -> void:
