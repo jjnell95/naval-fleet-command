@@ -235,6 +235,12 @@ func test_protected_traffic_warning_stays_visible_for_a_filtered_firing_plan() -
 	f.simulation.track_manager._tracks["BLUE"].append(civilian)
 	var board := _board(f)
 	board.set_salvo(f.unit, f.spec, 2)
+	assert_true(board._plan.is_empty(), "a shot with held protected traffic inside the seeker basket cannot be planned")
+	assert_eq((board._items[0] as TreeItem).get_text(7), "NEUTRAL IN THE LINE OF FIRE", "and the row says why")
+	# Short of the basket the shot is the commander's to take, with the advisory in front of them.
+	civilian.position = f.track.position + Vector2(0, -13.5)
+	board.refresh()
+	board.set_salvo(f.unit, f.spec, 2)
 	assert_true(board._traffic.visible and board._traffic.text.contains("CIV42"), "protected traffic receives a dedicated visible warning, not a clipped third detail line")
 	board._role_option.select(1)  # air defence filter hides this surface weapon
 	board.refresh()

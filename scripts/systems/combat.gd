@@ -1,5 +1,6 @@
 class_name Combat
-## Engagement geometry and probability. Pure static functions, no state, no randomness.
+## Engagement geometry and probability. Static functions, no randomness, and no state beyond the
+## plot the launch discipline reads (`picture_source`).
 
 const LEAD_MAX_ITER := 4
 const AIR_TARGET_BONUS := 1.25
@@ -13,6 +14,11 @@ const AIR_REACTION_S := 5.0
 const AIR_DEFAULT_TURN_DEG_S := 6.0
 const TORPEDO_EVASION_BENEFIT := 0.45
 const BMD_INTERCEPTOR_ADVANTAGE := 0.45  # GAMEPLAY_ESTIMATE
+
+## The plot a shot is checked against for protected traffic when the caller hands none in: the
+## track manager of the engagement being fought, set by the WeaponManager it is wired to. A seeker
+## cannot tell a merchant from a warship, so the side's own picture has to before the round leaves.
+static var picture_source: TrackManager
 
 
 ## Lead intercept point against a track's estimated motion. Falls back to the raw track position
@@ -72,7 +78,9 @@ static func crosses_land(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
 
 
 ## Whether `shooter` may fire `spec` at `track` right now. Returns {ok, reason, range_nm}.
-static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, reserved_round := false) -> Dictionary:
+## `picture` is the plot the shot is checked against for protected traffic; without one the
+## engagement's own (`picture_source`) is read.
+static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, reserved_round := false, picture: TrackManager = null) -> Dictionary:
 	var out := {"ok": false, "reason": "", "range_nm": 0.0}
 	if shooter == null or spec == null or track == null:
 		out["reason"] = "NO TARGET"
@@ -149,6 +157,11 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if crosses_land(shooter, spec, track):
 		out["reason"] = "NO LINE OF FIRE"
 		return out
+	if picture == null and is_instance_valid(picture_source):
+		picture = picture_source
+	if picture != null and protected_contact_in_basket(shooter, spec, track, aim, picture.tracks_for(shooter)) != null:
+		out["reason"] = "NEUTRAL IN THE LINE OF FIRE"
+		return out
 	var arc := firing_arc_check(shooter, spec, aim)
 	if not arc.ok:
 		out["reason"] = "MOUNT MASKED / ATTACK TO UNMASK"
@@ -157,6 +170,44 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	out["ok"] = true
 	out["reason"] = "IN ENVELOPE"
 	return out
+
+
+## The contact the shooter's side holds as neutral or friendly that this shot could take instead
+## of its target, or null. A round searches the basket its seeker opens on round the aim point, and
+## a torpedo the whole run in from where its seeker comes on; anything there it is able to lock is
+## at risk, and the plot's own error is allowed for. Read from the held picture only: a merchant
+## nobody has identified does not stop a shot, which is the reason to identify before shooting.
+## A plot that does not hold the contact being shot at is some other engagement's and says nothing.
+static func protected_contact_in_basket(shooter: Unit, spec: WeaponSpec, track: Track, aim: Vector2, held_tracks: Array) -> Track:
+	if spec.is_anti_radiation():
+		return null  # it hears only the other side's radars
+	# A rocket-thrown torpedo searches with the torpedo's seeker, round where it enters the water.
+	var seeker := spec
+	if spec.delivery_payload_id != "":
+		var payload := DataDB.weapon(spec.delivery_payload_id)
+		if payload != null:
+			seeker = payload
+	var radius := seeker.acquisition_radius_nm()
+	var from := aim
+	if spec.is_torpedo():
+		var run := aim - shooter.position
+		from = shooter.position + run.limit_length(minf(spec.run_to_enable_nm, run.length()))
+	var listed := false
+	var at_risk: Track = null
+	for held: Track in held_tracks:
+		if held == track:
+			listed = true
+			continue
+		if at_risk != null or held.identity not in ["NEUTRAL", "FRIENDLY"]:
+			continue
+		if held.status == Track.Status.LOST or held.confirmed_destroyed or held.is_bearing_only():
+			continue
+		if held.domain != "" and not suits_track(seeker, held):
+			continue
+		var nearest := Geometry2D.get_closest_point_to_segment(held.position, from, aim)
+		if held.position.distance_to(nearest) <= radius + minf(maxf(held.position_error_nm, 0.0), radius):
+			at_risk = held
+	return at_risk if listed else null
 
 
 ## Each authored mount contributes a relative center bearing and a half-width. Multiple mounts

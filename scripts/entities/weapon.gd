@@ -49,6 +49,9 @@ var dead_reason := ""
 ## A round fired at an aircraft that reached its aim point with nothing in its seeker flies on along
 ## its heading, still searching, until its fuel runs out (`WeaponManager._try_acquire`).
 var searching_on := false
+## The unit this round was locked on sank, dived or landed, and it has found nothing since: it is
+## searching on down its heading and ends as TARGET LOST if its range runs out first.
+var lost_lock := false
 ## Fired from a battery ashore: the round climbs out over its own coast before the ordinary rule
 ## that a low-flying weapon ends at the first ground it meets applies to it.
 var launched_ashore := false
