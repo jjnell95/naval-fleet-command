@@ -135,6 +135,13 @@ var _cycle_torpedoes: Array[Weapon] = []
 var _in_decision_cycle := false
 
 
+## Connected as soon as the controller is in the tree, so a round that lands before its first
+## decision cycle (the first step after a reload) is still felt.
+func _ready() -> void:
+	if weapon_manager != null and not weapon_manager.weapon_impact.is_connected(_on_impact):
+		weapon_manager.weapon_impact.connect(_on_impact)
+
+
 func tick(now: float) -> void:
 	if not enabled or unit_manager == null:
 		return

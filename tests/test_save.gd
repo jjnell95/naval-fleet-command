@@ -151,7 +151,9 @@ func test_continuation_after_reload_matches_the_uninterrupted_battle() -> void:
 ## Both sides fighting through Northern Passage, saved after hits have been taken, so the damage
 ## stream has moved on from its seed and fires and flooding are being fought at the save.
 func test_continuation_after_damage_matches_the_uninterrupted_battle() -> void:
-	_fresh(PASSAGE, 31)
+	# A seed whose battle draws blood early: under seed 31 the Gorshkov answers the first volley
+	# and runs, and nothing is hit inside the bound.
+	_fresh(PASSAGE, 13)
 	_sim.ai_plays_player = true
 	_sim._build_ai()
 	var untouched := RandomNumberGenerator.new()
