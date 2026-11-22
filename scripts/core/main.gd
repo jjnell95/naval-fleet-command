@@ -4,7 +4,7 @@ extends Control
 ## global hotkeys. Dev flags (after `--`) are handled by DevHarness.
 
 const GAME_TITLE := "NAVAL FLEET COMMAND"
-const BUILD_MILESTONE := "M33 / Command Intent"
+const VERSION := "1.0"
 const DEFAULT_SCENARIO := "res://data/scenarios/northern_passage.json"
 ## Flags that mean the session is being driven programmatically, so the menu and briefing are
 ## skipped and the simulation is left ready to be advanced.
@@ -78,6 +78,16 @@ var _civilian_incidents: PackedStringArray = []
 ## What the debrief was shown with when the mission ended, so it can be opened again; empty while
 ## the mission runs.
 var _last_report: Array = []
+## An engagement is fire at one contact that keeps coming: its first launch hands the watch back at
+## real time, and the salvos and hits that follow inside this interval of each other do not.
+const ENGAGEMENT_QUIET_S := 300.0
+var _engagements: Dictionary = {}  # engagement key -> simulation time of its last launch or hit
+## Rounds end one at a time and are reported a salvo at a time: an entry waits until nothing has
+## been added to it for the quiet interval, or it has waited the longest a report may.
+const ROUND_REPORT_QUIET_S := 3.0
+const ROUND_REPORT_MAX_S := 12.0
+var _round_reports: Dictionary = {}  # "weapon|target" -> {name, at, outcomes {words -> rounds}, first, last}
+var _cancelled_rounds: Dictionary = {}  # "shooter|weapon|reason" -> {shooter, spec, reason, count, last}
 ## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
 ## a consort off the link). Each is announced once, when it reaches the picture.
 var _unannounced: Array[Weapon] = []
@@ -366,7 +376,7 @@ func _ready() -> void:
 		_hide_screens()
 	else:
 		_show_menu()
-	print("[Main] %s booted (%s) — %d units, Godot %s" % [GAME_TITLE, BUILD_MILESTONE, simulation.unit_manager.units.size(), Engine.get_version_info()["string"]])
+	print("[Main] %s booted (version %s) — %d units, Godot %s" % [GAME_TITLE, VERSION, simulation.unit_manager.units.size(), Engine.get_version_info()["string"]])
 	_dev = DevHarness.new(self)
 	_dev.handle_flags()
 
@@ -383,6 +393,8 @@ func _process(delta: float) -> void:
 	_autosave_if_due()
 	_announce_unannounced_threats()
 	_call_private_contacts()
+	if SimClock.paused:
+		_flush_round_reports(true)
 	var threats := _commander_inbound()
 	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager)
 	_command_guide.visible = _command_taken and _command_guide.enabled and not _has_visible_modal() and not status_boards.visible and not _views_swapped and not _world_full
@@ -517,6 +529,9 @@ func _reset_command_screen() -> void:
 	_contacts_called.clear()
 	_report.hide()
 	_last_report = []
+	_engagements.clear()
+	_round_reports.clear()
+	_cancelled_rounds.clear()
 	_autosaved_at = SimClock.sim_time
 
 
@@ -575,7 +590,7 @@ func save_engagement(slot: String, kind: String, label: String) -> String:
 		"elapsed_text": Geo.format_duration(SimClock.sim_time),
 		"created_unix": int(Time.get_unix_time_from_system()),
 		"version": SimSnapshot.VERSION,
-		"build": BUILD_MILESTONE,
+		"build": VERSION,
 		"note": _objective_summary(),
 		"gameplay": options.label(),
 	}
@@ -2161,11 +2176,33 @@ func _on_round_fired(shooter: Unit, spec: WeaponSpec, _track: Track) -> void:
 
 
 func _on_weapon_launched(shooter: Unit, spec: WeaponSpec, t: Track, rounds: int) -> void:
-	if _combat_observed(shooter, shooter.faction == simulation.player_faction):
+	var own := shooter.faction == simulation.player_faction
+	if _combat_observed(shooter, own) and _opens_engagement(_engagement_key(shooter, t)):
 		SimClock.drop_to_realtime()
-	if shooter.faction == simulation.player_faction and _receives_report(shooter):
-		radio.flash("%d x %s committed to track %s; %d queued" % [rounds, spec.display_name, DataDisplay.track_number_for_track(t), simulation.weapon_manager.committed_rounds(shooter, spec, t, true)], "good", shooter)
+	if own and _receives_report(shooter):
+		radio.flash(salvo_receipt(rounds, mini(simulation.weapon_manager.committed_rounds(shooter, spec, t, true), rounds), spec, DataDisplay.track_number_for_track(t)), "good", shooter)
 	Debug.event("[Combat] %s commits %d x %s at %s (%.1f nm)" % [shooter.callsign, rounds, spec.display_name, t.id, shooter.position.distance_to(t.position)])
+
+
+## The salvo as the launcher has it: every round of it counted once, away or still to go.
+static func salvo_receipt(rounds: int, waiting: int, spec: WeaponSpec, track_number: String) -> String:
+	if waiting <= 0:
+		return "%d × %s away at track %s" % [rounds, spec.compact_name(), track_number]
+	return "%d × %s at track %s: %d away, %d on the launcher" % [rounds, spec.compact_name(), track_number, rounds - waiting, waiting]
+
+
+## The commander's fire at one contact is one engagement, whichever of his platforms shoots;
+## another side's is one per shooter and target.
+func _engagement_key(shooter: Unit, t: Track) -> String:
+	var at := t.id if t != null else "?"
+	return at if shooter.faction == simulation.player_faction else "%d>%s" % [shooter.id, at]
+
+
+## Notes fire in an engagement and says whether it is the engagement's first.
+func _opens_engagement(key: String) -> bool:
+	var last := float(_engagements.get(key, -INF))
+	_engagements[key] = SimClock.sim_time
+	return SimClock.sim_time - last > ENGAGEMENT_QUIET_S
 
 
 func _on_threat_detected(faction: String, w: Weapon) -> void:
@@ -2314,16 +2351,18 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 			radio.flash("Charge complete. Snorkel secured, returning to depth", "good", u)
 
 
-## Why one of the commander's own rounds ended without reaching anything, in plain words. A hit
-## or a miss at the target is reported by _on_weapon_impact; this covers the rest, which used to
-## end in silence. Interceptors are the defence board's business and are left out.
+## How one of the commander's own rounds ended without a hit, in plain words. A hit is reported by
+## _on_weapon_impact; this covers the rest, so no salvo ends in silence. Interceptors are the
+## defence board's business and are left out, and so is gunfire, which is judged by its hits.
 const ROUND_LOSS_WORDS := {
 	"RANGE EXHAUSTED": "ran out of fuel short of the target",
 	"NO ACQUISITION": "searched and found nothing",
-	"TARGET LOST": "lost its target",
+	"TARGET LOST": "lost the target",
 	"GUIDANCE LOST": "lost guidance",
 	"TERRAIN": "hit the ground",
-	"DECOYED": "was decoyed",
+	"DECOYED": "decoyed",
+	"INTERCEPTED": "shot down",
+	"MISS": "missed",
 }
 
 
@@ -2334,9 +2373,60 @@ func _on_own_round_resolved(w: Weapon) -> void:
 		return
 	if w.shooter != null and not _receives_report(w.shooter):
 		return
+	if w.dead_reason == "MISS":
+		# A miss is known the way a hit is: someone saw it, or the plot holds the target.
+		if w.acquired == null or not _combat_observed(w.acquired, false):
+			return
+	else:
+		map.add_effect(w.position, "refused")
 	var at := "track %s" % DataDisplay.track_number_for_track(w.target_track) if w.target_track != null else "its target"
-	radio.advise("%s at %s %s" % [w.spec.compact_name(), at, ROUND_LOSS_WORDS[w.dead_reason]])
-	map.add_effect(w.position, "refused")
+	var key := "%s|%s" % [w.spec.id, at]
+	var now := SimClock.sim_time
+	if not _round_reports.has(key):
+		_round_reports[key] = {"name": w.spec.compact_name(), "at": at, "outcomes": {}, "first": now, "last": now}
+	var entry: Dictionary = _round_reports[key]
+	var words: String = ROUND_LOSS_WORDS[w.dead_reason]
+	entry["outcomes"][words] = int(entry["outcomes"].get(words, 0)) + 1
+	entry["last"] = now
+
+
+## One line for a salvo's rounds at one contact: "3 × Harpoon at track 1002 shot down", or with
+## more than one ending, "4 × Harpoon at track 1002: 3 shot down, 1 missed".
+static func round_report_line(entry: Dictionary) -> String:
+	var outcomes: Dictionary = entry["outcomes"]
+	var total := 0
+	var parts := PackedStringArray()
+	for words: String in outcomes:
+		total += int(outcomes[words])
+		parts.append("%d %s" % [int(outcomes[words]), words])
+	var what := "%s at %s" % [entry["name"], entry["at"]]
+	if total > 1:
+		what = "%d × %s" % [total, what]
+	return "%s %s" % [what, outcomes.keys()[0]] if outcomes.size() == 1 else "%s: %s" % [what, ", ".join(parts)]
+
+
+## Says the round reports that have gathered all they will. `all` says every one now: the clock
+## has stopped, or the mission is over.
+func _flush_round_reports(all := false) -> void:
+	if _round_reports.is_empty() and _cancelled_rounds.is_empty():
+		return
+	var now := SimClock.sim_time
+	for key: String in _cancelled_rounds.keys():
+		var c: Dictionary = _cancelled_rounds[key]
+		if not all and now - float(c["last"]) < 1.0:
+			continue
+		_cancelled_rounds.erase(key)
+		var n := int(c["count"])
+		var reason: String = c["reason"]
+		if n > 1:
+			reason = reason.replace("QUEUED ROUND CANCELLED", "%d QUEUED ROUNDS CANCELLED" % n)
+		radio.flash("Cannot fire %s: %s" % [(c["spec"] as WeaponSpec).display_name, reason], "warn", c["shooter"])
+	for key: String in _round_reports.keys():
+		var entry: Dictionary = _round_reports[key]
+		if not all and now - float(entry["last"]) < ROUND_REPORT_QUIET_S and now - float(entry["first"]) < ROUND_REPORT_MAX_S:
+			continue
+		_round_reports.erase(key)
+		radio.flash(round_report_line(entry), "warn")
 
 
 func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
@@ -2360,7 +2450,12 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 	# The chart and the 3D view show only a hit someone could witness; the clock and the speaker
 	# keep to the same rule.
 	if observed:
-		SimClock.drop_to_realtime()
+		# A hit taken always stops the clock, and so does one on a ship the plot holds as no enemy.
+		# The commander's own hits in an engagement already running are its routine.
+		var held := _held_track(target)
+		var routine := not own_target and faction == simulation.player_faction and held != null and held.identity not in ["NEUTRAL", "FRIENDLY"] and not _opens_engagement(held.id)
+		if not routine:
+			SimClock.drop_to_realtime()
 		SoundFx.play("impact", 0.2)
 	map.add_effect(target.position, "hit", own_target, target)
 	_world_view.add_effect(target.position, "hit", own_target, -1.0, target)
@@ -2464,13 +2559,21 @@ func _radio_name(u: Unit) -> String:
 
 func _on_engagement_rejected(shooter: Unit, spec: WeaponSpec, reason: String) -> void:
 	if shooter.faction == simulation.player_faction and _receives_report(shooter):
+		# A queued round the weapon system cancels was never an order the crew refused, and a
+		# launcher's whole queue goes at once: those are counted and said as one line.
+		if reason.begins_with("QUEUED ROUND CANCELLED"):
+			var key := "%d|%s|%s" % [shooter.id, spec.id, reason]
+			if not _cancelled_rounds.has(key):
+				_cancelled_rounds[key] = {"shooter": shooter, "spec": spec, "reason": reason, "count": 0, "last": 0.0}
+			_cancelled_rounds[key]["count"] += 1
+			_cancelled_rounds[key]["last"] = SimClock.sim_time
+			return
 		radio.flash("Cannot fire %s: %s" % [spec.display_name, reason], "warn", shooter)
-		# A queued round the weapon system cancels was never an order the crew refused.
-		if not reason.begins_with("QUEUED ROUND CANCELLED"):
-			voice.say("order_refused", shooter)
+		voice.say("order_refused", shooter)
 
 
 func _on_mission_ended(result: String, summary: String) -> void:
+	_flush_round_reports(true)
 	if data_display != null:
 		data_display.close_details()
 	SimClock.set_paused(true)
@@ -3051,6 +3154,7 @@ func _keep_contact_hooked() -> void:
 
 func _on_clock_tick(_dt: float) -> void:
 	_keep_contact_hooked()
+	_flush_round_reports()
 
 
 ## A unit off the link reports its own picture by voice. TrackManager says so, as it happens, with

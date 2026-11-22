@@ -16,7 +16,7 @@ func _boot(scenario: String, o: GameOptions = null, game_seed := 2) -> Main:
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
 	main._apply_options(o if o != null else GameOptions.normal(), false, false)
 	main.simulation.seed_override = game_seed
-	main.start_scenario(SCENARIOS + scenario)
+	main.start_scenario(scenario if scenario.contains("://") else SCENARIOS + scenario)
 	return main
 
 
@@ -310,4 +310,176 @@ func test_the_contact_menu_offers_identify_on_a_classified_contact_of_unknown_al
 	assert_eq(ship.investigation_track, t, "choosing it sends the ship to look")
 	t.identity = "NEUTRAL"
 	assert_true(not _menu_texts(CdsMenus.engage_items([ship], t, true, sim.weapon_manager)).has("Identify contact"), "an identified contact no longer offers it")
+	_close(main)
+
+
+# --- Salvos: the receipt, the clock and how the rounds ended ----------------------------------
+
+const RANGE := {"id": "command_two_range", "name": "Firing Range", "player_faction": "BLUE", "environment": {"sea_state": 3}, "map": {"center_nm": [0, 0], "extent_nm": 80},
+	"objectives": {"text": "Range practice", "victory": [{"id": "hold", "type": "time_elapsed", "seconds": 60000}], "loss": []}, "units": [
+	{"platform": "usn_cg_ticonderoga", "callsign": "USS Range Cruiser", "faction": "BLUE", "position_nm": [0, 0], "speed_kn": 0},
+	{"platform": "usn_ddg_burke_iii", "callsign": "USS Range Destroyer", "faction": "BLUE", "position_nm": [-3, -2], "speed_kn": 0},
+	{"platform": "cw90_sovremenny", "callsign": "Range Target", "faction": "RED", "position_nm": [0, 10], "speed_kn": 0}]}
+const MISSILE := "tomahawk_block_v"
+
+
+## Two own ships and one held hostile ten miles off, nobody shooting back: {main, own, enemy, track}.
+func _range() -> Dictionary:
+	var path := "user://test-command-two-range.json"
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(RANGE))
+	file.close()
+	var main := _open(path)
+	var sim := main.simulation
+	sim.ai_enabled = false
+	var own: Array = sim.unit_manager.get_engageable_units("BLUE")
+	var enemy: Unit = sim.unit_manager.get_engageable_units("RED")[0]
+	sim.track_manager.observe("BLUE", enemy, enemy.position, 1, 1, SimClock.sim_time, 1, 10)
+	var track := sim.track_manager.find_track("BLUE", enemy)
+	track.identity = "HOSTILE"
+	track.domain = "surface"
+	main.map.select_units([own[0]])
+	main.map.select_track(track)
+	return {"main": main, "own": own, "enemy": enemy, "track": track}
+
+
+func _own_rounds(main: Main) -> Array:
+	return main.simulation.weapon_manager.in_flight.filter(func(w: Weapon) -> bool:
+		return w.faction == main.simulation.player_faction and not w.is_interceptor() and w.phase != Weapon.Phase.DEAD)
+
+
+func test_a_salvo_receipt_counts_each_round_once() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	var ship: Unit = f["own"][0]
+	var number := DataDisplay.track_number_for_track(f["track"])
+	main._apply_order_to_selection(Order.engage(f["track"], MISSILE, 4))
+	var away := _own_rounds(main).size()
+	var waiting := main.simulation.weapon_manager.committed_rounds(ship, DataDB.weapon(MISSILE), f["track"], true)
+	assert_eq(away + waiting, 4, "four rounds in all: %d away, %d on the launcher" % [away, waiting])
+	assert_true(waiting > 0, "a salvo of four leaves rounds waiting on the launcher")
+	var name := DataDB.weapon(MISSILE).compact_name()
+	var lines := _journal(main, ["4 × %s at track %s: %d away, %d on the launcher" % [name, number, away, waiting]])
+	assert_eq(lines.size(), 1, "the receipt says so once: %s" % str(main.radio.journal))
+	for line: String in main.radio.journal:
+		assert_true(not line.contains("; %d queued" % waiting), "and never as rounds on top of the salvo: %s" % line)
+	main._apply_order_to_selection(Order.engage(f["track"], "mk45_mod4_gun", 1))
+	assert_eq(_journal(main, ["1 × ", " away at track %s" % number]).size(), 1, "a single round is simply away: %s" % str(main.radio.journal.slice(-2)))
+	_close(main)
+
+
+func test_own_salvos_in_one_engagement_drop_time_compression_once() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	var fast := SimClock.speeds().size() - 1
+	var drops: Array[int] = [0]
+	var count := func(index: int, _m: float) -> void:
+		if index == 0:
+			drops[0] += 1
+	SimClock.speed_changed.connect(count)
+	SimClock.set_speed_index(fast)
+	main._apply_order_to_selection(Order.engage(f["track"], "mk45_mod4_gun", 2))
+	assert_eq(drops[0], 1, "the first salvo of the engagement hands the watch back at real time")
+	SimClock.set_speed_index(fast)
+	SimClock.advance(20.0)
+	main._apply_order_to_selection(Order.engage(f["track"], "mk45_mod4_gun", 2))
+	assert_eq(drops[0], 1, "the next salvo at the same contact leaves the time scale alone")
+	assert_eq(SimClock.speed_index, fast)
+	main.simulation.weapon_manager.weapon_impact.emit(main.simulation.player_faction, DataDB.weapon("mk45_mod4_gun"), f["enemy"], true)
+	assert_eq(drops[0], 1, "and so does a hit scored in the same engagement")
+	# What is done to the commander's own ships still stops the clock every time.
+	main.simulation.weapon_manager.weapon_impact.emit("RED", DataDB.weapon("mk45_mod4_gun"), f["own"][1], true)
+	assert_eq(drops[0], 2, "a hit taken drops to real time")
+	SimClock.speed_changed.disconnect(count)
+	_close(main)
+
+
+func test_a_salvo_shot_down_is_reported_in_one_line() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	var wm := main.simulation.weapon_manager
+	main._apply_order_to_selection(Order.engage(f["track"], MISSILE, 3))
+	for step in 60:
+		if _own_rounds(main).size() >= 3:
+			break
+		SimClock.advance(1.0)
+	var rounds := _own_rounds(main)
+	assert_eq(rounds.size(), 3, "three rounds are in the air")
+	var before := main.radio.journal.size()
+	for w: Weapon in rounds:
+		wm.defeat_weapon(w, "INTERCEPTED", f["enemy"])
+	SimClock.advance(6.0)
+	var said: Array = main.radio.journal.slice(before)
+	var number := DataDisplay.track_number_for_track(f["track"])
+	assert_eq(said.size(), 1, "one line for the salvo: %s" % str(said))
+	assert_true(not said.is_empty() and str(said[0]).ends_with("3 × %s at track %s shot down" % [DataDB.weapon(MISSILE).compact_name(), number]), "saying all three were shot down: %s" % str(said))
+	_close(main)
+
+
+func test_one_round_shot_down_and_a_mixed_salvo_read_plainly() -> void:
+	assert_eq(Main.round_report_line({"name": "Harpoon", "at": "track 1002", "outcomes": {"shot down": 1}}), "Harpoon at track 1002 shot down")
+	assert_eq(Main.round_report_line({"name": "Harpoon", "at": "track 1002", "outcomes": {"shot down": 3, "missed": 1}}), "4 × Harpoon at track 1002: 3 shot down, 1 missed")
+
+
+func test_a_miss_the_plot_can_see_is_reported() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	main._apply_order_to_selection(Order.engage(f["track"], MISSILE, 1))
+	var rounds := _own_rounds(main)
+	assert_eq(rounds.size(), 1)
+	var before := main.radio.journal.size()
+	var w: Weapon = rounds[0]
+	w.acquired = f["enemy"]
+	w.phase = Weapon.Phase.DEAD
+	w.dead_reason = "MISS"
+	SimClock.advance(6.0)
+	var said: Array = main.radio.journal.slice(before)
+	assert_true(said.size() == 1 and str(said[0]).ends_with("at track %s missed" % DataDisplay.track_number_for_track(f["track"])), "the miss is said: %s" % str(said))
+	_close(main)
+
+
+func test_cancelled_queued_rounds_fold_into_one_line() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	var ship: Unit = f["own"][0]
+	var spec := DataDB.weapon(MISSILE)
+	var before := main.radio.journal.size()
+	for i in 5:
+		main.simulation.weapon_manager.engagement_rejected.emit(ship, spec, "QUEUED ROUND CANCELLED: OUT OF RANGE")
+	SimClock.advance(2.0)
+	var said: Array = main.radio.journal.slice(before)
+	assert_eq(said.size(), 1, "five cancellations, one line: %s" % str(said))
+	assert_true(not said.is_empty() and str(said[0]).contains("5 QUEUED ROUNDS CANCELLED: OUT OF RANGE"), str(said))
+	_close(main)
+
+
+func test_the_boot_banner_names_a_version_and_no_milestone() -> void:
+	assert_true(Main.VERSION.is_valid_float() or Main.VERSION.split(".").size() >= 2, "a plain version: %s" % Main.VERSION)
+	assert_true(not Main.VERSION.contains("M3") and not Main.VERSION.contains("/"), Main.VERSION)
+
+
+func test_the_firing_board_keeps_the_running_groups_budget_and_says_each_count_once() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	main.map.select_units(f["own"])
+	main._toggle_weapon_control()
+	var board := main._weapon_control
+	assert_true(board.visible and board._group_row.visible, "the board is open with the group row")
+	var suggested := int(board._budget.value)
+	board._budget.value = suggested + 3
+	board._group_commit.pressed.emit()
+	var groups: Array = main.simulation.group_attack_manager.active_groups("BLUE")
+	assert_eq(groups.size(), 1, "the group attack is running: %s" % board._receipt.text)
+	if groups.size() == 1:
+		var g: GroupAttack = groups[0]
+		assert_eq(g.budget, suggested + 3)
+		board.refresh()
+		assert_eq(int(board._budget.value), g.budget, "the budget box stays on the running group's budget")
+		var line := board._group_status.text
+		assert_true(line.contains("budget %d" % g.budget), line)
+		for word: String in ["queued", "away"]:
+			assert_true(not line.contains(word), "the counts are not repeated in words (%s): %s" % [word, line])
+		for word: String in ["fired ", "on the launcher", "in flight"]:
+			assert_eq(line.count(word), 1, "%s once: %s" % [word, line])
+	main._close_weapon_control()
 	_close(main)

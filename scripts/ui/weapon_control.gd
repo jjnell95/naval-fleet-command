@@ -379,7 +379,13 @@ func _update_group_status() -> void:
 	var manager := simulation.group_attack_manager
 	var running := _hooked_groups()
 	_group_cancel.disabled = running.is_empty()
-	if not _budget_set:
+	if not running.is_empty():
+		# The box is the running attack's budget while it runs, not a fresh suggestion.
+		var was_building := _building
+		_building = true
+		_budget.value = running[0].budget
+		_building = was_building
+	elif not _budget_set:
 		var was_building := _building
 		_building = true
 		var suggested := _planned_rounds()
@@ -391,13 +397,27 @@ func _update_group_status() -> void:
 	# One attack at a time for the same platforms on a contact; the running one is cancelled first.
 	_group_commit.disabled = target == null or lead == null or manager.overlapping(simulation.player_faction, units, [target]) != null
 	if not running.is_empty():
-		_group_status.text = manager.summary(running[0])
+		_group_status.text = group_line(running[0], manager.status(running[0]))
 	elif target == null:
 		_group_status.text = "Hook a contact for a group attack."
 	else:
 		var preview := manager.preview(lead, _group_order()) if lead != null else ""
 		_group_status.text = ("First volley: " + preview) if preview != "" else "No hooked platform holds a solution."
 	_group_status.tooltip_text = _group_status.text
+
+
+## The running attack on one line, each count said once: the budget, what has left the launchers,
+## what is still on them and what is in the air, then what the group is waiting for.
+static func group_line(g: GroupAttack, status: Dictionary) -> String:
+	var waiting := PackedStringArray()
+	for part: String in str(status["phase"]).split(", ", false):
+		# The phase repeats the queued and airborne counts in words; the columns already hold them.
+		if not (part.ends_with(" queued") or part.ends_with(" away")):
+			waiting.append(part)
+	var line := "Group %d on %s · budget %d · fired %d · %d on the launcher · %d in flight" % [g.id, g.target_label(), g.budget, int(status["fired"]), int(status["queued"]), int(status["airborne"])]
+	if not waiting.is_empty():
+		line += " · " + ", ".join(waiting)
+	return "%s · %d of %d shooters" % [line, g.members_in_attack(), g.members.size()]
 
 
 func _select_weapon() -> void:
