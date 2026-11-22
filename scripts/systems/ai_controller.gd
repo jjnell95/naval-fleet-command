@@ -39,9 +39,10 @@ const TORPEDO_SALVO := 2
 ## Paket-NK rounds the AI keeps back from an attack for torpedoes coming at its own ship.
 const ANTI_TORPEDO_RESERVE := 2
 ## A weapon that takes too long to arrive is shooting at where the target used to be. This one
-## rule keeps the AI from firing a 50 knot torpedo across twenty miles of ocean without needing a
-## special case for torpedoes. It is about targets that move: a shore installation is where it was
-## when the round left, so a land-attack round may take as long as it needs (`_is_fixed_target`).
+## rule keeps the AI from firing a free-running torpedo across twenty miles of ocean. It is about
+## targets that move: a shore installation is where it was when the round left, so a land-attack
+## round may take as long as it needs (`_is_fixed_target`), and a torpedo steered by wire is told
+## where the target has gone all the way there.
 const MAX_TIME_OF_FLIGHT_S := 480.0
 ## Above this a land track is taken to be moving, and the flight-time limit applies to it again.
 const FIXED_TARGET_MAX_KN := 1.0
@@ -51,6 +52,13 @@ const MIN_SOLUTION_FOR_SLOW_WEAPON := 0.5  # a bearing with no range is not a fi
 ## radiates to see what is shooting at it. GAMEPLAY_ESTIMATE.
 const UNDER_FIRE_MEMORY_S := 300.0
 const BREAKOUT_TORPEDO_NM := 8.0  # a boat breaking out shoots only at what is in its way
+## A boat working a contact on bearings: how long it holds each leg and how far off the line of
+## bearing it steers. A leg has to outlast the turn and still leave the bearing rate minutes to
+## show (BearingSolution.LEG_MIN_S); the change of course between legs is twice the offset.
+## GAMEPLAY_ESTIMATE.
+const TMA_LEG_S := 240.0
+const TMA_LEG_OFFSET_DEG := 50.0
+const BEARING_SHOT_FRACTION := 0.5  # a wire-guided fish goes on a rough range this far inside its reach
 const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not at arm's length
 const BUOY_DROP_RANGE_NM := 9.0
 const BUOY_INTERVAL_S := 150.0
@@ -494,7 +502,10 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 				continue
 			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM:
 				continue
-			var long_flight := Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S
+			# A fish on a wire is steered all the way by the boat that fired it, so a long run is
+			# what it is built for, not a shot at where the target used to be.
+			var steered := spec.is_torpedo() and spec.supports_midcourse_updates()
+			var long_flight := Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S and not steered
 			if long_flight and not _is_fixed_target(t):
 				continue
 			# A distant installation will keep. A round that can also sink ships (Tomahawk) keeps its
@@ -502,7 +513,7 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			var spare := _offensive_rounds(u, spec) - (ASM_SALVO if long_flight and spec.target_types.has("surface") else 0)
 			if spare <= 0:
 				continue
-			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON:
+			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON and not _bearing_shot(spec, t, check["range_nm"]):
 				continue
 			# Last, the launcher's own test (guidance, fire-control channels), so a shot it would
 			# refuse is passed over for the next weapon instead of being asked for every cycle.
@@ -521,6 +532,16 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 				best = {"track": t, "weapon": spec, "salvo": rounds}
 			break
 	return best
+
+
+## A wire-guided torpedo can go on a rough range: the boat keeps working the plot after it fires
+## and the wire carries each better answer to the round. So once the plot holds any range at all,
+## and that range is well inside the fish's reach, the captain shoots rather than wait for a
+## textbook solution and let the target walk out of his envelope.
+func _bearing_shot(spec: WeaponSpec, t: Track, range_nm: float) -> bool:
+	if not spec.is_torpedo() or not spec.supports_midcourse_updates():
+		return false
+	return t.tma_quality >= Track.RANGE_HELD_QUALITY and range_nm <= BEARING_SHOT_FRACTION * spec.max_range_nm
 
 
 ## What the launcher will take, as WeaponManager judges it at launch. A radar the captain would
@@ -873,11 +894,34 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 			return
 		_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
 		return
+	if _work_bearing(u, b, t, now):
+		return
 	if standoff_nm <= 0.0 or range_nm <= standoff_nm:
 		_command(u, b, u.heading_deg, u.spec.cruise_speed_kn, now)  # on station, hold
 		return
 	# Approach along the bearing, stopping at the standoff distance.
 	_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
+
+
+## A boat holding a ship or a boat on bearings alone has no range to shoot on, and steaming on one
+## course never gives it one: the bearing drifts the same way whatever the range. So it works the
+## contact as a submarine captain does, in steady legs either side of the line of bearing, each
+## held long enough to read a bearing rate, until the plot has a solution worth a torpedo. Closing
+## on a lead either side of the bearing also shortens the range while it does. False when the
+## contact is not one to work this way, and the ordinary closing or holding applies.
+func _work_bearing(u: Unit, b: Dictionary, t: Track, now: float) -> bool:
+	if not u.is_submarine() or not t.bearing_only or t.tma_quality >= MIN_SOLUTION_FOR_SLOW_WEAPON:
+		return false
+	if t.domain not in ["surface", "subsurface"]:
+		return false
+	var leg := floori(now / TMA_LEG_S)
+	if int(b.get("tma_leg", -1)) != leg or str(b.get("tma_track", "")) != t.id:
+		var side := 1.0 if leg % 2 == 0 else -1.0
+		b["tma_leg"] = leg
+		b["tma_track"] = t.id
+		b["tma_course"] = fposmod(Geo.bearing_deg(u.position, t.position) + side * TMA_LEG_OFFSET_DEG, 360.0)
+	_command(u, b, _open_bearing(u, float(b["tma_course"])), u.spec.cruise_speed_kn, now)
+	return true
 
 
 ## The reach an aircraft searching open water should be using. Around a datum — a torpedo heard,

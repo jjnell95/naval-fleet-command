@@ -263,3 +263,131 @@ func test_a_ship_with_its_radar_merely_off_lights_it_for_the_better_missile() ->
 		assert_eq(shots[0]["order"].weapon_id, guided.id, "the switch is the captain's to make, so the first choice stands")
 	assert_true(red.radar_on, "and the radar is lit for it")
 	h.free_all()
+
+
+# --- A boat works its contact and shoots ---------------------------------------------------
+
+func _boat(pos: Vector2) -> Unit:
+	var u := Unit.new()
+	var p := PlatformSpec.new()
+	p.short_name = "SSK Test"
+	p.domain = "subsurface"
+	p.max_speed_kn = 17.0
+	p.cruise_speed_kn = 6.0
+	p.max_depth_m = 300.0
+	p.patrol_depth_m = 90.0
+	p.depth_rate_m_s = 2.0
+	p.health = 60.0
+	u.spec = p
+	u.faction = "RED"
+	u.callsign = "RED-SSK"
+	u.position = pos
+	u.health = p.health
+	u.depth_m = 90.0
+	u.ordered_depth_m = 90.0
+	u.heading_deg = 0.0
+	return u
+
+
+func _heavyweight(wire := true) -> WeaponSpec:
+	var w := WeaponSpec.new()
+	w.id = "test_heavyweight"
+	w.type = "torpedo"
+	w.profile = "subsurface"
+	w.guidance = "acoustic_homing"
+	w.target_types = ["surface", "subsurface"]
+	w.min_range_nm = 1.3
+	w.max_range_nm = 22.0
+	w.speed_kn = 50.0
+	w.seeker_range_nm = 2.2
+	w.midcourse_updates = wire
+	return w
+
+
+## A surface ship held on the boat's own sonar as a line of bearing, `quality` its range solution.
+## A boat off the link holds its own picture, so the plot is built the way its sonar builds it.
+func _bearing_plot(h: Harness, boat: Unit, id: String, pos: Vector2, quality: float) -> Track:
+	var ship := _ship("BLUE-%s" % id, pos, null, 0, "BLUE")
+	h.um.add_unit(ship)
+	var c := SensorContact.make(ship, pos, 0.5, 0.8, 1.0, boat.position.distance_to(pos), "sonar_passive", boat)
+	h.tm.observe_contact(boat.faction, c, 0.0, 1.0)
+	var t := h.tm.find_for(boat, ship)
+	t.position = pos
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "HOSTILE"
+	t.known_category = "destroyer"
+	t.known_class = "DDG Test"
+	t.domain = "surface"
+	t.status = Track.Status.ACTIVE
+	t.bearing_only = true
+	t.tma_quality = quality
+	t.has_kinematics = quality >= Track.FIRE_CONTROL_SOLUTION_QUALITY
+	return t
+
+
+func _courses(h: Harness, u: Unit) -> Array:
+	return _orders_of(h, Order.Type.SET_COURSE, u).map(func(e: Dictionary) -> float: return e["order"].heading_deg)
+
+
+func test_a_boat_holding_only_a_bearing_works_legs_either_side_of_it() -> void:
+	var boat := _boat(Vector2.ZERO)
+	var fish := _heavyweight()
+	boat.weapons.append(fish)
+	boat.magazines[fish.id] = 14
+	var h := _harness([boat])
+	_bearing_plot(h, boat, "T4020", Vector2(0, 12), 0.0)  # due north, range unknown
+	var t0 := 4.0 * AIController.TMA_LEG_S
+	h.ai.tick(t0)
+	h.ai.tick(t0 + AIController.TMA_LEG_S)
+	h.ai.tick(t0 + 2.0 * AIController.TMA_LEG_S)
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "no shot on a bare line")
+	var courses := _courses(h, boat)
+	assert_eq(courses.size(), 3, "a new leg each time")
+	if courses.size() == 3:
+		var first := Geo.heading_delta(0.0, courses[0])
+		var second := Geo.heading_delta(0.0, courses[1])
+		assert_true(absf(first) >= 30.0 and absf(second) >= 30.0, "each leg well off the line of bearing (%.0f, %.0f)" % [first, second])
+		assert_true(signf(first) != signf(second), "on alternate sides of it, so the bearing rate changes between legs")
+		assert_near(courses[2], courses[0], 1.0, "and back again")
+	h.free_all()
+
+
+func test_a_boat_fires_a_wire_guided_fish_on_a_rough_range_well_inside_its_reach() -> void:
+	var boat := _boat(Vector2.ZERO)
+	var fish := _heavyweight()
+	boat.weapons.append(fish)
+	boat.magazines[fish.id] = 14
+	var h := _harness([boat])
+	# Nine miles at fifty knots is an eleven-minute run, and the plot's range is still rough.
+	var t := _bearing_plot(h, boat, "T4021", Vector2(0, 9), 0.35)
+	h.ai.tick(1000.0)
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_eq(shots.size(), 1, "a boat with a wire on its fish shoots at nine miles on a rough solution")
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].track, t)
+	h.free_all()
+
+
+func test_a_free_running_fish_waits_for_a_solution_and_a_short_run() -> void:
+	var boat := _boat(Vector2.ZERO)
+	var fish := _heavyweight(false)
+	boat.weapons.append(fish)
+	boat.magazines[fish.id] = 14
+	var h := _harness([boat])
+	_bearing_plot(h, boat, "T4022", Vector2(0, 9), 0.35)
+	h.ai.tick(1000.0)
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "nothing steers it after it leaves, so it is not sent eleven minutes down a rough line")
+	h.free_all()
+
+
+func test_a_wire_guided_fish_still_waits_when_the_rough_range_is_near_the_edge_of_its_reach() -> void:
+	var boat := _boat(Vector2.ZERO)
+	var fish := _heavyweight()
+	boat.weapons.append(fish)
+	boat.magazines[fish.id] = 14
+	var h := _harness([boat])
+	_bearing_plot(h, boat, "T4023", Vector2(0, 16), 0.35)
+	h.ai.tick(1000.0)
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "sixteen miles on a rough range could be twenty-five")
+	h.free_all()
+
