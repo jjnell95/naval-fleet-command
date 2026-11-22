@@ -63,9 +63,12 @@ static func caption_rect(caption: Dictionary, slot_index: int) -> Rect2:
 
 
 ## The text block's box for one offset. `at` is the symbol's centre, `extent` its half-size, `size`
-## the block's width and height, `ascent` the first line's ascent above its baseline.
-static func box(at: Vector2, extent: float, size: Vector2, ascent: float, offset: Vector2) -> Rect2:
+## the block's width and height, `ascent` the first line's ascent above its baseline. `hook` is the
+## half-size of the brackets round a hooked symbol: the block starts beyond them, at the same
+## height, so the brackets never cut into the number.
+static func box(at: Vector2, extent: float, size: Vector2, ascent: float, offset: Vector2, hook := 0.0) -> Rect2:
 	var push := OFFSET_PX + Vector2.ONE * (extent - MapSymbols.RADIUS) * EXTENT_PUSH
+	push.x = maxf(push.x, hook + GAP_PX)
 	var gap := push.y - ascent  # the block's edge this far past the centre, above or below
 	var left := at.x + push.x if offset.x > 0.0 else at.x - push.x - size.x
 	var top := at.y + gap if offset.y > 0.0 else at.y - gap - size.y
@@ -81,7 +84,7 @@ static func baseline(rect: Rect2, ascent: float) -> Vector2:
 ## same diagonal so the inspected number can clear a cluster without moving its marker.
 static func slot_box(label: Dictionary, slot_index: int) -> Rect2:
 	var direction := OFFSETS[slot_index % OFFSETS.size()]
-	var rect := box(label.at, label.extent, label.size, label.ascent, direction)
+	var rect := box(label.at, label.extent, label.size, label.ascent, direction, label.get("hook", 0.0))
 	rect.position += direction * CALLOUT_STEP * floorf(float(slot_index) / OFFSETS.size())
 	return rect
 
@@ -97,7 +100,7 @@ static func place(labels: Array, bounds := Rect2(), captions: Array = [], obstac
 		_insert(grid, rects, owners, obstacle, _OWNER_OBSTACLE)
 	for i in labels.size():
 		var l: Dictionary = labels[i]
-		var e: float = l.extent
+		var e := maxf(l.extent, l.get("hook", 0.0))
 		_insert(grid, rects, owners, Rect2(l.at - Vector2.ONE * e, Vector2.ONE * 2.0 * e), i)
 		slots[l.key] = HIDDEN
 		if l.size == Vector2.ZERO or (bounds.has_area() and not bounds.has_point(l.at)):

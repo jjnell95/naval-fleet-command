@@ -233,3 +233,23 @@ func test_the_hooked_contact_heads_its_shared_label() -> void:
 	assert_true(l.priority, "and the pile keeps the hook's precedence")
 	assert_true(_shown(map, l.key))
 	map.free()
+
+
+# --- Hook brackets ------------------------------------------------------------------------------
+
+func test_the_hooked_number_prints_clear_of_its_brackets_on_the_same_line() -> void:
+	var map := _map()
+	var at := Vector2(300, 300)
+	map._queue_label("u:1", at, MapSymbols.RADIUS, "0001", "", 1.0, true)
+	map._queue_label("u:2", Vector2(500, 300), MapSymbols.RADIUS, "0002", "", 1.0, false)
+	map._place_labels()
+	var hooked: Dictionary = map._label_queue[0]
+	var plain: Dictionary = map._label_queue[1]
+	var rect := ChartLabels.slot_box(hooked, map._labels.slot("u:1"))
+	var half := roundf(TacticalMap._bracket_box(MapSymbols.RADIUS) * 0.5) + MapSymbols.STROKE * 0.5
+	var brackets := Rect2(at - Vector2.ONE * half, Vector2.ONE * 2.0 * half)
+	assert_true(not rect.intersects(brackets), "the number %s does not touch the brackets %s" % [rect, brackets])
+	var unhooked := ChartLabels.slot_box(plain, map._labels.slot("u:2"))
+	assert_near(rect.position.y - at.y, unhooked.position.y - 300.0, 0.01, "it keeps the classic height beside the symbol")
+	assert_eq(ChartLabels.baseline(unhooked, plain.ascent) - Vector2(500, 300), Vector2(7, 17), "an unhooked number keeps the classic place")
+	map.free()

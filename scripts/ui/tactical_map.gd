@@ -2548,7 +2548,8 @@ func _queue_label(key: String, sp: Vector2, extent: float, number: String, tag: 
 			height = ascent + font.get_descent(TAG_FONT_SIZE)
 		else:
 			height += TRACK_NUMBER_FONT_SIZE + 1.0
-	_label_queue.append({"key": key, "at": sp, "extent": extent, "size": Vector2(width, height), "ascent": ascent, "priority": priority, "number": number_text, "tag": tag_text, "alpha": alpha})
+	var hook := roundf(_bracket_box(extent) * 0.5) + MapSymbols.STROKE * 0.5 if priority else 0.0
+	_label_queue.append({"key": key, "at": sp, "extent": extent, "size": Vector2(width, height), "ascent": ascent, "priority": priority, "number": number_text, "tag": tag_text, "alpha": alpha, "hook": hook})
 
 
 ## Collect captions before drawing so geographic names and range labels cannot obscure
