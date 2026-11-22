@@ -206,7 +206,7 @@
       264.3,
       253.5
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -6798,243 +6798,8 @@
       }
     ]
   },
-  "forces": "France/Italy/UK: 1 carrier (air group det), 1 amphibious ship, 1 destroyer, 1 frigate, 1 submarine, Akrotiri det  \u00b7  Russia: 1 frigate, 1 missile corvette, 1 submarine, Khmeimim strike and patrol det, coastal battery and SAM site  \u00b7  Neutral traffic",
+  "forces": "France/Italy/UK: 1 carrier (air group det), 1 amphibious ship, 1 destroyer, 1 frigate, 1 submarine, Akrotiri det  ·  Russia: 1 frigate, 1 missile corvette, 1 submarine, Khmeimim strike and patrol det, coastal battery and SAM site  ·  Neutral traffic",
   "force_note": "Fictional operation. Modern US carriers carry 59 represented aircraft with a limited ready deck; 1990 carriers carry a 28-aircraft fleet-defence detachment with a four-aircraft A-6E Harpoon element, not a complete historical air wing. Other wings remain scenario detachments. Aircraft already carry their first load; each base has two additional wing reloads, shared by weapon type. Readiness, stores and all combat performance are game estimates.",
-  "operation_revision": 27,
-  "collection": "operations",
-  "operation_plan": [
-    {
-      "title": "01 / Cover the amphibious group",
-      "task": "Get AEW and fighter cover up and keep Mistral behind the screen. Her progress east is what Khmeimim is watching."
-    },
-    {
-      "title": "02 / Cross the threat axis",
-      "task": "Strike aircraft come in separate elements and not always from the same side of Cyprus. If the Bastion battery shows itself, the holding box can move."
-    },
-    {
-      "title": "03 / Secure the holding area",
-      "task": "Keep Mistral in the holding box for five minutes after arrival. Civilian losses remain unacceptable."
-    }
-  ],
-  "events": [
-    {
-      "id": "strike_axis",
-      "side": "RED",
-      "at_s": 0,
-      "variants": [
-        {
-          "id": "direct",
-          "ai": [
-            {
-              "units": [
-                "Fullback 21",
-                "Fullback 22",
-                "Fullback 23",
-                "Fullback 24"
-              ],
-              "patrol_nm": [
-                [
-                  39.6,
-                  12.0
-                ],
-                [
-                  -19.8,
-                  -24.0
-                ]
-              ]
-            }
-          ]
-        },
-        {
-          "id": "north_of_cyprus",
-          "ai": [
-            {
-              "units": [
-                "Fullback 21",
-                "Fullback 22",
-                "Fullback 23",
-                "Fullback 24"
-              ],
-              "patrol_nm": [
-                [
-                  30.0,
-                  90.0
-                ],
-                [
-                  -60.0,
-                  80.0
-                ],
-                [
-                  -50.0,
-                  -10.0
-                ]
-              ]
-            }
-          ]
-        },
-        {
-          "id": "from_the_south",
-          "ai": [
-            {
-              "units": [
-                "Fullback 21",
-                "Fullback 22",
-                "Fullback 23",
-                "Fullback 24"
-              ],
-              "patrol_nm": [
-                [
-                  40.0,
-                  -40.0
-                ],
-                [
-                  -20.0,
-                  -45.0
-                ]
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "khmeimim_surge",
-      "side": "RED",
-      "at_s": 0,
-      "when": {
-        "type": "track_held",
-        "faction": "RED",
-        "callsigns": [
-          "FS Mistral (L 9013)"
-        ],
-        "min_classification": "UNKNOWN",
-        "center_nm": [
-          -75.0,
-          -26.0
-        ],
-        "radius_nm": 15
-      },
-      "latest_s_window": [
-        7200,
-        10800
-      ],
-      "ready": [
-        {
-          "host": "Khmeimim Air Base",
-          "platform": "su34",
-          "ready_after_s": 300
-        },
-        {
-          "host": "Khmeimim Air Base",
-          "platform": "su35s",
-          "ready_after_s": 300
-        }
-      ]
-    },
-    {
-      "id": "surge_intercept",
-      "chance": 0.7,
-      "after": [
-        "khmeimim_surge"
-      ],
-      "message": "Akrotiri intercepts: Khmeimim is arming its second strike element."
-    },
-    {
-      "id": "bastion_located",
-      "chance": 0.65,
-      "at_s_window": [
-        600,
-        2400
-      ],
-      "when": {
-        "type": "emitting",
-        "callsigns": [
-          "Tartus coastal battery"
-        ]
-      },
-      "intel": [
-        {
-          "target": "Tartus coastal battery",
-          "error_nm": 4,
-          "source": "Akrotiri ELINT"
-        }
-      ],
-      "objectives": {
-        "update": {
-          "holding_box": {
-            "center_nm": [
-              -24.9014,
-              -33.0
-            ],
-            "text": "Mistral reached the moved holding box"
-          },
-          "holding_box_handover": {
-            "center_nm": [
-              -24.9014,
-              -33.0
-            ]
-          }
-        }
-      },
-      "message": "TASKING UPDATE: ELINT has the Bastion battery radiating near {pos}, accuracy about 4 nm. Mistral's holding box moves 15 nm west, to 33\u00b051.0\u2032N 33\u00b017.8\u2032E, outside its reach. The five-minute hold counts in the new box."
-    },
-    {
-      "id": "kilo_report",
-      "at_s_window": [
-        900,
-        2400
-      ],
-      "unless": {
-        "type": "all_units_lost",
-        "callsigns": [
-          "Krasnodar (B-265)"
-        ]
-      },
-      "intel": [
-        {
-          "target": "Krasnodar (B-265)",
-          "error_nm": 6,
-          "source": "RAF Poseidon"
-        }
-      ],
-      "message": "An RAF Poseidon reports a possible snorkel near {pos}, accuracy about 6 nm, on Mistral's side of the lane."
-    }
-  ],
-  "ai_plans": [
-    {
-      "id": "tartus_defence",
-      "faction": "RED",
-      "kind": "defend_installation",
-      "units": [
-        "Admiral Grigorovich (494)",
-        "Vyshny Volochyok (609)"
-      ],
-      "protect": [
-        "Tartus coastal battery"
-      ],
-      "area_radius_nm": 70,
-      "leash_nm": 80,
-      "threat_nm": 15
-    },
-    {
-      "id": "amphibious_strike",
-      "faction": "RED",
-      "kind": "attack_shipping",
-      "priorities": [
-        "amphibious",
-        "carrier"
-      ],
-      "objective_nm": [
-        -40.0,
-        -25.0
-      ],
-      "area_radius_nm": 60,
-      "spread_deg": 60,
-      "budget": 6,
-      "assess_s": 300,
-      "threat_nm": 15
-    }
-  ],
   "recognition_affiliations": {
     "BLUE": {
       "deu_uas_skeldar": "FRIENDLY",
@@ -7223,5 +6988,240 @@
       "rfn_sam_s400_site": "FRIENDLY"
     }
   },
-  "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present."
+  "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
+  "operation_revision": 27,
+  "collection": "operations",
+  "operation_plan": [
+    {
+      "title": "01 / Cover the amphibious group",
+      "task": "Get AEW and fighter cover up and keep Mistral behind the screen. Her progress east is what Khmeimim is watching."
+    },
+    {
+      "title": "02 / Cross the threat axis",
+      "task": "Strike aircraft come in separate elements and not always from the same side of Cyprus. If the Bastion battery shows itself, the holding box can move."
+    },
+    {
+      "title": "03 / Secure the holding area",
+      "task": "Keep Mistral in the holding box for five minutes after arrival. Civilian losses remain unacceptable."
+    }
+  ],
+  "events": [
+    {
+      "id": "strike_axis",
+      "side": "RED",
+      "at_s": 0,
+      "variants": [
+        {
+          "id": "direct",
+          "ai": [
+            {
+              "units": [
+                "Fullback 21",
+                "Fullback 22",
+                "Fullback 23",
+                "Fullback 24"
+              ],
+              "patrol_nm": [
+                [
+                  39.6,
+                  12.0
+                ],
+                [
+                  -19.8,
+                  -24.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "north_of_cyprus",
+          "ai": [
+            {
+              "units": [
+                "Fullback 21",
+                "Fullback 22",
+                "Fullback 23",
+                "Fullback 24"
+              ],
+              "patrol_nm": [
+                [
+                  30.0,
+                  90.0
+                ],
+                [
+                  -60.0,
+                  80.0
+                ],
+                [
+                  -50.0,
+                  -10.0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "from_the_south",
+          "ai": [
+            {
+              "units": [
+                "Fullback 21",
+                "Fullback 22",
+                "Fullback 23",
+                "Fullback 24"
+              ],
+              "patrol_nm": [
+                [
+                  40.0,
+                  -40.0
+                ],
+                [
+                  -20.0,
+                  -45.0
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "khmeimim_surge",
+      "side": "RED",
+      "at_s": 0,
+      "when": {
+        "type": "track_held",
+        "faction": "RED",
+        "callsigns": [
+          "FS Mistral (L 9013)"
+        ],
+        "min_classification": "UNKNOWN",
+        "center_nm": [
+          -75.0,
+          -26.0
+        ],
+        "radius_nm": 15
+      },
+      "latest_s_window": [
+        7200,
+        10800
+      ],
+      "ready": [
+        {
+          "host": "Khmeimim Air Base",
+          "platform": "su34",
+          "ready_after_s": 300
+        },
+        {
+          "host": "Khmeimim Air Base",
+          "platform": "su35s",
+          "ready_after_s": 300
+        }
+      ]
+    },
+    {
+      "id": "surge_intercept",
+      "chance": 0.7,
+      "after": [
+        "khmeimim_surge"
+      ],
+      "message": "Akrotiri intercepts: Khmeimim is arming its second strike element."
+    },
+    {
+      "id": "bastion_located",
+      "chance": 0.65,
+      "at_s_window": [
+        600,
+        2400
+      ],
+      "when": {
+        "type": "emitting",
+        "callsigns": [
+          "Tartus coastal battery"
+        ]
+      },
+      "intel": [
+        {
+          "target": "Tartus coastal battery",
+          "error_nm": 4,
+          "source": "Akrotiri ELINT"
+        }
+      ],
+      "objectives": {
+        "update": {
+          "holding_box": {
+            "center_nm": [
+              -24.9014,
+              -33.0
+            ],
+            "text": "Mistral reached the moved holding box"
+          },
+          "holding_box_handover": {
+            "center_nm": [
+              -24.9014,
+              -33.0
+            ]
+          }
+        }
+      },
+      "message": "TASKING UPDATE: ELINT has the Bastion battery radiating near {pos}, accuracy about 4 nm. Mistral's holding box moves 15 nm west, to 33°51.0′N 33°17.8′E, outside its reach. The five-minute hold counts in the new box."
+    },
+    {
+      "id": "kilo_report",
+      "at_s_window": [
+        900,
+        2400
+      ],
+      "unless": {
+        "type": "all_units_lost",
+        "callsigns": [
+          "Krasnodar (B-265)"
+        ]
+      },
+      "intel": [
+        {
+          "target": "Krasnodar (B-265)",
+          "error_nm": 6,
+          "source": "RAF Poseidon"
+        }
+      ],
+      "message": "An RAF Poseidon reports a possible snorkel near {pos}, accuracy about 6 nm, on Mistral's side of the lane."
+    }
+  ],
+  "ai_plans": [
+    {
+      "id": "tartus_defence",
+      "faction": "RED",
+      "kind": "defend_installation",
+      "units": [
+        "Admiral Grigorovich (494)",
+        "Vyshny Volochyok (609)"
+      ],
+      "protect": [
+        "Tartus coastal battery"
+      ],
+      "area_radius_nm": 70,
+      "leash_nm": 80,
+      "threat_nm": 15
+    },
+    {
+      "id": "amphibious_strike",
+      "faction": "RED",
+      "kind": "attack_shipping",
+      "priorities": [
+        "amphibious",
+        "carrier"
+      ],
+      "objective_nm": [
+        -40.0,
+        -25.0
+      ],
+      "area_radius_nm": 60,
+      "spread_deg": 60,
+      "budget": 6,
+      "assess_s": 300,
+      "threat_nm": 15
+    }
+  ]
 }

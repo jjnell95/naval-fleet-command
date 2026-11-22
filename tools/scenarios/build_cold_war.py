@@ -296,16 +296,20 @@ def catalogue():
     aircraft("f14a","F-14A+ Tomcat","F-14A+","USA","fighter",["awg9","alr45"],
              {"aim54a":4,"aim9m":2},1200,launch_requirement="catobar",length_m=19.1,
              endurance_s=9000.0,can_refuel=True,role="Fleet air defence / long-range interception",
+             # GAMEPLAY_ESTIMATE: economical station, normal transit, short intercept speeds.
              cruise_speed_kn=480.0,patrol_speed_kn=390.0,transit_speed_kn=480.0,dash_speed_kn=700.0,
+             recognition_note="From above, broad triangular wing roots meet the swept wings. From behind, the twin exhausts sit far apart beneath the two tail fins.",
              service_note="F-14A+ was renamed F-14B after 1990. AWG-9, four AIM-54A and two AIM-9M. The normal Sparrow stations are deliberately empty because continuous semi-active AAM illumination is not modelled. No AMRAAM or active-homing Sparrow substitute.")
     aircraft("e2c","E-2C Hawkeye","E-2C","USA","airborne early warning",["aps125","alr45"],{},
              320,launch_requirement="catobar",length_m=17.6,cruise_altitude_m=7500.0,
              endurance_s=18000.0,role="Airborne radar picture / early warning",
+             recognition_note="A round radar dome sits above the fuselage and four fins span the tail. From the front, each propeller on this model has four blades.",
              service_note="Group 0 era radar baseline; exact squadron radar subtype is not asserted. No APY-9, Cooperative Engagement Capability or aerial refuelling.")
     aircraft("s3a","S-3A Viking","S-3A","USA","ASW aircraft",["aps116","alr45"],{"mk46":4},
              430,launch_requirement="catobar",length_m=16.3,sonobuoy_count=30,
              sonobuoy_sensitivity_nm=17.0,sonobuoy_life_s=2700.0,cruise_altitude_m=2500.0,
              role="Carrier-based sonobuoy search / torpedo delivery",
+             recognition_note="Two engine pods hang beneath the high wing. The tailplane sits on top of a single fin, forming a T when viewed from behind.",
              service_note="S-3A ASW fit, not S-3B Harpoon upgrade. Acoustic processing is represented by expendable sonobuoys.")
     aircraft("p3c","P-3C Orion","P-3C","USA","maritime patrol aircraft",["aps115","alr45"],{"mk46":6},
              405,launch_requirement="runway",length_m=35.6,sonobuoy_count=60,

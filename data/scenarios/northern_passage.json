@@ -60,7 +60,7 @@
         "kind": "water"
       },
       {
-        "text": "FAROE\u2013SHETLAND CHANNEL",
+        "text": "FAROE–SHETLAND CHANNEL",
         "position_nm": [
           -375.1019,
           -360.0
@@ -68,7 +68,7 @@
         "kind": "water"
       },
       {
-        "text": "ICELAND\u2013FAROE RIDGE",
+        "text": "ICELAND–FAROE RIDGE",
         "position_nm": [
           -555.6197,
           -234.0
@@ -164,7 +164,7 @@
         "kind": "land"
       },
       {
-        "text": "\u00d6LAND",
+        "text": "ÖLAND",
         "position_nm": [
           114.875,
           -612.0
@@ -204,7 +204,7 @@
         "kind": "land"
       },
       {
-        "text": "BJ\u00d8RN\u00d8YA",
+        "text": "BJØRNØYA",
         "position_nm": [
           171.1402,
           462.0
@@ -219,7 +219,7 @@
       173.0,
       156.0
     ],
-    "chart_note": "Natural Earth 1:10m land and bathymetry \u00b7 local projection \u00b7 not for navigation",
+    "chart_note": "Natural Earth 1:10m land and bathymetry · local projection · not for navigation",
     "projection": "local_equirectangular"
   },
   "environment": {
@@ -11890,6 +11890,32 @@
       "task": "Reach the exit within 45 minutes, with no neutral sinking caused by your weapons. Review losses, ammunition and observed events in the debrief."
     }
   ],
+  "ai_plans": [
+    {
+      "id": "intercept_convoy",
+      "faction": "RED",
+      "kind": "attack_shipping",
+      "units": [
+        "Admiral Gorshkov",
+        "Stoikiy"
+      ],
+      "priorities": [
+        "merchant"
+      ],
+      "objective_nm": [
+        3,
+        2
+      ],
+      "area_radius_nm": 8,
+      "start_s": 0,
+      "search_window_s": 150,
+      "assembly_window_s": 30,
+      "salvo": 4,
+      "budget": 8,
+      "assess_s": 360,
+      "threat_nm": 4
+    }
+  ],
   "objectives": {
     "text": "Deliver Northern Light before 08:45Z without sinking a neutral vessel.",
     "victory": [
@@ -11936,8 +11962,6 @@
     ]
   },
   "forces": "Your command: Burke IIA destroyer, Nansen frigate, one MH-60R and the escorted freighter. Opposition: Gorshkov frigate and Steregushchiy corvette. Two neutral merchants share the approaches.",
-  "operation_revision": 27,
-  "collection": "exercises",
   "recognition_affiliations": {
     "BLUE": {
       "deu_uas_skeldar": "FRIENDLY",
@@ -12127,30 +12151,6 @@
     }
   },
   "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
-  "ai_plans": [
-    {
-      "id": "intercept_convoy",
-      "faction": "RED",
-      "kind": "attack_shipping",
-      "units": [
-        "Admiral Gorshkov",
-        "Stoikiy"
-      ],
-      "priorities": [
-        "merchant"
-      ],
-      "objective_nm": [
-        3,
-        2
-      ],
-      "area_radius_nm": 8,
-      "start_s": 0,
-      "search_window_s": 150,
-      "assembly_window_s": 30,
-      "salvo": 4,
-      "budget": 8,
-      "assess_s": 360,
-      "threat_nm": 4
-    }
-  ]
+  "operation_revision": 27,
+  "collection": "exercises"
 }

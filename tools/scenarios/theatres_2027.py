@@ -20,7 +20,8 @@ PLATFORMS, WEAPONS, SENSORS = {}, {}, {}
 ## Modern-catalogue resources these platforms carry as fitted. Listed so the manifest is complete.
 SHARED_WEAPONS = ["sm2_family", "sm3_family", "sm6_family", "essm_family", "ram_block2", "phalanx_ciws",
                   "mk45_mod4_gun", "rgm_84_harpoon", "agm_84_harpoon", "oto_76mm_gun", "mk8_114mm_gun",
-                  "aim120_family", "aim9x_air", "jsm_missile", "p800_oniks", "oneway_attack_drone", "mk54_lwt"]
+                  "aim120_family", "aim9x_air", "jsm_missile", "p800_oniks", "oneway_attack_drone", "mk54_lwt",
+                  "pla_yj91"]
 SHARED_SENSORS = ["an_spy_1d_v", "an_apg_81", "an_asq_239", "civil_nav_radar", "mp_405", "nato_esm_suite"]
 
 
