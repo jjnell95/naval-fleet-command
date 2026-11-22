@@ -37,6 +37,10 @@ var _manoeuvre: Dictionary = {}  # Unit -> 0..1
 ## random draws, so the tracks come out identical (tests/test_sensor_cycle.gd checks it), and
 ## tools/measure_sensor_cycle.gd times one against the other. Never set in play.
 var reference_path := false
+## Work counters for tests and the measuring tools: sonar pairs the acoustic model was run for, and
+## pairs close enough for a lookout to weigh. Never read in play.
+var sonar_pairs_weighed := 0
+var lookout_pairs_weighed := 0
 
 
 ## What every unit presents to the radar and ESM passes this cycle, worked out once instead of once
@@ -59,6 +63,14 @@ class CycleFacts:
 	## radar plot and an ESM bearing from the same unit on the same contact share one walk.
 	var masks := PackedByteArray()
 	var terrain := false
+	var submerged := PackedByteArray()
+	## Square root of Detection.acoustic_noise for a unit a passive sonar can hear at all, else 0.
+	var noise_root := PackedFloat64Array()
+	var pinging := PackedByteArray()  # Unit.active_sonar_emitting
+	## Units whose sea-floor sample a sonar pair has already asked for this cycle. A pair let go
+	## before the acoustic model still asks for what the model would have, so the sample under
+	## every unit is refreshed on the same cycles as when every pair ran it.
+	var floor_asked := PackedByteArray()
 
 	func _init(list: Array[Unit]) -> void:
 		units = list
@@ -74,6 +86,11 @@ class CycleFacts:
 		emitter_root.resize(n)
 		masks.resize(n * n)
 		masks.fill(0)
+		submerged.resize(n)
+		noise_root.resize(n)
+		pinging.resize(n)
+		floor_asked.resize(n)
+		floor_asked.fill(0)
 		terrain = not Terrain.is_empty()
 		var engageable := PackedInt32Array()
 		var factions: Dictionary = {}
@@ -93,6 +110,10 @@ class CycleFacts:
 			if emitting[i]:
 				power[i] = Detection.emitted_radar_power(u)
 				emitter_root[i] = sqrt(maxf(Detection.emitter_height_m(u), 0.0))
+			submerged[i] = 1 if u.submerged() else 0
+			pinging[i] = 1 if u.active_sonar_emitting() else 0
+			if not u.is_aircraft() and u.spec.domain != "land":
+				noise_root[i] = sqrt(maxf(Detection.acoustic_noise(u), 0.0))
 		for faction in factions:
 			var list_for := PackedInt32Array()
 			for i in engageable:
@@ -120,14 +141,17 @@ func tick(dt: float) -> void:
 
 
 func run_cycle(now: float) -> void:
+	var setup := Time.get_ticks_usec()
 	_update_manoeuvre()
 	Detection.refresh_jammers(unit_manager.units)
 	Detection.begin_jamming_batch()
 	var radar_us := 0
 	var sonar_us := 0
 	var esm_us := 0
+	var visual_us := 0
 	var facts: CycleFacts = null if reference_path else CycleFacts.new(unit_manager.units)
 	var cz_outer := _cz_outer_nm()
+	Debug.time_add("sensors/setup", Time.get_ticks_usec() - setup)
 	for i in unit_manager.units.size():
 		var observer := unit_manager.units[i]
 		if not observer.is_engageable():
@@ -149,13 +173,19 @@ func run_cycle(now: float) -> void:
 			_esm_pass(observer, now)
 		else:
 			_esm_pass_indexed(facts, i, now)
+		var seen := Time.get_ticks_usec()
+		if facts == null:
+			_visual_pass(observer, now)
+		else:
+			_visual_pass_indexed(facts, i, now)
 		radar_us += mid - at
 		sonar_us += late - mid
-		esm_us += Time.get_ticks_usec() - late
-		_visual_pass(observer, now)
+		esm_us += seen - late
+		visual_us += Time.get_ticks_usec() - seen
 	Debug.time_add("sensors/radar", radar_us)
 	Debug.time_add("sensors/sonar", sonar_us)
 	Debug.time_add("sensors/esm", esm_us)
+	Debug.time_add("sensors/visual", visual_us)
 	var step := Time.get_ticks_usec()
 	_buoy_pass(now)
 	Debug.time_add("sensors/buoys", Time.get_ticks_usec() - step)
@@ -299,20 +329,63 @@ func _cz_outer_nm() -> float:
 
 
 ## The sonar pass over the cycle's list of other sides' units. The water is left to the same
-## Detection and Acoustics calls, in the same order, as the reference: the sea-floor sample under
-## a unit is taken by whichever of them first asks for it in a cycle.
+## Detection and Acoustics calls, in the same order, as the reference, but only for a pair that
+## could be in some reach: the furthest anything could be heard is worked out from the listener's
+## sets and the target's noise before the acoustic model runs, since the water only ever shortens it.
 func _sonar_pass_indexed(facts: CycleFacts, oi: int, cz_outer: float, now: float) -> void:
 	var observer := facts.units[oi]
 	if not observer.has_sonar():
 		return
 	var rate := Detection.sonar_classify_rate(observer)
 	var active_ceiling := Detection.best_active_sonar_nm(observer)
+	# Each set's direct-path figure less the target's noise, and its share of an active
+	# transmission heard: Detection.passive_sonar_range_nm and active_sonar_detection_nm before the
+	# baffles and the water.
+	var efficiency := observer.sensor_efficiency()
+	var environment := Detection.sonar_environment_factor()
+	var passive_k := 0.0
+	var emission_k := 0.0
+	var all_round := false  # some set that hears has no baffles
+	var baffled_set: SensorSpec = null  # a set that hears, with the hull's arc astern
+	var zones := false
+	for s in observer.sensors:
+		if s.kind != "sonar":
+			continue
+		if s.cz_capable:
+			zones = true
+		if s.passive_sensitivity_nm <= 0.0 or not Detection.sonar_sensor_ready(observer, s):
+			continue
+		var self_noise := Detection.self_noise_factor(observer, s)
+		passive_k = maxf(passive_k, s.passive_sensitivity_nm * self_noise * efficiency * environment)
+		emission_k = maxf(emission_k, s.passive_sensitivity_nm * 1.8 * self_noise)
+		if Detection.has_baffles(observer, s):
+			baffled_set = s
+		else:
+			all_round = true
+	emission_k *= environment * efficiency
+	var listens := all_round or baffled_set != null
+	var cz_reach := cz_outer if zones else 0.0
+	var from := facts.position[oi]
 	for ti: int in facts.others[observer.faction]:
 		var target := facts.units[ti]
 		var airborne := target.is_aircraft()
-		if airborne and not target.active_sonar_emitting():
+		if airborne and facts.pinging[ti] == 0:
 			continue
-		var d := observer.position.distance_to(target.position)
+		var d := from.distance_to(facts.position[ti])
+		var bound := passive_k * facts.noise_root[ti]
+		if facts.pinging[ti] == 1:
+			bound = maxf(bound, emission_k)
+		if d > active_ceiling and d > bound * (1.0 + 1e-9) + 1e-9 and not _in_zone_band(d, cz_reach):
+			# Out of every reach. The model would still have sampled the floor under both ends of a
+			# path it weighed, and that sample is kept, so take it as the model would have.
+			if listens and facts.noise_root[ti] > 0.0 and (facts.floor_asked[oi] == 0 or facts.floor_asked[ti] == 0):
+				if all_round or not Detection.baffled(observer, baffled_set, facts.position[ti]):
+					Acoustics.bottom_m(observer)
+					Acoustics.bottom_m(target)
+					facts.floor_asked[oi] = 1
+					facts.floor_asked[ti] = 1
+			continue
+		sonar_pairs_weighed += 1
 		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling and not airborne else 0.0
 		# Detection.best_passive_sonar, without a dictionary for every pair.
 		var reach := 0.0
@@ -324,28 +397,36 @@ func _sonar_pass_indexed(facts: CycleFacts, oi: int, cz_outer: float, now: float
 			if r > reach:
 				reach = r
 				sensor = s
-		var emission := Detection.active_sonar_detection_nm(observer, target)
+		var emission := Detection.active_sonar_detection_nm(observer, target) if facts.pinging[ti] == 1 else 0.0
 		if emission > reach:
 			reach = emission
 			if sensor == null:
 				sensor = _first_sonar(observer)
 		var in_passive_reach := sensor != null and reach > 0.0 and d <= reach
-		if d > active_reach and not in_passive_reach and d > cz_outer:
-			continue
-		if Detection.acoustic_path_blocked(observer, target):
-			continue
-		if d <= active_reach:
-			_report_active(observer, target, d, active_reach, rate, now)
-			continue
-		if in_passive_reach:
-			_report_passive(observer, target, d, reach, sensor, rate, now)
-		elif d <= cz_outer:
+		if d <= active_reach or in_passive_reach:
+			if Detection.acoustic_path_blocked(observer, target):
+				continue  # sound does not go through rock, pinging or listening
+			if d <= active_reach:
+				_report_active(observer, target, d, active_reach, rate, now)
+			else:
+				_report_passive(observer, target, d, reach, sensor, rate, now)
+		elif d <= cz_reach:
 			_try_convergence_zone(observer, target, d, rate, now)
 
 
+## Whether a range falls inside a convergence-zone annulus that reaches no further than `outer`.
+func _in_zone_band(d: float, outer: float) -> bool:
+	if outer <= 0.0 or d > outer:
+		return false
+	for z: Dictionary in Acoustics.zones():
+		if absf(d - float(z["range_nm"])) <= float(z["half_width_nm"]):
+			return true
+	return false
+
+
 ## Out of direct-path reach, a loud enough source can still be heard where its sound comes back up
-## in a convergence zone, provided the water is deep the whole way. Checked after everything
-## cheaper has failed, because the deep-water test walks the path.
+## in a convergence zone, provided no land lies between and the water is deep the whole way.
+## Checked after everything cheaper has failed, because both of those walk the path.
 func _try_convergence_zone(observer: Unit, target: Unit, d: float, rate: float, now: float) -> void:
 	for s in observer.sensors:
 		if s.kind != "sonar" or not s.cz_capable:
@@ -354,7 +435,8 @@ func _try_convergence_zone(observer: Unit, target: Unit, d: float, rate: float, 
 		var zone := Acoustics.cz_zone_for(s, d, direct)
 		if zone.is_empty():
 			continue
-		if not Acoustics.deep_water_path(observer.position, target.position):
+		# The annulus first and the walks after: both are dear, and either bars the zone.
+		if Detection.acoustic_path_blocked(observer, target) or not Acoustics.deep_water_path(observer.position, target.position):
 			return
 		_report_cz(observer, target, d, zone, s, rate, now)
 		return
@@ -499,6 +581,43 @@ func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: 
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
+## The lookout pass on the cycle's figures: the other sides' units only, and none further than the
+## longest look the light and the weather allow before anything else is worked out for it. The
+## same tests in the same order as _visual_pass, so the same reports and the same draws.
+func _visual_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
+	if facts.submerged[oi] == 1:
+		return
+	var observer := facts.units[oi]
+	var light := Detection.visual_light_factor()
+	var visibility := float(Detection.environment.get("visibility_nm", 12.0))
+	var furthest := minf(6.0 * light, visibility) + 1e-9
+	var furthest_squared := furthest * furthest
+	var own_height := facts.mast[oi]
+	var from := facts.position[oi]
+	for ti: int in facts.others[observer.faction]:
+		if facts.submerged[ti] == 1 or from.distance_squared_to(facts.position[ti]) > furthest_squared:
+			continue
+		lookout_pairs_weighed += 1
+		var target := facts.units[ti]
+		var d := from.distance_to(facts.position[ti])
+		var limit := 3.0 if target.is_aircraft() else 6.0
+		var height := facts.mast[ti]
+		var error := 0.08
+		if target.is_submarine() and target.at_periscope_depth():
+			limit = (SNORKEL_SIGHTING_NM if SubmarinePower.snorkelling(target) else PERISCOPE_SIGHTING_NM) * clampf(1.0 - 0.12 * Detection.sea_state, 0.25, 1.0)
+			height = PERISCOPE_HEIGHT_M
+			error = 0.3
+		limit = minf(limit * light, visibility)
+		var slant := Vector2(d, (own_height - height) / METRES_PER_NM).length()
+		if slant > limit:
+			continue
+		if d > Detection.radar_horizon_nm(own_height, height):
+			continue
+		if facts.masked(oi, ti):
+			continue  # the same sight line, mast to mast, as a radar's: one walk serves both
+		_report_visual(observer, target, d, slant, limit, error, now)
+
+
 ## Recognition needs a close, unobscured look. This is separate from radar, so an EMCON patrol
 ## can identify a ship. These distances are conservative gameplay optical recognition limits.
 const PERISCOPE_SIGHTING_NM := 1.5  # GAMEPLAY_ESTIMATE
@@ -535,12 +654,16 @@ func _visual_pass(observer: Unit, now: float) -> void:
 			continue
 		if Detection.terrain_masks(observer, target):
 			continue
-		var c := SensorContact.make(target, target.position + Vector2(rng.randfn(0.0, error), rng.randfn(0.0, error)) if error > 0.1 else target.position, error, 1.0, 1.0, d, "visual", observer)
-		c.visual_identification = true
-		c.visual_named = slant <= limit * VISUAL_NAME_FRACTION
-		c.sensor_id = "lookout"
-		c.sensor_name = "Visual recognition"
-		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
+		_report_visual(observer, target, d, slant, limit, error, now)
+
+
+func _report_visual(observer: Unit, target: Unit, d: float, slant: float, limit: float, error: float, now: float) -> void:
+	var c := SensorContact.make(target, target.position + Vector2(rng.randfn(0.0, error), rng.randfn(0.0, error)) if error > 0.1 else target.position, error, 1.0, 1.0, d, "visual", observer)
+	c.visual_identification = true
+	c.visual_named = slant <= limit * VISUAL_NAME_FRACTION
+	c.sensor_id = "lookout"
+	c.sensor_name = "Visual recognition"
+	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
 ## A directional buoy reports a bearing. A field resolves range only with useful geometry.

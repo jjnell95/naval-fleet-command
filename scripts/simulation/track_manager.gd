@@ -67,6 +67,8 @@ var _dropped_ids: Dictionary = {}
 const REMEMBERED_FIELDS: Array[String] = ["classification", "identity", "domain", "known_class", "known_category", "known_callsign",
 	"class_is_probable", "class_evidence", "identity_evidence", "observation_time_s", "signature_time_s", "radar_recognition_s", "damage_estimate"]
 var _next_number: Dictionary = {}  # faction -> int
+## How many times a report has been filed in a picture, for tests and the measuring tools.
+var picture_filings := 0
 
 
 func configure_recognition(brief: Dictionary) -> void:
@@ -74,6 +76,14 @@ func configure_recognition(brief: Dictionary) -> void:
 
 func get_tracks(faction: String) -> Array:
 	return _tracks.get(faction, [])
+
+
+## Whether a unit keeps a picture of its own beside the shared plot: one that can be off the link
+## while it is in the fight (a boat that dives, an aircraft back on a deck, a ship fitted with no
+## datalink) needs what its own sensors hold when it gets there. Any other unit is on the link for
+## as long as it lives, and the shared plot is the only picture it ever reads.
+static func keeps_own_picture(u: Unit) -> bool:
+	return u != null and u.spec != null and (not u.spec.has_datalink or u.is_submarine() or u.is_aircraft())
 
 
 ## The picture as one unit actually has it, rather than the faction's whole plot.
@@ -111,7 +121,7 @@ func observe(faction: String, target: Unit, observed_pos: Vector2, quality: floa
 
 
 func observe_contact(faction: String, c: SensorContact, now: float, dt: float) -> void:
-	if c.observer != null:
+	if c.observer != null and keeps_own_picture(c.observer):
 		if not _local_keys.has(c.observer):
 			_local_keys[c.observer] = "local:%s" % _unit_key(c.observer)
 		_observe_picture(_local_keys[c.observer], faction, c, now, dt, false)
@@ -177,6 +187,7 @@ func _new_track(key: String, faction: String, target: Unit, position: Vector2, n
 
 
 func _observe_picture(key: String, faction: String, c: SensorContact, now: float, dt: float, shared: bool) -> void:
+	picture_filings += 1
 	var target := c.target
 	var t := find_track(key, target)
 	var is_new := t == null
@@ -210,6 +221,9 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	t._cycle_observation_gain = maxf(t._cycle_observation_gain, gain)
 	if c.observer != null:
 		t.contributors[c.observer] = now
+		if shared and not c.bearing_only and not keeps_own_picture(c.observer):
+			# What this unit itself last measured, for a unit with no picture of its own to say so.
+			t.firm_looks[c.observer] = [now, c.position, maxf(c.error_major_nm, c.error_minor_nm)]
 	t.networked = shared
 	if c.altitude_m >= 0.0:
 		t.altitude_m = c.altitude_m
@@ -328,16 +342,19 @@ func _bearing_solution(t: Track, c: SensorContact, now: float) -> Dictionary:
 	if now - t.bearing_solution_at >= interval:
 		t.bearing_solution_cache = BearingSolution.estimate(t.bearing_history, now, limit)
 		t.bearing_solution_at = now
-	var solution := t.bearing_solution_cache.duplicate()
-	if not solution.is_empty():
-		var age := maxf(now - t.bearing_solution_at, 0.0)
-		solution["position"] += (solution.get("velocity", Vector2.ZERO) as Vector2) * age
-		# However good the geometry, the answer is as old as the lines that made it: the plotted
-		# line trails the newest look by a few seconds and the solution may be older still. A
-		# ship moves nothing in that time; an aircraft moves miles.
-		var growth := t.error_growth_nm_per_s()
-		solution["major"] = maxf(float(solution["major"]) + growth * age, growth * (age + LINE_LAG_S))
-		solution["quality"] = maxf(float(solution["quality"]) - TMA_DECAY_PER_S * age, 0.0)
+	var cached := t.bearing_solution_cache
+	if cached.is_empty():
+		return {}
+	# Only what the plot reads, aged: the cached solution itself stays as the crew worked it.
+	var solution := {"position": cached["position"], "major": cached["major"], "minor": cached["minor"], "axis": cached["axis"], "quality": cached["quality"]}
+	var age := maxf(now - t.bearing_solution_at, 0.0)
+	solution["position"] += (cached.get("velocity", Vector2.ZERO) as Vector2) * age
+	# However good the geometry, the answer is as old as the lines that made it: the plotted
+	# line trails the newest look by a few seconds and the solution may be older still. A
+	# ship moves nothing in that time; an aircraft moves miles.
+	var growth := t.error_growth_nm_per_s()
+	solution["major"] = maxf(float(solution["major"]) + growth * age, growth * (age + LINE_LAG_S))
+	solution["quality"] = maxf(float(solution["quality"]) - TMA_DECAY_PER_S * age, 0.0)
 	return solution
 
 
@@ -513,8 +530,16 @@ func _resolved_contact(raw: SensorContact, solution: Dictionary) -> SensorContac
 	if solution.is_empty():
 		return raw
 	var c := SensorContact.new()
-	for field in ["target", "observer", "source", "sensor_id", "sensor_name", "quality", "classify_rate", "range_nm", "altitude_m", "visual_identification"]:
-		c.set(field, raw.get(field))
+	c.target = raw.target
+	c.observer = raw.observer
+	c.source = raw.source
+	c.sensor_id = raw.sensor_id
+	c.sensor_name = raw.sensor_name
+	c.quality = raw.quality
+	c.classify_rate = raw.classify_rate
+	c.range_nm = raw.range_nm
+	c.altitude_m = raw.altitude_m
+	c.visual_identification = raw.visual_identification
 	c.position = solution["position"]
 	c.error_major_nm = solution["major"]
 	c.error_minor_nm = solution["minor"]
@@ -604,10 +629,7 @@ static func _plot_domain(c: SensorContact) -> String:
 func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
 	if observer == null or weapon.shooter == null or weapon.is_interceptor() or weapon.time_alive_s > 3.0:
 		return
-	var local := find_track(_local_keys.get(observer, ""), weapon.shooter)
-	if local == null or local.is_bearing_only() or local.age_s(now) > 2.0 or local.position_error_nm > 1.0:
-		return
-	if local.position.distance_to(weapon.position) > 1.5:
+	if not _holds_launcher(observer, weapon, now):
 		return
 	var toward := Geo.bearing_deg(weapon.position, observer.position)
 	if absf(Geo.heading_delta(weapon.heading_deg, toward)) > 30.0:
@@ -621,6 +643,19 @@ func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
 				track_classified.emit(observer.faction, t)
 			elif not observer.datalink_connected():
 				local_track_classified.emit(observer, t)
+
+
+## Whether the unit itself holds the launcher firmly, accurately and freshly, where the round is:
+## on its own picture when it keeps one, else on its own last measured plot in the shared one.
+func _holds_launcher(observer: Unit, weapon: Weapon, now: float) -> bool:
+	if keeps_own_picture(observer):
+		var local := find_track(_local_keys.get(observer, ""), weapon.shooter)
+		return local != null and not local.is_bearing_only() and local.age_s(now) <= 2.0 and local.position_error_nm <= 1.0 and local.position.distance_to(weapon.position) <= 1.5
+	var t := find_track(observer.faction, weapon.shooter)
+	if t == null or not t.firm_looks.has(observer):
+		return false
+	var look: Array = t.firm_looks[observer]
+	return now - float(look[0]) <= 2.0 and float(look[2]) <= 1.0 and (look[1] as Vector2).distance_to(weapon.position) <= 1.5
 
 
 func _update_kinematics(t: Track, now: float) -> void:

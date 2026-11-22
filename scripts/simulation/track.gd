@@ -81,6 +81,9 @@ var confirmed_destroyed := false
 ## Which of our own units have contributed to this track, and whether any of them is on the
 ## network. A contact held only by something off the link is ours alone until it reconnects.
 var contributors: Dictionary = {}
+## Unit -> [time, position, error] of the last measured plot each own unit made of the contact,
+## kept on the shared plot for a unit that has no picture of its own (TrackManager.keeps_own_picture).
+var firm_looks: Dictionary = {}
 var networked := true
 var course_deg := 0.0
 var speed_kn := 0.0
