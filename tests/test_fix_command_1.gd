@@ -5,10 +5,12 @@ extends TestCase
 const SCENARIOS := "res://data/scenarios/"
 
 var _save_root := ""
+var _clock_speeds: Array[float] = []
 
 
 func _open(scenario: String, o: GameOptions = null, game_seed := 2) -> Main:
 	_save_root = SaveGame.root_override
+	_clock_speeds = SimClock.speeds()
 	SaveGame.root_override = "user://test-command-picture-%d" % Time.get_ticks_usec()
 	var main: Main = preload("res://scenes/main/Main.tscn").instantiate()
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
@@ -28,6 +30,10 @@ func _close(main: Main) -> void:
 			dir.remove(file)
 		DirAccess.remove_absolute(SaveGame.root_override)
 	SaveGame.root_override = _save_root
+	# The clock is shared with every other test file: hand it back as it was found.
+	SimClock.set_speeds(_clock_speeds)
+	SimClock.set_speed_index(0)
+	SimClock.set_paused(true)
 
 
 func _own(main: Main, part: String) -> Unit:
@@ -263,4 +269,110 @@ func test_classic_boat_out_of_contact_adds_nothing_until_it_reports() -> void:
 	assert_true(Main._receives_report(boat))
 	if not boat.datalink_connected():
 		assert_true(main.map._plotted_tracks().has(held), "a boat that has come up to report adds its picture")
+	_close(main)
+
+
+## Stands in for the track manager's reports of a unit's private picture.
+class PrivatePictureReports:
+	extends RefCounted
+	signal local_track_added(observer: Unit, track: Track)
+	signal local_track_classified(observer: Unit, track: Track)
+
+
+func _lines(main: Main, part: String) -> int:
+	var n := 0
+	for line: String in main.radio.journal:
+		if line.contains(part):
+			n += 1
+	return n
+
+
+func test_deep_boat_reports_its_contact_once_on_the_radio_line() -> void:
+	var main := _open("cold_war_02_barrier.json")
+	var sim := main.simulation
+	var reports := PrivatePictureReports.new()
+	main._connect_private_contact_reports(reports)
+	var boat := _own(main, "Dallas")
+	var ship := _own(main, "Spruance")
+	var victor := _first_hostile(main, "subsurface")
+	main.map.select_units([ship] as Array[Unit])
+	SimClock.set_paused(false)
+	SimClock.set_speed_index(2)
+	var held := _private_contact(main, boat, victor)
+	reports.local_track_added.emit(boat, held)
+	var number := DataDisplay.track_number_for_track(held)
+	assert_eq(_lines(main, "New contact, track %s" % number), 1, "the boat's contact is called on the radio line though a destroyer is hooked")
+	assert_eq(int(main._stats["contacts"]), 1, "and counted")
+	assert_eq(SimClock.speed_index, 0, "and the watch is handed back at real time")
+	reports.local_track_added.emit(boat, held)
+	assert_eq(_lines(main, "New contact, track %s" % number), 1, "once")
+	# The boat classifies it.
+	held.classification = Track.Classification.CLASS_KNOWN
+	held.known_class = "Victor III"
+	held.identity = "HOSTILE"
+	SimClock.set_speed_index(2)
+	reports.local_track_classified.emit(boat, held)
+	reports.local_track_classified.emit(boat, held)
+	assert_eq(_lines(main, "Track %s classified Victor III, hostile" % number), 1, "its classification is called, once")
+	assert_eq(int(main._stats["classified"]), 1)
+	assert_eq(SimClock.speed_index, 0)
+	# A ship on the link gains the same contact: the plot takes it over without a second call.
+	main.map.select_track(held)
+	var linked := SensorContact.make(victor, victor.position, 0.5, 0.9, 1.0, ship.position.distance_to(victor.position), "sonar", ship)
+	sim.track_manager.observe_contact(ship.faction, linked, sim.unit_manager.now_s, SimClock.TICK_DT)
+	var plotted := sim.track_manager.find_track(sim.player_faction, victor)
+	assert_true(plotted != null and plotted != held)
+	assert_eq(_lines(main, "New contact, track %s" % number), 1, "the networked plot gaining it is not a new contact")
+	assert_eq(main.map.selected_track, plotted, "and the hooked contact follows to the plot's track")
+	# Somebody else's boat is nobody's report.
+	var theirs := Track.new()
+	theirs.id = "T7777"
+	theirs.owner_faction = victor.faction
+	reports.local_track_added.emit(victor, theirs)
+	assert_eq(_lines(main, "New contact"), 1)
+	SimClock.set_paused(true)
+	_close(main)
+
+
+func test_a_contact_the_plot_already_holds_is_not_reported_again_from_a_boat() -> void:
+	var main := _open("cold_war_02_barrier.json")
+	var sim := main.simulation
+	var reports := PrivatePictureReports.new()
+	main._connect_private_contact_reports(reports)
+	var boat := _own(main, "Dallas")
+	var ship := _own(main, "Spruance")
+	var victor := _first_hostile(main, "subsurface")
+	var linked := SensorContact.make(victor, victor.position, 0.5, 0.9, 1.0, ship.position.distance_to(victor.position), "sonar", ship)
+	sim.track_manager.observe_contact(ship.faction, linked, sim.unit_manager.now_s, SimClock.TICK_DT)
+	assert_eq(_lines(main, "New contact"), 1, "the plot's contact is called")
+	var held := _private_contact(main, boat, victor)
+	reports.local_track_added.emit(boat, held)
+	held.classification = Track.Classification.CLASS_KNOWN
+	held.known_class = "Victor III"
+	held.identity = "HOSTILE"
+	reports.local_track_classified.emit(boat, held)
+	assert_eq(_lines(main, "New contact"), 1, "the boat holding it too adds no second call")
+	assert_eq(_lines(main, "classified"), 0, "and the chart's track is the plot's, so the boat's own classification is not called over it")
+	_close(main)
+
+
+func test_a_silent_classic_boat_reports_what_it_holds_when_it_comes_up() -> void:
+	var main := _open("cold_war_02_barrier.json", GameOptions.classic())
+	var sim := main.simulation
+	var reports := PrivatePictureReports.new()
+	main._connect_private_contact_reports(reports)
+	var boat := _own(main, "Dallas")
+	var victor := _first_hostile(main, "subsurface")
+	var held := _private_contact(main, boat, victor)
+	reports.local_track_added.emit(boat, held)
+	main._process(1.0)
+	assert_eq(_lines(main, "New contact"), 0, "a boat out of contact reports nothing")
+	boat.depth_m = 0.0
+	if boat.datalink_connected():
+		# On the link at communications depth: its next look puts the contact on the plot.
+		_private_contact(main, boat, victor)
+	main._process(1.0)
+	assert_eq(_lines(main, "New contact"), 1, "at communications depth the contact it holds is called, once")
+	main._process(1.0)
+	assert_eq(_lines(main, "New contact"), 1)
 	_close(main)

@@ -78,6 +78,13 @@ var _civilian_incidents: PackedStringArray = []
 ## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
 ## a consort off the link). Each is announced once, when it reaches the picture.
 var _unannounced: Array[Weapon] = []
+## Contacts called on the radio line, by track number, with the classification last called for each.
+## A contact has one number in every picture, so one a deep boat reported by voice is not called
+## again when the networked plot gains it.
+var _contacts_called: Dictionary = {}
+## Contacts held aboard an own unit the commander could not hear at the time; each is called when
+## that unit next reports, if it still holds the contact and nobody else has reported it.
+var _unreported_contacts: Array[Track] = []
 var _foundered: Dictionary = {}  # Unit -> true, lost to fire or flooding rather than outright
 ## The gameplay options in effect (time ladder, missile defence, engagement after identification,
 ## voice and ambient). Usually the player's stored preference; a restored engagement plays under
@@ -278,6 +285,7 @@ func _ready() -> void:
 				SubmarineComms.configure(u, options.submarine_comms and not simulation.ai_plays_player, simulation.unit_manager.now_s))
 	simulation.track_manager.track_added.connect(_on_track_added)
 	simulation.track_manager.track_classified.connect(_on_track_classified)
+	_connect_private_contact_reports(simulation.track_manager)
 	simulation.track_manager.track_lost.connect(_on_track_lost)
 	simulation.unit_manager.order_issued.connect(func(u: Unit, o: Order) -> void:
 		if u.faction == simulation.player_faction and not simulation.ai_plays_player:
@@ -372,6 +380,7 @@ func _process(delta: float) -> void:
 	radio.set_objective_text(_objective_summary())
 	_autosave_if_due()
 	_announce_unannounced_threats()
+	_call_unreported_contacts()
 	var threats := _commander_inbound()
 	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager)
 	_command_guide.visible = _command_taken and _command_guide.enabled and not _has_visible_modal() and not status_boards.visible and not _views_swapped and not _world_full
@@ -486,6 +495,8 @@ func _reset_command_screen() -> void:
 	_civilian_incidents = PackedStringArray()
 	_foundered.clear()
 	_unannounced.clear()
+	_contacts_called.clear()
+	_unreported_contacts.clear()
 	_report.hide()
 	_autosaved_at = SimClock.sim_time
 
@@ -694,6 +705,9 @@ func _restore_presentation(d: Dictionary) -> void:
 		map.set_follow_selection(true)
 	_autosaved_at = float(d.get("autosaved_at", SimClock.sim_time))
 	_command_guide.restore(d.get("command_guide", {}))
+	# Everything the restored picture holds was called before the save.
+	for t: Track in map._visible_tracks():
+		_contacts_called[_contact_key(t)] = _classification_call(t)
 
 
 func _toggle_saved_engagements() -> void:
@@ -2901,6 +2915,72 @@ func _report_contact(t: Track, message: String, severity: String) -> void:
 func _on_track_added(faction: String, t: Track) -> void:
 	if faction != simulation.player_faction or not _commander_sees_track(t):
 		return
+	if map.selected_track != null and map.selected_track != t and map.selected_track.id == t.id:
+		# The contact hooked from a boat's own report is now the plot's: keep it hooked.
+		map.select_track(t)
+	_call_new_contact(t)
+
+
+func _on_track_classified(faction: String, t: Track) -> void:
+	if faction != simulation.player_faction or not _commander_sees_track(t):
+		return
+	_call_classification(t)
+
+
+## A unit off the link reports its own picture by voice. TrackManager says so with two signals of
+## its own; a build without them simply has no such reports.
+func _connect_private_contact_reports(source: Object) -> void:
+	if source.has_signal("local_track_added"):
+		source.connect("local_track_added", _on_local_track_added)
+	if source.has_signal("local_track_classified"):
+		source.connect("local_track_classified", _on_local_track_classified)
+
+
+## Whether a contact aboard an off-link unit is the commander's news: that unit reports to him and
+## the networked plot does not hold the contact already.
+func _private_report_due(observer: Unit, t: Track) -> bool:
+	return t != null and CommanderPicture.reports_privately(observer) and simulation.track_manager.find_track(simulation.player_faction, t.truth) == null
+
+
+func _on_local_track_added(observer: Unit, t: Track) -> void:
+	if observer == null or t == null or observer.faction != simulation.player_faction:
+		return
+	if _private_report_due(observer, t):
+		_call_new_contact(t)
+	elif not _receives_report(observer) and not _unreported_contacts.has(t):
+		_unreported_contacts.append(t)
+
+
+func _on_local_track_classified(observer: Unit, t: Track) -> void:
+	if observer == null or t == null or observer.faction != simulation.player_faction:
+		return
+	if _private_report_due(observer, t):
+		# A contact he was never told of (the plot held it when the boat gained it, and has since
+		# dropped it) is called first, so the classification has something to refer to.
+		_call_new_contact(t)
+		_call_classification(t)
+
+
+func _call_unreported_contacts() -> void:
+	for t in _unreported_contacts.duplicate():
+		if t.status == Track.Status.LOST:
+			_unreported_contacts.erase(t)
+		elif _commander_sees_track(t):
+			_unreported_contacts.erase(t)
+			_call_new_contact(t)
+			_call_classification(t)
+
+
+## A contact is known by its track number, which every picture shares. A track without one (built
+## by hand rather than by the track manager) stands for itself.
+static func _contact_key(t: Track) -> Variant:
+	return t.id if t.id != "" else t
+
+
+func _call_new_contact(t: Track) -> void:
+	if _contacts_called.has(_contact_key(t)):
+		return
+	_contacts_called[_contact_key(t)] = ""
 	SimClock.drop_to_realtime()
 	_stats["contacts"] += 1
 	_report_contact(t, "New contact, track %s (%s)" % [DataDisplay.track_number_for_track(t), DataDisplay.source_text(t.source)], "warn")
@@ -2910,9 +2990,21 @@ func _on_track_added(faction: String, t: Track) -> void:
 	Debug.event("[Contact] %s gained on %s at %.1f nm from the nearest of ours" % [t.id, t.source, _nearest_own_distance(t.position)])
 
 
-func _on_track_classified(faction: String, t: Track) -> void:
-	if faction != simulation.player_faction or not _commander_sees_track(t):
+## What a classification call says about a track, so the same news from a second picture is not
+## called twice. Empty while there is nothing to call.
+static func _classification_call(t: Track) -> String:
+	if t.classification == Track.Classification.CLASS_KNOWN:
+		return "class:%s:%s" % [t.known_class, t.identity]
+	if t.classification == Track.Classification.IDENTIFIED:
+		return "id:%s" % t.known_callsign
+	return ""
+
+
+func _call_classification(t: Track) -> void:
+	var call := _classification_call(t)
+	if call == "" or str(_contacts_called.get(_contact_key(t), "")) == call:
 		return
+	_contacts_called[_contact_key(t)] = call
 	if t.classification == Track.Classification.CLASS_KNOWN:
 		SimClock.drop_to_realtime()
 		if t.identity == "HOSTILE":
@@ -2926,9 +3018,24 @@ func _on_track_classified(faction: String, t: Track) -> void:
 		_report_contact(t, "Track %s identified as %s" % [DataDisplay.track_number_for_track(t), t.known_callsign], "info")
 
 
-func _on_track_lost(faction: String, t: Track) -> void:
-	if faction == simulation.player_faction and _commander_sees_track(t):
-		_report_contact(t, "Track %s lost" % DataDisplay.track_number_for_track(t), "warn")
+## A picture has dropped a track. It is the commander's loss when he held the contact through that
+## picture and no other picture he hears from still holds it.
+func _on_track_lost(picture: String, t: Track) -> void:
+	if t.owner_faction != simulation.player_faction:
+		return
+	var was_held := t.networked
+	if picture != simulation.player_faction:
+		# One unit's own picture: his only if that unit was reporting it to him by voice.
+		was_held = _contacts_called.has(_contact_key(t)) and t.contributors.keys().any(func(u: Unit) -> bool: return CommanderPicture.reports_privately(u))
+	if not was_held:
+		return
+	var still := CommanderPicture.track_on(simulation.track_manager, simulation.unit_manager, simulation.player_faction, t)
+	if still != null and still != t:
+		if map.selected_track == t:
+			map.select_track(still)
+		return
+	_contacts_called.erase(_contact_key(t))
+	_report_contact(t, "Track %s lost" % DataDisplay.track_number_for_track(t), "warn")
 
 
 func _all_controllable(units: Array) -> bool:
