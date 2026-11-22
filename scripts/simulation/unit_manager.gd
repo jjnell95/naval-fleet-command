@@ -783,7 +783,7 @@ func _hold_band(u: Unit, track: Track, standoff_nm: float) -> void:
 	var range_nm := u.position.distance_to(track.position)
 	# How far outside the standoff, as a fraction of a tenth of it. Inside it there is nothing to
 	# correct: the weapon reaches, and opening out to the edge of its range would gain nothing.
-	var error := clampf((range_nm - standoff_nm) / maxf(standoff_nm * 0.1, 0.5), 0.0, 1.0)
+	var error := clampf((range_nm - standoff_nm) / maxf(standoff_nm * 0.1, 0.5), 0.0, 1.0) if standoff_nm > 0.0 else 0.0
 	var speed := u.attack_speed_kn
 	if not u.attack_speed_ordered:
 		speed = minf(u.spec.cruise_speed_kn, ATTACK_QUIET_KN if u.is_submarine() else u.attack_speed_kn)

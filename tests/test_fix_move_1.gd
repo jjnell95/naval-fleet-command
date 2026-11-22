@@ -837,3 +837,25 @@ func test_a_contact_of_known_class_and_unknown_allegiance_can_still_be_closed_an
 	assert_eq(helo.investigation_result, "Contact classified")
 	assert_eq(UnitManager.investigation_rejection(helo, t), "Contact classified", "an identified contact needs no second look")
 	h.free_all()
+
+
+# --- A consort firing from its station that becomes the guide -------------------------------------
+
+func test_a_consort_attacking_from_station_takes_over_the_lost_guides_route() -> void:
+	var guide := _unit("BLUE", Vector2.ZERO)
+	var escort := _unit("BLUE", Vector2(4, 6), 100.0, [_asm(60.0)])
+	var target := _unit("RED", Vector2(10, 45), 5000.0)
+	var h := _harness([guide, escort, target])
+	assert_true(h.um.issue_order(guide, Order.move(Vector2(0, 300))))
+	assert_true(h.um.issue_order(guide, Order.set_speed(15.0)))
+	assert_true(h.um.issue_order(escort, Order.form_up(guide, Vector2(4, 6))))
+	h.advance(60.0)
+	assert_true(h.um.issue_order(escort, Order.attack(_track(target))))
+	h.advance(30.0)
+	assert_true(escort.attack_track != null and escort.on_station(), "firing from her station")
+	guide.alive = false
+	h.advance(DT)
+	assert_eq(escort.waypoints, [Vector2(0, 300)], "the convoy's route is hers now, attack or no attack")
+	assert_near(escort.ordered_speed_kn, 15.0, 0.01)
+	assert_true(escort.attack_track != null, "and the attack goes on")
+	h.free_all()

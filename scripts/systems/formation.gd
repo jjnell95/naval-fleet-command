@@ -200,7 +200,9 @@ static func update_speed_caps(units: Array) -> void:
 ## The new guide carries on where the old one was going: its route, or its patrol circuit. A
 ## convoy whose lead ship is sunk keeps steaming for the gate instead of stopping where it was hit.
 static func _inherit_plan(successor: Unit, old: Unit) -> void:
-	if successor.attack_track != null or successor.investigation_track != null:
+	# A task that has the steering keeps it. A consort firing from its station does not: it has no
+	# route of its own, and without the guide's it would steam on with nowhere to go.
+	if successor.plan_kept or successor.investigation_track != null:
 		return
 	successor.waypoints.assign(old.waypoints)
 	successor.patrol_active = old.patrol_active
