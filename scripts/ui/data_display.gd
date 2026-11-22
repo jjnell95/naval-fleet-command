@@ -13,6 +13,8 @@ signal pause_requested
 signal scale_step_requested(step: int)
 signal messages_requested
 signal threat_requested
+## A right-click on the read-out: the menu of whatever it is showing, at this viewport position.
+signal platform_menu_requested(viewport_pos: Vector2)
 
 const COL_BG := Color("0f1837")
 const COL_TITLE := Color("3a7fff")
@@ -469,7 +471,7 @@ static func track_rows(t: Track, ref: Unit, now: float) -> Array:
 	rows.append(_kv("SOURCE", source_readout(t)))
 	rows.append(_kv("CLASSIFICATION", t.class_confidence_text()))
 	rows.append(_kv("FIX", t.solution_text()))
-	if t.class_evidence != "": rows.append(_kv("CLASS EVIDENCE", t.class_evidence))
+	if t.class_evidence != "": rows.append(_kv("CLASS EVIDENCE", class_evidence_readout(t)))
 	if t.identity_evidence != "": rows.append(_kv("IDENTITY EVIDENCE", t.identity_evidence))
 	rows.append(_kv("%DAMAGE", damage_text(t)))
 	if ref != null and ref.alive:
@@ -530,7 +532,14 @@ static func damage_text(t: Track) -> String:
 static func source_readout(t: Track) -> String:
 	if t.source == "intel":
 		return "Contact report" + (", " + t.source_sensor if t.source_sensor != "" else "")
+	if t.source == "visual" or t.source_sensor_id == "lookout":
+		return "%s lookouts" % t.source_platform if t.source_platform != "" else "Visual"
 	var sensor := sensor_label(t.source_sensor)
+	# One catalogued set stands for a ship's whole radar fit. Where its name is for another medium
+	# than the contact's, the plot is credited to the ship's radar and not to a set that would
+	# not have held it.
+	if t.source == "radar" and not sensor_suits_domain(sensor, t.domain):
+		sensor = "radar"
 	if sensor != "" and t.source_platform != "":
 		return "%s %s%s" % [t.source_platform, sensor, _sonar_mode(t.source)]
 	if sensor != "":
@@ -540,6 +549,29 @@ static func source_readout(t: Track) -> String:
 	if t.contributors.is_empty() and t.source not in ["sonobuoy", "buoy"] and t.networked:
 		return "Link"
 	return source_text(t.source)
+
+
+## Whether a radar's catalogue name fits a contact in this medium. Only a name that states one
+## medium and not the other is a misfit ("air-search radar" on a ship, "surface-search radar" on an
+## aircraft); a multifunction or plainly named set fits anything.
+static func sensor_suits_domain(label: String, domain: String) -> bool:
+	var text := label.to_lower()
+	var air := text.contains("air-search") or text.contains("air search") or text.contains("early-warning") or text.contains("fighter radar")
+	var surface := text.contains("surface") or text.contains("navigation") or text.contains("maritime")
+	if domain in ["surface", "land"]:
+		return not air or surface
+	if domain == "air":
+		return not surface or air or text.contains("air")
+	return true
+
+
+## What established the class, as the track's record supports it. A look outranks a library: once
+## the contact's colours have been seen its class was seen with them, whatever an emitter or a
+## sound suggested before or since.
+static func class_evidence_readout(t: Track) -> String:
+	if t.class_evidence != "" and t.identity_evidence == "Visual markings":
+		return "Visual recognition"
+	return t.class_evidence
 
 
 ## A catalogue sensor name trimmed for a readout line: no "AN/" prefix and no fit note in
@@ -1014,6 +1046,9 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 	elif _threat_rect.grow(3.0).has_point(mb.position):
 		threat_requested.emit()
+		accept_event()
+	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		platform_menu_requested.emit(get_global_transform_with_canvas() * mb.position)
 		accept_event()
 
 

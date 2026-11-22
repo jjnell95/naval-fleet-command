@@ -148,6 +148,7 @@ func _ready() -> void:
 	data_display.messages_requested.connect(_on_message_lamp)
 	status_boards.comms_shown.connect(func() -> void: data_display.unread_alerts = 0)
 	data_display.threat_requested.connect(_focus_urgent_threat)
+	data_display.platform_menu_requested.connect(_on_display_menu)
 	regional = RegionalMap.new()
 	regional.name = "RegionalMap"
 	regional.map = map
@@ -2681,6 +2682,20 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 			items = CdsMenus.cds_items(_cds_state())
 	map.menu_open = true
 	_cds_menus.open(items, context.get("viewport_pos", map.get_global_transform_with_canvas() * screen_pos))
+
+
+## Right-click on the data display: the menu of what it is reading out. The contact being
+## inspected, else the hooked platforms, else the CDS menu.
+func _on_display_menu(viewport_pos: Vector2) -> void:
+	if _has_visible_modal():
+		return
+	var t := map.inspection_track()
+	if t != null:
+		_on_map_context(Vector2.ZERO, {"kind": "track", "track": t, "viewport_pos": viewport_pos})
+	elif not map.selected.is_empty():
+		_on_map_context(Vector2.ZERO, {"kind": "own_unit", "unit": map.selected[0], "viewport_pos": viewport_pos})
+	else:
+		_on_map_context(Vector2.ZERO, {"viewport_pos": viewport_pos})
 
 
 func _run_cds_action(action: Dictionary) -> void:

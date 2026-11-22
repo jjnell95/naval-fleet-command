@@ -549,3 +549,75 @@ func test_chaff_ordered_with_no_seeker_in_reach_says_so() -> void:
 	assert_eq(ship.decoys, packs - 2)
 	assert_true(not main.radio.journal.slice(before).any(func(line: String) -> bool: return line.contains("away with no")), "chaff against a seeker in reach draws no warning: %s" % str(main.radio.journal.slice(before)))
 	_close(main)
+
+
+# --- The data display: what produced the plot, and its own right-click menu ---------------------
+
+func _plot(domain: String, source: String, sensor: String, sensor_id := "") -> Track:
+	var t := Track.new()
+	t.id = "T1003"
+	t.owner_faction = "BLUE"
+	t.domain = domain
+	t.source = source
+	t.source_platform = "FFG Perry"
+	t.source_sensor = sensor
+	t.source_sensor_id = sensor_id
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = "Nanuchka"
+	return t
+
+
+func test_the_source_line_does_not_credit_a_ship_plot_to_an_air_search_set() -> void:
+	var ship := _plot("surface", "radar", "AN/SPS-49 air-search radar")
+	assert_eq(DataDisplay.source_readout(ship), "FFG Perry radar", "a surface plot is the ship's radar, not her air-search set")
+	assert_eq(DataDisplay.source_readout(_plot("air", "radar", "AN/SPS-49 air-search radar")), "FFG Perry SPS-49 air-search radar", "an air plot still names it")
+	assert_eq(DataDisplay.source_readout(_plot("surface", "radar", "AWS-1 air and surface search radar")), "FFG Perry AWS-1 air and surface search radar", "a set named for both fits both")
+	assert_eq(DataDisplay.source_readout(_plot("air", "radar", "Navigation and surface-search radar")), "FFG Perry radar")
+	assert_eq(DataDisplay.source_readout(_plot("surface", "visual", "Visual recognition", "lookout")), "FFG Perry lookouts", "a sighting is the lookouts'")
+
+
+func test_class_evidence_of_a_sighted_contact_is_the_sighting() -> void:
+	var t := _plot("surface", "visual", "Visual recognition", "lookout")
+	t.identity = "HOSTILE"
+	t.identity_evidence = "Visual markings"
+	# What a hold on sonar writes over a contact already recognised by eye.
+	t.class_evidence = "Acoustic library match"
+	var text := DataDisplay.rows_text(DataDisplay.track_rows(t, null, 0.0))
+	assert_true(text.contains("CLASS EVIDENCE: Visual recognition"), "seen is seen: %s" % text)
+	assert_true(not text.contains("Acoustic library match"), text)
+	t.identity_evidence = "Scenario recognition brief"
+	assert_true(DataDisplay.rows_text(DataDisplay.track_rows(t, null, 0.0)).contains("CLASS EVIDENCE: Acoustic library match"), "a contact never seen keeps the library's word")
+
+
+func _right_click(control: Control, at: Vector2) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_RIGHT
+	e.pressed = true
+	e.position = at
+	control._gui_input(e)
+
+
+func test_a_right_click_on_the_data_display_opens_the_hooked_platforms_menu() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	var ship: Unit = f["own"][0]
+	main.map.select_track(null)
+	main.map.select_units([ship])
+	var at := Vector2(180.0, 90.0)
+	_right_click(main.data_display, at)
+	var menu := main._cds_menus._root
+	assert_true(menu != null and is_instance_valid(menu), "a menu opens")
+	if menu != null:
+		var texts := []
+		for i in menu.item_count:
+			texts.append(menu.get_item_text(i))
+		assert_true(texts.has("Navigation") and texts.has("Weapons state"), "it is the hooked platform's orders menu: %s" % str(texts))
+	main._cds_menus.close()
+	# With a contact being inspected the read-out is the contact's, and so is the menu.
+	main.map.select_track(f["track"])
+	assert_eq(main.map.inspection_track(), f["track"])
+	_right_click(main.data_display, at)
+	menu = main._cds_menus._root
+	assert_true(menu != null and menu.get_item_text(0).begins_with("Track %s" % DataDisplay.track_number_for_track(f["track"])), "the contact's menu for an inspected contact: %s" % (menu.get_item_text(0) if menu != null else "no menu"))
+	main._cds_menus.close()
+	_close(main)
