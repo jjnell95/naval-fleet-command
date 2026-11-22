@@ -477,8 +477,13 @@ func test_radar_dependent_sam_loses_support_but_active_seeker_does_not() -> void
 	var autonomous: Weapon = h[2].in_flight.back()
 	ship.radar_on = false
 	h[2].tick(0.25, 0.25)
-	assert_eq(guided.dead_reason, "GUIDANCE LOST")
-	assert_true(autonomous.phase != Weapon.Phase.DEAD)
+	assert_true(guided.phase != Weapon.Phase.DEAD, "one missed look is not a lost missile: it coasts on its last solution")
+	var now := 0.25
+	while now < 0.25 + WeaponManager.INTERCEPT_COAST_S + 0.5 and guided.phase != Weapon.Phase.DEAD:
+		now += 0.25
+		h[2].tick(0.25, now)
+	assert_eq(guided.dead_reason, "GUIDANCE LOST", "with its fire control off for good, it is lost")
+	assert_true(autonomous.phase != Weapon.Phase.DEAD or autonomous.dead_reason != "GUIDANCE LOST")
 	_cleanup(h)
 
 

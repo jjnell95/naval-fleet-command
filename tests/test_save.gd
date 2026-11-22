@@ -258,7 +258,8 @@ func test_continuation_through_group_attacks_matches_the_uninterrupted_battle() 
 	if contacts.size() < 2:
 		_free()
 		return
-	var first := Order.group_attack([truxtun, amundsen], [contacts[0]], 4, 2)
+	# One round a volley: two that both arrive sink this target, and the save needs a look pending.
+	var first := Order.group_attack([truxtun, amundsen], [contacts[0]], 4, 1)
 	assert_true(_sim.unit_manager.issue_order(truxtun, first), first.receipt)
 	var looking: GroupAttack = gam.groups[-1]
 	while looking.target_assess_until[0] < 0.0 and looking.active and SimClock.sim_time < 1800.0:

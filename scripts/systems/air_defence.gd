@@ -262,6 +262,8 @@ static func engage_hostile_aircraft(unit_manager: UnitManager, track_manager: Tr
 			for spec: WeaponSpec in u.weapons_for_track(t):
 				if spec.type != "sam" or u.magazine_count(spec.id) <= SAM_RESERVE_FOR_MISSILES:
 					continue
+				if own_aircraft_in_basket(unit_manager, u, spec, t):
+					continue
 				if not bool(weapon_manager.engagement_check(u, spec, t, now).get("ok", false)):
 					continue
 				if weapon_manager.launch(u, spec, t, 1, now):
@@ -269,6 +271,18 @@ static func engage_hostile_aircraft(unit_manager: UnitManager, track_manager: Tr
 				break
 	weapon_manager.end_channel_batch()
 	return fired
+
+
+## An own aircraft close enough to the contact to be inside the round's seeker basket when it
+## opens. A crew firing on its own initiative holds a shot into a merge it cannot sort out on the
+## scope; the commander may still order it. The basket is drawn round the plot, widened by the
+## plot's own error.
+static func own_aircraft_in_basket(unit_manager: UnitManager, shooter: Unit, spec: WeaponSpec, t: Track) -> bool:
+	var reach := spec.acquisition_radius_nm() + maxf(t.position_error_nm, 0.0)
+	for u: Unit in unit_manager.units:
+		if u != shooter and u.faction == shooter.faction and u.in_flight() and u.position.distance_to(t.position) <= reach:
+			return true
+	return false
 
 
 ## Whether this ship's area and point SAMs may engage this round now: always on automatic

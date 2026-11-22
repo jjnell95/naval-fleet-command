@@ -1,5 +1,6 @@
 class_name Combat
-## Engagement geometry and probability. Pure static functions, no state, no randomness.
+## Engagement geometry and probability. Static functions, no randomness, and no state beyond the
+## plot the launch discipline reads (`picture_source`).
 
 const LEAD_MAX_ITER := 4
 const AIR_TARGET_BONUS := 1.25
@@ -13,6 +14,16 @@ const AIR_REACTION_S := 5.0
 const AIR_DEFAULT_TURN_DEG_S := 6.0
 const TORPEDO_EVASION_BENEFIT := 0.45
 const BMD_INTERCEPTOR_ADVANTAGE := 0.45  # GAMEPLAY_ESTIMATE
+
+## The plot a shot is checked against for protected traffic when the caller hands none in: the
+## track manager of the engagement being fought, set by the WeaponManager it is wired to. A seeker
+## cannot tell a merchant from a warship, so the side's own picture has to before the round leaves.
+static var picture_source: TrackManager
+## Protected traffic stops a shot when it lies this close to where the target should be, beyond
+## the plot errors and the target's own movement. The speeds are what a contact with no course
+## and speed on the plot is taken to be capable of. GAMEPLAY_ESTIMATE.
+const PROTECTED_GUARD_NM := 1.0
+const PROTECTED_ASSUMED_SPEED_KN := {"surface": 20.0, "subsurface": 20.0, "air": 450.0}
 
 
 ## Lead intercept point against a track's estimated motion. Falls back to the raw track position
@@ -72,7 +83,9 @@ static func crosses_land(shooter: Unit, spec: WeaponSpec, track: Track) -> bool:
 
 
 ## Whether `shooter` may fire `spec` at `track` right now. Returns {ok, reason, range_nm}.
-static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, reserved_round := false) -> Dictionary:
+## `picture` is the plot the shot is checked against for protected traffic; without one the
+## engagement's own (`picture_source`) is read.
+static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, reserved_round := false, picture: TrackManager = null) -> Dictionary:
 	var out := {"ok": false, "reason": "", "range_nm": 0.0}
 	if shooter == null or spec == null or track == null:
 		out["reason"] = "NO TARGET"
@@ -149,6 +162,11 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if crosses_land(shooter, spec, track):
 		out["reason"] = "NO LINE OF FIRE"
 		return out
+	if picture == null and is_instance_valid(picture_source):
+		picture = picture_source
+	if picture != null and protected_contact_in_basket(shooter, spec, track, aim, picture.tracks_for(shooter)) != null:
+		out["reason"] = "NEUTRAL IN THE LINE OF FIRE"
+		return out
 	var arc := firing_arc_check(shooter, spec, aim)
 	if not arc.ok:
 		out["reason"] = "MOUNT MASKED / ATTACK TO UNMASK"
@@ -157,6 +175,59 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	out["ok"] = true
 	out["reason"] = "IN ENVELOPE"
 	return out
+
+
+## The contact the shooter's side holds as neutral or friendly that this shot could take instead
+## of its target, or null. A seeker takes what lies nearest its aim point, so protected traffic is
+## at risk where it competes with the target for that place: within the weapon's acquisition
+## basket, and no further from the aim point than the solution can be wrong by (protected_spread_nm).
+## A torpedo searches the whole run in from where its seeker comes on, so for it the same margin
+## is taken along that run. Read from the held picture only: a merchant nobody has identified does
+## not stop a shot, which is the reason to identify before shooting. A plot that does not hold the
+## contact being shot at is some other engagement's and says nothing.
+static func protected_contact_in_basket(shooter: Unit, spec: WeaponSpec, track: Track, aim: Vector2, held_tracks: Array) -> Track:
+	if spec.is_anti_radiation():
+		return null  # it hears only the other side's radars
+	# A rocket-thrown torpedo searches with the torpedo's seeker, round where it enters the water.
+	var seeker := spec
+	if spec.delivery_payload_id != "":
+		var payload := DataDB.weapon(spec.delivery_payload_id)
+		if payload != null:
+			seeker = payload
+	var radius := seeker.acquisition_radius_nm()
+	var spread := protected_spread_nm(spec, track, shooter.position.distance_to(aim))
+	var from := aim
+	if spec.is_torpedo():
+		var run := aim - shooter.position
+		from = shooter.position + run.limit_length(minf(spec.run_to_enable_nm, run.length()))
+	var listed := false
+	var at_risk: Track = null
+	for held: Track in held_tracks:
+		if held == track:
+			listed = true
+			continue
+		if at_risk != null or held.identity not in ["NEUTRAL", "FRIENDLY"]:
+			continue
+		if held.status == Track.Status.LOST or held.confirmed_destroyed or held.is_bearing_only():
+			continue
+		if held.domain != "" and not suits_track(seeker, held):
+			continue
+		var nearest := Geometry2D.get_closest_point_to_segment(held.position, from, aim)
+		if held.position.distance_to(nearest) <= minf(radius, spread + maxf(held.position_error_nm, 0.0)):
+			at_risk = held
+	return at_risk if listed else null
+
+
+## How far from the aim point the target of this shot may turn out to be when the seeker opens:
+## the error of its plot, the distance it can cover while a round that takes no updates is on its
+## way, and a fixed margin (PROTECTED_GUARD_NM). Traffic inside this is as likely to be taken as
+## the target; traffic further out is passed over for whatever is nearer the aim point.
+static func protected_spread_nm(spec: WeaponSpec, track: Track, flight_range_nm: float) -> float:
+	var spread := PROTECTED_GUARD_NM + maxf(track.position_error_nm, 0.0)
+	if not spec.supports_midcourse_updates():
+		var speed := track.speed_kn if track.has_kinematics else float(PROTECTED_ASSUMED_SPEED_KN.get(track.domain, 0.0))
+		spread += Geo.knots_to_nm_per_s(speed) * time_of_flight_s(spec, flight_range_nm)
+	return spread
 
 
 ## Each authored mount contributes a relative center bearing and a half-width. Multiple mounts
@@ -331,9 +402,27 @@ static func intercept_probability(interceptor: WeaponSpec, threat: WeaponSpec) -
 	return clampf(interceptor.base_pk / maxf(difficulty, 0.1), 0.05, 0.95)
 
 
-## Hit probability once the seeker has acquired a real unit. Milestone 4 will subtract the
-## effect of hard-kill and soft-kill defences here.
-static func hit_probability(spec: WeaponSpec, target: Unit) -> float:
+## Gunfire is not a guided weapon's single-shot chance. A shell takes its whole time of flight to
+## arrive at a point laid before it left the barrel: the chance falls away with the range, to
+## GUN_PK_AT_MAX_RANGE of the rated figure at the limit of the gun's reach, and with the speed of
+## a target that can move off that point, halving at GUN_SPEED_HALVING_KN. GAMEPLAY_ESTIMATE.
+const GUN_PK_AT_MAX_RANGE := 0.5
+const GUN_SPEED_HALVING_KN := 60.0
+
+
+static func gun_accuracy_factor(spec: WeaponSpec, target: Unit, range_nm: float) -> float:
+	var range_factor := 1.0
+	if range_nm >= 0.0 and spec.max_range_nm > 0.0:
+		range_factor = lerpf(1.0, GUN_PK_AT_MAX_RANGE, clampf(range_nm / spec.max_range_nm, 0.0, 1.0))
+	return range_factor / (1.0 + maxf(target.speed_kn, 0.0) / GUN_SPEED_HALVING_KN)
+
+
+## Hit probability once the seeker has acquired a real unit. `range_nm` is how far the round flew
+## to get there, where the caller knows it; only gunfire depends on it.
+static func hit_probability(spec: WeaponSpec, target: Unit, range_nm := -1.0) -> float:
+	if spec.is_gun():
+		var gun_size := clampf(0.75 + target.spec.signature_factor * 0.25, 0.6, 1.1)
+		return clampf(spec.base_pk * gun_size * gun_accuracy_factor(spec, target, range_nm), 0.0, 0.99)
 	if spec.is_torpedo():
 		# A ship that has heard the torpedo and is running gives the weapon a much harder problem.
 		# Turning away and opening the range is the only hard answer a surface ship has.
