@@ -40,7 +40,11 @@ const LEG_CHANGE_KN := 2.0
 ## Files one bearing and returns the stored report. Besides the latest look, a report carries the
 ## line as smoothed for display ("smooth") and the mean of every look in its ten-second sample
 ## ("mean_bearing", "mean_origin", "mean_time", "n"), which is what the motion solutions work on.
-static func add(history: Array, c: SensorContact, now: float) -> Dictionary:
+##
+## `latest`, when given, is the caller's index of each listener's newest report in this history
+## (key -> report), kept up to date here, so the history is not searched for every look. Pass an
+## empty dictionary to have it built from the history on first use.
+static func add(history: Array, c: SensorContact, now: float, latest: Variant = null) -> Dictionary:
 	if c.bearing_key == "":
 		return {}
 	var report := {"key": c.bearing_key, "origin": c.bearing_origin,
@@ -48,34 +52,49 @@ static func add(history: Array, c: SensorContact, now: float) -> Dictionary:
 		"limit": c.bearing_range_limit_nm, "speed_limit": c.bearing_speed_limit_kn, "time": now,
 		"smooth": c.error_axis_deg, "n": 1, "mean_bearing": c.error_axis_deg,
 		"mean_origin": c.bearing_origin, "mean_time": now}
+	var index: Dictionary = latest if latest is Dictionary else {}
+	if latest is Dictionary and index.is_empty():
+		for entry: Dictionary in history:
+			index[entry["key"]] = entry
 	# Replace a recent sample from the same observer: a rapid sensor refresh is not a new
 	# baseline. Keep the window bounded for both simulation cost and saved engagements.
-	for i in range(history.size() - 1, -1, -1):
-		if history[i]["key"] == c.bearing_key:
-			var prev: Dictionary = history[i]
-			var gap := now - float(prev["time"])
-			if gap <= SMOOTH_GAP_S:
-				var line := float(prev.get("smooth", prev["bearing"]))
-				report["smooth"] = fposmod(line + SMOOTH_GAIN * Geo.heading_delta(line, c.error_axis_deg), 360.0)
-			if gap < SAMPLE_INTERVAL_S:
-				# Preserve regular history samples, but carry the latest bearing separately below.
-				if now - float(prev.get("sample_start", prev["time"])) < SAMPLE_INTERVAL_S:
-					report["sample_start"] = prev.get("sample_start", prev["time"])
-					var n := int(prev.get("n", 1)) + 1
-					var mean := float(prev.get("mean_bearing", prev["bearing"]))
-					var mean_origin: Vector2 = prev.get("mean_origin", prev["origin"])
-					var mean_time := float(prev.get("mean_time", prev["time"]))
-					report["n"] = n
-					report["mean_bearing"] = fposmod(mean + Geo.heading_delta(mean, c.error_axis_deg) / n, 360.0)
-					report["mean_origin"] = mean_origin + (c.bearing_origin - mean_origin) / n
-					report["mean_time"] = mean_time + (now - mean_time) / n
-					history[i] = report
-					return report
-			break
+	var prev: Dictionary = index.get(c.bearing_key, {}) if latest is Dictionary else _newest(history, c.bearing_key)
+	if not prev.is_empty():
+		var gap := now - float(prev["time"])
+		if gap <= SMOOTH_GAP_S:
+			var line := float(prev.get("smooth", prev["bearing"]))
+			report["smooth"] = fposmod(line + SMOOTH_GAIN * Geo.heading_delta(line, c.error_axis_deg), 360.0)
+		if gap < SAMPLE_INTERVAL_S:
+			# Preserve regular history samples, but carry the latest bearing separately below.
+			if now - float(prev.get("sample_start", prev["time"])) < SAMPLE_INTERVAL_S:
+				report["sample_start"] = prev.get("sample_start", prev["time"])
+				var n := int(prev.get("n", 1)) + 1
+				var mean := float(prev.get("mean_bearing", prev["bearing"]))
+				var mean_origin: Vector2 = prev.get("mean_origin", prev["origin"])
+				var mean_time := float(prev.get("mean_time", prev["time"]))
+				report["n"] = n
+				report["mean_bearing"] = fposmod(mean + Geo.heading_delta(mean, c.error_axis_deg) / n, 360.0)
+				report["mean_origin"] = mean_origin + (c.bearing_origin - mean_origin) / n
+				report["mean_time"] = mean_time + (now - mean_time) / n
+				# The sample takes the new figures where it stands in the history.
+				prev.clear()
+				prev.merge(report)
+				return prev
 	history.append(report)
+	index[c.bearing_key] = report
 	while not history.is_empty() and (now - float(history[0]["time"]) > WINDOW_S or history.size() > MAX_SAMPLES):
-		history.pop_front()
+		var gone: Dictionary = history.pop_front()
+		if is_same(index.get(gone["key"]), gone):
+			index.erase(gone["key"])
 	return report
+
+
+## The newest report from this listener, or an empty dictionary.
+static func _newest(history: Array, key: String) -> Dictionary:
+	for i in range(history.size() - 1, -1, -1):
+		if history[i]["key"] == key:
+			return history[i]
+	return {}
 
 
 ## `speed_limit_kn` is the fastest the contact is believed able to go; below zero it is taken from
@@ -94,9 +113,9 @@ static func estimate(history: Array, now: float, speed_limit_kn := -1.0) -> Dict
 		if now - float(report.get("sample_start", report["time"])) > SAMPLE_INTERVAL_S * 2.0:
 			break
 		if now - float(report["time"]) <= 2.0:
-			var line := report.duplicate()
-			line["bearing"] = report.get("smooth", report["bearing"])
-			current.push_front(line)
+			# Only what a crossed fix reads, with the line as smoothed.
+			current.push_front({"key": report["key"], "origin": report["origin"], "bearing": report.get("smooth", report["bearing"]),
+				"time": report["time"], "sigma": report["sigma"], "limit": report["limit"], "speed_limit": report.get("speed_limit", SHIP_SPEED_LIMIT_KN)})
 	var crossed := _crossed_fix(current)
 	if not crossed.is_empty():
 		return crossed
@@ -158,6 +177,9 @@ static func _crossed_fix(reports: Array) -> Dictionary:
 				continue
 			if absf(sin(deg_to_rad(float(a["bearing"]) - float(b["bearing"])))) >= MIN_CROSSING_SINE:
 				good_geometry = true
+				break
+		if good_geometry:
+			break
 	if not good_geometry:
 		return {}
 	return _fit(reports, float(reports[-1]["time"]), false)

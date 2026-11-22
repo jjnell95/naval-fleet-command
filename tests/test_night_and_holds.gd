@@ -26,7 +26,7 @@ func _sighted(separation_nm: float) -> bool:
 	var other := _ship("RED", Vector2(0, separation_nm))
 	um.add_unit(own)
 	um.add_unit(other)
-	sm._visual_pass(own, 1.0)
+	sm.run_cycle(1.0)  # the ships carry no sets: only the lookouts report
 	var seen := tm.find_track("BLUE", other) != null
 	sm.free()
 	tm.free()
