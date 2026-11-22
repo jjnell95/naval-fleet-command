@@ -22,6 +22,7 @@ base_pk = 0.72
 salvo_default = 2
 launch_interval_s = 20.0
 run_to_enable_nm = 1.0
+midcourse_updates = true
 acoustic_signature = 0.72
 source_status = "PUBLIC: weapon family and role. GAMEPLAY_ESTIMATE: every numeric value is a tuning parameter. Rocket delivery for the ship-launched round is abstracted into its speed rather than modelled as a separate phase."
 soft_kill_resistance = 1.2

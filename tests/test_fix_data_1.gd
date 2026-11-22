@@ -502,3 +502,61 @@ func test_the_seahawk_radar_finds_a_periscope_before_an_eye_does() -> void:
 		assert_true(by_radar >= by_eye, "sea state %d: the radar holds a periscope at %.2f nm, a lookout at %.2f" % [sea_state, by_radar, by_eye])
 	Detection.set_environment({})
 	assert_true(DataDB.sensor("an_aps_153").range_surface_nm >= DataDB.sensor("cw90_aps124").range_surface_nm, "the Romeo's radar is no worse than the Seahawk radar of 1990")
+
+
+# --- Wire guidance ----------------------------------------------------------------------------
+
+## The heavyweights a submarine or a ship fires down a tube and steers by wire. A wire-guided
+## round follows the plot its firing unit holds; the others keep the launch solution.
+const WIRE_GUIDED := ["cw90_mk48", "mk48_adcap", "spearfish", "f21_torpedo", "jmsdf_type18_torpedo", "pla_yu6", "ugst_torpedo", "cw90_test71", "irn_test71me", "torpedo62"]
+
+
+func test_tube_launched_heavyweights_are_wire_guided() -> void:
+	for w: WeaponSpec in _weapons("torpedo"):
+		assert_eq(w.supports_midcourse_updates(), WIRE_GUIDED.has(w.id), "%s %s steered by wire" % [w.id, "is" if WIRE_GUIDED.has(w.id) else "is not"])
+
+
+## A boat fires on a first plot two miles off the target and keeps working the solution while the
+## round runs. Steered by wire onto the better plot, the torpedo finds the ship; a straight run on
+## the first plot would pass two miles abeam with nothing in its seeker.
+func test_a_wire_guided_torpedo_follows_the_improved_solution() -> void:
+	Terrain.clear()
+	for id: String in WIRE_GUIDED:
+		var w := DataDB.weapon(id)
+		var domain := "surface" if w.target_types.has("surface") else "subsurface"
+		var range_nm := minf(w.max_range_nm * 0.6, 12.0)
+		var boat := _shooter(w)
+		boat.faction = "BLUE"
+		var ship := _target(domain, Vector2(0, range_nm))
+		var wm := WeaponManager.new()
+		wm.unit_manager = UnitManager.new()
+		wm.unit_manager.add_unit(boat)
+		wm.unit_manager.add_unit(ship)
+		var t := Track.new()
+		t.id = "T1"
+		t.owner_faction = "BLUE"
+		t.identity = "HOSTILE"
+		t.domain = domain
+		t.status = Track.Status.ACTIVE
+		t.has_kinematics = true
+		t.position = ship.position + Vector2(2.0, 0.0)
+		t.contributors[boat] = true
+		assert_true(wm.launch(boat, w, t, 1, 0.0), "%s fires on the first plot" % id)
+		if wm.in_flight.is_empty():
+			wm.unit_manager.free()
+			wm.free()
+			continue
+		var round: Weapon = wm.in_flight[0]
+		var now := 0.0
+		var acquired := false
+		while now < 2400.0 and round.phase != Weapon.Phase.DEAD and not acquired:
+			now += 0.25
+			if now >= 60.0:
+				# The solution has converged on the ship.
+				t.position = ship.position
+			wm.tick(0.25, now)
+			acquired = round.acquired == ship
+		assert_true(acquired, "%s steered by wire onto the corrected plot acquires the target" % id)
+		wm.clear()
+		wm.unit_manager.free()
+		wm.free()

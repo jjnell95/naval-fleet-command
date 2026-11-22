@@ -94,6 +94,9 @@ DECOY_RESISTANCE = {
     "pla_yu6": 1.1, "pla_yu7": 1.0, "jmsdf_type12_torpedo": 1.2, "jmsdf_type97_torpedo": 1.1,
     "jmsdf_type18_torpedo": 1.3, "irn_test71me": 0.9, "irn_53_65ke": 4.0,
 }
+# The heavyweights a boat fires down a tube and steers by wire onto the plot it keeps working
+# (WeaponSpec.midcourse_updates). The wake-homer runs on its launch setting.
+WIRE_GUIDED = {"pla_yu6", "jmsdf_type18_torpedo", "irn_test71me"}
 
 
 def weapon(key, name, kind, targets, reach, speed, damage, **kw):
@@ -109,6 +112,8 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
                  seeker_range_nm=2.2, turn_rate_deg_s=12.0, launch_interval_s=20.0,
                  run_to_enable_nm=0.8, acoustic_signature=0.65,
                  soft_kill_resistance=DECOY_RESISTANCE[key], altitude_m=0.0)
+        if key in WIRE_GUIDED:
+            d["midcourse_updates"] = True
     if kind in ["gun", "ciws"]:
         d.update(profile="direct" if kind == "gun" else "high", min_range_nm=0.4 if kind == "gun" else 0.05,
                  seeker_range_nm=0.0 if kind == "gun" else 1.0,

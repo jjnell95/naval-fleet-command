@@ -80,6 +80,9 @@ SHORT_NAMES = {
 # listen at all, so an acoustic decoy has almost nothing to offer it.
 ENABLE_MARGIN_NM = .3
 DECOY_RESISTANCE = {"mk46": .9, "mk48": .9, "set65": .8, "test71": .85, "at1": .8, "53_65": 4.0}
+# The heavyweights a boat fires down a tube and steers by wire onto the plot it keeps working
+# (WeaponSpec.midcourse_updates). The SET-65 and the wake-homer run on their launch setting.
+WIRE_GUIDED = {"mk48", "test71"}
 
 
 def weapon(key, name, kind, targets, reach, speed, damage, **kw):
@@ -94,6 +97,8 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
                  seeker_range_nm=2.0, turn_rate_deg_s=12.0, launch_interval_s=20.0,
                  run_to_enable_nm=.7, acoustic_signature=.65,
                  soft_kill_resistance=DECOY_RESISTANCE[key])
+        if key in WIRE_GUIDED:
+            d["midcourse_updates"] = True
     if kind == "asw_rocket":
         # A missile that carries a torpedo through the air and drops it at the datum. The flight
         # is the rocket's; from water entry everything is the payload's, so the figures a reader
