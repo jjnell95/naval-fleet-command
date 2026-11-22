@@ -472,8 +472,9 @@ func _step(w: Weapon, dt: float) -> void:
 		_step_delivery(w, dt)
 		return
 	# Authored update-capable weapons follow only an active report held by a living shooter.
-	# An autonomous launch-and-leave weapon keeps its launch solution until terminal search.
-	if w.spec.supports_midcourse_updates() and w.delivery_spec == null and w.phase == Weapon.Phase.CRUISE and not w.lost_lock and w.shooter != null and w.shooter.alive and w.target_track != null and w.target_track.status == Track.Status.ACTIVE and w.target_track.visible_to(w.shooter):
+	# An autonomous launch-and-leave weapon keeps its launch solution until terminal search. One
+	# already searching on past its aim point has been let go.
+	if w.phase == Weapon.Phase.CRUISE and not w.lost_lock and not w.searching_on and takes_updates(w):
 		w.aim_point = _aim_for(w)
 
 	var goal := w.aim_point
@@ -502,6 +503,8 @@ func _step(w: Weapon, dt: float) -> void:
 		revision += 1
 
 	var desired := Geo.bearing_deg(w.position, goal)
+	if w.phase == Weapon.Phase.CRUISE:
+		desired += _snake_offset_deg(w, goal)
 	var max_turn := w.spec.turn_rate_deg_s * dt
 	w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
 
@@ -559,6 +562,40 @@ func _step(w: Weapon, dt: float) -> void:
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "TARGET LOST" if w.lost_lock else ("NO ACQUISITION" if w.searching_on else "RANGE EXHAUSTED")
+
+
+## Whether this round is being steered on the contact it was fired at: an update-capable weapon,
+## or a torpedo on its wire, while the unit that fired it is afloat and still holds that contact.
+## A wire runs back to a tube, so a torpedo an aircraft dropped or a rocket threw takes none.
+func takes_updates(w: Weapon) -> bool:
+	if w.delivery_spec != null or not w.spec.supports_midcourse_updates():
+		return false
+	if w.shooter == null or not w.shooter.alive or (w.spec.is_torpedo() and w.shooter.is_aircraft()):
+		return false
+	var t := w.target_track
+	return t != null and t.status == Track.Status.ACTIVE and t.visible_to(w.shooter)
+
+
+## A torpedo whose seeker is on and has nothing weaves either side of its course to the aim point,
+## so the cone sweeps a band several times its own width instead of one narrow lane. It runs
+## straight while it is still short of its enable point, when the weave would cost it the range to
+## get there, and on the last stretch into the aim point, which it would otherwise orbit.
+## GAMEPLAY_ESTIMATE, in the shape of the snake search of a modern heavyweight.
+const SNAKE_DEG := 40.0
+const SNAKE_PERIOD_NM := 1.2
+const SNAKE_FADE_NM := 0.5
+## The fraction of a weaving run that is made good along the course.
+const SNAKE_PROGRESS := 0.85
+
+
+func _snake_offset_deg(w: Weapon, goal: Vector2) -> float:
+	if not w.spec.is_torpedo() or w.delivery_spec != null or w.distance_flown_nm < w.spec.run_to_enable_nm:
+		return 0.0
+	var to_go := w.position.distance_to(goal)
+	if (w.spec.max_range_nm - w.distance_flown_nm) * SNAKE_PROGRESS < to_go:
+		return 0.0
+	var weave := sin(TAU * (w.distance_flown_nm - w.spec.run_to_enable_nm) / SNAKE_PERIOD_NM)
+	return SNAKE_DEG * weave * clampf(to_go / SNAKE_FADE_NM - 0.5, 0.0, 1.0)
 
 
 ## Rocket-delivered ASW: fly to the held launch solution, then put a fresh torpedo into the
@@ -824,6 +861,8 @@ func _lock_is_due(w: Weapon, u: Unit, radius: float) -> bool:
 func designated_unit(w: Weapon) -> Unit:
 	var t := w.target_track
 	if t == null or w.delivery_spec != null or not (w.spec.supports_midcourse_updates() or w.spec.is_gun()):
+		return null
+	if w.spec.is_torpedo() and not takes_updates(w):
 		return null
 	if w.shooter == null or not w.shooter.alive or t.status != Track.Status.ACTIVE or not t.visible_to(w.shooter):
 		return null
