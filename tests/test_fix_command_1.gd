@@ -406,3 +406,65 @@ func test_a_boats_own_track_outranks_an_intelligence_datum_on_the_same_contact()
 	assert_eq(main.map.selected_track, datum, "with the hook moved onto it")
 	assert_eq(main.map.selected, [boat] as Array[Unit], "and the boat still under command")
 	_close(main)
+
+
+func _ships(main: Main) -> Array[Unit]:
+	var out: Array[Unit] = []
+	for u: Unit in main.simulation.unit_manager.get_faction_units(main.simulation.player_faction):
+		if u.needs_sea_room() and u.spec.max_speed_kn > 0.0:
+			out.append(u)
+	return out
+
+
+## The synchronous suite yields no frame for the window to lay out its panes.
+func _lay_out(main: Main) -> void:
+	main.map.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	main.map.size = Vector2(1000, 600)
+	main.map._apply_pending_fit()
+
+
+func _assert_force_framed(main: Main, why: String) -> void:
+	var rect := main.map.unobstructed_chart_rect()
+	var ships := _ships(main)
+	assert_true(ships.size() >= 2)
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for u in ships:
+		var at := main.map.world_to_screen(u.position)
+		assert_true(rect.has_point(at), "%s: %s is on the chart" % [why, u.callsign])
+		lo = lo.min(at)
+		hi = hi.max(at)
+	var spread := maxf(hi.x - lo.x, hi.y - lo.y)
+	assert_true(spread >= minf(rect.size.x, rect.size.y) * 0.25, "%s: the formation fills a readable part of the chart (%d px of %d)" % [why, int(spread), int(minf(rect.size.x, rect.size.y))])
+
+
+func test_hormuz_opens_on_the_force_not_the_whole_theatre() -> void:
+	var main := _open("gulf_01_hormuz.json")
+	_lay_out(main)
+	var theatre := main.simulation.map_extent_nm
+	var shown_nm := main.map.unobstructed_chart_rect().size.y / main.map.ppn
+	assert_true(shown_nm <= theatre / 3.0, "the opening chart spans %d nm, not the theatre's %d" % [int(shown_nm), int(theatre)])
+	_assert_force_framed(main, "opening view")
+	assert_true(not main.map.show_coverage, "and the sensor coverage layer waits to be asked for")
+	assert_true(main.map.toggle_layer("coverage"), "its key still turns it on")
+	main.map.toggle_layer("coverage")
+	# Fit force (Home) frames the same thing from anywhere.
+	main.map.fit_to(Vector2(400.0, -300.0), 500.0)
+	var k := InputEventKey.new()
+	k.keycode = KEY_HOME
+	k.physical_keycode = KEY_HOME
+	k.pressed = true
+	main._unhandled_key_input(k)
+	_assert_force_framed(main, "Home")
+	assert_near(main.map.unobstructed_chart_rect().size.y / main.map.ppn, shown_nm, 1.0, "at the opening scale")
+	_close(main)
+
+
+func test_an_authored_opening_focus_is_kept() -> void:
+	var main := _open("cold_war_02_barrier.json")
+	var chart: Dictionary = main.simulation.scenario["map"]
+	assert_true(chart.has("focus_extent_nm"))
+	var opening := main._opening_view()
+	assert_eq(Vector2(opening.x, opening.y), Vector2(chart["focus_center_nm"][0], chart["focus_center_nm"][1]))
+	assert_near(opening.z, float(chart["focus_extent_nm"]), 0.01)
+	_close(main)

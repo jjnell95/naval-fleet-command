@@ -10,7 +10,7 @@ extends RefCounted
 ## the same question and get the same answer.
 
 ## The floor for a fitted force view: one ship alone still gets water round her to read.
-const FORCE_VIEW_MIN_NM := 40.0
+const FORCE_VIEW_MIN_NM := 60.0
 
 
 ## Whether this unit's reports reach the commander now.

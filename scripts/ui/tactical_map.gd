@@ -171,8 +171,9 @@ var _inspecting_track := false
 var show_key := false
 var show_rings := false
 ## Sensor coverage: the chart is lit where the commander's own radars and sonars reach and dark
-## beyond them (SensorCoverage). On by default; the layer is "coverage".
-var show_coverage := true
+## beyond them (SensorCoverage). Off until asked for, because a force's worth of overlapping reach
+## buries the formation it is drawn round; the layer is "coverage".
+var show_coverage := false
 ## This frame's coverage discs, refreshed by _process and read by the chart layers.
 var coverage_discs: Array[Vector4] = []
 ## The live air board in the chart's top-right corner: every air mission and deck alert, updating

@@ -470,9 +470,8 @@ func _reset_command_screen() -> void:
 		_views_swapped = false
 		_world_full = false
 		_arrange_views()
-	var chart: Dictionary = simulation.scenario.get("map", {})
-	var focus: Array = chart.get("focus_center_nm", [simulation.map_center.x, simulation.map_center.y])
-	map.fit_initial_view(Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
+	var opening := _opening_view()
+	map.fit_initial_view(Vector2(opening.x, opening.y), opening.z)
 	radio.clear()
 	voice.stop()
 	radio.set_scenario_name(simulation.scenario_name)
@@ -497,6 +496,29 @@ func _reset_command_screen() -> void:
 	_contacts_called.clear()
 	_report.hide()
 	_autosaved_at = SimClock.sim_time
+
+
+## Where the chart opens: Vector3(centre x, centre y, extent in nautical miles). The focus the
+## scenario authors, if it authors one; otherwise the player's ships and boats with sea room round
+## them, which is a picture a commander can read, rather than the whole theatre with the force as
+## one pile of symbols in the middle of it.
+func _opening_view() -> Vector3:
+	var chart: Dictionary = simulation.scenario.get("map", {})
+	var force := CommanderPicture.force_view(simulation.unit_manager, simulation.player_faction)
+	if chart.has("focus_center_nm") or chart.has("focus_extent_nm") or force.z <= 0.0:
+		var focus: Array = chart.get("focus_center_nm", [simulation.map_center.x, simulation.map_center.y])
+		return Vector3(float(focus[0]), float(focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
+	return force
+
+
+## "Fit force": the same frame the watch opens on, wherever the ships have got to since. A side
+## with no hull afloat is framed by whatever it has in the air.
+func _fit_force() -> void:
+	var force := CommanderPicture.force_view(simulation.unit_manager, simulation.player_faction)
+	if force.z <= 0.0:
+		map.fit_to_fleet()
+	else:
+		map.fit_to(Vector2(force.x, force.y), force.z)
 
 
 # --- Saved engagements -----------------------------------------------------------------------
@@ -1379,7 +1401,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "next_platform", "label": "Next own platform", "description": "Hook the next platform of the task group.", "shortcut": ".", "enabled": true},
 		{"id": "focus_selection", "label": "Centre on selection and target", "description": "Center one item or fit the complete shooter-target problem.", "shortcut": "C", "enabled": not map.selected.is_empty() or has_target, "reason": "Hook a platform or contact first."},
 		{"id": "follow_selection", "label": "Follow selection or target", "description": "Keep the hooked contact or single hooked platform centered.", "shortcut": "F", "enabled": map.selected.size() == 1 or has_target, "state": "on" if map.follow_selection else "off", "reason": "Hook one platform or a contact first."},
-		{"id": "fit_fleet", "label": "Fit friendly force", "description": "Frame every deployed friendly unit.", "shortcut": "Home", "enabled": true},
+		{"id": "fit_fleet", "label": "Fit friendly force", "description": "Frame the force's ships and boats with sea room round them.", "shortcut": "Home", "enabled": true},
 		{"id": "previous_chart_view", "label": "Previous chart view", "description": "Return to the position and scale before a chart jump.", "shortcut": "[", "enabled": map.can_revisit_chart_view()},
 		{"id": "next_chart_view", "label": "Next chart view", "description": "Go forward through the chart views you revisited.", "shortcut": "]", "enabled": map.can_revisit_chart_view(true)},
 		{"id": "fit_theatre", "label": "Fit operation area", "description": "Return to the scenario's full chart extent.", "shortcut": "", "enabled": true},
@@ -1548,7 +1570,7 @@ func _run_palette_action(id: String) -> void:
 		"follow_selection":
 			map.set_follow_selection(not map.follow_selection)
 		"fit_fleet":
-			map.fit_to_fleet()
+			_fit_force()
 		"previous_chart_view", "next_chart_view":
 			map.revisit_chart_view(id == "next_chart_view")
 		"fit_theatre":
@@ -1870,7 +1892,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F1:
 			_show_briefing()
 		KEY_HOME:
-			map.fit_to_fleet()
+			_fit_force()
 		KEY_BRACKETLEFT, KEY_BRACKETRIGHT:
 			map.revisit_chart_view(k.keycode == KEY_BRACKETRIGHT)
 		KEY_C:

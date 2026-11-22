@@ -96,11 +96,11 @@ func test_surface_radar_is_kept_first_when_there_are_more_discs_than_the_chart_h
 	assert_true(discs.all(func(d: Vector4) -> bool: return d.w == SensorCoverage.RADAR_SURFACE), "every ship's radar reach survives the cap")
 
 
-func test_the_chart_layer_is_on_by_default_and_toggles() -> void:
+func test_the_chart_layer_is_off_until_asked_for_and_toggles() -> void:
 	var map := TacticalMap.new()
-	assert_true(map.show_coverage)
-	assert_true(not map.toggle_layer("coverage"))
+	assert_true(not map.show_coverage, "a force's overlapping reach does not bury the formation at the start")
 	assert_true(map.toggle_layer("coverage"))
+	assert_true(not map.toggle_layer("coverage"))
 	map.free()
 
 
