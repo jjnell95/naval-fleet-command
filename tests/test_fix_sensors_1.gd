@@ -526,3 +526,26 @@ func test_a_contact_dropped_and_found_elsewhere_gets_a_new_number() -> void:
 	tm.observe("BLUE", u, again.position + Vector2(1.0, 0.5), 0.5, 1.0, 1401.0, 1.0, 60.0)
 	assert_eq(tm.find_track("BLUE", u).id, again.id, "found again inside the ellipse it was dropped with, it is the same contact")
 	tm.free()
+
+
+# --- Fixed sites ----------------------------------------------------------------------------------
+
+func test_a_shore_site_is_never_given_a_course_and_speed() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9
+	var tm := TrackManager.new()
+	var site := _target_unit()
+	site.spec.domain = "land"
+	var ship := _target_unit()
+	ship.spec.domain = "surface"
+	for second in range(1, 200):
+		for pair: Array in [[site, Vector2(10, 40)], [ship, Vector2(-10, 40)]]:
+			var noise := Vector2(rng.randfn(0.0, 0.2), rng.randfn(0.0, 0.2))
+			tm.observe("BLUE", pair[0], (pair[1] as Vector2) + noise, 0.5, 1.0, float(second), 1.0, 40.0)
+		tm.tick(float(second), 1.0)
+	var t := tm.find_track("BLUE", site)
+	assert_eq(t.domain, "land")
+	assert_true(not t.has_kinematics, "the scatter of a radar's plots on a battery is not a course and speed")
+	assert_near(t.speed_kn, 0.0, 0.001)
+	assert_true(tm.find_track("BLUE", ship).has_kinematics, "a ship held the same way is still fitted")
+	tm.free()

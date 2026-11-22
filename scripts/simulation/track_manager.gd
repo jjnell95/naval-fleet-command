@@ -579,6 +579,11 @@ func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
 
 
 func _update_kinematics(t: Track, now: float) -> void:
+	if t.domain == "land":
+		# A fixed site has no course and speed; a fit through its plots would only be their scatter.
+		if t.has_kinematics:
+			_reset_kinematics(t)
+		return
 	if t._last_est_time >= 0.0 and now > t._last_est_time and now - t._last_est_time < KINEMATICS_INTERVAL_S:
 		return
 	var n := t._obs_times.size()
