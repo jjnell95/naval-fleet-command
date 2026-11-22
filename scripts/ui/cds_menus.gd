@@ -269,19 +269,31 @@ static func defence_items(units: Array, movable: bool) -> Array:
 
 ## A detected inbound weapon under the cursor: intercept it with the hooked ships, or turn away.
 static func weapon_items(w: Weapon, units: Array, controllable: bool, movable: bool) -> Array:
-	var why := "Hook your ships first" if not controllable else ""
-	if why == "":
-		why = "No hooked ship can engage it"
+	# With no missile-defence ship hooked the order is the force's, and Main sends it there.
+	var hooked := units.any(func(u: Unit) -> bool: return carries_interceptors(u))
+	var why := ""
+	if hooked:
+		why = "Hook your ships first" if not controllable else "No hooked ship can engage it"
 		for u: Unit in units:
-			if AirDefence.intercept_rejection(u) == "":
+			if controllable and AirDefence.intercept_rejection(u) == "":
 				why = ""
 				break
 	return [
 		{"text": "Inbound #%d  %s" % [w.id, w.spec.display_name], "disabled": true},
-		item("Engage with interceptors  [X]", order_action(Order.intercept(w)), why != "", why if why != "" else "Fire interceptors at this round from the hooked ships, within their channels and magazines."),
+		item("Engage with interceptors  [X]", order_action(Order.intercept(w)), why != "", why if why != "" else ("Fire interceptors at this round from the hooked ships, within their channels and magazines." if hooked else "No missile-defence ship is hooked: every ship of the force that holds this round engages it.")),
 		item("Evade  [V]", order_action(Order.evade()), not movable, "Turn the hooked ships to open the round's approach; the route resumes after."),
 		item("Defence commands", {"kind": "palette", "id": "open_defence"}, not controllable),
 	]
+
+
+## A ship the intercept order is meant for: one that carries anti-missile weapons, loaded or not.
+static func carries_interceptors(u: Unit) -> bool:
+	if u == null or not u.is_engageable():
+		return false
+	for spec: WeaponSpec in u.weapons:
+		if spec.is_interceptor() and (spec.target_types.has("missile") or spec.target_types.has("ballistic")):
+			return true
+	return false
 
 
 ## The gameplay options, as a menu: the two presets and the options one at a time. Shared by the
@@ -482,7 +494,7 @@ static func air_contact_items(air: AirMissionManager, faction: String, target: T
 		wants.append([AirMission.Kind.CAP, "Intercept with fighters", "A CAP over the contact: the fighters close and engage it under your rules of engagement."])
 	if target.identity == "HOSTILE" and target.domain in ["surface", "land"]:
 		wants.append([AirMission.Kind.STRIKE, "Air strike now", "Launch strike aircraft at the held contact now, without opening Air Operations."])
-	if target.classification < Track.Classification.CLASS_KNOWN:
+	if target.identity == "UNKNOWN" or target.classification < Track.Classification.CLASS_KNOWN:
 		wants.append([AirMission.Kind.RECON, "Send aircraft to identify", "A reconnaissance aircraft looks at the contact and reports what it is. It never fires."])
 	for w: Array in wants:
 		var kind: int = w[0]
@@ -523,12 +535,18 @@ static func air_deck_items(air: AirMissionManager, decks: Array) -> Array:
 static func engage_items(units: Array, target: Track, controllable: bool, weapon_manager: WeaponManager = null) -> Array:
 	var items: Array = []
 	var number := DataDisplay.track_number_for_track(target)
-	items.append({"text": "Track %s  %s" % [number, target.description().capitalize()], "disabled": true})
+	# A class or a ship's name is a proper name and is shown as the plot holds it ("MV Merchant",
+	# "Tu-22M3"); only the generic wording of an unclassified contact is set in title case.
+	var named := target.classification >= Track.Classification.CLASS_KNOWN
+	items.append({"text": "Track %s  %s" % [number, target.description() if named else target.description().capitalize()], "disabled": true})
 	if controllable and not units.is_empty():
 		# A hostile still leads with Attack, even before its exact class is established.
 		if target.identity == "HOSTILE":
 			items.append(attack_item(units, target))
-		if target.classification < Track.Classification.CLASS_KNOWN:
+		# A class from an emitter or a sound is not an identity: while the contact is still UNKNOWN
+		# the first thing to do with it is go and look, whatever the library made of it. A hostile
+		# of no known class is worth the same look.
+		if target.identity == "UNKNOWN" or target.classification < Track.Classification.CLASS_KNOWN:
 			var can_investigate := false
 			var reason := ""
 			for u: Unit in units:
@@ -536,8 +554,8 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 				can_investigate = can_investigate or rejection == ""
 				if reason == "" and rejection != "":
 					reason = rejection
-			items.append(item("Investigate contact", {"kind": "investigate", "track": target}, not can_investigate,
-				"Follow the held contact until its class is identified. Weapons remain under your control." if can_investigate else reason))
+			items.append(item("Identify contact", {"kind": "investigate", "track": target}, not can_investigate,
+				"Close the held contact to visual range and report what and whose it is. Weapons remain under your control. A bare right-click on an unknown does the same." if can_investigate else reason))
 		if target.identity != "HOSTILE":
 			items.append(attack_item(units, target))
 		var weapon_choices: Array = []
@@ -607,6 +625,7 @@ static func cds_items(state: Dictionary) -> Array:
 	return [
 		submenu("Symbols", symbols),
 		submenu("Symbol controls", controls),
+		submenu("Filters", filter_items(state), false, "Which contacts and chart aids are drawn."),
 		submenu("Map", overlays),
 		submenu("Sound", sound),
 		submenu("Gameplay", options_items(state)),
@@ -615,6 +634,7 @@ static func cds_items(state: Dictionary) -> Array:
 		item("Status boards  [A]", {"kind": "board", "board": StatusBoards.BOARD_ORDERS}),
 		item("Air operations  [F3]", {"kind": "palette", "id": "air_operations"}),
 		item("Orders and briefing  [F1]", {"kind": "palette", "id": "briefing"}),
+		item("Debrief", {"kind": "palette", "id": "debrief"}, not bool(state.get("debrief", false)), "The after-action report again, once the mission has ended. F1 opens it then."),
 		item("Reference  [F7]", {"kind": "palette", "id": "library"}),
 		item("Swap 2D and 3D  [G]", {"kind": "palette", "id": "swap_views"}),
 		item("3D full screen  [F10]", {"kind": "palette", "id": "world_full"}),
@@ -624,6 +644,37 @@ static func cds_items(state: Dictionary) -> Array:
 		item("Actions...  [Ctrl+K]", {"kind": "palette", "id": "actions"}),
 		item("Key commands  [H]", {"kind": "palette", "id": "key_commands"}),
 	]
+
+
+## The chart's filters: contacts by the identity the plot holds them under, own routes and the
+## range grid. `state` maps each layer name to whether it is showing. A hidden contact is still
+## held, tracked and listed in the track file; only its symbol is left off the chart.
+const FILTERS := [
+	["hostiles", "Hostile contacts", "Contacts the plot holds as hostile."],
+	["neutrals", "Neutral contacts", "Contacts identified as neutral: merchant and civil traffic."],
+	["unknowns", "Unknown contacts", "Contacts not yet identified."],
+	[],
+	["routes", "Routes and waypoints", "The hooked platforms' plotted routes."],
+	["range_grid", "Range grid", "Range rings from the hooked platform."],
+]
+
+
+static func filter_items(state: Dictionary) -> Array:
+	var items: Array = []
+	for row: Array in FILTERS:
+		if row.is_empty():
+			items.append(sep())
+		else:
+			items.append(item(str(row[1]), {"kind": "layer", "name": row[0]}, false, str(row[2]), _on(state, row[0])))
+	return items
+
+
+## What a filter is called when the radio line confirms it, or "" for a layer that is no filter.
+static func filter_name(layer: String) -> String:
+	for row: Array in FILTERS:
+		if not row.is_empty() and row[0] == layer:
+			return str(row[1])
+	return ""
 
 
 static func _on(state: Dictionary, key: String) -> int:

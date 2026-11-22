@@ -197,11 +197,11 @@ func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Trac
 				action = "Next contact"
 				_action_id = "next_contact"
 			3:
-				text += "With Seahawk selected, right-click a positioned UNKNOWN to investigate. Keep the escorts at their convoy stations. If no suitable unknown remains, keep station and skip this step."
+				text += "With Seahawk selected, right-click a positioned UNKNOWN to identify it: the crew closes to look. A class from radar or an emitter is not an identity. Keep the escorts at their convoy stations. If every contact is identified, keep station and skip this step."
 				if contact != null and a != null:
 					var why := UnitManager.investigation_rejection(a, contact)
 					if why != "":
-						text = "%s. %s Keep the aircraft near the convoy; do not chase an unresolved report. You can skip this investigation and practice recovery." % [why, "A bearing gives a direction, not a firing position." if contact.is_bearing_only() else "Investigation needs an available aircraft and an unclassified contact."]
+						text = "%s. %s Keep the aircraft near the convoy; do not chase an unresolved report. You can skip this investigation and practice recovery." % [why, "A bearing gives a direction, not a firing position." if contact.is_bearing_only() else "Identification needs an available aircraft and a contact still held as UNKNOWN."]
 				action = "Select aircraft"
 				_action_id = "guide_aircraft"
 			4:
