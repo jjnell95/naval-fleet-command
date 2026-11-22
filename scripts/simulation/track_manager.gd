@@ -9,6 +9,10 @@ extends Node
 signal track_added(faction: String, track: Track)
 signal track_classified(faction: String, track: Track)
 signal track_lost(faction: String, track: Track)
+## The same two events for the picture one unit keeps to itself while it is off the link: a deep
+## submarine's own contacts, which the shared plot never hears of until she reports.
+signal local_track_added(observer: Unit, track: Track)
+signal local_track_classified(observer: Unit, track: Track)
 
 const BASE_ERROR_NM := 0.3
 const ERROR_PER_NM := 0.01
@@ -283,6 +287,8 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		_reset_kinematics(t)
 	if is_new and shared:
 		track_added.emit(faction, t)
+	elif is_new and raw.observer != null and not raw.observer.datalink_connected():
+		local_track_added.emit(raw.observer, t)
 
 
 ## The range solution the crew currently has from this track's bearings, aged to `now`; empty when
@@ -542,8 +548,11 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 		# Markings provide positive affiliation, independently of a library's probable class.
 		t.identity = "NEUTRAL" if neutral_factions.has(c.target.faction) else ("FRIENDLY" if c.target.faction == faction else "HOSTILE")
 		t.identity_evidence = "Visual markings"
-	if previous != [t.classification, t.identity] and t.networked:
-		track_classified.emit(faction, t)
+	if previous != [t.classification, t.identity]:
+		if t.networked:
+			track_classified.emit(faction, t)
+		elif c.observer != null and not c.observer.datalink_connected():
+			local_track_classified.emit(c.observer, t)
 
 
 ## What a measured plot is, from the plot alone: something with height is an aircraft; an echo
@@ -579,6 +588,8 @@ func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
 			t.identity_evidence = "Observed hostile launch"
 			if t.networked:
 				track_classified.emit(observer.faction, t)
+			elif not observer.datalink_connected():
+				local_track_classified.emit(observer, t)
 
 
 func _update_kinematics(t: Track, now: float) -> void:

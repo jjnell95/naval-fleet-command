@@ -635,3 +635,51 @@ func test_a_radar_silent_ship_is_warned_of_inbound_missiles_and_defends_herself(
 	assert_true(warned >= 0.0, "the inbound rounds are detected without her radar")
 	assert_true(expended > 0, "and she fires in her own defence (%d rounds)" % expended)
 	_free()
+
+
+# --- A unit off the link ----------------------------------------------------------------------------
+
+func test_a_unit_off_the_link_announces_its_own_contacts() -> void:
+	var tm := TrackManager.new()
+	var boat := Unit.new()
+	boat.spec = PlatformSpec.new()
+	boat.spec.domain = "subsurface"
+	boat.spec.has_datalink = true
+	boat.faction = "BLUE"
+	boat.depth_m = 150.0
+	var ship := Unit.new()
+	ship.spec = PlatformSpec.new()
+	ship.spec.has_datalink = true
+	ship.faction = "BLUE"
+	ship.position = Vector2(40, 0)
+	assert_true(not boat.datalink_connected() and ship.datalink_connected(), "a deep boat is off the link; a ship is on it")
+	var heard := _target_unit()
+	heard.spec.id = "victor"
+	tm.configure_recognition({"BLUE": {"victor": "HOSTILE"}})
+	var events: Array = []
+	tm.local_track_added.connect(func(observer: Unit, t: Track) -> void: events.append(["added", observer, t]))
+	tm.local_track_classified.connect(func(observer: Unit, t: Track) -> void: events.append(["classified", observer, t, t.classification, t.identity]))
+	var shared: Array = []
+	tm.track_added.connect(func(_faction: String, t: Track) -> void: shared.append(t))
+	for second in range(1, 400):
+		var c := _look(heard, boat.position, 45.0, "unit:boat", 1.5)
+		c.observer = boat
+		c.quality = 0.5
+		tm.observe_contact("BLUE", c, float(second), 1.0)
+	assert_true(shared.is_empty(), "the shared plot hears nothing from a boat that has not reported")
+	assert_true(not events.is_empty() and events[0][0] == "added" and events[0][1] == boat, "her own picture announces the new contact, naming her")
+	if not events.is_empty():
+		assert_eq(events[0][2], tm.find_for(boat, heard), "with the track she holds")
+	var hostile := false
+	for e: Array in events:
+		if e[0] == "classified" and e[1] == boat and e[3] == Track.Classification.CLASS_KNOWN and e[4] == "HOSTILE":
+			hostile = true
+	assert_true(hostile, "and its classification as hostile")
+	# A ship on the link reports through the shared plot, and only there.
+	var seen := _target_unit()
+	var before := events.size()
+	var plot := SensorContact.make(seen, Vector2(40, 20), 0.5, 0.5, 1.0, 20.0, "radar", ship)
+	tm.observe_contact("BLUE", plot, 400.0, 1.0)
+	assert_eq(shared.size(), 1, "a linked ship's contact goes on the shared plot")
+	assert_eq(events.size(), before, "and is not announced a second time as a private one")
+	tm.free()
