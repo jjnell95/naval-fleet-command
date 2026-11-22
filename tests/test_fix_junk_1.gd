@@ -70,3 +70,27 @@ func test_every_sound_file_is_a_cue_the_game_plays() -> void:
 			assert_true(m != null and phrases.has(m.get_string(1)), "%s/%s is a crew event" % [profile, name])
 			if m != null and phrases.has(m.get_string(1)):
 				assert_true(int(m.get_string(2)) < (phrases[m.get_string(1)] as Array).size(), "%s/%s is a line the crew can speak" % [profile, name])
+
+
+## A tool nobody can find is a tool nobody runs, and one that stops working without anyone
+## noticing: every entry point under tools/ is run by CI, listed in the hand-off or a README, or
+## driven by another tool by path.
+func test_every_tool_entry_point_is_run_by_ci_documented_or_driven_by_another_tool() -> void:
+	var named := ""
+	for doc: String in [".github/workflows/tests.yml", "HANDOFF.md", "README.md", "ARCHITECTURE.md", "assets/README.md", "assets/audio/README.md"]:
+		named += FileAccess.get_file_as_string("res://" + doc)
+	assert_true(named.contains("tools/passage_playtest.gd"), "the workflow and hand-off are readable")
+	var entries: Array[String] = []
+	for dir: String in ["tools", "tools/audio"]:
+		for name: String in DirAccess.get_files_at("res://" + dir):
+			if name.get_extension() in ["gd", "py"]:
+				entries.append(dir + "/" + name)
+	var sources := {}
+	for path: String in entries:
+		sources[path] = FileAccess.get_file_as_string("res://" + path)
+	for path: String in entries:
+		var used := named.contains(path)
+		for other: String in entries:
+			if not used and other != path and (sources[other] as String).contains(path):
+				used = true
+		assert_true(used, "%s is run by CI, documented, or driven by another tool" % path)
