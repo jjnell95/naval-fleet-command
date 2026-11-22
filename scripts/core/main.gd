@@ -2785,6 +2785,7 @@ func _apply_order_to_selection(order: Order) -> void:
 	var rounds_committed := 0
 	var interceptors_before := int(_stats.get("launched", 0))
 	var refusal := ""
+	var refused_by := ""
 	for u in map.selected:
 		if u.faction == simulation.player_faction:
 			var before := _committed_for_order(u, order)
@@ -2796,8 +2797,9 @@ func _apply_order_to_selection(order: Order) -> void:
 					rounds_committed += maxi(_committed_for_order(u, order) - before, 0)
 			else:
 				refused += 1
-				if order.type == Order.Type.INTERCEPT and refusal == "":
-					refusal = order.receipt if order.receipt != "" else AirDefence.intercept_rejection(u)
+				if refusal == "":
+					refusal = _refusal_reason(u, order)
+					refused_by = u.callsign
 	var receipt := _order_acknowledgement(Order.engage(order.track, order.weapon_id, rounds_committed)) if order.type == Order.Type.ENGAGE and accepted > 0 else ""
 	if receipt != "":
 		receipt += " · %d rounds committed" % rounds_committed
@@ -2808,7 +2810,67 @@ func _apply_order_to_selection(order: Order) -> void:
 			receipt = _order_acknowledgement(order) + (" · %d interceptor%s away" % [away, "" if away == 1 else "s"] if away > 0 else " · cleared to fire as it closes")
 	if queued > 0:
 		receipt = "Queued for submarine check-in · %d orders" % queued if queued == accepted else "%d orders sent · %d queued for submarine check-in" % [accepted - queued, queued]
-	_report_orders(order, accepted, refused, receipt)
+	_report_orders(order, accepted, refused, receipt, "%s: %s" % [refused_by, refusal.to_lower()] if refusal != "" else "")
+
+
+## Why one platform refused an order, in the words of the rule that refused it. Empty when the
+## order type has no reason of its own to give.
+static func _refusal_reason(u: Unit, order: Order) -> String:
+	if order.receipt != "":
+		return order.receipt
+	if not u.is_engageable():
+		return "Not deployed"
+	match order.type:
+		Order.Type.INTERCEPT:
+			return AirDefence.intercept_rejection(u)
+		Order.Type.ATTACK:
+			return UnitManager.attack_rejection(u, order.track, order.weapon_id)
+		Order.Type.INVESTIGATE:
+			return UnitManager.investigation_rejection(u, order.track)
+		Order.Type.ENGAGE:
+			return UnitManager.engage_rejection(u, order)
+		Order.Type.PATROL:
+			return UnitManager.patrol_rejection(u, order.route)
+		Order.Type.RETURN_TO_STATION:
+			return UnitManager.station_rejection(u)
+		Order.Type.SET_READY_ALERT:
+			return AirMissionManager.ready_alert_rejection(u, order.aircraft_count)
+		Order.Type.SNORKEL:
+			return SubmarinePower.snorkel_rejection(u, order.automatic)
+		Order.Type.ASW_SEARCH:
+			return TowedArray.rejection(u)
+		Order.Type.DEPLOY_DIPPING_SONAR:
+			return DippingSonar.rejection(u)
+		Order.Type.DEPLOY_COUNTERMEASURES:
+			if u.countermeasure_reload_s > 0.0:
+				return "Countermeasures reloading, %d s" % int(ceil(u.countermeasure_reload_s))
+			return "No %s countermeasures aboard" % ("acoustic" if order.countermeasure_kind == "acoustic" else "chaff or flare")
+		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.EVADE:
+			if u.spec.max_speed_kn <= 0.0:
+				return "A fixed site"
+			if u.is_aircraft() and not u.airborne():
+				return "Not airborne"
+			if u.is_aircraft() and (u.returning or u.tanking_on != null):
+				return "Returning to the deck" if u.returning else "Refuelling"
+			if order.type == Order.Type.MOVE and u.needs_sea_room() and Terrain.is_land(order.target_pos):
+				return "That point is on land"
+			if order.type == Order.Type.SET_SPEED and u.patrol_active:
+				return "No turning room in the patrol area at that speed"
+		Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR:
+			return "No radar fitted"
+		Order.Type.ACTIVE_SONAR, Order.Type.PASSIVE_SONAR:
+			return "No sonar fitted"
+		Order.Type.SET_DEPTH:
+			return "Not a submarine"
+		Order.Type.SET_ALTITUDE:
+			return "Not airborne"
+		Order.Type.DEPLOY_SONOBUOY:
+			return "No sonobuoys to drop here"
+		Order.Type.SET_EMCON:
+			return "Nothing aboard radiates"
+		Order.Type.FORM_UP:
+			return "Cannot join that formation"
+	return ""
 
 
 ## The intercept order to every ship of the force that can take it: each clears the rounds its own
@@ -2866,8 +2928,10 @@ func _apply_unit_orders(pairs: Array) -> void:
 				rounds_committed += committed
 		else:
 			refused += 1
-			if first_refusal == "" and pair[1].receipt != "":
-				first_refusal = "%s: %s" % [u.callsign, pair[1].receipt]
+			if first_refusal == "":
+				var reason := _refusal_reason(u, pair[1])
+				if reason != "":
+					first_refusal = "%s: %s" % [u.callsign, reason.to_lower()]
 	if sample != null:
 		if accepted == 0 and first_refusal != "" and sample.type == Order.Type.ENGAGE:
 			sample.receipt = first_refusal
@@ -2879,7 +2943,7 @@ func _apply_unit_orders(pairs: Array) -> void:
 			receipt += " · %d rounds committed" % rounds_committed
 		if queued > 0:
 			receipt = "Queued for submarine check-in · %d orders" % queued if queued == accepted else "%d orders sent · %d queued for submarine check-in" % [accepted - queued, queued]
-		_report_orders(sample, accepted, refused, receipt)
+		_report_orders(sample, accepted, refused, receipt, first_refusal)
 
 
 func _committed_for_order(u: Unit, order: Order) -> int:
@@ -2889,7 +2953,9 @@ func _committed_for_order(u: Unit, order: Order) -> int:
 	return simulation.weapon_manager.committed_rounds(u, spec, order.track) if spec != null else 0
 
 
-func _report_orders(order: Order, accepted: int, refused: int, receipt_override := "") -> void:
+## `refusal` is the first platform to refuse and its reason, "<callsign>: <reason>": a group order
+## that only some platforms took says who did not and why.
+func _report_orders(order: Order, accepted: int, refused: int, receipt_override := "", refusal := "") -> void:
 	var attempted := accepted + refused
 	if accepted > 0:
 		SoundFx.play("click", 0.05)
@@ -2900,6 +2966,8 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 			receipt += " · %d order%s accepted" % [accepted, "" if accepted == 1 else "s"]
 		if refused > 0:
 			receipt += " / %d refused" % refused
+			if refusal != "":
+				receipt += " · %s" % refusal
 		radio.flash(receipt, "warn" if refused > 0 else "good", speaker)
 		var reporter := speaker if speaker != null else _first_own(map.selected)
 		if not receipt.begins_with("Queued for submarine") and reporter != null:
@@ -2939,7 +3007,7 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 				reason = UnitManager.engage_rejection(map.selected[0], order)
 			radio.advise("Cannot fire at track %s · %s" % [DataDisplay.track_number_for_track(order.track), reason if reason != "" else "no firing solution"])
 			return
-		radio.advise("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else ""])
+		radio.advise("Order refused by %d selected platform%s%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else "", " · %s" % refusal if refusal != "" and order.type != Order.Type.MOVE else ""])
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
 			_world_view.add_effect(order.target_pos, "refused")

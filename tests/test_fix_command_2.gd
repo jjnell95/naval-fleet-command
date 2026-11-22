@@ -483,3 +483,32 @@ func test_the_firing_board_keeps_the_running_groups_budget_and_says_each_count_o
 			assert_eq(line.count(word), 1, "%s once: %s" % [word, line])
 	main._close_weapon_control()
 	_close(main)
+
+
+# --- A group order that only some platforms take says who refused and why -----------------------
+
+func test_a_partly_refused_group_order_names_who_refused_and_why() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	var taker: Unit = f["own"][0]
+	var refuser: Unit = f["own"][1]
+	main.map.select_units([taker, refuser])
+	# The standing attack: one ship is on weapons hold.
+	refuser.roe = Unit.Roe.HOLD
+	var why := UnitManager.attack_rejection(refuser, f["track"])
+	assert_true(why != "" and UnitManager.attack_rejection(taker, f["track"]) == "", "one ship can attack, the other cannot (%s)" % why)
+	main._apply_order_to_selection(Order.attack(f["track"]))
+	var line := main.radio.latest_text
+	assert_true(line.contains("1 order accepted / 1 refused"), line)
+	assert_true(line.contains("%s: %s" % [refuser.callsign, why.to_lower()]), "the receipt names the ship and its reason: %s" % line)
+	# A defence order: one ship has no chaff left.
+	refuser.roe = Unit.Roe.FREE
+	refuser.decoys = 0
+	main._apply_order_to_selection(Order.deploy_countermeasures("radar"))
+	line = main.radio.latest_text
+	assert_true(line.contains("1 refused") and line.contains(refuser.callsign + ": no chaff or flare countermeasures aboard"), "every order type gives its reason: %s" % line)
+	# A sensor order, through the per-platform route the boards use.
+	main._apply_unit_orders([[taker, Order.set_altitude(500.0)], [refuser, Order.set_roe(Unit.Roe.TIGHT)]])
+	line = main.radio.latest_text
+	assert_true(line.contains("1 refused") and line.contains(taker.callsign + ": not airborne"), "and so does a board's order: %s" % line)
+	_close(main)
