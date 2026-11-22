@@ -123,6 +123,7 @@ static func chart_items(chart: TacticalMap) -> Array:
 		CdsMenus.item("Sensor ranges", {"kind": "layer", "name": "sensors"}, false, "", 1 if chart.show_rings else 0),
 		CdsMenus.item("Weapon ranges", {"kind": "layer", "name": "weapon_ranges"}, false, "", 1 if chart.show_weapon_ranges else 0),
 		CdsMenus.item("Movement trails", {"kind": "layer", "name": "trails"}, false, "", 1 if chart.show_trails else 0),
+		CdsMenus.submenu("Filters", CdsMenus.filter_items(filter_state(chart)), false, "Which contacts and chart aids are drawn."),
 		CdsMenus.sep(),
 		CdsMenus.item("Zoom in", {"kind": "palette", "id": "chart_zoom_in"}),
 		CdsMenus.item("Zoom out", {"kind": "palette", "id": "chart_zoom_out"}),
@@ -134,6 +135,15 @@ static func chart_items(chart: TacticalMap) -> Array:
 		CdsMenus.sep(),
 		CdsMenus.item("Next priority contact  [N]", {"kind": "palette", "id": "next_contact"}),
 	]
+
+
+## Which of the chart's filters are showing, for their check marks.
+static func filter_state(chart: TacticalMap) -> Dictionary:
+	var state := {}
+	for row: Array in CdsMenus.FILTERS:
+		if not row.is_empty():
+			state[row[0]] = chart.has_layer(row[0])
+	return state
 
 
 ## The time ladder in use, so a 4× ceiling offers 1×, 2× and 4× and nothing faster.

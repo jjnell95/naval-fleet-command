@@ -1521,8 +1521,9 @@ static func _on_off(state: Dictionary, key: String) -> String:
 func _cds_state() -> Dictionary:
 	var state := {"symbol_mode": map.symbol_mode, "radar_coverage": regional.show_radar_coverage, "sound": SoundFx.enabled, "voice": voice.enabled, "ambient": SoundFx.ambient_enabled,
 		"options": options, "debrief": not _last_report.is_empty()}
-	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "coverage", "graticule", "key"]:
+	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "coverage", "graticule", "key", "weapon_ranges"]:
 		state[layer] = map.has_layer(layer)
+	state.merge(CommandBar.filter_state(map))
 	return state
 
 
@@ -2743,7 +2744,11 @@ func _run_cds_action(action: Dictionary) -> void:
 		"waypoint_delete":
 			_on_waypoint_delete_requested(action["unit"], int(action["index"]))
 		"layer":
-			map.toggle_layer(str(action["name"]))
+			var shown := map.toggle_layer(str(action["name"]))
+			# A filter takes symbols off the chart: say so, since nothing else on the chart does.
+			var filter := CdsMenus.filter_name(str(action["name"]))
+			if filter != "":
+				radio.advise("Chart filter: %s %s" % [filter.to_lower(), "shown" if shown else "hidden — still held in the track file"])
 		"symbols":
 			map.set_symbol_mode(int(action["mode"]))
 		"board":

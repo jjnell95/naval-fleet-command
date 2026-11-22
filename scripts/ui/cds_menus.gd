@@ -625,6 +625,7 @@ static func cds_items(state: Dictionary) -> Array:
 	return [
 		submenu("Symbols", symbols),
 		submenu("Symbol controls", controls),
+		submenu("Filters", filter_items(state), false, "Which contacts and chart aids are drawn."),
 		submenu("Map", overlays),
 		submenu("Sound", sound),
 		submenu("Gameplay", options_items(state)),
@@ -643,6 +644,37 @@ static func cds_items(state: Dictionary) -> Array:
 		item("Actions...  [Ctrl+K]", {"kind": "palette", "id": "actions"}),
 		item("Key commands  [H]", {"kind": "palette", "id": "key_commands"}),
 	]
+
+
+## The chart's filters: contacts by the identity the plot holds them under, own routes and the
+## range grid. `state` maps each layer name to whether it is showing. A hidden contact is still
+## held, tracked and listed in the track file; only its symbol is left off the chart.
+const FILTERS := [
+	["hostiles", "Hostile contacts", "Contacts the plot holds as hostile."],
+	["neutrals", "Neutral contacts", "Contacts identified as neutral: merchant and civil traffic."],
+	["unknowns", "Unknown contacts", "Contacts not yet identified."],
+	[],
+	["routes", "Routes and waypoints", "The hooked platforms' plotted routes."],
+	["range_grid", "Range grid", "Range rings from the hooked platform."],
+]
+
+
+static func filter_items(state: Dictionary) -> Array:
+	var items: Array = []
+	for row: Array in FILTERS:
+		if row.is_empty():
+			items.append(sep())
+		else:
+			items.append(item(str(row[1]), {"kind": "layer", "name": row[0]}, false, str(row[2]), _on(state, row[0])))
+	return items
+
+
+## What a filter is called when the radio line confirms it, or "" for a layer that is no filter.
+static func filter_name(layer: String) -> String:
+	for row: Array in FILTERS:
+		if not row.is_empty() and row[0] == layer:
+			return str(row[1])
+	return ""
 
 
 static func _on(state: Dictionary, key: String) -> int:

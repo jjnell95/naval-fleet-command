@@ -621,3 +621,43 @@ func test_a_right_click_on_the_data_display_opens_the_hooked_platforms_menu() ->
 	assert_true(menu != null and menu.get_item_text(0).begins_with("Track %s" % DataDisplay.track_number_for_track(f["track"])), "the contact's menu for an inspected contact: %s" % (menu.get_item_text(0) if menu != null else "no menu"))
 	main._cds_menus.close()
 	_close(main)
+
+
+# --- The chart's filters are reachable ---------------------------------------------------------
+
+func _find_item(items: Array, text: String) -> Dictionary:
+	for it: Dictionary in items:
+		if str(it.get("text", "")) == text:
+			return it
+	return {}
+
+
+func test_the_chart_menu_has_filters_that_hide_and_show_contacts() -> void:
+	var f := _range()
+	var main: Main = f["main"]
+	var track: Track = f["track"]
+	main.map.select_track(null)
+	assert_true(main.map._plotted_tracks().has(track), "the hostile is on the chart")
+	for menu: Array in [CdsMenus.cds_items(main._cds_state()), CommandBar.chart_items(main.map)]:
+		var filters := _find_item(menu, "Filters")
+		assert_true(not filters.is_empty() and not bool(filters["disabled"]), "the menu has a Filters submenu")
+		var hostile := _find_item(filters.get("children", []), "Hostile contacts")
+		assert_true(not hostile.is_empty() and int(hostile["checked"]) == 1, "hostile contacts are checked while shown")
+		main._run_cds_action(hostile["action"])
+		assert_true(not main.map._plotted_tracks().has(track), "unchecking it takes the hostile off the chart")
+		assert_true(main.radio.last_advice.contains("hostile contacts hidden"), "and the radio line says so: %s" % main.radio.last_advice)
+		assert_true(main.simulation.track_manager.get_tracks("BLUE").has(track), "the contact is still held")
+		var again := _find_item(_find_item(CdsMenus.cds_items(main._cds_state()), "Filters")["children"], "Hostile contacts")
+		assert_eq(int(again["checked"]), 0, "the check mark follows")
+		main._run_cds_action(again["action"])
+		assert_true(main.map._plotted_tracks().has(track), "checking it again brings her back")
+	var children: Array = _find_item(CdsMenus.cds_items(main._cds_state()), "Filters")["children"]
+	for text: String in ["Neutral contacts", "Unknown contacts", "Routes and waypoints", "Range grid"]:
+		var it := _find_item(children, text)
+		assert_true(not it.is_empty(), "%s is offered" % text)
+		var layer := str(it["action"]["name"])
+		var was := main.map.has_layer(layer)
+		main._run_cds_action(it["action"])
+		assert_eq(main.map.has_layer(layer), not was, "%s toggles its layer" % text)
+		main._run_cds_action(it["action"])
+	_close(main)
