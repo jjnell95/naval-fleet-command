@@ -529,11 +529,14 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 				t.identity = aff
 				t.identity_evidence = "Scenario recognition brief"
 	if c.visual_identification:
-		t.classification = Track.Classification.IDENTIFIED
+		# A look recognises the class and the colours it wears; the name is read only close to.
+		t.classification = maxi(t.classification, Track.Classification.CLASS_KNOWN) as Track.Classification
+		if c.visual_named:
+			t.classification = Track.Classification.IDENTIFIED
+			t.known_callsign = c.target.callsign
 		t.domain = c.target.spec.domain
 		t.known_class = c.target.spec.short_name
 		t.known_category = c.target.spec.category
-		t.known_callsign = c.target.callsign
 		t.class_is_probable = false
 		t.class_evidence = "Visual recognition"
 		# Markings provide positive affiliation, independently of a library's probable class.

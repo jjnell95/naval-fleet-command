@@ -29,6 +29,8 @@ var solution_quality := 0.0
 var placed := false
 var tma_gain := 0.0  # legacy save/fixture compatibility; never accumulated
 var visual_identification := false
+## Whether the look was close enough to read a name as well as recognise a class.
+var visual_named := true
 var altitude_m := -1.0
 var source := "radar"  # radar | sonar_passive | sonar_active | sonar_cz | esm | sonobuoy
 ## The set that made this observation: its catalogue id and display name. Empty when it came from

@@ -549,3 +549,59 @@ func test_a_shore_site_is_never_given_a_course_and_speed() -> void:
 	assert_near(t.speed_kn, 0.0, 0.001)
 	assert_true(tm.find_track("BLUE", ship).has_kinematics, "a ship held the same way is still fitted")
 	tm.free()
+
+
+# --- Recognition by eye ---------------------------------------------------------------------------
+
+## A silent strike aircraft over a silent destroyer, at three heights. Returns RED's track on her.
+func _look_from(height_m: float, offset_nm: float) -> Track:
+	var jet := _unit("Fullback")
+	var ship := _unit("Burke")
+	jet.position = ship.position + Vector2(offset_nm, 0.0)
+	jet.altitude_m = height_m
+	jet.ordered_altitude_m = height_m
+	_sim.sensor_manager.run_cycle(SimClock.sim_time)
+	return _sim.track_manager.find_track("RED", ship)
+
+
+func test_recognition_by_eye_works_along_the_sight_line_and_gives_class_before_name() -> void:
+	_load([_ship(BURKE, "Burke", "BLUE", [0, 0], 0, 0, false),
+		{"platform": SU34, "callsign": "Fullback", "faction": "RED", "position_nm": [60, 0], "heading_deg": 270, "speed_kn": 480, "radar_on": false, "altitude_m": 9000}])
+	_run(1.0)
+	var limit := minf(6.0 * Detection.visual_light_factor(), 10.0)
+	assert_true(_look_from(9000.0, 60.0) == null, "nothing is seen from sixty miles")
+	var t := _look_from(9000.0, 0.5)
+	assert_true(t == null or t.known_callsign == "", "a jet at 9,000 m is nearly five miles from the ship under it: it reads no name")
+	# Far enough to recognise, too far to read a name: four fifths of the limit along the sight line.
+	t = _look_from(limit * 0.8 * 1852.0 * 0.6, limit * 0.8 * 0.8)
+	assert_true(t != null, "inside the limit of the eye the ship is seen")
+	if t != null:
+		assert_eq(t.classification, Track.Classification.CLASS_KNOWN, "a distant look gives the class")
+		assert_true(t.known_class != "" and not t.class_is_probable, "recognised, not inferred")
+		assert_eq(t.known_callsign, "", "but not the name")
+		assert_eq(t.identity, "HOSTILE", "and the colours she wears")
+		t = _look_from(200.0, limit * 0.3)
+		assert_eq(t.classification, Track.Classification.IDENTIFIED, "close to, the name is read")
+		assert_eq(t.known_callsign, "Burke")
+	_free()
+
+
+func test_the_track_file_says_what_would_classify_a_contact() -> void:
+	var tm := TrackManager.new()
+	var ship := _target_unit()
+	ship.spec.domain = "surface"
+	for second in range(1, 300):
+		tm.observe("BLUE", ship, Vector2(0, 30), 0.5, 1.0, float(second), 1.0, 30.0)
+	var t := tm.find_track("BLUE", ship)
+	assert_true(t.classification < Track.Classification.CLASS_KNOWN, "five minutes of radar plots do not class a ship")
+	var panel := ContactPanel.new()
+	var text := panel._detail_text(t, null, 300.0)
+	assert_true(not text.contains("class in ~0s"), "the track file does not promise a class that waiting will never bring")
+	assert_true(ContactPanel.next_evidence(t).contains("look"), "it says what would: %s" % ContactPanel.next_evidence(t))
+	var heard := _target_unit()
+	for second in range(1, 40):
+		tm.observe_contact("BLUE", _look(heard, Vector2.ZERO, 45.0, "ship", 1.5), float(second), 1.0)
+	var listening := ContactPanel.next_evidence(tm.find_track("BLUE", heard))
+	assert_true(listening.begins_with("class in ~") and not listening.contains("~0s"), "a contact being listened to is told how long: %s" % listening)
+	panel.free()
+	tm.free()

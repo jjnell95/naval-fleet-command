@@ -358,9 +358,23 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 			lines.append(_kv("EW", "[color=%s]radar jammed on this bearing[/color]" % UITheme.HEX_EW))
 	lines.append(_kv("OBS TIME", Track._fmt_age(t.observation_time_s)))
 	if t.classification < Track.Classification.CLASS_KNOWN:
-		var next_s := Track.CLASS_TIMES_S[mini(t.classification + 1, Track.CLASS_TIMES_S.size() - 1)]
-		lines.append(_kv("NEXT", "[color=%s]class in ~%s of observation[/color]" % [UITheme.HEX_DIM, Track._fmt_age(maxf(next_s - t.observation_time_s, 0.0))]))
+		lines.append(_kv("NEXT", "[color=%s]%s[/color]" % [UITheme.HEX_DIM, next_evidence(t)]))
 	return "\n".join(lines)
+
+
+## What would classify the contact, from how it is held. Time counts toward a class only while a
+## set that can recognise a signature is listening: a radar plot on a ship never becomes a class
+## by waiting, so it is told what would do it instead.
+static func next_evidence(t: Track) -> String:
+	if t.source in ["esm", "sonar_passive", "sonar_active", "sonar_cz", "sonobuoy"]:
+		if t.status != Track.Status.ACTIVE:
+			return "class when it is heard again"
+		return "class in ~%s of listening" % Track._fmt_age(maxf(Track.CLASS_TIMES_S[2] - t.signature_time_s, 0.0))
+	if t.domain == "air":
+		return "type from radar inside %d nm, or a look" % int(TrackManager.RADAR_RECOGNITION_NM)
+	if t.domain == "subsurface":
+		return "class needs sonar on it"
+	return "class needs its radar heard, sonar or a look"
 
 
 func _choose_row(index: int) -> Track:

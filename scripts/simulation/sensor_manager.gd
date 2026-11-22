@@ -499,6 +499,9 @@ func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: 
 const PERISCOPE_SIGHTING_NM := 1.5  # GAMEPLAY_ESTIMATE
 const SNORKEL_SIGHTING_NM := 3.0
 const PERISCOPE_HEIGHT_M := 1.0
+## A class is recognised at the limit of a look; a name is read at this fraction of it.
+const VISUAL_NAME_FRACTION := 0.5
+const METRES_PER_NM := 1852.0
 
 
 func _visual_pass(observer: Unit, now: float) -> void:
@@ -519,7 +522,9 @@ func _visual_pass(observer: Unit, now: float) -> void:
 			error = 0.3
 		# Darkness shortens what the eye can recognise; the weather caps it either way.
 		limit = minf(limit * Detection.visual_light_factor(), float(Detection.environment.get("visibility_nm", 12.0)))
-		if d > limit:
+		# The eye works along the sight line: an aircraft miles above a ship is miles from it.
+		var slant := Vector2(d, (Detection.mast_or_altitude_m(observer) - height) / METRES_PER_NM).length()
+		if slant > limit:
 			continue
 		if d > Detection.radar_horizon_nm(Detection.mast_or_altitude_m(observer), height):
 			continue
@@ -527,6 +532,7 @@ func _visual_pass(observer: Unit, now: float) -> void:
 			continue
 		var c := SensorContact.make(target, target.position + Vector2(rng.randfn(0.0, error), rng.randfn(0.0, error)) if error > 0.1 else target.position, error, 1.0, 1.0, d, "visual", observer)
 		c.visual_identification = true
+		c.visual_named = slant <= limit * VISUAL_NAME_FRACTION
 		c.sensor_id = "lookout"
 		c.sensor_name = "Visual recognition"
 		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
