@@ -132,7 +132,7 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if d > max_range:
 		out["reason"] = "OUT OF RANGE"
 		return out
-	if d < spec.min_range_nm:
+	if d < minimum_range_nm(spec):
 		out["reason"] = "TOO CLOSE"
 		return out
 	# A torpedo searches down a bearing and an anti-radiation missile rides one in; nothing else
@@ -400,6 +400,17 @@ static func _reported_platform(track: Track) -> PlatformSpec:
 		return null
 	var pid := MapSymbols.platform_for_class(track.known_class, track.known_category)
 	return DataDB.platform(pid) if pid != "" else null
+
+
+## The closest a shot may be taken from. A torpedo's seeker is off until it has run out to its
+## enable point, so one fired inside that, and a margin for the plot, passes the target blind.
+const TORPEDO_ENABLE_MARGIN_NM := 0.3
+
+
+static func minimum_range_nm(spec: WeaponSpec) -> float:
+	if spec.is_torpedo():
+		return maxf(spec.min_range_nm, spec.run_to_enable_nm + TORPEDO_ENABLE_MARGIN_NM)
+	return spec.min_range_nm
 
 
 ## Unpowered bombs depend on the launch aircraft height. All numbers are gameplay tuning.

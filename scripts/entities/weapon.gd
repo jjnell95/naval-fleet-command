@@ -56,6 +56,9 @@ var unguided_s := 0.0
 ## radii past where it lost the target, or when its range runs out if that comes first.
 var lost_lock := false
 var search_on_end_nm := -1.0
+## A torpedo that reached its aim point with nothing in its seeker: seconds it has been circling
+## there, -1 while it is not (WeaponManager._start_circle).
+var circle_search_s := -1.0
 ## Fired from a battery ashore: the round climbs out over its own coast before the ordinary rule
 ## that a low-flying weapon ends at the first ground it meets applies to it.
 var launched_ashore := false

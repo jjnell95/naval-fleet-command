@@ -475,7 +475,12 @@ func _step(w: Weapon, dt: float) -> void:
 	# An autonomous launch-and-leave weapon keeps its launch solution until terminal search. One
 	# already searching on past its aim point has been let go.
 	if w.phase == Weapon.Phase.CRUISE and not w.lost_lock and not w.searching_on and takes_updates(w):
-		w.aim_point = _aim_for(w)
+		var aim := _aim_for(w)
+		# A torpedo circling on the plot carries on while the plot stays inside its search; a plot
+		# that has moved well away sends it there.
+		if w.circle_search_s < 0.0 or aim.distance_to(w.aim_point) > w.spec.acquisition_radius_nm():
+			w.aim_point = aim
+			w.circle_search_s = -1.0
 
 	var goal := w.aim_point
 	# The seeker loses a target that leaves its medium: a helicopter that lands on its deck, a
@@ -502,11 +507,17 @@ func _step(w: Weapon, dt: float) -> void:
 		goal = w.aim_point
 		revision += 1
 
-	var desired := Geo.bearing_deg(w.position, goal)
-	if w.phase == Weapon.Phase.CRUISE:
-		desired += _snake_offset_deg(w, goal)
-	var max_turn := w.spec.turn_rate_deg_s * dt
-	w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
+	if w.phase == Weapon.Phase.CRUISE and w.circle_search_s >= 0.0:
+		# A turn to starboard, then one to port, and so on: a figure of eight about the aim point,
+		# so the search reaches as far on either side of it.
+		var turn_sign := 1.0 if int(w.circle_search_s / CIRCLE_PERIOD_S) % 2 == 0 else -1.0
+		w.heading_deg = fposmod(w.heading_deg + turn_sign * minf(360.0 / CIRCLE_PERIOD_S, w.spec.turn_rate_deg_s) * dt, 360.0)
+	else:
+		var desired := Geo.bearing_deg(w.position, goal)
+		if w.phase == Weapon.Phase.CRUISE:
+			desired += _snake_offset_deg(w, goal)
+		var max_turn := w.spec.turn_rate_deg_s * dt
+		w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
 
 	var previous := w.position
 	var step_from := w.position
@@ -529,6 +540,8 @@ func _step(w: Weapon, dt: float) -> void:
 				var enabled_fraction := clampf((w.spec.run_to_enable_nm - distance_before) / maxf(travel, 1e-9), 0.0, 1.0)
 				previous = previous.lerp(w.position, enabled_fraction)
 				previous = _try_acquire(w, previous)
+				if w.phase == Weapon.Phase.CRUISE and w.circle_search_s < 0.0 and not w.lost_lock and not w.searching_on and w.delivery_spec == null and _aim_astern(w):
+					_start_circle(w)  # it ran past its aim point, or got there before its seeker was on
 		elif w.searching_on or w.spec.is_anti_radiation():
 			# A passive seeker listens from the rail: it needs no aim point to be close to.
 			previous = _try_acquire(w, previous)
@@ -561,7 +574,31 @@ func _step(w: Weapon, dt: float) -> void:
 		w.dead_reason = "TARGET LOST"
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "TARGET LOST" if w.lost_lock else ("NO ACQUISITION" if w.searching_on else "RANGE EXHAUSTED")
+		w.dead_reason = "TARGET LOST" if w.lost_lock else ("NO ACQUISITION" if w.searching_on or w.circle_search_s >= 0.0 else "RANGE EXHAUSTED")
+	elif w.phase == Weapon.Phase.CRUISE and w.circle_search_s >= 0.0:
+		w.circle_search_s += dt
+		if w.circle_search_s >= CIRCLE_SEARCH_S:
+			w.phase = Weapon.Phase.DEAD
+			w.dead_reason = "NO ACQUISITION"
+
+
+## A torpedo that reaches its aim point with nothing in its seeker circles there, the seeker
+## sweeping right round once a turn, for a bounded time, and then shuts down: the range on a
+## sonar plot is the part most often wrong, and the target is most likely close about the point.
+## GAMEPLAY_ESTIMATE.
+const CIRCLE_PERIOD_S := 60.0
+const CIRCLE_SEARCH_S := 150.0
+
+
+func _start_circle(w: Weapon) -> void:
+	w.circle_search_s = 0.0
+	revision += 1
+
+
+## Whether the aim point is close abaft the beam: a torpedo that has run past it.
+static func _aim_astern(w: Weapon) -> bool:
+	var to_aim := w.aim_point - w.position
+	return to_aim.length() <= w.spec.acquisition_radius_nm() and to_aim.dot(Geo.heading_to_vector(w.heading_deg)) < 0.0
 
 
 ## Whether this round is being steered on the contact it was fired at: an update-capable weapon,
@@ -809,7 +846,7 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 			best = u
 			best_fraction = fraction
 			best_d_squared = d_squared
-	var at_aim := not w.searching_on and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0
+	var at_aim := not w.searching_on and w.circle_search_s < 0.0 and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0
 	# A seeker opened on the basket round an aim point, as against one searching its way in.
 	var on_basket := not (w.searching_on or around_entry or w.spec.is_torpedo() or w.spec.is_anti_radiation())
 	if best != null and best != designated and on_basket and not at_aim:
@@ -821,7 +858,9 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 		w.emitter_silent = false
 	if best == null:
 		if at_aim:
-			if searches_on(w):
+			if w.spec.is_torpedo() and w.delivery_spec == null:
+				_start_circle(w)
+			elif searches_on(w):
 				# An aircraft that turned after the last update is somewhere ahead: the round holds
 				# its heading with the seeker on rather than dying on an empty patch of sky.
 				w.searching_on = true
@@ -832,6 +871,7 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 		return previous
 	w.acquired = best
 	w.lost_lock = false
+	w.circle_search_s = -1.0
 	w.phase = Weapon.Phase.TERMINAL
 	return previous.lerp(w.position, best_fraction)
 
@@ -872,14 +912,10 @@ func designated_unit(w: Weapon) -> Unit:
 
 ## Whether a round that finds nothing at its aim point flies on searching: one fired at an aircraft,
 ## which may have turned since the solution was last updated. A round at a ship or a submarine
-## ends there, as it always has.
+## ends there, as it always has; a torpedo circles there first (_start_circle).
 static func searches_on(w: Weapon) -> bool:
 	if w.spec.is_anti_radiation():
 		return true  # a bearing gives no range: it listens the whole way down it
-	if w.spec.is_torpedo() and w.delivery_spec == null:
-		# The range on a passive contact is a guess. A torpedo that finds nothing there runs on
-		# down the bearing with its seeker on for as long as it has battery or fuel.
-		return true
 	return w.target_track != null and w.target_track.domain == "air" and w.delivery_spec == null and not w.spec.is_torpedo() and not w.is_interceptor()
 
 

@@ -149,3 +149,68 @@ func test_the_wire_needs_a_tube_and_a_firer_that_holds_the_contact() -> void:
 	t.status = Track.Status.LOST
 	assert_true(not wm.takes_updates(w), "a lost contact gives the wire nothing to send")
 	_cleanup(wm)
+
+
+# --- p-undersea#5: no shot inside the enable run, and a bounded search at the aim point --------
+
+## A torpedo's seeker stays off until it has run out to its enable point. A shot from inside that
+## run passes the target blind, so the launcher calls it too close, whatever the minimum range in
+## the data says.
+func test_a_torpedo_is_refused_inside_its_enable_run() -> void:
+	var spec: WeaponSpec = DataDB.weapon("cw90_mk48").duplicate()
+	spec.id = "short_fish"
+	spec.min_range_nm = 0.4
+	spec.run_to_enable_nm = 0.7
+	var boat := _unit("BLUE", Vector2.ZERO, "subsurface", 1)
+	boat.weapons.append(spec)
+	boat.magazines[spec.id] = 4
+	var ship := _unit("RED", Vector2(0.0, 0.8), "surface", 2)
+	var wm := _harness([boat, ship])
+	var t := _track(boat, ship.position)
+	assert_eq(wm.engagement_check(boat, spec, t, 0.0)["reason"], "TOO CLOSE", "0.8 nm is inside the 0.7 nm run and its margin")
+	t.position = Vector2(0.0, 1.2)
+	ship.position = t.position
+	assert_true(wm.engagement_check(boat, spec, t, 0.0)["ok"], "1.2 nm leaves the seeker room to look")
+	_cleanup(wm)
+
+
+## A plot eight miles off with nothing there. The fish runs to the plot, circles it for a bounded
+## time and shuts down there; it does not run on down the bearing for the rest of its battery while
+## the attack waits on it.
+func test_a_torpedo_that_finds_nothing_circles_the_plot_and_then_shuts_down() -> void:
+	Terrain.clear()
+	var spec := DataDB.weapon("mk48_adcap")
+	var boat := _unit("BLUE", Vector2.ZERO, "subsurface", 1)
+	boat.weapons.append(spec)
+	boat.magazines[spec.id] = 4
+	var ship := _unit("RED", Vector2(40.0, 0.0), "surface", 2)
+	var wm := _harness([boat, ship])
+	var plot := Vector2(0.0, 8.0)
+	var t := _track(boat, plot)
+	assert_true(wm.launch(boat, spec, t, 1, 0.0), "the boat fires on the plot")
+	var round: Weapon = wm.in_flight[0]
+	var result := _run_round(wm, round, ship)
+	var to_plot_s := Combat.time_of_flight_s(spec, 8.0) / WeaponManager.SNAKE_PROGRESS
+	assert_eq(result["reason"], "NO ACQUISITION")
+	assert_true(result["time"] <= to_plot_s + WeaponManager.CIRCLE_SEARCH_S + 10.0, "it gives up %.0f s after launch, not at the end of its run" % result["time"])
+	assert_true(round.position.distance_to(plot) < 1.0, "it searched about the plot (ended %.2f nm from it)" % round.position.distance_to(plot))
+	assert_true(round.distance_flown_nm < spec.max_range_nm * 0.6, "with most of its run unused (%.1f of %.1f nm)" % [round.distance_flown_nm, spec.max_range_nm])
+	_cleanup(wm)
+
+
+## The circle about the plot reaches as far either side of it: a ship at the very edge of the
+## seeker's range from the plot, on either beam, is found there.
+func test_the_search_about_the_plot_finds_a_ship_on_either_side() -> void:
+	Terrain.clear()
+	var spec := DataDB.weapon("cw90_mk48")
+	for side: float in [1.0, -1.0]:
+		var boat := _unit("BLUE", Vector2.ZERO, "subsurface", 1)
+		boat.weapons.append(spec)
+		boat.magazines[spec.id] = 4
+		var ship := _unit("RED", Vector2(0.0, 12.0), "surface", 2)
+		var wm := _harness([boat, ship])
+		var t := _track(boat, ship.position + Vector2(spec.seeker_range_nm * side, 0.0))
+		assert_true(wm.launch(boat, spec, t, 1, 0.0), "the boat fires on its plot")
+		var result := _run_round(wm, wm.in_flight[0], ship)
+		assert_true(result["acquired"], "ship %.1f nm to the %s of the plot is found (ended %s)" % [spec.seeker_range_nm, "west" if side > 0.0 else "east", result["reason"]])
+		_cleanup(wm)
