@@ -119,3 +119,21 @@ func test_the_north_cape_kilo_starts_inside_the_screen() -> void:
 		assert_true(leg.x < _named(sim, "USS Gettysburg (CG 64)").position.x, "her patrol stays inside the screen")
 	_close(sim)
 
+
+## Hormuz opened on its 267 nm theatre with the force as one pile of rings. The chart fits the
+## commander's ships when a scenario authors no focus; an operation whose force moves (all of them)
+## authors none, so the opening and Fit force (Home) are one frame. Every operation's opening view
+## holds all of its ships, and at command scale rather than the theatre's.
+func test_each_operation_opens_its_chart_on_the_force() -> void:
+	for id: String in OPERATIONS:
+		var sim := _open("res://data/scenarios/%s.json" % id, 7)
+		var m: Dictionary = sim.scenario["map"]
+		var view := CommanderPicture.force_view(sim.unit_manager, sim.player_faction)
+		if m.has("focus_center_nm"):
+			view = Vector3(float(m["focus_center_nm"][0]), float(m["focus_center_nm"][1]), float(m["focus_extent_nm"]))
+		var half := view.z / 2.0
+		for u: Unit in sim.unit_manager.get_faction_units(sim.player_faction):
+			if u.spec.domain in ["surface", "subsurface"] and u.spec.max_speed_kn > 0.0:
+				assert_true(absf(u.position.x - view.x) <= half and absf(u.position.y - view.y) <= half, "%s: %s is on the opening chart" % [id, u.callsign])
+		assert_true(view.z <= sim.map_extent_nm * 0.6, "%s opens on the force (%d nm), not the theatre's %d" % [id, int(view.z), int(sim.map_extent_nm)])
+		_close(sim)
