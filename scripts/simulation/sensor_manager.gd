@@ -13,10 +13,15 @@ const OBS_SIGMA_PER_NM := 0.003
 const ACTIVE_SONAR_SIGMA_NM := 0.12
 const MANOEUVRE_FULL_DEG := 3.0  # heading change per cycle that counts as fully manoeuvring
 const INITIAL_RANGE_FRACTION := 0.55  # what an operator assumes before working the problem
+## How far past the reach it was heard at a contact's worked-out range may lie before the solution
+## is thrown out as impossible.
+const REACH_MARGIN := 1.5
 const ESM_CLASSIFY_BONUS := 2.2  # a radar type is a fingerprint
 const CZ_BEARING_PENALTY := 1.5  # a zone bearing is blurred by the long refracted path
 const CZ_QUALITY := 0.25
 const CZ_CLASSIFY_FACTOR := 0.5
+## An emitter at height is heard far past the nominal line: a crossed fix out to here is believed.
+const ESM_SOLUTION_LIMIT_NM := 400.0
 
 var unit_manager: UnitManager
 var track_manager: TrackManager
@@ -363,30 +368,32 @@ func _report_active(observer: Unit, target: Unit, d: float, reach: float, rate: 
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
-## A bearing report uses the set's nominal search area for its chart datum. Range and
-## confidence come only from crossing measurements in TrackManager, never target range.
+## A bearing report is a line as long as the reach the contact was heard at: a quiet boat heard at
+## all is close, whatever the set's catalogue range against a loud one. Range and confidence come
+## only from crossing measurements in TrackManager, never the target's range.
 func _report_passive(observer: Unit, target: Unit, d: float, reach: float, sensor: SensorSpec, rate: float, now: float) -> void:
 	var bearing := Geo.bearing_deg(observer.position, target.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
-	var search_range := maxf(sensor.passive_sensitivity_nm, 1.0)
-	var c := _bearing_contact(target, observer, bearing, sensor.bearing_accuracy_deg, search_range, "sonar_passive", sensor)
+	var c := _bearing_contact(target, observer, bearing, sensor.bearing_accuracy_deg, reach, "sonar_passive", sensor)
 	c.quality = clampf(1.0 - d / reach, 0.0, 1.0)
 	c.classify_rate = rate
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
+## `search_range` is how far along the bearing the contact can be: the line's length.
 func _bearing_contact(target: Unit, observer: Unit, bearing: float, accuracy: float, search_range: float, source: String, sensor: SensorSpec) -> SensorContact:
 	var c := SensorContact.new()
 	var estimate := maxf(search_range * INITIAL_RANGE_FRACTION, 0.3)
+	c.range_nm = estimate
 	c.target = target
 	c.observer = observer
 	c.bearing_origin = observer.position
 	c.bearing_key = "unit:" + TrackManager._unit_key(observer) + ":" + source
 	c.bearing_accuracy_deg = accuracy
-	c.bearing_range_limit_nm = search_range * 6.0
+	c.bearing_range_limit_nm = search_range * REACH_MARGIN
 	c.bearing_speed_limit_kn = 1200.0 if source == "esm" else 70.0
 	c.position = observer.position + Geo.heading_to_vector(bearing) * estimate
 	c.error_minor_nm = maxf(estimate * tan(deg_to_rad(accuracy * 2.0)), 0.2)
-	c.error_major_nm = maxf(search_range * 0.8, c.error_minor_nm)
+	c.error_major_nm = maxf(search_range * 0.5, c.error_minor_nm)
 	c.error_axis_deg = bearing
 	c.bearing_only = true
 	c.source = source
@@ -401,6 +408,8 @@ func _report_cz(observer: Unit, target: Unit, _d: float, zone: Dictionary, senso
 	var zone_range: float = zone["range_nm"]
 	var half_width: float = zone["half_width_nm"]
 	var c := _bearing_contact(target, observer, bearing, accuracy, zone_range, "sonar_cz", sensor)
+	c.bearing_range_limit_nm = (zone_range + half_width) * REACH_MARGIN
+	c.range_nm = zone_range
 	c.position = observer.position + Geo.heading_to_vector(bearing) * zone_range
 	c.error_minor_nm = maxf(zone_range * tan(deg_to_rad(accuracy * 2.0)), 0.3)
 	c.error_major_nm = maxf(half_width, c.error_minor_nm)
@@ -473,9 +482,13 @@ func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 		_report_esm(observer, facts.units[ti], d, reach, sensor, now)
 
 
+## The line is as long as the set's nominal reach against a ship's search radar. The reach against
+## this emitter is not used for it: that follows the emitter's own height, which an intercept does
+## not measure.
 func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: SensorSpec, now: float) -> void:
 	var bearing := Geo.bearing_deg(observer.position, emitter.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
-	var c := _bearing_contact(emitter, observer, bearing, sensor.bearing_accuracy_deg, reach, "esm", sensor)
+	var c := _bearing_contact(emitter, observer, bearing, sensor.bearing_accuracy_deg, Detection.nominal_esm_range_nm(observer, sensor), "esm", sensor)
+	c.bearing_range_limit_nm = maxf(c.bearing_range_limit_nm, ESM_SOLUTION_LIMIT_NM)
 	c.quality = clampf(1.0 - d / reach, 0.0, 1.0)
 	c.classify_rate = sensor.classify_rate * ESM_CLASSIFY_BONUS
 	track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
@@ -552,7 +565,9 @@ func _report_buoys(faction: String, target: Unit, buoys: Array, now: float) -> v
 	for b: Sonobuoy in buoys:
 		var c := SensorContact.new()
 		var bearing := Geo.bearing_deg(b.position, target.position) + rng.randfn(0.0, 1.5)
-		var estimate := b.sensitivity_nm * INITIAL_RANGE_FRACTION
+		var reach := maxf(b.reach_against(target), 0.5)
+		var estimate := reach * INITIAL_RANGE_FRACTION
+		c.range_nm = estimate
 		c.target = target
 		c.classify_rate = 0.8
 		c.source = "sonobuoy"
@@ -561,11 +576,11 @@ func _report_buoys(faction: String, target: Unit, buoys: Array, now: float) -> v
 		c.bearing_origin = b.position
 		c.bearing_key = "buoy:%d" % b.id
 		c.bearing_accuracy_deg = 1.5
-		c.bearing_range_limit_nm = b.sensitivity_nm * 6.0
+		c.bearing_range_limit_nm = reach * REACH_MARGIN
 		c.bearing_only = true
 		c.position = b.position + Geo.heading_to_vector(bearing) * estimate
 		c.error_axis_deg = bearing
-		c.error_major_nm = b.sensitivity_nm * 0.8
+		c.error_major_nm = reach * 0.5
 		c.error_minor_nm = maxf(estimate * tan(deg_to_rad(3.0)), 0.2)
 		c.quality = 0.5
 		track_manager.observe_contact(faction, c, now, SENSOR_DT)

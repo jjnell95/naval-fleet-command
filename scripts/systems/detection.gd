@@ -529,11 +529,15 @@ static func best_esm(listener: Unit, emitter: Unit) -> Dictionary:
 static func nominal_esm_ring_nm(listener: Unit) -> float:
 	var best := 0.0
 	for s in listener.sensors:
-		if s.kind != "esm":
-			continue
-		var horizon := radar_horizon_nm(observer_height_m(listener, s), BASELINE_TARGET_HEIGHT_M)
-		best = maxf(best, minf(30.0 * s.esm_gain, horizon))
+		if s.kind == "esm":
+			best = maxf(best, nominal_esm_range_nm(listener, s))
 	return best
+
+
+## One set's nominal reach against a ship radiating a typical search radar: what an operator
+## assumes of an intercept before anything says how far off, or how high, the emitter is.
+static func nominal_esm_range_nm(listener: Unit, sensor: SensorSpec) -> float:
+	return minf(30.0 * sensor.esm_gain, radar_horizon_nm(observer_height_m(listener, sensor), BASELINE_TARGET_HEIGHT_M))
 
 
 # --- Terrain ------------------------------------------------------------------------------

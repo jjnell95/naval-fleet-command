@@ -24,6 +24,9 @@ var bearing_key := ""
 var bearing_range_limit_nm := 100.0
 var bearing_speed_limit_kn := 70.0
 var solution_quality := 0.0
+## Set by the plot once it has worked a bearing into its own estimate: the position is then where
+## the track goes, not one more report to be blended in.
+var placed := false
 var tma_gain := 0.0  # legacy save/fixture compatibility; never accumulated
 var visual_identification := false
 var altitude_m := -1.0

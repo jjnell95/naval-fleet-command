@@ -17,6 +17,15 @@ const KINEMATICS_WINDOW_S := 300.0
 const KINEMATICS_MIN_SPAN_S := 45.0
 const FIRM_BLEND := 0.5  # how hard a firm plot pulls the track onto itself
 const BEARING_BLEND := 0.25  # a bearing estimate only nudges it
+## A range worked from bearings is first plotted at this quality, and kept until it falls below
+## Track.RANGE_HELD_QUALITY. The gap stops a marginal geometry flipping the plot between a fix and
+## a bare bearing every time the solution is reworked.
+const RANGE_ACCEPT_QUALITY := 0.3
+const MIN_BEARING_RANGE_NM := 0.3
+## A solution this good is plotted at the full bearing blend and feeds the course and speed fit;
+## a poorer one pulls the plot less and claims no course.
+const SOUND_SOLUTION_QUALITY := 0.6
+const HOLDER_SILENT_S := 2.5
 const TMA_DECAY_PER_S := 0.0008  # a solution goes off while contact is lost
 const FIRM_HOLD_S := 1.5  # a firm plot this recent outranks any bearing
 const HISTORY_INTERVAL_S := 30.0
@@ -154,6 +163,9 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		var from_report := t.reported
 		t.reported = false
 		t._cycle_start_position = t.position
+		t._cycle_start_major = t.error_major_nm
+		t._cycle_range_held = not is_new and not from_report and not t.is_bearing_only()
+		t._cycle_bearing_held = t.bearing_only
 		t._cycle_snap = is_new or reacquired or from_report
 		t._cycle_has_plot = false
 		t._cycle_firm = false
@@ -179,8 +191,9 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	if c.source == "esm":
 		t.last_esm_time = now
 	_update_classification(faction, t, c, gain)
+	var report := {}
 	if c.bearing_only and c.bearing_key != "":
-		BearingSolution.add(t.bearing_history, c, now)
+		report = BearingSolution.add(t.bearing_history, c, now)
 		if not t.bearing_observers.has(c.bearing_key):
 			t.bearing_solution_at = -1.0e9
 			t.bearing_observers[c.bearing_key] = true
@@ -188,39 +201,45 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		# Something is holding this contact firmly. A bearing, or a convergence-zone ring, from
 		# another sensor confirms it is there but must not drag a good plot toward a worse guess.
 		return
-	if c.bearing_only and c.bearing_key != "":
-		# A crew updates its TMA every ten seconds, and immediately when another listener
-		# joins. Firm radar/active reports above need no redundant range fit at all.
-		if now - t.bearing_solution_at >= BearingSolution.SAMPLE_INTERVAL_S:
-			t.bearing_solution_cache = BearingSolution.estimate(t.bearing_history, now)
-			t.bearing_solution_at = now
-		var solution := t.bearing_solution_cache.duplicate()
-		if not solution.is_empty():
-			var age := maxf(now - t.bearing_solution_at, 0.0)
-			solution["position"] += (solution.get("velocity", Vector2.ZERO) as Vector2) * age
-			solution["major"] += Track.ERROR_GROWTH_NM_PER_S * age
-			solution["quality"] = maxf(float(solution["quality"]) - TMA_DECAY_PER_S * age, 0.0)
-		c = _resolved_contact(c, solution)
+	var raw := c
+	if c.bearing_only:
+		c = _bearing_plot(t, c, report, _bearing_solution(t, c, now), now, dt, is_new)
+		if (c.placed or is_new) and raw.bearing_key != "":
+			if t.bearing_holder != raw.bearing_key and now - t.bearing_holder_time <= HOLDER_SILENT_S:
+				return
+			t.bearing_holder = raw.bearing_key
+			t.bearing_holder_time = now
 	var error := maxf(c.error_major_nm, c.error_minor_nm)
 	var firm := not c.bearing_only
 	if t._cycle_has_plot:
 		if (t._cycle_firm and not firm) or (t._cycle_firm == firm and error >= t._cycle_error):
 			return
-	if (firm or c.solution_quality >= 0.6) and t.is_bearing_only():
-		# A measured range replaces a tentative bearing guess, including any guessed
-		# positions that would otherwise produce a spurious velocity in the fit.
+	var ranged := firm or (not c.placed and c.solution_quality >= Track.RANGE_HELD_QUALITY)
+	if firm and t._cycle_bearing_held:
+		# A measured plot replaces whatever the bearings had worked out, outright: blending the two
+		# would leave the track between where it is and where it was guessed to be.
+		t._cycle_snap = true
+		if t._obs_estimated or not t._cycle_range_held:
+			_reset_kinematics(t)
+	elif ranged and not t._cycle_range_held:
+		# The first range on a bare bearing: the line's nominal position was never a place.
 		t._cycle_snap = true
 		_reset_kinematics(t)
 	t._cycle_has_plot = true
 	t._cycle_firm = firm
 	t._cycle_error = error
-	if not c.bearing_only:
+	if firm:
 		t.last_firm_time = now
-	var blend := BEARING_BLEND if c.bearing_only else FIRM_BLEND
-	t.position = c.position if t._cycle_snap else t._cycle_start_position.lerp(c.position, blend)
+	if ranged:
+		t.range_time = now
+	var blend := FIRM_BLEND
+	if c.bearing_only:
+		blend = BEARING_BLEND * clampf(c.solution_quality / SOUND_SOLUTION_QUALITY, 0.4, 1.0)
+	t.position = c.position if t._cycle_snap or c.placed else t._cycle_start_position.lerp(c.position, blend)
 	# A measured range is firm; a passive solution carries only its geometry-derived quality.
-	t.tma_quality = 1.0 if not c.bearing_only else c.solution_quality
+	t.tma_quality = 1.0 if firm else c.solution_quality
 	t.bearing_only = c.bearing_only
+	t.bearing_origin = raw.bearing_origin if raw.bearing_only and raw.bearing_key != "" else Vector2.INF
 	t.error_major_nm = c.error_major_nm
 	t.error_minor_nm = c.error_minor_nm
 	t.error_axis_deg = c.error_axis_deg
@@ -235,7 +254,9 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	t.status = Track.Status.ACTIVE
 	t.last_seen_time = now
 	_record_history(t, now)
-	if not t.is_bearing_only():
+	if ranged and (firm or c.solution_quality >= SOUND_SOLUTION_QUALITY - 0.1):
+		if not firm:
+			t._obs_estimated = true
 		if not t._obs_times.is_empty() and is_equal_approx(t._obs_times[-1], now):
 			t._obs_pos[-1] = c.position
 		else:
@@ -245,10 +266,84 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 			t._obs_times.remove_at(0)
 			t._obs_pos.remove_at(0)
 		_update_kinematics(t, now)
-	else:
+	elif t.is_bearing_only():
+		# No range, so no course and speed. A range still held from an earlier fix keeps its own.
 		_reset_kinematics(t)
 	if is_new and shared:
 		track_added.emit(faction, t)
+
+
+## The range solution the crew currently has from this track's bearings, aged to `now`; empty when
+## they have none. A crew reworks its TMA every ten seconds, and at once when another listener
+## joins. Something that may be an aircraft is fixed only by lines taken together, so its fix is
+## reworked every cycle and never carried forward on a course it does not have.
+func _bearing_solution(t: Track, c: SensorContact, now: float) -> Dictionary:
+	if c.bearing_key == "":
+		return {}
+	var limit := _speed_limit_kn(t, c)
+	var interval := BearingSolution.SAMPLE_INTERVAL_S if limit <= BearingSolution.SHIP_SPEED_LIMIT_KN else 0.0
+	if now - t.bearing_solution_at >= interval:
+		t.bearing_solution_cache = BearingSolution.estimate(t.bearing_history, now, limit)
+		t.bearing_solution_at = now
+	var solution := t.bearing_solution_cache.duplicate()
+	if not solution.is_empty():
+		var age := maxf(now - t.bearing_solution_at, 0.0)
+		solution["position"] += (solution.get("velocity", Vector2.ZERO) as Vector2) * age
+		solution["major"] += t.error_growth_nm_per_s() * age
+		solution["quality"] = maxf(float(solution["quality"]) - TMA_DECAY_PER_S * age, 0.0)
+	return solution
+
+
+## The fastest the plot believes this contact can go: nothing for a fixed site, a ship's speed for
+## anything known to be on or under the sea, otherwise whatever the reporting set allows for.
+func _speed_limit_kn(t: Track, c: SensorContact) -> float:
+	match t.mover():
+		"land":
+			return 0.0
+		"surface", "subsurface":
+			return minf(c.bearing_speed_limit_kn, BearingSolution.SHIP_SPEED_LIMIT_KN)
+		"air":
+			return maxf(c.bearing_speed_limit_kn, 1200.0)
+	return c.bearing_speed_limit_kn
+
+
+## What one bearing does to the plot. A good enough solution is plotted as an estimated fix.
+## Without one, a range the track already holds is dead-reckoned and slid onto the new line with
+## its ellipse growing, until it is too old or too loose to call a range; after that, and for a
+## contact that never had one, the plot is only the line, carried at whatever range it last had.
+func _bearing_plot(t: Track, raw: SensorContact, report: Dictionary, solution: Dictionary, now: float, dt: float, fresh: bool) -> SensorContact:
+	var held := t._cycle_range_held
+	if not solution.is_empty() and float(solution["quality"]) >= (Track.RANGE_HELD_QUALITY if held else RANGE_ACCEPT_QUALITY):
+		return _resolved_contact(raw, solution)
+	var c := _resolved_contact(raw, {"position": raw.position, "major": raw.error_major_nm, "minor": raw.error_minor_nm, "axis": raw.error_axis_deg, "quality": 0.0})
+	if fresh:
+		return c
+	c.placed = true
+	var start := t._cycle_start_position
+	if held and t.has_kinematics:
+		start += Geo.heading_to_vector(t.course_deg) * Geo.knots_to_nm_per_s(t.speed_kn) * dt
+	var range_nm := raw.range_nm
+	c.position = start
+	if raw.bearing_key != "":
+		var line := float(report.get("smooth", raw.error_axis_deg))
+		var along := Geo.heading_to_vector(line)
+		range_nm = clampf((start - raw.bearing_origin).dot(along), MIN_BEARING_RANGE_NM, maxf(raw.bearing_range_limit_nm, MIN_BEARING_RANGE_NM))
+		c.position = start.lerp(raw.bearing_origin + along * range_nm, BEARING_BLEND)
+		c.error_axis_deg = line
+		c.error_minor_nm = maxf(range_nm * tan(deg_to_rad(raw.bearing_accuracy_deg * 2.0)), 0.2)
+	var major := t._cycle_start_major + t.error_growth_nm_per_s() * dt
+	if held:
+		# The same measure a solution is graded by, taken off as the ellipse grows.
+		var quality := t._cycle_tma_start - t.error_growth_nm_per_s() * dt / maxf(range_nm * 0.5, 0.5)
+		if now - t.range_time > t.lost_after_s():
+			quality = 0.0
+		if quality >= Track.RANGE_HELD_QUALITY:
+			c.solution_quality = quality
+			c.error_major_nm = maxf(major, c.error_minor_nm)
+			return c
+	# Only the line is left. Its length is the set's to say, not the old fix's.
+	c.error_major_nm = maxf(raw.error_major_nm, c.error_minor_nm)
+	return c
 
 
 func tick(now: float, dt: float) -> void:
@@ -272,8 +367,9 @@ func tick(now: float, dt: float) -> void:
 				t.status = Track.Status.STALE
 			if t.has_kinematics:
 				t.position += Geo.heading_to_vector(t.course_deg) * Geo.knots_to_nm_per_s(t.speed_kn) * dt
-			t.error_major_nm += Track.ERROR_GROWTH_NM_PER_S * dt
-			t.error_minor_nm += Track.ERROR_GROWTH_NM_PER_S * dt
+			var growth := t.error_growth_nm_per_s() * dt
+			t.error_major_nm += growth
+			t.error_minor_nm += growth
 			t.position_error_nm = maxf(t.error_major_nm, t.error_minor_nm)
 			t.tma_quality = maxf(t.tma_quality - TMA_DECAY_PER_S * dt, 0.0)
 
@@ -334,7 +430,7 @@ func _resolved_contact(raw: SensorContact, solution: Dictionary) -> SensorContac
 	if solution.is_empty():
 		return raw
 	var c := SensorContact.new()
-	for field in ["target", "observer", "source", "sensor_id", "sensor_name", "quality", "classify_rate", "range_nm"]:
+	for field in ["target", "observer", "source", "sensor_id", "sensor_name", "quality", "classify_rate", "range_nm", "altitude_m", "visual_identification"]:
 		c.set(field, raw.get(field))
 	c.position = solution["position"]
 	c.error_major_nm = solution["major"]
@@ -451,6 +547,7 @@ func _update_kinematics(t: Track, now: float) -> void:
 func _reset_kinematics(t: Track) -> void:
 	t._obs_times.clear()
 	t._obs_pos.clear()
+	t._obs_estimated = false
 	t._last_est_time = -1.0
 	t.has_kinematics = false
 	t.speed_kn = 0.0
