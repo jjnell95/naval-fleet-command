@@ -23,7 +23,15 @@ static func reports_privately(u: Unit) -> bool:
 	return u != null and u.is_engageable() and not u.datalink_connected() and receives_report(u)
 
 
-## Every contact the commander holds. A contact the networked plot holds is shown once, as the
+## The networked plot's own track on a unit, when the force's sensors hold it. A bare intelligence
+## datum is a place to go and look, not a holding: a boat's own track on the same contact is worth
+## more than it, and is the one the commander can lay a weapon on.
+static func plotted(track_manager: TrackManager, faction: String, truth: Unit) -> Track:
+	var t := track_manager.find_track(faction, truth)
+	return t if t != null and not t.reported else null
+
+
+## Every contact the commander holds, each shown once. A contact the networked plot holds is the
 ## plot's own track; one held only aboard an off-link unit is shown from that unit's picture.
 ## Returns the plot's own array when nothing is added to it: callers must not modify the result.
 static func tracks(track_manager: TrackManager, unit_manager: UnitManager, faction: String) -> Array:
@@ -38,11 +46,13 @@ static func tracks(track_manager: TrackManager, unit_manager: UnitManager, facti
 		if u.faction != faction or not reports_privately(u):
 			continue
 		for t: Track in track_manager.tracks_for(u):
-			if t.status == Track.Status.LOST or added.has(t.id) or track_manager.find_track(faction, t.truth) != null:
+			if t.status == Track.Status.LOST or added.has(t.id) or plotted(track_manager, faction, t.truth) != null:
 				continue
 			if added.is_empty():
 				out = plot.duplicate()
 			added[t.id] = true
+			# Whatever datum the plot had on it gives way to the boat's own track.
+			out.erase(track_manager.find_track(faction, t.truth))
 			out.append(t)
 	return out
 
@@ -59,17 +69,19 @@ static func holds(track_manager: TrackManager, unit_manager: UnitManager, factio
 	return tracks(track_manager, unit_manager, faction).has(t)
 
 
-## The commander's track on the contact a track follows: the plot's own if it holds one, otherwise
-## the one an off-link unit reports. Null when nobody he hears from holds it.
+## The track the commander is shown on the contact a track follows: the same track, or the one
+## that stands for the same contact in his picture (every picture gives a contact one number).
+## Null when nobody he hears from holds it.
 static func track_on(track_manager: TrackManager, unit_manager: UnitManager, faction: String, t: Track) -> Track:
 	if t == null or track_manager == null:
 		return null
-	var plotted := track_manager.find_track(faction, t.truth)
-	if plotted != null:
-		return plotted
-	for held: Track in tracks(track_manager, unit_manager, faction):
-		if held.id == t.id:
-			return held
+	var shown: Array = tracks(track_manager, unit_manager, faction)
+	if shown.has(t):
+		return t
+	if t.id != "":
+		for held: Track in shown:
+			if held.id == t.id:
+				return held
 	return null
 
 

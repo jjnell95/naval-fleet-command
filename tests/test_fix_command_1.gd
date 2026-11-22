@@ -376,3 +376,33 @@ func test_a_silent_classic_boat_reports_what_it_holds_when_it_comes_up() -> void
 	main._process(1.0)
 	assert_eq(_lines(main, "New contact"), 1)
 	_close(main)
+
+
+func test_a_boats_own_track_outranks_an_intelligence_datum_on_the_same_contact() -> void:
+	var main := _open("cold_war_02_barrier.json")
+	var sim := main.simulation
+	var boat := _own(main, "Dallas")
+	var ship := _own(main, "Spruance")
+	var victor := _first_hostile(main, "subsurface")
+	var held := _private_contact(main, boat, victor)
+	main._process(1.0)
+	main.map.select_units([boat] as Array[Unit])
+	main.map.select_track(held)
+	var datum := sim.track_manager.report_intel(sim.player_faction, victor, victor.position + Vector2(9.0, 0.0), 12.0, sim.unit_manager.now_s, "Fixed acoustic array")
+	assert_true(datum != null and datum.reported and datum.id == held.id, "a shore array cues the same contact onto the networked plot")
+	assert_eq(_ids(main.map._plotted_tracks()), [held.id], "the contact is still shown once")
+	assert_true(main.map._plotted_tracks().has(held), "as the boat's own track, the one a weapon can be laid on")
+	SimClock.advance(SimClock.TICK_DT)
+	main.map._process(0.016)
+	assert_eq(main.map.selected_track, held, "and it stays hooked")
+	assert_eq(_lines(main, "New contact"), 1, "nor is the cue a second new contact")
+	# A ship on the link then holds it with her own sonar: the plot's track takes over, hook and all.
+	var linked := SensorContact.make(victor, victor.position, 0.5, 0.9, 1.0, ship.position.distance_to(victor.position), "sonar", ship)
+	sim.track_manager.observe_contact(ship.faction, linked, sim.unit_manager.now_s, SimClock.TICK_DT)
+	SimClock.advance(SimClock.TICK_DT)
+	main.map._process(0.016)
+	assert_true(not datum.reported, "the plot now holds the contact itself")
+	assert_eq(main.map._plotted_tracks(), [datum], "and its track is the one shown")
+	assert_eq(main.map.selected_track, datum, "with the hook moved onto it")
+	assert_eq(main.map.selected, [boat] as Array[Unit], "and the boat still under command")
+	_close(main)
