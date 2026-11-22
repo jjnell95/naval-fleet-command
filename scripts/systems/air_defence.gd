@@ -255,19 +255,22 @@ static func engaging_units(weapon_manager: WeaponManager, threat: Weapon) -> Arr
 	return out
 
 
-## Rounds a side keeps in the air at one hostile aircraft before another ship adds more, and the
-## rounds of each missile type a ship keeps back for missiles rather than spend on aircraft.
-## GAMEPLAY_ESTIMATE.
-const AIRCRAFT_ROUNDS_IN_FLIGHT := 2
+## The rounds of each missile type a ship keeps back for missiles rather than spend on aircraft,
+## and the speed above which a closing aircraft is given a pair at once rather than one round and a
+## look. GAMEPLAY_ESTIMATE.
 const SAM_RESERVE_FOR_MISSILES := 4
+const FAST_AIRCRAFT_KN := 400.0
 
 
 ## Weapons free means the ship fights: a commander's ship on Weapons Free with automatic air
-## defence engages identified hostile aircraft that come inside its missile envelope, one round at
-## a time (shoot, look, shoot), without waiting for an attack order. The AI's sides already do this
-## through their own controllers, so only the sides named here are stepped. Weapons Tight, Hold,
-## manual missile defence (Classic) and anything not identified hostile are left to the commander.
-## Reads only the ship's own picture; every shot goes through the ordinary envelope checks.
+## defence engages identified hostile aircraft that come inside its missile envelope without
+## waiting for an attack order. The side keeps one round in the air at a track and launches nothing
+## more at it until that round has done its work (shoot, look, shoot); a fast aircraft closing on
+## the ship is given two together, since it will be overhead before a look and a second shot. The
+## AI's sides already do this through their own controllers, so only the sides named here are
+## stepped. Weapons Tight, Hold, manual missile defence (Classic) and anything not identified
+## hostile are left to the commander. Reads only the ship's own picture; every shot goes through
+## the ordinary envelope checks.
 static func engage_hostile_aircraft(unit_manager: UnitManager, track_manager: TrackManager, weapon_manager: WeaponManager, now: float, factions: Array) -> int:
 	if factions.is_empty() or track_manager == null:
 		return 0
@@ -288,8 +291,10 @@ static func engage_hostile_aircraft(unit_manager: UnitManager, track_manager: Tr
 		for t: Track in track_manager.tracks_for(u):
 			if t.domain != "air" or t.identity != "HOSTILE" or t.status != Track.Status.ACTIVE or t.is_bearing_only() or t.confirmed_destroyed:
 				continue
-			if weapon_manager.faction_commitment(u.faction, t) >= AIRCRAFT_ROUNDS_IN_FLIGHT:
+			# Rounds already flying or queued at the track, from any ship of the side.
+			if weapon_manager.faction_commitment(u.faction, t) > 0:
 				continue
+			var salvo := aircraft_salvo(u, t)
 			for spec: WeaponSpec in u.weapons_for_track(t):
 				if spec.type != "sam" or u.magazine_count(spec.id) <= SAM_RESERVE_FOR_MISSILES:
 					continue
@@ -297,11 +302,20 @@ static func engage_hostile_aircraft(unit_manager: UnitManager, track_manager: Tr
 					continue
 				if not bool(weapon_manager.engagement_check(u, spec, t, now).get("ok", false)):
 					continue
-				if weapon_manager.launch(u, spec, t, 1, now):
-					fired += 1
+				var rounds := mini(salvo, u.magazine_count(spec.id) - SAM_RESERVE_FOR_MISSILES)
+				if weapon_manager.launch(u, spec, t, rounds, now):
+					fired += rounds
 				break
 	weapon_manager.end_channel_batch()
 	return fired
+
+
+## Rounds a ship sends together at a hostile aircraft: two at a fast one closing on it, else one.
+static func aircraft_salvo(u: Unit, t: Track) -> int:
+	if t.speed_kn < FAST_AIRCRAFT_KN:
+		return 1
+	var toward_ship := (u.position - t.position).normalized()
+	return 2 if Geo.heading_to_vector(t.course_deg).dot(toward_ship) > 0.5 else 1
 
 
 ## An own aircraft close enough to the contact to be inside the round's seeker basket when it

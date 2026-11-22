@@ -536,3 +536,92 @@ func test_a_ship_on_automatic_defence_has_nothing_waiting_on_the_commander() -> 
 func test_the_raid_clearance_is_part_of_a_saved_game() -> void:
 	assert_true(SimSnapshot.script_variables(Unit.new()).has("raid_clearance_until_s"))
 	assert_true(not SimSnapshot.UNIT_SKIP.has("raid_clearance_until_s"))
+
+
+# --- Weapons Free against aircraft: one round in the air at a track, then a look ------------------
+
+## Two ships with a missile that takes aircraft, and a hostile aircraft held on their picture.
+## Returns [harness, track manager, track, aircraft].
+func _air_raid(speed_kn: float, pk := 0.0) -> Array:
+	var ships: Array = []
+	for x: float in [0.0, 1.0]:
+		var sam := _sam("essm", 25.0, pk)
+		sam.target_types = PackedStringArray(["missile", "air"])
+		sam.guidance = "inertial_active"
+		sam.seeker_range_nm = 4.0
+		ships.append(_ship("BLUE", Vector2(x, 0.0), [sam], 20))
+	var plane := Unit.new()
+	plane.spec = _platform()
+	plane.spec.domain = "air"
+	plane.faction = "RED"
+	plane.position = Vector2(0.0, 18.0)
+	plane.altitude_m = 300.0
+	plane.flight_state = Unit.FlightState.AIRBORNE
+	var h := _harness(ships + [plane])
+	var t := Track.new()
+	t.id = "T1200"
+	t.owner_faction = "BLUE"
+	t.truth = plane
+	t.position = plane.position
+	t.position_error_nm = 0.1
+	t.status = Track.Status.ACTIVE
+	t.domain = "air"
+	t.altitude_m = plane.altitude_m
+	t.speed_kn = speed_kn
+	t.course_deg = 180.0
+	t.identity = "HOSTILE"
+	t.classification = Track.Classification.CLASS_KNOWN
+	var trk := TrackManager.new()
+	trk._tracks["BLUE"] = [t]
+	return [h, trk, t, plane]
+
+
+## Steps the weapons and the weapons-free cycle each second. Returns [launched, most in the air].
+func _fight_aircraft(c: Array, seconds: float) -> Array:
+	var h: Array = c[0]
+	var wm: WeaponManager = h[2]
+	var now := 0.0
+	var launched := 0
+	var most := 0
+	for i in int(seconds / DT):
+		now += DT
+		wm.tick(DT, now)
+		if is_zero_approx(fmod(now, 1.0)):
+			launched += AirDefence.engage_hostile_aircraft(h[0], c[1], wm, now, ["BLUE"])
+		most = maxi(most, wm.faction_commitment("BLUE", c[2]))
+	return [launched, most]
+
+
+func test_a_slow_drone_gets_one_round_at_a_time_from_the_whole_force() -> void:
+	var c := _air_raid(90.0)
+	var result := _fight_aircraft(c, 60.0)
+	assert_eq(int(result[1]), 1, "two ships on weapons free keep one round in the air at the drone")
+	assert_true(int(result[0]) >= 2, "and after a miss they shoot again")
+	assert_true(int(result[0]) <= 4, "one round per look, not a stream: %d" % int(result[0]))
+	c[1].free()
+	_cleanup(c[0])
+
+
+func test_no_round_leaves_for_an_aircraft_while_one_is_still_flying_at_it() -> void:
+	var c := _air_raid(90.0)
+	var h: Array = c[0]
+	var wm: WeaponManager = h[2]
+	assert_eq(AirDefence.engage_hostile_aircraft(h[0], c[1], wm, 0.0, ["BLUE"]), 1)
+	var now := 0.0
+	for i in 12:
+		now += DT
+		wm.tick(DT, now)
+	assert_eq(AirDefence.engage_hostile_aircraft(h[0], c[1], wm, now, ["BLUE"]), 0, "the round is still on its way")
+	c[1].free()
+	_cleanup(c[0])
+
+
+func test_a_fast_closing_aircraft_gets_a_pair_and_then_a_look() -> void:
+	var c := _air_raid(550.0)
+	var h: Array = c[0]
+	assert_eq(AirDefence.engage_hostile_aircraft(h[0], c[1], h[2], 0.0, ["BLUE"]), 2, "two together at a fast jet coming in")
+	assert_eq(AirDefence.engage_hostile_aircraft(h[0], c[1], h[2], 1.0, ["BLUE"]), 0, "and nothing more while they fly")
+	(c[2] as Track).course_deg = 0.0
+	assert_eq(AirDefence.aircraft_salvo(h[0].units[0], c[2]), 1, "one at a fast aircraft going away")
+	c[1].free()
+	_cleanup(c[0])

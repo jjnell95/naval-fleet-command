@@ -265,9 +265,9 @@ func test_a_ship_on_weapons_free_engages_a_hostile_aircraft_in_its_envelope() ->
 	var h: Array = c[0]
 	assert_eq(AirDefence.engage_hostile_aircraft(h[0], c[3], h[2], 0.0, ["BLUE"]), 1)
 	assert_eq(h[2].faction_commitment("BLUE", c[2]), 1, "one round: shoot, look, shoot")
-	AirDefence.engage_hostile_aircraft(h[0], c[3], h[2], 1.0, ["BLUE"])
+	assert_eq(AirDefence.engage_hostile_aircraft(h[0], c[3], h[2], 1.0, ["BLUE"]), 0, "nothing more while it flies")
 	AirDefence.engage_hostile_aircraft(h[0], c[3], h[2], 2.0, ["BLUE"])
-	assert_eq(h[2].faction_commitment("BLUE", c[2]), AirDefence.AIRCRAFT_ROUNDS_IN_FLIGHT, "and no more than the side's limit")
+	assert_eq(h[2].faction_commitment("BLUE", c[2]), 1, "the look comes before the second shot")
 	c[3].free()
 	_cleanup(h)
 
