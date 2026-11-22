@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # Bumped when the pass changes. A file already at or past it is left alone, so running this module
 # on its own only re-encodes the shipped files; regenerate through the five builders.
-REVISION = 27
+REVISION = 28
 # Each operation has a distinct command problem: one 2027 operation per chart region and three
 # 1990 operations. M35 cut the overlapping missions; the two exercises stay on the Training shelf.
 PLANS = {
@@ -46,6 +46,8 @@ EVENT_READINESS = {
  'med_01_tartus': ('su34', 'su35s'),
 }
 READINESS_FALLBACK_S = 12600
+# Hormuz's shore batteries, which leave the opening force and come out of their hides by event.
+HORMUZ_BATTERIES = ('Qeshm coastal battery', 'Bandar Abbas ballistic battery')
 
 
 def _modern_wing(host):
@@ -309,6 +311,8 @@ def _taiwan(d):
 def _hormuz(d):
     tankers = ['MT Gulf Horizon', 'MT Ras Laffan Pride', 'MT Aegean Dawn']
     boat = _unit(d, 'Peykaap 1')
+    batteries = {u['callsign']: u for u in d.pop('_delayed')}
+    qeshm, ballistic = batteries['Qeshm coastal battery'], batteries['Bandar Abbas ballistic battery']
 
     def swarm(origin, route):
         return [_moved(boat, [origin[0] + 1.2 * (i % 2), origin[1] - 1.0 * i], route, callsign='Peykaap %d' % (7 + i)) for i in range(4)]
@@ -323,7 +327,16 @@ def _hormuz(d):
         dict(id='periscope_report', at_s_window=[900, 2700], unless=lost(['Ghadir']),
              intel=[report('Ghadir', 3, 'UKMTO relay from a dhow')],
              message="UKMTO relays a dhow's sighting of a periscope in the outbound lane near {pos}, accuracy about 3 nm."),
-        dict(id='fire_mission', chance=0.7, at_s_window=[600, 1800], when=held('RED', tankers, 'CLASS_KNOWN'),
+        # The shore batteries are mobile launchers in their hides when the convoy forms up. Fielded
+        # from the first second, both had a salvo in the air at 72 s on every seed, from 15 nm,
+        # before an escort could be placed or the battery even seen: the strait was a firing range,
+        # not a command problem. The Qader battery comes out on its own clock; the ballistic
+        # battery once a drone has passed it a tanker. Either one radiates or fires once it is up,
+        # and only then can it be found and struck.
+        dict(id='qeshm_battery_up', side='RED', at_s_window=[600, 900], reinforcements=[qeshm]),
+        dict(id='ballistic_battery_up', side='RED', at_s_window=[900, 1500], when=held('RED', tankers, 'CLASS_KNOWN'),
+             latest_s_window=[2400, 3000], reinforcements=[ballistic]),
+        dict(id='fire_mission', chance=0.7, after=['ballistic_battery_up'],
              unless=lost(['Mohajer 81', 'Mohajer 82']),
              objectives=dict(add=[bonus('drones_down', ['Mohajer 81', 'Mohajer 82'], 'Shoot down both Mohajer drones')]),
              message='TASKING UPDATE: intercepts show a Mohajer passing a tanker\'s position to the Khalij Fars battery. Expect '
@@ -580,7 +593,8 @@ def enhance(d):
     # The hand-placed follow-on raids leave the opening force and enter by event, without
     # adding weapons or changing their authored ingress.
     delayed = [u for u in d['units'] if (sid=='cold_war_03_carrier' and u['callsign']=='Backfire raid 2') or
-                (sid=='pacific_02_taiwan_strait' and u['callsign'] in ('Badger 3','Badger 4'))]
+                (sid=='pacific_02_taiwan_strait' and u['callsign'] in ('Badger 3','Badger 4')) or
+                (sid=='gulf_01_hormuz' and u['callsign'] in HORMUZ_BATTERIES)]
     d['units'] = [u for u in d['units'] if u not in delayed]
     d['_delayed'] = delayed
     d['events'] = REACTIONS[sid](d)

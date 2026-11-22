@@ -122,10 +122,11 @@ def hormuz():
                  neutral_factions=["NEUTRAL"], seed=45,
                  description=("Three laden tankers must clear the Strait of Hormuz into the Gulf of Oman. A US destroyer, a British "
                               "Type 45 and a French frigate escort them past Qeshm and Larak against an IRGC swarm, a midget submarine "
-                              "in the lane, a Kilo waiting outside, drones from the coast and a coastal battery above Bandar Abbas, with "
-                              "a ballistic-missile battery behind it that fires on whatever the drones report. A P-8A detachment at "
-                              "Al Dhafra can help. The destroyer's Tomahawks and Languedoc's MdCN can reach the battery; your rules of engagement decide "
-                              "whether they do before it fires."))
+                              "in the lane, a Kilo waiting outside, drones from the coast and two mobile shore batteries in their hides: "
+                              "a Qader battery on Qeshm, expected to come out within the first quarter hour, and a ballistic-missile "
+                              "battery behind Bandar Abbas that fires on whatever the drones report. A P-8A detachment at "
+                              "Al Dhafra can help. The destroyer's Tomahawks and Languedoc's MdCN can reach a battery once it shows itself; "
+                              "your rules of engagement decide whether they do before it fires again."))
     s.meta("Persian Gulf", "Advanced", 30, "Escort group commander",
            "Convoy defence in confined water: fast-attack-craft swarms, one-way attack drones, a midget submarine, shore-based cruise and ballistic missiles, and neutral traffic everywhere",
            "Bring at least two of the three tankers out into the Gulf of Oman. The escorts survive by shooting early; the tankers survive by your station-keeping.",
