@@ -181,3 +181,19 @@ func test_the_guide_keeps_knots_in_hand_for_its_consorts() -> void:
 	assert_true(group[0].formation_speed_cap_kn <= consort.effective_max_speed() - 3.0, "the guide paces the group a few knots under the slowest consort")
 	um.free()
 
+
+
+# --- Helm orders do what they say ----------------------------------------------------------
+
+func test_a_speed_order_to_a_consort_keeping_station_is_refused_naming_the_guide() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var pair := _screen(um)
+	var escort: Unit = pair[1]
+	_run(um, 60.0)
+	var order := Order.set_speed(28.0)
+	assert_true(not um.issue_order(escort, order), "her speed is the station's, so the order is refused")
+	assert_true(order.receipt.contains("Guide"), "and the reason names the guide: '%s'" % order.receipt)
+	assert_eq(Main._refusal_reason(escort, order), order.receipt, "which is what the radio line reports")
+	assert_true(um.issue_order(pair[0], Order.set_speed(20.0)), "the guide takes a speed order")
+	um.free()

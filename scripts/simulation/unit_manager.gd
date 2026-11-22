@@ -163,6 +163,8 @@ func issue_order(u: Unit, order: Order) -> bool:
 		# counting refusals. Each pair on a firing board carries its own Order.
 		if order != null and order.type == Order.Type.ENGAGE:
 			order.receipt = engage_rejection(u, order)
+		elif order != null and order.type == Order.Type.SET_SPEED and u != null and u.alive and u.in_formation():
+			order.receipt = station_keeping_rejection(u)
 		return false
 	if order.type == Order.Type.MOVE:
 		var why := move_rejection(u, order)
@@ -258,6 +260,10 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.SET_DEFENCE_POLICY:
 			return u.is_engageable() and order.defence_policy in ["balanced", "conserve", "saturation"]
 		Order.Type.SET_SPEED:
+			# Station keeping sets a consort's speed every tick; a speed of her own would be
+			# overwritten at once. The group's speed is the guide's to order.
+			if u.in_formation():
+				return false
 			# The circuit as ordered, not the points still ahead: those may include the way
 			# round a coast to its first corner, which is no part of it.
 			if u.patrol_active and patrol_rejection(u, u.station_route if not u.station_route.is_empty() else u.waypoints, order.speed_kn, false) != "":
@@ -307,6 +313,11 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
 	return false
+
+
+## Why a consort in formation refuses a speed of her own.
+static func station_keeping_rejection(u: Unit) -> String:
+	return "Keeping station on %s: order the guide's speed" % u.formation_leader.callsign
 
 
 ## Steering a platform can take now. An aircraft on its way to the deck or the tanker is the aviation
