@@ -532,3 +532,17 @@ func test_a_strike_comes_home_once_its_salvo_is_away() -> void:
 	_sim.weapon_manager.weapon_launched.disconnect(on_fire)
 	_done()
 
+
+## A CAP flies its circuit inside the ring the chart draws for it, not a square round the outside.
+func test_a_cap_circuit_lies_inside_its_ring() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var o := Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, cv.position + Vector2(0, 30), 12.0)
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	var m: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
+	_advance(400.0)
+	var a: Unit = m.aircraft[0]
+	assert_true(a.station_route.size() >= 4, "flying the circuit")
+	for p: Vector2 in a.station_route:
+		assert_true(p.distance_to(m.station) <= m.radius_nm + 0.01, "corner %.1f nm from the centre of a %.0f nm ring" % [p.distance_to(m.station), m.radius_nm])
+	_done()

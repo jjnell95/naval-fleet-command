@@ -1174,10 +1174,11 @@ static func _ship_to_avoid(t: Track) -> bool:
 	return not _probably_air(t)
 
 
-## Half the side of the square circuit flown on station. A CAP orbits on the circle's edge; a
-## search flies a box inside its area so that what it lays and sees falls in the area.
+## Half the side of the square circuit flown on station. A CAP flies a square inscribed in its
+## ring, so the circuit is the ring the chart draws; a search flies a box well inside its area so
+## that what it lays and sees falls in the area.
 static func station_half_nm(kind: int, radius_nm: float) -> float:
-	return radius_nm if kind == AirMission.Kind.CAP else radius_nm * 0.6
+	return radius_nm / sqrt(2.0) if kind == AirMission.Kind.CAP else radius_nm * 0.6
 
 
 ## Air contacts near the CAP: hostiles are intercepted under the ROE, unknowns are identified.
