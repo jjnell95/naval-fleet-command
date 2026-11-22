@@ -38,6 +38,11 @@ const SAFE_SEPARATION_NM := 0.5
 ## Seconds of flight a seeker keeps in hand when it puts off a lock to look at the rest of its
 ## basket: it commits to a return it would lose from its cone within this time. GAMEPLAY_ESTIMATE.
 const LOCK_LEAD_S := 2.0
+## Seconds between launches from different cells of one vertical launcher. GAMEPLAY_ESTIMATE.
+const VLS_SERVICE_S := 1.0
+## Seconds an interceptor flies on its last solution without guidance before it is lost. A single
+## missed look from the illuminator is not a lost missile. GAMEPLAY_ESTIMATE.
+const INTERCEPT_COAST_S := 3.0
 ## Anti-radiation missiles. A round whose emitter switches off flies on to where it last heard it:
 ## ARM_MEMORY_PK of its ordinary chance if the emitter is still within ARM_MEMORY_NM of that
 ## point, nothing if it has moved away. A hit wrecks antennas before it sinks anything.
@@ -100,27 +105,57 @@ static func launcher_key(shooter: Unit, spec: WeaponSpec) -> String:
 	return str(shooter.spec.launcher_groups.get(spec.id, "VLS" if spec.vls_pack > 0 and shooter.spec.vls_cells > 0 else spec.id))
 
 
+## Seconds between two rounds of the same weapon from one platform: the salvo spacing.
 static func launch_spacing(shooter: Unit, spec: WeaponSpec) -> float:
 	return maxf(maxf(spec.launch_interval_s, 0.25), float(shooter.spec.launcher_service_s.get(launcher_key(shooter, spec), 0.0)))
 
 
+## Seconds a launch keeps the weapon's launcher group from launching anything else. A mechanical
+## launcher is busy for its authored reload cycle, whatever it fired. A vertical launcher's cells
+## are independent: the next round can come from another cell after a short sequencing interval,
+## so a slow strike salvo or one anti-submarine rocket does not hold up the ship's own missiles.
+static func service_interval(shooter: Unit, spec: WeaponSpec) -> float:
+	var key := launcher_key(shooter, spec)
+	if shooter.spec.launcher_service_s.has(key):
+		return maxf(float(shooter.spec.launcher_service_s[key]), 0.25)
+	if key == "VLS":
+		return minf(VLS_SERVICE_S, launch_spacing(shooter, spec))
+	return launch_spacing(shooter, spec)
+
+
+## The key a weapon's own salvo spacing is kept under, beside its launcher group's.
+static func _salvo_key(spec: WeaponSpec) -> String:
+	return "salvo:" + spec.id
+
+
+## When this weapon can next leave: its launcher group free and its own salvo spacing run out.
 func _ready_time(shooter: Unit, spec: WeaponSpec) -> float:
-	return float(_launcher_ready_at.get(shooter, {}).get(launcher_key(shooter, spec), 0.0))
+	var ready: Dictionary = _launcher_ready_at.get(shooter, {})
+	return maxf(float(ready.get(launcher_key(shooter, spec), 0.0)), float(ready.get(_salvo_key(spec), 0.0)))
 
 
 func _mark_launched(shooter: Unit, spec: WeaponSpec, now: float) -> void:
 	var ready: Dictionary = _launcher_ready_at.get(shooter, {})
-	ready[launcher_key(shooter, spec)] = now + launch_spacing(shooter, spec)
+	ready[launcher_key(shooter, spec)] = now + service_interval(shooter, spec)
+	ready[_salvo_key(spec)] = now + launch_spacing(shooter, spec)
 	_launcher_ready_at[shooter] = ready
 
 
+## Seconds until the first round of a new salvo of this weapon could leave: behind its own queued
+## rounds at the salvo spacing, and clear of the moments another weapon's queued rounds have the
+## shared launcher.
 func ready_in_s(shooter: Unit, spec: WeaponSpec, now: float) -> float:
 	var at := maxf(now, _ready_time(shooter, spec))
 	var key := launcher_key(shooter, spec)
+	var service := service_interval(shooter, spec)
 	_sort_pending()
 	for p: Dictionary in _pending:
-		if p.shooter == shooter and launcher_key(shooter, p.spec) == key:
-			at = maxf(at, float(p.time)) + launch_spacing(shooter, p.spec)
+		if p.shooter != shooter or launcher_key(shooter, p.spec) != key:
+			continue
+		if p.spec == spec:
+			at = maxf(at, float(p.time)) + launch_spacing(shooter, spec)
+		elif absf(at - float(p.time)) < service:
+			at = float(p.time) + service
 	return maxf(at - now, 0.0)
 
 
@@ -282,6 +317,7 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		return 0
 	shooter.consume_magazine(spec.id, available)
 	_mark_launched(shooter, spec, now)
+	_preempt_queued(shooter, spec, now)
 	for i in available:
 		var w := Weapon.new()
 		w.id = _next_id
@@ -309,6 +345,19 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 	revision += 1
 	interceptor_launched.emit(shooter, spec, threat, available)
 	return available
+
+
+## A defensive round has taken the launcher: strike rounds queued on the same launcher group wait
+## their turn behind it. They are pushed back, never dropped, and keep their order.
+func _preempt_queued(shooter: Unit, spec: WeaponSpec, now: float) -> void:
+	var key := launcher_key(shooter, spec)
+	var free_at := now + service_interval(shooter, spec)
+	# Sorted first: the rounds moved are then the head of the queue, and moving them all to one
+	# time leaves the queue in the order it was.
+	_sort_pending()
+	for p: Dictionary in _pending:
+		if p.shooter == shooter and float(p.time) < free_at and launcher_key(shooter, p.spec) == key:
+			p.time = free_at
 
 
 ## Marks an in-flight weapon as destroyed or decoyed before it reaches its target.
@@ -439,6 +488,7 @@ func _step(w: Weapon, dt: float) -> void:
 	w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
 
 	var previous := w.position
+	var step_from := w.position
 	var distance_before := w.distance_flown_nm
 	var travel := minf(w.speed_nm_per_s() * dt, maxf(w.spec.max_range_nm - distance_before, 0.0))
 	w.position += Geo.heading_to_vector(w.heading_deg) * travel
@@ -479,6 +529,12 @@ func _step(w: Weapon, dt: float) -> void:
 				w.dead_reason = "TARGET LOST"  # it went quiet and moved off the spot
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and _segment_distance_squared(previous, w.position, w.acquired.position) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
 		_resolve_impact(w)
+	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.spec.profile == "ballistic" and w.position.distance_to(w.acquired.position) > step_from.distance_to(w.acquired.position):
+		# A ballistic round comes down once. Past its closest point it has no way back: it cannot
+		# pull round at that speed and it has no height left to do it in. It has missed.
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "MISS"
+		weapon_impact.emit(w.faction, w.spec, w.acquired, false)
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "TARGET LOST" if w.lost_lock else ("NO ACQUISITION" if w.searching_on else "RANGE EXHAUSTED")
@@ -547,16 +603,30 @@ func _step_interceptor(w: Weapon, dt: float) -> void:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "THREAT ALREADY DEFEATED"
 		return
-	if not AirDefence._can_intercept(w.spec, threat) or not guidance_available(w.shooter, w.spec, threat):
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "GUIDANCE LOST"
-		return
-	# Lead a moving inbound. Pointing only at its current position makes crossing shots chase
-	# its wake, and an accurate swept collision check exposes the miss hidden by a wide radius.
-	var aim := Combat.intercept_point(w.position, w.spec.speed_kn, threat.position, threat.heading_deg, threat.spec.speed_kn, true)
-	var desired := Geo.bearing_deg(w.position, aim if aim.is_finite() else threat.position)
-	var max_turn := w.spec.turn_rate_deg_s * dt
-	w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
+	# A round is steered while the threat is inside its envelope and something is guiding it. A
+	# break in the illuminator's line of sight on the way out costs nothing: the round flies its
+	# last solution and needs the beam again only to home. Without guidance in the endgame, or
+	# with its fire control gone or the threat out of its envelope, it coasts a few seconds on the
+	# last solution and is then lost.
+	var in_envelope := AirDefence._can_intercept(w.spec, threat)
+	var guided := in_envelope and guidance_available(w.shooter, w.spec, threat)
+	if guided:
+		w.unguided_s = 0.0
+	else:
+		var endgame := w.position.distance_to(threat.position) <= w.spec.acquisition_radius_nm()
+		if endgame or not in_envelope or not radar_support_available(w.shooter, w.spec):
+			w.unguided_s += dt
+			if w.unguided_s > INTERCEPT_COAST_S:
+				w.phase = Weapon.Phase.DEAD
+				w.dead_reason = "GUIDANCE LOST"
+				return
+	if guided:
+		# Lead a moving inbound. Pointing only at its current position makes crossing shots chase
+		# its wake, and an accurate swept collision check exposes the miss hidden by a wide radius.
+		var aim := Combat.intercept_point(w.position, w.spec.speed_kn, threat.position, threat.heading_deg, threat.spec.speed_kn, true)
+		var desired := Geo.bearing_deg(w.position, aim if aim.is_finite() else threat.position)
+		var max_turn := w.spec.turn_rate_deg_s * dt
+		w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
 	var previous := w.position
 	var travel := minf(w.speed_nm_per_s() * dt, maxf(w.spec.max_range_nm - w.distance_flown_nm, 0.0))
 	w.position += Geo.heading_to_vector(w.heading_deg) * travel
@@ -825,7 +895,7 @@ static func can_target(spec: WeaponSpec, u: Unit) -> bool:
 func _resolve_impact(w: Weapon) -> void:
 	var target := w.acquired
 	w.phase = Weapon.Phase.DEAD
-	var pk := Combat.hit_probability(w.spec, target)
+	var pk := Combat.hit_probability(w.spec, target, w.distance_flown_nm)
 	if w.emitter_silent:
 		pk *= ARM_MEMORY_PK
 	var hit := rng.randf() < pk

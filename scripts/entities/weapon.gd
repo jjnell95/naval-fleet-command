@@ -49,6 +49,9 @@ var dead_reason := ""
 ## A round fired at an aircraft that reached its aim point with nothing in its seeker flies on along
 ## its heading, still searching, until its fuel runs out (`WeaponManager._try_acquire`).
 var searching_on := false
+## An interceptor: seconds it has flown its endgame without guidance. It coasts on its last
+## solution for a moment before it is lost (WeaponManager.INTERCEPT_COAST_S).
+var unguided_s := 0.0
 ## The unit this round was locked on sank, dived or landed, and it has found nothing since: it is
 ## searching on down its heading and ends as TARGET LOST if its range runs out first.
 var lost_lock := false
@@ -62,6 +65,15 @@ var emitter_point := Vector2.INF
 var emitter_silent := false
 
 
+## A ballistic round holds its height until the last part of its flight and then comes down on
+## its target: the final BALLISTIC_DIVE_FRACTION of the launch range, and never less than
+## BALLISTIC_DIVE_MIN_NM of ground covered. What can engage it changes on the way down: an
+## interceptor built for space loses it as it re-enters, and the upper-atmosphere ones get their
+## turn only then. GAMEPLAY_ESTIMATE.
+const BALLISTIC_DIVE_FRACTION := 0.15
+const BALLISTIC_DIVE_MIN_NM := 30.0
+
+
 func flight_altitude_m() -> float:
 	if spec.is_torpedo():
 		return 0.0
@@ -69,7 +81,19 @@ func flight_altitude_m() -> float:
 		return maxf(launch_altitude_m, 0.0) * clampf(1.0 - distance_flown_nm / launch_range_nm, 0.0, 1.0)
 	if spec.type in ["aam", "bomb"] and launch_altitude_m >= 0.0:
 		return launch_altitude_m
+	if spec.profile == "ballistic" and launch_range_nm > 0.0:
+		return spec.altitude_m * clampf(distance_to_go_nm() / ballistic_dive_nm(), 0.0, 1.0)
 	return spec.altitude_m
+
+
+## Ground distance over which a ballistic round comes down from its cruise height.
+func ballistic_dive_nm() -> float:
+	return minf(maxf(launch_range_nm * BALLISTIC_DIVE_FRACTION, BALLISTIC_DIVE_MIN_NM), maxf(launch_range_nm, 0.001))
+
+
+## Distance from the round to what it is going for: the unit it has locked, else its aim point.
+func distance_to_go_nm() -> float:
+	return position.distance_to(acquired.position if acquired != null else aim_point)
 
 
 func speed_nm_per_s() -> float:
@@ -78,10 +102,13 @@ func speed_nm_per_s() -> float:
 
 
 ## What kind of defensive problem this round poses: a torpedo is heard and outrun, a missile is
-## shot down, a ballistic round needs an interceptor built for the job.
+## shot down, a ballistic round needs an interceptor built for the job. A gun's shell is none of
+## these: nothing aboard shoots shells down and chaff means nothing to one.
 func threat_class() -> String:
 	if spec.is_torpedo():
 		return "torpedo"
+	if spec.is_gun():
+		return "shell"
 	return "ballistic" if spec.profile == "ballistic" else "missile"
 
 

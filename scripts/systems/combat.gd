@@ -367,9 +367,27 @@ static func intercept_probability(interceptor: WeaponSpec, threat: WeaponSpec) -
 	return clampf(interceptor.base_pk / maxf(difficulty, 0.1), 0.05, 0.95)
 
 
-## Hit probability once the seeker has acquired a real unit. Milestone 4 will subtract the
-## effect of hard-kill and soft-kill defences here.
-static func hit_probability(spec: WeaponSpec, target: Unit) -> float:
+## Gunfire is not a guided weapon's single-shot chance. A shell takes its whole time of flight to
+## arrive at a point laid before it left the barrel: the chance falls away with the range, to
+## GUN_PK_AT_MAX_RANGE of the rated figure at the limit of the gun's reach, and with the speed of
+## a target that can move off that point, halving at GUN_SPEED_HALVING_KN. GAMEPLAY_ESTIMATE.
+const GUN_PK_AT_MAX_RANGE := 0.5
+const GUN_SPEED_HALVING_KN := 60.0
+
+
+static func gun_accuracy_factor(spec: WeaponSpec, target: Unit, range_nm: float) -> float:
+	var range_factor := 1.0
+	if range_nm >= 0.0 and spec.max_range_nm > 0.0:
+		range_factor = lerpf(1.0, GUN_PK_AT_MAX_RANGE, clampf(range_nm / spec.max_range_nm, 0.0, 1.0))
+	return range_factor / (1.0 + maxf(target.speed_kn, 0.0) / GUN_SPEED_HALVING_KN)
+
+
+## Hit probability once the seeker has acquired a real unit. `range_nm` is how far the round flew
+## to get there, where the caller knows it; only gunfire depends on it.
+static func hit_probability(spec: WeaponSpec, target: Unit, range_nm := -1.0) -> float:
+	if spec.is_gun():
+		var gun_size := clampf(0.75 + target.spec.signature_factor * 0.25, 0.6, 1.1)
+		return clampf(spec.base_pk * gun_size * gun_accuracy_factor(spec, target, range_nm), 0.0, 0.99)
 	if spec.is_torpedo():
 		# A ship that has heard the torpedo and is running gives the weapon a much harder problem.
 		# Turning away and opening the range is the only hard answer a surface ship has.

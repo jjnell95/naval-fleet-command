@@ -382,3 +382,135 @@ func test_the_rest_of_a_salvo_takes_the_next_ship_when_the_first_round_sinks_the
 			assert_true(w.position.y > 40.0, "having searched on down its heading, not circled the wreck")
 	assert_eq(lost, 2, "the two with nothing left to find")
 	_free_world(h)
+
+
+# --- Launchers that do not block each other ------------------------------------------------------
+
+## A real Flight IIA destroyer with an anti-ship missile inbound from 18 nm. Returns
+## [UnitManager, WeaponManager, destroyer, inbound round].
+func _destroyer_under_attack() -> Array:
+	Terrain.clear()
+	var um := UnitManager.new()
+	ScenarioLoader.populate(um, {"units": [
+		{"platform": "usn_ddg_arleigh_burke_iia", "callsign": "Destroyer", "faction": "BLUE", "position_nm": [0, 0], "heading_deg": 0.0, "speed_kn": 15.0},
+		{"platform": "rfn_cg_slava", "callsign": "Raider", "faction": "RED", "position_nm": [0, 18], "heading_deg": 180.0, "speed_kn": 0.0},
+		{"platform": "rfn_ssk_kilo", "callsign": "Boat", "faction": "RED", "position_nm": [6, -5], "heading_deg": 0.0, "speed_kn": 4.0, "depth_m": 100.0},
+		{"platform": "shore_air_station", "callsign": "Field", "faction": "RED", "position_nm": [-120, 60]},
+	]})
+	var wm := WeaponManager.new()
+	wm.unit_manager = um
+	wm.rng.seed = 5
+	var raider: Unit = um.units[1]
+	var harpoon := DataDB.weapon("rgm_84_harpoon")
+	raider.weapons.append(harpoon)
+	raider.magazines[harpoon.id] = 4
+	var red_track := _track("RED", um.units[0], "R1")
+	assert_true(wm.launch(raider, harpoon, red_track, 1, 0.0), "the raider's missile is on its way")
+	return [um, wm, um.units[0], wm.in_flight[0]]
+
+
+## Steps the engagement, offering the destroyer's SM-2 and ESSM the inbound round every tick as
+## the defence cycle would. Returns the time the first interceptor left, or -1.
+func _first_interceptor_time(um: UnitManager, wm: WeaponManager, ship: Unit, threat: Weapon, seconds: float) -> float:
+	var now := 0.0
+	var first := -1.0
+	while now < seconds:
+		now += DT
+		um.tick(DT)
+		wm.tick(DT, now)
+		if first < 0.0 and threat.phase != Weapon.Phase.DEAD:
+			for id: String in ["sm2_family", "essm_family"]:
+				if wm.launch_interceptor(ship, ship.get_weapon(id), threat, 1, now) > 0:
+					first = now
+					break
+	return first
+
+
+func test_a_queued_strike_salvo_does_not_hold_up_the_ships_own_missiles() -> void:
+	var c := _destroyer_under_attack()
+	var um: UnitManager = c[0]
+	var wm: WeaponManager = c[1]
+	var ship: Unit = c[2]
+	var tomahawk := ship.get_weapon("tomahawk_block_v")
+	var field := _track("BLUE", um.units[3], "B1")
+	field.domain = "land"
+	var fired: Array[float] = []
+	wm.weapon_fired.connect(func(w: Weapon) -> void:
+		if w.spec == tomahawk:
+			fired.append(wm.now_s))
+	assert_true(wm.launch(ship, tomahawk, field, 8, 0.0), str(wm.engagement_check(ship, tomahawk, field, 0.0).reason))
+	assert_eq(wm.committed_rounds(ship, tomahawk, field, true), 7, "seven rounds wait behind the first")
+	var first := _first_interceptor_time(um, wm, ship, c[3], 60.0)
+	assert_true(first > 0.0 and first <= 2.0, "the first interceptor leaves within two seconds, not behind the salvo (left at %.2f s)" % first)
+	assert_eq(fired.size(), 8, "every strike round still leaves: pushed back, not dropped")
+	for i in range(1, fired.size()):
+		assert_true(fired[i] - fired[i - 1] >= tomahawk.launch_interval_s - 0.01, "the salvo keeps its own spacing (%.2f s)" % (fired[i] - fired[i - 1]))
+	wm.free()
+	um.free()
+
+
+func test_one_anti_submarine_rocket_does_not_hold_up_the_ships_own_missiles() -> void:
+	var c := _destroyer_under_attack()
+	var um: UnitManager = c[0]
+	var wm: WeaponManager = c[1]
+	var ship: Unit = c[2]
+	var rocket := ship.get_weapon("rgm_139_vla")
+	var boat := _track("BLUE", um.units[2], "B1")
+	assert_true(wm.launch(ship, rocket, boat, 1, 0.0), str(wm.engagement_check(ship, rocket, boat, 0.0).reason))
+	assert_true(wm.ready_in_s(ship, rocket, 0.0) >= rocket.launch_interval_s - 0.01, "the next rocket waits its own interval")
+	var first := _first_interceptor_time(um, wm, ship, c[3], 30.0)
+	assert_true(first > 0.0 and first <= 2.0, "the first interceptor leaves within two seconds (left at %.2f s)" % first)
+	wm.free()
+	um.free()
+
+
+func test_an_interceptor_pushes_queued_strike_rounds_back_and_a_mechanical_launcher_stays_busy() -> void:
+	var ship := _unit("BLUE", Vector2.ZERO, "Ship")
+	ship.spec.vls_cells = 32
+	ship.sensors.append(_radar())
+	var strike := _missile("strike")
+	strike.vls_pack = 1
+	strike.launch_interval_s = 5.0
+	var sam := _missile("sam", "sam", ["missile", "air"])
+	sam.guidance = "inertial_active"
+	sam.vls_pack = 1
+	sam.launch_interval_s = 2.0
+	sam.min_range_nm = 0.05
+	_arm(ship, strike)
+	_arm(ship, sam)
+	var enemy := _unit("RED", Vector2(0.0, 40.0), "Enemy")
+	var h := _world([ship, enemy])
+	var wm: WeaponManager = h[1]
+	var t := _track("BLUE", enemy)
+	var inbound := Weapon.new()
+	inbound.id = 900
+	inbound.spec = _missile("inbound")
+	inbound.faction = "RED"
+	inbound.position = Vector2(0.0, 15.0)
+	inbound.heading_deg = 180.0
+	inbound.acquired = ship
+	inbound.phase = Weapon.Phase.TERMINAL
+	assert_true(wm.launch(ship, strike, t, 3, 0.0))
+	# The second strike round is due at 5 s. An interceptor that leaves just before it goes first.
+	assert_eq(wm.launch_interceptor(ship, sam, inbound, 1, 0.5), 0, "the cell group is still sequencing the strike round")
+	assert_eq(wm.launch_interceptor(ship, sam, inbound, 1, 4.5), 1, "then it is free, with strike rounds still queued")
+	wm.now_s = 5.0
+	var queue_times: Array[float] = []
+	for p: Dictionary in wm._pending:
+		queue_times.append(float(p.time))
+	assert_true(queue_times[0] >= 5.5 - 0.001, "the strike round that was due is pushed back behind the interceptor (now %.2f s)" % queue_times[0])
+	assert_eq(wm.committed_rounds(ship, strike, t, true), 2, "and stays queued")
+	assert_eq(wm.launch_interceptor(ship, sam, inbound, 1, 5.5), 0, "the same missile keeps its own salvo spacing")
+	assert_eq(wm.launch_interceptor(ship, sam, inbound, 1, 6.5), 1)
+	# A single-arm launcher is a different thing: whatever it fired, it is reloading.
+	var frigate := _unit("BLUE", Vector2(0.0, 1.0), "Frigate")
+	frigate.sensors.append(_radar())
+	frigate.spec.launcher_groups = {"strike": "Arm", "sam": "Arm"}
+	frigate.spec.launcher_service_s = {"Arm": 8.0}
+	_arm(frigate, strike)
+	_arm(frigate, sam)
+	h[0].add_unit(frigate)
+	assert_true(wm.launch(frigate, strike, t, 1, 10.0))
+	assert_eq(wm.launch_interceptor(frigate, sam, inbound, 1, 12.0), 0, "the arm is still reloading")
+	assert_eq(wm.launch_interceptor(frigate, sam, inbound, 1, 18.0), 1)
+	_free_world(h)

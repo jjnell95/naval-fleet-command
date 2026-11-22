@@ -191,7 +191,12 @@ func test_fitted_ships_on_the_link_guide_each_others_shots() -> void:
 	assert_true(interceptor.phase != Weapon.Phase.DEAD, "guidance holds while the consort has the round")
 	consort.radar_on = false
 	h[2].tick(0.25, 0.5)
-	assert_eq(interceptor.dead_reason, "GUIDANCE LOST", "the guide's radar went off")
+	assert_true(interceptor.phase != Weapon.Phase.DEAD, "it flies on its last solution on the way out")
+	var now := 0.5
+	while now < 120.0 and interceptor.phase != Weapon.Phase.DEAD:
+		now += 0.25
+		h[2].tick(0.25, now)
+	assert_eq(interceptor.dead_reason, "GUIDANCE LOST", "the guide's radar went off, and nothing lit the round for its endgame")
 	_cleanup(h)
 
 
