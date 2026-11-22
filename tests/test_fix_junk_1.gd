@@ -73,13 +73,13 @@ func test_every_sound_file_is_a_cue_the_game_plays() -> void:
 
 
 ## A tool nobody can find is a tool nobody runs, and one that stops working without anyone
-## noticing: every entry point under tools/ is run by CI, listed in the hand-off or a README, or
+## noticing: every entry point under tools/ is run by CI, listed in DEVELOPING.md or a README, or
 ## driven by another tool by path.
 func test_every_tool_entry_point_is_run_by_ci_documented_or_driven_by_another_tool() -> void:
 	var named := ""
-	for doc: String in [".github/workflows/tests.yml", "HANDOFF.md", "README.md", "ARCHITECTURE.md", "assets/README.md", "assets/audio/README.md"]:
+	for doc: String in [".github/workflows/tests.yml", "DEVELOPING.md", "README.md", "assets/README.md", "assets/audio/README.md"]:
 		named += FileAccess.get_file_as_string("res://" + doc)
-	assert_true(named.contains("tools/passage_playtest.gd"), "the workflow and hand-off are readable")
+	assert_true(named.contains("tools/passage_playtest.gd"), "the workflow and developer guide are readable")
 	var entries: Array[String] = []
 	for dir: String in ["tools", "tools/audio"]:
 		for name: String in DirAccess.get_files_at("res://" + dir):

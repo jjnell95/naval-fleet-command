@@ -1,139 +1,154 @@
 # Naval Fleet Command
 
-**Crew radio and sound:** bundled radio performances replace device speech, weapons have distinct firing sounds, and longer sea/machinery loops duck under crew reports. Classic controls and gameplay rules are retained. See the audio changes and validation.
+Naval Fleet Command is a single-player naval command game built in Godot 4.7.2, in which you command a task force from a combat direction screen rather than steer one ship. Every contact starts as an uncertain report from radar, sonar, ESM or a lookout, and you decide what it is, where to put your ships and aircraft, and when a salvo is worth the missiles. The operations are fiction on real charts of the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, set in 2027 and in 1990.
 
-**Command bug fixes:** attacks respect confirmed kill reports, keep supporting their final salvo, close to usable air-target range and release stale pursuits consistently. Explicit player attacks take precedence over automatic CAP boundaries. The Classic rules and four-pane command screen are preserved. See the review and validation.
+It is in the tradition of the late-1990s fleet-command games. Original art and code; no Jane's assets or affiliation.
 
-**Credible command update:** move and resize existing air stations on the chart, assign CAP to protect a group, and use capability-based AAW/ASW screens. Expanded readouts, evidence-based contact solutions, forward-looking missile seekers, submarine check-ins, deliberate ship-array handling and aircraft patrol/transit/dash profiles make the command decisions more legible. Two short command exercises teach missile defence and sonar deployment. See controls, behavior and limitations.
-
-**Deeper command review:** Classic now uses the original four actual time rates (1×, 2×, 4×, 8×), manual SAM defence and attacks on orders. Northern Passage has an optional guide that follows real commands and explains unresolved reports. The 3D view distinguishes sighted vessels from sensor estimates, uses reported class data and respects terrain masking. Existing saves keep their exact gameplay rules. See the findings and validation.
-
-**Command-screen refinement:** a quieter nine-control strip, task-first **Orders** menu, clearer contact menus and explicit live/stale report ages. Unassessed contacts no longer imply zero damage, and hover cards have a readable backing. See the review and validation.
-
-**M36 Missions, saves and an enemy with a plan:** send a combat air patrol, a search or a strike from Air Operations and pick its station on the chart; ships and aircraft keep their stations through whatever they are doing (**S** sends them back); save and reload a battle exactly (**Ctrl+Shift+S / L / O**); share one attack between several ships; and choose **Classic** on the desk for missile defence on your orders. The enemy now pursues an objective, and the operations react to what you do and change from one start to the next. See what changed and how it was checked.
-
-**M34 The Command Loop:** hook a ship and right-click a hostile, and it closes to range, chooses the weapon and keeps firing until the contact is destroyed or lost, reporting INTERCEPT TRACK and ENGAGE on its orders line. Right-click an unknown to investigate it; Shift+right-click for the contact menu. The operations desk opens on the authored operations again, every mission ends with a graded **mission effectiveness** percentage, and a commander's log keeps your best result for each. See [why the game still missed Fleet Command, and what changed](docs/2026-10-01-fleet-command-command-loop.md).
-
-**M33 Command Intent:** inspect a contact while retaining your shooter, order a persistent investigation, and fire a stated finite salvo directly from its menu. Mouse-accessible chart, time and camera controls, readable 3D framing, subject captions and scenario-driven clouds and rain connect orders to the battle. See the Fleet Command research, controls and validation.
-
-**Combat cleanup:** direct Attack and Defence keys, clearer salvo receipts, live missile inspection and corrected interceptor guidance. See the fixes and validation.
-
-**M32 Command Watch:** a quieter relief chart, larger track numbers, persistent command keys, repeating patrol areas and rebuilt Nansen, Gorshkov and Steregushchiy models bring the command screen closer to its late-1990s inspiration. See the controls, screenshots and validation.
-
-**Northern Passage:** start an original escort directly from the operations desk. Protect a freighter over an eight-mile route, investigate with a Seahawk, conserve defensive ammunition and avoid sinking neutral traffic. The debrief includes civilian accountability and the observed event timeline. See the play guide and validation.
-
-A naval command game in Godot 4.7.2, in the tradition of the late-1990s fleet-command games. Build an uncertain contact picture, protect the force, operate a carrier air wing, and decide when the salvo is worth the missiles. Create missions across the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, in 2027 and in 1990. Original art and code; no Jane's assets or affiliation.
+![The command screen off the North Cape: the relief chart with depth contours along the Norwegian coast and the fleet's tracks, with the regional map, the 3D view of the hooked destroyer and the data display below](docs/command-view.jpg)
 
 ## Play
 
-**[Play in your browser → jjnell95.github.io/naval-fleet-command](https://jjnell95.github.io/naval-fleet-command/)**. Nothing to install: it runs in Chrome, Edge, Firefox or Safari on a desktop or laptop with a keyboard. The first visit downloads the game once and the browser caches it.
+**In the browser:** [jjnell95.github.io/naval-fleet-command](https://jjnell95.github.io/naval-fleet-command/). Nothing to install. It needs a desktop or laptop with a keyboard and a mouse or trackpad, and a browser with WebGL 2 and WebAssembly (current Chrome, Edge, Firefox and Safari). The first visit downloads the game once and the browser keeps it. A phone is told before the download that the chart is too small to read and that many orders need keys.
 
-Locally, open **Launch Preview.command** for the included browser build, or open `project.godot` in Godot. For the introductory operation, choose **Start Northern Passage**, read the paused briefing, then **Take Command**. The desk opens on **Operations**, the authored missions with their difficulty stars and your best result; **Training** holds the short exercises. To author a mission, use **My Missions**. Choose **Build a Fleet / Edit Mission**, open **Fleet Builder** and set the two forces. For earlier contact, choose **Close** under **Starting fleet distance**. Choose **Save and Play**. Read the briefing before taking command.
-
-The operations desk puts the task, first orders, theatre, difficulty and estimated play time beside the chart. The briefing separates **Orders & Objectives**, **Situation**, and **Command Reference**. All of the conflicts are fiction on real charts.
-
-![North Cape command screen with depth contours along the Norwegian coast, fleet tracks and a live view of the selected destroyer](docs/command-view.jpg)
-
-## Operations
-
-The operations desk opens on the authored operations, as the late-1990s mission lists did: each with its theatre, difficulty stars and, once played, your best effectiveness. **Training** holds the exercises and short engagements; **My Missions** holds what you build.
-
-| Shelf | Missions |
-|---|---|
-| **Operations · 2027** | North Cape: Ballistic Missile Defence · Taiwan Strait: The Picket Line · Strait of Hormuz: Tanker Transit · Eastern Mediterranean: The Tartus Line |
-| **Operations · 1990** | Northern Convoy · The Iceland–Faroe Barrier · Norwegian Sea: Carrier Watch |
-| **Training** | Northern Passage · Carrier Qualification · Command Practice / Missile Defence · Command Practice / Deliberate Sonar |
-
-Eleven missions ship: one 2027 operation in each chart region, three from 1990, and four introductory operations and command exercises. Earlier builds carried 23; the overlapping ones were cut in M35 and remain in git history.
-
-The **Campaigns** shelf takes the same seven operations in their in-game date order: **Northern Flank, September 1990** (convoy, barrier, carrier watch, climbing from one star to three) and **Four Crises, 2027** (North Cape in March, the Taiwan Strait in April, Hormuz in May, Tartus in October). An operation opens when the one before it has been won at 60% effectiveness or better, so a victory spoiled by a sunk neutral has to be flown again. Nothing carries between operations, because each is a different force in a different sea; the commander's log is the campaign's only record, and the debrief says what a result opened.
-
-Every mission ends with a graded **mission effectiveness** from 0 to 100%: the task is worth 60 and is credited only on a win, the force kept 20 and the enemy's points taken 20, with partial credit for damage; each neutral vessel your weapons sink costs 25. Before any civilian penalty, a victory grades between 60 and 100% and a defeat between 0 and 40%; a neutral your weapons damage but do not sink costs a pro-rata share of the 25. Platforms are worth points by type (a carrier 1,000, a destroyer 400, a frigate 250, a fighter 60), and a scenario can set its own. The commander's log in your browser or application storage keeps each mission's best result and date.
-
-Every operation carries a commander's intent, numbered first orders, a difficulty and a play estimate. The Pacific and Gulf operations add coastal missile batteries, long-range SAM sites, ballistic anti-ship missiles, drone salvos, fast-attack-craft swarms, and Japanese destroyers sailing with the US carrier group. Several give you Tomahawks and a battery ashore to think about: striking it first is a decision with rules of engagement attached, not a reflex.
-
-## The forces
-
-The four catalogues contain **140 platforms, 152 weapons and 166 sensors**. Reference includes recognition models for the platforms and ordnance.
-
-- **Modern NATO and Russia**: Burke IIA and III, Ticonderoga, Constellation, Nimitz and Ford, Queen Elizabeth, Type 45 and Type 26, FREMM, Horizon, Charles de Gaulle, Mistral, Juan Carlos I, Nansen, Iver Huitfeldt, Sachsen, Braunschweig, Visby, Virginia, Astute, Suffren, Gotland; Gorshkov, Grigorovich, Slava, Udaloy, Steregushchiy, Buyan-M, Yasen-M, Kilo; carrier and land-based aviation on both sides.
-- **PLAN**: Type 055, Type 052D, Type 054A, Type 056A, Type 022, the carrier Shandong with J-15s, Type 093B and Type 039A submarines, H-6J, J-16, KJ-500, Y-8Q, four helicopter types, a replenishment ship, YJ-12B and DF-21D batteries and an HQ-9B site.
-- **Japan**: Maya, Akizuki, Mogami, the Izumo after her F-35B conversion, Taigei, P-1, SH-60K, F-35B and F-2, and a Type 12 coastal battery.
-- **Iran**: Moudge and Alvand frigates, an export Kilo, Ghadir midget submarines, Peykaap III and Houdong craft, Mohajer-6, Qader and Khalij Fars batteries, a drone launch site and a Bavar-373 site.
-- **1990**: Perry, Spruance, Ticonderoga, Nimitz, Los Angeles, Victor III, Sovremennyy, Udaloy, Slava, Nanuchka, F-14A+, E-2C, A-6E TRAM with Harpoon, P-3C, S-3A and period helicopters, with their own weapons and sensors so nothing modern leaks in.
-
-Public identities and broad fits are documented in the [2027 theatres ledger](docs/THEATRES_2027.md), the [1990 ledger](docs/COLD_WAR_1990.md) and [DATA_SOURCES.md](DATA_SOURCES.md). Performance values, signatures, magazines, detachments and hit probabilities are game estimates.
-
-On the operations desk, **F7** opens the recognition catalogue. Search by short name, country or catalogue year. The model rotates until you drag it or choose **Profile**, **Plan** or **Front**. The angle stays set as you select other classes, so you can compare their silhouettes. The 1999 Fleet Command manual describes the original class database and model viewer on printed pages 29–31. [Original manual](https://archive.org/stream/Janes_Fleet_Command/Janes_Fleet_Command_djvu.txt)
-
-## Command the force
-
-The command screen is laid out the way the late-1990s fleet-command games laid theirs out: the relief-shaded tactical chart across the top two-thirds of the window, and along the bottom the regional map, the 3D view of the hooked platform and the data display.
-
-When chart symbols overlap, click the stack and choose a callsign or contact number. **Shift** lets you add or remove one friendly platform. To find a unit across a large fleet, open **Task Group** and search by callsign or class. **Enter** selects an exact callsign or the only match. Double-click a roster row to go to that platform on the chart. For an aircraft on deck, this takes you to its ship or airfield.
-
-Use **Show on Chart** in the Track File or Air Operations to jump to the report or airborne aircraft at your current zoom. After a jump, **[** goes back to the previous chart position and scale, and **]** goes forward. Both actions are also in the **Chart** menu. Saving an engagement keeps the chart position and zoom, command selection, inspected contact, 3D camera mode and pane layout. Detached and Fly-by also keep their viewpoint when their subject is still visible on load.
-
-- **Patrol:** hook a deployed platform, choose **Orders → Assign patrol area** (or **Shift+W**), then click two opposite corners. The circuit repeats until retasked; aircraft still use fuel and return at bingo. The preview checks land and turning room. Right-click or Escape cancels drawing.
-- **Keep a station:** a patrol, a formation slot or an air mission's box is a platform's standing assignment, and investigating, attacking, evading or refuelling no longer erases it. **S** (or **Return to station** in the Orders menu) sends the hooked platforms back to it; the orders line names the station and says when a platform is off it. **Orders → Navigation → Auto-return to station** makes a platform go back by itself once an identification or intercept ends. A move, course, stop, route or return-to-base order from you replaces the station.
-- **Hook and move:** left-click a symbol to hook it (Shift adds). **Right-click water** to send the hooked platform there at once; Shift+right-click adds a waypoint. **W** arms a multi-leg route. Right-drag, middle-drag or the arrow keys pan; the wheel zooms. **Home** fits the force, **C** centres the hook and its target, **F** follows it, **.** hooks the next own platform.
-- **Give orders:** **right-click your own platform** for its Orders menu (speed, course, altitude or depth, sensors, EMCON, weapons state, flight deck, formation, route). **R** radar, **P** active sonar, **E** emission control.
-- **Respond to an attack:** **Defence** on the command strip opens defensive controls; your platform's right-click menu also includes them. **D** deploys a radar countermeasure pack; **V** orders evasion against a detected inbound weapon. The **Defence** tab on the orders board adds infrared and acoustic packs, run-away steering, resume-plan, automatic/manual countermeasures and Conserve/Balanced/Saturation interceptor policies. Stores, active windows and reload times are finite. Evasion keeps the existing route and formation assignment.
-- **Command large groups:** **J** opens Fleet Operations with group readiness, station error, defensive ammunition and group orders. A row marked **1/48 selected** means orders go to that one platform. Select the row to command the whole group. The **Defence** tab shows whether missile defence is automatic, manual or mixed. **Intercept [X]** sends the command to the selected platforms. **Ctrl+1 to 9** stores a selection and **Alt+1 to 9** recalls it. AAW and ASW screens place the best-equipped escorts toward a held threat; Transit keeps a column. Geometric formations remain available. Groups pace slower consorts, including a ship listening with its array streamed, and pass command after a flagship is lost.
-- **Attack:** hook a platform (or several) and **right-click a hostile contact**. The cursor shows a cross when a right-click will attack. Each platform closes to its best weapon's range (the orders line reads **Intercept track**), fires a salvo, waits for it to land and reads the plot, and fires again until the contact is destroyed or lost, its magazines are empty or weapons are put on hold; when one weapon runs out it moves on to the next. A move, course, stop, route, patrol, formation or investigate order replaces the attack; a speed order sets its closing speed, and evasion only pauses it. It never fires on a stale plot. An unclassified contact is investigated instead, and a neutral, a friendly or a classified contact of unknown allegiance gets the menu.
-- **Engage:** **Shift+right-click a contact** for its menu: **Attack track N**, a ready **Fire N × weapon**, or **Weapon selection** for **Attack with** a chosen weapon and **Engage with** a finite salvo, or choose **Attack** on the command strip for the firing board. With two or more ships hooked, **Group attack (N rounds)…** (or **GROUP BUDGET** and **GROUP ATTACK** on the firing board, **Shift+E**) shares one round budget across the group: rounds go to the ships that can fire them, and nobody fires again at a contact until the last volley has landed and been assessed. Each system shows available, queued and airborne rounds; group salvo quantities apply per eligible platform. Hover a plotted weapon for its course and speed; own rounds also show shooter, target, estimated time and remaining range. Unknown and neutral contacts are not free targets. Land-attack rounds can be fired at a battery or an airfield once it is classified.
-- **Inspect and investigate:** clicking a contact updates its data and 3D view while keeping your own platforms selected. If contact symbols overlap, click the stack and choose a track by number. You can also double-click a visible contact in the 3D view to inspect its chart track. **Right-click an unresolved contact** to investigate it (the cursor shows a query mark): the platform follows the held plot until classification or loss. Use a reconnaissance aircraft to keep escorts on station. A ready **Fire N × weapon** choice gives a direct finite salvo; blocked shots state why. Click your own platform to restore its view.
-- **Mouse controls:** **Orders** opens route, patrol and return-to-station tasks, with speed/course under **Navigation** and boards under **View & status** (**A** still opens boards directly). **Chart** opens silhouettes, labels, symbol explanations, ranges, zoom and framing. The time menu beside Pause selects acceleration while preserving pause. **Chart → Next priority contact** (or **N**) cycles contacts. The live view exposes camera selection, Swap and Full/Back controls.
-- **Build the picture:** contacts begin uncertain. Radar establishes a domain; acoustic/ESM library matches can suggest a probable class, and visual recognition or the operation’s authored recognition brief can establish identity. Waiting on an unchanged passive bearing does not produce range: a useful maneuver or separated, crossing reports are needed. A passive bearing is not a measured range. **N / Shift-N** cycles priority contacts. **Tab** switches NTDS and graphic symbols; **Shift-V / K / I** toggle velocity leaders, track numbers and tags.
-- **Read the data display:** the hooked platform's class, track number, course, speed, damage, orders, sensors and weapons (the hull's reach for each job, then every system and its rounds in columns, strike first), or a contact as held: its class, **COURSE** and **SPEED**, an estimated **%DAMAGE** from your own hits, and the **SOURCE** platform and sensor that made the last plot ("FFG Nansen SPY-1F multifunction radar"). With nothing hooked it shows the mission's tasking, or whichever contact the cursor rests on. **F7** opens Reference for the ship or aircraft shown in the data display. A reported class shared by multiple operators offers a choice of entries. An unknown contact opens the catalogue with no model selected. **DETAILS** opens the full wrapping readout; **+N MORE** opens all weapon systems. The expanded view keeps live warnings and the current clock state. Its footer carries the watch time and the time scale (click them to pause or step the scale) and a lamp that flashes for new warnings.
-- **See it:** the 3D view follows the hook. **T** cycles the cameras: **F9** tether, **F11** fly-by, **F12** action, **F8** detached. Action follows your strike rounds to their impact and cuts to anything your plot witnesses, however far off; the tether names an out-of-frame event ("F12 to watch") without leaving your ship. **G** swaps the chart and the 3D view; **F10** gives the 3D view the whole window, with sun shadows. After dark, ships show their navigation lights on their proper arcs, so the lights alone say which way a ship is heading.
-- **Fly:** **F3** opens Air Operations. Select a host, aircraft type and quantity, then launch. **Launch** is the only launch action; **Close** sends no order and restores the previous clock state. Choose an airborne airframe and a compatible **Land At** destination, then **Return & Land**. Recovery, refuelling and rearming precede relaunch.
-- **Fly a mission:** in Air Operations open **MISSION PLAN** and choose a **MISSION** (combat air patrol, reconnaissance, ASW search or strike), the type and how many, then **PICK ON CHART** for the station or the target (**Air strike…** in a contact's menu does the same for that contact). The deck launches what it has ready and queues the rest; the **MISSIONS** tab shows each airframe's state, from queued to recovering, and **Cancel** brings them home. A CAP identifies unknown aircraft and intercepts only hostile ones; reconnaissance never fires. Tick **Relief** to launch a replacement before an airframe leaves the station. **Hold area** keeps a CAP on a fixed station; **Protect group** follows a friendly platform, with a stated pursuit boundary. Use **MISSIONS → EDIT MISSION** to change an existing CAP/search, or drag its station centre/title and east-edge radius handle on the chart. These edits retain assigned aircraft; Escape or right-click cancels an unsubmitted drag. Active strike targets are reassigned by cancelling and creating a new strike.
-- **Status boards:** **A** opens the orders board, the task group (roster, readiness, event log), the track file (with the air-defence board) and the comms history over the chart. Choose **Locate** beside a report to center the chart on the position recorded when it came in. The game keeps running.
-- **Manage the watch:** **Space** pauses; **1–6** selects 1×–60× time (**1–4** selects 1×, 2×, 4×, 8× under Classic). Combat you could see interrupts acceleration. Radio traffic reads along the bottom of the chart, and whoever is talking is ringed in white.
-- **Save the battle:** **Ctrl+Shift+S** quicksaves, **Ctrl+Shift+L** loads the quicksave, and **Ctrl+Shift+O** lists every saved engagement (also from the operations desk). The battle is autosaved every ten minutes of simulated time and the newest five autosaves are kept. A restored engagement opens paused, exactly where it was, under the gameplay options it was saved with.
-- **Find a command:** **H** lists every key command. **Command-K / Control-K** opens Actions from anywhere. Right-click the chart with nothing hooked for the display and screens menu. **F1** orders and help, **F2** symbol key, **F4** sensors, **F5** trails, **F6** relief shading, **F7** reference, **M** missions, **Ctrl-E** editor, **Ctrl-F10** restart (press twice to confirm), **Ctrl-M** sound. Crew voice (bundled radio performances, on by default on every platform) and the ambient sea and machinery bed are switched from Actions or the right-click **Sound** menu, and remembered between sessions.
-- **Choose how to play:** the operations desk's **Gameplay** row (and the preset chip on the command bar) switches between **NORMAL**, the game as above, and **CLASSIC**, the late-1990s way of playing: an 8× actual time ceiling, missile defence on your orders (**X**, or right-click a detected inbound round, fires the hooked ships' SAMs; close-in guns still answer by themselves), attacks only when ordered, submarine communication windows, and crew voice and ambient sound on. **OPTIONS** sets each one separately (CUSTOM), including optional auto-attack after investigation. Normal and older saves keep immediate submarine orders unless communication windows are enabled. The choice is remembered between sessions. **CAMPAIGN: NORTHERN FLANK, SEPTEMBER 1990** on the desk opens the next operation of the 1990 campaign (an alternate-history Cold War setting, separate from the Classic way of playing).
-
-The interface targets a desktop/laptop with keyboard and mouse/trackpad and is laid out for 1600 × 900 or larger. Browser play requires WebGL 2. Touch-only phone play is not supported, and the browser build says so before it downloads.
-
-## What realism means here
-
-**Interface size:** choose **100%, 110%, or 125%** under the operations desk’s Options menu or the command bar’s gameplay preset menu. This saved display preference scales text, chart labels, menus and controls together; it does not change the realism preset or engagement saves.
-
-**Dipping sonar:** select a fitted airborne helicopter, then **Orders → Sensors → Deploy dipping sonar**. The crew establishes a hover, lowers for 30 simulation seconds, then listens. Active/passive sonar commands choose the sensing posture. **Raise dipping sonar** takes 20 seconds; navigation and recovery commands also raise the array before movement resumes. ASW crews use timed listening cycles and return to their search circuit. These handling durations are gameplay estimates.
-
-**Ship arrays:** on a fitted surface ship, **Orders → Sensors → ASW search** keeps its route, slows to 8 knots and streams for 120 simulation seconds before listening. **Recover towed array**, new navigation, unsafe water, sensor damage or evasion initiate recovery; acceleration resumes after 90 seconds. Hull sonar is independent. These are handling estimates, not named-equipment specifications.
-
-**Submarine communications:** Classic enables full orders and reports at 150 ft / 46 m or shallower. While deep, the boat continues its task, the display retains its last report and your orders queue. **Orders → Navigation → Communications** requests a check-in or selects on-demand, hourly, two-hourly or four-hourly reporting. The threshold and one-minute communication window are game abstractions; Normal retains immediate orders.
-
-**Aircraft profiles:** airborne aircraft have **Patrol**, **Transit** and **Dash** speed choices. Stations use economical patrol; outbound and return legs use transit. Dash costs disproportionate fuel, and hovering costs more than economical helicopter forward flight. The Tomcat’s representative profiles are 390/480/700 knots, with other catalogue values and performance estimates documented in data.
-
-The game models radar horizons, ESM, passive/active sonar, thermal layers, sonobuoys, uncertain and stale tracks, target-motion estimates, layered defence, channel limits, chaff against missiles and acoustic decoys and anti-torpedo rounds against torpedoes, damage control, terrain masking, ship turning, aircraft fuel and deck cycles. The AI uses its held tracks and detected threats. Installations ashore stand on their ground: a battery on a headland sees the sea it faces, fires out over its own coast, and is hidden from the other side.
-
-Four chart regions are built from Natural Earth 1:10m land and bathymetry: the North Atlantic with the Norwegian, Barents and Baltic seas; the Western Pacific from the Sea of Japan to the South China Sea; the Arabian Sea with the Gulf and the Red Sea; and the Mediterranean. Each has a continuous sea floor for the water column and the chart. Natural Earth is generalized cartography, not navigation data.
-
-Forward seeker cones and authored mount sectors now constrain acquisition and firing; the crew turns to unmask a weapon during a standing attack. Held civilian traffic and positional uncertainty produce firing advisories. Datalink latency and topology, continuous illumination details, mechanical launcher conflicts and some weapon trajectories remain simplified. Ballistic anti-ship missiles fly a single abstract profile. Drone swarms are a generic one-way attack drone fired in salvos. Logistics, replenishment and mine warfare remain future work. Engagement saves are implemented, including mission assignments, queued orders and sonar handling state.
-
-## Develop and verify
+**Locally:** on a Mac, open **Launch Preview.command**, which serves the bundled browser build at `http://127.0.0.1:8879/`. With Godot 4.7.2 installed, run the project directly:
 
 ```sh
-godot --headless --path . --editor --import --quit
-godot --headless --path . --script tests/run_tests.gd      # regression tests
-godot --headless --path . --script tests/run_tests.gd -- --only=test_attack.gd,test_cds.gd   # a few files
-godot --path . -- --cold-war-smoke                          # 50 command-screen checks
-godot --path . -- --aviation-smoke                          # 19 air-operations checks
-godot --path . -- --fleet-workshop-smoke --scenario-storage=res://work/test-library   # 44 authoring, desk and campaign checks
-godot --path . -- --weapon-control-smoke --scenario-storage=res://work/test-weapons  # 30 weapon-control checks
-python3 tools/verify_northern_passage.py "$(command -v godot)" # real-scene outcomes and replay
-godot --path . -- --scenario=res://data/scenarios/pacific_02_taiwan_strait.json --fastforward=2400 --run --perf=8   # frame budget
+godot --headless --path . --import --quit    # once after cloning
 godot --path .
 ```
 
-GitHub Actions runs the regression, command, aviation, workshop and weapon-control suites on every pull request, plus Command Watch mouse/patrol checks, Northern Passage outcomes/replay and graphical checks at 1280 × 720 and 1920 × 1080 (`.github/workflows/tests.yml`).
+The screen is laid out for 1600 × 900 or larger. The operations desk's **Options** menu scales text, labels and controls to 100%, 110% or 125%.
 
-Regenerate the scenarios by running, from `tools/scenarios/`, `build_scenarios.py`, `build_northern_passage.py`, `build_cold_war.py`, `build_theatres.py` and then `operation_design.py`. Run `build_command_training.py` after those to regenerate the two command exercises. `operation_design.py` and the training builder apply the explicit recognition briefs from `recognition_brief.py`. The regional coastline extractions and sea-floor rasters come from `tools/scenarios/import_coastlines.py` and `import_bathymetry.py` over the Natural Earth downloads named in `tools/scenarios/regions.py`. Generated files are committed, so playing needs neither Python packages nor network access. `tools/art/` builds the models and renders the recognition art without Blender; `tools/blender/` holds the earlier pipeline.
+**First mission:** choose **Start Northern Passage** on the operations desk, read the paused briefing, then **Take Command**.
 
-The repository includes the matching Godot 4.7.2 browser runtime. After changing the game, run `tools/web/build_web.sh` to rebuild `docs/play/index.pck` and record its size in the loader page (set `GODOT=/path/to/Godot` if `godot` is not on your PATH). GitHub Pages serves `main:/docs`, so merging to `main` publishes the browser build.
+## The command loop
 
-See the release notes, [architecture](ARCHITECTURE.md) and the source ledgers. Godot licensing is in `docs/play/GODOT-LICENSE.txt`. No new source-license grant is inferred.
+The screen follows the old combat direction layout: the relief-shaded tactical chart across the top two-thirds, and along the bottom the regional map, a 3D view of whatever is hooked, and the data display.
+
+1. **Build the picture.** Contacts arrive as uncertain plots or bare bearings. Radar gives a position and a domain; ESM and sonar library matches suggest a class; a visual sighting or the operation's recognition brief gives an identity. A passive bearing has no measured range: manoeuvre, or cross it with another bearing.
+2. **Decide what it is.** Right-click a contact of unknown allegiance and the hooked platforms close it until it is classified or lost. A reconnaissance aircraft can do the looking while the escorts keep station.
+3. **Position.** Move, patrol, form a screen, put a combat air patrol up. A patrol, a formation slot or an air station is a standing assignment: an investigation, attack or refuelling interrupts it, and **S** sends the platform back.
+4. **Engage.** Right-click a hostile and the hooked platforms close to their best weapon's range, fire, wait for the salvo to land and read the plot, and fire again until the contact is destroyed or lost, the magazines are empty or weapons are put on hold. Shift+right-click a contact for a finite salvo, a chosen weapon, a group attack under one round budget or an air strike. No shot is fired on a stale plot or with a held neutral in the seeker's basket.
+5. **Defend.** Detected inbound rounds are drawn on the chart. Interceptors fire by themselves under Normal rules, or on **X** under manual missile defence. Chaff, flares, acoustic decoys and evasion are under **Defence** in a platform's menu.
+6. **Assess and reposition.** A kill is reported only on a plot with a current fix. Radio traffic runs along the bottom of the chart, and **A** opens the boards: orders, task group, track file and comms history.
+
+## Controls
+
+**H** shows this list in the game. The board is built from the same table the command screen's bindings are tested against.
+
+**Time**
+
+| Keys | What it does |
+|---|---|
+| Space | Pause or resume |
+| 1 - 6 | Time scale 1x, 2x, 5x, 10x, 30x, 60x (under Classic, 1 - 4 gives 1x, 2x, 4x, 8x) |
+
+**Chart**
+
+| Keys | What it does |
+|---|---|
+| Left-click | Hook a platform or contact; Shift adds |
+| Right-click | Water: transit there. Own platform: orders. Hostile: attack. Unknown: investigate. Inbound weapon: intercept |
+| Shift+right-click | Contact menu: weapons, salvos, investigate, cancel fire |
+| Right-drag, arrows | Pan |
+| Wheel, + / - | Zoom |
+| Home / C / F | Fit force / centre / follow |
+| [ / ] | Previous / next chart view |
+| W | Plot a route; Shift chains waypoints |
+| Shift+W | Patrol area: click two opposite corners |
+| S | Return to station after a task or refuelling |
+| N / Shift+N | Next / previous priority contact |
+| . | Hook the next own platform |
+| B | Range circle from the hooked platform |
+| Tab | NTDS or graphic symbols |
+| Shift+V / K / I | Velocity leaders / track numbers / tags |
+| F2 / F4 / F5 / F6 | Symbol key / sensor rings / trails / relief |
+| Shift+F4 | Sensor coverage shading (dark beyond your sensors) |
+| L | Hooked aircraft return to deck |
+| Ctrl+L / S / W | Lat-long readout / scale / radar coverage |
+
+**3D view**
+
+| Keys | What it does |
+|---|---|
+| G | Swap the chart and the 3D view |
+| F10 | 3D view full screen |
+| T | Cycle cameras |
+| F9 / F11 / F12 / F8 | Tether / fly-by / action / detached |
+
+**Command**
+
+| Keys | What it does |
+|---|---|
+| J | Fleet Operations: task groups and fleet orders |
+| D / V | Radar countermeasures / evasive manoeuvre |
+| X | Engage inbound weapons with interceptors (manual missile defence) |
+| Ctrl+1..9 / Alt+1..9 | Save / recall a fleet selection group |
+| Shift+E / Shift+R | Weapon control / weapon ranges by role |
+| R / P / E | Radar / active sonar / emission control |
+| A | Status boards: orders, task group, track file, comms |
+| F3 | Air operations |
+| F1 | Orders and briefing; the debrief once the mission has ended |
+| F7 | Reference for the selected platform or inspected contact |
+| Ctrl+K | Actions, a searchable list of every command |
+| M / Ctrl+E | Missions / scenario editor |
+| Ctrl+F10 twice | Restart the mission |
+| Ctrl+Shift+S / L | Quicksave / quickload |
+| Ctrl+Shift+O | Saved engagements and autosaves |
+| Ctrl+M | Sound on or off |
+| H | The key commands board |
+
+**Menus.** Right-click menus carry the same commands and more.
+
+- **Your own platform:** the tasks (plot route, assign patrol area, **Return to station**, **Return to deck** for aircraft, **Flight deck**, **Ready alert**, and **Formation** with air defence screen, ASW screen, transit, screen, column, abreast and break); **Navigation** (speed, with patrol, transit and dash for aircraft; course; altitude or depth; snorkel; submarine communications; auto-return to station; clear route); **Sensors** (radar, sonar, dipping sonar, towed array, sonobuoys); **EMCON**; **Weapons state** (free, tight, hold); **Defence** (chaff, flares, acoustic decoy, evade, run away, resume plan, interceptor policy, automatic or manual countermeasures, engage inbound weapons); and **View & status**.
+- **A contact:** **Attack track N**, **Identify contact**, a ready **Fire N × weapon**, **Group attack** with two or more ships hooked, **Weapon selection** (attack with a chosen weapon, engage with a finite salvo, weapon control, cancel queued fire) and **Air strike** against a surface or shore target. A held contact also offers aircraft from the nearest deck: fighters to intercept a hostile aircraft, a strike, or a look at something unidentified. A deck's menu offers **Air tasking**: CAP over a point, search an area, ASW search.
+- **An inbound weapon:** engage it with interceptors, evade, or open the defence commands.
+- **The chart with nothing hooked:** symbols and symbol controls, **Filters** (hostile, neutral and unknown contacts, routes, range grid), map layers, sound (crew voice, ambient sea and machinery), **Gameplay**, and every screen.
+
+**Gameplay presets.** **NORMAL** has the full time ladder to 60x, automatic missile defence and ships that attack only when ordered. **CLASSIC** has an 8x ceiling, missile defence on your orders (**X**), attacks on orders, submarine communication windows, and crew voice and ambient sound on. **OPTIONS** sets each rule on its own. A saved engagement keeps the rules it was saved under.
+
+**Saves.** The battle is autosaved every ten minutes of simulated time and the newest five autosaves are kept. A restored engagement opens paused, with the chart view, selection and 3D camera it was saved with.
+
+## Missions
+
+Eleven missions ship. The operations desk opens on **Operations**, with difficulty stars and your best result; **Training** holds the exercises; **My Missions** holds what you build with the fleet builder and the editor.
+
+| Shelf | Mission | Year | Sea | Difficulty |
+|---|---|---|---|---|
+| Operations | North Cape: Ballistic Missile Defence | 2027 | Barents Sea | Advanced |
+| Operations | Taiwan Strait: The Picket Line | 2027 | Western Pacific | Advanced |
+| Operations | Strait of Hormuz: Tanker Transit | 2027 | Persian Gulf | Advanced |
+| Operations | Eastern Mediterranean: The Tartus Line | 2027 | Mediterranean | Advanced |
+| Operations | Northern Convoy | 1990 | North Sea | Introductory |
+| Operations | The Iceland-Faroe Barrier | 1990 | North Atlantic | Intermediate |
+| Operations | Norwegian Sea: Carrier Watch | 1990 | Norwegian Sea | Advanced |
+| Training | Northern Passage | 2027 | Norwegian Sea | Introductory |
+| Training | Carrier Qualification / Air Operations | 2027 | Norwegian Sea | Introductory |
+| Training | Command Practice / Missile Defence | 2027 | Norwegian Sea | Introductory |
+| Training | Command Practice / Deliberate Sonar | 2027 | Norwegian Sea | Introductory |
+
+The **Campaigns** shelf takes the seven operations in order as two campaigns, **Northern Flank, September 1990** and **Four Crises, 2027**. An operation opens when the one before it has been won at 60% effectiveness or better. Nothing carries between operations.
+
+Every mission ends with a **mission effectiveness** from 0 to 100%: the task is worth 60 (nothing on a defeat), the force you kept 20 and the enemy's losses 20, with up to 10 more for bonus tasks unless the mission was lost. Each neutral vessel your weapons sink costs 25, pro rata for damage. The commander's log keeps each mission's best result.
+
+## What is modelled
+
+The catalogues hold 140 platforms, 148 weapons and 173 sensors across the 2027 and 1990 orders of battle, each platform and weapon with a recognition model in the Reference viewer (F7). Public identities and fits are recorded in [DATA_SOURCES.md](DATA_SOURCES.md), the [2027 theatres ledger](docs/THEATRES_2027.md) and the [1990 ledger](docs/COLD_WAR_1990.md). Performance values, signatures, magazines and hit probabilities are game estimates.
+
+- **Sensors and the plot:** radar horizons and terrain masking, ESM, passive and active sonar with a thermal layer and convergence zones, a deaf arc astern of a hull sonar, towed arrays, dipping sonar and sonobuoys, lookouts limited by the light, and tracks that carry their uncertainty, go stale and are lost.
+- **Weapons:** missiles with seekers that search a basket and can be decoyed, wire-guided heavyweight torpedoes, anti-radiation missiles, guns by calibre, ballistic anti-ship missiles on a single abstract profile, and one-way attack drones.
+- **Defence:** layered missile defence across the force with guidance channels and shoot-look-shoot, close-in guns, chaff and flares against missiles, acoustic decoys and anti-torpedo rounds against torpedoes, and evasive steering.
+- **Platforms:** ship turning by hull length and speed, routing round the coast, damage, fire and flooding, and conventional submarines on a battery with a snorkel and, for two classes, an air-independent plant.
+- **Aviation:** launch, recovery, fuel, deck cycles and rearming; CAP, reconnaissance, ASW search and strike missions with relief; deck ready alerts.
+- **The enemy:** an AI that works from its own held tracks, follows a mission plan, answers fire and defends itself.
+- **Charts:** four regions built from Natural Earth 1:10m land and bathymetry, with GMTED2010 land heights for the relief. This is generalised cartography, not navigation data.
+
+Simplified or absent: datalink latency and topology, illumination detail, mechanical launcher conflicts, logistics and replenishment at sea, and mine warfare.
+
+## Where to go next
+
+- [DEVELOPING.md](DEVELOPING.md): how the code is laid out, how to run the tests and suites, and what to check before calling a change done.
+- [CHANGELOG.md](CHANGELOG.md): what changed, most recent first.
+- [DATA_SOURCES.md](DATA_SOURCES.md) and [assets/README.md](assets/README.md): where the catalogue's data and the art come from.
+
+Godot's licence is in `docs/play/GODOT-LICENSE.txt`. No other source licence is granted or implied.
