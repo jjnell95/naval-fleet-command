@@ -104,6 +104,9 @@ var radar_recognition_s := 0.0
 var _cycle_radar_gain := 0.0
 ## Saved bearing measurements, with observer positions and times, for deterministic TMA.
 var bearing_history: Array = []
+## Each listener's newest report in bearing_history (key -> that report), so a new look finds its
+## sample without searching the history. Rebuilt from the history when empty.
+var _bearing_latest: Dictionary = {}
 var bearing_observers: Dictionary = {}
 var bearing_solution_at := -1.0e9
 var bearing_solution_cache: Dictionary = {}

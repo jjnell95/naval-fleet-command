@@ -35,7 +35,9 @@ const VERSION := 3
 const UNIT_SKIP := {
 	"bottom_generation": "a validity flag is saved instead; the chart's generation is new after a load",
 }
-const TRACK_SKIP := {}
+const TRACK_SKIP := {
+	"_bearing_latest": "an index of the bearing history's newest report per listener, rebuilt from the history on the next bearing",
+}
 const WEAPON_SKIP := {}
 const MISSION_SKIP := {}
 const BUOY_SKIP := {}

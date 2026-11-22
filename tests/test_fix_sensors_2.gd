@@ -268,3 +268,33 @@ func test_no_heading_history_is_kept_and_an_older_save_still_loads() -> void:
 	sim.unit_manager.clear()
 	sim.get_parent().remove_child(sim)
 	sim.free()
+
+
+## A listener's look finds its sample through the track's index instead of a search of the history,
+## and the history comes out exactly as the search leaves it: through samples, gaps, listeners
+## that fall silent and come back, the window rolling over, and an index lost and rebuilt (as after
+## a save is loaded).
+func test_the_bearing_index_leaves_the_history_as_a_search_does() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var searched: Array = []
+	var indexed: Array = []
+	var latest := {}
+	var keys := ["unit:1:esm", "unit:2:esm", "unit:3:sonar_passive", "buoy:4"]
+	var now := 0.0
+	for step in 2400:
+		now += 1.0 if rng.randf() < 0.9 else rng.randf_range(3.0, 40.0)
+		var c := SensorContact.new()
+		c.bearing_key = keys[rng.randi_range(0, keys.size() - 1)]
+		c.bearing_origin = Vector2(rng.randf_range(-20.0, 20.0), rng.randf_range(-20.0, 20.0))
+		c.error_axis_deg = rng.randf_range(0.0, 360.0)
+		c.bearing_accuracy_deg = 1.5
+		c.bearing_range_limit_nm = 40.0
+		c.bearing_speed_limit_kn = 70.0
+		var a := BearingSolution.add(searched, c, now)
+		var b := BearingSolution.add(indexed, c, now, latest)
+		assert_eq(b, a, "the same report at %.0f s" % now)
+		if step == 1200:
+			latest.clear()
+	assert_eq(indexed, searched, "the same history")
+	assert_true(searched.size() == BearingSolution.MAX_SAMPLES or now - float(searched[0]["time"]) <= BearingSolution.WINDOW_S, "the window rolled over")

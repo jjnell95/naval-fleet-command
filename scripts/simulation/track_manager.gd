@@ -233,7 +233,7 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	_update_classification(faction, t, c, gain)
 	var report := {}
 	if c.bearing_only and c.bearing_key != "":
-		report = BearingSolution.add(t.bearing_history, c, now)
+		report = BearingSolution.add(t.bearing_history, c, now, t._bearing_latest)
 		if not t.bearing_observers.has(c.bearing_key):
 			t.bearing_solution_at = -1.0e9
 			t.bearing_observers[c.bearing_key] = true
