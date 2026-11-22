@@ -443,7 +443,8 @@ func _rounds_already_committed(t: Track) -> int:
 ## it; within the plan's round budget, and never while the plan is assessing its last volley.
 ## A unit under fire answers: any hostile it holds and can reach counts as a threat to it, whatever
 ## the plan is waiting for, and weapons tight is no bar to shooting back at a hostile.
-func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task := {}) -> Dictionary:
+## Weapons named in `refused` were just turned down by the launcher and are passed over.
+func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task := {}, refused: Array = []) -> Dictionary:
 	var under_fire := bool(b.get("under_fire", false))
 	if u.roe == Unit.Roe.HOLD or (u.roe == Unit.Roe.TIGHT and not under_fire):
 		return {}  # tight or hold: it will defend itself but will not start anything
@@ -486,7 +487,7 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			var quiet_transit := u.ai_posture == "breakout" and u.is_submarine()
 			if quiet_transit and not spec.is_torpedo():
 				continue
-			if _offensive_rounds(u, spec) <= 0:
+			if _offensive_rounds(u, spec) <= 0 or refused.has(spec.id):
 				continue
 			var check := Combat.check_engagement(u, spec, t)
 			if not check["ok"]:
@@ -503,6 +504,10 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 				continue
 			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON:
 				continue
+			# Last, the launcher's own test (guidance, fire-control channels), so a shot it would
+			# refuse is passed over for the next weapon instead of being asked for every cycle.
+			if not _launcher_accepts(u, spec, t, now):
+				continue
 			var score: float = check["range_nm"] + bucket * PLAN_BUCKET_NM
 			if score < best_range:
 				best_range = score
@@ -516,6 +521,28 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 				best = {"track": t, "weapon": spec, "salvo": rounds}
 			break
 	return best
+
+
+## What the launcher will take, as WeaponManager judges it at launch. A radar the captain would
+## light for the shot counts as lit, because _shoot lights it before the order goes; one held
+## silent by an emissions order, or wrecked, does not, and the next weapon is tried instead.
+func _launcher_accepts(u: Unit, spec: WeaponSpec, t: Track, now: float) -> bool:
+	if weapon_manager == null:
+		return true
+	var lit := not u.radar_on and _would_radiate_to_shoot(u)
+	if lit:
+		u.radar_on = true
+	var ok := bool(weapon_manager.engagement_check(u, spec, t, now)["ok"])
+	if lit:
+		u.radar_on = false
+	return ok
+
+
+## Whether _manage_emissions(u, true) would switch this unit's radar on.
+func _would_radiate_to_shoot(u: Unit) -> bool:
+	if not u.has_radar() or u.is_submarine():
+		return false
+	return u.is_aircraft() or _guiding_rounds(u) or _can_shoot_missiles(u) or not _anti_radiation_inbound(u)
 
 
 func _salvo_for(u: Unit, spec: WeaponSpec, t: Track = null) -> int:
@@ -713,18 +740,26 @@ func _best_strike_range(u: Unit) -> float:
 ## or an empty Dictionary when there is no shot to take. `torpedoes_only` is for a boat running
 ## from a torpedo: it snaps one back from where it is, and nothing that would bring it shallow.
 func _shoot(u: Unit, b: Dictionary, hostiles: Array, now: float, task := {}, torpedoes_only := false) -> Dictionary:
-	var pick := _pick_engagement(u, b, hostiles, now, task)
-	if pick.is_empty():
-		return {}
+	var refused: Array = []
+	if torpedoes_only:
+		for spec: WeaponSpec in u.weapons:
+			if not spec.is_torpedo():
+				refused.append(spec.id)
+	var pick := {}
+	var last := {}
+	# A refused shot (out of the envelope after all) fired nothing, so it must not start the
+	# re-attack cooldown on that target; the next weapon that suits is tried in its place.
+	while true:
+		pick = _pick_engagement(u, b, hostiles, now, task, refused)
+		if pick.is_empty():
+			return last
+		_manage_emissions(u, true)  # shooting is worth being seen for
+		if unit_manager.issue_order(u, Order.engage(pick["track"], pick["weapon"].id, pick["salvo"])):
+			break
+		refused.append(pick["weapon"].id)
+		last = pick
 	var t: Track = pick["track"]
 	var weapon: WeaponSpec = pick["weapon"]
-	if torpedoes_only and not weapon.is_torpedo():
-		return {}
-	_manage_emissions(u, true)  # shooting is worth being seen for
-	# A refused shot (fire control saturated, out of the envelope after all) fired nothing, so it
-	# must not start the re-attack cooldown on that target.
-	if not unit_manager.issue_order(u, Order.engage(t, weapon.id, pick["salvo"])):
-		return pick
 	pick["fired"] = true
 	b["target"] = t
 	b["engaged"][t.id] = now

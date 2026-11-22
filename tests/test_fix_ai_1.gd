@@ -199,3 +199,67 @@ func test_under_fire_wears_off() -> void:
 	h.ai.tick(100.0 + AIController.UNDER_FIRE_MEMORY_S + 10.0)
 	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "long after the last round a tight ship starts nothing again")
 	h.free_all()
+
+
+# --- Shots the launcher will take ----------------------------------------------------------
+
+func _sam(id: String, guidance: String) -> WeaponSpec:
+	var w := WeaponSpec.new()
+	w.id = id
+	w.display_name = id
+	w.type = "sam"
+	w.guidance = guidance
+	w.target_types = ["air", "missile"]
+	w.max_range_nm = 20.0
+	w.min_range_nm = 0.5
+	w.speed_kn = 1500.0
+	w.seeker_range_nm = 5.0
+	w.intercept_max_altitude_m = 20000.0
+	w.base_pk = 0.7
+	w.salvo_default = 2
+	return w
+
+
+func test_a_ship_held_silent_fires_the_weapon_that_needs_no_radar_instead_of_asking_again() -> void:
+	var red := _ship("RED-1", Vector2.ZERO)
+	var guided := _sam("test_sarh_sam", "semi_active_radar")
+	var heat := _sam("test_ir_sam", "infrared")
+	red.weapons.append(guided)
+	red.magazines[guided.id] = 8
+	red.weapons.append(heat)
+	red.magazines[heat.id] = 8
+	red.emcon = Unit.Emcon.SILENT
+	red.radar_on = false
+	var h := _harness([red])
+	var jet := _plot(h, "T4010", Vector2(0, 8), "fighter", "Fighter")
+	jet.domain = "air"
+	jet.altitude_m = 3000.0
+	h.ai.tick(100.0)
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_eq(shots.size(), 1, "one shot at the jet")
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].weapon_id, heat.id, "a radar held silent cannot guide the first missile, so the second goes")
+		assert_true(h.wm.engagement_check(red, red.get_weapon(shots[0]["order"].weapon_id), jet, 100.0)["ok"], "and the launcher takes it")
+	h.free_all()
+
+
+func test_a_ship_with_its_radar_merely_off_lights_it_for_the_better_missile() -> void:
+	var red := _ship("RED-1", Vector2.ZERO)
+	var guided := _sam("test_sarh_sam", "semi_active_radar")
+	var heat := _sam("test_ir_sam", "infrared")
+	red.weapons.append(guided)
+	red.magazines[guided.id] = 8
+	red.weapons.append(heat)
+	red.magazines[heat.id] = 8
+	red.radar_on = false
+	var h := _harness([red])
+	var jet := _plot(h, "T4011", Vector2(0, 8), "fighter", "Fighter")
+	jet.domain = "air"
+	jet.altitude_m = 3000.0
+	h.ai.tick(100.0)
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_eq(shots.size(), 1)
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].weapon_id, guided.id, "the switch is the captain's to make, so the first choice stands")
+	assert_true(red.radar_on, "and the radar is lit for it")
+	h.free_all()
