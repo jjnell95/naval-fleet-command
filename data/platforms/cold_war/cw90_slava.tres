@@ -28,4 +28,5 @@ length_m = 186.4
 displacement_t = 11200.0
 aircraft_capacity = 1
 default_air_wing = {"cw90_ka27": 1}
+acoustic_signature = 0.4
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

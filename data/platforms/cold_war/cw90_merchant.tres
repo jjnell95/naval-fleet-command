@@ -26,4 +26,5 @@ service_note = "Generic period cargo ship with a fictional name. It represents c
 length_m = 160.0
 displacement_t = 17000.0
 has_datalink = false
+acoustic_signature = 0.3
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

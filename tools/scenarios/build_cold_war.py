@@ -45,6 +45,9 @@ def resource(kind, key, data, packed_fields=()):
     {"platforms": PLATFORMS, "weapons": WEAPONS, "sensors": SENSORS}[kind][ident(key)] = fields
 
 
+# `surface` is the reach against a large combatant before the horizon cuts it, and a small craft
+# is seen at its signature's fraction of that. No warship's suite is rated under 30: beside its
+# air-search set every one carries a surface-search radar that sees a boat further than a lookout.
 def radar(key, name, surface, air, rate=.8):
     resource("sensors", key, dict(display_name=name, kind="radar", emits=True,
              range_surface_nm=float(surface), range_air_nm=float(air), antenna_height_m=24.0,
@@ -71,6 +74,17 @@ SHORT_NAMES = {
 }
 
 
+# How hard each torpedo's seeker is to pull onto a decoy (WeaponSpec.soft_kill_resistance; 1.0 is
+# the scale's par, a current digital seeker). These are 1990 weapons: the analogue Soviet seekers
+# sit lowest, the American ones of the early 1980s a little under par. A wake-homer does not
+# listen at all, so an acoustic decoy has almost nothing to offer it.
+ENABLE_MARGIN_NM = .3
+DECOY_RESISTANCE = {"mk46": .9, "mk48": .9, "set65": .8, "test71": .85, "at1": .8, "53_65": 4.0}
+# The heavyweights a boat fires down a tube and steers by wire onto the plot it keeps working
+# (WeaponSpec.midcourse_updates). The SET-65 and the wake-homer run on their launch setting.
+WIRE_GUIDED = {"mk48", "test71"}
+
+
 def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     d = dict(display_name=name, short_name=SHORT_NAMES[key], family=name, type=kind, target_types=targets,
              guidance="fire_control_directed" if kind in ["sam", "ciws"] else "active_radar_homing",
@@ -81,13 +95,40 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     if kind == "torpedo":
         d.update(guidance="acoustic_homing", profile="subsurface", min_range_nm=.4,
                  seeker_range_nm=2.0, turn_rate_deg_s=12.0, launch_interval_s=20.0,
-                 run_to_enable_nm=.7, acoustic_signature=.65, soft_kill_resistance=.7)
+                 run_to_enable_nm=.7, acoustic_signature=.65,
+                 soft_kill_resistance=DECOY_RESISTANCE[key])
+        if key in WIRE_GUIDED:
+            d["midcourse_updates"] = True
+    if kind == "asw_rocket":
+        # A missile that carries a torpedo through the air and drops it at the datum. The flight
+        # is the rocket's; from water entry everything is the payload's, so the figures a reader
+        # sees here are copied from the payload already written above.
+        payload = WEAPONS[ident(kw["delivery_payload_id"])]
+        kw["delivery_payload_id"] = payload["id"]
+        d.update(guidance="inertial_delivery", profile="high", altitude_m=300.0, turn_rate_deg_s=12.0,
+                 launch_interval_s=20.0, **{k: payload[k] for k in [
+                     "seeker_range_nm", "base_pk", "run_to_enable_nm", "acoustic_signature", "soft_kill_resistance"]})
     if kind in ["gun", "ciws"]:
         d.update(profile="direct", min_range_nm=.1, seeker_range_nm=0.0,
                  guidance="ballistic" if kind == "gun" else "radar_directed", salvo_default=1,
                  launch_interval_s=1.0)
     d.update(kw)
+    if kind == "torpedo" and "min_range_nm" not in kw:
+        # A torpedo is blind until it has run out to enable, so the shortest shot the fire-control
+        # accepts leaves the seeker a short look before the weapon reaches the plot.
+        d["min_range_nm"] = round(d["run_to_enable_nm"] + ENABLE_MARGIN_NM, 1)
     resource("weapons", key, d, ["target_types"])
+
+
+# Radiated noise of each surface ship at a crawl (PlatformSpec.acoustic_signature), on the scale
+# the submarines are on (Los Angeles 0.12, Victor III 0.20). By type: a destroyer built to hunt
+# submarines is the quietest warship, steam plants and old Soviet hulls louder, a carrier louder
+# again. Noise grows with the fraction of full speed, so a merchantman, which steams near her
+# best speed all day, is the loudest thing in the convoy on a modest figure here.
+SURFACE_NOISE = {
+    "nanuchka": .20, "spruance": .22, "perry": .25, "ticonderoga": .25, "merchant": .30, "udaloy": .32,
+    "slava": .40, "sovremenny": .42, "nimitz": .50,
+}
 
 
 def platform(key, name, short, nation, category, sensors, weapons, **kw):
@@ -120,11 +161,13 @@ def platform(key, name, short, nation, category, sensors, weapons, **kw):
         at = [k for k, _ in items].index("fire_control_channels") + 1
         d = dict(items[:at] + list(launcher.items()) + items[at:])
     d.update(kw)
+    if d["domain"] == "surface":
+        d["acoustic_signature"] = SURFACE_NOISE[key]
     resource("platforms", key, d, ["sensor_ids"])
 
 
 def catalogue():
-    radar("sps49", "AN/SPS-49 air-search radar", 28, 145)
+    radar("sps49", "AN/SPS-49 air-search radar", 30, 145)
     radar("sps48c", "AN/SPS-48C air-search radar", 30, 165)
     radar("spy1a", "AN/SPY-1A Aegis radar", 35, 180, 1.1)
     radar("aps124", "AN/APS-124 LAMPS III radar", 65, 35)
@@ -136,17 +179,21 @@ def catalogue():
     radar("apq156", "AN/APQ-156 TRAM attack radar", 80, 40)
     radar("awg9", "AN/AWG-9 Tomcat radar", 50, 130, 1.0)
     radar("fregat", "Fregat / Top Plate search radar", 32, 130)
-    radar("mr320", "MR-320 Topaz / Strut Pair radar", 26, 55)
+    radar("mr320", "MR-320 Topaz / Strut Pair radar", 30, 55)
     radar("pn_a", "PNA Down Beat bomber radar", 160, 80)
     radar("osminog", "Osminog helicopter search radar", 55, 25)
     radar("civil_nav", "Civil navigation radar (period abstraction)", 14, 0, .3)
     sonar("sqs56", "AN/SQS-56 hull sonar", 10, 8)
     sonar("sqs53b", "AN/SQS-53B hull sonar", 13, 12, cz=True)
-    sonar("sqr19", "AN/SQR-19 passive towed array", 22, 0, 120, cz=True)
-    sonar("bqq5", "AN/BQQ-5 sonar suite", 25, 13, cz=True)
-    sonar("mgk355", "MGK-355 Polinom sonar suite", 20, 12, cz=True)
+    # Passive sensitivity is the range at which a set hears a source of noise 1.0; what it hears
+    # a quiet boat at is a fraction of that (see Detection.passive_sonar_range_nm). A submarine's
+    # suite and a towed array are the long ears, about four times a hull set: a Los Angeles
+    # holds a Victor III at patrol speed at nine or ten miles, a hull sonar at two.
+    sonar("sqr19", "AN/SQR-19 passive towed array", 44, 0, 120, cz=True)
+    sonar("bqq5", "AN/BQQ-5 sonar suite", 50, 13, cz=True)
+    sonar("mgk355", "MGK-355 Polinom sonar suite", 15, 12, cz=True)
     sonar("mgk335", "MGK-335 Platina hull sonar", 11, 8)
-    sonar("mgk400", "MGK-400 Rubikon sonar", 19, 10, cz=True)
+    sonar("mgk400", "MGK-400 Rubikon sonar", 36, 10, cz=True)
     sonar("aqs13", "AN/AQS-13 Sea King dipping sonar", 13, 9, 90, True)
     sonar("vgs3", "VGS-3 Ros-V dipping sonar", 12, 9, 90, True)
     for key, name in [("slq32", "AN/SLQ-32(V) electronic support"),
@@ -183,8 +230,11 @@ def catalogue():
            guidance="inertial_active", base_pk=.52, min_range_nm=3.0, altitude_m=10000.0, midcourse_updates=True)
     weapon("aim9m", "AIM-9M Sidewinder", "aam", ["air"], 8, 1600, 34,
            guidance="infrared_homing", base_pk=.65, min_range_nm=.5, altitude_m=6000.0)
-    weapon("mk45", "Mk 45 5-inch/54 gun", "gun", ["surface"], 11, 1500, 5, base_pk=.65)
-    weapon("mk75", "Mk 75 76 mm gun", "gun", ["surface"], 8, 1600, 3, base_pk=.65)
+    # Shells are on the missiles' damage scale: a 5-inch round is a sixteenth of a Harpoon, so a gun
+    # action is decided by weight of fire over minutes, not by the first few hits. The larger
+    # calibres also bombard: they may be laid on a contact ashore.
+    weapon("mk45", "Mk 45 5-inch/54 gun", "gun", ["surface", "land"], 11, 1500, 2.5, base_pk=.65)
+    weapon("mk75", "Mk 75 76 mm gun", "gun", ["surface"], 8, 1600, 1, base_pk=.65)
     weapon("phalanx", "Phalanx Block 0/1 CIWS", "ciws", ["missile", "air"], 1.2, 2200, 15,
            base_pk=.40)
     weapon("moskit", "P-270 Moskit / SS-N-22 Sunburn", "asm", ["surface"], 60, 1350, 62,
@@ -201,22 +251,25 @@ def catalogue():
            base_pk=.51, min_range_nm=.6)
     weapon("osa_m", "Osa-M / SA-N-4 Gecko", "sam", ["missile", "air"], 5, 1600, 26,
            base_pk=.43, min_range_nm=.7)
-    weapon("ak130", "AK-130 twin 130 mm gun", "gun", ["surface"], 12, 1500, 7, base_pk=.66)
-    weapon("ak100", "AK-100 100 mm gun", "gun", ["surface"], 10, 1500, 5, base_pk=.64)
-    weapon("ak176", "AK-176 76 mm gun", "gun", ["surface"], 8, 1500, 3, base_pk=.64)
+    weapon("ak130", "AK-130 twin 130 mm gun", "gun", ["surface", "land"], 12, 1500, 3, base_pk=.66)
+    weapon("ak100", "AK-100 100 mm gun", "gun", ["surface", "land"], 10, 1500, 1.5, base_pk=.64)
+    weapon("ak176", "AK-176 76 mm gun", "gun", ["surface"], 8, 1500, 1, base_pk=.64)
     weapon("ak630", "AK-630 CIWS", "ciws", ["missile", "air"], 1.1, 2100, 14, base_pk=.37)
     weapon("set65", "SET-65 anti-submarine torpedo", "torpedo", ["subsurface"], 8, 40, 68)
     weapon("test71", "TEST-71M torpedo", "torpedo", ["subsurface"], 10, 40, 72)
     weapon("53_65", "53-65K wake-homing torpedo", "torpedo", ["surface"], 10, 45, 90,
            guidance="wake_homing_abstracted", base_pk=.64)
-    weapon("rastrub", "Rastrub-B / SS-N-14 ASW delivery", "torpedo", ["subsurface"], 25, 240, 65,
-           guidance="rocket_delivery_abstracted", run_to_enable_nm=.3)
     weapon("kh22", "Kh-22 / AS-4 Kitchen", "asm", ["surface"], 180, 1900, 90,
            profile="high", altitude_m=12000.0, base_pk=.59, defensive_difficulty=1.6, salvo_default=1)
     weapon("p120", "P-120 Malakhit / SS-N-9 Siren", "asm", ["surface"], 60, 560, 65,
            base_pk=.69, altitude_m=40.0, salvo_default=3)
     weapon("at1", "AT-1M helicopter ASW torpedo", "torpedo", ["subsurface"], 4, 35, 60,
            run_to_enable_nm=.3)
+    # A winged missile flown out at just under the speed of sound to drop a lightweight homing
+    # torpedo over the contact; the air-dropped AT-1M stands for its torpedo. Twenty-five miles in
+    # two and a half minutes, then a short-legged torpedo that has to be put close.
+    weapon("rastrub", "Rastrub-B / SS-N-14 ASW missile", "asw_rocket", ["subsurface"], 25, 620, 60,
+           min_range_nm=2.0, delivery_payload_id="at1")
 
     platform("perry", "Oliver Hazard Perry long-hull frigate", "FFG Perry", "USA", "frigate",
              ["sps49", "sqs56", "slq32"], {"sm1mr":32, "harpoon":8, "mk46":12, "mk75":260, "phalanx":60},

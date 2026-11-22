@@ -16,7 +16,7 @@ func _ship(id := "rn_ffg_type26") -> Unit:
 
 
 func test_ship_array_must_slow_and_stream_before_it_can_hear_or_ping() -> void:
-	var u := _ship()
+	var u := _ship("usn_ffg_constellation")  # her only sonar is the variable-depth set
 	var um := UnitManager.new()
 	u.speed_kn = 20.0
 	assert_true(um.issue_order(u, Order.active_sonar()))
@@ -36,7 +36,7 @@ func test_ship_array_must_slow_and_stream_before_it_can_hear_or_ping() -> void:
 
 
 func test_ship_navigation_recovers_before_accelerating_and_keeps_latest_route() -> void:
-	var u := _ship()
+	var u := _ship("usn_ffg_constellation")
 	var um := UnitManager.new()
 	assert_true(um.issue_order(u, Order.asw_search()))
 	Movement.step(u, TowedArray.STREAM_S)

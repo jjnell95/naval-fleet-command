@@ -29,4 +29,5 @@ displacement_t = 7500.0
 aircraft_capacity = 1
 vls_cells = 64
 default_air_wing = {"pla_helo_z9c": 1}
+acoustic_signature = 0.27
 source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

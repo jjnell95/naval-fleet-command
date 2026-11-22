@@ -295,13 +295,10 @@ endurance, sensor envelope, loadout, signature, deck timing — is a GAMEPLAY_ES
 | id | Family | Game values (range nm / speed kn / damage / pk) |
 |---|---|---|
 | agm_158c_lrasm | LRASM | 200 / 550 / 70 / 0.80 |
-| agm_158b_jassm_er | JASSM-ER | 500 / 520 / 65 / 0.72 |
-| jsm_missile | NSM/JSM | 150 / 520 / 50 / 0.78 |
 | agm_114_hellfire | Hellfire | 4.5 / 800 / 14 / 0.85 |
 | apkws_rocket | APKWS | 3 / 900 / 7 / 0.75 |
 | sea_venom | Sea Venom / ANL | 11 / 560 / 26 / 0.80 |
 | martlet_lmm | Martlet | 3.5 / 950 / 8 / 0.72 |
-| kh38_family | Kh-38 | 22 / 1100 / 32 / 0.74 |
 | oneway_attack_drone | Generic OWA drone | 350 / 100 / 22 / 0.55 |
 | aim9x_air | Sidewinder (air fit) | 12 / 1600 / 25 / 0.70 |
 
@@ -315,7 +312,7 @@ detection horizon from the aircraft's altitude, not the listed antenna height.
 
 `searchwater_2000`, `e801_oko`, `an_zpy_8`, `mq25_eo_ir`, `scaneagle_eo`, `skeldar_eo`,
 `orion_sar`, `orlan_eo`, `novella_p38`, `seaspray_7400`, `enr_nh90`, `fits_dipping`,
-`an_aqs_13f`, `mq25_esm`.
+`mq25_esm`.
 
 ## M18: bathymetry and the water column
 | Data | Source | Use |
@@ -440,3 +437,18 @@ Every number is a GAMEPLAY_ESTIMATE: the battery hotel, sprint and charge hours,
 ## Sonar baffles, 10 November 2026
 
 No source was consulted for M42. That a hull-mounted sonar has a blind arc astern, and that submarines turn to clear it, is taken as general public knowledge. The 30° half-angle, the 150-second clearing turn of 70° and the fifteen-minute interval are GAMEPLAY_ESTIMATE values, not any navy's practice. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+
+## Catalogue review: guns, torpedoes, sonars and noise, 22 November 2026
+
+No primary source was consulted. What is taken as public is general only: that a naval shell carries a small fraction of an anti-ship missile's warhead; that a homing torpedo runs out before its seeker is enabled; that Rastrub-B, the Yu-8, VL-ASROC and the Type 07 carry a lightweight torpedo through the air and drop it; that the Type 45, FREMM, Type 26, Nansen, Iver Huitfeldt, Project 22350, Project 20380 and Alvand classes have bow or hull sonars, Udaloy the Polinom suite and Slava a hull set; and that surface ships differ widely in radiated noise by size, plant and purpose. Every number is a GAMEPLAY_ESTIMATE.
+
+- **Gun damage** is on the missiles' scale by calibre: 127 to 130 mm 2.5 to 3, 114 mm 2.2, 100 mm 1.5, 76 mm 1, 57 mm 0.6 (a Harpoon is 40). Guns of 100 mm and over may be laid on a contact ashore.
+- **Torpedo decoy resistance** (`soft_kill_resistance`) follows the seeker generation: 0.8 to 0.9 for the 1990 pack and the export TEST-71ME, 1.0 to 1.4 for current weapons, 4.0 for wake-homers, which do not listen.
+- **Minimum range** of every torpedo is its enable run plus 0.3 nm (the anti-torpedo Paket-NK enables at its minimum range).
+- **Wire guidance** (`midcourse_updates`) is set on the tube-launched heavyweights that are steered by wire: Mk 48 (both), Spearfish, F21, Type 18, Yu-6, UGST, TEST-71M and TEST-71ME, Torpedo 62. While the firing unit lives and holds the contact, the round follows that unit's current plot rather than the one it was fired on. The SET-65, the 53-65 wake-homers and the lightweights keep their launch setting.
+- **Rocket-thrown torpedoes** (`asw_rocket`, flying at 600 to 620 kn) name their payload: VL-ASROC the Mk 54, Type 07 the Type 97, Yu-8 the Yu-7, the 1990 Rastrub-B the AT-1M and the current one the APR-3. The last two payloads stand for the missile's own lightweight torpedo, which the catalogue does not hold.
+- **New hull sonars**: `sonar_2091` (Type 45), `ums_4110` (FREMM), `sonar_2150` (Type 26), `spherion_mrs2000` (Nansen), `aso_94` (Iver Huitfeldt), `zarya_m` (Projects 22350 and 20380), `mgk_355_polinom` (Udaloy), `mg_332_tigan` (Slava); Alvand takes the existing `irn_hull_sonar`. Constellation and Mogami are left with their variable-depth sets alone, as built.
+- **Passive sensitivity** is the range at which a set hears a source of noise 1.0. Submarine suites are 36 to 60, towed and variable-depth arrays 26 to 46, hull sets 9 to 15, dipping sets 9 to 18. `tests/test_fix_data_1.gd` pins the resulting range table (a Los Angeles hears a Victor III at 5 kn at 13 nm in a calm sea; a hull sonar at 3).
+- **Surface-ship noise** (`acoustic_signature`) is set for every surface platform on the submarines' scale, from 0.03 for a speedboat and 0.14 for a frigate built to hunt submarines to 0.5 for a carrier. Noise rises with the fraction of full speed, so a merchantman at her service speed is still the loudest ship in a convoy.
+- **Radar against small craft**: no warship's radar suite is rated under 30 nm against a large ship, the Peykaap's radar signature is 0.25, and the MH-60R's AN/APS-153 is rated 130, so a boat is held by radar beyond a lookout's six miles and the helicopter's radar finds a periscope before an eye does.
+- **Removed**: `agm_158b_jassm_er`, `jsm_missile`, `kh38_family` and the sensor `an_aqs_13f`, which nothing carried; `aim9x_family`, a duplicate of `aim9x_air`, which the F-16C now carries.

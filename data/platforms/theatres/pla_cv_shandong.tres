@@ -32,4 +32,5 @@ launch_spots = 2
 recovery_spots = 1
 turnaround_s = 2700.0
 default_air_wing = {"pla_fighter_j15": 8, "pla_aew_z18j": 1, "pla_helo_z18f": 2, "pla_helo_z9c": 1}
+acoustic_signature = 0.5
 source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

@@ -297,9 +297,8 @@ func test_interceptor_policy_escalates_conserve_when_the_threat_is_urgent() -> v
 
 
 func test_an_unspecified_inertial_terminal_weapon_is_not_magically_vulnerable_to_flares() -> void:
-	for id: String in ["kinzhal_family", "kh38_family", "oneway_attack_drone"]:
+	for id: String in ["kinzhal_family", "oneway_attack_drone"]:
 		assert_eq(DataDB.weapon(id).seeker_band(), "none")
-	assert_eq(DataDB.weapon("agm_158b_jassm_er").seeker_band(), "infrared")
 	assert_eq(DataDB.weapon("agm_158c_lrasm").seeker_band(), "infrared")
 
 

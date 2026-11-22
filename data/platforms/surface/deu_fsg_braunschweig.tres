@@ -19,6 +19,7 @@ displacement_t = 1840.0
 source_status = "PUBLIC: length, displacement, max speed band. GAMEPLAY_ESTIMATE: cruise speed, turn rate, acceleration, signature, health, channels, decoys."
 sensor_ids = PackedStringArray("trs_3d", "nato_esm_suite")
 signature_factor = 0.65
+acoustic_signature = 0.2
 mast_height_m = 22.0
 health = 55.0
 fire_control_channels = 2

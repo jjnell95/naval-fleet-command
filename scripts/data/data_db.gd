@@ -11,6 +11,9 @@ static var _weapons: Dictionary = {}
 static var _loaded := false
 static var _by_short_name: Dictionary = {}  # short_name -> Array[PlatformSpec], sorted by id
 const COLD_WAR_PREFIX := "cw90_"
+## Weapon ids the catalogue once held, with the entry each was folded into. An engagement saved
+## before the fold still names the old id, and must find a weapon when it is loaded.
+const RETIRED_WEAPONS := {"aim9x_family": "aim9x_air"}
 
 
 static func platform(id: String) -> PlatformSpec:
@@ -25,7 +28,7 @@ static func sensor(id: String) -> SensorSpec:
 
 static func weapon(id: String) -> WeaponSpec:
 	_ensure_loaded()
-	return _weapons.get(id)
+	return _weapons.get(RETIRED_WEAPONS.get(id, id))
 
 
 ## The catalogue entry a reported class name refers to, as a track's `known_class` holds it.

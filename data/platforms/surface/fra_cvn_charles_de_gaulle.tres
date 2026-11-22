@@ -18,6 +18,7 @@ turn_rate_deg_s = 1.1
 accel_kn_s = 0.1
 health = 300.0
 signature_factor = 2.7
+acoustic_signature = 0.45
 sensor_ids = PackedStringArray("m20_carrier_radar", "nato_esm_suite")
 mast_height_m = 45.0
 fire_control_channels = 4

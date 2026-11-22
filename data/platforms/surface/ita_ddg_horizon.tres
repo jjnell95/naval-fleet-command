@@ -18,6 +18,7 @@ turn_rate_deg_s = 3.0
 accel_kn_s = 0.23
 health = 115.0
 signature_factor = 0.85
+acoustic_signature = 0.22
 sensor_ids = PackedStringArray("m20_horizon_radar", "m20_escort_sonar", "nato_esm_suite")
 mast_height_m = 26.0
 fire_control_channels = 6
