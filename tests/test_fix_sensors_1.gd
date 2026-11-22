@@ -304,3 +304,124 @@ func test_the_first_radar_plot_on_an_esm_estimate_is_taken_as_it_stands() -> voi
 	assert_true(t.position.distance_to(plot.position) < 0.01, "the radar plot replaces the estimate; it is not averaged with it (%.1f nm off)" % t.position.distance_to(plot.position))
 	assert_true(t.position.distance_to(truth) <= t.position_error_nm, "so the plot is inside the error it claims")
 	tm.free()
+
+
+# --- A bearing on the chart ---------------------------------------------------------------------
+
+## Only the patrol aircraft hears the frigate; a destroyer ninety miles away holds nothing.
+func test_a_bearing_line_starts_at_the_unit_that_hears_the_contact() -> void:
+	_load([_ship(BURKE, "Burke", "BLUE", [0, 0], 0, 15, false), _ship(P8, "Poseidon", "BLUE", [80, 0], 90, 380, false), _ship(GORSHKOV, "Gorshkov", "RED", [80, 70], 270, 14, true)])
+	var burke := _unit("Burke")
+	var p8 := _unit("Poseidon")
+	var ship := _unit("Gorshkov")
+	_run(20.0)
+	var t := _sim.track_manager.find_track("BLUE", ship)
+	assert_true(t != null and t.is_bearing_only(), "the frigate is held on an intercept alone")
+	if t == null:
+		_free()
+		return
+	var moved := 0.0
+	var last := t.position
+	for second in 60:
+		_run(1.0)
+		# Sideways movement of the line's end, not the aircraft carrying the line along with it.
+		moved += maxf(last.distance_to(t.position) - Geo.knots_to_nm_per_s(p8.speed_kn), 0.0)
+		last = t.position
+	assert_true(moved / 60.0 < 0.3, "the line does not jitter with every look (%.2f nm a second)" % (moved / 60.0))
+	assert_eq(t.bearing_unit(), p8, "the plot knows whose bearing it is")
+	var start := TacticalMap.bearing_line_start(t, burke)
+	assert_true(start.distance_to(p8.position) < 0.5, "the chart draws the line from the aircraft, not from the reference ship (%.0f nm from the aircraft)" % start.distance_to(p8.position))
+	var true_bearing := Geo.bearing_deg(p8.position, ship.position)
+	var drawn := Geo.bearing_deg(start, t.position)
+	assert_true(absf(Geo.heading_delta(true_bearing, drawn)) < 4.0, "and along the bearing it was taken on (drawn %03.0f, true %03.0f)" % [drawn, true_bearing])
+	var panel := ContactPanel.new()
+	var text := panel._detail_text(t, burke, SimClock.sim_time)
+	assert_true(text.contains("Poseidon: BRG"), "the track file gives the bearing from the unit that holds it")
+	assert_true(not text.contains("Burke: BRG"), "not from a ship that does not")
+	panel.free()
+	_free()
+
+
+## The same intercept on a radar at the masthead and on one at 9,000 m: the listener cannot tell.
+func test_an_intercepts_first_range_does_not_follow_the_emitters_height() -> void:
+	var tm := TrackManager.new()
+	var sm := SensorManager.new()
+	sm.track_manager = tm
+	sm.rng.seed = 5
+	var listener := Unit.new()
+	listener.spec = PlatformSpec.new()
+	listener.spec.mast_height_m = 30.0
+	listener.faction = "BLUE"
+	var set := SensorSpec.new()
+	set.kind = "esm"
+	set.esm_gain = 2.0
+	set.antenna_height_m = 26.0
+	set.bearing_accuracy_deg = 1.5
+	var low := _target_unit()
+	low.position = Vector2(0, 20)
+	var high := _target_unit()
+	high.position = Vector2(20, 0)
+	sm._report_esm(listener, low, 20.0, 31.0, set, 1.0)
+	sm._report_esm(listener, high, 20.0, 250.0, set, 1.0)
+	var a := tm.find_for(listener, low)
+	var b := tm.find_for(listener, high)
+	assert_near(a.position.length(), b.position.length(), 0.01, "both lines are the set's nominal length")
+	assert_near(a.error_major_nm, b.error_major_nm, 0.01)
+	sm.free()
+	tm.free()
+
+
+# --- A first look ---------------------------------------------------------------------------------
+
+## A strike aircraft coming in low: the destroyer's first radar plot on it, and what a SAM says.
+func test_a_first_radar_plot_has_a_domain_and_can_be_engaged() -> void:
+	_load([_ship(BURKE, "Burke", "BLUE", [0, 0], 0, 15, true),
+		{"platform": SU34, "callsign": "Low", "faction": "RED", "position_nm": [40, 0], "heading_deg": 270, "speed_kn": 490, "radar_on": false, "altitude_m": 60}])
+	var burke := _unit("Burke")
+	var jet := _unit("Low")
+	jet.altitude_m = 60.0
+	jet.ordered_altitude_m = 60.0
+	var sam := burke.get_weapon("sm2_family")
+	assert_true(sam != null, "the destroyer carries its area SAM")
+	var t: Track = null
+	for second in 200:
+		_run(1.0)
+		t = _sim.track_manager.find_track("BLUE", jet)
+		if t != null:
+			break
+	assert_true(t != null, "the radar finds the aircraft")
+	if t != null and sam != null:
+		assert_true(t.observation_time_s < 5.0, "this is the first look")
+		assert_eq(t.domain, "air", "a plot with height is an aircraft at once")
+		assert_eq(t.description(), "AIR CONTACT")
+		var reason := str(Combat.check_engagement(burke, sam, t)["reason"])
+		assert_true(reason != "WRONG WEAPON FOR CONTACT", "the SAM is not refused for want of a domain (%s)" % reason)
+	_free()
+
+
+func test_a_plot_takes_its_domain_from_the_sensor_and_a_bearing_waits() -> void:
+	var tm := TrackManager.new()
+	var ship := _target_unit()
+	ship.spec.domain = "surface"
+	tm.observe("BLUE", ship, Vector2(0, 20), 0.5, 1.0, 1.0, 1.0, 20.0)
+	assert_eq(tm.find_track("BLUE", ship).domain, "surface", "a radar plot at sea level is a surface contact")
+	var site := _target_unit()
+	site.spec.domain = "land"
+	tm.observe("BLUE", site, Vector2(5, 20), 0.5, 1.0, 1.0, 1.0, 20.0)
+	assert_eq(tm.find_track("BLUE", site).domain, "land", "or a fixed site ashore")
+	var boat := _target_unit()
+	boat.spec.domain = "subsurface"
+	boat.depth_m = 120.0
+	tm.observe_contact("BLUE", SensorContact.make(boat, Vector2(0, 3), 0.4, 0.5, 1.0, 3.0, "sonar_active"), 1.0, 1.0)
+	assert_eq(tm.find_track("BLUE", boat).domain, "subsurface", "an active echo from depth is a submarine")
+	var heard := _target_unit()
+	heard.spec.domain = "surface"
+	for second in range(1, 20):
+		tm.observe_contact("BLUE", _look(heard, Vector2.ZERO, 45.0, "ship", 1.5), float(second), 1.0)
+	var t := tm.find_track("BLUE", heard)
+	assert_eq(t.domain, "", "a bearing says nothing of what it is until it has been listened to")
+	assert_eq(t.classification, Track.Classification.UNKNOWN)
+	for second in range(20, 80):
+		tm.observe_contact("BLUE", _look(heard, Vector2.ZERO, 45.0, "ship", 1.5), float(second), 1.0)
+	assert_eq(t.domain, "surface", "listening long enough classifies it")
+	tm.free()

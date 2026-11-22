@@ -451,6 +451,11 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 	if t.observation_time_s >= Track.CLASS_TIMES_S[1]:
 		t.classification = maxi(t.classification, Track.Classification.SURFACE) as Track.Classification
 		t.domain = c.target.spec.domain
+	elif not c.bearing_only:
+		# A measured plot says at once what kind of thing it is, which is all a weapon needs to
+		# know to be laid on it. A bearing says nothing of the kind until it has been listened to.
+		t.classification = maxi(t.classification, Track.Classification.SURFACE) as Track.Classification
+		t.domain = _plot_domain(c)
 	# Emission/acoustic signature libraries give a probable class, not a hull name or proof of
 	# intent. A generic radar range/velocity plot cannot identify an exact platform by waiting.
 	if c.source in ["esm", "sonar_passive", "sonar_active", "sonar_cz", "sonobuoy"]:
@@ -495,6 +500,19 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 		t.identity_evidence = "Visual markings"
 	if previous != [t.classification, t.identity] and t.networked:
 		track_classified.emit(faction, t)
+
+
+## What a measured plot is, from the plot alone: something with height is an aircraft; an echo
+## from below the surface is a submarine; anything else is on the sea, or ashore if it stands
+## where the chart shows a fixed site.
+static func _plot_domain(c: SensorContact) -> String:
+	if c.altitude_m > 0.0 or (c.source == "visual" and c.target.in_flight()):
+		return "air"
+	if c.source == "sonar_active":
+		return "subsurface" if c.target.depth_m > 0.5 else "surface"
+	if c.target.spec.domain == "land":
+		return "land"
+	return "surface"
 
 
 ## Attribute a visibly originating hostile weapon only when the launcher is held locally,
