@@ -101,11 +101,17 @@ func test_crossed_esm_bearings_do_not_flip_between_fix_and_bearing() -> void:
 	var leaps := 0
 	var last_text := ""
 	var last := Vector2.INF
+	var claimed := 0
+	var wrong := 0
 	for second in 700:
 		_run(1.0)
 		var t := _sim.track_manager.find_track("BLUE", jet)
 		if t == null:
 			continue
+		if t.solution_text() == "ESTIMATED FIX":
+			claimed += 1
+			if t.position.distance_to(jet.position) > 3.0 * t.position_error_nm:
+				wrong += 1
 		if last_text != "" and t.solution_text() != last_text:
 			flips += 1
 		if last != Vector2.INF and last.distance_to(t.position) > 5.0:
@@ -115,6 +121,8 @@ func test_crossed_esm_bearings_do_not_flip_between_fix_and_bearing() -> void:
 	assert_true(last_text != "", "the aircraft's radar was heard")
 	assert_true(flips <= 2, "the plot settles on one kind of solution (changed %d times)" % flips)
 	assert_true(leaps <= 1, "only the first range moves the plot far (%d leaps over 5 nm)" % leaps)
+	assert_true(claimed > 300, "the crossed lines gave an estimated fix (%d s)" % claimed)
+	assert_true(wrong * 50 <= claimed, "an estimated fix on an aircraft claims no more than it knows (%d of %d s beyond three times its error)" % [wrong, claimed])
 	_free()
 
 
@@ -247,4 +255,52 @@ func test_the_first_range_guess_comes_from_the_reach_the_contact_was_heard_at() 
 		assert_true(t.error_major_nm <= 3.0, "and its length is that reach")
 		assert_true(t.bearing_origin.distance_to(listener.position) < 0.01, "the plot records where the bearing was taken from")
 	sm.free()
+	tm.free()
+
+
+# --- Aircraft held on intercepts ----------------------------------------------------------------
+
+func _zigzag_history(speed_limit: float) -> Array:
+	var history := []
+	var u := _target_unit()
+	var own := Vector2.ZERO
+	var course := 300.0
+	for second in range(1, 601):
+		if second % 300 == 0:
+			course = 80.0
+		own += Geo.heading_to_vector(course) * Geo.knots_to_nm_per_s(12.0)
+		var c := _look(u, own, Geo.bearing_deg(own, Vector2(1.0, 5.0)), "ship", 0.5)
+		c.bearing_speed_limit_kn = speed_limit
+		BearingSolution.add(history, c, float(second))
+	return history
+
+
+## One listener's bearings over minutes fit a steady course and speed. A ship holds one; a jet does
+## not, so nothing that may be a jet is ranged that way.
+func test_only_ship_speed_contacts_are_ranged_from_one_listeners_bearings() -> void:
+	assert_true(not BearingSolution.estimate(_zigzag_history(70.0), 600.0).is_empty(), "a ship-speed contact is ranged across the listener's turn")
+	assert_true(BearingSolution.estimate(_zigzag_history(1200.0), 600.0).is_empty(), "something that may be an aircraft is not")
+	assert_true(not BearingSolution.estimate(_zigzag_history(1200.0), 600.0, 70.0).is_empty(), "unless the plot knows it for a ship")
+
+
+## Crossed intercepts put an aircraft miles from where it is; then a radar finds it.
+func test_the_first_radar_plot_on_an_esm_estimate_is_taken_as_it_stands() -> void:
+	var tm := TrackManager.new()
+	var u := _target_unit()
+	var truth := Vector2(0, 60)
+	for second in range(1, 31):
+		for pair: Array in [[Vector2(-10, 0), "a", 1.5], [Vector2(10, 0), "b", -1.5]]:
+			var c := _look(u, pair[0], Geo.bearing_deg(pair[0], truth) + float(pair[2]), pair[1], 1.5, 400.0)
+			c.bearing_speed_limit_kn = 1200.0
+			c.source = "esm"
+			tm.observe_contact("BLUE", c, float(second), 1.0)
+		tm.tick(float(second), 1.0)
+	var t := tm.find_track("BLUE", u)
+	assert_eq(t.solution_text(), "ESTIMATED FIX", "two crossing lines give an estimate")
+	assert_true(t.position.distance_to(truth) > 5.0, "which three degrees of error between them put well off (%.1f nm)" % t.position.distance_to(truth))
+	var plot := SensorContact.make(u, truth + Vector2(0.1, 0.0), 0.9, 0.5, 1.0, 60.0)
+	tm.observe_contact("BLUE", plot, 31.0, 1.0)
+	assert_eq(t.solution_text(), "MEASURED FIX")
+	assert_true(t.position.distance_to(plot.position) < 0.01, "the radar plot replaces the estimate; it is not averaged with it (%.1f nm off)" % t.position.distance_to(plot.position))
+	assert_true(t.position.distance_to(truth) <= t.position_error_nm, "so the plot is inside the error it claims")
 	tm.free()

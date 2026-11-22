@@ -26,6 +26,7 @@ const MIN_BEARING_RANGE_NM := 0.3
 ## a poorer one pulls the plot less and claims no course.
 const SOUND_SOLUTION_QUALITY := 0.6
 const HOLDER_SILENT_S := 2.5
+const LINE_LAG_S := 1.0 / BearingSolution.SMOOTH_GAIN
 const TMA_DECAY_PER_S := 0.0008  # a solution goes off while contact is lost
 const FIRM_HOLD_S := 1.5  # a firm plot this recent outranks any bearing
 const HISTORY_INTERVAL_S := 30.0
@@ -289,7 +290,11 @@ func _bearing_solution(t: Track, c: SensorContact, now: float) -> Dictionary:
 	if not solution.is_empty():
 		var age := maxf(now - t.bearing_solution_at, 0.0)
 		solution["position"] += (solution.get("velocity", Vector2.ZERO) as Vector2) * age
-		solution["major"] += t.error_growth_nm_per_s() * age
+		# However good the geometry, the answer is as old as the lines that made it: the plotted
+		# line trails the newest look by a few seconds and the solution may be older still. A
+		# ship moves nothing in that time; an aircraft moves miles.
+		var growth := t.error_growth_nm_per_s()
+		solution["major"] = maxf(float(solution["major"]) + growth * age, growth * (age + LINE_LAG_S))
 		solution["quality"] = maxf(float(solution["quality"]) - TMA_DECAY_PER_S * age, 0.0)
 	return solution
 
