@@ -631,3 +631,209 @@ func test_the_identification_result_survives_the_return_to_a_patrol() -> void:
 	assert_eq(picket.investigation_result, "Contact classified", "with what she found still readable")
 	assert_eq(picket.investigation_track_id, t.id)
 	h.free_all()
+
+
+# --- Land in the way ---------------------------------------------------------------------------
+
+func _skimmer() -> WeaponSpec:
+	var asm := _asm(60.0)
+	asm.profile = "sea_skimming"
+	return asm
+
+
+func _land(points: Array) -> void:
+	Terrain.load_from({"terrain": {"land": [{"id": "isle", "name": "Isle", "elevation_m": 80.0, "points_nm": points}]}})
+
+
+func test_land_in_the_line_of_fire_sends_the_ship_to_the_nearest_clear_water_she_can_reach() -> void:
+	var ship := _unit("BLUE", Vector2.ZERO, 100.0, [_skimmer()])
+	var target := _unit("RED", Vector2(0, 30), 800.0)
+	var h := _harness([ship, target])
+	_land([[-3, 12], [3, 12], [3, 18], [-3, 18]])
+	assert_true(Terrain.blocks_path(ship.position, target.position), "the fixture puts an island in the way")
+	assert_true(h.um.issue_order(ship, Order.attack(_track(target))))
+	h.advance(DT)
+	assert_eq(ship.attack_phase, "Intercept track · clearing the line of fire")
+	assert_eq(ship.waypoints.size(), 1)
+	var point: Vector2 = ship.waypoints[0]
+	assert_true(not Terrain.blocks_path(point, target.position), "the point has an open line to the target")
+	assert_true(Terrain.reachable_by_sea(ship.position, point), "and she can sail to it")
+	assert_true(point.distance_to(ship.position) < 16.0, "a short move round the island, not the far edge of the weapon's reach (%.1f nm away)" % point.distance_to(ship.position))
+	var before := ship.position
+	assert_true(h.until(func() -> bool: return ship.attack_rounds_fired > 0, 3600.0), "and she fires from there")
+	assert_true(ship.position.distance_to(before) < 16.0, "having moved %.1f nm" % ship.position.distance_to(before))
+	Terrain.clear()
+	h.free_all()
+
+
+func test_an_attack_with_no_clear_water_in_reach_ends_instead_of_steering_at_the_coast() -> void:
+	var ship := _unit("BLUE", Vector2.ZERO, 100.0, [_skimmer()])
+	var target := _unit("RED", Vector2(0, 30), 800.0)
+	var h := _harness([ship, target])
+	# A long bar of land between them: every point with a line to the target is on its far side.
+	_land([[-300, 10], [300, 10], [300, 12], [-300, 12]])
+	assert_true(h.um.issue_order(ship, Order.attack(_track(target))))
+	h.advance(5.0)
+	assert_eq(h.ended.size(), 1, "the attack is given back at once")
+	assert_eq(h.ended[0][2], "No line of fire")
+	assert_true(ship.waypoints.is_empty(), "and she is not sent at the shore")
+	h.advance(600.0)
+	assert_true(Terrain.distance_to_land_nm(ship.position) > 5.0, "ten minutes later she is nowhere near it")
+	Terrain.clear()
+	h.free_all()
+
+
+func test_a_hull_pressed_against_a_coast_on_its_way_to_fire_gives_the_attack_back() -> void:
+	var ship := _unit("BLUE", Vector2.ZERO, 100.0, [_asm(60.0)])
+	var target := _unit("RED", Vector2(0, 100), 800.0)
+	var h := _harness([ship, target])
+	_land([[-60, 8], [60, 8], [60, 10], [-60, 10]])
+	assert_true(h.um.issue_order(ship, Order.attack(_track(target))))
+	assert_true(ship.has_route(), "she sets off for her firing point")
+	# She runs onto the bar that lies across the leg: engines turning, a route, and no way made.
+	assert_true(h.until(func() -> bool: return not h.ended.is_empty(), 3600.0), "the attack does not stay open for ever with her aground")
+	assert_true(str(h.ended[0][2]).begins_with("Cannot engage"), str(h.ended[0][2]))
+	assert_true(h.now < 1800.0 + UnitManager.ATTACK_STALL_S, "within minutes of stopping (ended at %.0f s)" % h.now)
+	assert_eq(ship.attack_rounds_fired, 0)
+	Terrain.clear()
+	h.free_all()
+
+
+func test_a_long_stern_chase_is_not_mistaken_for_a_stall() -> void:
+	var ship := _unit("BLUE", Vector2.ZERO, 100.0, [_asm(60.0)])
+	var target := _unit("RED", Vector2(0, 100), 800.0)
+	target.heading_deg = 0.0
+	target.ordered_heading_deg = 0.0
+	target.speed_kn = 26.0
+	target.ordered_speed_kn = 26.0
+	var h := _harness([ship, target])
+	var t := _track(target)
+	h.plots.append(t)
+	assert_true(h.um.issue_order(ship, Order.attack(t)))
+	h.advance(1800.0)
+	assert_true(h.ended.is_empty(), "half an hour into a chase she is not winning, the attack still stands")
+	assert_true(ship.speed_kn > 20.0, "and she is still chasing")
+	h.free_all()
+
+
+# --- Aircraft speed, and the helicopter in the dip ----------------------------------------------
+
+func _helo() -> Unit:
+	var u := Unit.new()
+	u.spec = DataDB.platform("usn_helo_mh60r")
+	for id: String in u.spec.sensor_ids:
+		u.sensors.append(DataDB.sensor(id))
+	var torpedo := DataDB.weapon("mk54_lwt")
+	u.weapons.append(torpedo)
+	u.magazines[torpedo.id] = 2
+	u.flight_state = Unit.FlightState.AIRBORNE
+	u.fuel_s = u.spec.endurance_s
+	u.faction = "BLUE"
+	u.callsign = "Helo"
+	u.altitude_m = 20.0
+	u.ordered_altitude_m = u.spec.cruise_altitude_m
+	u.ordered_speed_kn = 1.0  # as the hover left it
+	return u
+
+
+func _boat_at(pos: Vector2) -> Unit:
+	var boat := _unit("RED", pos, 100.0, [], 0, "sub")
+	boat.depth_m = 60.0
+	boat.ordered_depth_m = 60.0
+	return boat
+
+
+## The helicopter in the dip, holding the boat as a bearing: the plot is a guess far down the line.
+func _dipping(h: Harness, helo: Unit, boat: Unit) -> Track:
+	assert_true(h.um.issue_order(helo, Order.deploy_dipping_sonar(0.0)))
+	assert_true(h.until(func() -> bool: return DippingSonar.listening(helo), 120.0), "the dome is down")
+	var t := _track(boat)
+	t.position = helo.position + (boat.position - helo.position).normalized() * 20.0
+	t.bearing_only = true
+	t.tma_quality = 0.0
+	t.source = "sonar_passive"
+	t.contributors[helo] = h.now
+	return t
+
+
+func test_a_dipping_helicopter_stays_in_the_dip_and_pings_for_a_range_on_its_own_contact() -> void:
+	var helo := _helo()
+	var boat := _boat_at(Vector2(0, 1.5))
+	var h := _harness([helo, boat])
+	var t := _dipping(h, helo, boat)
+	var hover := helo.position
+	assert_true(not helo.active_sonar_on)
+	assert_true(h.um.issue_order(helo, Order.attack(t)), "a bearing is enough to order a torpedo attack")
+	h.advance(60.0)
+	assert_true(DippingSonar.listening(helo), "the dome stays down: it is the only thing holding the contact")
+	assert_true(helo.position.distance_to(hover) < 0.05, "and the helicopter does not fly off to the plotted guess")
+	assert_true(helo.active_sonar_on, "it goes active for a range")
+	assert_eq(helo.attack_phase, "Attack track · localising, sonar active")
+	assert_eq(helo.attack_rounds_fired, 0)
+	# The ping returns a range: the boat is close aboard, well inside torpedo range.
+	t.bearing_only = false
+	t.position = boat.position
+	assert_true(h.until(func() -> bool: return helo.attack_rounds_fired > 0, 60.0), "with a range it drops on the contact")
+	assert_true(helo.position.distance_to(hover) < 0.05, "from the hover")
+	assert_true(DippingSonar.listening(helo), "with the dome still down to watch the result")
+	h.free_all()
+
+
+func test_a_silenced_helicopter_keeps_listening_and_one_with_no_range_to_be_had_runs_down_the_bearing() -> void:
+	var helo := _helo()
+	var boat := _boat_at(Vector2(0, 1.5))
+	var h := _harness([helo, boat])
+	var t := _dipping(h, helo, boat)
+	var hover := helo.position
+	assert_true(h.um.issue_order(helo, Order.set_emcon(true)))
+	assert_true(h.um.issue_order(helo, Order.attack(t)))
+	h.advance(60.0)
+	assert_true(not helo.active_sonar_on, "emissions are silenced: it does not ping")
+	assert_eq(helo.attack_phase, "Attack track · localising, sonar passive")
+	assert_true(DippingSonar.listening(helo))
+	h.advance(UnitManager.ATTACK_LOCALISE_S)
+	assert_true(not DippingSonar.listening(helo), "no range to be had from here: the dome comes up")
+	assert_true(helo.attack_track == t, "and the attack goes on down the bearing")
+	h.advance(180.0)
+	assert_true(helo.speed_kn >= helo.spec.cruise_speed_kn - 1.0, "at cruise, not at the knot the hover left ordered (%.0f kn)" % helo.speed_kn)
+	assert_true(helo.position.distance_to(hover) > 2.0, "it has moved off: %.1f nm" % helo.position.distance_to(hover))
+	h.free_all()
+
+
+func test_an_aircraft_never_flies_a_task_below_its_cruise() -> void:
+	for task: String in ["attack", "investigate"]:
+		var helo := _helo()
+		var contact := _unit("RED", Vector2(0, 40), 800.0)
+		var h := _harness([helo, contact])
+		helo.weapons.append(_asm(10.0))
+		helo.magazines["test_asm"] = 2
+		var t := _track(contact, "HOSTILE" if task == "attack" else "UNKNOWN")
+		assert_true(h.um.issue_order(helo, Order.attack(t) if task == "attack" else Order.investigate(t)), task)
+		assert_true(helo.ordered_speed_kn >= helo.spec.cruise_speed_kn, "%s: ordered %.0f kn, cruise %.0f" % [task, helo.ordered_speed_kn, helo.spec.cruise_speed_kn])
+		h.advance(120.0)
+		assert_true(helo.speed_kn >= helo.spec.cruise_speed_kn - 1.0, "%s: flown at %.0f kn" % [task, helo.speed_kn])
+		h.free_all()
+
+
+# --- Identify a contact whose class is known and whose allegiance is not --------------------------
+
+func test_a_contact_of_known_class_and_unknown_allegiance_can_still_be_closed_and_looked_at() -> void:
+	var helo := _helo()
+	var merchant := _unit("GREEN", Vector2(0, 20))
+	var h := _harness([helo, merchant])
+	var t := _track(merchant, "UNKNOWN")
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = "Merchant"
+	assert_eq(UnitManager.investigation_rejection(helo, t), "", "class from a library, allegiance unknown: worth a look")
+	assert_true(h.um.issue_order(helo, Order.investigate(t)))
+	assert_eq(helo.investigation_track, t)
+	h.advance(120.0)
+	assert_eq(helo.investigation_track, t, "the look goes on until the allegiance is known")
+	assert_true(helo.position.y > 2.0, "and the helicopter is closing the contact")
+	t.classification = Track.Classification.IDENTIFIED
+	t.identity = "NEUTRAL"
+	h.advance(DT)
+	assert_eq(helo.investigation_track, null)
+	assert_eq(helo.investigation_result, "Contact classified")
+	assert_eq(UnitManager.investigation_rejection(helo, t), "Contact classified", "an identified contact needs no second look")
+	h.free_all()
