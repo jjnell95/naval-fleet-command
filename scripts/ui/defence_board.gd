@@ -48,7 +48,7 @@ func _draw() -> void:
 	if contacts == null or contacts.map == null or contacts.map.unit_manager == null:
 		return
 	var m := contacts.map
-	var threats := AirDefence.inbound_threats(m.unit_manager, m.threat_manager, m.player_faction, m.reference_unit())
+	var threats := CommanderPicture.inbound(m.unit_manager, m.threat_manager, m.player_faction)
 	var loads := AirDefence._channels_in_use(m.weapon_manager)
 	var rounds := 0
 	var bmd_rounds := 0

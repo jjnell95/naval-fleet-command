@@ -474,9 +474,11 @@ func _reset_command_screen() -> void:
 	unit_panel.clear_roster_search()
 	orders_panel.set_units([], false, false)
 	orders_panel.set_target_track(null)
-	var own := simulation.unit_manager.get_faction_units(simulation.player_faction)
-	if not own.is_empty():
-		map.select_units([own[0]])
+	# The watch opens aboard a warship on the link, never a merchant or an airframe on deck: the
+	# read-outs are measured from the hook, and a tanker's bridge is no place to fight a force from.
+	var flag := CommanderPicture.default_hook(simulation.unit_manager, simulation.player_faction)
+	if flag != null:
+		map.select_units([flag])
 	contact_panel.refresh()
 	_stats = {"launched": 0, "intercepted": 0, "decoyed": 0, "hits": 0, "leaked": 0, "hostile_rounds": 0, "hits_taken": 0, "own_rounds": 0, "hits_scored": 0, "decoys_used": 0, "contacts": 0, "classified": 0, "sorties": 0}
 	_losses = PackedStringArray()
@@ -2338,28 +2340,20 @@ func _combat_observed(subject: Unit, own_involved: bool) -> bool:
 
 
 static func _receives_report(u: Unit) -> bool:
-	return u != null and (not SubmarineComms.restricted(u) or SubmarineComms.connected(u))
+	return CommanderPicture.receives_report(u)
 
 
+## The commander's picture is the force's, never the hooked unit's: see CommanderPicture.
 func _commander_sees_track(t: Track) -> bool:
-	if t == null or t.owner_faction != simulation.player_faction: return false
-	var ref := map.reference_unit()
-	if ref == null or not _receives_report(ref): return t.networked
-	return t.visible_to(ref)
+	return CommanderPicture.holds(simulation.track_manager, simulation.unit_manager, simulation.player_faction, t)
 
 
 func _commander_sees_threat(w: Weapon) -> bool:
-	var ref := map.reference_unit()
-	if ref != null and _receives_report(ref): return simulation.threat_manager.visible_to(ref, w)
-	for u: Unit in simulation.unit_manager.get_faction_units(simulation.player_faction):
-		if u.datalink_connected() and simulation.threat_manager.visible_to(u, w): return true
-	return false
+	return CommanderPicture.sees_threat(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, w)
 
 
 func _commander_inbound() -> Array:
-	var ref := map.reference_unit()
-	if ref != null and not _receives_report(ref): ref = null
-	return AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, ref).filter(func(e: Dictionary) -> bool: return _commander_sees_threat(e["weapon"]))
+	return CommanderPicture.inbound(simulation.unit_manager, simulation.threat_manager, simulation.player_faction)
 
 
 ## The player's own track on another side's unit, if the plot holds it (association is the one
