@@ -483,3 +483,52 @@ func test_air_operations_shows_the_receipt_after_an_accepted_launch() -> void:
 	assert_true(ui._launch_hint.text.contains("launching"), ui._launch_hint.text)
 	ui.free()
 	_done()
+
+
+# --- Strike and station geometry ---------------------------------------------------------
+
+## Intruders sent at a cruiser turn for home once their Harpoons are away, instead of flying on at
+## the ship: none comes inside 0.7 of the range it fired from.
+func test_a_strike_comes_home_once_its_salvo_is_away() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var slava: Unit = null
+	for u: Unit in _sim.unit_manager.units:
+		if u.faction != "BLUE" and not u.is_aircraft() and u.spec.domain == "surface" and u.alive:
+			if slava == null or u.position.distance_to(cv.position) < slava.position.distance_to(cv.position):
+				slava = u
+	assert_true(slava != null)
+	var ship := _plot(cv.position + (slava.position - cv.position).normalized() * 120.0, "T1990", 0.0)
+	ship.domain = "surface"
+	ship.identity = "HOSTILE"
+	ship.classification = Track.Classification.CLASS_KNOWN
+	var o := Order.air_mission(AirMission.Kind.STRIKE, "cw90_a6e", 2, Vector2.INF, 0.0, ship)
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	var fired_from := {}
+	var fired_at := {}
+	var home_at := {}
+	var on_fire := func(shooter: Unit, _spec: WeaponSpec, t: Track, _rounds: int) -> void:
+		if shooter.faction == "BLUE" and t == ship and not fired_from.has(shooter):
+			fired_from[shooter] = shooter.position.distance_to(ship.position)
+			fired_at[shooter] = SimClock.sim_time
+	_sim.weapon_manager.weapon_launched.connect(on_fire)
+	var closest := {}
+	var first_fire := -1
+	for i in 3000:
+		_advance(1.0)
+		for a: Unit in fired_from:
+			if a.alive and a.in_flight():
+				closest[a] = minf(float(closest.get(a, INF)), a.position.distance_to(ship.position))
+			if a.returning and not home_at.has(a):
+				home_at[a] = SimClock.sim_time
+		if first_fire < 0 and not fired_from.is_empty():
+			first_fire = i
+		if first_fire >= 0 and i - first_fire > 600:
+			break
+	assert_true(not fired_from.is_empty(), "the strike fired")
+	for a: Unit in fired_from:
+		assert_true(home_at.has(a) and float(home_at[a]) - float(fired_at[a]) <= 30.0, "%s turned for home within 30 s of its release: %s" % [a.callsign, float(home_at.get(a, INF)) - float(fired_at[a])])
+		assert_true(float(closest[a]) >= 0.7 * float(fired_from[a]), "%s fired from %.0f nm and closed to %.0f nm" % [a.callsign, fired_from[a], closest[a]])
+	_sim.weapon_manager.weapon_launched.disconnect(on_fire)
+	_done()
+

@@ -959,6 +959,10 @@ func _track_airframe(m: AirMission, a: Unit) -> void:
 	if a.attack_track != null:
 		task["state"] = AirMission.ENGAGING
 		task["attacked"] = true
+		if m.kind == AirMission.Kind.STRIKE and a.attack_rounds_fired > 0 and not _guides_its_rounds(a):
+			_report(m, "%s: %s salvo away, returning" % [m.label(), a.callsign], true)
+			task["state"] = AirMission.RETURNING
+			_crew(a, Order.return_to_base())
 		return
 	if a.investigation_track != null:
 		task["state"] = AirMission.INVESTIGATING
@@ -1373,7 +1377,16 @@ static func _dips(a: Unit) -> bool:
 	return false
 
 
-## A strike flies straight at its target on the attack task, and comes home once it is over.
+## Whether this airframe's strike rounds need it to stay and guide them in.
+static func _guides_its_rounds(a: Unit) -> bool:
+	for spec: WeaponSpec in a.weapons:
+		if (spec.target_types.has("surface") or spec.target_types.has("land")) and spec.requires_radar_support():
+			return true
+	return false
+
+
+## A strike flies at its target on the attack task, turns for home once its salvo is away (rounds
+## that need no guidance from it), and comes home in any case once the attack is over.
 func _step_strike(m: AirMission, a: Unit, task: Dictionary) -> void:
 	if bool(task["attacked"]):
 		# The attack ended: destroyed, lost, or the magazines are empty.
