@@ -175,6 +175,12 @@ func recovery_capacity() -> int:
 	return 0
 
 
+## Spots a carrier keeps for helicopters clear of its angled deck, so a helicopter coming home is
+## not held behind every jet in the stack. Other decks land helicopters on their ordinary spots.
+func helicopter_recovery_spots() -> int:
+	return 1 if flight_facility() in ["catobar", "stobar"] else 0
+
+
 ## Deck time between coming aboard and being fit to launch again. An airframe that lands is not
 ## a round in a magazine: it has to be struck below, fuelled, rearmed and brought back up.
 func turnaround_time_s() -> float:

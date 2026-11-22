@@ -14,6 +14,8 @@ const DIALOG_SIZE := Vector2(880.0, 690.0)
 const DECK_COLUMNS := ["AIRFRAME", "SELECTED", "TIME", "STATE", "FUEL"]
 ## Mission planner choices, in AirMission.Kind order.
 const MISSION_CHOICES := ["Combat air patrol", "Reconnaissance / identification", "ASW search", "Strike"]
+## How long the hint keeps showing an accepted launch before it goes back to the deck state.
+const ACCEPTED_HINT_S := 120.0
 
 var simulation: Simulation
 var _base_picker: OptionButton
@@ -33,6 +35,11 @@ var _destination: OptionButton
 var _return: Button
 var _focus: Button
 var _receipt: Label
+## The last order this deck and type accepted, and when, so the hint can say what just happened
+## instead of why the airframes it just sent cannot be sent again.
+var _accepted_text := ""
+var _accepted_key := ""
+var _accepted_at_s := -INF
 var _summary: Label
 var _back: Button
 var _plan_tabs: TabContainer
@@ -688,7 +695,9 @@ func _refresh_launch() -> void:
 	var count := int(_count.value)
 	_launch.text = "LAUNCH %d × %s" % [count, spec.short_name]
 	_launch.disabled = maximum <= 0 or count <= 0
-	if reason != "":
+	if reason != "" and _accepted_key == _launch_key() and SimClock.sim_time - _accepted_at_s <= ACCEPTED_HINT_S:
+		_launch_hint.text = _accepted_text
+	elif reason != "":
 		_launch_hint.text = reason.capitalize()
 	elif count <= 0:
 		_launch_hint.text = "%d ready  ·  %d deck spot%s free. Set the aircraft quantity." % [ready, spots, "" if spots == 1 else "s"]
@@ -736,7 +745,7 @@ func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reas
 		_launch_hint.text = "Update station, radius and %d-aircraft strength. Assigned aircraft keep this mission." % count
 	else:
 		var queued := count - now
-		_launch_hint.text = "%d launch now%s%s." % [now, ", %d queued (%s)" % [queued, ("catapults committed" if deck_reason != "" or spots < count else "awaiting ready aircraft")] if queued > 0 else "", ", relieved from ready reserve" if _relief.button_pressed else ""]
+		_launch_hint.text = "%d launch now%s%s." % [now, ", %d queued (%s)" % [queued, (deck_reason.to_lower() if deck_reason != "" else "%s committed" % AviationManager.launch_spots_name(_base)) if deck_reason != "" or spots < count else "awaiting ready aircraft"] if queued > 0 else "", ", relieved from ready reserve" if _relief.button_pressed else ""]
 	_launch.tooltip_text = _launch_hint.text
 	_count.set_value_no_signal(count)
 
@@ -981,9 +990,17 @@ func _cancel_selected_mission() -> void:
 
 
 func show_receipt(message: String, accepted: bool) -> void:
+	if accepted:
+		_accepted_text = message
+		_accepted_key = _launch_key()
+		_accepted_at_s = SimClock.sim_time
 	var at := int(SimClock.sim_time)
 	_receipt.text = "Order %02d:%02d:%02d · %s" % [at / 3600, (at / 60) % 60, at % 60, message]
 	_receipt.add_theme_color_override("font_color", UITheme.INK_GREEN if accepted else UITheme.INK_RED)
+
+
+func _launch_key() -> String:
+	return "%d|%s" % [_base.id if _base != null else -1, _type_id]
 
 
 func _refresh_anchors() -> void:
@@ -1033,7 +1050,7 @@ func _finish_edit() -> void:
 
 
 func _planned_order() -> Order:
-	var order := Order.air_mission(_mission_kind, _type_id, int(_count.value), _station, float(_radius.value), _target, _relief.button_pressed, _auto_return.button_pressed)
+	var order := Order.air_mission(_mission_kind, _type_id, int(_count.value), _station, float(_radius.value), _target if _mission_kind == AirMission.Kind.STRIKE else null, _relief.button_pressed, _auto_return.button_pressed)
 	order.cap_intent = "protect" if _mission_kind == AirMission.Kind.CAP and _cap_intent.selected == 1 else "hold"
 	order.protected_unit = _anchors[_anchor_picker.selected] if order.cap_intent == "protect" and _anchor_picker.selected >= 0 and _anchor_picker.selected < _anchors.size() else null
 	order.pursuit_nm = _pursuit.value
