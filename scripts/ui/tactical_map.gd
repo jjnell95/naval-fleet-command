@@ -257,6 +257,11 @@ var _weapon_trail_time := -1.0
 var _weapon_trail_revision := -1
 var _weapon_trail_threat_revision := -1
 var _hit_flash := 0.0
+## The moving marks, drawn every frame above the plot (see ChartMarks), and where this plot draw
+## put the pulsing ring of each round inbound on an own ship.
+var _marks: ChartMarks
+var _threat_ring_points := PackedVector2Array()
+var _marks_shown := false
 var show_range_grid := false
 var _floor: ChartFloor
 var _land: ChartLand
@@ -313,6 +318,10 @@ func _ready() -> void:
 	_land.map = self
 	add_child(_land)
 	move_child(_land, 1)
+	_marks = ChartMarks.new()
+	_marks.name = "ChartMarks"
+	_marks.map = self
+	add_child(_marks)
 
 
 func zoom_at_center(factor: float) -> void:
@@ -532,12 +541,44 @@ func _process(delta: float) -> void:
 	_record_wrecks()
 	if (_range_unit != null and not _range_unit.alive) or (_range_track != null and _range_track.status == Track.Status.LOST):
 		_clear_range_circle()
-	# Plotted positions change on simulation ticks. Between ticks Godot retains
-	# the last draw; keep navigation, symbol preparation and animation at display speed.
-	if SimClock.sim_time != _drawn_sim_time or center_nm != _drawn_center or ppn != _drawn_ppn \
-			or _anim - _last_draw_at >= IDLE_REFRESH_S or _awaiting_symbol_art or _hit_flash > 0.0 \
-			or not _effects.is_empty() or not _threats.is_empty() or _radio.is_fading(_anim):
+	_expire_effects()
+	var plot_due := plot_redraw_due()
+	if plot_due:
 		queue_redraw()
+	if _marks != null and (plot_due or marks_redraw_due()):
+		_marks.queue_redraw()
+
+
+## Plotted positions change on simulation ticks. Between ticks Godot retains the last draw; keep
+## navigation and symbol preparation at display speed, and everything else at the idle rate.
+func plot_redraw_due() -> bool:
+	return SimClock.sim_time != _drawn_sim_time or center_nm != _drawn_center or ppn != _drawn_ppn \
+			or _anim - _last_draw_at >= IDLE_REFRESH_S or _awaiting_symbol_art
+
+
+## The moving marks redraw every frame while one is on the chart, and once more to clear the last.
+## A new chart animation belongs here and in `draw_marks`, not in the plot's `_draw`.
+func marks_animating() -> bool:
+	return _hit_flash > 0.0 or not _effects.is_empty() or not _threat_ring_points.is_empty() or _radio.is_fading(_anim)
+
+
+func marks_redraw_due() -> bool:
+	return _marks_shown or marks_animating()
+
+
+## What `plot_redraw_due` compares against: this draw's clock, view and moment.
+func _begin_plot_draw() -> void:
+	_last_draw_at = _anim
+	_drawn_sim_time = SimClock.sim_time
+	_drawn_center = center_nm
+	_drawn_ppn = ppn
+	_threat_ring_points.clear()
+
+
+func _expire_effects() -> void:
+	for i in range(_effects.size() - 1, -1, -1):
+		if _anim - float(_effects[i]["t0"]) > EFFECT_LIFE_S:
+			_effects.remove_at(i)
 
 
 ## Own platforms lost this mission, remembered where they went down so the plot shows them in
@@ -676,6 +717,7 @@ func reset_presentation() -> void:
 	_weapon_trail_threat_revision = -1
 	_effects.clear()
 	_hit_flash = 0.0
+	_threat_ring_points.clear()
 	_trail_last_s = -1.0e9
 
 
@@ -1666,10 +1708,7 @@ func _refresh_threats() -> void:
 
 func _draw() -> void:
 	var t0 := Time.get_ticks_usec()
-	_last_draw_at = _anim
-	_drawn_sim_time = SimClock.sim_time
-	_drawn_center = center_nm
-	_drawn_ppn = ppn
+	_begin_plot_draw()
 	_refresh_threats()
 	var t1 := Time.get_ticks_usec()
 	_draw_ocean()
@@ -1701,7 +1740,6 @@ func _draw() -> void:
 		Debug.time_add("plot/tracks", tracks_end - plot_start)
 		Debug.time_add("plot/units", units_end - tracks_end)
 		Debug.time_add("plot/weapons", weapons_end - units_end)
-		_draw_effects()
 		_draw_speaker_rings()
 	_draw_range_circle()
 	var label_start := Time.get_ticks_usec()
@@ -1709,26 +1747,18 @@ func _draw() -> void:
 	_draw_labels()
 	Debug.time_add("plot/labels", Time.get_ticks_usec() - label_start)
 	var t4 := Time.get_ticks_usec()
-	if _hit_flash > 0.0:
-		var a := 0.35 * (_hit_flash / 1.2)
-		var clear := Color(1.0, 0.3, 0.25, 0.0)
-		var edge := Color(1.0, 0.3, 0.25, a)
-		var w := 90.0
-		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, w), Vector2(w, size.y - w), Vector2(0, size.y)]), PackedColorArray([edge, clear, clear, edge]))
-		draw_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x - w, size.y - w), Vector2(size.x - w, w)]), PackedColorArray([edge, edge, clear, clear]))
-		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), Vector2(size.x - w, w), Vector2(w, w)]), PackedColorArray([edge, edge, clear, clear]))
-		draw_polygon(PackedVector2Array([Vector2(0, size.y), Vector2(w, size.y - w), Vector2(size.x - w, size.y - w), Vector2(size.x, size.y)]), PackedColorArray([edge, clear, clear, edge]))
 	if _drag_mode == DragMode.BOX and _drag_moved:
 		var r := Rect2(_drag_start, _mouse - _drag_start).abs()
 		draw_rect(r, Color(COL_BOX, 0.08))
 		draw_rect(r, COL_BOX, false, 1.0)
 	if not overlay_covered:
 		_draw_readout()
-		_draw_radio_line()
 		_draw_key()
 		_draw_air_board()
 		_draw_hover_card()
 	_awaiting_symbol_art = MapSymbols.deferred_graphics_frame == Engine.get_process_frames()
+	if _marks != null:
+		_marks.queue_redraw()  # its rings and flashes sit on what this draw placed
 	var t5 := Time.get_ticks_usec()
 	# The whole chart, and where it went (the parts add up to the whole).
 	Debug.time_add("chart", t5 - t0)
@@ -2831,7 +2861,7 @@ func _draw_threat_marks(u: Unit, sp: Vector2) -> void:
 		if entry["target"] != u:
 			continue
 		var w: Weapon = entry["weapon"]
-		MapSymbols.draw_threat_ring(self, sp, COL_HOSTILE, _anim)
+		_threat_ring_points.append(sp)
 		var wp := world_to_screen(w.position)
 		draw_line(wp, sp, Color(COL_HOSTILE, 0.35), 1.0, true)
 		var time_to_go := "%ds" % int(entry["time_s"])
@@ -2941,12 +2971,33 @@ func _draw_range_circle() -> void:
 	_queue_caption(c + Vector2(0.0, maxf(-r - 5.0, 16.0 - c.y)), ChartReadout.format_range_nmi(nm), READOUT_FONT_SIZE, COL_READOUT, true)
 
 
-func _draw_effects() -> void:
+## Everything on the chart that moves between plot draws, on the marks layer (ChartMarks): the
+## pulsing threat rings, the flashes, the red edge of a hit on one of ours and the radio line.
+func draw_marks(ci: CanvasItem) -> void:
+	var t0 := Time.get_ticks_usec()
+	for sp in _threat_ring_points:
+		MapSymbols.draw_threat_ring(ci, sp, COL_HOSTILE, _anim)
+	_draw_effects(ci)
+	if _hit_flash > 0.0:
+		var a := 0.35 * (_hit_flash / 1.2)
+		var clear := Color(1.0, 0.3, 0.25, 0.0)
+		var edge := Color(1.0, 0.3, 0.25, a)
+		var w := 90.0
+		ci.draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, w), Vector2(w, size.y - w), Vector2(0, size.y)]), PackedColorArray([edge, clear, clear, edge]))
+		ci.draw_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x - w, size.y - w), Vector2(size.x - w, w)]), PackedColorArray([edge, edge, clear, clear]))
+		ci.draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), Vector2(size.x - w, w), Vector2(w, w)]), PackedColorArray([edge, edge, clear, clear]))
+		ci.draw_polygon(PackedVector2Array([Vector2(0, size.y), Vector2(w, size.y - w), Vector2(size.x - w, size.y - w), Vector2(size.x, size.y)]), PackedColorArray([edge, clear, clear, edge]))
+	if not overlay_covered:
+		_draw_radio_line(ci)
+	_marks_shown = marks_animating()
+	Debug.time_add("chart/marks", Time.get_ticks_usec() - t0)
+
+
+func _draw_effects(ci: CanvasItem) -> void:
 	for i in range(_effects.size() - 1, -1, -1):
 		var e: Dictionary = _effects[i]
 		var age: float = _anim - float(e["t0"])
 		if age > EFFECT_LIFE_S:
-			_effects.remove_at(i)
 			continue
 		var f := age / EFFECT_LIFE_S
 		var sp := world_to_screen(e["pos"])
@@ -2954,25 +3005,25 @@ func _draw_effects() -> void:
 		var kind: String = e["kind"]
 		match kind:
 			"hit", "destroyed":
-				draw_circle(sp, 4.0 + 26.0 * f, Color(col, 0.35 * (1.0 - f)))
-				draw_arc(sp, 6.0 + 40.0 * f, 0.0, TAU, 32, Color(col, 0.8 * (1.0 - f)), 2.0, true)
+				ci.draw_circle(sp, 4.0 + 26.0 * f, Color(col, 0.35 * (1.0 - f)))
+				ci.draw_arc(sp, 6.0 + 40.0 * f, 0.0, TAU, 32, Color(col, 0.8 * (1.0 - f)), 2.0, true)
 				if kind == "destroyed":
-					draw_arc(sp, 10.0 + 60.0 * f, 0.0, TAU, 32, Color(col, 0.5 * (1.0 - f)), 1.0, true)
+					ci.draw_arc(sp, 10.0 + 60.0 * f, 0.0, TAU, 32, Color(col, 0.5 * (1.0 - f)), 1.0, true)
 			"intercept", "decoy":
-				draw_arc(sp, 3.0 + 22.0 * f, 0.0, TAU, 24, Color(col, 0.9 * (1.0 - f)), 1.5, true)
+				ci.draw_arc(sp, 3.0 + 22.0 * f, 0.0, TAU, 24, Color(col, 0.9 * (1.0 - f)), 1.5, true)
 				for k in 6:
 					var a := TAU * k / 6.0 + f
-					draw_line(sp + Vector2(cos(a), sin(a)) * (4.0 + 10.0 * f), sp + Vector2(cos(a), sin(a)) * (8.0 + 18.0 * f), Color(col, 0.7 * (1.0 - f)), 1.0)
+					ci.draw_line(sp + Vector2(cos(a), sin(a)) * (4.0 + 10.0 * f), sp + Vector2(cos(a), sin(a)) * (8.0 + 18.0 * f), Color(col, 0.7 * (1.0 - f)), 1.0)
 			"launch":
-				draw_arc(sp, 4.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.6 * (1.0 - f)), 1.0, true)
+				ci.draw_arc(sp, 4.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.6 * (1.0 - f)), 1.0, true)
 			"refused":
 				var r := 16.0 - 8.0 * f
 				var a := Color(col, 0.9 * (1.0 - f))
-				draw_arc(sp, r, 0.0, TAU, 24, a, 1.5, true)
-				draw_line(sp + Vector2(-r, -r) * 0.6, sp + Vector2(r, r) * 0.6, a, 1.5)
-				draw_line(sp + Vector2(-r, r) * 0.6, sp + Vector2(r, -r) * 0.6, a, 1.5)
+				ci.draw_arc(sp, r, 0.0, TAU, 24, a, 1.5, true)
+				ci.draw_line(sp + Vector2(-r, -r) * 0.6, sp + Vector2(r, r) * 0.6, a, 1.5)
+				ci.draw_line(sp + Vector2(-r, r) * 0.6, sp + Vector2(r, -r) * 0.6, a, 1.5)
 			_:
-				draw_arc(sp, 3.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.5 * (1.0 - f)), 1.0, true)
+				ci.draw_arc(sp, 3.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.5 * (1.0 - f)), 1.0, true)
 
 
 # --- Readouts and radio line --------------------------------------------------------------
@@ -2987,10 +3038,11 @@ func _readout_font() -> Font:
 
 
 ## White bold text with a 1 px black drop shadow and no plate, the chart's only text style.
-func _shadow_text(at: Vector2, text: String, font_size: int, col := COL_READOUT, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
+func _shadow_text(at: Vector2, text: String, font_size: int, col := COL_READOUT, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, ci: CanvasItem = null) -> void:
 	var font := _readout_font()
-	draw_string(font, at + Vector2(1.0, 1.0), text, align, width, font_size, Color(COL_READOUT_SHADOW, COL_READOUT_SHADOW.a * col.a))
-	draw_string(font, at, text, align, width, font_size, col)
+	var on: CanvasItem = ci if ci != null else self
+	on.draw_string(font, at + Vector2(1.0, 1.0), text, align, width, font_size, Color(COL_READOUT_SHADOW, COL_READOUT_SHADOW.a * col.a))
+	on.draw_string(font, at, text, align, width, font_size, col)
 
 
 func _draw_text_block(first_baseline: Vector2, lines: PackedStringArray, col := COL_READOUT) -> void:
@@ -3102,7 +3154,7 @@ func radio_layout() -> Dictionary:
 		var rows := wrap_radio_text(font, e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
 		for r in range(rows.size() - 1, -1, -1):
 			widest = maxf(widest, _text_width(rows[r], READOUT_FONT_SIZE))
-			out.append({"text": rows[r], "baseline": baseline, "color": Color(col, alpha * col.a)})
+			out.append({"text": rows[r], "baseline": baseline, "color": Color(col, alpha * col.a), "tone": col, "t0": float(e["t0"])})
 			baseline -= READOUT_LINE_H
 	var top := baseline + READOUT_LINE_H - font.get_ascent(READOUT_FONT_SIZE)
 	var plate := Rect2(roundf((size.x - widest) * 0.5 - RADIO_PLATE_PAD.x), roundf(top - RADIO_PLATE_PAD.y), roundf(widest + 2.0 * RADIO_PLATE_PAD.x), 0.0)
@@ -3110,12 +3162,24 @@ func radio_layout() -> Dictionary:
 	return {"rows": out, "plate": plate, "alpha": strongest}
 
 
-func _draw_radio_line() -> void:
+## Laid out with the plot (the band it keeps clear), drawn with the marks: a line fades by the
+## frame, its rows only reflow when the plot next draws.
+func _draw_radio_line(ci: CanvasItem) -> void:
 	if _radio_layout.is_empty():
 		return
-	draw_rect(_radio_layout["plate"], Color(COL_RADIO_PLATE, COL_RADIO_PLATE.a * float(_radio_layout["alpha"])))
+	var strongest := 0.0
+	var colours: Array[Color] = []
 	for row: Dictionary in _radio_layout["rows"]:
-		_shadow_text(Vector2(0.0, row["baseline"]), row["text"], READOUT_FONT_SIZE, row["color"], HORIZONTAL_ALIGNMENT_CENTER, size.x)
+		var tone: Color = row["tone"]
+		var alpha := RadioLine.alpha_at(_anim - float(row["t0"]))
+		strongest = maxf(strongest, alpha)
+		colours.append(Color(tone, alpha * tone.a))
+	if strongest <= 0.0:
+		return
+	ci.draw_rect(_radio_layout["plate"], Color(COL_RADIO_PLATE, COL_RADIO_PLATE.a * strongest))
+	var rows: Array = _radio_layout["rows"]
+	for i in rows.size():
+		_shadow_text(Vector2(0.0, rows[i]["baseline"]), rows[i]["text"], READOUT_FONT_SIZE, colours[i], HORIZONTAL_ALIGNMENT_CENTER, size.x, ci)
 
 
 ## A white circle round each platform whose message is on the radio line: it is transmitting.
