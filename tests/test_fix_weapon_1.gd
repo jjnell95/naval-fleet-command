@@ -386,7 +386,8 @@ func test_the_rest_of_a_salvo_takes_the_next_ship_when_the_first_round_sinks_the
 	for w: Weapon in rounds:
 		if w.dead_reason == "TARGET LOST":
 			lost += 1
-			assert_true(w.distance_flown_nm >= spec.max_range_nm - 0.01, "a round is lost only when its range runs out (flew %.1f nm)" % w.distance_flown_nm)
+			# It searches a few seeker radii past the wreck, not to the end of its fuel.
+			assert_true(w.distance_flown_nm <= 30.0 + WeaponManager.SEARCH_ON_SEEKER_RADII * spec.acquisition_radius_nm() + 1.0, "a round gives up a few seeker radii past the wreck (flew %.1f nm)" % w.distance_flown_nm)
 			assert_true(w.position.y > 40.0, "having searched on down its heading, not circled the wreck")
 	assert_eq(lost, 2, "the two with nothing left to find")
 	_free_world(h)

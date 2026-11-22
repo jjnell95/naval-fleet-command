@@ -105,8 +105,13 @@ func test_semi_active_guidance_still_requires_illumination() -> void:
 	var round := Weapon.new()
 	round.spec = spec
 	round.shooter = shooter
+	round.aim_point = Vector2(0, 50)
 	shooter.radar_on = false
+	# A missile fired at an aircraft coasts a moment on its last solution, then is lost.
 	wm._step(round, 0.25)
+	assert_eq(round.dead_reason, "", "one missed look is coasted through")
+	for i in int(WeaponManager.INTERCEPT_COAST_S / 0.25) + 1:
+		wm._step(round, 0.25)
 	assert_eq(round.dead_reason, "GUIDANCE LOST")
 	wm.free()
 
