@@ -2324,7 +2324,12 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 	else:
 		# Only what the plot holds: the contact's track label, never its true name or health.
 		var t := _held_track(target)
-		if t != null:
+		if t != null and t.identity in ["NEUTRAL", "FRIENDLY"]:
+			# Never good news, whoever fired: an own round on a ship the plot holds as no enemy is
+			# the commander's to stop, and another side's is still an attack on shipping.
+			var whose := " by our weapon — check fire" if faction == simulation.player_faction else ""
+			radio.flash("Hit on %s %s%s" % [t.identity.to_lower(), t.label(), whose], "alert", null, radio._reported_position(t))
+		elif t != null:
 			radio.flash("Hit", "good", t)
 		elif faction == simulation.player_faction:
 			radio.flash("Weapon hit", "good")
