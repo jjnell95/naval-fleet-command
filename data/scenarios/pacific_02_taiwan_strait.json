@@ -33166,7 +33166,19 @@
           "ready_after_s": 1200
         }
       ],
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "patrol_nm": [
+        [
+          100.2004,
+          -14.3494
+        ],
+        [
+          87.7004,
+          -36.0
+        ]
+      ],
+      "follow_route": true,
+      "route_circuit": true
     },
     {
       "platform": "usn_cg_ticonderoga",
@@ -33178,7 +33190,13 @@
       ],
       "heading_deg": 30,
       "speed_kn": 20,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "USS Ronald Reagan (CVN 76)",
+      "formation_offset_nm": [
+        7.4,
+        14.6
+      ],
+      "formation_axis_deg": 30.0
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
@@ -33190,7 +33208,13 @@
       ],
       "heading_deg": 30,
       "speed_kn": 20,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "USS Ronald Reagan (CVN 76)",
+      "formation_offset_nm": [
+        -11.2,
+        -13.4
+      ],
+      "formation_axis_deg": 30.0
     },
     {
       "platform": "usn_ddg_burke_iii",
@@ -33202,7 +33226,13 @@
       ],
       "heading_deg": 30,
       "speed_kn": 20,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "USS Ronald Reagan (CVN 76)",
+      "formation_offset_nm": [
+        -18.5,
+        10.1
+      ],
+      "formation_axis_deg": 30.0
     },
     {
       "platform": "jmsdf_ddg_maya",
@@ -33224,7 +33254,9 @@
           60.0
         ]
       ],
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "follow_route": true,
+      "route_circuit": true
     },
     {
       "platform": "jmsdf_dd_akizuki",
@@ -33246,7 +33278,9 @@
           84.0
         ]
       ],
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "follow_route": true,
+      "route_circuit": true
     },
     {
       "platform": "usn_ssn_virginia",
@@ -33836,7 +33870,7 @@
     }
   },
   "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
-  "operation_revision": 28,
+  "operation_revision": 29,
   "collection": "operations",
   "operation_plan": [
     {

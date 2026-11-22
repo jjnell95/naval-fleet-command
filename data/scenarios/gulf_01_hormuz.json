@@ -4885,7 +4885,7 @@
         -36.5766,
         9.0
       ],
-      "heading_deg": 100,
+      "heading_deg": 82.6,
       "speed_kn": 13,
       "patrol_nm": [
         [
@@ -4902,7 +4902,8 @@
         ]
       ],
       "radar_on": true,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "follow_route": true
     },
     {
       "platform": "civ_tanker_vlcc",
@@ -4912,7 +4913,7 @@
         -43.0313,
         7.2
       ],
-      "heading_deg": 100,
+      "heading_deg": 80.8,
       "speed_kn": 13,
       "patrol_nm": [
         [
@@ -4929,7 +4930,8 @@
         ]
       ],
       "radar_on": true,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "follow_route": true
     },
     {
       "platform": "civ_tanker_vlcc",
@@ -4939,7 +4941,7 @@
         -47.3345,
         10.8
       ],
-      "heading_deg": 100,
+      "heading_deg": 88.0,
       "speed_kn": 13,
       "patrol_nm": [
         [
@@ -4956,7 +4958,8 @@
         ]
       ],
       "radar_on": true,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "follow_route": true
     },
     {
       "platform": "usn_ddg_arleigh_burke_iia",
@@ -4966,9 +4969,14 @@
         -27.9704,
         10.2
       ],
-      "heading_deg": 100,
+      "heading_deg": 82.6,
       "speed_kn": 13,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "MT Gulf Horizon",
+      "formation_offset_nm": [
+        -0.1,
+        8.7
+      ]
     },
     {
       "platform": "rn_ddg_type45",
@@ -4978,9 +4986,14 @@
         -33.3493,
         13.2
       ],
-      "heading_deg": 100,
+      "heading_deg": 82.6,
       "speed_kn": 13,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "MT Gulf Horizon",
+      "formation_offset_nm": [
+        -3.7,
+        3.7
+      ]
     },
     {
       "platform": "fra_ffg_fremm",
@@ -4990,9 +5003,14 @@
         -52.7134,
         4.8
       ],
-      "heading_deg": 100,
+      "heading_deg": 82.6,
       "speed_kn": 13,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "MT Gulf Horizon",
+      "formation_offset_nm": [
+        2.1,
+        -16.5
+      ]
     },
     {
       "platform": "shore_air_station",
@@ -5434,14 +5452,14 @@
   "learning": "Convoy defence in confined water: fast-attack-craft swarms, one-way attack drones, a midget submarine, shore-based cruise and ballistic missiles, and neutral traffic everywhere",
   "commander_intent": "Keep two tankers inside the destination box for five minutes; the transit deadline remains in force.",
   "first_orders": [
-    "Put Paul Ignatius ahead of the convoy in the outbound lane and Duncan on the Iranian side; Languedoc's sonar belongs astern where the Ghadir waits.",
+    "Paul Ignatius is formed ahead of the convoy in the outbound lane, Duncan on the Iranian side and Languedoc astern, where her sonar meets the Ghadir; Return to Station puts any of them back.",
     "The swarm comes from Qeshm at fifty knots. Radar on, weapons free, and guns for anything inside five miles: a Harpoon or an Exocet that loses a boat in the strait will find a dhow, and a neutral sunk by your fire ends the mission.",
     "The Khalij Fars battery fires on drone reports. Killing the drones early is cheaper than stopping the missiles late.",
     "F1 lists the operation sequence, live task progress and tasking updates. Contact reports go on the plot as wide datums to investigate; they are never firing solutions."
   ],
   "setting_note": "A fictional May 2027 crisis. Real geography and traffic lanes, real class names; the deployment and the engagement are invented.",
   "objectives": {
-    "text": "Order the tankers into the lane and place the escorts. Classify small craft before firing; UKMTO and coastal reports are datums, not solutions. Escort at least two tankers through the mixed coastal, submarine and small-craft threat. The convoy passing Larak can bring out a second swarm, ahead or astern. Reserve short-range interceptors for leakers. Keep two tankers inside the destination box for five minutes; the transit deadline remains in force.",
+    "text": "The tankers are in the lane on their route and the escorts are formed on Gulf Horizon; adjust the screen before the shore batteries come out. Classify small craft before firing; UKMTO and coastal reports are datums, not solutions. Escort at least two tankers through the mixed coastal, submarine and small-craft threat. The convoy passing Larak can bring out a second swarm, ahead or astern. Reserve short-range interceptors for leakers. Keep two tankers inside the destination box for five minutes; the transit deadline remains in force.",
     "victory": [
       {
         "id": "transit",
@@ -5688,12 +5706,12 @@
     }
   },
   "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
-  "operation_revision": 28,
+  "operation_revision": 29,
   "collection": "operations",
   "operation_plan": [
     {
       "title": "01 / Assemble the convoy",
-      "task": "Order the tankers into the lane and place the escorts. Classify small craft before firing; UKMTO and coastal reports are datums, not solutions."
+      "task": "The tankers are in the lane on their route and the escorts are formed on Gulf Horizon; adjust the screen before the shore batteries come out. Classify small craft before firing; UKMTO and coastal reports are datums, not solutions."
     },
     {
       "title": "02 / Clear the strait",

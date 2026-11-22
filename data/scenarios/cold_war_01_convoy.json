@@ -254,9 +254,14 @@
         -2.8951,
         -1.2
       ],
-      "heading_deg": 35,
-      "speed_kn": 16,
-      "aviation_reload_cycles": 2
+      "heading_deg": 32.9,
+      "speed_kn": 14,
+      "aviation_reload_cycles": 2,
+      "formation_leader": "MV North Star",
+      "formation_offset_nm": [
+        -1.2,
+        9.3
+      ]
     },
     {
       "platform": "cw90_perry",
@@ -266,11 +271,16 @@
         -2.3161,
         -6.6
       ],
-      "heading_deg": 35,
-      "speed_kn": 16,
+      "heading_deg": 32.9,
+      "speed_kn": 14,
       "radar_on": false,
       "air_wing": [],
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "MV North Star",
+      "formation_offset_nm": [
+        2.3,
+        5.0
+      ]
     },
     {
       "platform": "cw90_merchant",
@@ -280,9 +290,16 @@
         -6.9483,
         -9.6
       ],
-      "heading_deg": 32.903,
+      "heading_deg": 32.9,
       "speed_kn": 14,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "patrol_nm": [
+        [
+          10.1329,
+          16.8
+        ]
+      ],
+      "follow_route": true
     },
     {
       "platform": "cw90_nanuchka",
@@ -10264,7 +10281,7 @@
     }
   },
   "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
-  "operation_revision": 28,
+  "operation_revision": 29,
   "collection": "operations",
   "operation_plan": [
     {

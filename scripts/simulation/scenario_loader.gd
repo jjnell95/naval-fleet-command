@@ -71,10 +71,14 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 			u.ordered_altitude_m = spec.cruise_altitude_m
 		for leg in ud.get("patrol_nm", []):
 			u.patrol_route.append(Vector2(leg[0], leg[1]))
-		# Opening convoy orders use the editor's route data without handing the player to AI.
-		if bool(ud.get("follow_route", false)):
-			for i in u.patrol_route.size():
-				u.apply_order(Order.move(u.patrol_route[i], i > 0))
+		# Opening orders use the editor's route data without handing the player to AI: a transit
+		# sails its route once; a `route_circuit` (a watch station, a picket line) keeps sailing it.
+		if bool(ud.get("follow_route", false)) and not u.patrol_route.is_empty():
+			if bool(ud.get("route_circuit", false)):
+				u.apply_order(Order.patrol(u.patrol_route))
+			else:
+				for i in u.patrol_route.size():
+					u.apply_order(Order.move(u.patrol_route[i], i > 0))
 		u.squadron = str(ud.get("squadron", ""))
 		var loadout: Dictionary = ud.get("loadout", spec.weapon_loadout)
 		for wid in loadout:
@@ -111,8 +115,10 @@ static func _link_formations(um: UnitManager, hosts: Array[Dictionary]) -> void:
 			if leader.callsign != name or not Formation.can_join(u, leader):
 				continue
 			var offset: Array = entry["data"].get("formation_offset_nm", [3, -3])
+			# A screen laid on a threat bearing keeps it when a guide on a watch circuit turns.
+			var axis := float(entry["data"].get("formation_axis_deg", -1.0))
 			if offset.size() >= 2:
-				u.apply_order(Order.form_up(leader, Vector2(offset[0], offset[1])))
+				u.apply_order(Order.form_up(leader, Vector2(offset[0], offset[1]), fposmod(axis, 360.0) if axis >= 0.0 else -1.0))
 			break
 
 

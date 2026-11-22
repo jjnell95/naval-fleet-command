@@ -319,7 +319,19 @@
           "first_modex": 801,
           "ready_after_s": 0
         }
-      ]
+      ],
+      "patrol_nm": [
+        [
+          -38.0388,
+          -24.7505
+        ],
+        [
+          -14.5465,
+          -16.2
+        ]
+      ],
+      "follow_route": true,
+      "route_circuit": true
     },
     {
       "platform": "cw90_ticonderoga",
@@ -331,7 +343,13 @@
       ],
       "heading_deg": 250,
       "speed_kn": 18,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "USS Dwight D. Eisenhower (CVN 69)",
+      "formation_offset_nm": [
+        7.9,
+        -10.0
+      ],
+      "formation_axis_deg": 250.0
     },
     {
       "platform": "cw90_spruance",
@@ -344,7 +362,13 @@
       "heading_deg": 250,
       "speed_kn": 18,
       "radar_on": false,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "formation_leader": "USS Dwight D. Eisenhower (CVN 69)",
+      "formation_offset_nm": [
+        -5.2,
+        -12.4
+      ],
+      "formation_axis_deg": 250.0
     },
     {
       "platform": "cw90_slava",
@@ -26076,7 +26100,7 @@
     }
   },
   "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
-  "operation_revision": 28,
+  "operation_revision": 29,
   "collection": "operations",
   "operation_plan": [
     {

@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # Bumped when the pass changes. A file already at or past it is left alone, so running this module
 # on its own only re-encodes the shipped files; regenerate through the five builders.
-REVISION = 28
+REVISION = 29
 # Each operation has a distinct command problem: one 2027 operation per chart region and three
 # 1990 operations. M35 cut the overlapping missions; the two exercises stay on the Training shelf.
 PLANS = {
@@ -32,7 +32,7 @@ PLANS = {
  'cold_war_02_barrier': [('Set the barrier', 'Put Dallas and the helicopters across the likely lanes. A loud Spruance can turn the boat from a transit into an attack.'), ('Localize the submarine', 'Fixed-array cues arrive as wide datums. Use passive bearings and spaced sonobuoys; a bearing or a cue is not a torpedo solution.'), ('Deny the passage', 'Stop the Victor III or maintain the barrier until the watch ends; a breakout still means defeat, and there may be more than one boat.')],
  'cold_war_03_carrier': [('Build the air picture', 'Get the Hawkeye and a Tomcat section up toward the threat axis. The raids keep no timetable: a second element follows once the enemy holds the group, or when it is provoked.'), ('Fight the raids or strike the cruiser', 'The four Intruders can put Harpoons into Slava from outside her SA-N-6 once she is located and classified. Alert, she shoots down most of a small salvo, so strike with all four; a hit brings the next raid at once, and every catapult and recovery slot the strike uses is one the Tomcats cannot.'), ('Recover and reset', 'Complete the two-hour watch and recover at least one aircraft. A carrier or cruiser loss still ends the operation.')],
  'pacific_02_taiwan_strait': [('Establish the picket', 'Put Hawkeye, CAP and the electronic-attack section up early; the KJ-500 holding the carrier is what brings the next raid and the next fighters.'), ('Meet the follow-on strike', 'Bomber elements arrive in separate waves and not always on the same axis. Protect the eastern pickets while the carrier cycles its larger air wing.'), ('Recover the air plan', 'Complete the five-hour watch and recover at least one aircraft. A surface kill alone does not cancel the air threat.')],
- 'gulf_01_hormuz': [('Assemble the convoy', 'Order the tankers into the lane and place the escorts. Classify small craft before firing; UKMTO and coastal reports are datums, not solutions.'), ('Clear the strait', 'Escort at least two tankers through the mixed coastal, submarine and small-craft threat. The convoy passing Larak can bring out a second swarm, ahead or astern. Reserve short-range interceptors for leakers.'), ('Handover in the Gulf of Oman', 'Keep two tankers inside the destination box for five minutes; the transit deadline remains in force.')],
+ 'gulf_01_hormuz': [('Assemble the convoy', 'The tankers are in the lane on their route and the escorts are formed on Gulf Horizon; adjust the screen before the shore batteries come out. Classify small craft before firing; UKMTO and coastal reports are datums, not solutions.'), ('Clear the strait', 'Escort at least two tankers through the mixed coastal, submarine and small-craft threat. The convoy passing Larak can bring out a second swarm, ahead or astern. Reserve short-range interceptors for leakers.'), ('Handover in the Gulf of Oman', 'Keep two tankers inside the destination box for five minutes; the transit deadline remains in force.')],
  'med_01_tartus': [('Cover the amphibious group', 'Get AEW and fighter cover up and keep Mistral behind the screen. Her progress east is what Khmeimim is watching.'), ('Cross the threat axis', 'Strike aircraft come in separate elements and not always from the same side of Cyprus. If the Bastion battery shows itself, the holding box can move.'), ('Secure the holding area', 'Keep Mistral in the holding box for five minutes after arrival. Civilian losses remain unacceptable.')],
  'aegis_bastion': [('Build the picket', 'Put Jack H. Lucas and Gettysburg between the group and the Kola and get airborne warning up. Keep the carrier and Maud farther back.'), ('Defend the force', 'Ballistic and low-altitude threats require different interceptors. The second Kinzhal element comes when Monchegorsk is ready, sooner if its ships are hit or its picture finds the carrier.'), ('Reset for another strike', 'Complete the four-hour watch and recover an aircraft. Launch reserve sections as the ready deck empties.')],
 }
@@ -508,11 +508,100 @@ def _domain(platform):
     raise ValueError('unknown platform ' + platform)
 
 
+# --- The player's opening order: the main body on its route, the escorts on their stations ------
+# A force that opened every operation "steady on" its authored heading, with no route and no
+# station, left the commander to rebuild by hand what any group sails with: a guide on her track
+# (PIM) and a screen formed on her. Return to Station meant nothing until he had. Each operation
+# now opens with its guide following the route the mission gives her (a transit sails it once; a
+# watch keeps a circuit on its station), the escorts formed on the guide where the builder placed
+# them, and pickets sailing their own lines. Consorts' stations are worked out from the authored
+# positions, so the opening picture is the one the scenario was balanced on.
+
+WATCH_LEG_NM = 25.0  # one leg of a watch circuit along the guide's authored course. GAMEPLAY_ESTIMATE.
+
+OPENINGS = {
+    'cold_war_01_convoy': dict(guide='MV North Star', route='handover',
+                               consorts=['USS Elrod (FFG 55)', 'USS Nicholas (FFG 47)']),
+    'cold_war_02_barrier': dict(pickets={'USS Spruance (DD 963)': [[8.0, -3.0], [-10.0, -3.0]],
+                                         'USS Dallas (SSN 700)': [[6.0, 4.0], [-6.0, 4.0]]}),
+    'cold_war_03_carrier': dict(guide='USS Dwight D. Eisenhower (CVN 69)', watch=True,
+                                consorts=['USS Bunker Hill (CG 52)', 'USS Spruance (DD 963)']),
+    'aegis_bastion': dict(guide='USS Dwight D. Eisenhower (CVN 69)', watch=True,
+                          consorts=['USS Truxtun (DDG 103)', 'HNoMS Fridtjof Nansen (F 310)', 'HNoMS Maud (A 530)'],
+                          pickets={'USS Jack H. Lucas (DDG 125)': None, 'USS Gettysburg (CG 64)': None}),
+    'pacific_02_taiwan_strait': dict(guide='USS Ronald Reagan (CVN 76)', watch=True,
+                                     consorts=['USS Robert Smalls (CG 62)', 'USS Rafael Peralta (DDG 115)', 'USS Jack H. Lucas (DDG 125)'],
+                                     pickets={'JS Maya (DDG 179)': None, 'JS Akizuki (DD 115)': None}),
+    # The tankers sail the lane in their own column on the shared route, at their own 13 knots: a
+    # VLCC formed as a consort would hold the guide four knots under her best, and the transit
+    # would no longer fit its window. The escorts are formed on the lead tanker.
+    'gulf_01_hormuz': dict(guide='MT Gulf Horizon',
+                           consorts=['USS Paul Ignatius (DDG 117)', 'HMS Duncan (D 37)', 'FS Languedoc (D 653)'],
+                           column=['MT Ras Laffan Pride', 'MT Aegean Dawn']),
+    'med_01_tartus': dict(guide='FS Mistral (L 9013)',
+                          consorts=['FS Charles de Gaulle (R 91)', 'ITS Andrea Doria (D 553)', 'FS Provence (D 652)']),
+}
+
+
+def _bearing(a, b):
+    return math.degrees(math.atan2(b[0] - a[0], b[1] - a[1])) % 360.0
+
+
+def _station(guide, consort, axis):
+    """The consort's offset from the guide in the guide's frame (x to starboard, y ahead)."""
+    dx = consort['position_nm'][0] - guide['position_nm'][0]
+    dy = consort['position_nm'][1] - guide['position_nm'][1]
+    r = math.radians(axis)
+    ahead = dx * math.sin(r) + dy * math.cos(r)
+    starboard = dx * math.cos(r) - dy * math.sin(r)
+    return [round(starboard, 1), round(ahead, 1)]
+
+
+def _opening_order(d):
+    plan = OPENINGS.get(d['id'])
+    if plan is None:
+        return
+    for name, line in plan.get('pickets', {}).items():
+        u = _unit(d, name)
+        if line is not None:
+            u['patrol_nm'] = [list(p) for p in line]
+        u.update(follow_route=True, route_circuit=True)
+    if 'guide' not in plan:
+        return
+    guide = _unit(d, plan['guide'])
+    if plan.get('watch'):
+        # A watch station: out along the authored course and back, the screen held on that axis
+        # so it does not swing round the carrier at every turn.
+        axis = float(guide['heading_deg'])
+        start = guide['position_nm']
+        r = math.radians(axis)
+        out = [round(start[0] + WATCH_LEG_NM * math.sin(r), 4), round(start[1] + WATCH_LEG_NM * math.cos(r), 4)]
+        guide.update(patrol_nm=[out, list(start)], follow_route=True, route_circuit=True)
+    else:
+        if plan.get('route'):
+            box = next(o for o in d['objectives']['victory'] if o['id'] == plan['route'])['center_nm']
+            guide['patrol_nm'] = [list(box)]
+        guide['follow_route'] = True
+        axis = round(_bearing(guide['position_nm'], guide['patrol_nm'][0]), 1)
+        guide['heading_deg'] = axis
+    for name in plan.get('column', []):
+        u = _unit(d, name)
+        u.update(patrol_nm=[list(p) for p in guide['patrol_nm']], follow_route=True,
+                 heading_deg=round(_bearing(u['position_nm'], guide['patrol_nm'][0]), 1))
+    for name in plan['consorts']:
+        u = _unit(d, name)
+        u.update(formation_leader=guide['callsign'], formation_offset_nm=_station(guide, u, axis),
+                 heading_deg=guide['heading_deg'], speed_kn=guide['speed_kn'])
+        if plan.get('watch'):
+            u['formation_axis_deg'] = axis
+
+
 def _check_geometry(d):
     """The builders check the opening force against the coast before this pass runs. Units that
-    enter by event, routes an event gives a unit, and boxes it moves are checked here the same way."""
+    enter by event, routes an event gives a unit, boxes it moves and the opening routes this pass
+    writes are checked here the same way."""
     import geography as g
-    units, boxes = [], []
+    units, boxes = [u for u in d['units'] if u.get('follow_route')], []
     for e in d['events']:
         for shape in [e] + e.get('variants', []):
             units.extend(shape.get('reinforcements', []))
@@ -597,6 +686,7 @@ def enhance(d):
                 (sid=='gulf_01_hormuz' and u['callsign'] in HORMUZ_BATTERIES)]
     d['units'] = [u for u in d['units'] if u not in delayed]
     d['_delayed'] = delayed
+    _opening_order(d)
     d['events'] = REACTIONS[sid](d)
     d.pop('_delayed', None)
     d['ai_plans'] = ENEMY_PLANS[sid](d)

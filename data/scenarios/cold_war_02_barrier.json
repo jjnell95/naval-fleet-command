@@ -263,7 +263,19 @@
       "speed_kn": 6,
       "depth_m": 170,
       "radar_on": false,
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "patrol_nm": [
+        [
+          6.0,
+          4.0
+        ],
+        [
+          -6.0,
+          4.0
+        ]
+      ],
+      "follow_route": true,
+      "route_circuit": true
     },
     {
       "platform": "cw90_spruance",
@@ -294,7 +306,19 @@
           ]
         }
       ],
-      "aviation_reload_cycles": 2
+      "aviation_reload_cycles": 2,
+      "patrol_nm": [
+        [
+          8.0,
+          -3.0
+        ],
+        [
+          -10.0,
+          -3.0
+        ]
+      ],
+      "follow_route": true,
+      "route_circuit": true
     },
     {
       "platform": "cw90_airfield",
@@ -23313,7 +23337,7 @@
     }
   },
   "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
-  "operation_revision": 28,
+  "operation_revision": 29,
   "collection": "operations",
   "operation_plan": [
     {

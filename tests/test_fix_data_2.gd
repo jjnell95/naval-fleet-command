@@ -54,3 +54,33 @@ func test_hormuz_gives_the_commander_his_opening_before_the_shore_fires() -> voi
 		var qeshm := _named(sim, "Qeshm coastal battery")
 		assert_true(qeshm != null, "seed %d: the Qader battery has come out by 28 minutes" % seed_value)
 		_close(sim)
+
+
+## Every operation used to open with each own ship "Steady on" her authored heading, no route and
+## no station. The main body now sails its route from the first second and the escorts are formed
+## on the guide, so Return to Station has somewhere to go; ten minutes on they are still on it.
+func test_every_operation_opens_with_its_force_on_route_and_on_station() -> void:
+	for id: String in OPERATIONS:
+		var sim := _open("res://data/scenarios/%s.json" % id, 7)
+		var ships: Array[Unit] = []
+		for u: Unit in sim.unit_manager.get_faction_units(sim.player_faction):
+			if u.spec.domain == "surface" and u.spec.max_speed_kn > 0.0:
+				ships.append(u)
+		assert_true(not ships.is_empty(), "%s has ships" % id)
+		var formed := 0
+		for u: Unit in ships:
+			var orders := DataDisplay.orders_text(u)
+			assert_true(not orders.begins_with("Steady on"), "%s: %s opens with orders, not '%s'" % [id, u.callsign, orders])
+			assert_true(u.in_formation() or u.patrol_active or u.has_route(), "%s: %s has a route or a station" % [id, u.callsign])
+			if u.in_formation():
+				formed += 1
+				assert_true(u.has_station(), "%s: %s can be sent back to her station" % [id, u.callsign])
+				assert_true(u.position.distance_to(Formation.station_for(u)) < 0.5, "%s: %s starts on her station" % [id, u.callsign])
+		SimClock.advance(600.0)
+		for u: Unit in ships:
+			if u.is_engageable() and u.in_formation() and u.attack_track == null and u.investigation_track == null:
+				assert_true(u.position.distance_to(Formation.station_for(u)) < 2.0, "%s: %s keeps her station ten minutes in (%.1f nm off)" % [id, u.callsign, u.position.distance_to(Formation.station_for(u))])
+		if id != "cold_war_02_barrier":
+			assert_true(formed >= 2, "%s: the escorts are formed on the guide (%d)" % [id, formed])
+		_close(sim)
+
