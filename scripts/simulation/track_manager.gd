@@ -212,7 +212,6 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t._cycle_signature_gain = 0.0
 		t._cycle_radar_gain = 0.0
 		t._cycle_tma_start = t.tma_quality
-		t._cycle_tma_gain = 0.0
 		if reacquired or from_report:
 			_reset_kinematics(t)
 	# Sensor order must not change classification speed, or multiply elapsed time.
@@ -517,13 +516,6 @@ func _release_number(t: Track) -> void:
 		for field in REMEMBERED_FIELDS:
 			known[field] = t.get(field)
 		_dropped_ids[identity_key] = {"id": t.id, "position": t.position, "error": t.position_error_nm, "known": known}
-
-
-func _any_contributor_linked(t: Track) -> bool:
-	for u: Unit in t.contributors:
-		if u.datalink_connected():
-			return true
-	return false
 
 
 func _resolved_contact(raw: SensorContact, solution: Dictionary) -> SensorContact:

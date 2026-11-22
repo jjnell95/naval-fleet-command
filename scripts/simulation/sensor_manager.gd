@@ -11,7 +11,6 @@ const SENSOR_DT := 1.0
 const OBS_SIGMA_BASE_NM := 0.05  # GAMEPLAY: radar plot error
 const OBS_SIGMA_PER_NM := 0.003
 const ACTIVE_SONAR_SIGMA_NM := 0.12
-const MANOEUVRE_FULL_DEG := 3.0  # heading change per cycle that counts as fully manoeuvring
 const INITIAL_RANGE_FRACTION := 0.55  # what an operator assumes before working the problem
 ## How far past the reach it was heard at a contact's worked-out range may lie before the solution
 ## is thrown out as impossible.
@@ -30,13 +29,17 @@ var weapon_manager: WeaponManager
 var aviation_manager: AviationManager
 var rng := RandomNumberGenerator.new()
 var _accum := 0.0
-var _last_heading: Dictionary = {}  # Unit -> float
-var _manoeuvre: Dictionary = {}  # Unit -> 0..1
-## Development switch: run the original pair-by-pair cycle instead of the one that works out each
-## unit's figures once per cycle. Both make the same reports in the same order with the same
-## random draws, so the tracks come out identical (tests/test_sensor_cycle.gd checks it), and
-## tools/measure_sensor_cycle.gd times one against the other. Never set in play.
+## Left from a heading history nothing reads any longer. Never filled, and not saved; an older save
+## that carries them still loads.
+var _last_heading: Dictionary = {}
+var _manoeuvre: Dictionary = {}
+## Development switch: run the original pair-by-pair passes (REFERENCE_PASSES) instead of the
+## ones that work out each unit's figures once per cycle. Both make the same reports in the same
+## order with the same random draws, so the tracks come out identical (tests/test_sensor_cycle.gd
+## checks it), and tools/measure_sensor_cycle.gd times one against the other. Never set in play:
+## the reference is a development tool and is not exported with the game.
 var reference_path := false
+const REFERENCE_PASSES := "res://tools/measure_sensor_cycle_reference.gd"
 ## Work counters for tests and the measuring tools: sonar pairs the acoustic model was run for, and
 ## pairs close enough for a lookout to weigh. Never read in play.
 var sonar_pairs_weighed := 0
@@ -142,50 +145,38 @@ func tick(dt: float) -> void:
 
 func run_cycle(now: float) -> void:
 	var setup := Time.get_ticks_usec()
-	_update_manoeuvre()
 	Detection.refresh_jammers(unit_manager.units)
 	Detection.begin_jamming_batch()
-	var radar_us := 0
-	var sonar_us := 0
-	var esm_us := 0
-	var visual_us := 0
-	var facts: CycleFacts = null if reference_path else CycleFacts.new(unit_manager.units)
+	var spent := [0, 0, 0, 0]  # radar, sonar, ESM and lookout time, in microseconds
+	var reference: GDScript = load(REFERENCE_PASSES) if reference_path else null
+	var facts: CycleFacts = null if reference != null else CycleFacts.new(unit_manager.units)
 	var cz_outer := _cz_outer_nm()
 	Debug.time_add("sensors/setup", Time.get_ticks_usec() - setup)
 	for i in unit_manager.units.size():
 		var observer := unit_manager.units[i]
 		if not observer.is_engageable():
 			continue
-		# One observer at a time, radar then sonar then ESM, whichever path runs: that order is
-		# the order of the random draws, and so of every seeded outcome.
+		# One observer at a time, radar then sonar then ESM then the lookouts, whichever path runs:
+		# that order is the order of the random draws, and so of every seeded outcome.
+		if reference != null:
+			reference.run_observer(self, observer, cz_outer, now, spent)
+			continue
 		var at := Time.get_ticks_usec()
-		if facts == null:
-			_radar_pass(observer, now)
-		else:
-			_radar_pass_indexed(facts, i, now)
+		_radar_pass_indexed(facts, i, now)
 		var mid := Time.get_ticks_usec()
-		if facts == null:
-			_sonar_pass(observer, now)
-		else:
-			_sonar_pass_indexed(facts, i, cz_outer, now)
+		_sonar_pass_indexed(facts, i, cz_outer, now)
 		var late := Time.get_ticks_usec()
-		if facts == null:
-			_esm_pass(observer, now)
-		else:
-			_esm_pass_indexed(facts, i, now)
+		_esm_pass_indexed(facts, i, now)
 		var seen := Time.get_ticks_usec()
-		if facts == null:
-			_visual_pass(observer, now)
-		else:
-			_visual_pass_indexed(facts, i, now)
-		radar_us += mid - at
-		sonar_us += late - mid
-		esm_us += seen - late
-		visual_us += Time.get_ticks_usec() - seen
-	Debug.time_add("sensors/radar", radar_us)
-	Debug.time_add("sensors/sonar", sonar_us)
-	Debug.time_add("sensors/esm", esm_us)
-	Debug.time_add("sensors/visual", visual_us)
+		_visual_pass_indexed(facts, i, now)
+		spent[0] += mid - at
+		spent[1] += late - mid
+		spent[2] += seen - late
+		spent[3] += Time.get_ticks_usec() - seen
+	Debug.time_add("sensors/radar", spent[0])
+	Debug.time_add("sensors/sonar", spent[1])
+	Debug.time_add("sensors/esm", spent[2])
+	Debug.time_add("sensors/visual", spent[3])
 	var step := Time.get_ticks_usec()
 	_buoy_pass(now)
 	Debug.time_add("sensors/buoys", Time.get_ticks_usec() - step)
@@ -196,32 +187,6 @@ func run_cycle(now: float) -> void:
 	_detect_weapons(now)
 	Debug.time_add("sensors/weapons", Time.get_ticks_usec() - step)
 	Detection.end_jamming_batch()
-
-
-## Legacy saved heading history; range estimation now uses measured observer positions.
-func _update_manoeuvre() -> void:
-	for u in unit_manager.units:
-		var previous: float = _last_heading.get(u, u.heading_deg)
-		var delta := absf(Geo.heading_delta(previous, u.heading_deg))
-		_last_heading[u] = u.heading_deg
-		_manoeuvre[u] = clampf(delta / MANOEUVRE_FULL_DEG, 0.0, 1.0)
-
-
-func _radar_pass(observer: Unit, now: float) -> void:
-	if not observer.radar_emitting():
-		return
-	var rate := Detection.classify_rate(observer)
-	for target in unit_manager.units:
-		if target == observer or not target.is_engageable() or target.faction == observer.faction:
-			continue
-		var q := Detection.radar_quality(observer, target)
-		if q <= 0.0:
-			continue
-		var d := observer.position.distance_to(target.position)
-		var sigma := OBS_SIGMA_BASE_NM + OBS_SIGMA_PER_NM * d
-		var obs := target.position + Vector2(rng.randfn(0.0, sigma), rng.randfn(0.0, sigma))
-		var c := SensorContact.make(target, obs, TrackManager.BASE_ERROR_NM + TrackManager.ERROR_PER_NM * d, q, rate, d, "radar", observer, Detection.radar_sensor_for(observer, target))
-		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
 
 
 ## The radar pass on the cycle's figures. The same arithmetic as Detection.radar_quality and
@@ -278,46 +243,6 @@ func _radar_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 		var obs := target.position + Vector2(rng.randfn(0.0, sigma), rng.randfn(0.0, sigma))
 		var c := SensorContact.make(target, obs, TrackManager.BASE_ERROR_NM + TrackManager.ERROR_PER_NM * d, q, rate, d, "radar", observer, sensor)
 		track_manager.observe_contact(observer.faction, c, now, SENSOR_DT)
-
-
-func _sonar_pass(observer: Unit, now: float) -> void:
-	if not observer.has_sonar():
-		return
-	var rate := Detection.sonar_classify_rate(observer)
-	var active_ceiling := Detection.best_active_sonar_nm(observer)  # before the water has its say
-	var cz_outer := 0.0
-	for z: Dictionary in Acoustics.zones():
-		cz_outer = maxf(cz_outer, float(z["range_nm"]) + float(z["half_width_nm"]))
-	for target in unit_manager.units:
-		if target == observer or not target.is_engageable() or target.faction == observer.faction:
-			continue
-		# An aircraft is nothing to a sonar except while its dipping set is pinging in the water.
-		var airborne := target.is_aircraft()
-		if airborne and not target.active_sonar_emitting():
-			continue
-		var d := observer.position.distance_to(target.position)
-		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling and not airborne else 0.0
-		var passive := Detection.best_passive_sonar(observer, target)
-		var reach: float = passive["range_nm"]
-		var sensor: SensorSpec = passive["sensor"]
-		# An active transmitter is a loud noise in its own right, heard well past its own reach.
-		var emission := Detection.active_sonar_detection_nm(observer, target)
-		if emission > reach:
-			reach = emission
-			if sensor == null:
-				sensor = _first_sonar(observer)
-		var in_passive_reach := sensor != null and reach > 0.0 and d <= reach
-		if d > active_reach and not in_passive_reach and d > cz_outer:
-			continue  # out of every reach: what lies between does not matter, and the land walk is the dear part
-		if Detection.acoustic_path_blocked(observer, target):
-			continue  # sound does not go through rock, pinging or listening
-		if d <= active_reach:
-			_report_active(observer, target, d, active_reach, rate, now)
-			continue
-		if in_passive_reach:
-			_report_passive(observer, target, d, reach, sensor, rate, now)
-		elif d <= cz_outer:
-			_try_convergence_zone(observer, target, d, rate, now)
 
 
 ## The outer edge of the last convergence zone, 0 with none.
@@ -508,28 +433,8 @@ func _report_cz(observer: Unit, target: Unit, _d: float, zone: Dictionary, senso
 ## Anything that transmits can be heard transmitting. ESM gives a bearing and a very good idea of
 ## what kind of ship is at the other end, without the listener radiating at all. It is the reason
 ## turning a radar off is a decision rather than a handicap.
-func _esm_pass(observer: Unit, now: float) -> void:
-	if not observer.has_esm() or observer.submerged():
-		return  # an aerial under water hears nothing
-	for emitter in unit_manager.units:
-		if emitter == observer or not emitter.is_engageable() or emitter.faction == observer.faction:
-			continue
-		if not emitter.radar_emitting():
-			continue
-		var best := Detection.best_esm(observer, emitter)
-		var reach: float = best["range_nm"]
-		var sensor: SensorSpec = best["sensor"]
-		if sensor == null or reach <= 0.0:
-			continue
-		var d := observer.position.distance_to(emitter.position)
-		if d > reach:
-			continue
-		if Detection.terrain_masks(observer, emitter):
-			continue  # the horizon this set already respects is not the only thing in the way
-		_report_esm(observer, emitter, d, reach, sensor, now)
-
-
-## The ESM pass on the cycle's figures: Detection.best_esm's arithmetic in its order, with each
+##
+## The pass works on the cycle's figures: Detection.best_esm's arithmetic in its order, with each
 ## emitter's power and antenna height taken once a cycle instead of once per listener.
 func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 	var observer := facts.units[oi]
@@ -583,7 +488,8 @@ func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: 
 
 ## The lookout pass on the cycle's figures: the other sides' units only, and none further than the
 ## longest look the light and the weather allow before anything else is worked out for it. The
-## same tests in the same order as _visual_pass, so the same reports and the same draws.
+## same tests in the same order as the reference's pair-by-pair pass, so the same reports and the
+## same draws.
 func _visual_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 	if facts.submerged[oi] == 1:
 		return
@@ -626,35 +532,6 @@ const PERISCOPE_HEIGHT_M := 1.0
 ## A class is recognised at the limit of a look; a name is read at this fraction of it.
 const VISUAL_NAME_FRACTION := 0.5
 const METRES_PER_NM := 1852.0
-
-
-func _visual_pass(observer: Unit, now: float) -> void:
-	if observer.submerged():
-		return
-	for target in unit_manager.units:
-		if target == observer or target.faction == observer.faction or not target.is_engageable() or target.submerged():
-			continue
-		var d := observer.position.distance_to(target.position)
-		var limit := 3.0 if target.is_aircraft() else 6.0
-		var height := Detection.mast_or_altitude_m(target)
-		var error := 0.08
-		if target.is_submarine() and target.at_periscope_depth():
-			# A mast and its feather, not a hull: seen close to, less in a sea, and only roughly
-			# placed. A snorkel and its exhaust show further than a periscope.
-			limit = (SNORKEL_SIGHTING_NM if SubmarinePower.snorkelling(target) else PERISCOPE_SIGHTING_NM) * clampf(1.0 - 0.12 * Detection.sea_state, 0.25, 1.0)
-			height = PERISCOPE_HEIGHT_M
-			error = 0.3
-		# Darkness shortens what the eye can recognise; the weather caps it either way.
-		limit = minf(limit * Detection.visual_light_factor(), float(Detection.environment.get("visibility_nm", 12.0)))
-		# The eye works along the sight line: an aircraft miles above a ship is miles from it.
-		var slant := Vector2(d, (Detection.mast_or_altitude_m(observer) - height) / METRES_PER_NM).length()
-		if slant > limit:
-			continue
-		if d > Detection.radar_horizon_nm(Detection.mast_or_altitude_m(observer), height):
-			continue
-		if Detection.terrain_masks(observer, target):
-			continue
-		_report_visual(observer, target, d, slant, limit, error, now)
 
 
 func _report_visual(observer: Unit, target: Unit, d: float, slant: float, limit: float, error: float, now: float) -> void:

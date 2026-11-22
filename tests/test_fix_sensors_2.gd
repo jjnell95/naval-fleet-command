@@ -235,3 +235,36 @@ func test_the_sensor_cycle_work_in_a_seeded_battle_stays_bounded() -> void:
 	sim.unit_manager.clear()
 	sim.get_parent().remove_child(sim)
 	sim.free()
+
+
+## Nothing reads a heading history kept for every unit each cycle, so it is neither kept nor saved;
+## a save written while it was still kept, or with a track's old solution-gain field, still loads
+## and carries on.
+func test_no_heading_history_is_kept_and_an_older_save_still_loads() -> void:
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	sim.seed_override = 45
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario(HORMUZ), HORMUZ)
+	sim.ai_plays_player = true
+	sim._build_ai()
+	SimClock.advance(60.0)
+	var sm := sim.sensor_manager
+	assert_true(sm._last_heading.is_empty() and sm._manoeuvre.is_empty(), "no heading history is kept")
+	var snap := sim.capture_snapshot()
+	var saved: Dictionary = snap["managers"]["SensorManager"]
+	assert_true(not saved.has("_last_heading") and not saved.has("_manoeuvre"), "nor saved")
+	# As an older save has them.
+	var first: Unit = sim.unit_manager.units[0]
+	saved["_last_heading"] = {{"$u": first.id}: 90.0}
+	saved["_manoeuvre"] = {{"$u": first.id}: 0.5}
+	for t: Dictionary in snap["tracks"]:
+		t["_cycle_tma_gain"] = 0.25
+	assert_eq(sim.restore_snapshot(snap), "", "the older save loads")
+	var at := SimClock.sim_time
+	SimClock.advance(10.0)
+	assert_near(SimClock.sim_time, at + 10.0, 1e-6, "and the engagement carries on")
+	assert_true(not sim.track_manager.get_tracks("BLUE").is_empty() or not sim.track_manager.get_tracks("RED").is_empty(), "with its pictures")
+	sim.unit_manager.clear()
+	sim.get_parent().remove_child(sim)
+	sim.free()

@@ -131,7 +131,6 @@ var _cycle_firm := false
 var _cycle_error := INF
 var _cycle_observation_gain := 0.0
 var _cycle_tma_start := 0.0
-var _cycle_tma_gain := 0.0
 ## Decimated reported positions for the chart. Separate from the velocity-fit window.
 var history_positions := PackedVector2Array()
 var history_times := PackedFloat64Array()
