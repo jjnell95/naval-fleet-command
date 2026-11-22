@@ -661,3 +661,49 @@ func test_the_chart_menu_has_filters_that_hide_and_show_contacts() -> void:
 		assert_eq(main.map.has_layer(layer), not was, "%s toggles its layer" % text)
 		main._run_cds_action(it["action"])
 	_close(main)
+
+
+# --- Hotkeys leave a text field and a dialog alone ----------------------------------------------
+
+func test_command_chords_do_not_fire_while_a_text_field_has_focus() -> void:
+	var main := _open("northern_passage.json")
+	main.status_boards.open_board(StatusBoards.BOARD_TASK_GROUP)
+	var field: LineEdit = main.unit_panel._roster_search
+	field.grab_focus()
+	assert_eq(main.get_viewport().gui_get_focus_owner(), field, "the roster search has the keyboard")
+	var scale := main.map.has_layer("scale")
+	var latlon := main.map.has_layer("latlon")
+	var sound: bool = SoundFx.enabled
+	_key(main, KEY_S, false, true)
+	_key(main, KEY_L, false, true)
+	_key(main, KEY_M, false, true)
+	_key(main, KEY_1, false, true)
+	_key(main, KEY_E, false, true)
+	assert_eq(main.map.has_layer("scale"), scale, "Ctrl+S in a text field does not toggle the scale bar")
+	assert_eq(main.map.has_layer("latlon"), latlon, "nor Ctrl+L the lat-long readout")
+	assert_eq(SoundFx.enabled, sound, "nor Ctrl+M the sound")
+	assert_true(main._control_groups.is_empty(), "nor Ctrl+1 store a selection group")
+	assert_true(not main._editor.visible, "nor Ctrl+E open the editor")
+	# The field takes the first Escape to leave its own editing; the next is the board's.
+	_key(main, KEY_ESCAPE)
+	_key(main, KEY_ESCAPE)
+	assert_true(not main.status_boards.visible, "Escape still closes the board")
+	# With the chart focused the same chords are commands again.
+	main.map.grab_focus()
+	_key(main, KEY_S, false, true)
+	assert_eq(main.map.has_layer("scale"), not scale, "Ctrl+S toggles the scale bar from the chart")
+	_close(main)
+
+
+func test_hotkeys_do_not_reach_the_mission_behind_the_readout_dialog() -> void:
+	var main := _open("northern_passage.json")
+	main.data_display.open_details()
+	assert_true(main.data_display._details.visible, "the read-out dialog is open")
+	var speed := SimClock.speed_index
+	_key(main, KEY_M)
+	_key(main, KEY_3)
+	_key(main, KEY_F1)
+	assert_true(not main._menu.visible and not main._briefing.visible, "M and F1 do not open screens behind the dialog")
+	assert_eq(SimClock.speed_index, speed, "and the time scale is left alone")
+	main.data_display.close_details()
+	_close(main)

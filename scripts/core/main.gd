@@ -1826,6 +1826,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			return
 		get_viewport().set_input_as_handled()
 		return
+	# A focused text field owns the keyboard: its editing chords (Ctrl+A, Ctrl+arrow) must not
+	# double as chart commands. Escape and the function keys are not text and still answer.
+	var focus := get_viewport().gui_get_focus_owner()
+	if (focus is LineEdit or focus is TextEdit) and k.keycode != KEY_ESCAPE and not (k.keycode >= KEY_F1 and k.keycode <= KEY_F12):
+		return
 	if (k.ctrl_pressed or k.meta_pressed) and k.shift_pressed and k.keycode in [KEY_S, KEY_L, KEY_O]:
 		# Checked before the Ctrl table: Ctrl+S alone is the scale bar, Ctrl+L the lat-long readout.
 		if not (_menu.visible or _editor.visible or _briefing.visible or _report.visible):
