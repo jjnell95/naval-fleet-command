@@ -93,6 +93,48 @@ A review of the whole game after M43, fixed area by area.
 - The sensor cycle weighs a sonar or lookout pair only inside some reach, files a linked unit's reports once in the shared plot, finds bearing samples through a per-track index and trims crossed fixes; the profiler shows its set-up and lookout pass.
 - Each per-tick unit step runs only for units it applies to. Seeded state dumps of two scenarios are byte-identical before and after.
 
+### Measured
+
+Before (the code ahead of the overhaul) against after, on one otherwise idle 4-core machine, one process at a time, each timing taken twice (run 1 / run 2). The battles are not the same battles: the overhaul changed what ships and the AI do, so where a difference is the simulation doing different work rather than running faster, it says so. The battle counts come from the state dump of the same seeded run.
+
+Headless, an hour from the start of each scenario (seed 2, both sides on the AI, `--fastforward=3600 --dump`), in simulated seconds per wall second:
+
+| Scenario | Before | After | Note |
+|---|---|---|---|
+| aegis_bastion | 34.4 / 37.5 | 77.7 / 76.2 | Not like for like: after, the hour holds 5 weapon commits and 5 own rounds against 29 and 37 before (16 rounds still in flight at the end before, none after). Much of the gain is less fighting. |
+| pacific_02_taiwan_strait | 17.9 / 18.2 | 31.1 / 30.6 | More fighting after (46 commits against 38, 18 missile-defence launches against 0, 30 hostile rounds against 18), so the gain is real. |
+| gulf_01_hormuz | 90.8 / 91.2 | 134.3 / 130.7 | The same 12 commits; after, 26 hostile rounds against 0 and 9 contacts against 0. Real gain. |
+| med_01_tartus | 60.7 / 62.0 | 66.1 / 69.6 | More fighting after (36 commits against 31, 34 hostile rounds against 24); small real gain. |
+| cold_war_03_carrier | 98.4 / 102.1 | 154.8 / 149.9 | A similar battle (10 commits against 7, 54 defence launches against 48). Real gain. |
+
+The sensor cycle late in the Taiwan Strait (`tools/measure_sensor_cycle.gd --paths=optimized --repeats=3`: seed 42, from 2400 s; the median of three, run 1 / run 2). The saves at 2400 s are different battles: after, the side's reports go into 3 shared track pictures (62 tracks) instead of 68 per-unit pictures (501 tracks), RED has 15 engageable units against 10, and 18 weapons are in flight against 1.
+
+| | Before | After |
+|---|---|---|
+| sensor cycle mean, ms | 18.70 / 19.36 | 19.59 / 20.72 |
+| sensor cycle p95, ms | 25.65 / 27.26 | 45.18 / 47.84 |
+| radar / ESM / sonar / tracks / weapons, ms per cycle | 4.10 / 6.05 / 1.69 / 0.92 / 0.20 | 4.60 / 11.53 / 0.63 / 0.12 / 1.36 |
+| tick mean, ms | 16.33 / 16.95 | 9.41 / 10.04 |
+| stepped, 600 s | 15.3x / 14.7x | 26.6x / 24.9x |
+| 60x clock, frame budget on | 14.7x / 14.2x | 17.4x / 16.5x |
+| 60x clock, no budget | 14.5x / 13.6x | 18.4x / 17.4x |
+| order to next frame, budget on, mean ms | 64 / 67 | 68 / 72 |
+
+The cycle costs about the same per run and its tail is longer, with ESM at twice the cost in a battle with more emitters and rounds in the air; the tick as a whole takes 0.6 of the time, so the battle steps 1.7 times faster. Every repeat ended in the same state, and every clocked run replayed tick by tick to the same state.
+
+With a window (xvfb, software renderer, 1600 x 900, `--fastforward=2400 --run=5 --perf=8`), script time per frame, run 1 / run 2:
+
+| | Taiwan Strait before | after | Hormuz before | after |
+|---|---|---|---|---|
+| clock during the sample | 60x | dropped to 1x | 60x | dropped to 1x |
+| chart, ms | 3.72 / 3.96 | 2.89 / 2.95 | 2.46 / 2.50 | 2.23 / 2.44 |
+| data display, ms | 0.80 / 0.86 | 0.75 / 0.79 | 0.53 / 0.54 | 0.85 / 1.00 |
+| 3D view, ms | 2.47 / 2.62 | 1.87 / 1.88 | 2.02 / 2.08 | 1.82 / 2.01 |
+| simulation, ms | 53.5 / 56.8 | 20.1 / 20.5 | 51.4 / 51.1 | 11.0 / 11.8 |
+| draw calls | 434 | 399 | 319 | 332 |
+
+After, a combat event early in the sample (at Hormuz a cruise-missile commit) drops the clock to real time, as the game now does; before, it stayed at 60x. The simulation row therefore compares a mostly-1x clock with a 60x one and says nothing about speed. The chart and 3D view rows are like for like and a little cheaper after.
+
 ### Repository
 
 - The test runner discovers `tests/test_*.gd` instead of keeping a list, and resets the static world state between files.
