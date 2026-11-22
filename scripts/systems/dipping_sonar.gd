@@ -57,8 +57,19 @@ static func on_order(u: Unit, order: Order) -> void:
 		deploy(u, order.listen_s)
 	elif order.type == Order.Type.RECOVER_DIPPING_SONAR:
 		recover(u)
+	elif order.type == Order.Type.ATTACK:
+		pass  # in reach it fires from the hover; the dome comes up only if it has to move (take_steering)
 	elif order.type in Unit.NAVIGATION_ORDERS or order.type in [Order.Type.SET_SPEED, Order.Type.SET_ALTITUDE, Order.Type.EVADE, Order.Type.RESUME_PLAN]:
 		recover(u)
+
+
+## The contact is a bearing this aircraft's own lowered set is holding, with no range yet. The
+## plotted position of such a contact is a guess along the line; flying to it would raise the dome
+## and give up the only thing holding the contact, so the crew stays in the dip to resolve it.
+static func holds_bearing(u: Unit, track: Track) -> bool:
+	if track == null or not track.is_bearing_only() or not track.contributors.has(u):
+		return false
+	return capable(u) and u.dip_phase in [Phase.POSITIONING, Phase.LOWERING, Phase.LISTENING]
 
 
 ## Owns motion only during handling. Does not overwrite waypoints, station or ordered speed/height.

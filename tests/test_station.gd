@@ -91,6 +91,7 @@ func test_escort_investigates_and_returns_to_its_screen_station() -> void:
 	assert_true(not escort.on_station())
 	var now := _run(um, 60.0)
 	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "NEUTRAL"
 	t.known_class = "Trawler"
 	_run(um, DT, null, now)
 	assert_eq(escort.formation_leader, guide, "auto-return re-forms on the same guide")
@@ -107,11 +108,16 @@ func test_without_auto_return_the_escort_holds_until_told_to_return() -> void:
 	var guide: Unit = pair[0]
 	var escort: Unit = pair[1]
 	var t := _track(Vector2(12.0, 14.0))
+	assert_true(escort.auto_return, "going back to station is what a consort does unless told otherwise")
+	assert_true(um.issue_order(escort, Order.set_auto_return(false)))
+	var now := _run(um, 5.0)  # keeping station on the guide, at the guide's speed
 	um.issue_order(escort, Order.investigate(t))
-	var now := _run(um, 30.0)
+	now = _run(um, 30.0, null, now)
 	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "NEUTRAL"
 	_run(um, DT, null, now)
-	assert_eq(escort.formation_leader, null, "the classic behaviour: hold at the contact")
+	assert_eq(escort.formation_leader, null, "told not to return, she stays out where the task ended")
+	assert_true(escort.ordered_speed_kn > 0.0, "with way on, not dead in the water")
 	assert_eq(escort.station_kind, "formation", "the station is still there to go back to")
 	assert_true(um.issue_order(escort, Order.return_to_station()))
 	assert_eq(escort.formation_leader, guide)
@@ -127,12 +133,12 @@ func test_patrol_resumes_at_the_nearest_corner_after_an_attack_ends() -> void:
 	picket.auto_return = true
 	var box := Order.patrol_box(Vector2(-10, -10), Vector2(10, 10))
 	assert_true(um.issue_order(picket, box))
-	var t := _track(Vector2(30, 30))
+	var t := _track(Vector2(30, 900))
 	t.identity = "HOSTILE"
 	t.domain = "surface"
 	t.classification = Track.Classification.SURFACE
 	assert_true(um.issue_order(picket, Order.attack(t)))
-	assert_true(not picket.patrol_active, "the attack suspends the circuit")
+	assert_true(not picket.patrol_active, "an attack that has to close suspends the circuit")
 	picket.position = Vector2(12, 11)  # wherever the attack left her
 	um._end_attack(picket, t, "Target destroyed")
 	assert_true(picket.patrol_active, "and the circuit is resumed when it ends")
@@ -153,6 +159,7 @@ func test_an_explicit_transit_replaces_the_station_and_prevents_a_later_return()
 	assert_true(um.issue_order(escort, Order.move(Vector2(-20, 0))))
 	assert_eq(escort.station_kind, "", "a new transit is a replacement order")
 	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "NEUTRAL"
 	_run(um, 5.0, null, now)
 	assert_eq(escort.formation_leader, null, "no unexpected return to the old screen")
 	assert_eq(escort.waypoints, [Vector2(-20, 0)], "the newer order stands")
@@ -176,7 +183,7 @@ func test_a_late_task_end_never_overwrites_a_newer_order() -> void:
 	crew.origin = "crew"
 	um.issue_order(picket, crew)
 	assert_eq(picket.station_kind, "patrol", "a crew order keeps the station")
-	um._return_after_task(picket, started, "Contact classified")
+	um._finish_task(picket, started, "Contact classified")
 	assert_true(not picket.patrol_active, "the task's generation is stale: the newer order stands")
 	assert_eq(picket.waypoints, [Vector2(0, 50)])
 	um.free()
@@ -372,9 +379,11 @@ func test_the_orders_line_and_menu_offer_the_way_back_to_station() -> void:
 	var escort: Unit = pair[1]
 	assert_eq(DataDisplay.orders_text(escort), "Station on Guide")
 	var t := _track(Vector2(12.0, 14.0))
+	assert_true(um.issue_order(escort, Order.set_auto_return(false)))
 	um.issue_order(escort, Order.investigate(t))
 	assert_true(DataDisplay.orders_text(escort).begins_with("Investigate track"))
 	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "NEUTRAL"
 	_run(um, DT)
 	assert_true(DataDisplay.orders_text(escort).ends_with("S returns to screen station"), DataDisplay.orders_text(escort))
 	var back := _find(CdsMenus.orders_items([escort], null, true, true), "Return to station")
@@ -502,6 +511,7 @@ func test_a_crew_return_lets_an_evasion_run_its_course() -> void:
 	escort.evasion_remaining_s = 40.0
 	escort.evasion_course_deg = 200.0
 	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "NEUTRAL"
 	_run(um, DT)
 	assert_eq(escort.formation_leader, pair[0], "the station is taken up")
 	assert_true(escort.evasion_remaining_s > 30.0, "but the turn-away is not cut short")

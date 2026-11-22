@@ -60,6 +60,8 @@ static func on_order(u: Unit, order: Order) -> void:
 		search(u)
 	elif order.type == Order.Type.RECOVER_TOWED_ARRAY:
 		recover(u)
+	elif order.type == Order.Type.ATTACK:
+		pass  # in reach she fires with the array streamed; it comes in only if she has to close (take_steering)
 	elif order.type in Unit.NAVIGATION_ORDERS or order.type in [Order.Type.SET_SPEED, Order.Type.EVADE]:
 		recover(u)
 

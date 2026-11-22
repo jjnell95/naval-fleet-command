@@ -291,6 +291,15 @@ static func first_land_contact(a: Vector2, b: Vector2) -> float:
 	return best
 
 
+## Whether a hull at `from` can get to `to` by sea. Today that is one straight leg clear of every
+## coast, so a point behind a headland counts as out of reach; a route planner that finds the way
+## round belongs behind this one question, and every caller that asks it gains the answer.
+static func reachable_by_sea(from: Vector2, to: Vector2) -> bool:
+	if landmasses.is_empty():
+		return true
+	return not is_land(to) and first_land_contact(from, to) < 0.0
+
+
 ## The stretch of a segment that could possibly touch land, as a pair of fractions along it.
 ## Most sight lines in a scenario never go near a coast, and the ones that do usually only clip
 ## the end of a long leg, so narrowing the walk before it starts is what keeps the sensor cycle

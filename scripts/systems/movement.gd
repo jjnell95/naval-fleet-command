@@ -79,10 +79,12 @@ static func hold_size_nm(spec: PlatformSpec) -> Vector2:
 	return Vector2(width, maxf(HOLD_LEG_NM, width * 2.0))
 
 
-## Puts a fixed-wing aircraft into a hold at `center` at its economical patrol speed.
-static func enter_hold(u: Unit, center: Vector2) -> void:
+## Puts a fixed-wing aircraft into a hold at `center` at its economical patrol speed. The long legs
+## lie along its present heading unless `along_deg` names another; the racetrack is to the right of
+## them, so a caller that must keep the aircraft off something lays the legs with it to port.
+static func enter_hold(u: Unit, center: Vector2, along_deg := NAN) -> void:
 	var hold := hold_size_nm(u.spec)
-	u.waypoints.assign(hold_pattern(center, u.heading_deg, hold.x, hold.y))
+	u.waypoints.assign(hold_pattern(center, u.heading_deg if is_nan(along_deg) else along_deg, hold.x, hold.y))
 	u.ordered_speed_kn = u.spec.flight_speed("patrol")
 	u.hold_active = true
 	u.hold_point = center

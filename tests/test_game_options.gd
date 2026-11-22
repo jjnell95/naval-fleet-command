@@ -573,7 +573,12 @@ func test_engagement_after_identification_never_fires_where_it_should_not() -> v
 	for key: String in cases:
 		var r: Dictionary = cases[key]
 		assert_eq(r["unit"].attack_track, null, key)
-		assert_eq(r["unit"].investigation_result, "Contact classified", key)
+		if key == "unknown allegiance":
+			# A class without an allegiance is not an identification: the look goes on, and nothing is fired.
+			assert_true(r["unit"].investigation_track != null, key)
+			assert_eq(r["unit"].investigation_result, "", key)
+		else:
+			assert_eq(r["unit"].investigation_result, "Contact classified", key)
 		r["um"].free()
 
 

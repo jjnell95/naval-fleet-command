@@ -358,10 +358,21 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null, group_att
 				return "Engage (%d × %s queued)" % [queued, spec.compact_name()]
 	if u.investigation_track != null:
 		return "Investigate track %s%s" % [track_number_for_track(u.investigation_track), " · then station" if u.auto_return and u.has_station() else ""]
+	var found := ""
 	if u.investigation_result != "":
-		return "Track %s: %s%s" % [MapSymbols.track_number(u.investigation_track_id), u.investigation_result, _off_station_hint(u)]
-	if u.attack_result != "":
-		return "Track %s: %s%s" % [MapSymbols.track_number(u.attack_track_id), u.attack_result, _off_station_hint(u)]
+		found = "Track %s: %s" % [MapSymbols.track_number(u.investigation_track_id), u.investigation_result]
+	elif u.attack_result != "":
+		found = "Track %s: %s" % [MapSymbols.track_number(u.attack_track_id), u.attack_result]
+	if found != "":
+		# What the last task found stays readable, but a platform on its way home or back to its
+		# station says that first: the old result is not what it is doing now.
+		if u.is_aircraft() and u.returning:
+			return "%s · %s" % ["Return to base" if u.recovery_base == null else "Return to %s" % u.recovery_base.callsign, found]
+		if u.has_station() and u.on_station():
+			var station := station_name(u.station_label, false) if u.station_label != "" else "station"
+			var arrived := u.patrol_legs_completed > 0 if u.station_kind == "patrol" else u.position.distance_to(u.station_point()) <= 1.0
+			return "%s %s · %s" % ["On" if arrived else "Returning to", station, found]
+		return found + _off_station_hint(u)
 	if u.is_aircraft():
 		match u.flight_state:
 			Unit.FlightState.STOWED:
