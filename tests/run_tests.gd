@@ -3,7 +3,30 @@ extends SceneTree
 ##   ~/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/run_tests.gd
 ##   ... --script tests/run_tests.gd -- --only=test_attack.gd,test_cds.gd   (a few files)
 
-const TESTS := ["res://tests/test_save_migration.gd", "res://tests/test_commander_reports.gd", "res://tests/test_command_training.gd", "res://tests/test_world_fittings.gd", "res://tests/test_weapon_fidelity.gd", "res://tests/test_submarine_comms.gd", "res://tests/test_submarine_power.gd", "res://tests/test_anti_radiation.gd", "res://tests/test_review_fixes.gd", "res://tests/test_night_and_holds.gd", "res://tests/test_baffles.gd", "res://tests/test_crew_profiles.gd", "res://tests/test_dipping_sonar.gd", "res://tests/test_operation_director.gd", "res://tests/test_sensor_cycle.gd", "res://tests/test_game_options.gd", "res://tests/test_group_attack.gd", "res://tests/test_ai_plans.gd", "res://tests/test_save.gd", "res://tests/test_air_missions.gd", "res://tests/test_station.gd", "res://tests/test_attack.gd", "res://tests/test_integrated_defence.gd", "res://tests/test_air_combat.gd", "res://tests/test_readout.gd", "res://tests/test_voice.gd", "res://tests/test_investigate.gd", "res://tests/test_weapon_plot.gd", "res://tests/test_combat_commands.gd", "res://tests/test_weapon_tracking.gd", "res://tests/test_patrol.gd", "res://tests/test_northern_passage.gd", "res://tests/test_qc_fixes.gd", "res://tests/test_weapon_control.gd", "res://tests/test_fleet_workshop.gd", "res://tests/test_operations.gd", "res://tests/test_regressions.gd", "res://tests/test_cold_war.gd", "res://tests/test_air_operations.gd", "res://tests/test_roster_m20.gd", "res://tests/test_lifecycle.gd", "res://tests/test_relative_motion.gd", "res://tests/test_clock.gd", "res://tests/test_tracking.gd", "res://tests/test_realism.gd", "res://tests/test_cic.gd", "res://tests/test_aegis.gd", "res://tests/test_systems.gd", "res://tests/test_geo.gd", "res://tests/test_movement.gd", "res://tests/test_sensors.gd", "res://tests/test_combat.gd", "res://tests/test_defence.gd", "res://tests/test_ai.gd", "res://tests/test_mission.gd", "res://tests/test_sonar.gd", "res://tests/test_aviation.gd", "res://tests/test_flight_deck.gd", "res://tests/test_ew.gd", "res://tests/test_terrain.gd", "res://tests/test_art.gd", "res://tests/test_ux.gd", "res://tests/test_ocean.gd", "res://tests/test_damage_control.gd", "res://tests/test_shore_strike.gd", "res://tests/test_world_view.gd", "res://tests/test_cds.gd", "res://tests/test_fits.gd", "res://tests/test_torpedo_defence.gd", "res://tests/test_chart.gd", "res://tests/test_sensor_coverage.gd", "res://tests/test_theme.gd"]
+## Files in tests/ that match test_*.gd but hold no tests.
+const HELPERS := ["test_case.gd", "test_error_log.gd"]
+
+
+## Every tests/test_*.gd in name order, so a new test file needs no registration here.
+static func discover() -> Array[String]:
+	var found: Array[String] = []
+	for file: String in DirAccess.get_files_at("res://tests"):
+		if file.begins_with("test_") and file.ends_with(".gd") and not HELPERS.has(file):
+			found.append("res://tests/" + file)
+	found.sort()
+	return found
+
+
+## The simulation keeps its chart, sea floor and environment in statics. A test file that loads a
+## coast must not hand it to the next file, so every file starts from open ocean in daylight.
+static func reset_world() -> void:
+	Terrain.clear()
+	Bathymetry.clear()
+	Detection.sea_state = 0
+	Detection.environment = {}
+	Detection.light = 1.0
+	Detection.jammers = []
+	SubmarinePower.events.clear()
 
 
 func _initialize() -> void:
@@ -20,7 +43,7 @@ func _run() -> void:
 		debug.log_events = false
 	var total := 0
 	var failed := 0
-	var paths := TESTS.duplicate()
+	var paths := discover()
 	if OS.get_cmdline_user_args().has("--self-test-runtime-error"):
 		paths = ["res://tests/fixtures/runtime_error.gd"]
 	# `-- --only=test_attack.gd,test_cds.gd` runs a few files while working on them.
@@ -29,6 +52,7 @@ func _run() -> void:
 			var wanted := arg.get_slice("=", 1).split(",", false)
 			paths = paths.filter(func(path: String) -> bool: return wanted.has(path.get_file()))
 	for path in paths:
+		reset_world()
 		var script: GDScript = load(path)
 		if script == null or not script.can_instantiate():
 			print("ERROR %s failed to load (parse error above)" % path.get_file())
