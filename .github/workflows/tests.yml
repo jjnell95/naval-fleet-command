@@ -35,6 +35,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq xvfb libgl1-mesa-dri > /dev/null
 
+      - name: Scenario data is what the builders write
+        run: |
+          python3 -m venv /tmp/scenario-tools
+          /tmp/scenario-tools/bin/pip install -q -r tools/scenarios/requirements.txt
+          /tmp/scenario-tools/bin/python tools/scenarios/rebuild_all.py --check
+
       - name: Import the project
         run: ~/godot/godot --headless --path . --import --quit
 
