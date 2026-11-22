@@ -79,6 +79,8 @@ const TAG_FONT_SIZE := 11
 const STALE_ALPHA := 0.55
 const UNCERTAINTY_ALPHA := 0.35
 const BEARING_LINE_ALPHA := 0.6
+## Symbols closer than this share one label (see `_merge_coincident_labels`).
+const COINCIDENT_PX := 3.0
 const BEARING_END_PX := 5.0  # half the bar that closes a bearing line, where its number sits
 const SENSOR_RING_ALPHA := 0.45
 ## A sunk or shot-down own platform stays on the plot in grey this long (sim seconds).
@@ -2585,9 +2587,55 @@ func _place_labels() -> void:
 	var obstacles: Array = []
 	if _radio_layout.has("plate"):
 		obstacles.append(_radio_layout["plate"])
+	_label_queue = _merge_coincident_labels(_label_queue)
 	var count := _label_queue.size() + _chart_captions.size()
 	if _labels.due(_anim, count, obstacles):
 		_labels.assign(_label_queue, _anim, Rect2(Vector2.ZERO, size), _chart_captions, obstacles)
+
+
+## Symbols on one spot (two emitters heard on one bearing, a ship and the helicopter on its deck)
+## leave no corner for either number: each blocks the other and both went unlabelled. They share
+## one label instead, the hooked one's first: "1003/1004", or "1003 +2" for a bigger pile.
+func _merge_coincident_labels(queue: Array) -> Array:
+	var heads: Dictionary = {}  # cell -> indices in out of the labels heading a spot
+	var members: Dictionary = {}  # index in out -> numbers
+	var out: Array = []
+	for l: Dictionary in queue:
+		var at: Vector2 = l.at
+		var cell := Vector2i((at / COINCIDENT_PX).floor())
+		var head := -1
+		if l.number != "":
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					for i: int in heads.get(cell + Vector2i(dx, dy), []):
+						if head < 0 and (out[i].at as Vector2).distance_to(at) <= COINCIDENT_PX:
+							head = i
+		if head < 0:
+			if l.number != "":
+				heads[cell] = heads.get(cell, []) + [out.size()]
+				members[out.size()] = PackedStringArray([l.number])
+			out.append(l)
+			continue
+		var numbers: PackedStringArray = members[head]
+		if l.priority and not out[head].priority:
+			numbers.insert(0, l.number)
+			var merged: Dictionary = l.duplicate()
+			out[head] = merged
+		else:
+			numbers.append(l.number)
+		members[head] = numbers
+	for head: int in members:
+		var numbers: PackedStringArray = members[head]
+		if numbers.size() < 2:
+			continue
+		var l: Dictionary = (out[head] as Dictionary).duplicate()
+		l.number = "/".join(numbers) if numbers.size() == 2 else "%s +%d" % [numbers[0], numbers.size() - 1]
+		l.tag = ""
+		var font := _readout_font()
+		l.ascent = font.get_ascent(TRACK_NUMBER_FONT_SIZE)
+		l.size = Vector2(_text_width(l.number, TRACK_NUMBER_FONT_SIZE), l.ascent + font.get_descent(TRACK_NUMBER_FONT_SIZE))
+		out[head] = l
+	return out
 
 
 func _draw_labels() -> void:

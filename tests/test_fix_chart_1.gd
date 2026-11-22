@@ -203,3 +203,33 @@ func test_a_right_click_on_the_regional_display_sends_the_hook_there() -> void:
 	regional.free()
 	map.free()
 	sim.free()
+
+
+# --- Contacts on one spot ---------------------------------------------------------------------
+
+func test_two_contacts_on_one_spot_share_a_label_instead_of_losing_both() -> void:
+	var map := _map()
+	# Two emitters heard from one place: their bearing lines end on the same pixel.
+	map._queue_label("t:T1003", Vector2(500.4, 200.2), TacticalMap.BEARING_END_PX, "1003", "", 1.0, false)
+	map._queue_label("t:T1004", Vector2(500.0, 200.0), TacticalMap.BEARING_END_PX, "1004", "", 1.0, false)
+	map._queue_label("t:T1002", Vector2(560.0, 260.0), TacticalMap.BEARING_END_PX, "1002", "", 1.0, false)
+	map._place_labels()
+	var numbers: Array = map._label_queue.map(func(l: Dictionary) -> String: return l.number)
+	assert_true(numbers.has("1003/1004"), "the pair is labelled together: %s" % [numbers])
+	assert_true(numbers.has("1002"), "a contact on its own keeps its own number")
+	for l: Dictionary in map._label_queue:
+		assert_true(_shown(map, l.key), "%s is printed" % l.number)
+	map.free()
+
+
+func test_the_hooked_contact_heads_its_shared_label() -> void:
+	var map := _map()
+	for i in 4:
+		map._queue_label("t:T10%02d" % i, Vector2(300, 300), MapSymbols.RADIUS, "10%02d" % i, "tag", 1.0, i == 2)
+	map._place_labels()
+	assert_eq(map._label_queue.size(), 1)
+	var l: Dictionary = map._label_queue[0]
+	assert_eq(l.number, "1002 +3", "the hook first, then how many more share the spot")
+	assert_true(l.priority, "and the pile keeps the hook's precedence")
+	assert_true(_shown(map, l.key))
+	map.free()
