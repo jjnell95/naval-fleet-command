@@ -310,3 +310,67 @@ func test_an_altitude_order_is_held_above_the_sea() -> void:
 	_run(um, 600.0)
 	assert_true(jet.alive and jet.altitude_m >= Unit.MIN_ALTITUDE_FIXED_WING_M - 0.01, "a jet is not flown into the sea: %.0f m" % jet.altitude_m)
 	um.free()
+
+
+# --- A helm order does not silently stow the sensor ----------------------------------------
+
+func _streamed_frigate(um: UnitManager) -> Unit:
+	var ship := _ship(Vector2.ZERO, "Frigate", "fra_ffg_fremm")
+	ship.speed_kn = 8.0
+	ship.ordered_speed_kn = 8.0
+	um.add_unit(ship)
+	assert_true(TowedArray.capable(ship), "the frigate tows an array")
+	assert_true(um.issue_order(ship, Order.asw_search()))
+	_run(um, TowedArray.STREAM_S + 10.0)
+	assert_eq(ship.array_phase, TowedArray.Phase.LISTENING)
+	TowedArray.take_events()
+	return ship
+
+
+func test_helm_and_task_orders_keep_the_towed_array_streamed() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var ship := _streamed_frigate(um)
+	var t := Track.new()
+	t.id = "0400"
+	t.owner_faction = "BLUE"
+	t.position = Vector2(6.0, 6.0)
+	t.domain = "subsurface"
+	for order: Order in [Order.set_course(ship.heading_deg + 20.0), Order.set_speed(5.0), Order.move(Vector2(-5.0, 5.0)), Order.patrol_box(Vector2(-6, 4), Vector2(6, 12)), Order.investigate(t)]:
+		assert_true(um.issue_order(ship, order), "order %d accepted" % order.type)
+		_run(um, 30.0)
+		assert_eq(ship.array_phase, TowedArray.Phase.LISTENING, "order %d is steered with the array streamed" % order.type)
+		assert_true(ship.speed_kn <= TowedArray.QUIET_SPEED_KN + 0.1, "at the towing speed")
+	assert_true(TowedArray.take_events().is_empty(), "nothing to report")
+	um.free()
+
+
+func test_a_speed_above_the_towing_limit_recovers_the_array_and_says_so() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var ship := _streamed_frigate(um)
+	assert_true(um.issue_order(ship, Order.set_speed(24.0)))
+	assert_eq(ship.array_phase, TowedArray.Phase.RECOVERING, "the cable will not take 24 knots")
+	var events := TowedArray.take_events()
+	assert_true(events.size() == 1 and events[0]["unit"] == ship and events[0]["event"] == "array_recovering", "the recovery is reported")
+	um.free()
+
+
+func test_a_dipping_helicopter_holds_the_dip_for_a_hover_order_and_reports_raising_the_dome() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var helo := _ship(Vector2.ZERO, "Helo", "usn_helo_mh60r")
+	helo.altitude_m = 20.0
+	um.add_unit(helo)
+	assert_true(um.issue_order(helo, Order.deploy_dipping_sonar(0.0)))
+	_run(um, DippingSonar.LOWER_S + 120.0)
+	assert_true(DippingSonar.listening(helo), "in the dip")
+	DippingSonar.take_events()
+	assert_true(um.issue_order(helo, Order.set_speed(0.0)))
+	assert_true(DippingSonar.listening(helo), "an order to hold still keeps the dome in the water")
+	assert_true(DippingSonar.take_events().is_empty())
+	assert_true(um.issue_order(helo, Order.move(Vector2(10, 10))))
+	assert_eq(helo.dip_phase, DippingSonar.Phase.RAISING, "she cannot fly off with the dome down")
+	var events := DippingSonar.take_events()
+	assert_true(events.size() == 1 and events[0]["event"] == "dip_raising", "and the crew says the dome is coming up")
+	um.free()

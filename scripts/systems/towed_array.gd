@@ -9,6 +9,10 @@ const RECOVER_S := 90.0
 const QUIET_SPEED_KN := 8.0
 const MIN_WATER_M := 25.0
 
+## Recoveries the commander did not order in so many words, since the simulation last asked:
+## {unit, event} with event `array_recovering`. The crew says why the array is coming in.
+static var events: Array = []
+
 
 static func requires_deployment(u: Unit, sensor: SensorSpec) -> bool:
 	return u.spec.domain == "surface" and sensor.kind == "sonar" and sensor.array_depth_m > 0.0 and not sensor.requires_hover
@@ -55,15 +59,32 @@ static func recover(u: Unit) -> void:
 	u.array_timer_s = RECOVER_S
 
 
+## The array tows on any course: a new course, route, patrol or task is steered at the quiet speed
+## with the array streamed, which is how a towed-array ship works. It comes in only for what the
+## cable will not take: an evasion, or a speed above the towing limit.
 static func on_order(u: Unit, order: Order) -> void:
 	if order.type == Order.Type.ASW_SEARCH:
 		search(u)
 	elif order.type == Order.Type.RECOVER_TOWED_ARRAY:
 		recover(u)
-	elif order.type == Order.Type.ATTACK:
-		pass  # in reach she fires with the array streamed; it comes in only if she has to close (take_steering)
-	elif order.type in Unit.NAVIGATION_ORDERS or order.type in [Order.Type.SET_SPEED, Order.Type.EVADE]:
-		recover(u)
+	elif order.type == Order.Type.EVADE or (order.type == Order.Type.SET_SPEED and order.speed_kn > QUIET_SPEED_KN + 0.1):
+		recover_announced(u)
+
+
+## The crew recovers the array by itself, and says so.
+static func recover_announced(u: Unit) -> void:
+	if u.array_phase in [Phase.STOWED, Phase.RECOVERING]:
+		u.array_search_active = false
+		return
+	recover(u)
+	if events.size() < 256:
+		events.append({"unit": u, "event": "array_recovering"})
+
+
+static func take_events() -> Array:
+	var out := events
+	events = []
+	return out
 
 
 static func speed_limit(u: Unit) -> float:
@@ -78,7 +99,7 @@ static func step(u: Unit, dt: float) -> void:
 		u.array_search_active = false
 		return
 	if u.component("sensors") <= 0.0 or u.evasion_remaining_s > 0.0 or not safe_water(u):
-		recover(u)
+		recover_announced(u)
 	# Pay out only after slowing. This prevents a fast ship acquiring an instant quiet-water fix.
 	if u.array_phase == Phase.STREAMING and u.speed_kn > QUIET_SPEED_KN + 0.1: return
 	if u.array_phase == Phase.LISTENING: return

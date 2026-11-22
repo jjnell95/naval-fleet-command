@@ -867,8 +867,8 @@ func task_speed_kn(attacking: bool) -> float:
 ## follows a task still hands back to the first one's plan, and the platform leaves its formation
 ## or circuit; whatever is streamed or lowered comes in before it moves off.
 func take_steering() -> void:
-	DippingSonar.recover(self)
-	TowedArray.recover(self)
+	# A dome cannot be flown off in the water; a towed array is steered with, at its own speed.
+	DippingSonar.recover_announced(self)
 	if not plan_kept:
 		plan_kept = true
 		plan_waypoints.clear()
