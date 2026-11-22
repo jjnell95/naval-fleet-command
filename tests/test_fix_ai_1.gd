@@ -391,3 +391,36 @@ func test_a_wire_guided_fish_still_waits_when_the_rough_range_is_near_the_edge_o
 	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "sixteen miles on a rough range could be twenty-five")
 	h.free_all()
 
+
+# --- A boat breaking out gets out of the way of a torpedo ----------------------------------
+
+func test_a_breakout_boat_turns_away_from_a_torpedo_running_at_it_then_resumes_its_route() -> void:
+	var boat := _boat(Vector2.ZERO)
+	boat.ai_posture = "breakout"
+	boat.patrol_route = [Vector2(0, 40)] as Array[Vector2]
+	var h := _harness([boat])
+	h.ai.tick(100.0)
+	assert_eq(h.ai.state_name(boat), "PATROL", "on its way to the gate")
+	var fish := Weapon.new()
+	fish.id = 701
+	fish.spec = _heavyweight(false)
+	fish.faction = "BLUE"
+	fish.position = Vector2(0, 3)  # dead ahead, coming down the route at it
+	fish.acquired = boat
+	fish.heading_deg = 180.0
+	fish.phase = Weapon.Phase.TERMINAL
+	h.wm.in_flight.append(fish)
+	h.threats.mark_detected("RED", fish, 100.0, boat)  # heard on the boat's own sonar
+	h.ai.tick(102.0)
+	assert_eq(h.ai.state_name(boat), "DEFEND", "a torpedo running at a breakout boat is evaded, not accepted")
+	var courses := _courses(h, boat)
+	assert_true(not courses.is_empty(), "it turns")
+	if not courses.is_empty():
+		assert_true(absf(Geo.heading_delta(180.0, courses[-1])) <= 30.0, "away from the fish (%.0f)" % courses[-1])
+	var speeds := _orders_of(h, Order.Type.SET_SPEED, boat)
+	assert_near(speeds[-1]["order"].speed_kn, boat.spec.max_speed_kn, 0.01, "at its best speed")
+	fish.phase = Weapon.Phase.DEAD
+	h.wm.in_flight.clear()
+	h.ai.tick(400.0)
+	assert_eq(h.ai.state_name(boat), "PATROL", "and once it is clear, takes up the transit again")
+	h.free_all()

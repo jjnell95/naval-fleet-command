@@ -390,8 +390,12 @@ func _inbound_on(u: Unit) -> Array:
 
 func _choose_state(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inbound: Array, now: float) -> State:
 	# A ship with somewhere to be does not stop to shadow, and does not turn away from a missile
-	# it has already decided to accept. Its own air defence still fires automatically.
+	# it has already decided to accept. Its own air defence still fires automatically. A torpedo
+	# is another matter: nothing aboard shoots one down, and running on into it ends the transit,
+	# so the boat or ship gets out of its way first and takes up the route again after.
 	if u.ai_posture == "breakout":
+		if _torpedo_among(inbound):
+			return State.DEFEND
 		if not _pick_engagement(u, b, hostiles, now).is_empty():
 			return State.ENGAGE
 		return State.PATROL
@@ -408,6 +412,13 @@ func _choose_state(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inb
 	if b["last_contact"] != Vector2.INF and now - float(b["last_contact_time"]) < CONTACT_MEMORY_S:
 		return State.SEARCH
 	return State.PATROL
+
+
+static func _torpedo_among(inbound: Array) -> bool:
+	for entry: Dictionary in inbound:
+		if (entry["weapon"] as Weapon).spec.is_torpedo():
+			return true
+	return false
 
 
 func _should_withdraw(u: Unit, hostiles: Array) -> bool:
@@ -500,7 +511,9 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			var check := Combat.check_engagement(u, spec, t)
 			if not check["ok"]:
 				continue
-			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM:
+			# Once it is being shot at, the boat has been found, and a fish back down the line is
+			# worth more than its silence.
+			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM and not under_fire:
 				continue
 			# A fish on a wire is steered all the way by the boat that fired it, so a long run is
 			# what it is built for, not a shot at where the target used to be.
