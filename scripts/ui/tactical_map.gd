@@ -1115,9 +1115,7 @@ func _right_click(e: InputEventMouseButton) -> void:
 				_inspecting_track = false
 				selection_changed.emit(selected)
 		"water", "empty":
-			var world: Vector2 = ctx["world_pos"]
-			if _has_controllable_selection() and int(_move_acceptance(world)["accepted"]) > 0:
-				move_order_requested.emit(world, e.shift_pressed)
+			if request_move(ctx["world_pos"], e.shift_pressed):
 				return
 	ctx["viewport_pos"] = get_global_transform_with_canvas() * e.position if is_inside_tree() else e.position
 	context_menu_requested.emit(e.position, ctx)
@@ -1826,6 +1824,16 @@ func _draw_patrol_preview() -> void:
 		var span := (screen_to_world(_mouse) - _patrol_corner).abs()
 		label = "PATROL %.1f × %.1f NM — click to assign (%d/%d)" % [span.x, span.y, accepted, selected.size()] if accepted > 0 else reason
 	_shadow_text(_mouse + Vector2(17, -10), label, 12, col)
+
+
+## A transit for the hooked platforms to a world point (`append` adds a leg), on the same signal
+## the chart's right-click sends: false, and nothing sent, when the hook cannot be moved or no
+## hooked hull could reach the point. The regional display uses it for its right-click too.
+func request_move(world_pos: Vector2, append: bool) -> bool:
+	if not _has_controllable_selection() or int(_move_acceptance(world_pos)["accepted"]) == 0:
+		return false
+	move_order_requested.emit(world_pos, append)
+	return true
 
 
 func _move_acceptance(target: Vector2) -> Dictionary:

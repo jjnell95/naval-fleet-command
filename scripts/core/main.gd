@@ -187,6 +187,7 @@ func _ready() -> void:
 
 	map.selection_changed.connect(_on_selection_changed)
 	map.move_order_requested.connect(_on_move_order_requested)
+	regional.advice.connect(radio.advise)
 	map.patrol_order_requested.connect(_apply_order_to_selection)
 	map.mission_station_move_requested.connect(func(m: AirMission, at: Vector2) -> void: _revise_chart_mission(m, at, m.radius_nm))
 	map.mission_radius_change_requested.connect(func(m: AirMission, radius: float) -> void: _revise_chart_mission(m, m.station, radius))

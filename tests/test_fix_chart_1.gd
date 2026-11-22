@@ -147,3 +147,59 @@ func test_a_caption_whose_own_place_is_off_the_chart_takes_another() -> void:
 
 func _caption_rect_queued(map: TacticalMap, index: int) -> Rect2:
 	return map._chart_captions[index].rect
+
+
+# --- Regional display right-click -------------------------------------------------------------
+
+func _ship(position: Vector2) -> Unit:
+	var u := Unit.new()
+	u.spec = DataDB.platform("usn_ddg_burke_iii")
+	u.faction = "BLUE"
+	u.position = position
+	u.callsign = "USS Test"
+	u.health = u.spec.health
+	return u
+
+
+func _right_click_at(regional: RegionalMap, at: Vector2, shift := false) -> void:
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_RIGHT
+	click.pressed = true
+	click.shift_pressed = shift
+	click.position = at
+	regional._gui_input(click)
+	click.pressed = false
+	regional._gui_input(click)
+
+
+func test_a_right_click_on_the_regional_display_sends_the_hook_there() -> void:
+	var sim := Simulation.new()
+	sim.map_center = Vector2.ZERO
+	sim.map_extent_nm = 200.0
+	var map := TacticalMap.new()
+	map.simulation = sim
+	map.size = Vector2(1000, 600)
+	map.ppn = 4.0
+	var regional := RegionalMap.new()
+	regional.map = map
+	regional.size = Vector2(288, 288)
+	var moves: Array = []
+	var advice: Array = []
+	map.move_order_requested.connect(func(at: Vector2, append: bool) -> void: moves.append([at, append]))
+	regional.advice.connect(func(text: String) -> void: advice.append(text))
+	_right_click_at(regional, Vector2(40, 60))
+	assert_true(moves.is_empty(), "nothing hooked, nothing sent")
+	assert_eq(advice.size(), 1, "the player is told to hook a platform first")
+	map.select_units([_ship(Vector2(5, 5))])
+	_right_click_at(regional, Vector2(40, 60))
+	assert_eq(moves.size(), 1, "one transit ordered for the hooked ship")
+	var expected := regional.regional_to_world(Vector2(40, 60))
+	assert_near((moves[0][0] as Vector2).distance_to(expected), 0.0, 0.01, "to the point under the cursor")
+	assert_eq(moves[0][1], false, "a plain right-click sets the course")
+	_right_click_at(regional, Vector2(200, 30), true)
+	assert_eq(moves.size(), 2)
+	assert_eq(moves[1][1], true, "Shift adds a leg")
+	assert_true(map.center_nm.is_equal_approx(Vector2.ZERO), "a right-click does not recentre the chart")
+	regional.free()
+	map.free()
+	sim.free()
