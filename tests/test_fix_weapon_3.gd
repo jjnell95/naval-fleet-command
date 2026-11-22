@@ -413,3 +413,76 @@ func test_a_torpedo_defence_fit_warns_without_a_sonar_and_the_ship_turns_away() 
 	assert_true(absf(Geo.heading_delta(ship.evasion_course_deg, 0.0)) < 30.0, "running north, away from it (course %03d)" % int(ship.evasion_course_deg))
 	tm.free()
 	_cleanup(wm)
+
+
+# --- Follow-up: the intercept order with no round hooked, through the order path ---------------
+
+## The commander presses X with no round hooked on a ship on manual missile defence. The order
+## goes through the simulation's own path and clears the raid: a second round of it that appears a
+## minute later is engaged by the area missile without a second X.
+func test_an_intercept_order_with_no_round_hooked_covers_the_later_rounds_of_the_raid() -> void:
+	Terrain.clear()
+	Detection.set_environment({})
+	var simulation := Simulation.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(simulation)
+	var area := WeaponSpec.new()
+	area.id = "test_area_sam"
+	area.display_name = "Area SAM"
+	area.type = "sam"
+	area.defence_layer = "area"
+	area.target_types = PackedStringArray(["missile"])
+	area.max_range_nm = 60.0
+	area.min_range_nm = 0.05
+	area.speed_kn = 2400.0
+	area.turn_rate_deg_s = 120.0
+	area.base_pk = 1.0
+	area.salvo_default = 1
+	area.launch_interval_s = 1.0
+	var ship := _unit("BLUE", Vector2.ZERO, "surface", 1)
+	ship.spec.fire_control_channels = 4
+	var radar := SensorSpec.new()
+	radar.kind = "radar"
+	radar.range_surface_nm = 40.0
+	radar.range_air_nm = 200.0
+	radar.antenna_height_m = 20.0
+	ship.sensors.append(radar)
+	ship.radar_on = true
+	ship.weapons.append(area)
+	ship.magazines[area.id] = 32
+	simulation.unit_manager.add_unit(ship)
+	assert_true(simulation.unit_manager.issue_order(ship, Order.set_air_defence_mode(false)), "manual missile defence")
+	var asm := WeaponSpec.new()
+	asm.id = "test_asm"
+	asm.display_name = "Test ASM"
+	asm.type = "asm"
+	asm.max_range_nm = 120.0
+	asm.speed_kn = 480.0
+	asm.turn_rate_deg_s = 15.0
+	asm.seeker_range_nm = 8.0
+	asm.damage = 40.0
+	asm.base_pk = 1.0
+	asm.altitude_m = 10.0
+	var rounds: Array[Weapon] = []
+	for i in 2:
+		var w := Weapon.new()
+		w.id = 950 + i
+		w.spec = asm
+		w.faction = "RED"
+		w.position = Vector2(0.0, 15.0)
+		w.acquired = ship
+		w.aim_point = ship.position
+		w.heading_deg = 180.0
+		w.phase = Weapon.Phase.TERMINAL
+		rounds.append(w)
+	simulation.weapon_manager.in_flight.append(rounds[0])
+	SimClock.advance(2.0)
+	var x := Order.intercept()
+	assert_true(simulation.unit_manager.issue_order(ship, x) and x.execution_accepted, "X with no round hooked is accepted (%s)" % x.receipt)
+	SimClock.advance(60.0)
+	simulation.weapon_manager.in_flight.append(rounds[1])
+	SimClock.advance(240.0)
+	assert_eq(rounds[0].dead_reason, "INTERCEPTED", "the round held when X was pressed is engaged")
+	assert_eq(rounds[1].dead_reason, "INTERCEPTED", "the later round of the same raid is engaged without a new X")
+	assert_near(ship.health, 100.0, 1e-3)
+	simulation.free()
