@@ -626,8 +626,12 @@ static func first_seeker_contact_fraction(from: Vector2, to: Vector2, point: Vec
 
 
 ## Return the actual lock point, so an impact cannot use travel completed before acquisition.
-## Terminal search cannot read the commander's identities: friendly and neutral traffic can be
-## acquired just like hostile traffic. The firing platform is excluded from its own seeker.
+## Terminal search cannot read the commander's identities: neutral traffic can be acquired just
+## like hostile traffic, which is why the discipline belongs at launch. It does tell its own side
+## (seeker_sees), and the firing platform is excluded from its own seeker.
+## Of everything in the basket the round takes what it was sent for. One still being steered by
+## radar or datalink at a contact its shooter holds waits for the unit under that contact; any
+## other takes whatever lies nearest its aim point, not whatever crossed the cone first.
 ## A round still separating from its launcher takes no return alongside it (SAFE_SEPARATION_NM);
 ## a short shot that opens its seeker at launch would otherwise lock the section's wingman.
 ## A rocket-delivered payload enters the water on the held datum and searches around its entry
@@ -637,8 +641,12 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	var around_entry := w.delivery_spec != null
 	var separation := clampf(w.spec.min_range_nm, IMPACT_MIN_NM, SAFE_SEPARATION_NM)
 	var separating := w.shooter != null and not around_entry and w.distance_flown_nm < separation
+	var designated := designated_unit(w)
+	# A round searching on down its heading, or a payload circling its entry point, has no aim
+	# point worth the name: it takes what is nearest itself.
+	var reference := w.position if w.searching_on or around_entry else w.aim_point
 	var best: Unit = null
-	var first_fraction := INF
+	var best_fraction := INF
 	var best_d_squared := INF
 	for u in unit_manager.units:
 		if u == w.shooter or not seeker_sees(w, u):
@@ -648,17 +656,24 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 		var fraction := _first_radius_contact_fraction(previous, w.position, u.position, radius) if around_entry else first_seeker_contact_fraction(previous, w.position, u.position, radius, w.heading_deg, w.spec.seeker_half_angle_deg)
 		if not is_finite(fraction):
 			continue
-		var lock_point := previous.lerp(w.position, fraction)
-		var d_squared := lock_point.distance_squared_to(u.position)
-		if fraction < first_fraction or (is_equal_approx(fraction, first_fraction) and d_squared <= best_d_squared):
+		if u == designated:
 			best = u
-			first_fraction = fraction
+			best_fraction = fraction
+			break
+		var d_squared := reference.distance_squared_to(u.position)
+		if d_squared < best_d_squared:
+			best = u
+			best_fraction = fraction
 			best_d_squared = d_squared
+	var at_aim := not w.searching_on and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0
+	if best != null and designated != null and best != designated and not w.searching_on and not at_aim:
+		# Its own contact is still ahead of it: something else crossing the cone is not the target.
+		best = null
 	if best != null and w.spec.is_anti_radiation():
 		w.emitter_point = best.position
 		w.emitter_silent = false
 	if best == null:
-		if not w.searching_on and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0:
+		if at_aim:
 			if searches_on(w):
 				# An aircraft that turned after the last update is somewhere ahead: the round holds
 				# its heading with the seeker on rather than dying on an empty patch of sky.
@@ -670,7 +685,21 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 		return previous
 	w.acquired = best
 	w.phase = Weapon.Phase.TERMINAL
-	return previous.lerp(w.position, first_fraction)
+	return previous.lerp(w.position, best_fraction)
+
+
+## The unit a round is being steered at: the one under the contact it was fired at, while the
+## round takes updates (command, semi-active or datalink guidance) and its living shooter still
+## holds that contact. Null for a launch-and-leave round, a stale or lost contact, or a target the
+## seeker can no longer see; the round then finds its own target at the aim point.
+func designated_unit(w: Weapon) -> Unit:
+	var t := w.target_track
+	if t == null or w.delivery_spec != null or not w.spec.supports_midcourse_updates():
+		return null
+	if w.shooter == null or not w.shooter.alive or t.status != Track.Status.ACTIVE or not t.visible_to(w.shooter):
+		return null
+	var u := t.truth
+	return u if u != null and u != w.shooter and seeker_sees(w, u) else null
 
 
 ## Whether a round that finds nothing at its aim point flies on searching: one fired at an aircraft,
@@ -696,7 +725,7 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	if w.seductions <= MAX_SEDUCTIONS and rng.randf() < SEDUCED_REACQUIRE_P:
 		var best_d := w.spec.acquisition_radius_nm()
 		for u in unit_manager.units:
-			if u == from or u == w.shooter or not can_target(w.spec, u):
+			if u == from or u == w.shooter or u.faction == w.faction or not can_target(w.spec, u):
 				continue
 			var d := w.position.distance_to(u.position)
 			if d > best_d:
@@ -716,15 +745,16 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	return best
 
 
-## What this round's seeker can lock. An anti-radiation seeker hears only a radar that is
-## transmitting, and is set against the other side's emitters: it does not take its own force's
-## radars or a neutral's.
+## What this round's seeker can lock. Never a unit of the side that fired it: its own force is
+## the one thing a round is told about before it leaves the rail. An anti-radiation seeker hears
+## only a radar that is transmitting, and is set against the other side's emitters: it does not
+## take a neutral's either.
 func seeker_sees(w: Weapon, u: Unit) -> bool:
-	if not can_target(w.spec, u):
+	if u.faction == w.faction or not can_target(w.spec, u):
 		return false
 	if not w.spec.is_anti_radiation():
 		return true
-	if u.faction == w.faction or (track_manager != null and track_manager.neutral_factions.has(u.faction)):
+	if track_manager != null and track_manager.neutral_factions.has(u.faction):
 		return false
 	return u.radar_emitting() or u.jamming()
 
