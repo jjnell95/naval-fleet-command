@@ -618,6 +618,10 @@ func apply_order(order: Order) -> void:
 		Order.Type.SET_COURSE:
 			waypoints.clear()
 			ordered_heading_deg = fposmod(order.heading_deg, 360.0)
+			# A course is somewhere to go. Lying stopped she has no rudder, so she gets way on to
+			# steer it, as she does for a move.
+			if ordered_speed_kn <= 0.0:
+				ordered_speed_kn = spec.cruise_speed_kn
 		Order.Type.SET_SPEED:
 			ordered_speed_kn = clampf(order.speed_kn, 0.0, effective_max_speed())
 			if patrol_active and station_kind == "patrol":

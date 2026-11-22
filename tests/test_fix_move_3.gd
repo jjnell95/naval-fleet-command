@@ -197,3 +197,21 @@ func test_a_speed_order_to_a_consort_keeping_station_is_refused_naming_the_guide
 	assert_eq(Main._refusal_reason(escort, order), order.receipt, "which is what the radio line reports")
 	assert_true(um.issue_order(pair[0], Order.set_speed(20.0)), "the guide takes a speed order")
 	um.free()
+
+
+func test_a_course_order_to_a_stopped_ship_gets_way_on_and_steers_it() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var ship := _ship(Vector2.ZERO, "Ship")
+	ship.speed_kn = 15.0
+	ship.ordered_speed_kn = 15.0
+	um.add_unit(ship)
+	assert_true(um.issue_order(ship, Order.move(Vector2(0, 2))))
+	var now := _run(um, 1200.0)
+	assert_near(ship.speed_kn, 0.0, 0.01, "she stops at the end of the move")
+	var lay := ship.position
+	assert_true(um.issue_order(ship, Order.set_course(90.0)))
+	_run(um, 600.0, now)
+	assert_near(ship.heading_deg, 90.0, 2.0, "she comes round to the ordered course")
+	assert_true(ship.speed_kn > 5.0 and ship.position.distance_to(lay) > 1.0, "with way on, making %.1f kn" % ship.speed_kn)
+	um.free()
