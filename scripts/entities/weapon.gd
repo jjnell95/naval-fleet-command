@@ -29,6 +29,9 @@ var countermeasure_attempts: Dictionary = {}  # one roll per unit and deployed p
 ## Ships whose acoustic countermeasures have had their try at this torpedo: unit id -> true. A
 ## torpedo decoyed onto another ship meets that ship's own.
 var acoustic_decoy_tried: Dictionary = {}
+## Units whose side has heard this torpedo homing on them: unit id -> true. Only a crew that knows
+## the torpedo is there runs from it (WeaponManager.running_from).
+var heard_by: Dictionary = {}
 ## Anti-torpedo rounds ever fired at this torpedo, by any ship.
 var hard_kill_shots := 0
 var seductions := 0  # times decoys have pulled this round off a lock

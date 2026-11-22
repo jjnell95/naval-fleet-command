@@ -450,15 +450,18 @@ static func gun_accuracy_factor(spec: WeaponSpec, target: Unit, range_nm: float)
 
 
 ## Hit probability once the seeker has acquired a real unit. `range_nm` is how far the round flew
-## to get there, where the caller knows it; only gunfire depends on it.
-static func hit_probability(spec: WeaponSpec, target: Unit, range_nm := -1.0) -> float:
+## to get there, where the caller knows it; only gunfire depends on it. `running_from` is for a
+## torpedo: the target's side has heard it and the target is running from it (WeaponManager).
+static func hit_probability(spec: WeaponSpec, target: Unit, range_nm := -1.0, running_from := false) -> float:
 	if spec.is_gun():
 		var gun_size := clampf(0.75 + target.spec.signature_factor * 0.25, 0.6, 1.1)
 		return clampf(spec.base_pk * gun_size * gun_accuracy_factor(spec, target, range_nm), 0.0, 0.99)
 	if spec.is_torpedo():
 		# A ship that has heard the torpedo and is running gives the weapon a much harder problem.
-		# Turning away and opening the range is the only hard answer a surface ship has.
-		var evasion := clampf(target.speed_kn / maxf(target.spec.max_speed_kn, 1.0), 0.0, 1.0)
+		# Turning away and opening the range is the only hard answer a surface ship has. Speed on
+		# some other course, toward the fish or across it, or with nobody aboard aware of it, buys
+		# nothing.
+		var evasion := clampf(target.speed_kn / maxf(target.spec.max_speed_kn, 1.0), 0.0, 1.0) if running_from else 0.0
 		return clampf(spec.base_pk * (1.0 - TORPEDO_EVASION_BENEFIT * evasion), 0.05, 0.99)
 	if target.in_flight():
 		# An aircraft is a far easier thing to hit than a sea-skimming missile, and these weapons

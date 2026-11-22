@@ -38,6 +38,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 				continue
 			if not threat_manager.visible_to(u, w):
 				continue
+			w.heard_by[u.id] = true
 			used += _hard_kill(u, w, weapon_manager, now)
 			if w.phase != Weapon.Phase.DEAD:
 				used += _soft_kill(u, w, weapon_manager)

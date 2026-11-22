@@ -214,3 +214,64 @@ func test_the_search_about_the_plot_finds_a_ship_on_either_side() -> void:
 		var result := _run_round(wm, wm.in_flight[0], ship)
 		assert_true(result["acquired"], "ship %.1f nm to the %s of the plot is found (ended %s)" % [spec.seeker_range_nm, "west" if side > 0.0 else "east", result["reason"]])
 		_cleanup(wm)
+
+
+# --- c-weapons#9: running from a torpedo, not merely being fast -------------------------------
+
+## Fires a stock Mk 48 into a 27 kn frigate from astern or abeam and reports the chance its
+## impact was rolled at, the way WeaponManager rolls it.
+func _impact_pk(heard: bool, target_heading: float) -> float:
+	var spec := DataDB.weapon("mk48_adcap")
+	var ship := _unit("RED", Vector2(0.0, 0.0), "surface", 2)
+	ship.spec.max_speed_kn = 30.0
+	ship.speed_kn = 27.0
+	ship.heading_deg = target_heading
+	var w := Weapon.new()
+	w.spec = spec
+	w.heading_deg = 0.0  # running north up the ship's wake, or across her bow
+	w.acquired = ship
+	if heard:
+		w.heard_by[ship.id] = true
+	return Combat.hit_probability(spec, ship, 5.0, WeaponManager.running_from(w, ship))
+
+
+## A fast ship that has not heard the torpedo, or one that heard it and is crossing its track, is
+## as easy to hit as a stopped one; only one running from a torpedo it heard is harder.
+func test_only_a_ship_running_from_a_torpedo_it_heard_is_harder_to_hit() -> void:
+	var spec := DataDB.weapon("mk48_adcap")
+	var stopped := _unit("RED", Vector2.ZERO, "surface", 2)
+	var base := Combat.hit_probability(spec, stopped, 5.0)
+	assert_near(_impact_pk(false, 0.0), base, 0.001, "unalerted at 27 kn: the torpedo's full chance")
+	assert_near(_impact_pk(true, 90.0), base, 0.001, "heard it, but crossing its track at 27 kn: no help")
+	assert_true(_impact_pk(true, 20.0) < base * 0.7, "heard it and running from it: much harder (%.2f against %.2f)" % [_impact_pk(true, 20.0), base])
+
+
+## The defence cycle is what tells a crew the torpedo is there: a ship that hears one homing on
+## her is marked as having heard it.
+func test_a_ship_that_hears_a_torpedo_homing_on_her_is_aware_of_it() -> void:
+	var ship := _unit("BLUE", Vector2.ZERO, "surface", 5)
+	ship.auto_countermeasures = false
+	var deaf := _unit("BLUE", Vector2(0.0, 20.0), "surface", 6)
+	var wm := _harness([ship, deaf])
+	var tm := ThreatManager.new()
+	var heard := Weapon.new()
+	heard.id = 901
+	heard.spec = DataDB.weapon("mk48_adcap")
+	heard.faction = "RED"
+	heard.position = Vector2(0.0, -1.5)
+	heard.acquired = ship
+	heard.phase = Weapon.Phase.TERMINAL
+	var unheard := Weapon.new()
+	unheard.id = 902
+	unheard.spec = heard.spec
+	unheard.faction = "RED"
+	unheard.position = Vector2(0.0, 18.0)
+	unheard.acquired = deaf
+	unheard.phase = Weapon.Phase.TERMINAL
+	wm.in_flight.append_array([heard, unheard])
+	tm.mark_detected("BLUE", heard, 0.0, ship)
+	TorpedoDefence.run_cycle(wm.unit_manager, tm, wm, 0.0)
+	assert_true(heard.heard_by.has(ship.id), "the ship that heard it knows")
+	assert_true(not unheard.heard_by.has(deaf.id), "a ship nobody has heard it near does not")
+	tm.free()
+	_cleanup(wm)

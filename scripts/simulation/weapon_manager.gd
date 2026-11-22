@@ -991,7 +991,7 @@ static func can_target(spec: WeaponSpec, u: Unit) -> bool:
 func _resolve_impact(w: Weapon) -> void:
 	var target := w.acquired
 	w.phase = Weapon.Phase.DEAD
-	var pk := Combat.hit_probability(w.spec, target, w.distance_flown_nm)
+	var pk := Combat.hit_probability(w.spec, target, w.distance_flown_nm, running_from(w, target))
 	if w.emitter_silent:
 		pk *= ARM_MEMORY_PK
 	var hit := rng.randf() < pk
@@ -1009,6 +1009,18 @@ func _resolve_impact(w: Weapon) -> void:
 			unit_destroyed.emit(target, w.faction)
 	else:
 		weapon_impact.emit(w.faction, w.spec, target, false)
+
+
+## A torpedo's target is running from it: its side heard the torpedo homing on it (TorpedoDefence
+## records that) and it is on a course within TORPEDO_RUN_AWAY_DEG of the torpedo's own, opening.
+## GAMEPLAY_ESTIMATE.
+const TORPEDO_RUN_AWAY_DEG := 60.0
+
+
+static func running_from(w: Weapon, target: Unit) -> bool:
+	if not w.spec.is_torpedo() or not w.heard_by.has(target.id):
+		return false
+	return absf(Geo.heading_delta(w.heading_deg, target.heading_deg)) <= TORPEDO_RUN_AWAY_DEG
 
 
 ## One abstract guidance channel per distinct air target, across manual and automatic shots.

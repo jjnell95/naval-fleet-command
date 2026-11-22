@@ -415,5 +415,5 @@ func test_running_from_a_torpedo_helps() -> void:
 	var torp := _torpedo(1.0, 2.5, 90.0, 0.9)
 	var stopped := _unit(_ship_spec(), "BLUE", Vector2.ZERO, 0.0)
 	var running := _unit(_ship_spec(), "BLUE", Vector2.ZERO, 30.0)
-	assert_true(Combat.hit_probability(torp, running) < Combat.hit_probability(torp, stopped) * 0.7,
-		"a ship at flank speed is a much harder problem for a torpedo")
+	assert_true(Combat.hit_probability(torp, running, -1.0, true) < Combat.hit_probability(torp, stopped) * 0.7,
+		"a ship at flank speed running from a torpedo it has heard is a much harder problem for it")
