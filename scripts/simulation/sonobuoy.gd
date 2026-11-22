@@ -20,7 +20,7 @@ func alive_at(now: float) -> bool:
 ## Range at which this buoy hears a given unit, from the same acoustics as everything else.
 func reach_against(target: Unit) -> float:
 	var noise := Detection.acoustic_noise(target)
-	return sensitivity_nm * sqrt(maxf(noise, 0.0)) * Acoustics.buoy_path_factor(hydrophone_depth_m, bottom_m, target)
+	return sensitivity_nm * sqrt(maxf(noise, 0.0)) * Acoustics.buoy_path_factor(hydrophone_depth_m, bottom_m, target) * Detection.sonar_environment_factor()
 
 
 ## Chooses the hydrophone setting for the water the buoy has landed in.

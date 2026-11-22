@@ -259,10 +259,14 @@ func _sonar_pass(observer: Unit, now: float) -> void:
 	for z: Dictionary in Acoustics.zones():
 		cz_outer = maxf(cz_outer, float(z["range_nm"]) + float(z["half_width_nm"]))
 	for target in unit_manager.units:
-		if target == observer or not target.is_engageable() or target.faction == observer.faction or target.is_aircraft():
+		if target == observer or not target.is_engageable() or target.faction == observer.faction:
+			continue
+		# An aircraft is nothing to a sonar except while its dipping set is pinging in the water.
+		var airborne := target.is_aircraft()
+		if airborne and not target.active_sonar_emitting():
 			continue
 		var d := observer.position.distance_to(target.position)
-		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling else 0.0
+		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling and not airborne else 0.0
 		var passive := Detection.best_passive_sonar(observer, target)
 		var reach: float = passive["range_nm"]
 		var sensor: SensorSpec = passive["sensor"]
@@ -305,10 +309,11 @@ func _sonar_pass_indexed(facts: CycleFacts, oi: int, cz_outer: float, now: float
 	var active_ceiling := Detection.best_active_sonar_nm(observer)
 	for ti: int in facts.others[observer.faction]:
 		var target := facts.units[ti]
-		if target.is_aircraft():
+		var airborne := target.is_aircraft()
+		if airborne and not target.active_sonar_emitting():
 			continue
 		var d := observer.position.distance_to(target.position)
-		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling else 0.0
+		var active_reach := Detection.active_sonar_reach_nm(observer, target) if active_ceiling > 0.0 and d <= active_ceiling and not airborne else 0.0
 		# Detection.best_passive_sonar, without a dictionary for every pair.
 		var reach := 0.0
 		var sensor: SensorSpec = null
@@ -422,8 +427,8 @@ func _report_cz(observer: Unit, target: Unit, _d: float, zone: Dictionary, senso
 ## what kind of ship is at the other end, without the listener radiating at all. It is the reason
 ## turning a radar off is a decision rather than a handicap.
 func _esm_pass(observer: Unit, now: float) -> void:
-	if not observer.has_esm():
-		return
+	if not observer.has_esm() or observer.submerged():
+		return  # an aerial under water hears nothing
 	for emitter in unit_manager.units:
 		if emitter == observer or not emitter.is_engageable() or emitter.faction == observer.faction:
 			continue
@@ -454,7 +459,7 @@ func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 			sets.append(s)
 			gains.append(s.esm_gain)
 			height_root.append(sqrt(maxf(Detection.observer_height_m(observer, s), 0.0)))
-	if sets.is_empty():
+	if sets.is_empty() or observer.submerged():
 		return
 	var efficiency := observer.sensor_efficiency()
 	var from := facts.position[oi]

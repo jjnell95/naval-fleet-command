@@ -445,7 +445,8 @@ static func active_sonar_detection_nm(listener: Unit, emitter: Unit) -> float:
 			if not sonar_sensor_ready(listener, s) or baffled(listener, s, emitter.position):
 				continue  # a dipping set hears nothing until it is in the water; a hull set nothing astern
 			best = maxf(best, s.passive_sensitivity_nm * 1.8 * self_noise_factor(listener, s))
-	return best
+	# The same sea and the same damaged arrays as any other sound the listener works with.
+	return best * sonar_environment_factor() * listener.sensor_efficiency()
 
 
 ## Best classification rate among the observer's sonars.

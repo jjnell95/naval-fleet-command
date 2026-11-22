@@ -683,3 +683,137 @@ func test_a_unit_off_the_link_announces_its_own_contacts() -> void:
 	assert_eq(shared.size(), 1, "a linked ship's contact goes on the shared plot")
 	assert_eq(events.size(), before, "and is not announced a second time as a private one")
 	tm.free()
+
+
+# --- Smaller acoustic and electronic gaps -------------------------------------------------------
+
+func _hull(domain: String, faction: String, at: Vector2) -> Unit:
+	var u := Unit.new()
+	u.spec = PlatformSpec.new()
+	u.spec.short_name = "TEST " + domain
+	u.spec.domain = domain
+	u.spec.max_depth_m = 300.0
+	u.spec.acoustic_signature = 1.0
+	u.spec.can_hover = domain == "air"
+	u.faction = faction
+	u.position = at
+	u.health = 100.0
+	return u
+
+
+func _sonar_set(passive: float, active := 0.0, dipping := false) -> SensorSpec:
+	var s := SensorSpec.new()
+	s.kind = "sonar"
+	s.passive_sensitivity_nm = passive
+	s.active_range_nm = active
+	s.requires_hover = dipping
+	s.bearing_accuracy_deg = 1.5
+	s.classify_rate = 1.0
+	return s
+
+
+## A submarine near a helicopter whose dipping set is pinging in the water.
+func test_a_pinging_dipping_sonar_is_heard_and_the_sea_and_damage_shorten_the_intercept() -> void:
+	var boat := _hull("subsurface", "RED", Vector2.ZERO)
+	boat.depth_m = 100.0
+	boat.sensors.append(_sonar_set(10.0))
+	var helo := _hull("air", "BLUE", Vector2(0, 6))
+	helo.flight_state = Unit.FlightState.AIRBORNE
+	helo.altitude_m = 20.0
+	helo.speed_kn = 0.0
+	helo.sensors.append(_sonar_set(4.0, 5.0, true))
+	helo.dip_phase = DippingSonar.Phase.LISTENING
+	helo.active_sonar_on = true
+	assert_true(helo.active_sonar_emitting(), "the dipping set is pinging")
+	var um := UnitManager.new()
+	um.add_unit(boat)
+	um.add_unit(helo)
+	var tm := TrackManager.new()
+	var sm := SensorManager.new()
+	sm.unit_manager = um
+	sm.track_manager = tm
+	sm.rng.seed = 3
+	var calm := Detection.sea_state
+	Detection.sea_state = 0
+	var reach_calm := Detection.active_sonar_detection_nm(boat, helo)
+	assert_true(reach_calm > 6.0, "a ping carries well past the set's own reach (%.1f nm)" % reach_calm)
+	sm.run_cycle(1.0)
+	var t := tm.find_for(boat, helo)
+	assert_true(t != null and t.bearing_only, "the boat hears the helicopter's ping as a bearing")
+	helo.active_sonar_on = false
+	var quiet := TrackManager.new()
+	sm.track_manager = quiet
+	sm.run_cycle(2.0)
+	assert_true(quiet.find_for(boat, helo) == null, "and hears nothing of a helicopter that is only listening")
+	helo.active_sonar_on = true
+	Detection.sea_state = 5
+	var reach_rough := Detection.active_sonar_detection_nm(boat, helo)
+	assert_true(reach_rough < reach_calm * 0.8, "a rough sea shortens the intercept (%.1f against %.1f nm)" % [reach_rough, reach_calm])
+	boat.components["sensors"] = 0.2
+	assert_true(Detection.active_sonar_detection_nm(boat, helo) < reach_rough, "and so do damaged arrays")
+	var buoy := Sonobuoy.new()
+	buoy.sensitivity_nm = 12.0
+	var surface_ship := _hull("surface", "RED", Vector2(3, 0))
+	surface_ship.speed_kn = 15.0
+	surface_ship.spec.max_speed_kn = 30.0
+	var buoy_rough := buoy.reach_against(surface_ship)
+	Detection.sea_state = 0
+	assert_true(buoy_rough < buoy.reach_against(surface_ship) * 0.8, "a buoy hears less in a rough sea too")
+	Detection.sea_state = calm
+	sm.free()
+	tm.free()
+	quiet.free()
+	um.free()
+
+
+func test_a_submerged_boat_intercepts_no_radar() -> void:
+	var boat := _hull("subsurface", "BLUE", Vector2.ZERO)
+	var esm := SensorSpec.new()
+	esm.kind = "esm"
+	esm.esm_gain = 2.0
+	esm.antenna_height_m = 8.0
+	esm.bearing_accuracy_deg = 1.5
+	boat.sensors.append(esm)
+	var ship := _hull("surface", "RED", Vector2(0, 8))
+	var radar := SensorSpec.new()
+	radar.kind = "radar"
+	radar.range_surface_nm = 40.0
+	radar.range_air_nm = 150.0
+	radar.antenna_height_m = 25.0
+	ship.sensors.append(radar)
+	ship.radar_on = true
+	var um := UnitManager.new()
+	um.add_unit(boat)
+	um.add_unit(ship)
+	var sm := SensorManager.new()
+	sm.unit_manager = um
+	for path in [false, true]:
+		sm.reference_path = path
+		var tm := TrackManager.new()
+		sm.track_manager = tm
+		boat.depth_m = 0.0
+		sm.run_cycle(1.0)
+		assert_true(tm.find_for(boat, ship) != null, "on the surface the boat's ESM hears the radar")
+		tm.free()
+		tm = TrackManager.new()
+		sm.track_manager = tm
+		boat.depth_m = 120.0
+		sm.run_cycle(2.0)
+		assert_true(tm.find_for(boat, ship) == null, "deep, it hears nothing")
+		tm.free()
+	sm.free()
+	um.free()
+
+
+func test_a_contact_is_not_called_radiating_long_after_it_was_last_heard() -> void:
+	var tm := TrackManager.new()
+	var u := _target_unit()
+	var c := _look(u, Vector2.ZERO, 45.0, "ship", 1.5)
+	c.source = "esm"
+	tm.observe_contact("BLUE", c, 1.0, 1.0)
+	var t := tm.find_track("BLUE", u)
+	_coast(tm, 2, 60)
+	assert_true(t.radiating(), "heard a minute ago: still taken to be transmitting")
+	_coast(tm, 61, 200)
+	assert_true(tm.find_track("BLUE", u) == t and not t.radiating(), "three minutes on, with nothing heard, it is not")
+	tm.free()

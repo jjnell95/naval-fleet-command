@@ -388,6 +388,9 @@ func tick(now: float, dt: float) -> void:
 				continue
 			if age > t.stale_after_s():
 				t.status = Track.Status.STALE
+			# What was heard transmitting two minutes ago is not known to be transmitting now.
+			if t.last_esm_time > -1.0e8 and now - t.last_esm_time > Track.EMITTER_MEMORY_S:
+				t.last_esm_time = -1.0e9
 			# Dead reckoning is worth something while the ellipse is small. Past that the contact
 			# has had time to go anywhere in it, and the plot stays where it is and fades.
 			if t.has_kinematics and t.position_error_nm < Track.COAST_LIMIT_NM:
