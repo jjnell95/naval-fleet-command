@@ -205,8 +205,11 @@ func test_every_weapon_and_sensor_definition_is_carried_by_something() -> void:
 	for name in ResourceLoader.list_directory("res://data/sensors"):
 		var id := name.get_basename()
 		assert_true(used.has(id), "sensor %s is fitted to a platform" % id)
-	for gone: String in ["agm_158b_jassm_er", "jsm_missile", "kh38_family", "aim9x_family"]:
+	for gone: String in ["agm_158b_jassm_er", "jsm_missile", "kh38_family"]:
 		assert_true(DataDB.weapon(gone) == null, "%s is no longer defined" % gone)
+	assert_true(not DataDB.all_weapons().any(func(w: WeaponSpec) -> bool: return w.id == "aim9x_family"), "the second AIM-9X is no longer in the catalogue")
+	# A fighter in an engagement saved before the fold still names the old id.
+	assert_eq(DataDB.weapon("aim9x_family"), DataDB.weapon("aim9x_air"), "a saved reference to the old id finds the one Sidewinder")
 	assert_eq(int(DataDB.platform("usaf_fighter_f16c").weapon_loadout.get("aim9x_air", 0)), 2, "the F-16C carries the same Sidewinder as the Navy's jets")
 
 
