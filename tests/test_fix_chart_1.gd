@@ -93,10 +93,12 @@ func test_an_airframe_on_a_mission_station_leaves_the_naming_to_the_ring() -> vo
 		elif escort == null and u.faction == "BLUE" and u != cv and not u.is_aircraft() and u.spec.max_speed_kn > 0.0:
 			escort = u
 	var air := sim.air_mission_manager
-	assert_true(sim.unit_manager.issue_order(cv, air.quick_order(cv, AirMission.Kind.CAP, cv.position + Vector2(0, 25))))
+	# The CAP is laid on the far side of the carrier from the Backfire raid: one between them goes
+	# for the raid once it closes (p-air#2), and an airframe that is engaging is off its station.
+	assert_true(sim.unit_manager.issue_order(cv, air.quick_order(cv, AirMission.Kind.CAP, cv.position + Vector2(0, -25))))
 	var corner := escort.position + Vector2(-6, 6)
 	assert_true(sim.unit_manager.issue_order(escort, Order.patrol_box(corner, corner + Vector2(12, 12))))
-	SimClock.advance(900.0)
+	SimClock.advance(600.0)
 	var map := TacticalMap.new()
 	map.simulation = sim
 	map.unit_manager = sim.unit_manager

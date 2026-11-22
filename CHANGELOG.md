@@ -42,6 +42,8 @@ A review of the whole game after M43, fixed area by area.
 - Heavyweight torpedoes from tubes are wire-guided and follow the plot their boat keeps working. Every torpedo's minimum range is beyond its enable run. Torpedo decoy resistance is rated by seeker generation, and the Rastrub and Yu-8 fly out as rocket-thrown weapons.
 - Gun shells are on the missiles' damage scale by calibre, gun accuracy depends on range and target speed, and guns that bombard can be laid on a contact ashore.
 - Ballistic missiles dive and can miss. The shared launcher timer is split into salvo spacing and a short cell service, so interceptors are not held behind a queued strike.
+- A tube torpedo is steered down its wire only while its firer is afloat and holds the contact; a torpedo searching with nothing in its seeker weaves either side of its course, and one that reaches its aim point empty searches a figure of eight about it for 150 s and ends NO ACQUISITION instead of running out its battery. A torpedo shot from inside its enable run is refused as TOO CLOSE.
+- A torpedo's hit chance falls for the target's speed only when her side has heard it and she is running from it. Decoys break an acoustic torpedo's lock instead of deleting it: it circles where it lost the ship and usually ends DECOYED; wake-homers ignore decoys. A fitted ship warns of a torpedo inside three miles and, on automatic countermeasures, turns away and runs.
 
 ### Missile defence
 
@@ -65,12 +67,24 @@ A review of the whole game after M43, fixed area by area.
 - A course order to a ship lying stopped gets way on. A last waypoint inside the turning circle is reached by coming round to it, not dropped.
 - Aircraft keep a safety height over the land below them and along their next two minutes of track, and altitude orders are held to a per-type minimum above the sea.
 - A helm or task order keeps a towed array streamed; only evasion or too much speed recovers it, and an unordered recovery is reported.
+- Every operation opens with its guide on her route (a watch carrier on a 25 nm circuit), the escorts formed on her where the builder placed them and the pickets on their own lines, so **Return to Station** means something from the first second.
 
 ### Submarines
 
 - Under Classic rules a boat out of touch turns away from a torpedo she hears and snorkels by herself at a critical battery, reporting it at her next check-in. Evade and decoy orders are never queued. A snorkel order delivered in a check-in window keeps her up to charge.
 - A boat on a breakout route gets out of the way of a torpedo running at her, then takes up the route again; a boat already found may shoot back beyond the transit's torpedo range.
 - A boat holding only a bearing works legs either side of it for a solution, and a wire-guided torpedo goes on a rough range well inside its reach.
+
+### Air operations
+
+- A CAP commits on a hostile inside its own missile reach and on a raid closing on it or on what it covers, pursues 60 nm by default, and flies a square inscribed in its ring. **Intercept with fighters** goes for the contact at dash, fires and comes home. The ready alert scrambles on a raid closing inside 220 nm.
+- The deck recovers the aircraft with the least fuel to spare first and lands helicopters on a spot of their own, so a recall runs nobody dry. Fixed-wing aircraft leave the deck with flying speed, and a section goes off 15 s apart.
+- Reconnaissance leaves hostile contacts alone, and an unarmed sensor aircraft flies at least 40 nm off any ship not known to be harmless; a strike turns for home once its fire-and-forget salvo is away. A refused launch names the facility, and a mission whose aircraft are all lost ends 'All aircraft lost'.
+
+### Operations
+
+- In Hormuz the Qeshm battery comes out of its hide after 10-15 minutes and the ballistic battery after 15-25 minutes, once a drone has reported a tanker (by 40-50 minutes at the latest), so the convoy forms before the first salvo; the UKMTO fire-mission warning follows the ballistic battery.
+- Nicholas in the convoy and Spruance in the carrier watch open radiating, and the North Cape Kilo starts inside the screen, as the briefing says.
 
 ### The enemy
 
@@ -87,6 +101,8 @@ A review of the whole game after M43, fixed area by area.
 - A hit on a contact held as neutral or friendly, or an own round hitting an unidentified ship it was not fired at, is reported as an alert naming it.
 - The radio says when chaff, flares or a decoy are fired with no seeker of their kind in reach, and a refused group order names the platform and the reason.
 - Command keys are not taken from a focused text field. **Esc** or **F1** returns from the pre-mission briefing to the desk; the debrief stays up under **Space** and reopens with **F1**, the chart menu or Actions.
+- The radio line has a band of its own: chart names and track numbers are placed clear of it, with a plate behind its rows. Patrol, ring, CPA and time-to-go captions are placed with alternatives instead of printed over each other, contacts on one spot share one label, and the hooked platform's number sits beyond its brackets.
+- A right-click on the regional display sends the hooked platforms there, **Shift** adding a leg, and says why when it cannot.
 
 ### Speed
 
