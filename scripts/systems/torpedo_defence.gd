@@ -12,8 +12,9 @@ class_name TorpedoDefence
 ##    same reload as a manual deployment. A torpedo pulled off searches on along its heading, and may find
 ##    another ship; that ship's countermeasures then get their own try (WeaponManager.seduce).
 ##
-## Manoeuvre is the AI's business (AIController turns away and runs); the player's ships get these
-## two layers and the player's own orders. Effectiveness is a GAMEPLAY_ESTIMATE, divided by the
+## A ship fitted with a torpedo-defence system has that system's own short-range warning
+## (TDS_WARNING_NM), sonar or none, and on automatic countermeasures she also turns away and runs
+## from a torpedo she hears homing on her. The AI's ships do the same through AIController. Effectiveness is a GAMEPLAY_ESTIMATE, divided by the
 ## torpedo's `soft_kill_resistance` as a missile's is.
 
 ## An anti-torpedo round is launched no further out than this, whatever its reach as an ASW weapon.
@@ -22,11 +23,15 @@ const MAX_HARD_KILL_SHOTS := 2  # per torpedo, across the force
 const MAX_DECOY_CHANCE := 0.9
 ## A towed body streamed from a ship that is barely moving hangs down and trails nothing useful.
 const TOWED_MIN_SPEED_KN := 4.0
+## A torpedo-defence fit hears a running torpedo this close, whatever the ship's hull sonar can do.
+## GAMEPLAY_ESTIMATE.
+const TDS_WARNING_NM := 3.0
 
 
 ## One cycle for every ship. Returns the number of countermeasures used (decoys and rounds).
 static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> int:
 	var used := 0
+	_warn(unit_manager, threat_manager, weapon_manager, now)
 	var pictures := {}
 	for u in unit_manager.units:
 		if not u.is_engageable() or u.in_flight():
@@ -38,11 +43,44 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 				continue
 			if not threat_manager.visible_to(u, w):
 				continue
+			w.heard_by[u.id] = true
+			if u.auto_countermeasures and fitted(u) and not u.is_submarine() and u.evasion_remaining_s <= 0.0:
+				DefensiveResponse.start_evasion(u, unit_manager, threat_manager, "away")
 			used += _hard_kill(u, w, weapon_manager, now)
 			if w.phase != Weapon.Phase.DEAD:
 				used += _soft_kill(u, w, weapon_manager)
 			DefensiveResponse.update_acquired_threat(pictures[u.faction], w, u)
 	return used
+
+
+## Whether this unit carries a torpedo-defence system: decoys, towed or expendable, or an
+## anti-torpedo weapon.
+static func fitted(u: Unit) -> bool:
+	if u.spec.torpedo_decoy != "" or u.spec.towed_torpedo_decoy or u.spec.torpedo_decoy_count > 0:
+		return true
+	for spec in u.weapons:
+		if spec.target_types.has("torpedo"):
+			return true
+	return false
+
+
+## The fit's own warning: any other side's torpedo running inside TDS_WARNING_NM of a fitted ship
+## is held by her side, as her sonar would hold it, for this cycle.
+static func _warn(unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> void:
+	var torpedoes: Array[Weapon] = []
+	for w: Weapon in weapon_manager.in_flight:
+		if w.phase != Weapon.Phase.DEAD and not w.is_interceptor() and w.spec.is_torpedo():
+			torpedoes.append(w)
+	if torpedoes.is_empty():
+		return
+	for u: Unit in unit_manager.units:
+		if not u.is_engageable() or u.in_flight() or not fitted(u):
+			continue
+		for w: Weapon in torpedoes:
+			if w.faction == u.faction or u.position.distance_squared_to(w.position) > TDS_WARNING_NM * TDS_WARNING_NM:
+				continue
+			if not Detection.terrain_hides_weapon(u, w):
+				threat_manager.mark_detected(u.faction, w, now, u)
 
 
 ## The ship's anti-torpedo weapon, if it has one with rounds left.
@@ -72,6 +110,9 @@ static func _hard_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager, now: f
 
 static func _soft_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager) -> int:
 	if not u.auto_countermeasures or u.position.distance_to(w.position) > DefensiveResponse.ACOUSTIC_RANGE_NM:
+		return 0
+	# Noise is no use against a seeker that is not listening: a wake-homer follows the bubbles.
+	if w.spec.seeker_band() != "acoustic":
 		return 0
 	var active := u.countermeasure_kind == "acoustic" and u.countermeasure_remaining_s > 0.0
 	var towed := u.spec.towed_torpedo_decoy and u.speed_kn >= TOWED_MIN_SPEED_KN

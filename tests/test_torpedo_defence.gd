@@ -112,8 +112,8 @@ func test_a_towed_decoy_can_pull_a_torpedo_off_and_never_runs_out() -> void:
 	var h := _harness([ship], _lucky_seed())
 	var torp := _homing(h, ship, Vector2(0.0, 1.5))
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
-	assert_eq(torp.phase, Weapon.Phase.DEAD, "decoyed, with no other ship in its cone to find")
-	assert_eq(torp.dead_reason, "DECOYED")
+	assert_true(torp.acquired == null and torp.phase == Weapon.Phase.CRUISE, "decoyed: it has lost its lock and searches again")
+	assert_eq(torp.decoyed_by, ship, "the ship's decoy did it")
 	assert_eq(ship.torpedo_decoys, 0, "a towed body is not a store that runs down")
 	_cleanup(h)
 
@@ -217,13 +217,15 @@ func test_a_seeker_retargeted_during_the_cycle_gets_the_consorts_response_immedi
 	_cleanup(h)
 
 
+## Beyond the reach of the ship's own torpedo-defence fit only her sonar could hear the torpedo,
+## and it did not this cycle: nothing aboard answers it.
 func test_a_torpedo_nobody_hears_gets_no_answer() -> void:
 	var ship := _ship(_hull(true, 4, 10.0))
 	var h := _harness([ship])
-	var torp := _homing(h, ship, Vector2(0.0, 1.0))
+	var torp := _homing(h, ship, Vector2(0.0, TorpedoDefence.TDS_WARNING_NM + 0.5))
 	(h[1] as ThreatManager).begin_cycle()  # heard last cycle, not this one
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
-	assert_true(torp.acoustic_decoy_tried.is_empty(), "countermeasures are cued by sonar, not by truth")
+	assert_true(torp.heard_by.is_empty() and ship.evasion_remaining_s <= 0.0, "countermeasures are cued by sonar, not by truth")
 	_cleanup(h)
 
 
@@ -319,7 +321,7 @@ func test_only_expendable_decoys_count_as_spent() -> void:
 	(h[2] as WeaponManager).decoys_spent.connect(func(_u: Unit, n: int) -> void: spent[0] += n)
 	var torp := _homing(h, ship, Vector2(0.0, 1.5))
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
-	assert_eq(torp.dead_reason, "DECOYED")
+	assert_eq(torp.decoyed_by, ship, "decoyed")
 	assert_eq(spent[0], 0, "the towed body did it, and nothing was used up")
 	var second := _ship(_hull(false, 4, 0.0))
 	var h2 := _harness([second])

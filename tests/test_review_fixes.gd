@@ -43,7 +43,10 @@ func test_coming_up_to_periscope_depth_is_no_escape_from_an_asw_torpedo() -> voi
 	assert_true(WeaponManager.can_target(asm, _boat(0.0)), "and still can see a surfaced one")
 
 
-func test_a_torpedo_runs_on_down_the_bearing_past_a_short_range_guess() -> void:
+## A range guess five miles short on a true bearing: the torpedo searches about the guess and
+## shuts down there, rather than running on down the bearing for the rest of its battery. A rough
+## range costs the shot; a wire, or a better plot, is the answer to it.
+func test_a_torpedo_searches_about_a_short_range_guess_and_does_not_run_on() -> void:
 	Terrain.clear()
 	Detection.set_environment({})
 	var boat := _boat(100.0)
@@ -62,7 +65,9 @@ func test_a_torpedo_runs_on_down_the_bearing_past_a_short_range_guess() -> void:
 	while t < 2400.0 and w.phase != Weapon.Phase.DEAD:
 		t += 0.5
 		wm.tick(0.5, t)
-	assert_eq(w.dead_reason, "HIT", "it kept searching past the guessed range")
+	assert_eq(w.dead_reason, "NO ACQUISITION", "it searched about the guessed range and gave up there")
+	assert_true(w.position.distance_to(Vector2(0, 8)) < 1.0, "it ended at the guess, %.1f nm from it" % w.position.distance_to(Vector2(0, 8)))
+	assert_true(boat.alive and boat.health == 45.0, "the boat five miles on was never reached")
 	wm.clear()
 	wm.unit_manager.free()
 	wm.free()

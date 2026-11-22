@@ -29,9 +29,16 @@ var countermeasure_attempts: Dictionary = {}  # one roll per unit and deployed p
 ## Ships whose acoustic countermeasures have had their try at this torpedo: unit id -> true. A
 ## torpedo decoyed onto another ship meets that ship's own.
 var acoustic_decoy_tried: Dictionary = {}
+## Units whose side has heard this torpedo homing on them: unit id -> true. Only a crew that knows
+## the torpedo is there runs from it (WeaponManager.running_from).
+var heard_by: Dictionary = {}
 ## Anti-torpedo rounds ever fired at this torpedo, by any ship.
 var hard_kill_shots := 0
 var seductions := 0  # times decoys have pulled this round off a lock
+## A torpedo whose lock decoys broke: the ship whose decoys did it, until it locks something again.
+var decoyed_by: Unit
+## Ships whose decoys this torpedo can no longer tell them from: unit id -> true.
+var decoy_fooled: Dictionary = {}
 ## SAMs ever fired at this round, for the record. What limits the defence is how many are in the
 ## air at it now (AirDefence), never this.
 var guided_interceptors_committed := 0
@@ -56,6 +63,9 @@ var unguided_s := 0.0
 ## radii past where it lost the target, or when its range runs out if that comes first.
 var lost_lock := false
 var search_on_end_nm := -1.0
+## A torpedo that reached its aim point with nothing in its seeker: seconds it has been circling
+## there, -1 while it is not (WeaponManager._start_circle).
+var circle_search_s := -1.0
 ## Fired from a battery ashore: the round climbs out over its own coast before the ordinary rule
 ## that a low-flying weapon ends at the first ground it meets applies to it.
 var launched_ashore := false
