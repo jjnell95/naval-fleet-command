@@ -6,8 +6,12 @@ extends Control
 ## each own radiating radar's horizon is a translucent disc.
 ##
 ## Mouse: drag inside the rectangle pans the tactical chart, a click elsewhere recentres it there,
-## the wheel zooms it. Friendly dots use their reported positions, and contact dots follow the
-## tactical chart's identity filters.
+## the wheel zooms it, and a right-click sends the hooked platforms there as on the chart (Shift
+## adds a leg). Friendly dots use their reported positions, and contact dots follow the tactical
+## chart's identity filters.
+
+## A line for the radio net's advice, when a right-click could not send the hook anywhere.
+signal advice(text: String)
 
 const COL_VIEW := Color("c040c0")
 const COL_HOOK := Color.WHITE
@@ -40,7 +44,7 @@ var _view_box := Rect2()
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	clip_contents = true
-	tooltip_text = "Regional display. Drag the rectangle to pan the chart, click to recentre it, wheel to zoom."
+	tooltip_text = "Regional display. Drag the rectangle to pan the chart, click to recentre it, wheel to zoom, right-click to send the hooked platforms there."
 	accessibility_name = "Regional display"
 	_floor = ChartFloor.new()
 	_floor.name = "RegionalFloor"
@@ -198,6 +202,10 @@ func _gui_input(event: InputEvent) -> void:
 				else:
 					_dragging = false
 				accept_event()
+			MOUSE_BUTTON_RIGHT:
+				if mouse.pressed:
+					right_click(mouse.position, mouse.shift_pressed)
+				accept_event()
 			MOUSE_BUTTON_WHEEL_UP:
 				if mouse.pressed:
 					map.zoom_at_center(TacticalMap.ZOOM_STEP)
@@ -211,6 +219,16 @@ func _gui_input(event: InputEvent) -> void:
 		map.set_follow_selection(false)
 		map.center_nm += Vector2(motion.relative.x, -motion.relative.y) / maxf(_scale(), 0.0001)
 		accept_event()
+
+
+## A right-click at a pane point: a transit there for the hooked platforms, through the chart's
+## own move request, or a word of advice saying why the hook cannot go there.
+func right_click(point: Vector2, append: bool) -> void:
+	if map == null:
+		return
+	if map.request_move(regional_to_world(point), append):
+		return
+	advice.emit("Hook a platform before you send it from the regional display" if map.selected.is_empty() else "No hooked platform can be sent there")
 
 
 # --- Drawing ----------------------------------------------------------------------------

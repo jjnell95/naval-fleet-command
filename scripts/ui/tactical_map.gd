@@ -79,6 +79,8 @@ const TAG_FONT_SIZE := 11
 const STALE_ALPHA := 0.55
 const UNCERTAINTY_ALPHA := 0.35
 const BEARING_LINE_ALPHA := 0.6
+## Symbols closer than this share one label (see `_merge_coincident_labels`).
+const COINCIDENT_PX := 3.0
 const BEARING_END_PX := 5.0  # half the bar that closes a bearing line, where its number sits
 const SENSOR_RING_ALPHA := 0.45
 ## A sunk or shot-down own platform stays on the plot in grey this long (sim seconds).
@@ -264,6 +266,9 @@ var _radio := RadioLine.new()
 var _labels := ChartLabels.new()
 var _label_queue: Array = []
 var _chart_captions: Array = []
+## The radio line laid out for this frame (see `radio_layout`), placed before the labels so they
+## can keep out of its band.
+var _radio_layout: Dictionary = {}
 var _text_widths: Dictionary = {}  # "text@size" -> px
 ## A status board covers the chart: its readouts and radio line are not drawn under it.
 var overlay_covered := false
@@ -1112,9 +1117,7 @@ func _right_click(e: InputEventMouseButton) -> void:
 				_inspecting_track = false
 				selection_changed.emit(selected)
 		"water", "empty":
-			var world: Vector2 = ctx["world_pos"]
-			if _has_controllable_selection() and int(_move_acceptance(world)["accepted"]) > 0:
-				move_order_requested.emit(world, e.shift_pressed)
+			if request_move(ctx["world_pos"], e.shift_pressed):
 				return
 	ctx["viewport_pos"] = get_global_transform_with_canvas() * e.position if is_inside_tree() else e.position
 	context_menu_requested.emit(e.position, ctx)
@@ -1825,6 +1828,16 @@ func _draw_patrol_preview() -> void:
 	_shadow_text(_mouse + Vector2(17, -10), label, 12, col)
 
 
+## A transit for the hooked platforms to a world point (`append` adds a leg), on the same signal
+## the chart's right-click sends: false, and nothing sent, when the hook cannot be moved or no
+## hooked hull could reach the point. The regional display uses it for its right-click too.
+func request_move(world_pos: Vector2, append: bool) -> bool:
+	if not _has_controllable_selection() or int(_move_acceptance(world_pos)["accepted"]) == 0:
+		return false
+	move_order_requested.emit(world_pos, append)
+	return true
+
+
 func _move_acceptance(target: Vector2) -> Dictionary:
 	var total := 0
 	var accepted := 0
@@ -2137,7 +2150,7 @@ func _draw_air_missions() -> void:
 		var title := "%s %d · %.0f nm" % [m.kind_name(), m.id, radius_nm]
 		if m.kind == AirMission.Kind.CAP:
 			title += " · " + m.intent_label()
-		_queue_caption(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), title, 11, COL_READOUT, true)
+		_queue_ring_title(sp, r, title)
 		if preview:
 			_centred_text(sp + Vector2(0, maxf(r, 8.0) + 18.0), "RELEASE TO APPLY · ESC CANCELS", 11)
 		if m.kind == AirMission.Kind.CAP and (preview or selected.any(func(u: Unit) -> bool: return m.aircraft.has(u))):
@@ -2153,7 +2166,7 @@ func _draw_objectives() -> void:
 		var sp := world_to_screen(mark["center"])
 		var r := float(mark["radius_nm"]) * ppn
 		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), COL_ROUTE, 1.0, true)
-		_queue_caption(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), mark["text"], 11, COL_READOUT, true)
+		_queue_ring_title(sp, r, mark["text"])
 
 
 ## The areas the chart marks, one circle and one name each: {center, radius_nm, text}. Several
@@ -2246,6 +2259,23 @@ func _draw_convergence_zones(sp: Vector2) -> void:
 
 
 ## A ring's name over its top, in the readout style.
+## An area's name over its ring; when something already prints there, under it, then beside it.
+func _queue_ring_title(c: Vector2, r: float, text: String) -> void:
+	var lift := maxf(r, 8.0) + 5.0
+	var ascent := _readout_font().get_ascent(11)
+	var aside := lift + _text_width(text, 11) * 0.5
+	var level := lift + ascent * 0.5
+	_queue_caption(c + Vector2(0.0, -lift), text, 11, COL_READOUT, true, Vector2.INF, [Vector2(0.0, 2.0 * lift + ascent), Vector2(aside, level), Vector2(-aside, level)])
+
+
+## A caption set up and to the right of a point, `gap` px off, with the other three corners round
+## the same point as its alternative places, nearest first.
+func _corner_alts(text: String, font_size: int, gap: float) -> Array:
+	var across := -(_text_width(text, font_size) + 2.0 * gap)
+	var down := 2.0 * gap + _readout_font().get_ascent(font_size)
+	return [Vector2(0.0, down), Vector2(across, 0.0), Vector2(across, down)]
+
+
 func _ring_label(c: Vector2, r: float, text: String) -> void:
 	_queue_caption(c + Vector2(0.0, -r - 4.0), text, 10, Color(COL_READOUT, 0.8), true)
 
@@ -2518,12 +2548,14 @@ func _queue_label(key: String, sp: Vector2, extent: float, number: String, tag: 
 			height = ascent + font.get_descent(TAG_FONT_SIZE)
 		else:
 			height += TRACK_NUMBER_FONT_SIZE + 1.0
-	_label_queue.append({"key": key, "at": sp, "extent": extent, "size": Vector2(width, height), "ascent": ascent, "priority": priority, "number": number_text, "tag": tag_text, "alpha": alpha})
+	var hook := roundf(_bracket_box(extent) * 0.5) + MapSymbols.STROKE * 0.5 if priority else 0.0
+	_label_queue.append({"key": key, "at": sp, "extent": extent, "size": Vector2(width, height), "ascent": ascent, "priority": priority, "number": number_text, "tag": tag_text, "alpha": alpha, "hook": hook})
 
 
 ## Collect captions before drawing so geographic names and range labels cannot obscure
 ## numbered contacts. A town's cross stays with its name whenever the label is displayed.
-func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, centered := false, marker := Vector2.INF) -> void:
+## `alts` are other places for the caption (offsets from its own), tried in order when it is taken.
+func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, centered := false, marker := Vector2.INF, alts: Array = []) -> void:
 	var width := _text_width(text, font_size)
 	var font := _readout_font()
 	if centered:
@@ -2532,20 +2564,91 @@ func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, cen
 	var rect := Rect2(at - Vector2(0, font.get_ascent(font_size)), Vector2(width, font.get_height(font_size)))
 	if marker.is_finite():
 		rect = rect.merge(Rect2(marker - Vector2(4, 4), Vector2(8, 8)))
-	if Rect2(Vector2.ZERO, size).encloses(rect):
-		_chart_captions.append({"key": _chart_captions.size(), "rect": rect, "at": at, "text": text, "font_size": font_size, "color": color, "marker": marker})
+	var chart := Rect2(Vector2.ZERO, size)
+	var places: Array = []
+	for offset: Vector2 in alts:
+		places.append(offset.round())
+	if not chart.encloses(rect):
+		# Off the chart in its own place, the caption may still fit in one of the others.
+		var inside := places.filter(func(offset: Vector2) -> bool: return chart.encloses(Rect2(rect.position + offset, rect.size)))
+		if inside.is_empty():
+			return
+		var first: Vector2 = inside[0]
+		at += first
+		rect.position += first
+		if marker.is_finite():
+			marker += first
+		places = inside.slice(1).map(func(offset: Vector2) -> Vector2: return offset - first)
+	_chart_captions.append({"key": _chart_captions.size(), "rect": rect, "at": at, "text": text, "font_size": font_size, "color": color, "marker": marker, "alts": places})
+
+
+## Places the queued track numbers and captions clear of each other and of the radio line's band.
+func _place_labels() -> void:
+	_radio_layout = radio_layout() if not overlay_covered else {}
+	var obstacles: Array = []
+	if _radio_layout.has("plate"):
+		obstacles.append(_radio_layout["plate"])
+	_label_queue = _merge_coincident_labels(_label_queue)
+	var count := _label_queue.size() + _chart_captions.size()
+	if _labels.due(_anim, count, obstacles):
+		_labels.assign(_label_queue, _anim, Rect2(Vector2.ZERO, size), _chart_captions, obstacles)
+
+
+## Symbols on one spot (two emitters heard on one bearing, a ship and the helicopter on its deck)
+## leave no corner for either number: each blocks the other and both went unlabelled. They share
+## one label instead, the hooked one's first: "1003/1004", or "1003 +2" for a bigger pile.
+func _merge_coincident_labels(queue: Array) -> Array:
+	var heads: Dictionary = {}  # cell -> indices in out of the labels heading a spot
+	var members: Dictionary = {}  # index in out -> numbers
+	var out: Array = []
+	for l: Dictionary in queue:
+		var at: Vector2 = l.at
+		var cell := Vector2i((at / COINCIDENT_PX).floor())
+		var head := -1
+		if l.number != "":
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					for i: int in heads.get(cell + Vector2i(dx, dy), []):
+						if head < 0 and (out[i].at as Vector2).distance_to(at) <= COINCIDENT_PX:
+							head = i
+		if head < 0:
+			if l.number != "":
+				heads[cell] = heads.get(cell, []) + [out.size()]
+				members[out.size()] = PackedStringArray([l.number])
+			out.append(l)
+			continue
+		var numbers: PackedStringArray = members[head]
+		if l.priority and not out[head].priority:
+			numbers.insert(0, l.number)
+			var merged: Dictionary = l.duplicate()
+			out[head] = merged
+		else:
+			numbers.append(l.number)
+		members[head] = numbers
+	for head: int in members:
+		var numbers: PackedStringArray = members[head]
+		if numbers.size() < 2:
+			continue
+		var l: Dictionary = (out[head] as Dictionary).duplicate()
+		l.number = "/".join(numbers) if numbers.size() == 2 else "%s +%d" % [numbers[0], numbers.size() - 1]
+		l.tag = ""
+		var font := _readout_font()
+		l.ascent = font.get_ascent(TRACK_NUMBER_FONT_SIZE)
+		l.size = Vector2(_text_width(l.number, TRACK_NUMBER_FONT_SIZE), l.ascent + font.get_descent(TRACK_NUMBER_FONT_SIZE))
+		out[head] = l
+	return out
 
 
 func _draw_labels() -> void:
-	var count := _label_queue.size() + _chart_captions.size()
-	if _labels.due(_anim, count):
-		_labels.assign(_label_queue, _anim, Rect2(Vector2.ZERO, size), _chart_captions)
+	_place_labels()
 	for caption: Dictionary in _chart_captions:
-		if _labels.slot(caption.key) == ChartLabels.HIDDEN:
+		var k := _labels.slot(caption.key)
+		if k == ChartLabels.HIDDEN:
 			continue
+		var shift := ChartLabels.caption_rect(caption, k).position - (caption.rect as Rect2).position
 		if (caption.marker as Vector2).is_finite():
-			_draw_plus(caption.marker, 3.0, COL_READOUT, 1.0, true)
-		_shadow_text(caption.at, caption.text, caption.font_size, caption.color)
+			_draw_plus(caption.marker + shift, 3.0, COL_READOUT, 1.0, true)
+		_shadow_text(caption.at + shift, caption.text, caption.font_size, caption.color)
 	_chart_captions.clear()
 	for l: Dictionary in _label_queue:
 		var k := _labels.slot(l["key"])
@@ -2671,7 +2774,25 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 		prev_world = wp
 	if u.patrol_active and u.waypoints.size() >= 3:
 		_draw_chart_dashes(prev, first, COL_ROUTE, 1.0, 5.0)
-		_shadow_text(first + Vector2(8, -8), u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL", 11, COL_ROUTE)
+		_queue_patrol_caption(u, first)
+
+
+## The name a patrol circuit carries on the chart, or "" for an airframe flying its own side's air
+## mission station: the mission's ring is titled already, and one name per airframe stacked on
+## the circuit's corner only covered it.
+func patrol_caption(u: Unit) -> String:
+	if u.station_kind == "patrol" and u.station_mission_id >= 0 and simulation != null and simulation.air_mission_manager != null:
+		var m := simulation.air_mission_manager.mission_by_id(u.station_mission_id)
+		if m != null and m.active and m.faction == player_faction and m.kind != AirMission.Kind.STRIKE:
+			return ""
+	return u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL"
+
+
+## The circuit's name beside its first corner, placed with the other captions.
+func _queue_patrol_caption(u: Unit, first: Vector2) -> void:
+	var text := patrol_caption(u)
+	if text != "":
+		_queue_caption(first + Vector2(8, -8), text, 11, COL_ROUTE, false, Vector2.INF, _corner_alts(text, 11, 8.0))
 
 
 ## A 2 px dot for trails and plot history: a filled square, which costs a fraction of an
@@ -2713,7 +2834,8 @@ func _draw_threat_marks(u: Unit, sp: Vector2) -> void:
 		MapSymbols.draw_threat_ring(self, sp, COL_HOSTILE, _anim)
 		var wp := world_to_screen(w.position)
 		draw_line(wp, sp, Color(COL_HOSTILE, 0.35), 1.0, true)
-		_queue_caption((wp + sp) * 0.5 + Vector2(4.0, -4.0), "%ds" % int(entry["time_s"]), 11, COL_READOUT)
+		var time_to_go := "%ds" % int(entry["time_s"])
+		_queue_caption((wp + sp) * 0.5 + Vector2(4.0, -4.0), time_to_go, 11, COL_READOUT, false, Vector2.INF, _corner_alts(time_to_go, 11, 4.0))
 
 
 ## The hooked pair's relative motion (the hooked own unit and its target): where each will be at
@@ -2733,7 +2855,8 @@ func _draw_relative_motion() -> void:
 	for endpoint: Vector2 in [own_end, contact_end]:
 		draw_arc(endpoint, 4.0, 0.0, TAU, 16, Color(COL_ROUTE, 0.85), 1.0, true)
 	var middle := own_end.lerp(contact_end, 0.5)
-	_queue_caption(middle + Vector2(4, -4), "%sCPA %.1f nm / %s" % ["LAST REPORT · " if not SubmarineComms.connected(ref) else "", solution.distance_nm, Track._fmt_age(solution.time_s)], 11, COL_READOUT)
+	var cpa := "%sCPA %.1f nm / %s" % ["LAST REPORT · " if not SubmarineComms.connected(ref) else "", solution.distance_nm, Track._fmt_age(solution.time_s)]
+	_queue_caption(middle + Vector2(4, -4), cpa, 11, COL_READOUT, false, Vector2.INF, _corner_alts(cpa, 11, 4.0))
 
 
 ## Rounds in flight: own ones always, an opposing one only while the plot holds it. Each is a small
@@ -2934,6 +3057,9 @@ func _depth_readout(w: Vector2) -> String:
 ## Bottom-centre: the newest radio lines, the latest at the bottom, each fading after its hold.
 ## Width kept clear at each side of the radio line, for the corner readouts.
 const RADIO_SIDE_CLEAR_PX := 230.0
+## The plate behind the radio rows: this much margin round the text, deep sea blue, mostly opaque.
+const RADIO_PLATE_PAD := Vector2(10.0, 3.0)
+const COL_RADIO_PLATE := Color(0.02, 0.05, 0.12, 0.7)
 
 
 ## Splits a signal into rows no wider than `width`, breaking between words.
@@ -2952,19 +3078,44 @@ static func wrap_radio_text(font: Font, text: String, font_size: int, width: flo
 	return rows
 
 
-func _draw_radio_line() -> void:
+## The radio line as it will be drawn: {rows: [{text, baseline, color}], plate: Rect2}, the rows
+## bottom-up, or {} with nothing on the air. The plate is the band the rows reserve: chart names
+## and track numbers are placed clear of it and it is shaded behind the rows, so a message never
+## reads through a place name, a symbol or a range ring.
+func radio_layout() -> Dictionary:
 	var lines := _radio.visible(_anim)
+	if lines.is_empty():
+		return {}
+	var font := _readout_font()
 	var baseline := size.y - RADIO_BOTTOM_PX - 3.0
+	var bottom := baseline + font.get_descent(READOUT_FONT_SIZE)
+	var widest := 0.0
+	var strongest := 0.0
+	var out: Array[Dictionary] = []
 	for i in range(lines.size() - 1, -1, -1):
 		var e: Dictionary = lines[i]
 		var alpha := RadioLine.alpha_at(_anim - float(e["t0"]))
+		strongest = maxf(strongest, alpha)
 		var col := COL_RADIO_ALERT if e["severity"] == "alert" else (COL_RADIO_ADVICE if e["severity"] == RadioNet.ADVICE else COL_READOUT)
 		# A long signal wraps inside the middle of the chart: it used to run off both edges and
 		# over the position and scale readout in the corner.
-		var rows := wrap_radio_text(_readout_font(), e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
+		var rows := wrap_radio_text(font, e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
 		for r in range(rows.size() - 1, -1, -1):
-			_shadow_text(Vector2(0.0, baseline), rows[r], READOUT_FONT_SIZE, Color(col, alpha * col.a), HORIZONTAL_ALIGNMENT_CENTER, size.x)
+			widest = maxf(widest, _text_width(rows[r], READOUT_FONT_SIZE))
+			out.append({"text": rows[r], "baseline": baseline, "color": Color(col, alpha * col.a)})
 			baseline -= READOUT_LINE_H
+	var top := baseline + READOUT_LINE_H - font.get_ascent(READOUT_FONT_SIZE)
+	var plate := Rect2(roundf((size.x - widest) * 0.5 - RADIO_PLATE_PAD.x), roundf(top - RADIO_PLATE_PAD.y), roundf(widest + 2.0 * RADIO_PLATE_PAD.x), 0.0)
+	plate.end.y = roundf(bottom + RADIO_PLATE_PAD.y)
+	return {"rows": out, "plate": plate, "alpha": strongest}
+
+
+func _draw_radio_line() -> void:
+	if _radio_layout.is_empty():
+		return
+	draw_rect(_radio_layout["plate"], Color(COL_RADIO_PLATE, COL_RADIO_PLATE.a * float(_radio_layout["alpha"])))
+	for row: Dictionary in _radio_layout["rows"]:
+		_shadow_text(Vector2(0.0, row["baseline"]), row["text"], READOUT_FONT_SIZE, row["color"], HORIZONTAL_ALIGNMENT_CENTER, size.x)
 
 
 ## A white circle round each platform whose message is on the radio line: it is transmitting.
