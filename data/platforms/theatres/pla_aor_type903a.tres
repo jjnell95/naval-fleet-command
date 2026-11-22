@@ -28,4 +28,5 @@ length_m = 178.5
 displacement_t = 23000.0
 aircraft_capacity = 2
 default_air_wing = {}
+acoustic_signature = 0.35
 source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

@@ -47,6 +47,9 @@ def resource(kind, key, data, packed_fields=(), note=""):
 
 # --- Factories --------------------------------------------------------------------------------
 
+# `surface` is the reach against a large combatant before the horizon cuts it, and a small craft
+# is seen at its signature's fraction of that. No warship's suite is rated under 30: beside its
+# air-search set every one carries a surface-search radar that sees a boat further than a lookout.
 def radar(key, name, surface, air, rate=1.0, height=24.0):
     resource("sensors", key, dict(display_name=name, kind="radar", emits=True,
              range_surface_nm=float(surface), range_air_nm=float(air), antenna_height_m=float(height),
@@ -139,6 +142,22 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     resource("weapons", key, d, ["target_types"], note)
 
 
+# Radiated noise of each surface ship at a crawl (PlatformSpec.acoustic_signature), on the scale
+# the submarines are on (a Kilo 0.05, a Type 093B 0.18). By type and size: a boat or a small craft
+# puts little into the water, an escort built to hunt submarines is the quietest warship, a
+# general-purpose destroyer louder, older and cruder plants louder again, then the big decks.
+# Noise grows with the fraction of full speed, so a tanker that steams near her best speed all day
+# is the loudest thing in the strait on a modest figure here. A new surface platform has to be
+# entered.
+SURFACE_NOISE = {
+    "irn_fac_peykaap3": 0.03, "irn_pgg_houdong": 0.08, "pla_pgg_type022": 0.08,
+    "jmsdf_ffm_mogami": 0.18, "pla_fsg_type056a": 0.18, "jmsdf_dd_akizuki": 0.20, "jmsdf_ddg_maya": 0.22,
+    "pla_ffg_type054a": 0.24, "pla_ddg_type055": 0.25, "irn_ffg_moudge": 0.25, "irn_ffg_alvand": 0.25,
+    "pla_ddg_type052d": 0.27, "jmsdf_ddh_izumo": 0.35, "pla_aor_type903a": 0.35, "civ_tanker_vlcc": 0.40,
+    "pla_cv_shandong": 0.50,
+}
+
+
 def platform(key, name, short, nation, category, sensors, weapons, **kw):
     d = dict(display_name=name, short_name=short, nation=nation, category=category,
              domain="surface", max_speed_kn=30.0, cruise_speed_kn=16.0, turn_rate_deg_s=2.8,
@@ -147,6 +166,8 @@ def platform(key, name, short, nation, category, sensors, weapons, **kw):
              decoy_count=12, decoy_effectiveness=0.35, fire_control_channels=2, role=category.capitalize(),
              service_note="Representative 2027 fit; only systems the game represents are listed.")
     d.update(kw)
+    if d["domain"] == "surface":
+        d["acoustic_signature"] = SURFACE_NOISE[key]
     resource("platforms", key, d, ["sensor_ids"])
 
 
@@ -200,7 +221,7 @@ def catalogue():
     radar("pla_type518", "Type 518 L-band air-search radar", 20, 250, 0.9, 32)
     radar("pla_type382", "Type 382 air-search radar", 30, 140, 1.0, 30)
     radar("pla_type366", "Type 366 over-the-horizon targeting radar", 60, 0, 0.8, 24)
-    radar("pla_type364", "Type 364 search radar", 25, 70, 0.9, 20)
+    radar("pla_type364", "Type 364 search radar", 30, 70, 0.9, 20)
     radar("pla_type362", "Type 362 search radar", 18, 40, 0.8, 12)
     radar("pla_nav_radar", "Navigation and surface-search radar", 16, 10, 0.5, 28)
     radar("pla_h6j_radar", "H-6J maritime search radar", 150, 60, 1.0, 5)
@@ -213,14 +234,18 @@ def catalogue():
     radar("pla_z18j_radar", "Z-18J early-warning radar", 90, 140, 0.95, 4)
     radar("pla_coastal_radar", "Coastal surveillance and targeting radar", 60, 40, 0.9, 60)
     radar("pla_ht233_radar", "HT-233 engagement radar", 20, 130, 1.1, 25)
+    # Passive sensitivity is the range at which a set hears a source of noise 1.0; a quiet boat is
+    # heard at a fraction of it (Detection.passive_sonar_range_nm). Submarine suites and towed
+    # arrays are the long ears, three to four times a hull set; a dipping transducer is a small
+    # array whose strength is its ping and its depth, so it listens no better than a hull set.
     sonar("pla_hsjd9", "H/SJD-9 bow sonar", 12, 10, cz=True, rate=0.9)
-    sonar("pla_hsjg311", "H/SJG-311 towed array", 22, 0, 120, cz=True)
-    sonar("pla_hsjg206", "H/SJG-206 towed array", 18, 0, 100, cz=True)
+    sonar("pla_hsjg311", "H/SJG-311 towed array", 40, 0, 120, cz=True)
+    sonar("pla_hsjg206", "H/SJG-206 towed array", 34, 0, 100, cz=True)
     sonar("pla_hull_sonar_small", "Corvette bow sonar", 9, 7, rate=0.85)
-    sonar("pla_towed_small", "Corvette towed array", 14, 0, 80)
-    sonar("pla_type093_suite", "Type 093B sonar suite", 24, 12, cz=True, rate=1.1)
-    sonar("pla_yuan_sonar", "Type 039A sonar suite", 22, 10, cz=True)
-    sonar("pla_dipping_sonar", "Helicopter dipping sonar", 28, 10, 150, hover=True)
+    sonar("pla_towed_small", "Corvette towed array", 26, 0, 80)
+    sonar("pla_type093_suite", "Type 093B sonar suite", 46, 12, cz=True, rate=1.1)
+    sonar("pla_yuan_sonar", "Type 039A sonar suite", 42, 10, cz=True)
+    sonar("pla_dipping_sonar", "Helicopter dipping sonar", 14, 10, 150, hover=True)
     esm("pla_esm", "Shipboard electronic support suite", 1.85, 26)
     esm("pla_air_esm", "Airborne electronic support suite", 1.7, 3)
 
@@ -415,12 +440,12 @@ def catalogue():
     radar("jgsdf_coastal_radar", "Coastal surveillance radar", 50, 30, 0.9, 50)
     sonar("jmsdf_oqq24", "OQQ-24 bow sonar", 14, 12, cz=True)
     sonar("jmsdf_oqq22", "OQQ-22 bow sonar", 13, 11, cz=True)
-    sonar("jmsdf_oqq25", "OQQ-25 variable-depth and towed array", 22, 9, 200, cz=True)
+    sonar("jmsdf_oqq25", "OQQ-25 variable-depth and towed array", 40, 9, 200, cz=True)
     sonar("jmsdf_oqq23", "OQQ-23 bow sonar", 10, 8)
-    sonar("jmsdf_oqr4", "OQR-4 towed array", 24, 0, 150, cz=True)
-    sonar("jmsdf_oqr3", "OQR-3 towed array", 22, 0, 150, cz=True)
-    sonar("jmsdf_zqq8", "ZQQ-8 submarine sonar suite", 30, 13, cz=True, rate=1.25)
-    sonar("jmsdf_hqs104", "HQS-104 dipping sonar", 34, 11, 300, hover=True, rate=1.1)
+    sonar("jmsdf_oqr4", "OQR-4 towed array", 46, 0, 150, cz=True)
+    sonar("jmsdf_oqr3", "OQR-3 towed array", 42, 0, 150, cz=True)
+    sonar("jmsdf_zqq8", "ZQQ-8 submarine sonar suite", 58, 13, cz=True, rate=1.25)
+    sonar("jmsdf_hqs104", "HQS-104 dipping sonar", 16, 11, 300, hover=True, rate=1.1)
     esm("jmsdf_nolq3", "NOLQ-3 electronic warfare suite", 2.0, 28)
     esm("jasdf_esm", "Airborne warning receiver", 1.7, 3)
 
@@ -516,15 +541,15 @@ def catalogue():
 
     # ---------- Islamic Republic of Iran Navy and IRGC Navy ----------
     radar("irn_asr_radar", "Asr naval search radar", 30, 60, 0.85, 24)
-    radar("irn_aws1_radar", "AWS-1 air and surface search radar", 28, 70, 0.8, 22)
+    radar("irn_aws1_radar", "AWS-1 air and surface search radar", 30, 70, 0.8, 22)
     radar("irn_type352_radar", "Type 352 (Square Tie) targeting radar", 20, 30, 0.8, 12)
     radar("irn_fac_radar", "Fast-attack-craft navigation radar", 12, 6, 0.5, 6)
     radar("irn_coastal_radar", "Coastal surveillance radar", 40, 30, 0.85, 80)
     radar("irn_meraj4_radar", "Meraj-4 long-range search radar", 30, 180, 1.0, 20)
     radar("irn_mohajer_eo", "Mohajer-6 electro-optical turret", 22, 8, 1.1, 2)
     sonar("irn_hull_sonar", "Frigate bow sonar", 10, 8, rate=0.85)
-    sonar("irn_mgk400", "MGK-400 Rubikon sonar suite (Project 877EKM)", 20, 10, cz=True)
-    sonar("irn_ghadir_sonar", "Midget-submarine passive sonar", 6, 3, rate=0.7)
+    sonar("irn_mgk400", "MGK-400 Rubikon sonar suite (Project 877EKM)", 38, 10, cz=True)
+    sonar("irn_ghadir_sonar", "Midget-submarine passive sonar", 10, 3, rate=0.7)
     esm("irn_esm", "Shipboard warning receiver", 1.6, 22, rate=1.0)
 
     weapon("irn_qader", "Qader anti-ship cruise missile", "asm", ["surface"], 108, 480, 48, base_pk=0.70, salvo_default=4, signature_factor=0.14)
@@ -552,7 +577,7 @@ def catalogue():
              role="Surface strike / flotilla flagship",
              service_note="Sahand-standard fit: four Qader, a single-rail Mehrab launcher, a 76 mm gun and a Kamand close-in mount. The landing deck is unoccupied in these missions.")
     platform("irn_ffg_alvand", "Alvand-class frigate (Vosper Mk 5)", "FFG Alvand", "Iran", "frigate",
-             ["irn_aws1_radar", "irn_esm"],
+             ["irn_aws1_radar", "irn_hull_sonar", "irn_esm"],
              {"irn_noor": 4, "mk8_114mm_gun": 200, "irn_oerlikon_35mm": 40},
              length_m=94.5, displacement_t=1540.0, max_speed_kn=34.0, cruise_speed_kn=15.0, health=55.0, signature_factor=0.7,
              mast_height_m=22.0, fire_control_channels=0, decoy_count=4, turn_rate_deg_s=3.2,
@@ -573,7 +598,7 @@ def catalogue():
               service_note="Two heavyweight torpedoes, a small crew and very shallow water. Its sonar is short; its advantage is that the strait is narrow.")
     platform("irn_fac_peykaap3", "Peykaap III fast attack craft", "FAC Peykaap III", "Iran", "fast attack craft",
              ["irn_fac_radar"], {"irn_nasr1": 2},
-             length_m=17.0, displacement_t=15.0, max_speed_kn=52.0, cruise_speed_kn=25.0, health=8.0, signature_factor=0.12,
+             length_m=17.0, displacement_t=15.0, max_speed_kn=52.0, cruise_speed_kn=25.0, health=8.0, signature_factor=0.25,
              mast_height_m=6.0, fire_control_channels=0, decoy_count=0, turn_rate_deg_s=9.0, accel_kn_s=1.2,
              role="Swarm missile attack",
              service_note="Two Nasr-1 and a great deal of speed. One is a nuisance; a dozen are a defensive problem.")

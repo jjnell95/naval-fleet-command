@@ -26,4 +26,5 @@ role = "Littoral missile ambush"
 service_note = "Wave-piercing catamaran with eight YJ-83 and a 30 mm mount. Fast, small and expendable; it relies on a picture handed to it."
 length_m = 42.6
 displacement_t = 220.0
+acoustic_signature = 0.08
 source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

@@ -18,6 +18,7 @@ turn_rate_deg_s = 1.2
 accel_kn_s = 0.1
 health = 280.0
 signature_factor = 2.8
+acoustic_signature = 0.45
 sensor_ids = PackedStringArray("an_sps_48", "an_slq_32")
 mast_height_m = 42.0
 fire_control_channels = 4

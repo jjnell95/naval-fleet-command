@@ -281,3 +281,221 @@ func test_the_shortest_accepted_torpedo_shot_acquires_its_target() -> void:
 		wm.clear()
 		wm.unit_manager.free()
 		wm.free()
+
+
+# --- Sonars, signatures and what is heard at what range ---------------------------------------
+
+## A catalogue unit under way, with its sensors fitted and nothing streamed or dipped.
+func _afloat(platform_id: String, speed_kn: float) -> Unit:
+	var u := _unit(platform_id, "BLUE")
+	u.speed_kn = speed_kn
+	u.depth_m = 100.0 if u.spec.domain == "subsurface" else 0.0
+	for sid in u.spec.sensor_ids:
+		u.sensors.append(DataDB.sensor(sid))
+	return u
+
+
+## The same unit listening on its best ears: towed array streamed and quiet, dipping set wet.
+func _listening(platform_id: String, speed_kn: float) -> Unit:
+	var u := _afloat(platform_id, speed_kn)
+	u.array_phase = TowedArray.Phase.LISTENING
+	if u.spec.can_hover:
+		u.flight_state = Unit.FlightState.AIRBORNE
+		u.altitude_m = 20.0
+		u.dip_phase = DippingSonar.Phase.LISTENING
+	return u
+
+
+func _is_hull_sonar(s: SensorSpec) -> bool:
+	return s != null and s.kind == "sonar" and not s.requires_hover and s.array_depth_m <= 0.0
+
+
+func _surface_ships() -> Array:
+	return DataDB.all_platforms().filter(func(p: PlatformSpec) -> bool: return p.domain == "surface")
+
+
+## Direct-path passive range, the figure Detection gives before the water column has its say.
+func _hears_at(listener: Unit, sensor_id: String, target_id: String, target_kn: float) -> float:
+	var target := _afloat(target_id, target_kn)
+	target.position = listener.position + Vector2(0, 5)
+	return Detection.passive_sonar_range_nm(listener, DataDB.sensor(sensor_id), target, false)
+
+
+## Escorts whose only sonar in service is a variable-depth or towed set, so they have no hull
+## sonar to list. Any other destroyer, frigate or cruiser without one is a catalogue error.
+const NO_HULL_SONAR_IN_SERVICE := ["usn_ffg_constellation", "jmsdf_ffm_mogami"]
+
+
+func test_escorts_carry_the_hull_sonars_they_are_built_with() -> void:
+	Detection.set_environment({})
+	var torpedo := DataDB.weapon("irn_test71me")
+	for id: String in ["rn_ddg_type45", "fra_ffg_fremm", "rfn_ffg_admiral_gorshkov", "rfn_fsg_steregushchiy", "dnk_ffg_iver_huitfeldt", "irn_ffg_alvand", "rn_ffg_type26", "rnon_ffg_fridtjof_nansen"]:
+		var ship := _afloat(id, 12.0)
+		assert_true(ship.sensors.any(_is_hull_sonar), "%s has a hull sonar" % id)
+		# With nothing streamed, at a patrol speed: the warning a torpedo-defence drill starts from.
+		assert_true(Detection.torpedo_detection_nm(ship, torpedo) >= 4.0, "%s hears a running torpedo at four miles or more (%.1f)" % [id, Detection.torpedo_detection_nm(ship, torpedo)])
+	for p: PlatformSpec in _surface_ships():
+		if not p.category in ["destroyer", "frigate", "cruiser"] or NO_HULL_SONAR_IN_SERVICE.has(p.id):
+			continue
+		var fitted := Array(p.sensor_ids).map(func(sid: String) -> SensorSpec: return DataDB.sensor(sid))
+		assert_true(fitted.any(_is_hull_sonar), "%s (%s) has a hull sonar" % [p.id, p.category])
+	# A surface ship carries a surface ship's sonar: the Kilo's suite used to be listed for a
+	# cruiser and a destroyer.
+	var submarine_suites := {}
+	for p: PlatformSpec in DataDB.all_platforms():
+		if p.domain == "subsurface":
+			for sid in p.sensor_ids:
+				submarine_suites[sid] = p.id
+	for p: PlatformSpec in _surface_ships():
+		for sid in p.sensor_ids:
+			assert_true(not submarine_suites.has(sid), "%s does not carry %s, a submarine's sonar suite" % [p.id, sid])
+
+
+func test_surface_ships_sound_like_what_they_are() -> void:
+	var values := {}
+	for p: PlatformSpec in _surface_ships():
+		assert_true(p.acoustic_signature > 0.0 and p.acoustic_signature <= 0.5, "%s has its own radiated noise, not the default (%.2f)" % [p.id, p.acoustic_signature])
+		values[p.acoustic_signature] = true
+	assert_true(values.size() >= 12, "surface ships are spread over many noise levels, not one (%d)" % values.size())
+	# Quiet by design, then ordinary warships, then the loud ones; small craft under them all.
+	for chain: Array in [
+		["rn_ffg_type26", "usn_ddg_arleigh_burke_iia", "rfn_cg_slava", "usn_cvn_nimitz"],
+		["fra_ffg_fremm", "rn_ddg_type45", "rfn_ddg_udaloy", "rn_cvf_queen_elizabeth"],
+		["cw90_spruance", "cw90_udaloy", "cw90_sovremenny", "cw90_nimitz"],
+		["irn_fac_peykaap3", "pla_pgg_type022", "pla_fsg_type056a", "pla_ddg_type052d", "pla_cv_shandong"],
+		["civ_fishing_trawler", "civ_merchant_bulk", "civ_tanker_vlcc"],
+	]:
+		for i in range(1, chain.size()):
+			assert_true(DataDB.platform(chain[i - 1]).acoustic_signature < DataDB.platform(chain[i]).acoustic_signature, "%s is quieter than %s" % [chain[i - 1], chain[i]])
+	# What a submarine makes of it, each at the speed it goes about its business.
+	Detection.set_environment({})
+	var boat := _listening("usn_ssn_virginia", 5.0)
+	var trawler := _hears_at(boat, "an_bqq_10", "civ_fishing_trawler", 8.0)
+	var frigate := _hears_at(boat, "an_bqq_10", "rn_ffg_type26", 12.0)
+	var destroyer := _hears_at(boat, "an_bqq_10", "usn_ddg_arleigh_burke_iia", 16.0)
+	var carrier := _hears_at(boat, "an_bqq_10", "usn_cvn_nimitz", 20.0)
+	var tanker := _hears_at(boat, "an_bqq_10", "civ_tanker_vlcc", 13.0)
+	assert_true(trawler < frigate and frigate < destroyer and destroyer < carrier and carrier < tanker, "trawler %.0f < quiet frigate %.0f < destroyer %.0f < carrier %.0f < tanker %.0f nm" % [trawler, frigate, destroyer, carrier, tanker])
+	assert_true(_hears_at(boat, "an_bqq_10", "irn_fac_peykaap3", 40.0) < frigate, "a speedboat flat out is heard nearer than a frigate")
+	assert_true(tanker > 2.5 * trawler, "a tanker is heard much further off than a trawler: they used to be the same")
+
+
+func test_sonar_families_keep_their_order() -> void:
+	var users := {}
+	for p: PlatformSpec in DataDB.all_platforms():
+		for sid in p.sensor_ids:
+			users[sid] = p
+	var quietest_suite := INF
+	for sid: String in users:
+		var s := DataDB.sensor(sid)
+		var p: PlatformSpec = users[sid]
+		if s.kind != "sonar":
+			continue
+		if p.domain == "subsurface" and p.category != "midget submarine":
+			assert_true(s.passive_sensitivity_nm >= 36.0 and s.passive_sensitivity_nm <= 60.0, "%s: a submarine's suite is the long ears (%.0f)" % [sid, s.passive_sensitivity_nm])
+			quietest_suite = minf(quietest_suite, s.passive_sensitivity_nm)
+		elif s.requires_hover:
+			assert_true(s.passive_sensitivity_nm <= 18.0, "%s: a dipping transducer is a small array (%.0f)" % [sid, s.passive_sensitivity_nm])
+			assert_true(s.active_range_nm >= 9.0, "%s: its strength is its ping (%.0f)" % [sid, s.active_range_nm])
+		elif p.domain == "surface" and s.array_depth_m > 0.0:
+			assert_true(s.passive_sensitivity_nm >= 26.0 and s.passive_sensitivity_nm <= 46.0, "%s: a towed or variable-depth array hears far (%.0f)" % [sid, s.passive_sensitivity_nm])
+		elif p.domain == "surface":
+			assert_true(s.passive_sensitivity_nm >= 9.0 and s.passive_sensitivity_nm <= 15.0, "%s: a hull set stays short (%.0f)" % [sid, s.passive_sensitivity_nm])
+	assert_true(DataDB.sensor("an_aqs_22").passive_sensitivity_nm < DataDB.sensor("an_bqq_10").passive_sensitivity_nm * 0.5, "a dipping set no longer out-ranges a submarine's bow array")
+	assert_true(quietest_suite < INF, "submarine suites were found")
+
+
+## The range table, direct path, calm sea: [listener, its speed, sensor, target, its speed, nm].
+const RANGE_TABLE := [
+	["cw90_los_angeles", 5.0, "cw90_bqq5", "cw90_victor3", 5.0, 13.2],
+	["cw90_los_angeles", 5.0, "cw90_bqq5", "cw90_victor3", 10.0, 16.7],
+	["cw90_los_angeles", 5.0, "cw90_bqq5", "cw90_victor3", 15.0, 21.3],
+	["cw90_victor3", 5.0, "cw90_mgk400", "cw90_los_angeles", 5.0, 7.4],
+	["cw90_spruance", 8.0, "cw90_sqr19", "cw90_victor3", 5.0, 11.1],
+	["cw90_spruance", 10.0, "cw90_sqs53b", "cw90_victor3", 5.0, 3.2],
+	["usn_ssn_virginia", 5.0, "an_bqq_10", "rfn_ssk_kilo", 4.0, 8.3],
+	["usn_ssn_virginia", 5.0, "an_bqq_10", "rfn_ssn_yasen_m", 8.0, 11.4],
+	["usn_ssn_virginia", 5.0, "an_bqq_10", "pla_ssn_type093b", 8.0, 17.3],
+	["rfn_ssk_kilo", 4.0, "mgk_400em", "usn_ssn_virginia", 8.0, 8.2],
+	["rn_ffg_type26", 8.0, "sonar_2087", "rfn_ssk_kilo", 4.0, 6.2],
+	["usn_ddg_arleigh_burke_iia", 10.0, "an_sqs_53c", "rfn_ssk_kilo", 4.0, 1.6],
+	["rn_ddg_type45", 12.0, "sonar_2091", "cw90_victor3", 5.0, 2.1],
+	["usn_helo_mh60r", 0.0, "an_aqs_22", "rfn_ssk_kilo", 4.0, 2.6],
+	["usn_ssn_virginia", 5.0, "an_bqq_10", "usn_ddg_arleigh_burke_iia", 16.0, 44.5],
+	["usn_ssn_virginia", 5.0, "an_bqq_10", "civ_tanker_vlcc", 13.0, 88.7],
+	["cw90_victor3", 5.0, "cw90_mgk400", "cw90_merchant", 14.0, 43.8],
+]
+
+
+func test_the_passive_range_table() -> void:
+	Detection.set_environment({})
+	for row: Array in RANGE_TABLE:
+		var listener := _listening(row[0], row[1])
+		var got := _hears_at(listener, row[2], row[3], row[4])
+		assert_near(got, row[5], maxf(0.15, float(row[5]) * 0.02), "%s on %s at %d kn hears %s at %d kn" % [row[0], row[2], int(row[1]), row[3], int(row[4])])
+	# What the table is for: a submarine holds a nuclear boat of the last generation at ten miles
+	# and more, where it used to be five, and a hull set still has to be on top of one.
+	var la := _listening("cw90_los_angeles", 5.0)
+	assert_true(_hears_at(la, "cw90_bqq5", "cw90_victor3", 5.0) >= 10.0, "a Los Angeles holds a Victor III at patrol speed beyond ten miles")
+	var spruance := _listening("cw90_spruance", 10.0)
+	assert_true(_hears_at(spruance, "cw90_sqs53b", "cw90_victor3", 5.0) <= 4.0, "a hull sonar hears the same boat inside four")
+
+
+func test_a_convergence_zone_can_be_heard() -> void:
+	# The barrier mission's water: zones every 30 miles, sea state 4.
+	Detection.set_environment({"sea_state": 4, "cz_range_nm": 30.0})
+	var la := _listening("cw90_los_angeles", 5.0)
+	var sensor := DataDB.sensor("cw90_bqq5")
+	assert_true(sensor.cz_capable, "the BQQ-5 works the zones")
+	var transiting := _hears_at(la, "cw90_bqq5", "cw90_victor3", 10.0)
+	assert_true(not Acoustics.cz_zone_for(sensor, 30.0, transiting).is_empty(), "a Victor III transiting at 10 kn is heard in the first zone (direct reach %.1f nm)" % transiting)
+	var creeping := _hears_at(la, "cw90_bqq5", "rfn_ssk_kilo", 3.0)
+	assert_true(Acoustics.cz_zone_for(sensor, 30.0, creeping).is_empty(), "a creeping diesel boat is not (direct reach %.1f nm)" % creeping)
+	var hull := DataDB.sensor("cw90_sqs56")
+	assert_true(Acoustics.cz_zone_for(hull, 30.0, 40.0).is_empty(), "a small hull set never works the zones")
+	Detection.set_environment({})
+
+
+# --- Radar against small things ---------------------------------------------------------------
+
+## How far a lookout recognises a ship or a boat (SensorManager._visual_pass), and a periscope.
+const LOOKOUT_NM := 6.0
+
+
+func _radar_reach_nm(observer: Unit, signature: float, target_height_m: float) -> float:
+	return Detection.best_radar_range_nm(observer, signature, target_height_m) * Detection.clutter_factor(signature)
+
+
+func test_a_warship_radar_sees_a_boat_further_than_its_lookouts() -> void:
+	var boats := ["irn_fac_peykaap3", "irn_pgg_houdong", "pla_pgg_type022", "civ_fishing_trawler"]
+	for sea_state in [0, 2, 4]:
+		Detection.set_environment({"sea_state": sea_state})
+		for p: PlatformSpec in _surface_ships():
+			if p.weapon_loadout.is_empty() or p.displacement_t < 500.0 or p.category in ["merchant", "auxiliary"]:
+				continue
+			var ship := _afloat(p.id, 12.0)
+			ship.radar_on = true
+			for boat_id: String in boats:
+				var boat := DataDB.platform(boat_id)
+				var reach := _radar_reach_nm(ship, boat.signature_factor, boat.mast_height_m)
+				assert_true(reach >= LOOKOUT_NM - 0.01, "%s radar holds a %s at %.1f nm in sea state %d; a lookout sees it at %.0f" % [p.id, boat_id, reach, sea_state, LOOKOUT_NM])
+	Detection.set_environment({})
+	var burke := _afloat("usn_ddg_arleigh_burke_iia", 12.0)
+	burke.radar_on = true
+	var peykaap := DataDB.platform("irn_fac_peykaap3")
+	assert_true(_radar_reach_nm(burke, peykaap.signature_factor, peykaap.mast_height_m) >= 9.0, "an Aegis destroyer holds a speedboat at nine miles, not under five")
+
+
+func test_the_seahawk_radar_finds_a_periscope_before_an_eye_does() -> void:
+	for sea_state in [0, 3]:
+		Detection.set_environment({"sea_state": sea_state})
+		var helo := _afloat("usn_helo_mh60r", 100.0)
+		helo.flight_state = Unit.FlightState.AIRBORNE
+		helo.altitude_m = 300.0
+		helo.radar_on = true
+		var signature := DataDB.platform("rfn_ssk_kilo").signature_factor * Detection.RADAR_PERISCOPE_SIGNATURE
+		var by_radar := _radar_reach_nm(helo, signature, SensorManager.PERISCOPE_HEIGHT_M)
+		var by_eye := SensorManager.PERISCOPE_SIGHTING_NM * clampf(1.0 - 0.12 * sea_state, 0.25, 1.0)
+		assert_true(by_radar >= by_eye, "sea state %d: the radar holds a periscope at %.2f nm, a lookout at %.2f" % [sea_state, by_radar, by_eye])
+	Detection.set_environment({})
+	assert_true(DataDB.sensor("an_aps_153").range_surface_nm >= DataDB.sensor("cw90_aps124").range_surface_nm, "the Romeo's radar is no worse than the Seahawk radar of 1990")

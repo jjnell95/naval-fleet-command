@@ -18,6 +18,7 @@ turn_rate_deg_s = 1.2
 accel_kn_s = 0.1
 health = 220.0
 signature_factor = 2.4
+acoustic_signature = 0.35
 sensor_ids = PackedStringArray("lanza_n", "nato_esm_suite")
 mast_height_m = 38.0
 fire_control_channels = 0

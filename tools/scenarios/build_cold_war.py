@@ -45,6 +45,9 @@ def resource(kind, key, data, packed_fields=()):
     {"platforms": PLATFORMS, "weapons": WEAPONS, "sensors": SENSORS}[kind][ident(key)] = fields
 
 
+# `surface` is the reach against a large combatant before the horizon cuts it, and a small craft
+# is seen at its signature's fraction of that. No warship's suite is rated under 30: beside its
+# air-search set every one carries a surface-search radar that sees a boat further than a lookout.
 def radar(key, name, surface, air, rate=.8):
     resource("sensors", key, dict(display_name=name, kind="radar", emits=True,
              range_surface_nm=float(surface), range_air_nm=float(air), antenna_height_m=24.0,
@@ -112,6 +115,17 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     resource("weapons", key, d, ["target_types"])
 
 
+# Radiated noise of each surface ship at a crawl (PlatformSpec.acoustic_signature), on the scale
+# the submarines are on (Los Angeles 0.12, Victor III 0.20). By type: a destroyer built to hunt
+# submarines is the quietest warship, steam plants and old Soviet hulls louder, a carrier louder
+# again. Noise grows with the fraction of full speed, so a merchantman, which steams near her
+# best speed all day, is the loudest thing in the convoy on a modest figure here.
+SURFACE_NOISE = {
+    "nanuchka": .20, "spruance": .22, "perry": .25, "ticonderoga": .25, "merchant": .30, "udaloy": .32,
+    "slava": .40, "sovremenny": .42, "nimitz": .50,
+}
+
+
 def platform(key, name, short, nation, category, sensors, weapons, **kw):
     d = dict(display_name=name + " (1990)", short_name=short, nation=nation, category=category,
              domain="surface", max_speed_kn=30.0, cruise_speed_kn=16.0, turn_rate_deg_s=2.5,
@@ -142,11 +156,13 @@ def platform(key, name, short, nation, category, sensors, weapons, **kw):
         at = [k for k, _ in items].index("fire_control_channels") + 1
         d = dict(items[:at] + list(launcher.items()) + items[at:])
     d.update(kw)
+    if d["domain"] == "surface":
+        d["acoustic_signature"] = SURFACE_NOISE[key]
     resource("platforms", key, d, ["sensor_ids"])
 
 
 def catalogue():
-    radar("sps49", "AN/SPS-49 air-search radar", 28, 145)
+    radar("sps49", "AN/SPS-49 air-search radar", 30, 145)
     radar("sps48c", "AN/SPS-48C air-search radar", 30, 165)
     radar("spy1a", "AN/SPY-1A Aegis radar", 35, 180, 1.1)
     radar("aps124", "AN/APS-124 LAMPS III radar", 65, 35)
@@ -158,17 +174,21 @@ def catalogue():
     radar("apq156", "AN/APQ-156 TRAM attack radar", 80, 40)
     radar("awg9", "AN/AWG-9 Tomcat radar", 50, 130, 1.0)
     radar("fregat", "Fregat / Top Plate search radar", 32, 130)
-    radar("mr320", "MR-320 Topaz / Strut Pair radar", 26, 55)
+    radar("mr320", "MR-320 Topaz / Strut Pair radar", 30, 55)
     radar("pn_a", "PNA Down Beat bomber radar", 160, 80)
     radar("osminog", "Osminog helicopter search radar", 55, 25)
     radar("civil_nav", "Civil navigation radar (period abstraction)", 14, 0, .3)
     sonar("sqs56", "AN/SQS-56 hull sonar", 10, 8)
     sonar("sqs53b", "AN/SQS-53B hull sonar", 13, 12, cz=True)
-    sonar("sqr19", "AN/SQR-19 passive towed array", 22, 0, 120, cz=True)
-    sonar("bqq5", "AN/BQQ-5 sonar suite", 25, 13, cz=True)
-    sonar("mgk355", "MGK-355 Polinom sonar suite", 20, 12, cz=True)
+    # Passive sensitivity is the range at which a set hears a source of noise 1.0; what it hears
+    # a quiet boat at is a fraction of that (see Detection.passive_sonar_range_nm). A submarine's
+    # suite and a towed array are the long ears, about four times a hull set: a Los Angeles
+    # holds a Victor III at patrol speed at nine or ten miles, a hull sonar at two.
+    sonar("sqr19", "AN/SQR-19 passive towed array", 44, 0, 120, cz=True)
+    sonar("bqq5", "AN/BQQ-5 sonar suite", 50, 13, cz=True)
+    sonar("mgk355", "MGK-355 Polinom sonar suite", 15, 12, cz=True)
     sonar("mgk335", "MGK-335 Platina hull sonar", 11, 8)
-    sonar("mgk400", "MGK-400 Rubikon sonar", 19, 10, cz=True)
+    sonar("mgk400", "MGK-400 Rubikon sonar", 36, 10, cz=True)
     sonar("aqs13", "AN/AQS-13 Sea King dipping sonar", 13, 9, 90, True)
     sonar("vgs3", "VGS-3 Ros-V dipping sonar", 12, 9, 90, True)
     for key, name in [("slq32", "AN/SLQ-32(V) electronic support"),

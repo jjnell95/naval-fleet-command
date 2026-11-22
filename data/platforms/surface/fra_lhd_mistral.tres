@@ -18,6 +18,7 @@ turn_rate_deg_s = 1.3
 accel_kn_s = 0.12
 health = 200.0
 signature_factor = 2.3
+acoustic_signature = 0.35
 sensor_ids = PackedStringArray("m20_amphibious_radar", "nato_esm_suite")
 mast_height_m = 32.0
 fire_control_channels = 2

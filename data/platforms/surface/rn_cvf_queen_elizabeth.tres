@@ -18,6 +18,7 @@ length_m = 280.0
 displacement_t = 65000.0
 health = 310.0
 signature_factor = 3.0
+acoustic_signature = 0.4
 sensor_ids = PackedStringArray("artisan_997", "nato_esm_suite")
 mast_height_m = 50.0
 aircraft_capacity = 40
