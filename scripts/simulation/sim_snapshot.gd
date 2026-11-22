@@ -62,12 +62,12 @@ const MANAGER_FIELDS := {
 }
 ## Manager variables that are deliberately not saved, and why. SensorManager.reference_path is a
 ## development switch between two cycles that produce the same tracks, not engagement state, and
-## its two counters measure work; its _last_heading and _manoeuvre are never filled (older saves
-## carry them, and they are put back and ignored).
+## its two counters measure work. An older save that still carries the removed _last_heading and
+## _manoeuvre is restored without them, as restore skips names a manager does not have.
 const MANAGER_TRANSIENT := {
 	"UnitManager": ["units", "weapon_manager"],
 	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings"],
-	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path", "sonar_pairs_weighed", "lookout_pairs_weighed", "_last_heading", "_manoeuvre"],
+	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path", "sonar_pairs_weighed", "lookout_pairs_weighed"],
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
 	"AviationManager": ["unit_manager", "sonobuoys", "map_center", "map_extent_nm"],

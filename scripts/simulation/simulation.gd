@@ -140,8 +140,6 @@ func _install_scenario(sc: Dictionary, path: String) -> void:
 	_defence_accum = 0.5
 	_ai_accum = 0.25
 	sensor_manager._accum = 0.0
-	sensor_manager._last_heading.clear()
-	sensor_manager._manoeuvre.clear()
 	scenario_path = path
 	scenario_name = scenario.get("name", "UNNAMED")
 	player_faction = scenario.get("player_faction", "BLUE")

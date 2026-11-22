@@ -258,7 +258,7 @@ func test_no_heading_history_is_kept_and_an_older_save_still_loads() -> void:
 	sim._build_ai()
 	SimClock.advance(60.0)
 	var sm := sim.sensor_manager
-	assert_true(sm._last_heading.is_empty() and sm._manoeuvre.is_empty(), "no heading history is kept")
+	assert_true(not ("_last_heading" in sm) and not ("_manoeuvre" in sm), "no heading history is kept")
 	var snap := sim.capture_snapshot()
 	var saved: Dictionary = snap["managers"]["SensorManager"]
 	assert_true(not saved.has("_last_heading") and not saved.has("_manoeuvre"), "nor saved")

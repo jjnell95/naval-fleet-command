@@ -29,10 +29,6 @@ var weapon_manager: WeaponManager
 var aviation_manager: AviationManager
 var rng := RandomNumberGenerator.new()
 var _accum := 0.0
-## Left from a heading history nothing reads any longer. Never filled, and not saved; an older save
-## that carries them still loads.
-var _last_heading: Dictionary = {}
-var _manoeuvre: Dictionary = {}
 ## Development switch: run the original pair-by-pair passes (REFERENCE_PASSES) instead of the
 ## ones that work out each unit's figures once per cycle. Both make the same reports in the same
 ## order with the same random draws, so the tracks come out identical (tests/test_sensor_cycle.gd
