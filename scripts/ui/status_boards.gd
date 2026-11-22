@@ -20,10 +20,17 @@ const BOARD_COMMS := 3
 const TITLES := ["ORDERS", "TASK GROUP", "TRACK FILE", "COMMS"]
 const MAX_MESSAGES := 120
 const SEVERITY_COLORS := {"alert": "#c01818", "warn": "#9a5a00", "good": "#0a6a1a"}
+## The boards dock at the foot of the chart and stand only as tall as their content, so the plot
+## above stays in view while orders are given. They never reach higher than this below the top.
+const TOP_CLEARANCE := 18.0
+const BOTTOM_CLEARANCE := 12.0
+## The comms history has no natural height; it gets this much, or all there is.
+const COMMS_HEIGHT := 320.0
 
 var _tabs: TabContainer
 var _comms: RichTextLabel
 var _messages: Array[Dictionary] = []
+var _fit_queued := false
 
 
 func _ready() -> void:
@@ -47,8 +54,11 @@ func _ready() -> void:
 	_tabs = TabContainer.new()
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(_tabs)
-	_tabs.tab_changed.connect(func(_tab: int) -> void: _announce_comms())
+	_tabs.tab_changed.connect(func(_tab: int) -> void:
+		_announce_comms()
+		_queue_fit())
 	visibility_changed.connect(_announce_comms)
+	visibility_changed.connect(_queue_fit)
 	_comms = RichTextLabel.new()
 	_comms.name = "Comms"
 	_comms.bbcode_enabled = true
@@ -58,26 +68,65 @@ func _ready() -> void:
 			report_located.emit(position))
 
 
-## Moves a panel onto a board. Panels arrive from the scene in board order. A board page is
-## always the full height of the boards; `fill` false keeps a panel at its own height at the top of
-## the page instead (the orders panel was laid out as a one-row dock, and stretched it falls apart).
+## Moves a panel onto a board. Panels arrive from the scene in board order. Every page scrolls, so
+## no board ever needs more height than the chart has; `fill` false keeps a panel at its own height
+## at the top of the page (the orders panel was laid out as a one-row dock, and stretched it falls
+## apart).
 func host(panel: Control, board: int, fill := true) -> void:
 	if panel.get_parent() != null:
 		panel.get_parent().remove_child(panel)
 	while _tabs.get_tab_count() < board:
 		var spacer := Control.new()
 		_tabs.add_child(spacer)
-	var page: Control = panel
-	if not fill:
-		page = VBoxContainer.new()
-		page.name = "%sPage" % panel.name
-		page.add_child(panel)
-		panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	else:
-		panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var page := ScrollContainer.new()
+	page.name = "%sPage" % panel.name
+	page.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page.follow_focus = true
+	page.add_child(panel)
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL if fill else Control.SIZE_SHRINK_BEGIN
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.minimum_size_changed.connect(_queue_fit)
 	_tabs.add_child(page)
 	_tabs.set_tab_title(_tabs.get_tab_count() - 1, TITLES[board])
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PARENTED:
+		var parent := get_parent() as Control
+		if parent != null and not parent.resized.is_connected(_queue_fit):
+			parent.resized.connect(_queue_fit)
+
+
+func _queue_fit() -> void:
+	if not _fit_queued:
+		_fit_queued = true
+		_fit.call_deferred()
+
+
+## Stands the boards on the foot of the chart at the height the open board's content asks for,
+## and no taller than the chart; a board with more than that scrolls.
+func _fit() -> void:
+	_fit_queued = false
+	var parent := get_parent() as Control
+	if parent == null or not visible:
+		return
+	anchor_top = 1.0
+	anchor_bottom = 1.0
+	grow_vertical = Control.GROW_DIRECTION_BEGIN
+	offset_bottom = -BOTTOM_CLEARANCE
+	var room := maxf(0.0, parent.size.y - TOP_CLEARANCE - BOTTOM_CLEARANCE)
+	var wanted := get_combined_minimum_size().y + content_height()
+	offset_top = offset_bottom - minf(wanted, room)
+
+
+## The height the open board's content would take with nothing scrolled.
+func content_height() -> float:
+	var page := _tabs.get_current_tab_control()
+	if page == _comms:
+		return COMMS_HEIGHT
+	if page is ScrollContainer and page.get_child_count() > 0:
+		return (page.get_child(0) as Control).get_combined_minimum_size().y
+	return 0.0
 
 
 ## Adds the comms board last, after the panels.
@@ -90,6 +139,7 @@ func finish_boards() -> void:
 func open_board(board: int) -> void:
 	_tabs.current_tab = clampi(board, 0, _tabs.get_tab_count() - 1)
 	show()
+	_fit()
 
 
 func toggle(board := -1) -> void:
