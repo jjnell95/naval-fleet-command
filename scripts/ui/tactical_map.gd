@@ -1121,14 +1121,15 @@ func _right_click(e: InputEventMouseButton) -> void:
 
 
 ## What a bare right-click does to a contact, from the plot alone: "attack" a contact the plot
-## calls hostile, "investigate" one it has not yet classified, "" (the menu) for a neutral or
-## friendly one, a classified contact of unknown allegiance, or a contact already lost.
+## calls hostile, "investigate" one whose allegiance is still unknown (a class from an emitter or a
+## sound is not an identity, so it is still worth closing to look at), "" (the menu) for a neutral
+## or friendly one or a contact already lost.
 static func default_contact_verb(t: Track) -> String:
 	if t == null or t.confirmed_destroyed or t.status == Track.Status.LOST or t.is_bearing_only():
 		return ""
 	if t.identity == "HOSTILE":
 		return "attack"
-	if t.identity == "UNKNOWN" and t.classification < Track.Classification.CLASS_KNOWN:
+	if t.identity == "UNKNOWN":
 		return "investigate"
 	return ""
 
