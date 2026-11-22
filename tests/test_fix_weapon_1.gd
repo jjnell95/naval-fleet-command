@@ -514,3 +514,281 @@ func test_an_interceptor_pushes_queued_strike_rounds_back_and_a_mechanical_launc
 	assert_eq(wm.launch_interceptor(frigate, sam, inbound, 1, 12.0), 0, "the arm is still reloading")
 	assert_eq(wm.launch_interceptor(frigate, sam, inbound, 1, 18.0), 1)
 	_free_world(h)
+
+
+# --- Ballistic missiles --------------------------------------------------------------------------
+
+## Fires one real ballistic missile from a plain launcher at a real destroyer `range_nm` away,
+## with the plot `offset` from the ship. Returns [UnitManager, WeaponManager, round, destroyer].
+func _ballistic_shot(id: String, range_nm: float, offset: Vector2) -> Array:
+	Terrain.clear()
+	var spec := DataDB.weapon(id)
+	var shooter := _unit("BLUE", Vector2.ZERO, "Battery")
+	_arm(shooter, spec, 4)
+	var um := UnitManager.new()
+	um.add_unit(shooter)
+	ScenarioLoader.populate(um, {"units": [{"platform": "usn_ddg_arleigh_burke_iia", "callsign": "Destroyer", "faction": "RED", "position_nm": [0, range_nm], "heading_deg": 90.0, "speed_kn": 0.0}]})
+	var target: Unit = um.units[1]
+	var wm := WeaponManager.new()
+	wm.unit_manager = um
+	wm.rng.seed = 11
+	var t := _track("BLUE", target)
+	t.position = target.position + offset
+	assert_true(wm.launch(shooter, spec, t, 1, 0.0), "%s: %s" % [id, str(wm.engagement_check(shooter, spec, t, 0.0).reason)])
+	return [um, wm, wm.in_flight[0] if not wm.in_flight.is_empty() else null, target]
+
+
+func test_a_ballistic_missile_that_misses_does_not_circle_its_target() -> void:
+	for id: String in ["pla_df21d", "pla_yj21", "irn_khalij_fars"]:
+		var spec := DataDB.weapon(id)
+		var range_nm := spec.max_range_nm * 0.6
+		var c := _ballistic_shot(id, range_nm, Vector2(2.0, 0.0))
+		var wm: WeaponManager = c[1]
+		var w: Weapon = c[2]
+		if w != null:
+			var turned := 0.0
+			var last := w.heading_deg
+			var now := 0.0
+			while w.phase != Weapon.Phase.DEAD and now < 3000.0:
+				now += DT
+				wm.tick(DT, now)
+				turned += absf(Geo.heading_delta(last, w.heading_deg))
+				last = w.heading_deg
+			assert_true(w.dead_reason in ["MISS", "HIT"], "%s ended %s" % [id, w.dead_reason])
+			assert_true(turned < 180.0, "%s turned %.0f degrees" % [id, turned])
+			assert_true(w.distance_flown_nm < range_nm + 10.0, "%s flew %.0f nm for a %.0f nm shot" % [id, w.distance_flown_nm, range_nm])
+		wm.free()
+		c[0].free()
+
+
+func test_a_ballistic_missile_comes_down_through_the_interceptors_height_bands() -> void:
+	var exo := DataDB.weapon("sm3_family")
+	var upper := DataDB.weapon("sm6_family")
+	for range_nm: float in [480.0, 100.0]:
+		var c := _ballistic_shot("pla_df21d", range_nm, Vector2.ZERO)
+		var wm: WeaponManager = c[1]
+		var w: Weapon = c[2]
+		var top := w.spec.altitude_m
+		assert_near(w.flight_altitude_m(), top, 1.0, "it leaves at its cruise height")
+		assert_true(AirDefence._can_intercept(exo, w) and not AirDefence._can_intercept(upper, w), "outside the atmosphere it is the exoatmospheric interceptor's alone")
+		var now := 0.0
+		var upper_from_nm := -1.0
+		var exo_below_floor := false
+		var checked_last_ten := false
+		while w.phase != Weapon.Phase.DEAD and now < 3000.0:
+			now += DT
+			wm.tick(DT, now)
+			if w.phase == Weapon.Phase.DEAD:
+				break
+			var height := w.flight_altitude_m()
+			if height < exo.intercept_min_altitude_m and AirDefence._can_intercept(exo, w):
+				exo_below_floor = true
+			if upper_from_nm < 0.0 and AirDefence._can_intercept(upper, w):
+				upper_from_nm = w.distance_to_go_nm()
+			if w.distance_to_go_nm() <= 10.0 and w.distance_to_go_nm() > 1.0:
+				checked_last_ten = true
+				assert_true(AirDefence._can_intercept(upper, w), "in its last ten miles the upper-atmosphere interceptor can engage it (%.0f m at %.1f nm)" % [height, w.distance_to_go_nm()])
+				assert_true(not AirDefence._can_intercept(exo, w), "and the exoatmospheric one cannot")
+		assert_true(checked_last_ten, "the round was watched through its dive")
+		assert_true(not exo_below_floor, "the exoatmospheric interceptor never engages below its floor")
+		assert_true(upper_from_nm >= 10.0, "the dive opens the upper band with at least ten miles to run (opened at %.1f nm)" % upper_from_nm)
+		wm.free()
+		c[0].free()
+	# A round that never leaves the atmosphere is never the exoatmospheric interceptor's.
+	var low := _ballistic_shot("irn_khalij_fars", 114.0, Vector2.ZERO)
+	assert_true(not AirDefence._can_intercept(exo, low[2]) and AirDefence._can_intercept(upper, low[2]))
+	low[1].free()
+	low[0].free()
+
+
+# --- Interceptors coast before they are lost -----------------------------------------------------
+
+func _sam_case() -> Array:
+	Terrain.clear()
+	var ship := _unit("BLUE", Vector2.ZERO, "Ship")
+	ship.sensors.append(_radar())
+	var sam := _missile("directed", "sam", ["missile"])
+	sam.guidance = "fire_control_directed"
+	sam.speed_kn = 2400.0
+	sam.turn_rate_deg_s = 120.0
+	sam.seeker_range_nm = 4.0
+	sam.min_range_nm = 0.05
+	_arm(ship, sam)
+	var h := _world([ship])
+	var inbound := Weapon.new()
+	inbound.id = 900
+	inbound.spec = _missile("inbound")
+	inbound.spec.speed_kn = 480.0
+	inbound.spec.altitude_m = 10.0
+	inbound.faction = "RED"
+	inbound.position = Vector2(0.0, 14.0)
+	inbound.heading_deg = 180.0
+	inbound.acquired = ship
+	inbound.phase = Weapon.Phase.TERMINAL
+	(h[1] as WeaponManager).in_flight.append(inbound)
+	return [h, ship, sam, inbound]
+
+
+func test_an_interceptor_survives_one_missed_look_from_its_illuminator() -> void:
+	var c := _sam_case()
+	var h: Array = c[0]
+	var wm: WeaponManager = h[1]
+	var ship: Unit = c[1]
+	var inbound: Weapon = c[3]
+	assert_eq(wm.launch_interceptor(ship, c[2], inbound, 1, 0.0), 1)
+	var sam: Weapon = wm.in_flight.back()
+	wm.tick(DT, 0.25)
+	ship.radar_on = false
+	wm.tick(DT, 0.5)
+	assert_true(sam.phase != Weapon.Phase.DEAD, "a quarter of a second without the beam does not destroy the round")
+	ship.radar_on = true
+	_fly(wm, 30.0, 0.5)
+	assert_eq(sam.dead_reason, "INTERCEPT", "guided again, it goes on to its intercept")
+	assert_eq(inbound.dead_reason, "INTERCEPTED")
+	_free_world(h)
+
+
+func test_a_semi_active_round_needs_the_beam_only_for_its_endgame() -> void:
+	var c := _sam_case()
+	var h: Array = c[0]
+	var wm: WeaponManager = h[1]
+	var ship: Unit = c[1]
+	var inbound: Weapon = c[3]
+	assert_eq(wm.launch_interceptor(ship, c[2], inbound, 1, 0.0), 1)
+	var sam: Weapon = wm.in_flight.back()
+	# The inbound round drops under the radar horizon for longer than any coast, while the
+	# interceptor is still on its way out to it.
+	inbound.position = Vector2(0.0, 40.0)
+	assert_true(not wm.guidance_available(ship, c[2], inbound), "the illuminator cannot see it there")
+	var now := _fly(wm, WeaponManager.INTERCEPT_COAST_S + 2.0)
+	assert_true(sam.phase != Weapon.Phase.DEAD, "on the way out the round flies its last solution")
+	inbound.position = Vector2(0.0, 12.0)
+	_fly(wm, 30.0, now)
+	assert_eq(sam.dead_reason, "INTERCEPT", "with the beam back for the endgame it homes")
+	_free_world(h)
+
+
+func test_an_interceptor_without_guidance_in_its_endgame_is_lost_after_a_short_coast() -> void:
+	var c := _sam_case()
+	var h: Array = c[0]
+	var wm: WeaponManager = h[1]
+	var ship: Unit = c[1]
+	var inbound: Weapon = c[3]
+	inbound.position = Vector2(0.0, 3.0)
+	assert_eq(wm.launch_interceptor(ship, c[2], inbound, 1, 0.0), 1)
+	var sam: Weapon = wm.in_flight.back()
+	# Hold the inbound round still and out of the interceptor's path, so only guidance decides.
+	inbound.spec.speed_kn = 0.0
+	inbound.position = Vector2(3.0, 0.0)
+	ship.radar_on = false
+	var now := _fly(wm, WeaponManager.INTERCEPT_COAST_S - 0.5)
+	assert_true(sam.phase != Weapon.Phase.DEAD, "it coasts first")
+	_fly(wm, 1.0, now)
+	assert_eq(sam.dead_reason, "GUIDANCE LOST")
+	_free_world(h)
+
+
+# --- Shells and gunnery --------------------------------------------------------------------------
+
+func test_nothing_shoots_at_shells_and_chaff_ignores_them() -> void:
+	var shell_spec := DataDB.weapon("oto_76mm_gun")
+	var shell := Weapon.new()
+	shell.spec = shell_spec
+	assert_eq(shell.threat_class(), "shell")
+	for spec: WeaponSpec in DataDB.all_weapons():
+		assert_true(not AirDefence._can_intercept(spec, shell), "%s would engage a shell" % spec.id)
+	# A ship with a missile and a gun layer and chaff aboard, under fire from a gun.
+	var ship := _unit("RED", Vector2.ZERO, "Ship")
+	ship.sensors.append(_radar())
+	ship.decoys = 8
+	ship.auto_countermeasures = true
+	var sam := _missile("point", "sam", ["missile"])
+	sam.guidance = "inertial_active"
+	sam.min_range_nm = 0.05
+	var gun := _missile("close", "ciws", ["missile"])
+	gun.max_range_nm = 2.0
+	gun.min_range_nm = 0.05
+	_arm(ship, sam)
+	_arm(ship, gun, 400)
+	var h := _world([ship])
+	var wm: WeaponManager = h[1]
+	var threats := ThreatManager.new()
+	shell.id = 901
+	shell.faction = "BLUE"
+	shell.position = Vector2(0.0, 2.0)
+	shell.heading_deg = 180.0
+	shell.acquired = ship
+	shell.phase = Weapon.Phase.TERMINAL
+	wm.in_flight.append(shell)
+	threats.begin_cycle()
+	threats.mark_detected("RED", shell, 0.0)
+	assert_eq(AirDefence.run_cycle(h[0], threats, wm, 0.0), 0, "no interceptor leaves for a shell")
+	DefensiveResponse.run_cycle(h[0], threats, wm)
+	assert_eq(ship.decoys, 8, "and no chaff is spent on one")
+	assert_eq(ship.magazine_count(sam.id), 16)
+	assert_eq(ship.magazine_count(gun.id), 400)
+	# The same ship still answers a missile.
+	var missile := Weapon.new()
+	missile.id = 902
+	missile.spec = _missile("inbound")
+	missile.faction = "BLUE"
+	missile.position = Vector2(0.0, 10.0)
+	missile.heading_deg = 180.0
+	missile.acquired = ship
+	missile.phase = Weapon.Phase.TERMINAL
+	wm.in_flight.append(missile)
+	threats.begin_cycle()
+	threats.mark_detected("RED", missile, 0.0)
+	assert_true(AirDefence.run_cycle(h[0], threats, wm, 0.0) > 0, "a missile is still engaged")
+	threats.free()
+	_free_world(h)
+
+
+func test_gunfire_is_less_accurate_at_range_and_against_a_fast_target() -> void:
+	var gun := DataDB.weapon("mk45_mod4_gun")
+	var boat := _unit("RED", Vector2.ZERO, "Boat")
+	boat.spec.signature_factor = 0.3
+	boat.spec.max_speed_kn = 55.0
+	boat.speed_kn = 52.0
+	var at_limit := Combat.hit_probability(gun, boat, gun.max_range_nm)
+	assert_true(at_limit < 0.2, "at maximum range against a fast boat the chance is under one in five (%.2f)" % at_limit)
+	assert_true(at_limit > 0.0)
+	var closer := Combat.hit_probability(gun, boat, 2.0)
+	assert_true(closer > at_limit * 1.5, "closing the range helps (%.2f against %.2f)" % [closer, at_limit])
+	boat.speed_kn = 0.0
+	var stopped := Combat.hit_probability(gun, boat, 2.0)
+	assert_true(stopped > closer * 1.5, "and so does a target that is not moving (%.2f against %.2f)" % [stopped, closer])
+	assert_true(Combat.hit_probability(gun, boat, 0.0) <= gun.base_pk, "never better than the gun's rated figure")
+	for spec: WeaponSpec in DataDB.all_weapons():
+		if spec.is_gun():
+			boat.speed_kn = 45.0
+			var pk := Combat.hit_probability(spec, boat, spec.max_range_nm)
+			assert_true(pk < 0.2, "%s at its limit against a fast boat: %.2f" % [spec.id, pk])
+
+
+func test_a_gun_salvo_at_long_range_misses_as_often_as_it_hits() -> void:
+	var ship := _unit("BLUE", Vector2.ZERO, "Ship")
+	var gun := _missile("gun", "gun", ["surface"])
+	gun.guidance = "unguided"
+	gun.profile = "direct"
+	gun.seeker_range_nm = 0.0
+	gun.max_range_nm = 10.0
+	gun.min_range_nm = 0.3
+	gun.speed_kn = 1600.0
+	gun.damage = 0.5
+	gun.base_pk = 1.0
+	gun.launch_interval_s = 1.0
+	_arm(ship, gun, 60)
+	var target := _unit("RED", Vector2(0.0, 9.8), "Target", "surface", 1000.0)
+	target.spec.signature_factor = 1.0
+	var h := _world([ship, target])
+	var wm: WeaponManager = h[1]
+	var t := _track("BLUE", target)
+	var results := {"hit": 0, "miss": 0}
+	wm.weapon_impact.connect(func(_f: String, _s: WeaponSpec, _u: Unit, hit: bool) -> void:
+		results["hit" if hit else "miss"] += 1)
+	assert_true(wm.launch(ship, gun, t, 40, 0.0), str(wm.engagement_check(ship, gun, t, 0.0).reason))
+	_fly(wm, 90.0)
+	assert_eq(int(results.hit) + int(results.miss), 40, "every shell arrives")
+	assert_true(int(results.hit) >= 10 and int(results.hit) <= 30, "about half hit at the limit of the gun's reach (%d of 40)" % int(results.hit))
+	_free_world(h)

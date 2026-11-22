@@ -71,7 +71,7 @@ var emitter_silent := false
 ## interceptor built for space loses it as it re-enters, and the upper-atmosphere ones get their
 ## turn only then. GAMEPLAY_ESTIMATE.
 const BALLISTIC_DIVE_FRACTION := 0.15
-const BALLISTIC_DIVE_MIN_NM := 30.0
+const BALLISTIC_DIVE_MIN_NM := 40.0
 
 
 func flight_altitude_m() -> float:
