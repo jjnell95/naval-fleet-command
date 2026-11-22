@@ -19,6 +19,11 @@ const BMD_INTERCEPTOR_ADVANTAGE := 0.45  # GAMEPLAY_ESTIMATE
 ## track manager of the engagement being fought, set by the WeaponManager it is wired to. A seeker
 ## cannot tell a merchant from a warship, so the side's own picture has to before the round leaves.
 static var picture_source: TrackManager
+## Protected traffic stops a shot when it lies this close to where the target should be, beyond
+## the plot errors and the target's own movement. The speeds are what a contact with no course
+## and speed on the plot is taken to be capable of. GAMEPLAY_ESTIMATE.
+const PROTECTED_GUARD_NM := 1.0
+const PROTECTED_ASSUMED_SPEED_KN := {"surface": 20.0, "subsurface": 20.0, "air": 450.0}
 
 
 ## Lead intercept point against a track's estimated motion. Falls back to the raw track position
@@ -173,11 +178,13 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 
 
 ## The contact the shooter's side holds as neutral or friendly that this shot could take instead
-## of its target, or null. A round searches the basket its seeker opens on round the aim point, and
-## a torpedo the whole run in from where its seeker comes on; anything there it is able to lock is
-## at risk, and the plot's own error is allowed for. Read from the held picture only: a merchant
-## nobody has identified does not stop a shot, which is the reason to identify before shooting.
-## A plot that does not hold the contact being shot at is some other engagement's and says nothing.
+## of its target, or null. A seeker takes what lies nearest its aim point, so protected traffic is
+## at risk where it competes with the target for that place: within the weapon's acquisition
+## basket, and no further from the aim point than the solution can be wrong by (protected_spread_nm).
+## A torpedo searches the whole run in from where its seeker comes on, so for it the same margin
+## is taken along that run. Read from the held picture only: a merchant nobody has identified does
+## not stop a shot, which is the reason to identify before shooting. A plot that does not hold the
+## contact being shot at is some other engagement's and says nothing.
 static func protected_contact_in_basket(shooter: Unit, spec: WeaponSpec, track: Track, aim: Vector2, held_tracks: Array) -> Track:
 	if spec.is_anti_radiation():
 		return null  # it hears only the other side's radars
@@ -188,6 +195,7 @@ static func protected_contact_in_basket(shooter: Unit, spec: WeaponSpec, track: 
 		if payload != null:
 			seeker = payload
 	var radius := seeker.acquisition_radius_nm()
+	var spread := protected_spread_nm(spec, track, shooter.position.distance_to(aim))
 	var from := aim
 	if spec.is_torpedo():
 		var run := aim - shooter.position
@@ -205,9 +213,21 @@ static func protected_contact_in_basket(shooter: Unit, spec: WeaponSpec, track: 
 		if held.domain != "" and not suits_track(seeker, held):
 			continue
 		var nearest := Geometry2D.get_closest_point_to_segment(held.position, from, aim)
-		if held.position.distance_to(nearest) <= radius + minf(maxf(held.position_error_nm, 0.0), radius):
+		if held.position.distance_to(nearest) <= minf(radius, spread + maxf(held.position_error_nm, 0.0)):
 			at_risk = held
 	return at_risk if listed else null
+
+
+## How far from the aim point the target of this shot may turn out to be when the seeker opens:
+## the error of its plot, the distance it can cover while a round that takes no updates is on its
+## way, and a fixed margin (PROTECTED_GUARD_NM). Traffic inside this is as likely to be taken as
+## the target; traffic further out is passed over for whatever is nearer the aim point.
+static func protected_spread_nm(spec: WeaponSpec, track: Track, flight_range_nm: float) -> float:
+	var spread := PROTECTED_GUARD_NM + maxf(track.position_error_nm, 0.0)
+	if not spec.supports_midcourse_updates():
+		var speed := track.speed_kn if track.has_kinematics else float(PROTECTED_ASSUMED_SPEED_KN.get(track.domain, 0.0))
+		spread += Geo.knots_to_nm_per_s(speed) * time_of_flight_s(spec, flight_range_nm)
+	return spread
 
 
 ## Each authored mount contributes a relative center bearing and a half-width. Multiple mounts

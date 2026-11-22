@@ -238,7 +238,7 @@ func test_a_shot_is_refused_while_a_held_neutral_lies_in_the_basket() -> void:
 	var sam := _missile("area", "sam", ["air"])
 	_arm(shooter, asm)
 	var warship := _unit("RED", Vector2(0.0, 30.0), "Warship")
-	var merchant := _unit("NEUTRAL", Vector2(3.0, 28.0), "Merchant")
+	var merchant := _unit("NEUTRAL", Vector2(1.0, 29.5), "Merchant")
 	var h := _world([shooter, warship, merchant])
 	var wm: WeaponManager = h[1]
 	var target := _track("BLUE", warship, "T1")
@@ -261,6 +261,14 @@ func test_a_shot_is_refused_while_a_held_neutral_lies_in_the_basket() -> void:
 	assert_true(str(Combat.check_engagement(shooter, sam, target, true).reason) != "NEUTRAL IN THE LINE OF FIRE")
 	target.domain = "surface"
 	traffic.identity = "NEUTRAL"
+	# Inside the seeker's reach but well clear of where the target is: the round passes it over
+	# for what is nearer its aim point, so the shot is the commander's to take.
+	traffic.position = Vector2(4.0, 27.0)
+	assert_true(bool(Combat.check_engagement(shooter, asm, target).ok), "traffic that does not compete with the target does not stop the shot")
+	# The older and vaguer the solution, the wider the margin.
+	target.position_error_nm = 4.5
+	assert_eq(str(Combat.check_engagement(shooter, asm, target).reason), "NEUTRAL IN THE LINE OF FIRE", "a poor plot of the target widens what is at risk")
+	target.position_error_nm = 0.1
 	traffic.position = Vector2(20.0, 28.0)
 	assert_true(bool(Combat.check_engagement(shooter, asm, target).ok), "clear of the basket, the shot is good")
 	assert_true(wm.launch(shooter, asm, target, 2, 0.0))
@@ -277,7 +285,7 @@ func test_the_other_side_holds_fire_on_its_own_picture_of_a_neutral() -> void:
 	var asm := _missile("leave")
 	_arm(raider, asm)
 	var escort := _unit("BLUE", Vector2(0.0, 30.0), "Escort")
-	var merchant := _unit("NEUTRAL", Vector2(1.0, 31.0), "Merchant")
+	var merchant := _unit("NEUTRAL", Vector2(0.5, 30.8), "Merchant")
 	var h := _world([raider, escort, merchant])
 	var target := _track("RED", escort, "R1")
 	var traffic := _track("RED", merchant, "R2", "NEUTRAL")
