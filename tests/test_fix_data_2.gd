@@ -102,3 +102,20 @@ func test_no_escort_opens_blind_without_a_reason() -> void:
 	assert_true(nicholas.radar_on and nicholas.emcon != Unit.Emcon.SILENT, "Nicholas radiates and has no silent order")
 	_close(convoy)
 
+
+## The briefing and the P-3C's report put the North Cape Kilo inside the screen; she started 47 nm
+## east of the pickets and spent the watch outside them. She now opens between the pickets and the
+## carrier, nearer the carrier than any picket is.
+func test_the_north_cape_kilo_starts_inside_the_screen() -> void:
+	var sim := _open("res://data/scenarios/aegis_bastion.json", 2)
+	var kilo := _named(sim, "Kaluga (B-800)")
+	var carrier := _named(sim, "USS Dwight D. Eisenhower (CVN 69)")
+	var to_carrier := kilo.position.distance_to(carrier.position)
+	for picket: String in ["USS Jack H. Lucas (DDG 125)", "USS Gettysburg (CG 64)"]:
+		var p := _named(sim, picket)
+		assert_true(kilo.position.x < p.position.x, "the Kilo is west of %s, on the group's side of the line" % picket)
+		assert_true(to_carrier < p.position.distance_to(carrier.position), "and nearer the carrier than %s is" % picket)
+	for leg: Vector2 in kilo.patrol_route:
+		assert_true(leg.x < _named(sim, "USS Gettysburg (CG 64)").position.x, "her patrol stays inside the screen")
+	_close(sim)
+
