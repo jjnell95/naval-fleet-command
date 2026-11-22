@@ -15,6 +15,9 @@ signal station_resumed(unit: Unit, reason: String)
 ## A return to station could not be made: the guide was lost, the circuit is blocked, the airframe
 ## is committed to recovery. The platform keeps its present orders.
 signal station_unavailable(unit: Unit, reason: String)
+## A task ended and the platform took up the route it had interrupted, by itself. Not raised for a
+## return to station (station_resumed), nor when there was no route to go back to.
+signal route_resumed(unit: Unit, reason: String)
 
 ## How far inside a weapon's reach an attacking platform settles: on the edge of the envelope a
 ## target that opens a few knots is out of range again before the salvo is away. GAMEPLAY.
@@ -321,6 +324,8 @@ func _finish_task(u: Unit, started: int, reason: String) -> void:
 		return
 	if u.plan_kept:
 		u.resume_plan()
+		if u.has_route():
+			route_resumed.emit(u, reason)
 	elif Movement.must_keep_flying(u) and u.waypoints.is_empty():
 		# On a bare course with nowhere to go: hold here rather than fly it to the end of the fuel.
 		Movement.enter_hold(u, u.position)

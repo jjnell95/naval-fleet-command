@@ -125,6 +125,7 @@ class Harness:
 	var now := 0.0
 	var ended: Array = []
 	var resumed: Array = []
+	var routes: Array = []
 	## Tracks kept on their unit, as a sensor holding the contact would: position, course and speed.
 	var plots: Array = []
 
@@ -171,6 +172,7 @@ func _harness(units: Array) -> Harness:
 	h.um.weapon_manager = h.wm
 	h.um.attack_ended.connect(func(u: Unit, t: Track, reason: String) -> void: h.ended.append([u, t, reason]))
 	h.um.station_resumed.connect(func(u: Unit, reason: String) -> void: h.resumed.append([u, reason]))
+	h.um.route_resumed.connect(func(u: Unit, reason: String) -> void: h.routes.append([u, reason]))
 	return h
 
 
@@ -395,6 +397,7 @@ func test_an_investigation_hands_back_the_route_it_interrupted() -> void:
 	assert_eq(ship.investigation_track, null)
 	assert_eq(ship.investigation_result, "Contact classified")
 	assert_eq(ship.waypoints, route, "the look is over: back on the route")
+	assert_eq(h.routes, [[ship, "Contact classified"]], "and the crew can be heard saying so")
 	assert_near(ship.ordered_speed_kn, 13.0, 0.01, "at its speed")
 	h.free_all()
 
