@@ -62,6 +62,13 @@ const COMMANDS := [
 	]],
 ]
 
+## The board keeps this far in from the window's edges, and a description never runs wider than
+## this, so on a wide screen the rows stay short enough to read across.
+const SCREEN_MARGIN := 48.0
+const COLUMN_GAP := 28.0
+const KEY_GAP := 16.0
+const MAX_DESCRIPTION := 560.0
+
 var _panel: PanelContainer
 var _left: VBoxContainer
 var _right: VBoxContainer
@@ -91,7 +98,7 @@ func _ready() -> void:
 	title.theme_type_variation = "HeaderLabel"
 	box.add_child(title)
 	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 28)
+	columns.add_theme_constant_override("separation", int(COLUMN_GAP))
 	box.add_child(columns)
 	_left = VBoxContainer.new()
 	_right = VBoxContainer.new()
@@ -103,6 +110,9 @@ func _ready() -> void:
 	hint.theme_type_variation = "DimLabel"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
+	get_viewport().size_changed.connect(func() -> void:
+		if visible:
+			_fill())
 
 
 func _fill() -> void:
@@ -144,17 +154,35 @@ func _add_section(parent: VBoxContainer, section: Array) -> void:
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 2)
 	parent.add_child(grid)
+	var described: Array[Label] = []
+	var key_width := 0.0
 	for row: Array in section[1]:
 		var keys := Label.new()
 		keys.text = str(row[0])
 		keys.theme_type_variation = "ValueLabel"
 		grid.add_child(keys)
+		key_width = maxf(key_width, keys.get_theme_font("font").get_string_size(keys.text, HORIZONTAL_ALIGNMENT_LEFT, -1, keys.get_theme_font_size("font_size")).x)
 		var what := Label.new()
 		what.text = str(row[1])
+		what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		grid.add_child(what)
+		described.append(what)
+	# Two columns side by side must fit the window: the descriptions wrap in what is left beside
+	# their keys, so the board never runs off a small or scaled screen.
+	var width := minf(MAX_DESCRIPTION, _column_width() - key_width - KEY_GAP)
+	for what in described:
+		what.custom_minimum_size.x = maxf(120.0, width)
 	var gap := Control.new()
 	gap.custom_minimum_size.y = 6
 	parent.add_child(gap)
+
+
+## The width one of the two columns may take in the window as it is now.
+func _column_width() -> float:
+	var frame := 0.0
+	if _panel != null:
+		frame = _panel.get_theme_stylebox("panel").get_minimum_size().x
+	return (get_viewport_rect().size.x - SCREEN_MARGIN - frame - COLUMN_GAP) / 2.0
 
 
 func open() -> void:

@@ -63,7 +63,7 @@ func _window(main: Main, percent: int) -> void:
 ## Containers sort their children on a deferred call; a test has no frames, so sort them now,
 ## top down, until nothing moves.
 func _settle(main: Main) -> void:
-	for pass_index in 4:
+	for pass_index in 6:
 		_sort(main)
 		if main.status_boards.visible:
 			main.status_boards._fit()
@@ -72,6 +72,9 @@ func _settle(main: Main) -> void:
 func _sort(node: Node) -> void:
 	if node is Container:
 		node.notification(Container.NOTIFICATION_SORT_CHILDREN)
+	elif node is Label and node.autowrap_mode != TextServer.AUTOWRAP_OFF:
+		# A wrapped label measures its height again when it is next drawn; ask it now.
+		node.update_minimum_size()
 	for child in node.get_children():
 		_sort(child)
 
@@ -107,4 +110,20 @@ func test_the_orders_board_stands_at_the_foot_of_the_chart_at_its_own_height() -
 		assert_true(rect.size.y < upper.size.y * 0.6, "%d%%: the orders board leaves the plot above it in view (%d of %d px)" % [percent, int(rect.size.y), int(upper.size.y)])
 		var orders := main.orders_panel.get_global_rect()
 		assert_true(orders.end.y <= rect.end.y + 0.5, "%d%%: every orders control is on the board" % percent)
+	_close(main)
+
+
+# --- The key list fits the window at every interface size -----------------------------------
+
+func test_the_key_list_fits_the_window_at_every_interface_size() -> void:
+	var main := _open("northern_passage.json")
+	for percent: int in SIZES:
+		_window(main, percent)
+		main._key_help.open()
+		_settle(main)
+		# The board is centred in the window, so it is on screen when it is no larger than the window.
+		var screen := main.get_viewport_rect().size
+		var panel: Vector2 = main._key_help._panel.get_combined_minimum_size()
+		assert_true(panel.x <= screen.x - 24.0 and panel.y <= screen.y, "%d%%: the key list %s fits the window %s" % [percent, str(panel), str(screen)])
+		main._key_help.close()
 	_close(main)
