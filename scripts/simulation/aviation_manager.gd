@@ -59,6 +59,11 @@ const DECK_FIRE_LIMIT := 0.35
 ## An aircraft launched without orders holds this far ahead of its ship until it is given some.
 const DEPARTURE_HOLD_NM := 6.0
 const HELICOPTER_TURNAROUND_S := 1800.0
+## A deck sending a section off several spots at once fires them one after another, this far
+## apart, so the wingman follows the lead out a mile or two behind instead of sitting on it.
+const LAUNCH_INTERVAL_S := 15.0
+## Height a fixed-wing aircraft has as it leaves the deck. GAMEPLAY_ESTIMATE.
+const DEPARTURE_ALTITUDE_M := 30.0
 
 var unit_manager: UnitManager
 var sonobuoys: Array[Sonobuoy] = []
@@ -116,8 +121,12 @@ func launch(parent: Unit, which := "") -> Unit:
 		launch_rejected.emit(parent, reason)
 		return null
 	var chosen := _launch_candidate(parent, which)
+	var last_off := -INF
+	for other in parent.embarked:
+		if other.alive and other.flight_state == Unit.FlightState.LAUNCHING:
+			last_off = maxf(last_off, other.state_timer_s)
 	chosen.flight_state = Unit.FlightState.LAUNCHING
-	chosen.state_timer_s = chosen.spec.launch_time_s
+	chosen.state_timer_s = maxf(chosen.spec.launch_time_s, last_off + LAUNCH_INTERVAL_S)
 	chosen.position = parent.position
 	chosen.heading_deg = parent.heading_deg
 	chosen.ordered_heading_deg = parent.heading_deg
@@ -292,6 +301,15 @@ func _step_launch(a: Unit, dt: float) -> void:
 	a.fuel_s = a.spec.endurance_s
 	a.ordered_altitude_m = a.spec.cruise_altitude_m
 	a.ordered_speed_kn = a.spec.flight_speed("transit")
+	if a.home != null:
+		a.position = a.home.position
+		a.heading_deg = a.home.heading_deg
+		a.ordered_heading_deg = a.home.heading_deg
+	if not a.spec.can_hover:
+		# Off the catapult or the end of the runway with flying speed and a little height, on the
+		# deck's heading: a jet is never a stopped thing at sea level.
+		a.speed_kn = maxf(a.speed_kn, a.spec.flight_speed("patrol") * Movement.MIN_FLYING_FRACTION)
+		a.altitude_m = maxf(a.altitude_m, DEPARTURE_ALTITUDE_M)
 	a.tanker_offload_s = a.spec.tanker_offload_s
 	a.tanking_on = null
 	# Launched with no task: it holds ahead of its ship where the commander can see it, rather than

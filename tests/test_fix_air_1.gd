@@ -384,3 +384,30 @@ func test_the_ready_alert_answers_a_raid_closing_inside_its_missile_reach() -> v
 	assert_true(not alert.aircraft.is_empty())
 	assert_true(AirMissionManager.cap_commits(alert, alert.aircraft[0], raid), "its fighters go for the raid: pursuit %.0f nm from %.0f nm" % [alert.pursuit_nm, alert.station.distance_to(raid.position)])
 	_done()
+
+
+# --- Leaving the deck --------------------------------------------------------------------
+
+## A section of Tomcats comes off the catapults flying, a little above the sea on the ship's
+## heading, and one after another, so the wingman is a second symbol behind the lead.
+func test_a_section_leaves_the_deck_flying_and_as_two_aircraft() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var flight := _sim.aviation_manager.launch_flight(cv, 2, "cw90_f14a")
+	assert_eq(flight.size(), 2)
+	var lead: Unit = flight[0]
+	var wing: Unit = flight[1]
+	var seen := {}
+	for i in 300:
+		_advance(1.0)
+		for a in flight:
+			if a.airborne() and not seen.has(a):
+				seen[a] = true
+				assert_true(a.speed_kn >= a.spec.flight_speed("patrol") * 0.6 - 0.1, "%s leaves at %.0f kn" % [a.callsign, a.speed_kn])
+				assert_true(a.altitude_m >= 25.0, "%s leaves at %.0f m" % [a.callsign, a.altitude_m])
+				assert_true(absf(Geo.heading_delta(a.heading_deg, cv.heading_deg)) < 15.0, "on the ship's heading")
+		if seen.size() == 2 and i > 200:
+			break
+	assert_eq(seen.size(), 2, "both airborne")
+	assert_true(lead.position.distance_to(wing.position) > 0.5, "two symbols, %.2f nm apart" % lead.position.distance_to(wing.position))
+	_done()
