@@ -16,6 +16,10 @@ signal weapon_resolved(weapon: Weapon)
 signal weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit)
 ## Expendable decoys used, chaff or acoustic, whether or not they worked. A towed decoy is not one.
 signal decoys_spent(unit: Unit, count: int)
+## A ship whose only bar to defending against an inbound round was its own radar being off: `lit`
+## true when the crew switched it on to fight, false when it holds fire because it was ordered
+## radar silent (once a raid).
+signal self_defence_emcon(unit: Unit, lit: bool)
 ## An offensive round left its launcher, with its group tag. A group attack counts what it has
 ## spent from this; rounds that later resolve are gone from in_flight but stay spent.
 signal weapon_fired(weapon: Weapon)
@@ -43,6 +47,9 @@ const VLS_SERVICE_S := 1.0
 ## Seconds an interceptor flies on its last solution without guidance before it is lost. A single
 ## missed look from the illuminator is not a lost missile. GAMEPLAY_ESTIMATE.
 const INTERCEPT_COAST_S := 3.0
+## How far past a lost target, in its own seeker radii, a round searches on before it is spent: far
+## enough to find the rest of a group, not so far it takes a merchant down range. GAMEPLAY_ESTIMATE.
+const SEARCH_ON_SEEKER_RADII := 3.0
 ## Anti-radiation missiles. A round whose emitter switches off flies on to where it last heard it:
 ## ARM_MEMORY_PK of its ordinary chance if the emitter is still within ARM_MEMORY_NM of that
 ## point, nothing if it has moved away. A hit wrecks antennas before it sinks anything.
@@ -291,23 +298,12 @@ func faction_commitment(faction: String, track: Track, queued_only := false) -> 
 ## Fires interceptors at a weapon already in flight. Used by the air-defence system: by itself on
 ## automatic defence, or for the rounds a commander's intercept order cleared (AirDefence
 ## order_intercept), through the same layers and checks either way. Returns the rounds launched.
+## Weapons hold does not come into it: this is never an attack, and what a holding ship may defend
+## against is the air-defence system's decision.
 func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int, now: float) -> int:
-	if not shooter.alive or not shooter.can_fire() or shooter.roe == Unit.Roe.HOLD or threat.phase == Weapon.Phase.DEAD:
-		return 0
-	if not AirDefence._can_intercept(spec, threat):
-		return 0
-	if not guidance_available(shooter, spec, threat):
+	if interceptor_wait_s(shooter, spec, threat, now) != 0.0:
 		return 0
 	now_s = now
-	if now < _ready_time(shooter, spec):
-		return 0
-	var distance := shooter.position.distance_to(threat.position)
-	if distance < spec.min_range_nm or distance > spec.max_range_nm:
-		return 0
-	if not Combat.firing_arc_check(shooter, spec, threat.position).ok:
-		return 0
-	if spec.requires_fire_control_channel() and not channel_available(shooter, threat):
-		return 0
 	# SAMs leave one at a time at the authored launch interval. A CIWS round count is a
 	# short burst abstraction, so the whole burst is expended in one firing cycle.
 	var available := mini(rounds, shooter.magazine_count(spec.id))
@@ -331,13 +327,8 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		w.aim_point = threat.position
 		w.phase = Weapon.Phase.TERMINAL
 		in_flight.append(w)
-	if spec.type == "ciws":
-		threat.close_in_bursts_committed += 1
-		threat.close_in_commitments[shooter.id] = int(threat.close_in_commitments.get(shooter.id, 0)) + 1
-	else:
+	if spec.type != "ciws":
 		threat.guided_interceptors_committed += available
-		var layer := AirDefence.layer_key(spec, shooter)
-		threat.defence_commitments[layer] = int(threat.defence_commitments.get(layer, 0)) + available
 	if _channel_batch and spec.requires_fire_control_channel():
 		var held: Dictionary = _channel_cache.get(shooter, {})
 		held[threat] = true
@@ -345,6 +336,26 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 	revision += 1
 	interceptor_launched.emit(shooter, spec, threat, available)
 	return available
+
+
+## Seconds until this interceptor could leave for this round: zero when it can go now, the rest of
+## the launcher's cycle when that is all it waits for, INF when it cannot engage the round from
+## here at all (out of its envelope or arc, no guidance, no fire-control channel to spare).
+func interceptor_wait_s(shooter: Unit, spec: WeaponSpec, threat: Weapon, now: float) -> float:
+	if not shooter.alive or not shooter.can_fire() or threat.phase == Weapon.Phase.DEAD:
+		return INF
+	if not AirDefence._can_intercept(spec, threat):
+		return INF
+	var distance := shooter.position.distance_to(threat.position)
+	if distance < spec.min_range_nm or distance > spec.max_range_nm:
+		return INF
+	if not guidance_available(shooter, spec, threat):
+		return INF
+	if not Combat.firing_arc_check(shooter, spec, threat.position).ok:
+		return INF
+	if spec.requires_fire_control_channel() and not channel_available(shooter, threat):
+		return INF
+	return maxf(_ready_time(shooter, spec) - now, 0.0)
 
 
 ## A defensive round has taken the launcher: strike rounds queued on the same launcher group wait
@@ -441,14 +452,19 @@ func _step(w: Weapon, dt: float) -> void:
 	if w.phase == Weapon.Phase.DEAD:
 		return
 	w.time_alive_s += dt
-	if w.intercept_target == null and not radar_support_available(w.shooter, w.spec) and network_track_guide(w.shooter, w.spec, w.target_track) == null:
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "GUIDANCE LOST"
-		return
-	if w.intercept_target == null and w.target_track != null and not track_guidance_available(w.shooter, w.spec, w.target_track):
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "GUIDANCE LOST"
-		return
+	if w.intercept_target == null:
+		var guided := (radar_support_available(w.shooter, w.spec) or network_track_guide(w.shooter, w.spec, w.target_track) != null) \
+				and (w.target_track == null or track_guidance_available(w.shooter, w.spec, w.target_track))
+		if guided:
+			w.unguided_s = 0.0
+		else:
+			# A missile fired at an aircraft rides out a moment's break in its guidance on the last
+			# solution, as one fired at a missile does; anything else is lost at once.
+			w.unguided_s += dt
+			if w.spec.type != "sam" or w.unguided_s > INTERCEPT_COAST_S:
+				w.phase = Weapon.Phase.DEAD
+				w.dead_reason = "GUIDANCE LOST"
+				return
 	if w.intercept_target != null:
 		_step_interceptor(w, dt)
 		return
@@ -475,11 +491,13 @@ func _step(w: Weapon, dt: float) -> void:
 		# The target sank, dived or landed under it. The round is still flying and its seeker is
 		# still on: it carries on down its heading, not back to the wreck, and takes the next thing
 		# it finds. That is what the rest of a salvo is for once the first round has done the job.
+		# It searches a few seeker radii on, not to the end of its fuel.
 		w.acquired = null
 		w.lost_lock = true
 		w.searching_on = true
 		w.phase = Weapon.Phase.CRUISE
-		w.aim_point = w.position + Geo.heading_to_vector(w.heading_deg) * maxf(w.spec.max_range_nm - w.distance_flown_nm, 0.0)
+		w.search_on_end_nm = minf(w.spec.max_range_nm, w.distance_flown_nm + SEARCH_ON_SEEKER_RADII * w.spec.acquisition_radius_nm())
+		w.aim_point = w.position + Geo.heading_to_vector(w.heading_deg) * maxf(w.search_on_end_nm - w.distance_flown_nm, 0.0)
 		goal = w.aim_point
 		revision += 1
 
@@ -535,6 +553,9 @@ func _step(w: Weapon, dt: float) -> void:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "MISS"
 		weapon_impact.emit(w.faction, w.spec, w.acquired, false)
+	elif w.phase != Weapon.Phase.DEAD and w.lost_lock and w.search_on_end_nm >= 0.0 and w.distance_flown_nm >= w.search_on_end_nm:
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "TARGET LOST"
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "TARGET LOST" if w.lost_lock else ("NO ACQUISITION" if w.searching_on else "RANGE EXHAUSTED")

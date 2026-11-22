@@ -101,7 +101,7 @@ static func option_tooltip(key: String) -> String:
 		"ceiling":
 			return "Only %s; off, the ladder runs to %s." % [ladder_text(CLASSIC_SCALES), _times(NORMAL_SCALES[-1])]
 		"manual_defence":
-			return "SAMs engage inbound missiles only when ordered (X or right-click the round); close-in guns, chaff and flares keep their own settings."
+			return "Area SAMs engage inbound missiles only when ordered (X or right-click the round; X clears the whole raid); close-in guns and point-defence missiles fire by themselves, chaff and flares keep their own settings."
 		"engage_on_id":
 			return "Optional convenience rule: ships and aircraft attack a hostile after investigating it, within their rules of engagement. Off in Classic. Reconnaissance never fires."
 		"submarine_comms":

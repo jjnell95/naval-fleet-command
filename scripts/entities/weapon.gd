@@ -32,10 +32,9 @@ var acoustic_decoy_tried: Dictionary = {}
 ## Anti-torpedo rounds ever fired at this torpedo, by any ship.
 var hard_kill_shots := 0
 var seductions := 0  # times decoys have pulled this round off a lock
-var guided_interceptors_committed := 0  # SAMs ever fired at this round
-var defence_commitments: Dictionary = {}  # AirDefence.layer_key (layer and ship) -> shots fired at this round
-var close_in_commitments: Dictionary = {}  # defending unit id -> bursts
-var close_in_bursts_committed := 0  # close-in engagements; a round is only in that envelope briefly
+## SAMs ever fired at this round, for the record. What limits the defence is how many are in the
+## air at it now (AirDefence), never this.
+var guided_interceptors_committed := 0
 ## Ids of the units the commander has ordered to intercept this round (Order.intercept). A ship
 ## on manual missile defence engages only rounds it is cleared for; one on automatic needs none.
 var intercept_cleared: Array[int] = []
@@ -49,12 +48,14 @@ var dead_reason := ""
 ## A round fired at an aircraft that reached its aim point with nothing in its seeker flies on along
 ## its heading, still searching, until its fuel runs out (`WeaponManager._try_acquire`).
 var searching_on := false
-## An interceptor: seconds it has flown its endgame without guidance. It coasts on its last
-## solution for a moment before it is lost (WeaponManager.INTERCEPT_COAST_S).
+## A missile fired at a missile or an aircraft: seconds it has flown without guidance. It coasts on
+## its last solution for a moment before it is lost (WeaponManager.INTERCEPT_COAST_S).
 var unguided_s := 0.0
 ## The unit this round was locked on sank, dived or landed, and it has found nothing since: it is
-## searching on down its heading and ends as TARGET LOST if its range runs out first.
+## searching on down its heading and ends as TARGET LOST at `search_on_end_nm` flown, a few seeker
+## radii past where it lost the target, or when its range runs out if that comes first.
 var lost_lock := false
+var search_on_end_nm := -1.0
 ## Fired from a battery ashore: the round climbs out over its own coast before the ordinary rule
 ## that a low-flying weapon ends at the first ground it meets applies to it.
 var launched_ashore := false

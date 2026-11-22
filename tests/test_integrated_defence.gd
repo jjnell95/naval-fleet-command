@@ -142,17 +142,26 @@ func test_a_ship_with_a_free_channel_is_asked_before_a_nearer_saturated_one() ->
 	_cleanup(h)
 
 
-func test_each_ship_keeps_its_own_inner_layer_allowance() -> void:
-	var point_escort := _sam("point", 12.0, 0.0)
-	var point_own := _sam("point", 12.0, 1.0)
-	var escort := _ship("BLUE", Vector2(1, 0), [point_escort])
-	var victim := _ship("BLUE", Vector2(0, 0), [point_own])
+func test_missiles_in_the_air_at_a_round_are_counted_across_the_force_not_per_ship() -> void:
+	var escort := _ship("BLUE", Vector2(1, 0), [_sam("point", 12.0, 0.0)])
+	var victim := _ship("BLUE", Vector2(0, 0), [_sam("point", 12.0, 0.0)])
 	var h := _harness([escort, victim])
 	var round := _incoming(h[2], "RED", Vector2(0, 8), victim)
-	# The escort has already spent its point-layer allowance on this round.
-	round.defence_commitments[AirDefence.layer_key(point_escort, escort)] = 2
-	assert_eq(AirDefence._engage_threat(escort, round, h[2], true, 0.0), 0, "the escort is out of shots at it")
-	assert_eq(AirDefence._engage_threat(victim, round, h[2], true, 0.0), 1, "the ship it is aimed at still has its own")
+	h[1].mark_detected("BLUE", round, 0.0)
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 0.0), 1, "one missile between the two ships, with a minute still to look")
+	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 1.0), 0, "the other ship does not add its own while that one flies")
+	# The missile misses and the round comes on: whoever is best placed shoots again, however many
+	# either ship has fired at it before.
+	var now := 1.0
+	var fired := 1
+	while now < 40.0 and round.phase != Weapon.Phase.DEAD:
+		now += 0.25
+		h[2].tick(0.25, now)
+		if is_equal_approx(fmod(now, 1.0), 0.0):
+			h[1].begin_cycle()
+			h[1].mark_detected("BLUE", round, now)
+			fired += AirDefence.run_cycle(h[0], h[1], h[2], now)
+	assert_true(fired >= 4, "the round was engaged again after every miss (%d missiles)" % fired)
 	_cleanup(h)
 
 
@@ -256,9 +265,9 @@ func test_a_ship_on_weapons_free_engages_a_hostile_aircraft_in_its_envelope() ->
 	var h: Array = c[0]
 	assert_eq(AirDefence.engage_hostile_aircraft(h[0], c[3], h[2], 0.0, ["BLUE"]), 1)
 	assert_eq(h[2].faction_commitment("BLUE", c[2]), 1, "one round: shoot, look, shoot")
-	AirDefence.engage_hostile_aircraft(h[0], c[3], h[2], 1.0, ["BLUE"])
+	assert_eq(AirDefence.engage_hostile_aircraft(h[0], c[3], h[2], 1.0, ["BLUE"]), 0, "nothing more while it flies")
 	AirDefence.engage_hostile_aircraft(h[0], c[3], h[2], 2.0, ["BLUE"])
-	assert_eq(h[2].faction_commitment("BLUE", c[2]), AirDefence.AIRCRAFT_ROUNDS_IN_FLIGHT, "and no more than the side's limit")
+	assert_eq(h[2].faction_commitment("BLUE", c[2]), 1, "the look comes before the second shot")
 	c[3].free()
 	_cleanup(h)
 

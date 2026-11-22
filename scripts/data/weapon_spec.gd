@@ -64,6 +64,12 @@ func defensive_layer() -> String:
 	return "area" if max_range_nm >= 40.0 else "point"
 
 
+## What a crew fires in the ship's own defence without being told: the close-in guns and the
+## point-defence missiles. An area missile is the commander's to release under manual defence.
+func is_self_defence() -> bool:
+	return is_interceptor() and defensive_layer() != "area"
+
+
 func requires_radar_support() -> bool:
 	return type in ["sam", "aam"] and guidance in ["fire_control_directed", "semi_active_radar", "semi_active_radar_homing", "semi_active_abstract", "track_via_missile"]
 

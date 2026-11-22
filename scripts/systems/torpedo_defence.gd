@@ -6,9 +6,9 @@ class_name TorpedoDefence
 ##  - Hard kill. A weapon whose targets include "torpedo" (the Russian Paket-NK's anti-torpedo
 ##    round) is fired at a torpedo homing on the ship once it is inside the round's reach, through
 ##    the same interceptor path as a SAM: it runs out to the torpedo and the intercept is rolled.
-##  - Soft kill. Once a torpedo homing on the ship is inside DECOY_RANGE_NM, the towed decoy (if
-##    streamed, which takes way on the ship) has one try at pulling it off, then, if that fails, one
-##    finite expendable acoustic pulse. The pulse covers nearby compatible seekers and uses the
+##  - Soft kill. Once a torpedo homing on the ship is inside DefensiveResponse.ACOUSTIC_RANGE_NM,
+##    the towed decoy (if streamed, which takes way on the ship) has one try at pulling it off,
+##    then, if that fails, one finite expendable acoustic pulse. The pulse covers nearby compatible seekers and uses the
 ##    same reload as a manual deployment. A torpedo pulled off searches on along its heading, and may find
 ##    another ship; that ship's countermeasures then get their own try (WeaponManager.seduce).
 ##
@@ -16,7 +16,6 @@ class_name TorpedoDefence
 ## two layers and the player's own orders. Effectiveness is a GAMEPLAY_ESTIMATE, divided by the
 ## torpedo's `soft_kill_resistance` as a missile's is.
 
-const DECOY_RANGE_NM := 2.0
 ## An anti-torpedo round is launched no further out than this, whatever its reach as an ASW weapon.
 const HARD_KILL_RANGE_NM := 1.6
 const MAX_HARD_KILL_SHOTS := 2  # per torpedo, across the force
@@ -55,7 +54,8 @@ static func hard_kill_weapon(u: Unit) -> WeaponSpec:
 
 
 static func _hard_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager, now: float) -> int:
-	if u.roe == Unit.Roe.HOLD or not u.can_fire() or w.hard_kill_shots >= MAX_HARD_KILL_SHOTS:
+	# Weapons hold is an order not to attack; the ship still shoots at a torpedo homing on it.
+	if not u.can_fire() or w.hard_kill_shots >= MAX_HARD_KILL_SHOTS:
 		return 0
 	var spec := hard_kill_weapon(u)
 	if spec == null:
@@ -71,7 +71,7 @@ static func _hard_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager, now: f
 
 
 static func _soft_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager) -> int:
-	if not u.auto_countermeasures or u.position.distance_to(w.position) > DECOY_RANGE_NM:
+	if not u.auto_countermeasures or u.position.distance_to(w.position) > DefensiveResponse.ACOUSTIC_RANGE_NM:
 		return 0
 	var active := u.countermeasure_kind == "acoustic" and u.countermeasure_remaining_s > 0.0
 	var towed := u.spec.towed_torpedo_decoy and u.speed_kn >= TOWED_MIN_SPEED_KN

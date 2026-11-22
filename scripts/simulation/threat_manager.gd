@@ -3,9 +3,9 @@ extends Node
 ## Per-faction picture of detected incoming weapons. Rebuilt every sensor cycle: a weapon that
 ## drops below the radar horizon simply disappears from the picture again.
 ##
-## Detection is shared across a faction, which stands in for a task-force air picture. The
-## quality of that sharing (datalinks, EMCON) is refined in Milestone 9. A faction whose ships
-## are all radar-silent still sees nothing at all.
+## Each detection remembers which units made it. A unit holds a round it saw itself, or one a
+## consort saw when both are on the link (`visible_to`): the link stands in for the task-force air
+## picture, and a ship off it fights with its own sensors only.
 
 signal threat_detected(faction: String, weapon: Weapon)
 
