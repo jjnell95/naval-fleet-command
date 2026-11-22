@@ -118,3 +118,67 @@ func test_a_panned_coast_lands_where_a_fresh_projection_puts_it() -> void:
 		var fresh := map.world_to_screen(coast[i])
 		assert_true((projected[i] + shift).distance_to(fresh) < 0.001, "vertex %d drawn at %s, a fresh projection puts it at %s" % [i, projected[i] + shift, fresh])
 	map.free()
+
+
+# --- Air missions laid on a contact --------------------------------------------------------------
+
+const CARRIER_WATCH := "res://data/scenarios/cold_war_03_carrier.json"
+const IKE := "USS Dwight D. Eisenhower (CVN 69)"
+
+
+func test_an_intercept_is_drawn_as_a_line_to_its_contact_with_no_station_to_drag() -> void:
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	sim.seed_override = 7
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario(CARRIER_WATCH))
+	sim.ai_enabled = false
+	var cv: Unit = null
+	for u in sim.unit_manager.units:
+		if u.callsign == IKE:
+			cv = u
+	var raid := Track.new()
+	raid.id = "T1950"
+	raid.owner_faction = "BLUE"
+	raid.position = cv.position + Vector2(0, 120)
+	raid.altitude_m = 8000.0
+	raid.last_seen_time = SimClock.sim_time
+	raid.domain = "air"
+	raid.identity = "HOSTILE"
+	raid.classification = Track.Classification.CLASS_KNOWN
+	if not sim.track_manager._tracks.has("BLUE"):
+		sim.track_manager._tracks["BLUE"] = []
+	sim.track_manager._tracks["BLUE"].append(raid)
+	var o := sim.air_mission_manager.quick_order(cv, AirMission.Kind.CAP, raid.position, raid)
+	assert_true(o != null and sim.unit_manager.issue_order(cv, o), "the intercept is ordered")
+	var m: AirMission = sim.air_mission_manager.active_missions("BLUE")[0]
+	assert_true(m.intercept)
+	assert_true(TacticalMap.mission_on_contact(m), "an intercept goes for its contact, as a strike does")
+	assert_eq(TacticalMap.contact_mission_caption(m), "INTERCEPT %d" % m.id)
+	var map := TacticalMap.new()
+	map.size = Vector2(1200, 600)
+	map.simulation = sim
+	map.unit_manager = sim.unit_manager
+	map.track_manager = sim.track_manager
+	map.player_faction = "BLUE"
+	map.center_nm = m.station
+	map.ppn = 100.0 / maxf(m.radius_nm, 1.0)
+	var handle := map.world_to_screen(m.station) + Vector2(m.radius_nm * map.ppn, 0.0)
+	assert_true(map.station_handle_at(handle).is_empty(), "an intercept has no hold ring to drag")
+	map.free()
+	sim.unit_manager.clear()
+	sim.free()
+
+
+# --- Weapon envelopes ------------------------------------------------------------------------------
+
+func test_a_torpedo_envelope_starts_where_the_shot_is_refused_as_too_close() -> void:
+	var fish := WeaponSpec.new()
+	fish.id = "test_fish"
+	fish.display_name = "Test fish"
+	fish.type = "torpedo"
+	fish.min_range_nm = 0.2
+	fish.run_to_enable_nm = 1.0
+	fish.max_range_nm = 10.0
+	assert_near(Combat.minimum_range_nm(fish), 1.3, 0.001)
+	assert_true(TacticalMap.envelope_legend(null, fish).contains("1.3-"), "the legend gives the enable run, not the stated minimum: %s" % TacticalMap.envelope_legend(null, fish))

@@ -1299,7 +1299,7 @@ func station_handle_at(at: Vector2) -> Dictionary:
 		return {}
 	if simulation != null and simulation.air_mission_manager != null:
 		for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
-			if m.kind == AirMission.Kind.STRIKE or m.cancelled:
+			if mission_on_contact(m) or m.cancelled:
 				continue
 			var centre := world_to_screen(m.station)
 			var radius := m.radius_nm * ppn
@@ -2199,17 +2199,27 @@ func _draw_graticule() -> void:
 ## Mission objective areas: a thin white circle with its name over it, no plate.
 ## Own air missions: a station or search area as a ring with its name, or a line from the deck to
 ## a strike's held target. Only the player's own missions are drawn.
+## A strike, and a CAP laid on one hostile air contact (an intercept), go for that contact: no
+## station to hold, so the chart draws a line from the deck to it rather than a ring.
+static func mission_on_contact(m: AirMission) -> bool:
+	return m.kind == AirMission.Kind.STRIKE or m.intercept
+
+
+static func contact_mission_caption(m: AirMission) -> String:
+	return "%s %d" % ["INTERCEPT" if m.intercept else m.kind_name(), m.id]
+
+
 func _draw_air_missions() -> void:
 	if simulation == null or simulation.air_mission_manager == null:
 		return
 	var col := Color(COL_FRIENDLY, 0.7)
 	for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
-		if m.kind == AirMission.Kind.STRIKE:
+		if mission_on_contact(m):
 			if m.target == null or m.base == null or not m.base.alive:
 				continue
 			var tp := world_to_screen(m.target.position)
 			_draw_chart_dashes(world_to_screen(m.base.position), tp, col, 1.0, 8.0)
-			_queue_caption(tp + Vector2(0.0, -18.0), "STRIKE %d" % m.id, 11, COL_READOUT, true)
+			_queue_caption(tp + Vector2(0.0, -18.0), contact_mission_caption(m), 11, COL_READOUT, true)
 			continue
 		var preview := m == _drag_mission and _drag_moved
 		var station := screen_to_world(_mouse) if preview and _drag_mode == DragMode.STATION else m.station
@@ -2403,6 +2413,12 @@ static func _arc_segments(r: float) -> int:
 	return clampi(int(r * 0.35), 32, 360)
 
 
+## A weapon envelope's line in the legend: its role, name and the band it can be fired in, the
+## inner edge where the engagement check refuses as too close (a torpedo's enable run included).
+static func envelope_legend(shooter: Unit, spec: WeaponSpec) -> String:
+	return "%s  %s  %.1f-%s nm" % [WeaponPresentation.role_name(spec), spec.compact_name(), Combat.minimum_range_nm(spec), Geo.format_nm(Combat.effective_range_nm(shooter, spec))]
+
+
 ## The selected weapon's reach from each hooked shooter that carries it: a role-coloured circle, its
 ## minimum range dashed, and the firing solution when the hooked contact can be engaged.
 func _draw_weapon_ring() -> void:
@@ -2421,11 +2437,12 @@ func _draw_weapon_ring() -> void:
 					_draw_dashed_circle(center, radius, Color(col, 0.65), _arc_segments(radius))
 				else:
 					draw_arc(center, radius, 0.0, TAU, _arc_segments(radius), Color(col, 0.65), 1.0, true)
-				if spec.min_range_nm > 0.0:
-					_draw_dashed_circle(center, spec.min_range_nm * ppn, Color(col, 0.3), 32)
+				var inner := Combat.minimum_range_nm(spec)
+				if inner > 0.0:
+					_draw_dashed_circle(center, inner * ppn, Color(col, 0.3), 32)
 				if row < 10:
 					row += 1
-					_shadow_text(legend + Vector2(0, row * 17), "%s  %s  %.1f-%s nm" % [WeaponPresentation.role_name(spec), spec.compact_name(), spec.min_range_nm, Geo.format_nm(Combat.effective_range_nm(ref, spec))], 11, col)
+					_shadow_text(legend + Vector2(0, row * 17), envelope_legend(ref, spec), 11, col)
 	if weapon_ring == null:
 		return
 	var col := WeaponPresentation.color(weapon_ring)
@@ -2436,8 +2453,9 @@ func _draw_weapon_ring() -> void:
 		var reach := Combat.effective_range_nm(u, weapon_ring)
 		var outer := reach * ppn
 		draw_arc(sp, outer, 0.0, TAU, _arc_segments(outer), col, 1.5, true)
-		if weapon_ring.min_range_nm > 0.0:
-			_draw_dashed_circle(sp, weapon_ring.min_range_nm * ppn, Color(col, 0.5), 48)
+		var inner := Combat.minimum_range_nm(weapon_ring)
+		if inner > 0.0:
+			_draw_dashed_circle(sp, inner * ppn, Color(col, 0.5), 48)
 		if u == reference_unit():
 			_queue_caption(sp + Vector2(0.0, maxf(-outer - 5.0, 16.0 - sp.y)), "%s  %s nm" % [weapon_ring.compact_name(), Geo.format_nm(reach)], 11, COL_READOUT, true)
 		if selected_track == null:
