@@ -78,6 +78,10 @@ var _civilian_incidents: PackedStringArray = []
 ## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
 ## a consort off the link). Each is announced once, when it reaches the picture.
 var _unannounced: Array[Weapon] = []
+## Contacts called on the radio line, by track number, with the classification last called for each.
+## A contact has one number in every picture, so one a deep boat reported by voice is not called
+## again when the networked plot gains it.
+var _contacts_called: Dictionary = {}
 var _foundered: Dictionary = {}  # Unit -> true, lost to fire or flooding rather than outright
 ## The gameplay options in effect (time ladder, missile defence, engagement after identification,
 ## voice and ambient). Usually the player's stored preference; a restored engagement plays under
@@ -278,7 +282,10 @@ func _ready() -> void:
 				SubmarineComms.configure(u, options.submarine_comms and not simulation.ai_plays_player, simulation.unit_manager.now_s))
 	simulation.track_manager.track_added.connect(_on_track_added)
 	simulation.track_manager.track_classified.connect(_on_track_classified)
+	_connect_private_contact_reports(simulation.track_manager)
 	simulation.track_manager.track_lost.connect(_on_track_lost)
+	# After the simulation's own step, which was connected first.
+	SimClock.tick.connect(_on_clock_tick)
 	simulation.unit_manager.order_issued.connect(func(u: Unit, o: Order) -> void:
 		if u.faction == simulation.player_faction and not simulation.ai_plays_player:
 			_command_guide.record_order(u, o)
@@ -372,6 +379,7 @@ func _process(delta: float) -> void:
 	radio.set_objective_text(_objective_summary())
 	_autosave_if_due()
 	_announce_unannounced_threats()
+	_call_private_contacts()
 	var threats := _commander_inbound()
 	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager)
 	_command_guide.visible = _command_taken and _command_guide.enabled and not _has_visible_modal() and not status_boards.visible and not _views_swapped and not _world_full
@@ -462,9 +470,8 @@ func _reset_command_screen() -> void:
 		_views_swapped = false
 		_world_full = false
 		_arrange_views()
-	var chart: Dictionary = simulation.scenario.get("map", {})
-	var focus: Array = chart.get("focus_center_nm", [simulation.map_center.x, simulation.map_center.y])
-	map.fit_initial_view(Vector2(focus[0], focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
+	var opening := _opening_view()
+	map.fit_initial_view(Vector2(opening.x, opening.y), opening.z)
 	radio.clear()
 	voice.stop()
 	radio.set_scenario_name(simulation.scenario_name)
@@ -474,9 +481,11 @@ func _reset_command_screen() -> void:
 	unit_panel.clear_roster_search()
 	orders_panel.set_units([], false, false)
 	orders_panel.set_target_track(null)
-	var own := simulation.unit_manager.get_faction_units(simulation.player_faction)
-	if not own.is_empty():
-		map.select_units([own[0]])
+	# The watch opens aboard a warship on the link, never a merchant or an airframe on deck: the
+	# read-outs are measured from the hook, and a tanker's bridge is no place to fight a force from.
+	var flag := CommanderPicture.default_hook(simulation.unit_manager, simulation.player_faction)
+	if flag != null:
+		map.select_units([flag])
 	contact_panel.refresh()
 	_stats = {"launched": 0, "intercepted": 0, "decoyed": 0, "hits": 0, "leaked": 0, "hostile_rounds": 0, "hits_taken": 0, "own_rounds": 0, "hits_scored": 0, "decoys_used": 0, "contacts": 0, "classified": 0, "sorties": 0}
 	_losses = PackedStringArray()
@@ -484,8 +493,32 @@ func _reset_command_screen() -> void:
 	_civilian_incidents = PackedStringArray()
 	_foundered.clear()
 	_unannounced.clear()
+	_contacts_called.clear()
 	_report.hide()
 	_autosaved_at = SimClock.sim_time
+
+
+## Where the chart opens: Vector3(centre x, centre y, extent in nautical miles). The focus the
+## scenario authors, if it authors one; otherwise the player's ships and boats with sea room round
+## them, which is a picture a commander can read, rather than the whole theatre with the force as
+## one pile of symbols in the middle of it.
+func _opening_view() -> Vector3:
+	var chart: Dictionary = simulation.scenario.get("map", {})
+	var force := CommanderPicture.force_view(simulation.unit_manager, simulation.player_faction)
+	if chart.has("focus_center_nm") or chart.has("focus_extent_nm") or force.z <= 0.0:
+		var focus: Array = chart.get("focus_center_nm", [simulation.map_center.x, simulation.map_center.y])
+		return Vector3(float(focus[0]), float(focus[1]), float(chart.get("focus_extent_nm", simulation.map_extent_nm)))
+	return force
+
+
+## "Fit force": the same frame the watch opens on, wherever the ships have got to since. A side
+## with no hull afloat is framed by whatever it has in the air.
+func _fit_force() -> void:
+	var force := CommanderPicture.force_view(simulation.unit_manager, simulation.player_faction)
+	if force.z <= 0.0:
+		map.fit_to_fleet()
+	else:
+		map.fit_to(Vector2(force.x, force.y), force.z)
 
 
 # --- Saved engagements -----------------------------------------------------------------------
@@ -692,6 +725,9 @@ func _restore_presentation(d: Dictionary) -> void:
 		map.set_follow_selection(true)
 	_autosaved_at = float(d.get("autosaved_at", SimClock.sim_time))
 	_command_guide.restore(d.get("command_guide", {}))
+	# Everything the restored picture holds was called before the save.
+	for t: Track in map._visible_tracks():
+		_contacts_called[_contact_key(t)] = _classification_call(t)
 
 
 func _toggle_saved_engagements() -> void:
@@ -1365,7 +1401,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "next_platform", "label": "Next own platform", "description": "Hook the next platform of the task group.", "shortcut": ".", "enabled": true},
 		{"id": "focus_selection", "label": "Centre on selection and target", "description": "Center one item or fit the complete shooter-target problem.", "shortcut": "C", "enabled": not map.selected.is_empty() or has_target, "reason": "Hook a platform or contact first."},
 		{"id": "follow_selection", "label": "Follow selection or target", "description": "Keep the hooked contact or single hooked platform centered.", "shortcut": "F", "enabled": map.selected.size() == 1 or has_target, "state": "on" if map.follow_selection else "off", "reason": "Hook one platform or a contact first."},
-		{"id": "fit_fleet", "label": "Fit friendly force", "description": "Frame every deployed friendly unit.", "shortcut": "Home", "enabled": true},
+		{"id": "fit_fleet", "label": "Fit friendly force", "description": "Frame the force's ships and boats with sea room round them.", "shortcut": "Home", "enabled": true},
 		{"id": "previous_chart_view", "label": "Previous chart view", "description": "Return to the position and scale before a chart jump.", "shortcut": "[", "enabled": map.can_revisit_chart_view()},
 		{"id": "next_chart_view", "label": "Next chart view", "description": "Go forward through the chart views you revisited.", "shortcut": "]", "enabled": map.can_revisit_chart_view(true)},
 		{"id": "fit_theatre", "label": "Fit operation area", "description": "Return to the scenario's full chart extent.", "shortcut": "", "enabled": true},
@@ -1534,7 +1570,7 @@ func _run_palette_action(id: String) -> void:
 		"follow_selection":
 			map.set_follow_selection(not map.follow_selection)
 		"fit_fleet":
-			map.fit_to_fleet()
+			_fit_force()
 		"previous_chart_view", "next_chart_view":
 			map.revisit_chart_view(id == "next_chart_view")
 		"fit_theatre":
@@ -1856,7 +1892,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F1:
 			_show_briefing()
 		KEY_HOME:
-			map.fit_to_fleet()
+			_fit_force()
 		KEY_BRACKETLEFT, KEY_BRACKETRIGHT:
 			map.revisit_chart_view(k.keycode == KEY_BRACKETRIGHT)
 		KEY_C:
@@ -2338,28 +2374,20 @@ func _combat_observed(subject: Unit, own_involved: bool) -> bool:
 
 
 static func _receives_report(u: Unit) -> bool:
-	return u != null and (not SubmarineComms.restricted(u) or SubmarineComms.connected(u))
+	return CommanderPicture.receives_report(u)
 
 
+## The commander's picture is the force's, never the hooked unit's: see CommanderPicture.
 func _commander_sees_track(t: Track) -> bool:
-	if t == null or t.owner_faction != simulation.player_faction: return false
-	var ref := map.reference_unit()
-	if ref == null or not _receives_report(ref): return t.networked
-	return t.visible_to(ref)
+	return CommanderPicture.holds(simulation.track_manager, simulation.unit_manager, simulation.player_faction, t)
 
 
 func _commander_sees_threat(w: Weapon) -> bool:
-	var ref := map.reference_unit()
-	if ref != null and _receives_report(ref): return simulation.threat_manager.visible_to(ref, w)
-	for u: Unit in simulation.unit_manager.get_faction_units(simulation.player_faction):
-		if u.datalink_connected() and simulation.threat_manager.visible_to(u, w): return true
-	return false
+	return CommanderPicture.sees_threat(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, w)
 
 
 func _commander_inbound() -> Array:
-	var ref := map.reference_unit()
-	if ref != null and not _receives_report(ref): ref = null
-	return AirDefence.inbound_threats(simulation.unit_manager, simulation.threat_manager, simulation.player_faction, ref).filter(func(e: Dictionary) -> bool: return _commander_sees_threat(e["weapon"]))
+	return CommanderPicture.inbound(simulation.unit_manager, simulation.threat_manager, simulation.player_faction)
 
 
 ## The player's own track on another side's unit, if the plot holds it (association is the one
@@ -2907,6 +2935,87 @@ func _report_contact(t: Track, message: String, severity: String) -> void:
 func _on_track_added(faction: String, t: Track) -> void:
 	if faction != simulation.player_faction or not _commander_sees_track(t):
 		return
+	_keep_contact_hooked()
+	_call_new_contact(t)
+
+
+func _on_track_classified(faction: String, t: Track) -> void:
+	if faction != simulation.player_faction or not _commander_sees_track(t):
+		return
+	_call_classification(t)
+
+
+## The hook is on a contact, not on one picture's copy of it. When the plot takes over a contact a
+## boat was reporting, or drops one a boat still holds, the hook moves to the track now shown.
+func _keep_contact_hooked() -> void:
+	var hooked := map.selected_track
+	if hooked == null:
+		return
+	var shown := CommanderPicture.track_on(simulation.track_manager, simulation.unit_manager, simulation.player_faction, hooked)
+	if shown == null or shown == hooked:
+		return
+	var inspecting := map.inspection_track() == hooked
+	map.select_track(shown)
+	if not inspecting:
+		map.select_units(map.selected.duplicate())
+
+
+func _on_clock_tick(_dt: float) -> void:
+	_keep_contact_hooked()
+
+
+## A unit off the link reports its own picture by voice. TrackManager says so, as it happens, with
+## two signals of its own; without them the same reports are made by _call_private_contacts.
+func _connect_private_contact_reports(source: Object) -> void:
+	if source.has_signal("local_track_added"):
+		source.connect("local_track_added", _on_local_track_added)
+	if source.has_signal("local_track_classified"):
+		source.connect("local_track_classified", _on_local_track_classified)
+
+
+## Whether a contact aboard an off-link unit is the commander's news: that unit reports to him and
+## the networked plot does not hold the contact already.
+func _private_report_due(observer: Unit, t: Track) -> bool:
+	return t != null and CommanderPicture.reports_privately(observer) and CommanderPicture.plotted(simulation.track_manager, simulation.player_faction, t.truth) == null
+
+
+func _on_local_track_added(observer: Unit, t: Track) -> void:
+	if observer == null or t == null or observer.faction != simulation.player_faction:
+		return
+	if _private_report_due(observer, t):
+		_call_new_contact(t)
+
+
+func _on_local_track_classified(observer: Unit, t: Track) -> void:
+	if observer == null or t == null or observer.faction != simulation.player_faction:
+		return
+	if _private_report_due(observer, t):
+		# A contact he was never told of (the plot held it when the boat gained it, and has since
+		# dropped it) is called first, so the classification has something to refer to.
+		_call_new_contact(t)
+		_call_classification(t)
+
+
+## Everything on the commander's picture from a unit's own report gets called. This catches what
+## no signal announces: a contact a boat gained while out of touch and still holds now that it has
+## come up to report.
+func _call_private_contacts() -> void:
+	for t: Track in map._visible_tracks():
+		if not t.networked:
+			_call_new_contact(t)
+			_call_classification(t)
+
+
+## A contact is known by its track number, which every picture shares. A track without one (built
+## by hand rather than by the track manager) stands for itself.
+static func _contact_key(t: Track) -> Variant:
+	return t.id if t.id != "" else t
+
+
+func _call_new_contact(t: Track) -> void:
+	if _contacts_called.has(_contact_key(t)):
+		return
+	_contacts_called[_contact_key(t)] = ""
 	SimClock.drop_to_realtime()
 	_stats["contacts"] += 1
 	_report_contact(t, "New contact, track %s (%s)" % [DataDisplay.track_number_for_track(t), DataDisplay.source_text(t.source)], "warn")
@@ -2916,9 +3025,21 @@ func _on_track_added(faction: String, t: Track) -> void:
 	Debug.event("[Contact] %s gained on %s at %.1f nm from the nearest of ours" % [t.id, t.source, _nearest_own_distance(t.position)])
 
 
-func _on_track_classified(faction: String, t: Track) -> void:
-	if faction != simulation.player_faction or not _commander_sees_track(t):
+## What a classification call says about a track, so the same news from a second picture is not
+## called twice. Empty while there is nothing to call.
+static func _classification_call(t: Track) -> String:
+	if t.classification == Track.Classification.CLASS_KNOWN:
+		return "class:%s:%s" % [t.known_class, t.identity]
+	if t.classification == Track.Classification.IDENTIFIED:
+		return "id:%s" % t.known_callsign
+	return ""
+
+
+func _call_classification(t: Track) -> void:
+	var call := _classification_call(t)
+	if call == "" or str(_contacts_called.get(_contact_key(t), "")) == call:
 		return
+	_contacts_called[_contact_key(t)] = call
 	if t.classification == Track.Classification.CLASS_KNOWN:
 		SimClock.drop_to_realtime()
 		if t.identity == "HOSTILE":
@@ -2932,9 +3053,23 @@ func _on_track_classified(faction: String, t: Track) -> void:
 		_report_contact(t, "Track %s identified as %s" % [DataDisplay.track_number_for_track(t), t.known_callsign], "info")
 
 
-func _on_track_lost(faction: String, t: Track) -> void:
-	if faction == simulation.player_faction and _commander_sees_track(t):
-		_report_contact(t, "Track %s lost" % DataDisplay.track_number_for_track(t), "warn")
+## A picture has dropped a track. It is the commander's loss when he held the contact through that
+## picture and no other picture he hears from still holds it.
+func _on_track_lost(picture: String, t: Track) -> void:
+	if t.owner_faction != simulation.player_faction:
+		return
+	var was_held := t.networked
+	if picture != simulation.player_faction:
+		# One unit's own picture: his only if that unit was reporting it to him by voice.
+		was_held = _contacts_called.has(_contact_key(t)) and t.contributors.keys().any(func(u: Unit) -> bool: return CommanderPicture.reports_privately(u))
+	if not was_held:
+		return
+	var still := CommanderPicture.track_on(simulation.track_manager, simulation.unit_manager, simulation.player_faction, t)
+	if still != null and still != t:
+		_keep_contact_hooked()
+		return
+	_contacts_called.erase(_contact_key(t))
+	_report_contact(t, "Track %s lost" % DataDisplay.track_number_for_track(t), "warn")
 
 
 func _all_controllable(units: Array) -> bool:

@@ -172,8 +172,9 @@ var _inspecting_track := false
 var show_key := false
 var show_rings := false
 ## Sensor coverage: the chart is lit where the commander's own radars and sonars reach and dark
-## beyond them (SensorCoverage). On by default; the layer is "coverage".
-var show_coverage := true
+## beyond them (SensorCoverage). Off until asked for, because a force's worth of overlapping reach
+## buries the formation it is drawn round; the layer is "coverage".
+var show_coverage := false
 ## This frame's coverage discs, refreshed by _process and read by the chart layers.
 var coverage_discs: Array[Vector4] = []
 ## The live air board in the chart's top-right corner: every air mission and deck alert, updating
@@ -1291,24 +1292,15 @@ func _own_units() -> Array[Unit]:
 
 
 func _visible_tracks() -> Array:
-	if track_manager == null:
-		return []
-	var ref := reference_unit()
-	# A disconnected boat may hold local bearings; the commander hears them on its next report.
-	return track_manager.tracks_for(ref) if ref != null and SubmarineComms.connected(ref) else track_manager.get_tracks(player_faction)
+	# The force plot, whatever is hooked: a commander with a merchant or a deep boat under the
+	# cursor still has every contact his ships report.
+	return CommanderPicture.tracks(track_manager, unit_manager, player_faction)
 
 
-func _threat_visible(observer: Unit, weapon: Weapon) -> bool:
-	if threat_manager == null or observer == null:
-		return false
-	if SubmarineComms.connected(observer):
-		return threat_manager.visible_to(observer, weapon)
-	# Selecting a silent boat must not reveal its live local torpedo detections. Continue to
-	# show threats actually reported by connected members of the force.
-	for u in _own_units():
-		if SubmarineComms.connected(u) and threat_manager.visible_to(u, weapon):
-			return true
-	return false
+func _threat_visible(_observer: Unit, weapon: Weapon) -> bool:
+	# The hooked unit never decides this. A silent boat's own torpedo detections stay aboard
+	# until it reports, and everything the rest of the force reports is shown regardless.
+	return CommanderPicture.sees_threat(unit_manager, threat_manager, player_faction, weapon)
 
 
 ## Priority navigation keeps a busy watch actionable: confirmed hostiles first, then unknowns,
@@ -1628,17 +1620,19 @@ func track_number_text(item: Variant) -> String:
 	return ""
 
 
-## The unit the display is centred on for bearings and range rings: the selection, otherwise
-## the first surface ship the player owns.
+## The unit the display measures bearings and range rings from: the selection, otherwise the
+## first warship on the link. It decides nothing about which contacts or weapons are shown.
 func reference_unit() -> Unit:
 	for u: Unit in selected:
 		if not u.is_aircraft() or u.in_flight():
 			return u
-	# An airframe on deck has its sensors dark and is off the link. It sees through its ship,
-	# or the picture (and every contact and threat alert keyed to it) would go blank.
+	# An airframe on deck is measured from the ship it stands on.
 	for u: Unit in selected:
 		if u.home != null and u.home.alive:
 			return u.home
+	var flag := CommanderPicture.first_linked_combatant(unit_manager, player_faction)
+	if flag != null:
+		return flag
 	var own := _own_units()
 	for u in own:
 		if not u.is_aircraft():

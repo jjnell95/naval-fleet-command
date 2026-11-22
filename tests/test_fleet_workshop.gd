@@ -784,12 +784,14 @@ func test_chart_cached_geometry_updates_observer_and_new_detections_while_paused
 	chart.player_faction = "BLUE"
 	chart.selected = [victim]
 	var w := _round(victim)
+	chart._refresh_threats()
+	assert_eq(chart._threats.size(), 0, "nothing is shown before anyone holds the round")
 	h[1].mark_detected("BLUE", w, 0, sensor)
 	chart._refresh_threats()
-	assert_eq(chart._threats.size(), 0)
+	assert_eq(chart._threats.size(), 1, "a round a consort on the link holds is shown though an unlinked ship is hooked, without advancing time")
 	chart.selected = [sensor]
 	chart._refresh_threats()
-	assert_eq(chart._threats.size(), 1, "changing the observer refreshes visibility without advancing time")
+	assert_eq(chart._threats.size(), 1, "and whichever ship is hooked")
 	h[1].forget(w)
 	chart._refresh_threats()
 	assert_eq(chart._threats.size(), 0)
