@@ -424,3 +424,25 @@ func test_a_breakout_boat_turns_away_from_a_torpedo_running_at_it_then_resumes_i
 	h.ai.tick(400.0)
 	assert_eq(h.ai.state_name(boat), "PATROL", "and once it is clear, takes up the transit again")
 	h.free_all()
+
+
+# --- A silent ship that is attacked radiates ---------------------------------------------
+
+func test_a_ship_patrolling_silent_lights_its_radar_when_it_is_hit_by_a_round_it_never_saw() -> void:
+	var red := _ship("RED-1", Vector2.ZERO, _asm(60.0))
+	var esm := SensorSpec.new()
+	esm.kind = "esm"
+	red.sensors.append(esm)
+	red.patrol_route = [Vector2(0, 40)] as Array[Vector2]
+	red.radar_on = false
+	var h := _harness([red])
+	h.ai.tick(100.0)
+	assert_eq(h.ai.state_name(red), "PATROL")
+	assert_true(not red.radar_on, "with electronic support and nothing on its plot it patrols silent")
+	h.wm.now_s = 101.0
+	h.wm.weapon_impact.emit("BLUE", _asm(), red, true)
+	h.ai.tick(102.0)
+	assert_true(red.radar_on, "a hit out of nowhere puts the radar up to see what else is coming")
+	h.ai.tick(102.0 + AIController.UNDER_FIRE_MEMORY_S + 10.0)
+	assert_true(not red.radar_on, "and once nothing more has come for a while it goes quiet again")
+	h.free_all()

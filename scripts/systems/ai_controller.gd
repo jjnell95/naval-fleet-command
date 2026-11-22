@@ -1908,7 +1908,10 @@ func _manage_emissions(u: Unit, need_radar: bool) -> void:
 		return
 	if not u.has_radar():
 		return
-	var want := need_radar or not u.has_esm() or _guiding_rounds(u)
+	# A ship that has just been hit, or has seen a round come at it, has nothing left to hide and
+	# everything to see: it radiates whatever its patrol posture says.
+	var under_fire := bool((_bb[u] as Dictionary).get("under_fire", false)) if _bb.has(u) else false
+	var want := need_radar or not u.has_esm() or _guiding_rounds(u) or under_fire
 	# A radar with nothing to shoot back with is only a beacon for the missile coming down its
 	# beam. A ship that can engage the round keeps its picture and fights it.
 	if want and not _guiding_rounds(u) and not _can_shoot_missiles(u) and _anti_radiation_inbound(u):
