@@ -429,7 +429,7 @@ func _uncleared_inbound(threats: Array) -> int:
 	var waiting := 0
 	for entry: Dictionary in threats:
 		var w: Weapon = entry["weapon"]
-		if not w.spec.is_torpedo() and not ships.any(func(u: Unit) -> bool: return AirDefence.engages_guided(u, w)):
+		if not w.spec.is_torpedo() and not ships.any(func(u: Unit) -> bool: return u.auto_air_defence or w.intercept_cleared.has(u.id)):
 			waiting += 1
 	return waiting
 
