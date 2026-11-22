@@ -331,6 +331,17 @@ func request(base: Unit, order: Order) -> AirMission:
 		m.target_id = order.track.id
 		m.station = order.track.position
 		m.radius_nm = 0.0
+	elif is_intercept_order(order):
+		# Fighters sent at one raid chase that raid; a ring over where it was is empty sky by the
+		# time they get there, and relief for it would only keep fighters circling nothing.
+		m.intercept = true
+		m.target = order.track
+		m.target_id = order.track.id
+		m.station = order.track.position
+		m.radius_nm = MIN_RADIUS_NM
+		m.relief = false
+		m.cap_intent = "hold"
+		m.protected_unit = null
 	else:
 		m.station = order.target_pos
 		m.radius_nm = clampf(order.radius_nm if order.radius_nm > 0.0 else default_radius(kind), MIN_RADIUS_NM, MAX_RADIUS_NM)
@@ -354,6 +365,23 @@ func request(base: Unit, order: Order) -> AirMission:
 	return m
 
 
+## A CAP order that names a hostile air contact is an intercept of that contact.
+static func is_intercept_order(order: Order) -> bool:
+	return order.mission_kind == AirMission.Kind.CAP and order.track != null and order.track.identity == "HOSTILE" and _probably_air(order.track)
+
+
+## Why an intercept can no longer go for its contact, or "".
+static func _intercept_target_rejection(m: AirMission) -> String:
+	var t := m.target
+	if t == null or t.confirmed_destroyed:
+		return "Contact destroyed"
+	if t.status == Track.Status.LOST or t.is_bearing_only() or not t.position.is_finite():
+		return "Contact lost"
+	if t.identity != "HOSTILE":
+		return "Contact no longer hostile"
+	return ""
+
+
 func _intent_rejection(base: Unit, order: Order) -> String:
 	if order.cap_intent not in ["hold", "protect"]:
 		return "Choose Hold area or Protect group"
@@ -375,6 +403,8 @@ func revision_rejection(base: Unit, order: Order) -> String:
 		return "Base lost"
 	if m.kind == AirMission.Kind.STRIKE:
 		return "Strike targets cannot be changed after assignment"
+	if m.intercept:
+		return "An intercept follows its contact; cancel it to send the fighters elsewhere"
 	if order.mission_kind != m.kind or order.aircraft_id != m.platform_id:
 		return "Keep the mission and aircraft type when editing"
 	if not order.target_pos.is_finite():
@@ -580,10 +610,11 @@ func quick_type(base: Unit, kind: int, target: Track = null) -> String:
 
 ## The order a quick mission flies, or null with the reason in `why` (index 0).
 func quick_order(base: Unit, kind: int, at: Vector2, target: Track = null, why: Array = []) -> Order:
-	# Only a strike is laid on a contact; every other quick mission is a station at a point, and a
-	# contact named for one (a look at it, an intercept of it) only sets where and how wide.
+	# A strike and an intercept are laid on their contact. A look at a contact is a small search
+	# area round it: the contact only sets where and how wide.
 	var identify := target != null and kind == AirMission.Kind.RECON
-	if kind != AirMission.Kind.STRIKE:
+	var intercept := target != null and kind == AirMission.Kind.CAP and target.identity == "HOSTILE" and _probably_air(target)
+	if kind != AirMission.Kind.STRIKE and not intercept:
 		target = null
 	var pid := quick_type(base, kind, target)
 	if pid == "":
@@ -591,7 +622,7 @@ func quick_order(base: Unit, kind: int, at: Vector2, target: Track = null, why: 
 		return null
 	var count := mini(int(QUICK_COUNT[kind]), available_for(base, pid, kind, target))
 	var radius := QUICK_IDENTIFY_RADIUS_NM if identify else float(QUICK_RADIUS_NM[kind])
-	var order := Order.air_mission(kind, pid, count, at, radius, target, bool(QUICK_RELIEF[kind]), true)
+	var order := Order.air_mission(kind, pid, count, at, radius, target, bool(QUICK_RELIEF[kind]) and not intercept, true)
 	var reason := mission_rejection(base, kind, pid, at, target)
 	if reason != "":
 		why.append(reason)
@@ -732,14 +763,16 @@ func _step(m: AirMission) -> void:
 		_end(m, "Base lost")
 		return
 	_follow_anchor(m)
+	if m.intercept and _intercept_target_rejection(m) == "":
+		m.station = m.target.position
 	for a in m.aircraft.duplicate():
 		_track_airframe(m, a)
 	if not m.active:
 		return
-	if m.kind == AirMission.Kind.STRIKE and m.pending_launches > 0:
-		var why := _strike_target_rejection(m.base, m.target)
+	if (m.kind == AirMission.Kind.STRIKE or m.intercept) and m.pending_launches > 0:
+		var why := _strike_target_rejection(m.base, m.target) if m.kind == AirMission.Kind.STRIKE else _intercept_target_rejection(m)
 		if why != "":
-			_report(m, "%s: %d strike launch%s cancelled — %s" % [m.label(), m.pending_launches, "" if m.pending_launches == 1 else "es", why.to_lower()], false)
+			_report(m, "%s: %d launch%s cancelled — %s" % [m.label(), m.pending_launches, "" if m.pending_launches == 1 else "es", why.to_lower()], false)
 			m.pending_launches = 0
 	_launch_owed(m)
 	if m.aircraft.is_empty() and m.pending_launches <= 0:
@@ -864,7 +897,7 @@ func _track_airframe(m: AirMission, a: Unit) -> void:
 			_crew(a, Order.return_to_base())
 		task["state"] = AirMission.RETURNING
 		return
-	if m.kind == AirMission.Kind.CAP:
+	if m.kind == AirMission.Kind.CAP and not m.intercept:
 		_enforce_cap_boundary(m, a, task)
 	if a.returning:
 		if task["state"] != AirMission.RETURNING and task["state"] != AirMission.MARSHAL:
@@ -880,7 +913,7 @@ func _track_airframe(m: AirMission, a: Unit) -> void:
 		task["tanked_after_relief"] = false
 		if _hand_over_after_tanking(m, a, task):
 			return
-	if m.kind != AirMission.Kind.STRIKE:
+	if m.kind != AirMission.Kind.STRIKE and not m.intercept:
 		_relief_due(m, a, task)
 	if a.attack_track != null:
 		task["state"] = AirMission.ENGAGING
@@ -891,6 +924,8 @@ func _track_airframe(m: AirMission, a: Unit) -> void:
 		return
 	if m.kind == AirMission.Kind.STRIKE:
 		_step_strike(m, a, task)
+	elif m.intercept:
+		_step_intercept(m, a, task)
 	else:
 		_step_station(m, a, task)
 
@@ -1210,6 +1245,30 @@ func _step_strike(m: AirMission, a: Unit, task: Dictionary) -> void:
 	if _crew(a, Order.attack(m.target)):
 		task["state"] = AirMission.ENGAGING
 		task["attacked"] = true
+
+
+## An intercept goes for its contact at dash as soon as it is airborne and comes home once the attack
+## is over: the contact destroyed, lost or out of the rounds to reach it.
+func _step_intercept(m: AirMission, a: Unit, task: Dictionary) -> void:
+	if bool(task["attacked"]):
+		task["state"] = AirMission.RETURNING
+		_crew(a, Order.return_to_base())
+		return
+	var why := _intercept_target_rejection(m)
+	if why == "":
+		why = UnitManager.attack_rejection(a, m.target)
+	if why != "":
+		_report(m, "%s: %s returning — %s" % [m.label(), a.callsign, why.to_lower()], false)
+		task["attacked"] = true
+		task["state"] = AirMission.RETURNING
+		_crew(a, Order.return_to_base())
+		return
+	if _crew(a, Order.attack(m.target)):
+		_crew(a, Order.set_speed(a.spec.flight_speed("dash")))
+		task["speed_for"] = AirMission.ENGAGING
+		task["state"] = AirMission.ENGAGING
+		task["attacked"] = true
+		_report(m, "%s intercepting track %s" % [a.callsign, m.target_id], true)
 
 
 ## The faction's held contacts this airframe may act on, near the mission's station.

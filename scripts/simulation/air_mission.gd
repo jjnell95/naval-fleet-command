@@ -44,6 +44,9 @@ var anchor_offset := Vector2.ZERO
 var pursuit_nm := 25.0
 var target: Track
 var target_id := ""
+## A CAP laid on one hostile air contact rather than over a point: its fighters go for that contact
+## at dash and come home when the attack is over. It has no station to hold and no relief.
+var intercept := false
 ## Launch ready reserve airframes to relieve any that leave station for fuel, ammunition or loss.
 var relief := false
 ## Back to station by themselves after an identification or interception.
@@ -122,6 +125,8 @@ func summary() -> String:
 func intent_label() -> String:
 	if kind != Kind.CAP:
 		return label()
+	if intercept:
+		return "Intercept track %s" % target_id
 	return "Protect %s" % protected_unit.callsign if cap_intent == "protect" and protected_unit != null else "Hold area"
 
 

@@ -1033,7 +1033,7 @@ func _finish_edit() -> void:
 
 
 func _planned_order() -> Order:
-	var order := Order.air_mission(_mission_kind, _type_id, int(_count.value), _station, float(_radius.value), _target, _relief.button_pressed, _auto_return.button_pressed)
+	var order := Order.air_mission(_mission_kind, _type_id, int(_count.value), _station, float(_radius.value), _target if _mission_kind == AirMission.Kind.STRIKE else null, _relief.button_pressed, _auto_return.button_pressed)
 	order.cap_intent = "protect" if _mission_kind == AirMission.Kind.CAP and _cap_intent.selected == 1 else "hold"
 	order.protected_unit = _anchors[_anchor_picker.selected] if order.cap_intent == "protect" and _anchor_picker.selected >= 0 and _anchor_picker.selected < _anchors.size() else null
 	order.pursuit_nm = _pursuit.value
