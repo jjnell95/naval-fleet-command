@@ -237,3 +237,38 @@ func test_a_last_waypoint_inside_the_turning_circle_is_reached_not_dropped() -> 
 		assert_true(closest <= 0.12, "she opens out and comes back to it: closest %.2f nm" % closest)
 		assert_true(ship.waypoints.is_empty(), "and arrives there")
 		um.free()
+
+
+# --- A boat under Classic communications ----------------------------------------------------
+
+func _classic_boat(um: UnitManager, platform := "jmsdf_ssk_taigei", depth := 200.0) -> Unit:
+	var boat := _ship(Vector2.ZERO, "Boat", platform)
+	boat.speed_kn = 5.0
+	boat.ordered_speed_kn = 5.0
+	boat.depth_m = depth
+	boat.ordered_depth_m = depth
+	um.add_unit(boat)
+	um.configure_submarine_comms("BLUE", true)
+	return boat
+
+
+func test_a_snorkel_order_delivered_at_check_in_is_not_undone_when_the_window_closes() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var boat := _classic_boat(um)
+	boat.battery = 0.25
+	assert_true(um.issue_order(boat, Order.request_sub_checkin()))
+	var snorkel := Order.snorkel(true)
+	assert_true(um.issue_order(boat, snorkel))
+	assert_true(snorkel.receipt.begins_with("Queued"), "deep, the order waits for the check-in")
+	var now := _run(um, 1800.0)
+	assert_true(boat.depth_m <= Unit.PERISCOPE_DEPTH_M, "she stays up to snorkel after the window: %.0f m" % boat.depth_m)
+	assert_true(SubmarinePower.on_diesels(boat), "on her diesels")
+	var charge := boat.battery
+	_run(um, 600.0, now)
+	assert_true(boat.battery > charge, "and charging")
+	boat.battery = SubmarinePower.FULL
+	_run(um, 60.0, now + 600.0)
+	assert_true(not boat.snorkel_on, "the crew secures when the charge is complete")
+	assert_near(boat.ordered_depth_m, 200.0, 0.1, "and takes her back to the depth she came up from")
+	um.free()

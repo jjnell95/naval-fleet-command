@@ -109,7 +109,12 @@ static func step(u: Unit, now: float) -> Array[Order]:
 		ready = take_pending(u)
 		if u.comms_phase == "reporting":
 			if now >= u.comms_window_until_s:
-				u.ordered_depth_m = maxf(u.comms_return_depth_m, 0.0)
+				if u.snorkel_on:
+					# Told in the window to snorkel: she stays up to charge, and the depth she came
+					# up from is the one she goes back to once the charge is done.
+					u.snorkel_return_depth_m = u.comms_return_depth_m if u.comms_return_depth_m > Unit.PERISCOPE_DEPTH_M else -1.0
+				else:
+					u.ordered_depth_m = maxf(u.comms_return_depth_m, 0.0)
 				u.comms_return_depth_m = -1.0
 				u.comms_phase = "submerged"
 			else:
