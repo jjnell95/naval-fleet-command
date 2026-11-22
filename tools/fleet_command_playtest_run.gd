@@ -293,7 +293,7 @@ func _contact_and_investigation(track: Track) -> void:
 	await _chart_click(track.position, MOUSE_BUTTON_RIGHT, true)
 	var menu := main._cds_menus._root
 	checks["shift-right-click opens the contact menu"] = menu != null and menu.visible
-	checks["unknown leads with investigation and explains the blocked attack"] = menu != null and menu.visible and menu.item_count > 2 and menu.get_item_text(1) == "Investigate contact" and not menu.is_item_disabled(1) and menu.is_item_disabled(2) and menu.get_item_text(2).begins_with("Attack track") and not menu.get_item_tooltip(2).is_empty()
+	checks["unknown leads with investigation and explains the blocked attack"] = menu != null and menu.visible and menu.item_count > 2 and menu.get_item_text(1) == "Identify contact" and not menu.is_item_disabled(1) and menu.is_item_disabled(2) and menu.get_item_text(2).begins_with("Attack track") and not menu.get_item_tooltip(2).is_empty()
 	checks["opening contact menu spends no rounds"] = _rounds(frigate) == rounds_before
 	await _shot("unknown-orders")
 	await _choose_action({"kind": "investigate"})

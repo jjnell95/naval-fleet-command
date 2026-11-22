@@ -494,7 +494,7 @@ static func air_contact_items(air: AirMissionManager, faction: String, target: T
 		wants.append([AirMission.Kind.CAP, "Intercept with fighters", "A CAP over the contact: the fighters close and engage it under your rules of engagement."])
 	if target.identity == "HOSTILE" and target.domain in ["surface", "land"]:
 		wants.append([AirMission.Kind.STRIKE, "Air strike now", "Launch strike aircraft at the held contact now, without opening Air Operations."])
-	if target.classification < Track.Classification.CLASS_KNOWN:
+	if target.identity == "UNKNOWN" or target.classification < Track.Classification.CLASS_KNOWN:
 		wants.append([AirMission.Kind.RECON, "Send aircraft to identify", "A reconnaissance aircraft looks at the contact and reports what it is. It never fires."])
 	for w: Array in wants:
 		var kind: int = w[0]
@@ -535,12 +535,18 @@ static func air_deck_items(air: AirMissionManager, decks: Array) -> Array:
 static func engage_items(units: Array, target: Track, controllable: bool, weapon_manager: WeaponManager = null) -> Array:
 	var items: Array = []
 	var number := DataDisplay.track_number_for_track(target)
-	items.append({"text": "Track %s  %s" % [number, target.description().capitalize()], "disabled": true})
+	# A class or a ship's name is a proper name and is shown as the plot holds it ("MV Merchant",
+	# "Tu-22M3"); only the generic wording of an unclassified contact is set in title case.
+	var named := target.classification >= Track.Classification.CLASS_KNOWN
+	items.append({"text": "Track %s  %s" % [number, target.description() if named else target.description().capitalize()], "disabled": true})
 	if controllable and not units.is_empty():
 		# A hostile still leads with Attack, even before its exact class is established.
 		if target.identity == "HOSTILE":
 			items.append(attack_item(units, target))
-		if target.classification < Track.Classification.CLASS_KNOWN:
+		# A class from an emitter or a sound is not an identity: while the contact is still UNKNOWN
+		# the first thing to do with it is go and look, whatever the library made of it. A hostile
+		# of no known class is worth the same look.
+		if target.identity == "UNKNOWN" or target.classification < Track.Classification.CLASS_KNOWN:
 			var can_investigate := false
 			var reason := ""
 			for u: Unit in units:
@@ -548,8 +554,8 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 				can_investigate = can_investigate or rejection == ""
 				if reason == "" and rejection != "":
 					reason = rejection
-			items.append(item("Investigate contact", {"kind": "investigate", "track": target}, not can_investigate,
-				"Follow the held contact until its class is identified. Weapons remain under your control." if can_investigate else reason))
+			items.append(item("Identify contact", {"kind": "investigate", "track": target}, not can_investigate,
+				"Close the held contact to visual range and report what and whose it is. Weapons remain under your control. A bare right-click on an unknown does the same." if can_investigate else reason))
 		if target.identity != "HOSTILE":
 			items.append(attack_item(units, target))
 		var weapon_choices: Array = []

@@ -268,3 +268,46 @@ func test_the_x_cue_counts_every_uncleared_round_not_only_the_first() -> void:
 	main._process(1.0)
 	assert_true(not main.data_display.threat_text.contains("X ENGAGES"), "and goes once every held round is cleared: %s" % main.data_display.threat_text)
 	_close(main)
+
+
+# --- The contact menu: names as held, and Identify for anything of unknown allegiance ----------
+
+func _menu_texts(items: Array) -> Array:
+	return items.map(func(it: Dictionary) -> String: return str(it.get("text", "")))
+
+
+func test_the_contact_menu_shows_a_class_name_as_the_plot_holds_it() -> void:
+	var t := Track.new()
+	t.id = "T1001"
+	t.owner_faction = "BLUE"
+	t.domain = "air"
+	t.classification = Track.Classification.CLASS_KNOWN
+	for name: String in ["Tu-22M3", "MV Merchant", "FFG Gorshkov"]:
+		t.known_class = name
+		var title := str(CdsMenus.engage_items([], t, false)[0]["text"])
+		assert_true(title.ends_with("  " + name), "the header reads %s, not a re-capitalised name: %s" % [name, title])
+	t.classification = Track.Classification.SURFACE
+	assert_true(str(CdsMenus.engage_items([], t, false)[0]["text"]).ends_with("Air Contact"), "an unclassified contact keeps its plain wording")
+
+
+func test_the_contact_menu_offers_identify_on_a_classified_contact_of_unknown_allegiance() -> void:
+	var main := _open("northern_passage.json")
+	var sim := main.simulation
+	var t := _held_contact(main, true)
+	assert_true(t != null)
+	var ship: Unit = main.map.selected[0]
+	# What an emitter or a hull form gives: a class, and no allegiance yet.
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = "MV Merchant"
+	t.identity = "UNKNOWN"
+	var items := CdsMenus.engage_items([ship], t, true, sim.weapon_manager)
+	var texts := _menu_texts(items)
+	assert_true(texts.has("Identify contact"), "an unknown merchant offers Identify: %s" % str(texts))
+	var identify: Dictionary = items[texts.find("Identify contact")]
+	assert_true(not bool(identify["disabled"]), "and the hooked ship can take it: %s" % str(identify.get("tooltip", "")))
+	assert_true(texts.find("Identify contact") < texts.find("Attack track %s" % DataDisplay.track_number_for_track(t)), "ahead of the attack verbs")
+	main._run_cds_action(identify["action"])
+	assert_eq(ship.investigation_track, t, "choosing it sends the ship to look")
+	t.identity = "NEUTRAL"
+	assert_true(not _menu_texts(CdsMenus.engage_items([ship], t, true, sim.weapon_manager)).has("Identify contact"), "an identified contact no longer offers it")
+	_close(main)
