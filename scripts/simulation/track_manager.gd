@@ -30,6 +30,10 @@ const MIN_BEARING_RANGE_NM := 0.3
 ## a poorer one pulls the plot less and claims no course.
 const SOUND_SOLUTION_QUALITY := 0.6
 const HOLDER_SILENT_S := 2.5
+## How many times the contact's own likely speed the plot may move toward a new solution, and the
+## least it may move however slow the contact.
+const SOLUTION_CHASE_FACTOR := 3.0
+const MIN_SOLUTION_STEP_NM := 0.05
 const LINE_LAG_S := 1.0 / BearingSolution.SMOOTH_GAIN
 ## How far outside a dropped track's ellipse a new plot may fall and still be the same contact.
 const SAME_CONTACT_MARGIN_NM := 2.0
@@ -258,15 +262,26 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	var blend := FIRM_BLEND
 	if c.bearing_only:
 		blend = BEARING_BLEND * clampf(c.solution_quality / SOUND_SOLUTION_QUALITY, 0.4, 1.0)
-	t.position = c.position if t._cycle_snap or c.placed else t._cycle_start_position.lerp(c.position, blend)
+	var lag := 0.0
+	if t._cycle_snap or c.placed:
+		t.position = c.position
+	else:
+		var step := (c.position - t._cycle_start_position) * blend
+		if c.bearing_only:
+			# A reworked solution may land miles from the last one. The contact did not move that
+			# far in a second, so the plot closes on it no faster than the contact could travel and
+			# owns up to the distance still to go.
+			step = step.limit_length(maxf(t.error_growth_nm_per_s() * dt * SOLUTION_CHASE_FACTOR, MIN_SOLUTION_STEP_NM))
+			lag = (c.position - t._cycle_start_position - step).length()
+		t.position = t._cycle_start_position + step
 	# A measured range is firm; a passive solution carries only its geometry-derived quality.
 	t.tma_quality = 1.0 if firm else c.solution_quality
 	t.bearing_only = c.bearing_only
 	t.bearing_origin = raw.bearing_origin if raw.bearing_only and raw.bearing_key != "" else Vector2.INF
-	t.error_major_nm = c.error_major_nm
+	t.error_major_nm = c.error_major_nm + lag
 	t.error_minor_nm = c.error_minor_nm
 	t.error_axis_deg = c.error_axis_deg
-	t.position_error_nm = maxf(c.error_major_nm, c.error_minor_nm)
+	t.position_error_nm = maxf(t.error_major_nm, c.error_minor_nm)
 	t.source = c.source
 	t.source_platform = c.observer.spec.short_name if c.observer != null and c.observer.spec != null else ""
 	t.source_sensor = c.sensor_name
