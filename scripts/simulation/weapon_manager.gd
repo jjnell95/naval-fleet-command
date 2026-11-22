@@ -14,6 +14,9 @@ signal weapon_defeated(threat: Weapon, reason: String, by_unit: Unit)
 signal weapon_resolved(weapon: Weapon)
 ## A round pulled off its target by decoys that found another ship in its seeker basket.
 signal weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit)
+## Decoys broke a torpedo's lock on `from_unit` and it is searching again. It ends as DECOYED,
+## through weapon_defeated, if it finds nothing.
+signal torpedo_decoyed(threat: Weapon, from_unit: Unit)
 ## Expendable decoys used, chaff or acoustic, whether or not they worked. A towed decoy is not one.
 signal decoys_spent(unit: Unit, count: int)
 ## A ship whose only bar to defending against an inbound round was its own radar being off: `lit`
@@ -575,11 +578,22 @@ func _step(w: Weapon, dt: float) -> void:
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "TARGET LOST" if w.lost_lock else ("NO ACQUISITION" if w.searching_on or w.circle_search_s >= 0.0 else "RANGE EXHAUSTED")
+		_credit_decoy(w)
 	elif w.phase == Weapon.Phase.CRUISE and w.circle_search_s >= 0.0:
 		w.circle_search_s += dt
 		if w.circle_search_s >= CIRCLE_SEARCH_S:
 			w.phase = Weapon.Phase.DEAD
 			w.dead_reason = "NO ACQUISITION"
+			_credit_decoy(w)
+
+
+## A torpedo that decoys pulled off and that never found a hull again was defeated by them.
+func _credit_decoy(w: Weapon) -> void:
+	if w.decoyed_by == null:
+		return
+	var by := w.decoyed_by
+	w.phase = Weapon.Phase.CRUISE  # defeat_weapon ends a live round
+	defeat_weapon(w, "DECOYED", by)
 
 
 ## A torpedo that reaches its aim point with nothing in its seeker circles there, the seeker
@@ -872,6 +886,11 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	w.acquired = best
 	w.lost_lock = false
 	w.circle_search_s = -1.0
+	if w.decoyed_by != null:
+		# Come round onto a hull again after decoys broke its lock: that ship's countermeasures
+		# get another try at it.
+		w.decoyed_by = null
+		w.decoy_attempted = false
 	w.phase = Weapon.Phase.TERMINAL
 	return previous.lerp(w.position, best_fraction)
 
@@ -920,7 +939,9 @@ static func searches_on(w: Weapon) -> bool:
 
 
 ## Decoys have beaten the lock on `from`. The seeker searches on along its heading; if another
-## ship lies in its cone and basket it may take that instead, otherwise the round is spent.
+## ship lies in its cone and basket it may take that instead. Otherwise a missile is spent, and a
+## torpedo, which has battery left and is still in the water with its target, drops the lock and
+## searches again (_lose_to_decoy).
 func seduce(w: Weapon, from: Unit) -> Unit:
 	if w.phase == Weapon.Phase.DEAD:
 		return null
@@ -939,7 +960,10 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 			best = u
 			best_d = d
 	if best == null:
-		defeat_weapon(w, "DECOYED", from)
+		if w.spec.is_torpedo():
+			_lose_to_decoy(w, from)
+		else:
+			defeat_weapon(w, "DECOYED", from)
 		return null
 	w.acquired = best
 	w.lost_lock = false
@@ -950,12 +974,31 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	return best
 
 
+## The chance a torpedo pulled off by decoys can still tell its target from their noise when it
+## comes round again. GAMEPLAY_ESTIMATE.
+const TORPEDO_REATTACK_P := 0.3
+
+
+## A torpedo whose lock the decoys have broken circles where it lost it, as it would at an empty aim
+## point. Mostly it stays fooled by the decoys' noise and will not take that ship again; the rest
+## of the time it can re-attack, and the ship's countermeasures get another try. If it finds
+## nothing it ends as decoyed, to the credit of the ship that fooled it.
+func _lose_to_decoy(w: Weapon, from: Unit) -> void:
+	w.acquired = null
+	w.phase = Weapon.Phase.CRUISE
+	w.decoyed_by = from
+	if rng.randf() >= TORPEDO_REATTACK_P:
+		w.decoy_fooled[from.id] = true
+	_start_circle(w)
+	torpedo_decoyed.emit(w, from)
+
+
 ## What this round's seeker can lock. Never a unit of the side that fired it: its own force is
 ## the one thing a round is told about before it leaves the rail. An anti-radiation seeker hears
 ## only a radar that is transmitting, and is set against the other side's emitters: it does not
 ## take a neutral's either.
 func seeker_sees(w: Weapon, u: Unit) -> bool:
-	if u.faction == w.faction or not can_target(w.spec, u):
+	if u.faction == w.faction or not can_target(w.spec, u) or w.decoy_fooled.has(u.id):
 		return false
 	if not w.spec.is_anti_radiation():
 		return true

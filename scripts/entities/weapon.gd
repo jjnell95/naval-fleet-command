@@ -35,6 +35,10 @@ var heard_by: Dictionary = {}
 ## Anti-torpedo rounds ever fired at this torpedo, by any ship.
 var hard_kill_shots := 0
 var seductions := 0  # times decoys have pulled this round off a lock
+## A torpedo whose lock decoys broke: the ship whose decoys did it, until it locks something again.
+var decoyed_by: Unit
+## Ships whose decoys this torpedo can no longer tell them from: unit id -> true.
+var decoy_fooled: Dictionary = {}
 ## SAMs ever fired at this round, for the record. What limits the defence is how many are in the
 ## air at it now (AirDefence), never this.
 var guided_interceptors_committed := 0

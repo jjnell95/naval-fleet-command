@@ -275,3 +275,95 @@ func test_a_ship_that_hears_a_torpedo_homing_on_her_is_aware_of_it() -> void:
 	assert_true(not unheard.heard_by.has(deaf.id), "a ship nobody has heard it near does not")
 	tm.free()
 	_cleanup(wm)
+
+
+# --- c-weapons#10 / p-undersea#12: decoys against the seeker they fool, and a torpedo that lives on
+
+func _decoy_hull(towed: bool, expendables: int, effectiveness := 10.0) -> PlatformSpec:
+	var p := _platform("surface")
+	p.torpedo_decoy = "Test decoy"
+	p.towed_torpedo_decoy = towed
+	p.torpedo_decoy_count = expendables
+	p.torpedo_decoy_effectiveness = effectiveness
+	return p
+
+
+func _decoy_ship(spec: PlatformSpec, pos: Vector2, uid: int) -> Unit:
+	var u := _unit("BLUE", pos, "surface", uid)
+	u.spec = spec
+	u.speed_kn = 15.0
+	u.torpedo_decoys = spec.torpedo_decoy_count
+	return u
+
+
+func _homing_on(wm: WeaponManager, tm: ThreatManager, spec: WeaponSpec, target: Unit, pos: Vector2, wid := 700) -> Weapon:
+	var w := Weapon.new()
+	w.id = wid
+	w.spec = spec
+	w.faction = "RED"
+	w.position = pos
+	w.acquired = target
+	w.aim_point = target.position
+	w.heading_deg = Geo.bearing_deg(pos, target.position)
+	w.distance_flown_nm = 3.0
+	w.phase = Weapon.Phase.TERMINAL
+	wm.in_flight.append(w)
+	tm.mark_detected(target.faction, w, 0.0, target)
+	return w
+
+
+## A wake-homer follows the bubbles, not the noise. Over a hundred dice, neither the towed body nor
+## a canister ever pulls a 53-65 off, and not one canister is wasted on it.
+func test_decoys_never_seduce_a_wake_homing_torpedo_or_get_spent_on_one() -> void:
+	var wake := DataDB.weapon("cw90_53_65")
+	assert_true(wake.seeker_band() != "acoustic", "the 53-65 is a wake-homer")
+	for seed_value in range(1, 101):
+		var ship := _decoy_ship(_decoy_hull(true, 4), Vector2.ZERO, 1)
+		var wm := _harness([ship], seed_value)
+		var tm := ThreatManager.new()
+		var torp := _homing_on(wm, tm, wake, ship, Vector2(0.0, 1.5))
+		TorpedoDefence.run_cycle(wm.unit_manager, tm, wm, 0.0)
+		DefensiveResponse.run_cycle(wm.unit_manager, tm, wm)
+		assert_eq(torp.acquired, ship, "seed %d: the wake-homer keeps its lock" % seed_value)
+		assert_eq(ship.torpedo_decoys, 4, "seed %d: no canister is fired at it" % seed_value)
+		tm.free()
+		_cleanup(wm)
+		if torp.acquired != ship or ship.torpedo_decoys != 4:
+			return
+
+
+## Decoys break an acoustic torpedo's lock; they do not delete it. It circles where it lost the
+## ship, and either stays fooled and ends as decoyed, credited to the ship, or comes round on her
+## again. Across many seeds both happen, and the re-attacks are the smaller share.
+func test_a_decoyed_torpedo_searches_again_and_sometimes_comes_back() -> void:
+	Terrain.clear()
+	var spec := DataDB.weapon("mk48_adcap")
+	var reattacked := 0
+	var decoyed := 0
+	for seed_value in range(1, 61):
+		var ship := _decoy_ship(_decoy_hull(true, 0), Vector2.ZERO, 1)
+		var wm := _harness([ship], seed_value)
+		var tm := ThreatManager.new()
+		var defeated: Array = []
+		wm.weapon_defeated.connect(func(threat: Weapon, reason: String, by: Unit) -> void: defeated.append([threat, reason, by]))
+		var torp := _homing_on(wm, tm, spec, ship, Vector2(0.0, 1.5))
+		wm.seduce(torp, ship)
+		assert_true(torp.phase != Weapon.Phase.DEAD, "seed %d: the torpedo is not deleted on the spot" % seed_value)
+		assert_true(torp.acquired == null, "seed %d: it has lost its lock" % seed_value)
+		var now := 0.0
+		var came_back := false
+		while now < 600.0 and torp.phase != Weapon.Phase.DEAD:
+			now += DT
+			wm.tick(DT, now)
+			if torp.acquired == ship:
+				came_back = true
+				break
+		if came_back:
+			reattacked += 1
+		else:
+			assert_eq(torp.dead_reason, "DECOYED", "seed %d: it ends as decoyed" % seed_value)
+			assert_true(defeated.size() == 1 and defeated[0][2] == ship, "seed %d: credited to the ship whose decoy did it" % seed_value)
+			decoyed += 1
+		tm.free()
+		_cleanup(wm)
+	assert_true(reattacked > 0 and decoyed > reattacked, "decoyed %d, came back %d" % [decoyed, reattacked])

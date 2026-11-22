@@ -74,6 +74,9 @@ static func _hard_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager, now: f
 static func _soft_kill(u: Unit, w: Weapon, weapon_manager: WeaponManager) -> int:
 	if not u.auto_countermeasures or u.position.distance_to(w.position) > DefensiveResponse.ACOUSTIC_RANGE_NM:
 		return 0
+	# Noise is no use against a seeker that is not listening: a wake-homer follows the bubbles.
+	if w.spec.seeker_band() != "acoustic":
+		return 0
 	var active := u.countermeasure_kind == "acoustic" and u.countermeasure_remaining_s > 0.0
 	var towed := u.spec.towed_torpedo_decoy and u.speed_kn >= TOWED_MIN_SPEED_KN
 	if not towed and u.torpedo_decoys <= 0 and not active:
