@@ -209,6 +209,9 @@ static func orders_items(units: Array, target: Track, controllable: bool, movabl
 		tasks.append(submenu("Formation", forms, not controllable, why))
 	elif ships.size() == 1 and (ships[0] as Unit).in_formation():
 		tasks.append(item("Break formation", order_action(Order.break_formation()), not controllable, why))
+	elif ships.size() == 1 and (ships[0] as Unit).station_kind == "formation":
+		var rejoin_why := UnitManager.station_rejection(ships[0]) if controllable else why
+		tasks.append(item("Rejoin formation", order_action(Order.return_to_station()), rejoin_why != "", rejoin_why if rejoin_why != "" else "Take up the formation station again."))
 	if movable:
 		navigation.append(submenu("Auto-return to station", [
 			item("On", order_action(Order.set_auto_return(true)), false, "Go back to station once an identification, interception or attack ends. A newer order always stands.", _all(units, func(u: Unit) -> bool: return u.auto_return)),

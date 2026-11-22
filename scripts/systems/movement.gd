@@ -56,6 +56,24 @@ static func _passing_inside_turn(u: Unit, wp: Vector2) -> bool:
 	return wp.distance_to(u.position + abeam) < inside or wp.distance_to(u.position - abeam) < inside
 
 
+## A last point inside the turning circle is not an arrival: steering for it she would only circle
+## it. She stands on for a tactical diameter, from where the point lies outside both circles, and
+## comes round to it. A point on the way is simply passed for the next. A fixed-wing aircraft
+## holds through the point instead, and a hull with no sea room ahead counts it as reached.
+static func _open_out(u: Unit, wp: Vector2) -> bool:
+	if must_keep_flying(u):
+		return false
+	var rate := turn_rate_now(u)
+	if rate <= 0.0:
+		return false
+	var diameter := 2.0 * Geo.knots_to_nm_per_s(u.speed_kn) / deg_to_rad(rate)
+	var out := u.position + Geo.heading_to_vector(u.heading_deg) * diameter
+	if u.needs_sea_room() and not Terrain.is_empty() and (Terrain.is_land(out) or not Terrain.sea_leg_clear(u.position, out)):
+		return false
+	u.waypoints.push_front(out)
+	return true
+
+
 ## Clearing baffles. A boat with the habit swings BAFFLE_CLEAR_TURN_DEG off its course for the last
 ## BAFFLE_CLEAR_S of every interval, to alternate sides, so the arc its hull sonar cannot hear
 ## (Detection.baffled) sweeps over what was dead astern. The route itself is not changed.
@@ -129,7 +147,10 @@ static func step(u: Unit, dt: float) -> void:
 	if not evading and not u.waypoints.is_empty():
 		var wp: Vector2 = u.waypoints[0]
 		var arrive := maxf(ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
-		if u.position.distance_to(wp) <= arrive or _passing_inside_turn(u, wp):
+		var inside_turn := u.position.distance_to(wp) > arrive and _passing_inside_turn(u, wp)
+		if inside_turn and u.waypoints.size() == 1 and not u.patrol_active and _open_out(u, wp):
+			pass  # the point is kept, and the leg out from it now leads
+		elif u.position.distance_to(wp) <= arrive or inside_turn:
 			u.waypoints.pop_front()
 			# Only the corners of the circuit come round again: the way a hull was given round a
 			# coast to reach its first corner is sailed once.
@@ -239,6 +260,14 @@ static func _drop_stranded_waypoints(u: Unit) -> void:
 		u.ordered_speed_kn = 0.0
 
 
+## Over land an aircraft keeps at least this much height above the highest ground under it and on
+## the next minute or two of its track, whatever altitude it was ordered: a low run is flown over
+## the sea, not through a hillside. GAMEPLAY_ESTIMATE.
+const TERRAIN_CLEARANCE_FIXED_WING_M := 150.0
+const TERRAIN_CLEARANCE_ROTARY_M := 60.0
+const TERRAIN_LOOKAHEAD_S: Array[float] = [60.0, 120.0]
+
+
 ## Aircraft climb and descend at a fixed rate. Anything that cannot fly stays on the surface.
 static func _step_altitude(u: Unit, dt: float) -> void:
 	if u.spec.altitude_rate_m_s <= 0.0:
@@ -248,8 +277,25 @@ static func _step_altitude(u: Unit, dt: float) -> void:
 		u.altitude_m = 0.0
 		return
 	var target := clampf(u.ordered_altitude_m, 0.0, u.spec.max_altitude_m)
+	var ground := terrain_under(u)
+	if ground > 0.0:
+		var clearance := TERRAIN_CLEARANCE_ROTARY_M if u.spec.can_hover else TERRAIN_CLEARANCE_FIXED_WING_M
+		target = maxf(target, minf(ground + clearance, u.spec.max_altitude_m))
 	var step := u.spec.altitude_rate_m_s * dt
 	u.altitude_m += clampf(target - u.altitude_m, -step, step)
+	# Never below the ground itself, should the rate not have carried her over a crest in time.
+	u.altitude_m = maxf(u.altitude_m, minf(Terrain.elevation_at(u.position), u.spec.max_altitude_m))
+
+
+## The highest ground under an aircraft and along the next stretch of its track. Zero at sea.
+static func terrain_under(u: Unit) -> float:
+	if Terrain.is_empty():
+		return 0.0
+	var ground := Terrain.elevation_at(u.position)
+	var along := Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn)
+	for seconds: float in TERRAIN_LOOKAHEAD_S:
+		ground = maxf(ground, Terrain.elevation_at(u.position + along * seconds))
+	return ground
 
 
 ## Boats change depth at a fixed rate. Anything that cannot submerge simply stays at zero. The

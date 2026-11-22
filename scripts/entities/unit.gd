@@ -1,7 +1,7 @@
 class_name Unit
 extends RefCounted
 ## Ground-truth simulation entity. Not a Node: owned by UnitManager, rendered by TacticalMap.
-## Enemy units are never shown to the player directly; from Milestone 2 they are perceived via Tracks.
+## Enemy units are never shown to the player directly; they are perceived via Tracks.
 
 const PERISCOPE_DEPTH_M := 20.0
 const HOVER_SPEED_KN := 12.0  # at or below this a helicopter counts as stopped
@@ -132,6 +132,10 @@ var comms_phase := "submerged"
 var comms_pending: Array[Dictionary] = []
 var comms_report: Dictionary = {}
 var comms_note := ""
+## What the crew did on its own initiative while out of touch, held for the next check-in; and the
+## last such report the commander has received.
+var comms_initiative: Array[String] = []
+var comms_initiative_report := ""
 ## The standing emissions policy. The AI follows it; the player sets it directly. Radiating is
 ## what gets you found, so this is a real decision rather than a formality.
 var emcon: Emcon = Emcon.FREE
@@ -499,6 +503,9 @@ const NAVIGATION_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.S
 ## RETURN_TO_BASE reaches here only once UnitManager has checked the landing can be made.
 const STATION_REPLACING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.RETURN_TO_BASE]
 ## Steering orders that take a consort out of its formation: it cannot keep station and go there.
+## They interrupt a formation station rather than end it: an escort sent to look at something on
+## the bow is still part of the screen, and Return to Station takes her back. Only BREAK_FORMATION
+## or a new assignment ends it.
 const DETACHING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP]
 
 
@@ -530,7 +537,8 @@ func apply_order(order: Order) -> void:
 		formation_leader = null
 	if order.origin != "crew":
 		# Clearing the route of a consort that is keeping station changes nothing; it has none.
-		if order.type in STATION_REPLACING_ORDERS and not (order.type == Order.Type.CLEAR_WAYPOINTS and keeping_station):
+		var interrupts_formation := order.type in DETACHING_ORDERS and station_kind == "formation"
+		if order.type in STATION_REPLACING_ORDERS and not (order.type == Order.Type.CLEAR_WAYPOINTS and keeping_station) and not interrupts_formation:
 			clear_station()
 		elif order.type == Order.Type.BREAK_FORMATION and station_kind == "formation":
 			clear_station()
@@ -614,6 +622,10 @@ func apply_order(order: Order) -> void:
 		Order.Type.SET_COURSE:
 			waypoints.clear()
 			ordered_heading_deg = fposmod(order.heading_deg, 360.0)
+			# A course is somewhere to go. Lying stopped she has no rudder, so she gets way on to
+			# steer it, as she does for a move.
+			if ordered_speed_kn <= 0.0:
+				ordered_speed_kn = spec.cruise_speed_kn
 		Order.Type.SET_SPEED:
 			ordered_speed_kn = clampf(order.speed_kn, 0.0, effective_max_speed())
 			if patrol_active and station_kind == "patrol":
@@ -685,7 +697,7 @@ func apply_order(order: Order) -> void:
 			else:
 				radar_on = has_radar()
 		Order.Type.SET_ALTITUDE:
-			ordered_altitude_m = clampf(order.altitude_m, 0.0, spec.max_altitude_m)
+			ordered_altitude_m = clampf(order.altitude_m, minf(min_altitude_m(), spec.max_altitude_m), spec.max_altitude_m)
 		Order.Type.LAUNCH_AIRCRAFT, Order.Type.RETURN_TO_BASE, Order.Type.DEPLOY_SONOBUOY:
 			pass  # routed to AviationManager by Simulation
 		Order.Type.AIR_MISSION, Order.Type.CANCEL_AIR_MISSION:
@@ -859,8 +871,8 @@ func task_speed_kn(attacking: bool) -> float:
 ## follows a task still hands back to the first one's plan, and the platform leaves its formation
 ## or circuit; whatever is streamed or lowered comes in before it moves off.
 func take_steering() -> void:
-	DippingSonar.recover(self)
-	TowedArray.recover(self)
+	# A dome cannot be flown off in the water; a towed array is steered with, at its own speed.
+	DippingSonar.recover_announced(self)
 	if not plan_kept:
 		plan_kept = true
 		plan_waypoints.clear()
@@ -958,6 +970,16 @@ func clear_attack(keep_plan := false) -> void:
 	attack_assess_until_s = -1.0
 	attack_stall_s = 0.0
 	attack_stale_s = 0.0
+
+
+## The lowest altitude over the sea this airframe will be ordered to: a helicopter can work
+## just above the waves, a fixed-wing aircraft needs room to recover from a gust. GAMEPLAY_ESTIMATE.
+const MIN_ALTITUDE_ROTARY_M := 15.0
+const MIN_ALTITUDE_FIXED_WING_M := 30.0
+
+
+func min_altitude_m() -> float:
+	return MIN_ALTITUDE_ROTARY_M if spec.can_hover else MIN_ALTITUDE_FIXED_WING_M
 
 
 func in_formation() -> bool:

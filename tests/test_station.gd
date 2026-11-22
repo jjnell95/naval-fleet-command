@@ -147,7 +147,7 @@ func test_patrol_resumes_at_the_nearest_corner_after_an_attack_ends() -> void:
 	um.free()
 
 
-func test_an_explicit_transit_replaces_the_station_and_prevents_a_later_return() -> void:
+func test_a_transit_ordered_during_a_task_stands_and_the_station_waits_for_s() -> void:
 	Terrain.clear()
 	var um := UnitManager.new()
 	var pair := _screen(um)
@@ -157,14 +157,14 @@ func test_an_explicit_transit_replaces_the_station_and_prevents_a_later_return()
 	um.issue_order(escort, Order.investigate(t))
 	var now := _run(um, 20.0)
 	assert_true(um.issue_order(escort, Order.move(Vector2(-20, 0))))
-	assert_eq(escort.station_kind, "", "a new transit is a replacement order")
+	assert_eq(escort.station_kind, "formation", "a helm order interrupts the screen station, it does not end it")
 	t.classification = Track.Classification.CLASS_KNOWN
 	t.identity = "NEUTRAL"
 	_run(um, 5.0, null, now)
 	assert_eq(escort.formation_leader, null, "no unexpected return to the old screen")
 	assert_eq(escort.waypoints, [Vector2(-20, 0)], "the newer order stands")
-	assert_true(not um.issue_order(escort, Order.return_to_station()))
-	assert_eq(UnitManager.station_rejection(escort), "No station assigned")
+	assert_true(um.issue_order(escort, Order.return_to_station()), "the commander's S takes her back")
+	assert_true(escort.on_station())
 	um.free()
 
 
@@ -436,7 +436,7 @@ func test_steering_a_returning_or_tanking_aircraft_is_refused_not_overwritten() 
 	um.free()
 
 
-func test_steering_a_consort_takes_it_out_of_formation_and_ends_the_station() -> void:
+func test_steering_a_consort_takes_it_out_of_formation_and_keeps_the_station() -> void:
 	Terrain.clear()
 	var um := UnitManager.new()
 	var pair := _screen(um)
@@ -446,7 +446,8 @@ func test_steering_a_consort_takes_it_out_of_formation_and_ends_the_station() ->
 	assert_true(um.issue_order(escort, Order.move(Vector2(-20, -20))))
 	_run(um, DT)
 	assert_eq(escort.formation_leader, null, "the consort leaves the formation to go where it was sent")
-	assert_eq(escort.station_kind, "", "an explicit order replaces the station")
+	assert_eq(escort.station_kind, "formation", "the station is interrupted, not replaced")
+	assert_true(not escort.on_station())
 	assert_true(not escort.waypoints.is_empty(), "and the formation no longer clears its route")
 	um.free()
 

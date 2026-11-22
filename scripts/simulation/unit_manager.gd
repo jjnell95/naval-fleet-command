@@ -86,25 +86,36 @@ func add_unit(u: Unit) -> void:
 func tick(dt: float, now := -1.0) -> void:
 	now_s = now if now >= 0.0 else now_s + dt
 	Formation.update_speed_caps(units)
+	# Most of a large order of battle is airframes in hangars and ships with no task, no station and
+	# no submarine communications; each step below is taken only by a unit it can apply to, so they
+	# pay for none of it. Each guard is the condition the step itself would return on.
 	for u in units:
 		if not u.alive:
 			continue
-		_deliver_submarine_orders(u, SubmarineComms.step(u, now_s))
-		DefensiveResponse.tick(u, dt)
-		_handoff_submarine_tasks(u)
-		_step_investigation(u, dt)
-		_step_attack(u, dt)
+		var comms := SubmarineComms.restricted(u)
+		if comms:
+			_deliver_submarine_orders(u, SubmarineComms.step(u, now_s))
+		if u.evasion_remaining_s != 0.0 or u.countermeasure_remaining_s != 0.0 or u.countermeasure_reload_s != 0.0:
+			DefensiveResponse.tick(u, dt)
+		if comms:
+			_handoff_submarine_tasks(u)
+		if u.investigation_track != null:
+			_step_investigation(u, dt)
+		if u.attack_track != null:
+			_step_attack(u, dt)
 		# A task ended by an order rather than by its own step (fire cancelled) still hands the
 		# platform back to what it was doing.
 		if u.plan_kept and u.attack_track == null and u.investigation_track == null:
 			_finish_task(u, u.task_generation, u.attack_result if u.attack_result != "" else u.investigation_result)
-		Formation.step(u)
+		if u.formation_leader != null:
+			Formation.step(u)
 		var was_blocked := u.coast_blocked
 		Movement.step(u, dt)
 		if u.coast_blocked and not was_blocked:
 			_report_blocked_by_coast(u)
 		# Detach before the next sensor cycle can update the shared picture after diving.
-		_handoff_submarine_tasks(u)
+		if comms:
+			_handoff_submarine_tasks(u)
 
 
 ## A task received over the link continues on the boat's own sensor picture once it dives.
@@ -163,6 +174,8 @@ func issue_order(u: Unit, order: Order) -> bool:
 		# counting refusals. Each pair on a firing board carries its own Order.
 		if order != null and order.type == Order.Type.ENGAGE:
 			order.receipt = engage_rejection(u, order)
+		elif order != null and order.type == Order.Type.SET_SPEED and u != null and u.alive and u.in_formation():
+			order.receipt = station_keeping_rejection(u)
 		return false
 	if order.type == Order.Type.MOVE:
 		var why := move_rejection(u, order)
@@ -258,6 +271,10 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.SET_DEFENCE_POLICY:
 			return u.is_engageable() and order.defence_policy in ["balanced", "conserve", "saturation"]
 		Order.Type.SET_SPEED:
+			# Station keeping sets a consort's speed every tick; a speed of her own would be
+			# overwritten at once. The group's speed is the guide's to order.
+			if u.in_formation():
+				return false
 			# The circuit as ordered, not the points still ahead: those may include the way
 			# round a coast to its first corner, which is no part of it.
 			if u.patrol_active and patrol_rejection(u, u.station_route if not u.station_route.is_empty() else u.waypoints, order.speed_kn, false) != "":
@@ -307,6 +324,11 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
 	return false
+
+
+## Why a consort in formation refuses a speed of her own.
+static func station_keeping_rejection(u: Unit) -> String:
+	return "Keeping station on %s: order the guide's speed" % u.formation_leader.callsign
 
 
 ## Steering a platform can take now. An aircraft on its way to the deck or the tanker is the aviation
@@ -646,6 +668,15 @@ func _step_attack(u: Unit, dt: float) -> void:
 				_end_attack(u, track, NO_SEA_ROUTE_TO_FIRE)
 				return
 			u.ordered_speed_kn = _closing_speed(u, track)
+		"NEUTRAL IN THE LINE OF FIRE":
+			# A neutral or a friend lies where the round's seeker would look. Traffic moves: hold
+			# fire, keep the task and the geometry, and shoot when the line is clear. This is not
+			# a stall; the commander sees why and can cancel.
+			u.attack_phase = "Holding fire · neutral in the line of fire"
+			u.attack_stall_s = 0.0
+			u.attack_progress_pos = u.position
+			_keep_geometry(u, track, standoff, dt)
+			return
 		"TOO CLOSE":
 			u.attack_phase = "Opening to range"
 			goal = _steer_attack(u, track, maxf(spec.min_range_nm * 1.5, 1.0), dt, true)

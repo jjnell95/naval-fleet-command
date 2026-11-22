@@ -197,7 +197,7 @@ func test_evasion_preserves_formation_and_station_keeping_resumes() -> void:
 	assert_true(member.formation_leader == leader)
 	member.apply_order(Order.resume_plan())
 	Formation.step(member)
-	assert_near(member.ordered_heading_deg, 90)
+	assert_true(member.ordered_heading_deg > 0.0 and member.ordered_heading_deg <= 90.0, "station keeping steers again, for the station abeam, led by the guide's movement")
 	member.formation_leader = null
 
 
@@ -233,7 +233,8 @@ func test_flagship_paces_the_slowest_damaged_consort_and_dead_members_do_not_lim
 	h[0].add_unit(slow)
 	slow.apply_order(Order.form_up(leader, Vector2(4, 0)))
 	Formation.update_speed_caps(h[0].units)
-	assert_near(leader.formation_speed_cap_kn, slow.effective_max_speed())
+	assert_near(leader.formation_speed_cap_kn, Formation.stationing_cap(slow))
+	assert_true(leader.formation_speed_cap_kn < slow.effective_max_speed(), "with knots in hand for the consort")
 	slow.alive = false
 	Formation.update_speed_caps(h[0].units)
 	assert_eq(leader.formation_speed_cap_kn, INF)
@@ -735,8 +736,8 @@ func test_a_nested_formation_paces_its_slowest_descendant() -> void:
 	section.apply_order(Order.form_up(root, Vector2(3, -3)))
 	slow.apply_order(Order.form_up(section, Vector2(3, -3)))
 	Formation.update_speed_caps(h[0].units)
-	assert_near(root.formation_speed_cap_kn, slow.effective_max_speed())
-	assert_near(section.formation_speed_cap_kn, slow.effective_max_speed())
+	assert_near(root.formation_speed_cap_kn, Formation.stationing_cap(slow))
+	assert_near(section.formation_speed_cap_kn, Formation.stationing_cap(slow))
 	_clean(h)
 
 

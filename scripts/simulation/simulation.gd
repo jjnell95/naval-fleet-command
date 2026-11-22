@@ -338,7 +338,7 @@ func _step(dt: float) -> void:
 			# Lost to fire or flooding after the fact: the same destruction every other system
 			# already listens for, credited to whoever started it.
 			weapon_manager.unit_destroyed.emit(u, u.last_attacker)
-	for e: Dictionary in SubmarinePower.take_events():
+	for e: Dictionary in SubmarinePower.take_events() + TowedArray.take_events() + DippingSonar.take_events() + SubmarineComms.take_events():
 		casualty_event.emit(e["unit"], e["event"])
 	Debug.time_add("sim/units", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()
@@ -365,6 +365,7 @@ func _step(dt: float) -> void:
 		if not ai_controllers.has(player_faction):
 			AirDefence.engage_hostile_aircraft(unit_manager, track_manager, weapon_manager, SimClock.sim_time, [player_faction])
 		TorpedoDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
+		SubmarineInitiative.run_cycle(unit_manager, threat_manager)
 	Debug.time_add("sim/defence", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()
 	if ai_enabled:
