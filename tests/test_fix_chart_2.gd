@@ -86,3 +86,35 @@ func test_the_plot_still_follows_the_view_at_display_speed() -> void:
 			map._begin_plot_draw()
 	assert_eq(plot, 30, "a pan redraws the plot every frame it moves")
 	map.free()
+
+
+# --- The coast -----------------------------------------------------------------------------------
+
+func test_the_coast_is_stroked_when_the_view_moves_not_with_every_plot_draw() -> void:
+	var map := _map()
+	assert_true(map._coast_layer != null and map._coast_layer.show_behind_parent, "the coast has a layer of its own, under the plot")
+	var still := map.coast_view_key()
+	var was := SimClock.sim_time
+	SimClock.sim_time = was + 0.25
+	map._begin_plot_draw()
+	assert_eq(map.coast_view_key(), still, "a simulation tick redraws the plot and leaves the coast as it was")
+	SimClock.sim_time = was
+	map.center_nm += Vector2(3.0, 0.0)
+	assert_true(map.coast_view_key() != still, "a pan moves the coast")
+	map.free()
+
+
+func test_a_panned_coast_lands_where_a_fresh_projection_puts_it() -> void:
+	var map := TacticalMap.new()
+	map.size = Vector2(1200, 600)
+	map.ppn = 7.5
+	map.center_nm = Vector2(10.0, -4.0)
+	var coast := PackedVector2Array([Vector2(0, 0), Vector2(12.3, 4.7), Vector2(20.1, -9.6), Vector2(31.7, 2.2)])
+	map._coast_origin = map.center_nm
+	var projected := map._project_coast(coast, map._coast_origin)
+	map.center_nm = Vector2(-37.25, 18.5)
+	var shift := map.coast_shift()
+	for i in coast.size():
+		var fresh := map.world_to_screen(coast[i])
+		assert_true((projected[i] + shift).distance_to(fresh) < 0.001, "vertex %d drawn at %s, a fresh projection puts it at %s" % [i, projected[i] + shift, fresh])
+	map.free()

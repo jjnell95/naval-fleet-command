@@ -279,10 +279,15 @@ var _text_widths: Dictionary = {}  # "text@size" -> px
 var overlay_covered := false
 var _coast_runs: Dictionary = {}  # Landmass -> Array[PackedVector2Array], clip edges removed
 var _coast_key := ""
-## The coast projected to the screen for the current view (Landmass -> Array[PackedVector2Array]),
-## kept until the view moves: a still chart does not re-project every vertex of Norway each frame.
+## The coast projected to the screen at one scale (Landmass -> Array[PackedVector2Array]), about
+## `_coast_origin`: a pan only shifts it, and only a zoom or a resize re-projects every vertex of
+## Norway. The strokes are drawn by `_coast_layer` when the view moves, not with every plot draw.
 var _coast_screen: Dictionary = {}
 var _coast_view := PackedFloat32Array()
+var _coast_origin := Vector2.ZERO
+var _coast_layer: ChartCoast
+var _named_land: Array[Landmass] = []
+var _named_land_generation := -1
 
 
 func _ready() -> void:
@@ -318,6 +323,11 @@ func _ready() -> void:
 	_land.map = self
 	add_child(_land)
 	move_child(_land, 1)
+	_coast_layer = ChartCoast.new()
+	_coast_layer.name = "ChartCoast"
+	_coast_layer.map = self
+	add_child(_coast_layer)
+	move_child(_coast_layer, 2)
 	_marks = ChartMarks.new()
 	_marks.name = "ChartMarks"
 	_marks.map = self
@@ -1919,6 +1929,36 @@ func _draw_land() -> void:
 		var mesh := ChartLand.land_mesh()
 		if mesh != null:
 			draw_mesh(mesh, null, Transform2D(Vector2(ppn, 0), Vector2(0, ppn), world_to_screen(Vector2.ZERO)), COL_LAND)
+	if _coast_layer == null or not _coast_layer.is_inside_tree():
+		draw_coast(self)
+	if _named_land_generation != Terrain.generation:
+		_named_land_generation = Terrain.generation
+		_named_land.clear()
+		for l: Landmass in Terrain.landmasses:
+			if l.name != "":
+				_named_land.append(l)
+	for l: Landmass in _named_land:
+		if l.bounds.intersects(view):
+			_draw_land_name(l, view)
+
+
+## What the coast's strokes depend on: the view, the land and the scenario whose charted box
+## trims them. ChartCoast redraws when it changes.
+func coast_view_key() -> PackedFloat64Array:
+	return PackedFloat64Array([center_nm.x, center_nm.y, ppn, size.x, size.y, Terrain.generation, simulation.get_instance_id() if simulation != null else 0])
+
+
+## The coast is projected about `_coast_origin`; a pan since is a shift of the whole of it.
+func coast_shift() -> Vector2:
+	return Vector2((_coast_origin.x - center_nm.x) * ppn, (center_nm.y - _coast_origin.y) * ppn)
+
+
+## Strokes the coastline on `ci` (the coast layer, or this map outside the tree).
+func draw_coast(ci: CanvasItem) -> void:
+	if Terrain.is_empty():
+		return
+	var t0 := Time.get_ticks_usec()
+	var view := Rect2(screen_to_world(Vector2.ZERO), Vector2.ZERO).expand(screen_to_world(size))
 	var box := ChartFloor.stated_charted_box(simulation)
 	var key := "%d:%s" % [Terrain.generation, box]
 	if key != _coast_key:
@@ -1927,10 +1967,12 @@ func _draw_land() -> void:
 		_coast_screen.clear()
 		for l: Landmass in Terrain.landmasses:
 			_coast_runs[l] = coast_runs(l.points, box)
-	var view_key := PackedFloat32Array([center_nm.x, center_nm.y, ppn, size.x, size.y])
+	var view_key := PackedFloat32Array([ppn, size.x, size.y])
 	if view_key != _coast_view:
 		_coast_view = view_key
 		_coast_screen.clear()
+		_coast_origin = center_nm
+	ci.draw_set_transform(coast_shift())
 	for l: Landmass in Terrain.landmasses:
 		if not l.bounds.intersects(view):
 			continue
@@ -1941,13 +1983,13 @@ func _draw_land() -> void:
 		var lines: Array = _coast_screen.get(l, [])
 		if lines.is_empty():
 			for run: PackedVector2Array in _coast_runs.get(l, []):
-				lines.append(_project_coast(run))
+				lines.append(_project_coast(run, _coast_origin))
 			_coast_screen[l] = lines
 		for line: PackedVector2Array in lines:
 			if line.size() >= 2:
-				draw_polyline(line, COL_COASTLINE, 1.25, true)
-		if l.name != "":
-			_draw_land_name(l, view)
+				ci.draw_polyline(line, COL_COASTLINE, 1.25, true)
+	ci.draw_set_transform(Vector2.ZERO)
+	Debug.time_add("chart/strokes", Time.get_ticks_usec() - t0)
 
 
 ## A coastline as the runs to stroke. Where a polygon runs along the charted box's edge the scenario
@@ -2019,14 +2061,15 @@ func _draw_land_name(l: Landmass, view: Rect2) -> void:
 ## Projects a coastline and throws away detail finer than a pixel or so. A scenario chart is
 ## viewed from a whole ocean down to a single bay, and at the far end most of the vertices in a
 ## coastline land on top of each other.
-func _project_coast(world: PackedVector2Array) -> PackedVector2Array:
+func _project_coast(world: PackedVector2Array, origin: Vector2) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	if world.is_empty():
 		return out
-	var last := world_to_screen(world[0])
+	var half := size * 0.5
+	var last := Vector2(half.x + (world[0].x - origin.x) * ppn, half.y - (world[0].y - origin.y) * ppn)
 	out.append(last)
 	for i in range(1, world.size()):
-		var p := world_to_screen(world[i])
+		var p := Vector2(half.x + (world[i].x - origin.x) * ppn, half.y - (world[i].y - origin.y) * ppn)
 		if p.distance_squared_to(last) < COAST_MIN_STEP_PX * COAST_MIN_STEP_PX and i < world.size() - 1:
 			continue
 		out.append(p)
