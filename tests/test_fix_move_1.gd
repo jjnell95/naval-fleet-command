@@ -510,3 +510,124 @@ func test_the_remembered_plan_survives_a_save() -> void:
 	SimSnapshot._fill(old_save, {"auto_return": false}, refs)
 	assert_true(not old_save.plan_kept and old_save.plan_waypoints.is_empty(), "a save from before the plan was remembered loads with none")
 	h.free_all()
+
+
+# --- Fixed-wing aircraft: stand off, then hold ---------------------------------------------------
+
+func test_a_strike_aircraft_holds_off_the_ship_it_fired_at_and_holds_when_the_attack_ends() -> void:
+	# Out of range and closing, in range on a bare course straight at the target, and in range on a
+	# route that runs on over the target: none of them may fly in on the ship after release.
+	for approach: String in ["closing from out of range", "on a course at the target", "on a route over the target"]:
+		var strike := _unit("BLUE", Vector2(0, -150) if approach == "closing from out of range" else Vector2(0, -55), 100.0, [_asm(60.0)], 4, "air")
+		var target := _unit("RED", Vector2.ZERO, 5000.0)
+		var h := _harness([strike, target])
+		if approach == "on a route over the target":
+			assert_true(h.um.issue_order(strike, Order.move(Vector2(0, 200))))
+		var t := _track(target)
+		assert_true(h.um.issue_order(strike, Order.attack(t)), approach)
+		var released_at := [-1.0]
+		var closest := [INF]
+		var slowest := [INF]
+		var held := [false]
+		var watch := func() -> void:
+			slowest[0] = minf(slowest[0], strike.speed_kn)
+			if strike.attack_rounds_fired > 0:
+				if released_at[0] < 0.0:
+					released_at[0] = strike.position.distance_to(target.position)
+				closest[0] = minf(closest[0], strike.position.distance_to(target.position))
+				if strike.attack_track != null and strike.holding():
+					held[0] = true
+		assert_true(h.until(func() -> bool: return not h.ended.is_empty(), 3600.0, watch), approach)
+		assert_eq(h.ended[0][2], "Magazines empty", approach)
+		assert_true(released_at[0] > 40.0, "%s: it releases from stand-off range (%.1f nm)" % [approach, released_at[0]])
+		assert_true(closest[0] >= 0.7 * released_at[0], "%s: after release it comes no nearer than 0.7 of the firing range (closest %.1f, fired at %.1f nm)" % [approach, closest[0], released_at[0]])
+		assert_true(held[0], "%s: it waits for the result in a hold on its own side of the target" % approach)
+		assert_true(slowest[0] >= strike.spec.flight_speed("patrol") * Movement.MIN_FLYING_FRACTION, "%s: never below flying speed" % approach)
+		if approach == "on a route over the target":
+			assert_eq(strike.waypoints, [Vector2(0, 200)], "the route it was on is its own again once the attack is over")
+		else:
+			assert_true(strike.holding(), "%s: with nowhere to go back to, it holds where the attack ended" % approach)
+			var ended_at := strike.position
+			h.advance(2400.0)
+			assert_true(strike.position.distance_to(ended_at) < 25.0, "%s: forty minutes later it is still there, not %.0f nm away on its last heading" % [approach, strike.position.distance_to(ended_at)])
+		h.free_all()
+
+
+func test_a_fighter_holds_where_its_intercept_ended_instead_of_flying_on_to_bingo() -> void:
+	var aam := _asm(40.0, 200.0)
+	aam.type = "aam"
+	aam.target_types = PackedStringArray(["air"])
+	aam.speed_kn = 2400.0
+	var fighter := _unit("BLUE", Vector2.ZERO, 100.0, [aam], 4, "air")
+	var bandit := _unit("RED", Vector2(0, 130), 100.0, [], 0, "air")
+	bandit.heading_deg = 180.0
+	bandit.ordered_heading_deg = 180.0
+	var h := _harness([fighter, bandit])
+	var t := _track(bandit)
+	h.plots.append(t)
+	assert_true(h.um.issue_order(fighter, Order.attack(t)))
+	assert_true(h.until(func() -> bool: return not h.ended.is_empty(), 1800.0), "the intercept is flown and ends")
+	assert_eq(h.ended[0][2], "Target destroyed")
+	assert_true(fighter.holding(), "with the bandit down and no station to go back to, the fighter holds")
+	var ended_at := fighter.position
+	h.advance(2640.0)
+	assert_true(fighter.position.distance_to(ended_at) < 25.0, "44 minutes later it is %.0f nm from where the intercept ended" % fighter.position.distance_to(ended_at))
+	h.free_all()
+
+
+# --- The read-out after the crew goes back to station ---------------------------------------------
+
+func test_the_result_stays_on_the_read_out_after_the_crew_returns_to_station() -> void:
+	var guide := _unit("BLUE", Vector2.ZERO)
+	guide.callsign = "Guide"
+	var escort := _unit("BLUE", Vector2(4, 6), 100.0, [_gun(30.0)], 400)
+	var target := _unit("RED", Vector2(14, 22), 60.0)
+	var h := _harness([guide, escort, target])
+	assert_true(h.um.issue_order(guide, Order.move(Vector2(0, 300))))
+	assert_true(h.um.issue_order(guide, Order.set_speed(12.0)))
+	var form := Order.form_up(guide, Vector2(4, 6))
+	form.station_label = "SCREEN STATION"
+	assert_true(h.um.issue_order(escort, form))
+	h.advance(60.0)
+	var t := _track(target)
+	assert_true(h.um.issue_order(escort, Order.attack(t)))
+	assert_true(h.until(func() -> bool: return not h.ended.is_empty(), 7200.0))
+	h.advance(DT)
+	assert_true(escort.on_station(), "the crew has gone back to the screen")
+	assert_eq(escort.attack_result, "Target destroyed", "and what the attack achieved is still on the read-out")
+	assert_eq(escort.attack_track_id, t.id, "against the track it concerned")
+	var line := DataDisplay.orders_text(escort)
+	assert_true(line.begins_with("Returning to screen station"), "the line says what she is doing now first: %s" % line)
+	assert_true(line.ends_with("Target destroyed"), "then what the task found: %s" % line)
+	assert_true(h.until(func() -> bool: return escort.position.distance_to(escort.station_point()) < 0.5, 7200.0))
+	assert_true(DataDisplay.orders_text(escort).begins_with("On screen station"), DataDisplay.orders_text(escort))
+	assert_true(h.um.issue_order(escort, Order.break_formation()))
+	assert_eq(escort.attack_result, "", "the commander's next navigation order clears it")
+	h.free_all()
+
+
+func test_an_aircraft_on_its_way_home_says_so_before_it_repeats_an_old_result() -> void:
+	var jet := _unit("BLUE", Vector2.ZERO, 100.0, [_asm(60.0)], 4, "air")
+	jet.attack_track_id = "T1001"
+	jet.attack_result = "Target destroyed"
+	assert_eq(DataDisplay.orders_text(jet), "Track 1001: Target destroyed")
+	jet.returning = true
+	assert_eq(DataDisplay.orders_text(jet), "Return to base · Track 1001: Target destroyed")
+
+
+func test_the_identification_result_survives_the_return_to_a_patrol() -> void:
+	var picket := _unit("BLUE", Vector2.ZERO)
+	var contact := _unit("RED", Vector2(30, 5))
+	var h := _harness([picket, contact])
+	assert_true(h.um.issue_order(picket, Order.patrol_box(Vector2(-8, -8), Vector2(8, 8))))
+	h.advance(30.0)
+	var t := _track(contact, "UNKNOWN")
+	assert_true(h.um.issue_order(picket, Order.investigate(t)))
+	h.advance(60.0)
+	t.classification = Track.Classification.IDENTIFIED
+	t.identity = "NEUTRAL"
+	h.advance(1.0)
+	assert_true(picket.patrol_active, "the look is over and she is back on her circuit")
+	assert_eq(picket.investigation_result, "Contact classified", "with what she found still readable")
+	assert_eq(picket.investigation_track_id, t.id)
+	h.free_all()
