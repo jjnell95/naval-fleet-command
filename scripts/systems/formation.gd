@@ -4,7 +4,17 @@ class_name Formation
 ## is told to break.
 
 const STATION_TOLERANCE_NM := 0.4
-const CATCHUP_GAIN := 2.0
+## Beyond this gap a consort steams at all her plant gives to regain station; inside it she eases
+## in, closing in proportion to the gap so she settles on the station instead of running past it.
+## GAMEPLAY_ESTIMATE.
+const STATIONING_FULL_NM := 0.7
+## The guide paces the group this far under the slowest consort, so every consort has knots in
+## hand to regain station after the guide turns. GAMEPLAY_ESTIMATE.
+const STATIONING_RESERVE_KN := 4.0
+## A consort a little ahead of her station, with the guide under way, keeps at least this much way
+## on along the guide's course and lets the station come up to her, rather than turning back for
+## it. Further off she turns for it: that is quicker than waiting.
+const STEERAGE_KN := 3.0
 
 ## Offsets are given in the leader's frame: x to starboard, y ahead, in nautical miles.
 const PATTERNS := {
@@ -28,21 +38,48 @@ static func station_for(u: Unit) -> Vector2:
 	return Terrain.nearest_water(station, leader.position)
 
 
-## Steers one unit toward its station. Runs before Movement each tick.
+## Steers one unit toward its station. Runs before Movement each tick. The consort is given the
+## velocity that keeps her on a station moving with the guide, the guide's own course and speed,
+## plus a closing velocity toward the station: all she has until about a mile out, then in
+## proportion to the gap, so the error decays in a couple of minutes without overshoot. Chasing
+## the station point itself, as a pursuit does, leaves her forever astern of a moving station.
 static func step(u: Unit) -> void:
 	if not u.in_formation() or u.evasion_remaining_s > 0:
 		return
 	var leader := u.formation_leader
-	var station := station_for(u)
-	var gap := u.position.distance_to(station)
+	var to_station := station_for(u) - u.position
+	var gap := to_station.length()
 	u.waypoints.clear()
-	if gap <= STATION_TOLERANCE_NM:
+	var top := u.effective_max_speed()
+	var guide_v := Geo.heading_to_vector(leader.heading_deg) * leader.speed_kn
+	var want := guide_v
+	if gap > 1e-6:
+		var toward := to_station / gap
+		want = guide_v + toward * top * minf(gap / STATIONING_FULL_NM, 1.0)
+		if want.length() > top:
+			# The fastest closing her plant allows on the guide's movement: the intercept.
+			var along := guide_v.dot(toward)
+			var disc := along * along - guide_v.length_squared() + top * top
+			want = guide_v + toward * maxf(sqrt(disc) - along, 0.0) if disc >= 0.0 else toward * top
+	if leader.speed_kn >= STEERAGE_KN and gap <= STATIONING_FULL_NM:
+		var ahead := Geo.heading_to_vector(leader.heading_deg)
+		var forward := want.dot(ahead)
+		if forward < STEERAGE_KN:
+			want += ahead * (STEERAGE_KN - forward)
+	var speed := want.length()
+	if speed < 0.5 or (gap <= STATION_TOLERANCE_NM and leader.speed_kn < STEERAGE_KN and speed < 1.0):
+		# On station with the guide stopped: lie with her, not circle the point.
 		u.ordered_heading_deg = leader.heading_deg
-		u.ordered_speed_kn = clampf(leader.speed_kn, 0.0, u.effective_max_speed())
+		u.ordered_speed_kn = 0.0
 		return
-	u.ordered_heading_deg = Geo.bearing_deg(u.position, station)
-	# Close the gap without overshooting: match the leader and add a little for the distance.
-	u.ordered_speed_kn = clampf(leader.speed_kn + gap * CATCHUP_GAIN, 1.0, u.effective_max_speed())
+	u.ordered_heading_deg = Geo.vector_to_heading(want)
+	u.ordered_speed_kn = clampf(speed, 0.0, top)
+
+
+## The fastest the guide may go and leave this consort enough in hand to keep her station.
+static func stationing_cap(u: Unit) -> float:
+	var top := u.effective_max_speed()
+	return minf(maxf(top - STATIONING_RESERVE_KN, top * 0.8), TowedArray.speed_limit(u))
 
 
 ## The first unit remains the commander's guide. Role screens rank eligible consorts by fitted
@@ -132,8 +169,8 @@ static func can_join(u: Unit, leader: Unit) -> bool:
 	return true
 
 
-## The flagship paces the slowest consort, including battle damage, while consorts retain speed
-## in reserve to regain station. Dead flagships pass command to a surviving group member.
+## The flagship paces the slowest consort, including battle damage, a few knots under her best so
+## consorts retain speed in reserve to regain station. Dead flagships pass command to a surviving group member.
 static func update_speed_caps(units: Array) -> void:
 	var orphan_groups: Dictionary = {}
 	# Consorts away on a task keep their station on the lost guide; they follow the succession too.
@@ -193,7 +230,7 @@ static func update_speed_caps(units: Array) -> void:
 			var seen: Dictionary = {}
 			while leader != null and leader.alive and not seen.has(leader):
 				seen[leader] = true
-				leader.formation_speed_cap_kn = minf(leader.formation_speed_cap_kn, minf(u.effective_max_speed(), TowedArray.speed_limit(u)))
+				leader.formation_speed_cap_kn = minf(leader.formation_speed_cap_kn, stationing_cap(u))
 				leader = leader.formation_leader
 
 
