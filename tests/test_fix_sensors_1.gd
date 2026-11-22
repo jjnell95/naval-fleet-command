@@ -518,15 +518,22 @@ func test_a_contact_dropped_and_found_elsewhere_gets_a_new_number() -> void:
 	u.id = 41
 	tm.observe("BLUE", u, Vector2(0, 30), 0.5, 1.0, 1.0, 1.0, 30.0)
 	var first := tm.find_track("BLUE", u).id
+	tm.find_track("BLUE", u).identity = "HOSTILE"
 	_coast(tm, 2, 700)
 	assert_true(tm.find_track("BLUE", u) == null, "the contact was dropped")
 	tm.observe("BLUE", u, Vector2(60, -20), 0.5, 1.0, 701.0, 1.0, 60.0)
 	var again := tm.find_track("BLUE", u)
 	assert_true(again.id != first, "found again seventy miles away it is a new contact, not the old number (%s then %s)" % [first, again.id])
+	assert_eq(again.identity, "UNKNOWN", "and nothing known of the old contact is credited to it")
+	again.identity = "HOSTILE"
+	again.classification = Track.Classification.CLASS_KNOWN
+	again.known_class = "TEST"
 	_coast(tm, 702, 1400)
 	assert_true(tm.find_track("BLUE", u) == null)
 	tm.observe("BLUE", u, again.position + Vector2(1.0, 0.5), 0.5, 1.0, 1401.0, 1.0, 60.0)
-	assert_eq(tm.find_track("BLUE", u).id, again.id, "found again inside the ellipse it was dropped with, it is the same contact")
+	var same := tm.find_track("BLUE", u)
+	assert_eq(same.id, again.id, "found again inside the ellipse it was dropped with, it is the same contact")
+	assert_true(same.identity == "HOSTILE" and same.classification == Track.Classification.CLASS_KNOWN and same.known_class == "TEST", "and keeps what was known of it")
 	tm.free()
 
 

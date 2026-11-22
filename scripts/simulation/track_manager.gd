@@ -55,9 +55,13 @@ var _by_target: Dictionary = {}  # picture key -> reported target association ->
 var _local_keys: Dictionary = {}
 var _track_ids: Dictionary = {}
 ## Contacts a side has dropped from every picture: side and unit key -> the number the track had,
-## where it was last plotted and how wide its ellipse was. A new plot inside that ellipse is the
-## same contact found again and takes the number back; anywhere else it is a new contact.
+## where it was last plotted, how wide its ellipse was and what had been learnt about it. A new
+## plot inside that ellipse is the same contact found again: it takes the number back, and what
+## was known with it. Anywhere else it is a new contact and starts from nothing.
 var _dropped_ids: Dictionary = {}
+## What a plot remembers of a contact it has dropped, should it turn up again where it was.
+const REMEMBERED_FIELDS: Array[String] = ["classification", "identity", "domain", "known_class", "known_category", "known_callsign",
+	"class_is_probable", "class_evidence", "identity_evidence", "observation_time_s", "signature_time_s", "radar_recognition_s", "damage_estimate"]
 var _next_number: Dictionary = {}  # faction -> int
 
 
@@ -151,6 +155,9 @@ func _new_track(key: String, faction: String, target: Unit, position: Vector2, n
 		_dropped_ids.erase(identity_key)
 		if not dropped.is_empty() and position.distance_to(dropped["position"]) <= float(dropped["error"]) + SAME_CONTACT_MARGIN_NM:
 			_track_ids[identity_key] = dropped["id"]
+			var known: Dictionary = dropped.get("known", {})
+			for field: String in known:
+				t.set(field, known[field])
 		else:
 			_track_ids[identity_key] = "T%d" % _next_id(faction)
 	t.id = _track_ids[identity_key]
@@ -474,7 +481,10 @@ func _release_number(t: Track) -> void:
 	var identity_key := "%s:%s" % [t.owner_faction, _unit_key(t.truth)]
 	if _track_ids.get(identity_key, "") == t.id:
 		_track_ids.erase(identity_key)
-		_dropped_ids[identity_key] = {"id": t.id, "position": t.position, "error": t.position_error_nm}
+		var known := {}
+		for field in REMEMBERED_FIELDS:
+			known[field] = t.get(field)
+		_dropped_ids[identity_key] = {"id": t.id, "position": t.position, "error": t.position_error_nm, "known": known}
 
 
 func _any_contributor_linked(t: Track) -> bool:
