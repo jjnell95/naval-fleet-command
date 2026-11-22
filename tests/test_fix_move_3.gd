@@ -435,3 +435,62 @@ func test_a_diesel_boat_out_of_touch_snorkels_by_herself_at_critical_battery() -
 	assert_true(SubmarinePower.on_diesels(boat), "and charges")
 	assert_true(boat.comms_initiative_report.contains("snorkel"), "which she reports once she is up: '%s'" % boat.comms_initiative_report)
 	um.free()
+
+
+
+# --- A standing attack with a neutral in the line of fire ---------------------------------
+
+func test_a_standing_attack_holds_fire_while_a_neutral_is_in_the_line_and_fires_once_it_clears() -> void:
+	Terrain.clear()
+	var shooter := _ship(Vector2.ZERO, "Shooter")
+	shooter.roe = Unit.Roe.FREE
+	var warship := _ship(Vector2(0.0, 30.0), "Warship")
+	warship.faction = "RED"
+	var merchant := _ship(Vector2(0.6, 29.6), "Merchant")
+	merchant.faction = "NEUTRAL"
+	var um := UnitManager.new()
+	for u: Unit in [shooter, warship, merchant]:
+		um.add_unit(u)
+	var tm := TrackManager.new()
+	var wm := WeaponManager.new()
+	wm.unit_manager = um
+	wm.track_manager = tm
+	wm.rng.seed = 11
+	um.weapon_manager = wm
+	var tracks: Array = []
+	for pair: Array in [[warship, "T1", "HOSTILE"], [merchant, "T2", "NEUTRAL"]]:
+		var t := Track.new()
+		t.id = pair[1]
+		t.owner_faction = "BLUE"
+		t.truth = pair[0]
+		t.position = (pair[0] as Unit).position
+		t.position_error_nm = 0.1
+		t.status = Track.Status.ACTIVE
+		t.domain = "surface"
+		t.identity = pair[2]
+		t.classification = Track.Classification.CLASS_KNOWN
+		tracks.append(t)
+	tm._tracks["BLUE"] = tracks
+	var target: Track = tracks[0]
+	assert_true(um.issue_order(shooter, Order.attack(target)), "the attack is accepted: traffic moves")
+	var now := 0.0
+	while now < UnitManager.ATTACK_STALL_S + 120.0:
+		now += DT
+		um.tick(DT, now)
+		wm.tick(DT, now)
+		for i in 2:  # the plots stay where the ships are
+			(tracks[i] as Track).position = (tracks[i].truth as Unit).position
+	assert_true(shooter.attack_track == target, "the task is kept past the stall time while the line is fouled")
+	assert_eq(shooter.attack_rounds_fired, 0, "and nothing is fired into the neutral")
+	assert_true(shooter.attack_phase.to_lower().contains("neutral"), "the phase says why: '%s'" % shooter.attack_phase)
+	merchant.position = Vector2(-20.0, 10.0)
+	(tracks[1] as Track).position = merchant.position
+	var until := now + 60.0
+	while now < until and shooter.attack_rounds_fired == 0:
+		now += DT
+		um.tick(DT, now)
+		wm.tick(DT, now)
+	assert_true(shooter.attack_rounds_fired > 0, "once the traffic has cleared she fires")
+	wm.free()
+	tm.free()
+	um.free()

@@ -668,6 +668,15 @@ func _step_attack(u: Unit, dt: float) -> void:
 				_end_attack(u, track, NO_SEA_ROUTE_TO_FIRE)
 				return
 			u.ordered_speed_kn = _closing_speed(u, track)
+		"NEUTRAL IN THE LINE OF FIRE":
+			# A neutral or a friend lies where the round's seeker would look. Traffic moves: hold
+			# fire, keep the task and the geometry, and shoot when the line is clear. This is not
+			# a stall; the commander sees why and can cancel.
+			u.attack_phase = "Holding fire · neutral in the line of fire"
+			u.attack_stall_s = 0.0
+			u.attack_progress_pos = u.position
+			_keep_geometry(u, track, standoff, dt)
+			return
 		"TOO CLOSE":
 			u.attack_phase = "Opening to range"
 			goal = _steer_attack(u, track, maxf(spec.min_range_nm * 1.5, 1.0), dt, true)
