@@ -352,3 +352,35 @@ func test_a_quick_look_at_a_ship_is_not_flown_by_an_unarmed_aircraft() -> void:
 	assert_true(DataDB.platform(air.aircraft_id).weapon_loadout.is_empty() or DataDB.platform(air.aircraft_id).can_hover, "an air contact is still the Hawkeye's or a helicopter's")
 	_done()
 
+
+# --- Ready alert -------------------------------------------------------------------------
+
+## A Backfire closing from 180 nm is outside the old trigger but inside its own missile's reach of
+## the carrier: the alert goes now, with a pursuit that reaches the raid, though a CAP is already
+## up on the other side of the ship and is not going for it.
+func test_the_ready_alert_answers_a_raid_closing_inside_its_missile_reach() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var cap := Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 2, cv.position + Vector2(0, -30), 12.0)
+	assert_true(_sim.unit_manager.issue_order(cv, cap), cap.receipt)
+	var standing: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
+	_advance(300.0)
+	assert_true(_sim.unit_manager.issue_order(cv, Order.set_ready_alert(2)))
+	var raid := _plot(cv.position + Vector2(0, 180), "T1980", 9000.0)
+	raid.domain = "air"
+	raid.identity = "HOSTILE"
+	raid.classification = Track.Classification.CLASS_KNOWN
+	raid.has_kinematics = true
+	raid.speed_kn = 500.0
+	raid.course_deg = Geo.bearing_deg(raid.position, cv.position)
+	_advance(3.0)
+	assert_eq(cv.ready_alert, 0, "the alert scrambled")
+	var alert: AirMission = null
+	for m in _sim.air_mission_manager.active_missions("BLUE"):
+		if m != standing:
+			alert = m
+	assert_true(alert != null, "a second CAP, toward the raid")
+	assert_true(alert.station.distance_to(raid.position) < raid.position.distance_to(cv.position), "laid toward the raid")
+	assert_true(not alert.aircraft.is_empty())
+	assert_true(AirMissionManager.cap_commits(alert, alert.aircraft[0], raid), "its fighters go for the raid: pursuit %.0f nm from %.0f nm" % [alert.pursuit_nm, alert.station.distance_to(raid.position)])
+	_done()

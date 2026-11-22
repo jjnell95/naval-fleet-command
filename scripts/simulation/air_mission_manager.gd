@@ -49,11 +49,14 @@ const DIP_INTERVAL_S := 240.0
 const AIRBORNE_ALTITUDE_M := 30.0
 ## Ready alert. A deck holding fighters on alert scrambles them into a CAP between itself and a
 ## hostile air raid that comes within this distance, or that is closing on it within the wider
-## one. The CAP is laid toward the raid at this fraction of its range, no further out than the
-## cap. GAMEPLAY_ESTIMATE throughout; the alert is spent by the scramble and set again by order.
+## one: a raid's stand-off missiles reach 200 nm and more, so the alert has to go while the raid is
+## still outside that. The CAP is laid toward the raid at this fraction of its range, no further
+## out than the cap, with a pursuit that reaches the raid. A CAP the deck already has up does not
+## hold the alert back unless it is already going for that raid. GAMEPLAY_ESTIMATE throughout; the
+## alert is spent by the scramble and set again by order.
 const MAX_READY_ALERT := 4
 const ALERT_TRIGGER_NM := 60.0
-const ALERT_CLOSING_TRIGGER_NM := 120.0
+const ALERT_CLOSING_TRIGGER_NM := 220.0
 const ALERT_STATION_FRACTION := 0.5
 const ALERT_STATION_MAX_NM := 40.0
 const ALERT_RADIUS_NM := 15.0
@@ -712,12 +715,15 @@ static func alert_fighter_type(base: Unit) -> String:
 	return best
 
 
-## The nearest hostile air contact that should bring an alert deck's fighters up, or null.
+## The nearest hostile air contact that should bring an alert deck's fighters up, or null. A raid
+## the deck's own CAP is already going for needs no scramble.
 func _alert_threat(base: Unit) -> Track:
 	var best: Track = null
 	var best_d := INF
 	for t: Track in track_manager.tracks_for(base):
 		if t.identity != "HOSTILE" or t.status != Track.Status.ACTIVE or not _probably_air(t) or t.is_bearing_only():
+			continue
+		if _cap_committed_to(base, t):
 			continue
 		var d := t.position.distance_to(base.position)
 		var closing := false
@@ -729,20 +735,26 @@ func _alert_threat(base: Unit) -> Track:
 	return best
 
 
+## Whether a CAP from this deck has an airframe going for this raid.
+func _cap_committed_to(base: Unit, t: Track) -> bool:
+	for m in missions:
+		if not m.active or m.base != base or m.kind != AirMission.Kind.CAP:
+			continue
+		if m.intercept and m.target == t:
+			return true
+		for a in m.aircraft:
+			if a.alive and a.attack_track == t:
+				return true
+	return false
+
+
 ## Decks on alert with a raid coming: launch the alert as a CAP toward it. A deck already flying a
-## CAP of its own is already answering, and keeps its alert for the next raid.
+## CAP that is going for that raid keeps its alert for the next one.
 func _scramble_alerts() -> void:
 	if track_manager == null:
 		return
 	for base: Unit in unit_manager.units:
 		if base.ready_alert <= 0 or not base.alive or not base.is_engageable():
-			continue
-		var flying_cap := false
-		for m in missions:
-			if m.active and m.base == base and m.kind == AirMission.Kind.CAP:
-				flying_cap = true
-				break
-		if flying_cap:
 			continue
 		var threat := _alert_threat(base)
 		if threat == null:
@@ -756,7 +768,9 @@ func _scramble_alerts() -> void:
 		var count := mini(base.ready_alert, available)
 		var bearing := (threat.position - base.position).normalized()
 		var reach := minf(base.position.distance_to(threat.position) * ALERT_STATION_FRACTION, ALERT_STATION_MAX_NM)
-		var order := Order.air_mission(AirMission.Kind.CAP, pid, count, base.position + bearing * reach, ALERT_RADIUS_NM)
+		var station := base.position + bearing * reach
+		var order := Order.air_mission(AirMission.Kind.CAP, pid, count, station, ALERT_RADIUS_NM)
+		order.pursuit_nm = clampf(station.distance_to(threat.position) - ALERT_RADIUS_NM, COMMIT_MARGIN_NM, MAX_RADIUS_NM)
 		order.origin = "crew"
 		var m := request(base, order)
 		if m == null:
