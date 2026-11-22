@@ -1,0 +1,201 @@
+extends TestCase
+## An enemy that fights back: a unit under fire answers, picks shots the launcher will take, and a
+## boat works its contact into a solution and shoots. Every contact is a plot on RED's picture.
+
+const DT := 0.25
+
+
+func _platform(hp := 100.0) -> PlatformSpec:
+	var p := PlatformSpec.new()
+	p.short_name = "DDG Test"
+	p.max_speed_kn = 28.0
+	p.cruise_speed_kn = 14.0
+	p.health = hp
+	p.fire_control_channels = 4
+	return p
+
+
+func _radar() -> SensorSpec:
+	var s := SensorSpec.new()
+	s.kind = "radar"
+	s.range_surface_nm = 40.0
+	s.range_air_nm = 200.0
+	s.antenna_height_m = 20.0
+	return s
+
+
+func _asm(max_range := 60.0) -> WeaponSpec:
+	var w := WeaponSpec.new()
+	w.id = "test_asm"
+	w.display_name = "Test ASM"
+	w.type = "asm"
+	w.max_range_nm = max_range
+	w.min_range_nm = 2.0
+	w.speed_kn = 480.0
+	w.seeker_range_nm = 8.0
+	w.damage = 40.0
+	w.base_pk = 0.8
+	return w
+
+
+func _ship(callsign: String, pos: Vector2, weapon: WeaponSpec = null, rounds := 8, faction := "RED") -> Unit:
+	var u := Unit.new()
+	u.spec = _platform()
+	u.faction = faction
+	u.callsign = callsign
+	u.position = pos
+	u.health = 100.0
+	u.sensors.append(_radar())
+	if weapon != null:
+		u.weapons.append(weapon)
+		u.magazines[weapon.id] = rounds
+	return u
+
+
+class Harness:
+	extends RefCounted
+	var um: UnitManager
+	var tm: TrackManager
+	var threats: ThreatManager
+	var wm: WeaponManager
+	var ai: AIController
+	var orders: Array = []
+
+	func free_all() -> void:
+		orders.clear()
+		um.clear()
+		ai.free()
+		wm.free()
+		threats.free()
+		tm.free()
+		um.free()
+
+
+func _harness(units: Array, plans: Array = []) -> Harness:
+	Terrain.clear()
+	var h := Harness.new()
+	h.um = UnitManager.new()
+	for u: Unit in units:
+		h.um.add_unit(u)
+	h.tm = TrackManager.new()
+	h.threats = ThreatManager.new()
+	h.wm = WeaponManager.new()
+	h.wm.unit_manager = h.um
+	h.wm.track_manager = h.tm
+	h.wm.rng.seed = 5
+	h.ai = AIController.new()
+	h.ai.faction = "RED"
+	h.ai.unit_manager = h.um
+	h.ai.track_manager = h.tm
+	h.ai.threat_manager = h.threats
+	h.ai.weapon_manager = h.wm
+	h.ai.configure_plans(plans)
+	h.um.order_issued.connect(func(u: Unit, o: Order) -> void: h.orders.append({"unit": u, "order": o}))
+	return h
+
+
+## A contact on RED's plot with no truth behind it.
+func _plot(h: Harness, id: String, pos: Vector2, category := "frigate", cls := "FFG Test") -> Track:
+	var t := Track.new()
+	t.id = id
+	t.owner_faction = "RED"
+	t.position = pos
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "HOSTILE"
+	t.domain = "surface"
+	t.known_category = category
+	t.known_class = cls
+	t.status = Track.Status.ACTIVE
+	t.has_kinematics = true
+	t.course_deg = 90.0
+	t.speed_kn = 12.0
+	if not h.tm._tracks.has("RED"):
+		h.tm._tracks["RED"] = []
+	h.tm._tracks["RED"].append(t)
+	return t
+
+
+func _orders_of(h: Harness, type: Order.Type, u: Unit = null) -> Array:
+	return h.orders.filter(func(e: Dictionary) -> bool: return e["order"].type == type and (u == null or e["unit"] == u))
+
+
+## A round of BLUE's closing on `target`, seen by RED.
+func _inbound(h: Harness, target: Unit, from: Vector2) -> Weapon:
+	var w := Weapon.new()
+	w.id = 700
+	w.spec = _asm()
+	w.faction = "BLUE"
+	w.position = from
+	w.acquired = target
+	w.heading_deg = Geo.bearing_deg(from, target.position)
+	w.phase = Weapon.Phase.TERMINAL
+	h.wm.in_flight.append(w)
+	h.threats.mark_detected("RED", w, 100.0)
+	return w
+
+
+# --- A unit under fire shoots back ---------------------------------------------------------
+
+func test_a_striker_waiting_on_its_plan_answers_the_ship_that_is_shooting_at_it() -> void:
+	var red := _ship("RED-1", Vector2.ZERO, _asm(60.0))
+	# Shipping is what the plan is after and none is held yet, so the group is still looking.
+	var h := _harness([red], [{"id": "plan", "faction": "RED", "kind": "attack_shipping", "units": ["RED-1"], "priorities": ["merchant"], "threat_nm": 4, "search_window_s": 3000}])
+	var frigate := _plot(h, "T4001", Vector2(0, 7))
+	h.ai.tick(100.0)
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "a frigate outside the threat radius is left alone while nothing shoots")
+	# The frigate's rounds start landing: the striker knows it is being shot at.
+	h.wm.weapon_impact.emit("BLUE", _asm(), red, true)
+	h.ai.tick(102.0)
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_eq(shots.size(), 1, "a ship being shot at shoots back at the hostile it holds and can reach")
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].track, frigate)
+	h.free_all()
+
+
+func test_a_ship_turning_away_from_a_round_still_fires_at_the_shooter() -> void:
+	var red := _ship("RED-1", Vector2.ZERO, _asm(60.0))
+	var blue := _ship("BLUE-1", Vector2(0, 20), null, 0, "BLUE")
+	var h := _harness([red, blue])
+	var t := _plot(h, "T4002", Vector2(0, 20))
+	_inbound(h, red, Vector2(0, 10))
+	h.ai.tick(100.0)
+	assert_eq(h.ai.state_name(red), "DEFEND", "the round coming at it still comes first")
+	var shots := _orders_of(h, Order.Type.ENGAGE)
+	assert_eq(shots.size(), 1, "and the ship fights back while it turns")
+	if not shots.is_empty():
+		assert_eq(shots[0]["order"].track, t)
+	h.free_all()
+
+
+func test_weapons_tight_answers_fire_and_weapons_hold_does_not() -> void:
+	var red := _ship("RED-1", Vector2.ZERO, _asm(60.0))
+	red.roe = Unit.Roe.TIGHT
+	var h := _harness([red])
+	_plot(h, "T4003", Vector2(0, 20))
+	h.ai.tick(100.0)
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "weapons tight starts nothing")
+	h.wm.weapon_impact.emit("BLUE", _asm(), red, false)
+	h.ai.tick(102.0)
+	assert_eq(_orders_of(h, Order.Type.ENGAGE).size(), 1, "but a ship shot at under weapons tight shoots back at a hostile")
+	h.free_all()
+	var held := _ship("RED-1", Vector2.ZERO, _asm(60.0))
+	held.roe = Unit.Roe.HOLD
+	var h2 := _harness([held])
+	_plot(h2, "T4004", Vector2(0, 20))
+	h2.wm.weapon_impact.emit("BLUE", _asm(), held, true)
+	h2.ai.tick(102.0)
+	assert_true(_orders_of(h2, Order.Type.ENGAGE).is_empty(), "an explicit hold is obeyed even under fire")
+	h2.free_all()
+
+
+func test_under_fire_wears_off() -> void:
+	var red := _ship("RED-1", Vector2.ZERO, _asm(60.0))
+	red.roe = Unit.Roe.TIGHT
+	var h := _harness([red])
+	_plot(h, "T4005", Vector2(0, 20))
+	h.wm.now_s = 100.0
+	h.wm.weapon_impact.emit("BLUE", _asm(), red, false)
+	h.ai.tick(100.0 + AIController.UNDER_FIRE_MEMORY_S + 10.0)
+	assert_true(_orders_of(h, Order.Type.ENGAGE).is_empty(), "long after the last round a tight ship starts nothing again")
+	h.free_all()
