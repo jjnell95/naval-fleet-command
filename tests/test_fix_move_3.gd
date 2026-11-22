@@ -374,3 +374,64 @@ func test_a_dipping_helicopter_holds_the_dip_for_a_hover_order_and_reports_raisi
 	var events := DippingSonar.take_events()
 	assert_true(events.size() == 1 and events[0]["event"] == "dip_raising", "and the crew says the dome is coming up")
 	um.free()
+
+
+func _fish(boat: Unit, tm: ThreatManager, from: Vector2) -> Weapon:
+	var fish := Weapon.new()
+	fish.id = 9101
+	fish.faction = "RED"
+	fish.spec = DataDB.weapon("cw90_53_65")
+	fish.position = from
+	fish.heading_deg = Geo.bearing_deg(from, boat.position)
+	fish.acquired = boat
+	tm.mark_detected(boat.faction, fish, 0.0, boat)
+	return fish
+
+
+func test_a_boat_out_of_touch_turns_away_from_a_torpedo_she_hears_and_reports_it_at_check_in() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var boat := _classic_boat(um, "usn_ssn_virginia", 200.0)
+	_run(um, 1.0)
+	assert_true(not SubmarineComms.connected(boat), "deep and out of touch")
+	var tm := ThreatManager.new()
+	_fish(boat, tm, boat.position + Vector2(3.0, 0.0))
+	SubmarineInitiative.run_cycle(um, tm)
+	assert_true(boat.evasion_remaining_s > 0.0, "she turns away without waiting for orders")
+	assert_true(absf(Geo.heading_delta(boat.evasion_course_deg, 270.0)) < 1.0, "away from the torpedo")
+	assert_eq(boat.comms_initiative.size(), 1, "and the crew logs it for the next report")
+	SubmarineComms.take_events()
+	assert_true(um.issue_order(boat, Order.request_sub_checkin()))
+	_run(um, 900.0, 1.0)
+	assert_true(boat.comms_initiative_report.contains("torpedo"), "she reports it at the check-in: '%s'" % boat.comms_initiative_report)
+	var events := SubmarineComms.take_events()
+	assert_true(events.size() == 1 and events[0]["event"] == "initiative_report")
+	um.free()
+
+
+func test_evade_and_decoy_orders_to_a_deep_boat_are_never_queued_for_check_in() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var boat := _classic_boat(um, "usn_ssn_virginia", 200.0)
+	_run(um, 1.0)
+	for order: Order in [Order.evade(), Order.deploy_countermeasures("acoustic")]:
+		um.issue_order(boat, order)
+		assert_true(not order.receipt.begins_with("Queued"), "order %d is the crew's to act on now" % order.type)
+	assert_true(boat.comms_pending.is_empty(), "nothing waits for a check-in")
+	um.free()
+
+
+func test_a_diesel_boat_out_of_touch_snorkels_by_herself_at_critical_battery() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var boat := _classic_boat(um, "rfn_ssk_kilo", 200.0)
+	boat.battery = SubmarinePower.CRITICAL - 0.01
+	_run(um, 1.0)
+	assert_true(um.issue_order(boat, Order.set_sub_comms_interval(0.0)), "check-in on demand: nobody calls her up")
+	var tm := ThreatManager.new()
+	SubmarineInitiative.run_cycle(um, tm)
+	assert_true(boat.snorkel_on, "she comes up to snorkel by herself")
+	_run(um, 1200.0, 1.0)
+	assert_true(SubmarinePower.on_diesels(boat), "and charges")
+	assert_true(boat.comms_initiative_report.contains("snorkel"), "which she reports once she is up: '%s'" % boat.comms_initiative_report)
+	um.free()

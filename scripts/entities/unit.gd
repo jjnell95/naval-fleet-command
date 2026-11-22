@@ -132,6 +132,10 @@ var comms_phase := "submerged"
 var comms_pending: Array[Dictionary] = []
 var comms_report: Dictionary = {}
 var comms_note := ""
+## What the crew did on its own initiative while out of touch, held for the next check-in; and the
+## last such report the commander has received.
+var comms_initiative: Array[String] = []
+var comms_initiative_report := ""
 ## The standing emissions policy. The AI follows it; the player sets it directly. Radiating is
 ## what gets you found, so this is a real decision rather than a formality.
 var emcon: Emcon = Emcon.FREE
