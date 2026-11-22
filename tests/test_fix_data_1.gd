@@ -208,3 +208,76 @@ func test_every_weapon_and_sensor_definition_is_carried_by_something() -> void:
 	for gone: String in ["agm_158b_jassm_er", "jsm_missile", "kh38_family", "aim9x_family"]:
 		assert_true(DataDB.weapon(gone) == null, "%s is no longer defined" % gone)
 	assert_eq(int(DataDB.platform("usaf_fighter_f16c").weapon_loadout.get("aim9x_air", 0)), 2, "the F-16C carries the same Sidewinder as the Navy's jets")
+
+
+# --- Minimum range and the enable run ---------------------------------------------------------
+
+func test_no_torpedo_may_be_fired_inside_its_enable_run() -> void:
+	for w: WeaponSpec in _weapons("torpedo"):
+		assert_true(w.run_to_enable_nm > 0.0, "%s has an enable run" % w.id)
+		if w.target_types.has("torpedo"):
+			# An anti-torpedo round is fired at something a few hundred yards off and closing.
+			assert_true(w.min_range_nm >= w.run_to_enable_nm, "%s: minimum range %.1f is not inside its %.1f nm enable run" % [w.id, w.min_range_nm, w.run_to_enable_nm])
+			continue
+		assert_true(w.min_range_nm >= w.run_to_enable_nm + 0.25, "%s: minimum range %.1f leaves the seeker a look after its %.1f nm enable run" % [w.id, w.min_range_nm, w.run_to_enable_nm])
+		assert_true(w.max_range_nm > w.min_range_nm * 3.0, "%s keeps a usable envelope" % w.id)
+
+
+func _target(domain: String, at: Vector2) -> Unit:
+	var u := Unit.new()
+	u.spec = PlatformSpec.new()
+	u.spec.domain = domain
+	u.spec.health = 100.0
+	u.spec.max_speed_kn = 20.0
+	u.spec.max_depth_m = 300.0
+	u.faction = "RED"
+	u.health = 100.0
+	u.position = at
+	u.depth_m = 100.0 if domain == "subsurface" else 0.0
+	return u
+
+
+## The shot the audit made: a Mk 48 fired at a boat seven cables off ran blind past it and on
+## for its whole range. The shortest shot the fire control now accepts finds its target.
+func test_the_shortest_accepted_torpedo_shot_acquires_its_target() -> void:
+	var old_shot := Track.new()
+	old_shot.domain = "subsurface"
+	old_shot.position = Vector2(0, 0.7)
+	for id: String in ["cw90_mk48", "mk48_adcap", "spearfish", "pla_yu6", "ugst_torpedo", "jmsdf_type18_torpedo"]:
+		var blue := _shooter(DataDB.weapon(id))
+		blue.faction = "BLUE"
+		assert_eq(Combat.check_engagement(blue, DataDB.weapon(id), old_shot)["reason"], "TOO CLOSE", "%s is refused at 0.7 nm, inside its enable run" % id)
+	for w: WeaponSpec in _weapons("torpedo"):
+		if w.target_types.has("torpedo"):
+			continue
+		Terrain.clear()
+		var domain := "subsurface" if w.target_types.has("subsurface") else "surface"
+		var u := _shooter(w)
+		u.faction = "BLUE"
+		var boat := _target(domain, Vector2(0, w.min_range_nm + 0.01))  # clear of the rounding at the limit itself
+		var wm := WeaponManager.new()
+		wm.unit_manager = UnitManager.new()
+		wm.unit_manager.add_unit(u)
+		wm.unit_manager.add_unit(boat)
+		var t := Track.new()
+		t.id = "T1"
+		t.owner_faction = "BLUE"
+		t.identity = "HOSTILE"
+		t.domain = domain
+		t.position = boat.position
+		assert_true(wm.launch(u, w, t, 1, 0.0), "%s fires at its minimum range of %.1f nm" % [w.id, w.min_range_nm])
+		if wm.in_flight.is_empty():
+			wm.unit_manager.free()
+			wm.free()
+			continue
+		var round: Weapon = wm.in_flight[0]
+		var acquired := false
+		var now := 0.0
+		while now < 240.0 and round.phase != Weapon.Phase.DEAD and not acquired:
+			now += 0.25
+			wm.tick(0.25, now)
+			acquired = round.acquired == boat
+		assert_true(acquired, "%s fired at %.1f nm has its seeker on before it reaches the target" % [w.id, w.min_range_nm])
+		wm.clear()
+		wm.unit_manager.free()
+		wm.free()

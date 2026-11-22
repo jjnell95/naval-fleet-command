@@ -75,6 +75,7 @@ SHORT_NAMES = {
 # the scale's par, a current digital seeker). These are 1990 weapons: the analogue Soviet seekers
 # sit lowest, the American ones of the early 1980s a little under par. A wake-homer does not
 # listen at all, so an acoustic decoy has almost nothing to offer it.
+ENABLE_MARGIN_NM = .3
 DECOY_RESISTANCE = {"mk46": .9, "mk48": .9, "set65": .8, "test71": .85, "at1": .8, "53_65": 4.0}
 
 
@@ -104,6 +105,10 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
                  guidance="ballistic" if kind == "gun" else "radar_directed", salvo_default=1,
                  launch_interval_s=1.0)
     d.update(kw)
+    if kind == "torpedo" and "min_range_nm" not in kw:
+        # A torpedo is blind until it has run out to enable, so the shortest shot the fire-control
+        # accepts leaves the seeker a short look before the weapon reaches the plot.
+        d["min_range_nm"] = round(d["run_to_enable_nm"] + ENABLE_MARGIN_NM, 1)
     resource("weapons", key, d, ["target_types"])
 
 

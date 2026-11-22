@@ -86,6 +86,7 @@ SHORT_NAMES = {
 # seeker generation: 1.0 is a current digital seeker, the newest heavyweights sit above it and an
 # export weapon of 1980s design a little below. A wake-homer does not listen at all, so an
 # acoustic decoy has almost nothing to offer it.
+ENABLE_MARGIN_NM = 0.3
 DECOY_RESISTANCE = {
     "pla_yu6": 1.1, "pla_yu7": 1.0, "jmsdf_type12_torpedo": 1.2, "jmsdf_type97_torpedo": 1.1,
     "jmsdf_type18_torpedo": 1.3, "irn_test71me": 0.9, "irn_53_65ke": 4.0,
@@ -126,6 +127,10 @@ def weapon(key, name, kind, targets, reach, speed, damage, **kw):
     if key in {"pla_pl15", "jasdf_aam4b", "jmsdf_type17_ssm", "jgsdf_type12_ssm"}:
         d["midcourse_updates"] = True
     d.update(kw)
+    if kind == "torpedo" and "min_range_nm" not in kw:
+        # A torpedo is blind until it has run out to enable, so the shortest shot the fire-control
+        # accepts leaves the seeker a short look before the weapon reaches the plot.
+        d["min_range_nm"] = round(d["run_to_enable_nm"] + ENABLE_MARGIN_NM, 1)
     if payload:
         # A rocket-delivered torpedo names its underwater payload beside its guidance.
         items = list(d.items())
