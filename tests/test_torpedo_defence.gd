@@ -92,7 +92,7 @@ func test_chaff_does_nothing_to_a_torpedo() -> void:
 	var ship := _ship(_hull())
 	var h := _harness([ship])
 	var torp := _homing(h, ship, Vector2(0.0, 1.0))
-	AirDefence._try_decoy(ship, torp, h[2])
+	DefensiveResponse.run_cycle(h[0], h[1], h[2])
 	assert_eq(ship.decoys, 12, "no chaff is spent on a torpedo")
 	assert_eq(torp.phase, Weapon.Phase.TERMINAL, "and the torpedo keeps its lock")
 	_cleanup(h)
@@ -125,7 +125,7 @@ func test_the_towed_decoy_needs_way_on_and_waits_for_the_torpedo_to_close() -> v
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
 	assert_eq(torp.acquired, ship, "a ship lying stopped trails nothing useful")
 	ship.speed_kn = 12.0
-	torp.position = Vector2(0.0, TorpedoDefence.DECOY_RANGE_NM + 1.0)
+	torp.position = Vector2(0.0, DefensiveResponse.ACOUSTIC_RANGE_NM + 1.0)
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
 	assert_true(not torp.acoustic_decoy_tried.has(ship.id), "outside decoy range nothing is tried yet")
 	_cleanup(h)

@@ -37,7 +37,6 @@ const BALLISTIC_RESERVE_ROUNDS := 8
 ## Seconds with no inbound round held after which a clearance to engage the raid lapses.
 ## GAMEPLAY_ESTIMATE.
 const RAID_QUIET_S := 120.0
-const DECOY_RANGE_NM := 2.5
 
 
 ## Closest point of approach of `w` to `u`, as {cpa_nm, time_s}. Time is negative when the round
@@ -68,20 +67,6 @@ static func _relative_approach(rel_pos: Vector2, rel_vel: Vector2) -> Dictionary
 ## is generous — it ignores fuel already spent — and that is deliberate.
 static func within_reach(u: Unit, w: Weapon) -> bool:
 	return u.position.distance_to(w.position) <= w.spec.max_range_nm
-
-
-## True when this round is closing on this ship rather than merely nearby.
-static func is_inbound(u: Unit, w: Weapon) -> bool:
-	if w.faction == u.faction or w.phase == Weapon.Phase.DEAD or w.is_interceptor():
-		return false
-	if w.acquired == u:
-		return true
-	if not WeaponManager.can_target(w.spec, u):
-		return false
-	if not within_reach(u, w):
-		return false
-	var cpa := closest_approach(u, w)
-	return cpa["time_s"] > 0.0 and cpa["cpa_nm"] <= CPA_THREAT_NM
 
 
 ## Which friendly ship a detected round is actually going for, or null if it threatens nobody.
@@ -174,7 +159,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 		by_faction[u.faction].append(u)
 		var layers: Array[WeaponSpec] = []
 		var close_in: Array[WeaponSpec] = []
-		var reach := DECOY_RANGE_NM
+		var reach := 0.0
 		for spec: WeaponSpec in u.defensive_weapons():
 			reach = maxf(reach, spec.max_range_nm)
 			if spec.type == "ciws":
@@ -204,8 +189,8 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 				for u: Unit in _rank_defenders(by_faction[faction], w, reaches, weapon_manager):
 					if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
 						continue
+					# Chaff and flares were answered by DefensiveResponse earlier in the same step.
 					if first_pass:
-						_try_decoy(u, w, weapon_manager)
 						if not u.radar_on and not (entry["target"] as Unit).is_aircraft():
 							_light_radar_to_defend(u, w, unit_manager, weapon_manager, now)
 					# Weapons hold is an order not to attack. A ship holding fire still defends itself
@@ -564,12 +549,10 @@ static func _time_to_enter_s(from: Vector2, range_nm: float, threat: Weapon) -> 
 	return (-b - sqrt(disc)) / a if disc >= 0.0 else INF
 
 
-## Distinct rounds each ship currently has interceptors in the air against. A ship cannot guide
-## more simultaneous engagements than it has fire-control channels, which is what lets a large
-## enough salvo get through a good escort.
+## Distinct rounds each ship currently has interceptors in the air against. Kept for the
+## defence board, which reads it; WeaponManager.channel_loads is the one source.
 static func _channels_in_use(weapon_manager: WeaponManager) -> Dictionary:
 	return weapon_manager.channel_loads()
-
 
 
 ## Data decides what an interceptor can shoot at. The air-defence layers list "missile" and
@@ -690,14 +673,3 @@ static func _close_in_burst(u: Unit, threat: Weapon, guns: Array, weapon_manager
 		fired += weapon_manager.launch_interceptor(u, spec, threat, mini(spec.salvo_default, u.magazine_count(spec.id)), now)
 	return fired
 
-
-## Chaff and flares against a missile's seeker. A torpedo's is acoustic, and chaff does nothing to
-## it: TorpedoDefence answers torpedoes with noise.
-static func _try_decoy(u: Unit, threat: Weapon, weapon_manager: WeaponManager) -> void:
-	if threat.acquired != u or threat.spec.is_torpedo():
-		return
-	if u.position.distance_to(threat.position) > DECOY_RANGE_NM:
-		return
-	if u.auto_countermeasures and not threat.decoy_attempted:
-		DefensiveResponse.deploy(u, threat.spec.seeker_band(), weapon_manager)
-	DefensiveResponse.try_active(u, threat, weapon_manager)

@@ -120,6 +120,8 @@ func _run(h: Array, seconds: float, defend := true) -> void:
 						if u.faction != w.faction:
 							tm.mark_detected(u.faction, w, now)
 			if defend:
+				# The simulation's own order: chaff and flares first, then the interceptors.
+				DefensiveResponse.run_cycle(um, tm, wm)
 				AirDefence.run_cycle(um, tm, wm, now)
 
 
@@ -189,7 +191,7 @@ func test_closest_approach_distinguishes_inbound_from_passing() -> void:
 	var cpa := AirDefence.closest_approach(u, inbound)
 	assert_near(cpa["cpa_nm"], 0.0, 0.01, "a round aimed at the ship closes to zero")
 	assert_true(cpa["time_s"] > 0.0)
-	assert_true(AirDefence.is_inbound(u, inbound))
+	assert_eq(AirDefence.threatened_unit(h[0], "BLUE", inbound), u)
 
 	var passing := Weapon.new()
 	passing.id = 901
@@ -197,7 +199,7 @@ func test_closest_approach_distinguishes_inbound_from_passing() -> void:
 	passing.faction = "RED"
 	passing.position = Vector2(20.0, 10.0)
 	passing.heading_deg = 0.0  # heading north, 20 nm to the east
-	assert_true(not AirDefence.is_inbound(u, passing), "a round passing 20 nm clear is not my problem")
+	assert_true(AirDefence.threatened_unit(h[0], "BLUE", passing) == null, "a round passing 20 nm clear is not my problem")
 
 	# A round pointed straight at the ship from beyond its own maximum range is not inbound on
 	# anything. This is what an air-to-air missile fired at an aircraft a long way off looks like
@@ -209,9 +211,9 @@ func test_closest_approach_distinguishes_inbound_from_passing() -> void:
 	far_shot.faction = "RED"
 	far_shot.position = Vector2(0.0, far_shot.spec.max_range_nm + 40.0)
 	far_shot.heading_deg = 180.0  # aimed right down the throat
-	assert_true(not AirDefence.is_inbound(u, far_shot), "a round that cannot reach me is not inbound")
+	assert_true(AirDefence.threatened_unit(h[0], "BLUE", far_shot) == null, "a round that cannot reach me is not inbound")
 	far_shot.position = Vector2(0.0, far_shot.spec.max_range_nm - 5.0)
-	assert_true(AirDefence.is_inbound(u, far_shot), "the same round inside its own reach is")
+	assert_eq(AirDefence.threatened_unit(h[0], "BLUE", far_shot), u, "the same round inside its own reach is")
 	_cleanup(h)
 
 
@@ -245,7 +247,7 @@ func test_interceptors_are_not_treated_as_threats() -> void:
 	sam.faction = "RED"
 	sam.position = Vector2(0.0, 5.0)
 	sam.intercept_target = _incoming(h[2], _asm(), "RED", Vector2(0.0, 10.0), u)
-	assert_true(not AirDefence.is_inbound(u, sam), "SAMs are not anti-ship rounds")
+	assert_true(AirDefence.threatened_unit(h[0], "BLUE", sam) == null, "SAMs are not anti-ship rounds")
 	_cleanup(h)
 
 
@@ -262,8 +264,7 @@ func test_an_unlocked_air_to_air_missile_cannot_cue_a_ship_response() -> void:
 	shot.heading_deg = 180.0
 	(h[2] as WeaponManager).in_flight.append(shot)
 	(h[1] as ThreatManager).mark_detected("BLUE", shot, 0.0, ship)
-	assert_true(not AirDefence.is_inbound(ship, shot), "the seeker cannot acquire a surface hull")
-	assert_true(AirDefence.threatened_unit(h[0], "BLUE", shot) == null)
+	assert_true(AirDefence.threatened_unit(h[0], "BLUE", shot) == null, "the seeker cannot acquire a surface hull")
 	assert_true(AirDefence.inbound_threats(h[0], h[1], "BLUE").is_empty())
 	assert_eq(AirDefence.run_cycle(h[0], h[1], h[2], 0.0), 0, "do not waste ship SAMs")
 	assert_true(not DefensiveResponse.start_evasion(ship, h[0], h[1]), "do not abandon the route")
