@@ -86,12 +86,17 @@ static func estimate(history: Array, now: float, speed_limit_kn := -1.0) -> Dict
 		return {}
 	# Lines taken together are crossed as the plot draws them, smoothed: a fix from two raw looks
 	# a hundred miles off would leap about by more than the contact can move.
+	# Samples are filed in the order they were started, so nothing before the first one started
+	# more than two sample intervals ago can still be current.
 	var current := []
-	for report: Dictionary in history:
+	for i in range(history.size() - 1, -1, -1):
+		var report: Dictionary = history[i]
+		if now - float(report.get("sample_start", report["time"])) > SAMPLE_INTERVAL_S * 2.0:
+			break
 		if now - float(report["time"]) <= 2.0:
 			var line := report.duplicate()
 			line["bearing"] = report.get("smooth", report["bearing"])
-			current.append(line)
+			current.push_front(line)
 	var crossed := _crossed_fix(current)
 	if not crossed.is_empty():
 		return crossed

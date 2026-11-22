@@ -153,6 +153,7 @@ func test_a_bearing_after_a_fix_keeps_the_range_and_gives_it_up_when_old() -> vo
 			assert_true(not t.is_bearing_only(), "five minutes on bearings: the ship's range is still an estimate")
 			assert_true(t.position.distance_to(Vector2(0, 30)) < 0.5, "and still where it was fixed")
 	assert_true(t.is_bearing_only(), "after ten minutes nothing has measured the range: it is a bearing")
+	assert_true(not t.fire_control_quality(), "and nothing that needs a position may be laid on it")
 	assert_true(t.position.distance_to(Vector2(0, 30)) < 0.5, "giving the range up does not move the plot to a guess")
 	assert_true(not t.has_kinematics, "no range, so no course and speed")
 	tm.free()
@@ -219,6 +220,7 @@ func test_a_change_of_course_resolves_a_passive_range_in_minutes() -> void:
 	var truth: Vector2 = run[2]
 	assert_true(resolved > 0 and resolved <= 720, "two legs either side of a turn give a range (resolved at %d s)" % resolved)
 	assert_true(not t.is_bearing_only(), "and the plot still holds it after a third leg")
+	assert_eq(t.fire_control_quality(), t.tma_quality >= Track.FIRE_CONTROL_SOLUTION_QUALITY, "only a sound solution is fit to lay a missile on")
 	assert_true(t.position.distance_to(truth) <= maxf(t.position_error_nm * 1.5, 1.0), "the contact lies inside the ellipse the plot claims (%.1f nm off, claimed %.1f)" % [t.position.distance_to(truth), t.position_error_nm])
 	assert_true(t.position_error_nm < 4.0, "the estimate is worth having")
 

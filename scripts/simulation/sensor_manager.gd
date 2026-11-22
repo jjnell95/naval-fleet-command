@@ -667,6 +667,7 @@ func _detect_weapons(now: float) -> void:
 		var reaches := PackedFloat64Array()
 		var passive := PackedFloat64Array()  # the eye, and an intercept of a seeker that is transmitting
 		var intercept := PackedFloat64Array()
+		var furthest := 0.0
 		for group in group_specs.size():
 			var spec := group_specs[group]
 			var altitude := group_altitudes[group]
@@ -677,12 +678,18 @@ func _detect_weapons(now: float) -> void:
 			var above_water := surfaced and not group_torpedoes[group]
 			passive.append(sighting if above_water else 0.0)
 			intercept.append(Detection.HORIZON_K * (esm_root + sqrt(maxf(altitude, 0.0))) * esm_efficiency if above_water and esm_root >= 0.0 else 0.0)
+			furthest = maxf(furthest, maxf(reach, maxf(passive[group], intercept[group])))
+		if furthest <= 0.0:
+			continue
+		var furthest_squared := furthest * furthest
 		for i in weapons.size():
 			var w := weapons[i]
 			if w.faction == observer.faction or w.phase == Weapon.Phase.DEAD:
 				continue
-			var group := group_indices[i]
 			var d_squared := observer.position.distance_squared_to(w.position)
+			if d_squared > furthest_squared:
+				continue
+			var group := group_indices[i]
 			var reach := reaches[group]
 			var held := reach > 0.0 and d_squared <= reach * reach
 			if held and not group_torpedoes[group]:

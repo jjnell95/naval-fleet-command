@@ -27,6 +27,8 @@ const DRIFT_SUBSURFACE_KN := 8.0
 const FASTEST_SHIP_KN := 70.0
 ## Below this solution quality a bearing-held contact has no range worth plotting.
 const RANGE_HELD_QUALITY := 0.2
+## The solution quality at which a range worked from bearings is good enough to shoot a missile at.
+const FIRE_CONTROL_SOLUTION_QUALITY := 0.5
 ## Once the ellipse of an unseen contact is this long, moving the plot along its last course is
 ## no better than leaving it where it is.
 const COAST_LIMIT_NM := 5.0
@@ -202,11 +204,15 @@ func stale_after_s() -> float:
 	return STALE_AFTER_AIR_S if mover() == "air" else STALE_AFTER_S
 
 
-## Whether anything but a torpedo may still be laid on this plot: this side's own sensors are
-## holding it now. A stale plot is where the contact was, and a report from outside was never a
-## fire-control solution; a missile sent to either finds empty sea, or whatever has since arrived.
+## Whether a weapon that needs a position (anything but a torpedo, or a missile that rides a
+## radar's own beam) may be laid on this plot: this side's own sensors are holding it now, and its
+## range is measured or soundly worked out. A stale plot is where the contact was, a report from
+## outside was never a fire-control solution and a loose estimate is a place to search; a missile
+## sent to any of them finds empty sea, or whatever else is there.
 func fire_control_quality() -> bool:
-	return status == Status.ACTIVE and not reported and not confirmed_destroyed
+	if status != Status.ACTIVE or reported or confirmed_destroyed:
+		return false
+	return not bearing_only or tma_quality >= FIRE_CONTROL_SOLUTION_QUALITY
 
 
 ## How long the contact is kept after it was last held, and how long a range is trusted once only

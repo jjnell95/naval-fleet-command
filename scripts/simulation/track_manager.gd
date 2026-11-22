@@ -299,7 +299,10 @@ func _bearing_solution(t: Track, c: SensorContact, now: float) -> Dictionary:
 	if c.bearing_key == "":
 		return {}
 	var limit := _speed_limit_kn(t, c)
-	var interval := BearingSolution.SAMPLE_INTERVAL_S if limit <= BearingSolution.SHIP_SPEED_LIMIT_KN else 0.0
+	var fast := limit > BearingSolution.SHIP_SPEED_LIMIT_KN
+	if fast and t.bearing_observers.size() < 2:
+		return {}  # one listener never crosses its own line
+	var interval := 0.0 if fast else BearingSolution.SAMPLE_INTERVAL_S
 	if now - t.bearing_solution_at >= interval:
 		t.bearing_solution_cache = BearingSolution.estimate(t.bearing_history, now, limit)
 		t.bearing_solution_at = now
