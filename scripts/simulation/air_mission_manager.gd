@@ -811,9 +811,13 @@ func _step(m: AirMission) -> void:
 			m.pending_launches = 0
 	_launch_owed(m)
 	if m.aircraft.is_empty() and m.pending_launches <= 0:
-		if m.kind == AirMission.Kind.STRIKE:
+		if m.lost_total > 0 and m.completed_sorties == 0:
+			_end(m, "All aircraft lost")
+		elif m.kind == AirMission.Kind.STRIKE:
 			# A strike whose launches were all struck off never flew: say so, not "complete".
 			_end(m, "Strike complete" if m.launched_total > 0 else "Strike called off")
+		elif m.lost_total > 0:
+			_end(m, "%d recovered, %d lost" % [m.completed_sorties, m.lost_total])
 		else:
 			_end(m, "All aircraft recovered")
 		return
@@ -904,6 +908,8 @@ func _queue_reason(m: AirMission) -> String:
 func _track_airframe(m: AirMission, a: Unit) -> void:
 	var task: Dictionary = m.tasks[a]
 	if not a.alive or a.departed:
+		if not a.departed:
+			m.lost_total += 1
 		_drop(m, a, "lost" if not a.departed else "left the area")
 		if m.relief and not bool(task["relieved"]) and m.kind != AirMission.Kind.STRIKE:
 			m.pending_launches += 1

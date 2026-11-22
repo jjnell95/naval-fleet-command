@@ -58,6 +58,8 @@ var aircraft: Array[Unit] = []
 var tasks: Dictionary = {}
 var launched_total := 0
 var completed_sorties := 0
+## Airframes the mission lost: shot down, crashed or out of fuel.
+var lost_total := 0
 var active := true
 ## Cancelled while airframes were still on the catapults: the mission stays open only to send them
 ## home once they are in the air.

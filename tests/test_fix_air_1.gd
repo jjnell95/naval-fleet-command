@@ -411,3 +411,75 @@ func test_a_section_leaves_the_deck_flying_and_as_two_aircraft() -> void:
 	assert_eq(seen.size(), 2, "both airborne")
 	assert_true(lead.position.distance_to(wing.position) > 0.5, "two symbols, %.2f nm apart" % lead.position.distance_to(wing.position))
 	_done()
+
+
+# --- Air messages ------------------------------------------------------------------------
+
+## A launch refused for want of a free spot names what is busy: no airfield or helicopter deck
+## has catapults.
+func test_a_launch_refusal_names_the_kind_of_flight_facility() -> void:
+	_load(CARRIER_QUAL)
+	var av := _sim.aviation_manager
+	var checked := 0
+	for base: Unit in _sim.unit_manager.units:
+		if base.is_aircraft() or base.spec.aircraft_capacity <= 0 or base.faction != "BLUE":
+			continue
+		var facility := base.spec.flight_facility()
+		while base.launch_spots_busy() < base.spec.launch_capacity() and not base.stowed_aircraft().is_empty():
+			if av.launch(base) == null:
+				break
+		if base.stowed_aircraft().is_empty() or base.launch_spots_busy() < base.spec.launch_capacity():
+			continue
+		var why := av.launch_rejection_reason(base)
+		if facility != "catobar":
+			assert_true(not why.contains("CATAPULT"), "%s (%s): %s" % [base.callsign, facility, why])
+		assert_true(why.ends_with("COMMITTED"), why)
+		checked += 1
+	assert_true(checked >= 2, "decks checked: %d" % checked)
+	_done()
+
+
+## A mission whose only aircraft was shot down ends saying so, not "all aircraft recovered".
+func test_a_mission_whose_aircraft_were_all_lost_says_so() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var o := Order.air_mission(AirMission.Kind.RECON, "cw90_e2c", 1, cv.position + Vector2(0, 40), 20.0)
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	var m: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
+	_advance(300.0)
+	var hawkeye: Unit = m.aircraft[0]
+	hawkeye.alive = false
+	var ended := []
+	var on_end := func(mission: AirMission, reason: String) -> void:
+		if mission == m:
+			ended.append(reason)
+	_sim.air_mission_manager.mission_ended.connect(on_end)
+	_advance(3.0)
+	assert_eq(ended, ["All aircraft lost"])
+	assert_true(m.summary().contains("all aircraft lost"), m.summary())
+	_sim.air_mission_manager.mission_ended.disconnect(on_end)
+	_done()
+
+
+## After the deck accepts a launch of every ready airframe of a type, the dialog's hint says what
+## was launched, not that the requested aircraft are not ready.
+func test_air_operations_shows_the_receipt_after_an_accepted_launch() -> void:
+	_load(CARRIER_WATCH)
+	var cv := _unit(IKE)
+	var ui := AirOperations.new()
+	ui.simulation = _sim
+	(Engine.get_main_loop() as SceneTree).root.add_child(ui)
+	ui.order_requested.connect(func(base: Unit, order: Order) -> void:
+		var ok := _sim.unit_manager.issue_order(base, order)
+		ui.show_receipt("%s: launching %d × E-2C" % [base.callsign, order.aircraft_count] if ok else "refused", ok))
+	ui.open_for([cv])
+	ui._type_id = "cw90_e2c"
+	ui.refresh()
+	var ready := cv.stowed_aircraft().filter(func(a: Unit) -> bool: return a.spec.id == "cw90_e2c").size()
+	assert_true(ready >= 1 and ready <= cv.spec.launch_capacity(), "%d ready" % ready)
+	ui._count.value = ready
+	ui._launch_selected()
+	assert_true(not ui._launch_hint.text.to_lower().contains("not ready"), ui._launch_hint.text)
+	assert_true(ui._launch_hint.text.contains("launching"), ui._launch_hint.text)
+	ui.free()
+	_done()
