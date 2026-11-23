@@ -773,6 +773,7 @@ func _capture_presentation() -> Dictionary:
 		# The rules the engagement is fought under; a load continues under them (_install_engagement).
 		"options": engagement_options(),
 		"command_guide": _command_guide.to_dict(),
+		"chart_marks": map.annotations.to_dict(),
 	}
 
 
@@ -818,6 +819,7 @@ func _restore_presentation(d: Dictionary) -> void:
 		_arrange_views()
 		_world_view.restore_camera_view(camera)
 	map.restore_chart_view(d.get("view", {}))
+	map.annotations.restore(d.get("chart_marks", {}))
 	if d.get("follow_selection", false) and (not inspecting or map.inspection_track() != null):
 		map.set_follow_selection(true)
 	_autosaved_at = float(d.get("autosaved_at", SimClock.sim_time))
@@ -1662,7 +1664,7 @@ func _run_palette_action(id: String) -> void:
 		"intercept_inbound":
 			_apply_order_to_selection(Order.intercept())
 		"chart_zoom_in", "chart_zoom_out":
-			map._zoom_at(map.size * 0.5, TacticalMap.ZOOM_STEP if id == "chart_zoom_in" else 1.0 / TacticalMap.ZOOM_STEP)
+			map.zoom_at(map.size * 0.5, TacticalMap.ZOOM_STEP if id == "chart_zoom_in" else 1.0 / TacticalMap.ZOOM_STEP)
 		"fleet_operations":
 			_toggle_fleet_operations()
 		"deploy_radar_decoys":
@@ -2172,7 +2174,7 @@ func _classic_chart_zoom(mb: InputEventMouseButton) -> void:
 	var at := map.get_global_transform_with_canvas().affine_inverse() * mb.position
 	if not Rect2(Vector2.ZERO, map.size).has_point(at):
 		return
-	map._zoom_at(at, 2.0 if mb.button_index == MOUSE_BUTTON_LEFT else 0.5)
+	map.zoom_at(at, 2.0 if mb.button_index == MOUSE_BUTTON_LEFT else 0.5)
 	map.queue_redraw()
 	_classic_zoom_button = mb.button_index
 	get_viewport().set_input_as_handled()
@@ -2986,7 +2988,7 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 				return
 			items = CdsMenus.waypoint_items(owner, int(context.get("waypoint_index", 0)))
 		_:
-			items = CdsMenus.cds_items(_cds_state())
+			items = CdsMenus.cds_items(_cds_state().merged(map.chart_marks_state(context.get("world_pos"))))
 	map.menu_open = true
 	_cds_menus.open(items, context.get("viewport_pos", map.get_global_transform_with_canvas() * screen_pos))
 
@@ -3075,6 +3077,8 @@ func _run_cds_action(action: Dictionary) -> void:
 			_inspect_asset(str(action["id"]))
 		"palette":
 			_run_palette_action(str(action["id"]))
+		"chart_mark":
+			radio.advise(map.chart_mark_action(action))
 
 
 ## Altitude presets: a negative value means each airframe's own cruise altitude, or its ceiling.

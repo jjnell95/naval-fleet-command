@@ -340,6 +340,8 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 		lines.append(_kv("POS", "%s  %s  ±%.1f nm" % [Geo.format_axis(t.position.x, "E", "W"), Geo.format_axis(t.position.y, "N", "S"), t.position_error_nm]))
 	if t.has_kinematics and not t.is_bearing_only():
 		lines.append(_kv("LAST CSE/SPD" if t.status != Track.Status.ACTIVE else "CSE/SPD", "%s / %.0f kn" % [Geo.format_bearing(t.course_deg), t.speed_kn]))
+	elif t.mover() == "land":
+		lines.append(_kv("CSE/SPD", "fixed site"))
 	else:
 		lines.append(_kv("CSE/SPD", "[color=%s]estimating…[/color]" % UITheme.HEX_DIM))
 	if t.is_bearing_only() and t.bearing_origin.is_finite():

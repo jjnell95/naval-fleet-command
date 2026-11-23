@@ -641,6 +641,7 @@ static func cds_items(state: Dictionary) -> Array:
 		submenu("Symbols", symbols),
 		submenu("Symbol controls", controls),
 		submenu("Filters", filter_items(state), false, "Which contacts and chart aids are drawn."),
+		submenu("Chart marks", ChartAnnotations.menu_items(state), false, "Your own marks, fixed range circles and corridors on the chart."),
 		submenu("Map", overlays),
 		submenu("Sound", sound),
 		submenu("Gameplay", options_items(state)),
@@ -667,6 +668,7 @@ static func cds_items(state: Dictionary) -> Array:
 ## held, tracked and listed in the track file; only its symbol is left off the chart.
 const FILTERS := [
 	["hostiles", "Hostile contacts", "Contacts the plot holds as hostile."],
+	["allied", "Allied contacts", "Friendly forces the plot holds that are not under your command."],
 	["neutrals", "Neutral contacts", "Contacts identified as neutral: merchant and civil traffic."],
 	["unknowns", "Unknown contacts", "Contacts not yet identified."],
 	[],
