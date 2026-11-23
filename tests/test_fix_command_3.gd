@@ -560,3 +560,37 @@ func test_a_move_round_the_coast_says_it_routes_and_a_refused_move_says_why() ->
 		main._apply_order_to_selection(Order.move(ashore))
 		assert_true(main.radio.last_advice.contains("destination is ashore"), "a move onto land says why it is refused: %s" % main.radio.last_advice)
 	_close(main)
+
+
+func test_gunfire_is_called_as_gunfire_once_without_the_missile_alarm() -> void:
+	var main := _open("gulf_01_hormuz.json")
+	var target := _own(main, "Paul Ignatius")
+	var from := main.radio.journal.size()
+	var shells := _raid(main, target, "a190_100mm_gun", 4)
+	for w: Weapon in shells:
+		main._announce_threat(w)
+	var called := main.radio.journal.slice(from).filter(func(l: String) -> bool: return l.contains("UNDER GUNFIRE"))
+	assert_eq(called.size(), 1, "a shoot is called once: %s" % str(main.radio.journal.slice(from)))
+	assert_true(not _said(main, "INCOMING", from) and not _said(main, "MISSILE", from), "and never as a missile")
+	main._process(0.1)
+	var banner: String = main.data_display.threat_text
+	assert_true(banner.begins_with("UNDER GUNFIRE") or banner == "", "the banner does not call shells missiles: %s" % banner)
+	assert_eq(main._uncleared_inbound(CommanderPicture.inbound(main.simulation.unit_manager, main.simulation.threat_manager, main.simulation.player_faction)), 0, "no shell waits for an order to engage")
+	_close(main)
+
+
+func test_the_x_cue_agrees_with_the_simulation_and_a_standing_raid_clearance() -> void:
+	var main := _open("gulf_01_hormuz.json", GameOptions.classic())
+	var sim := main.simulation
+	var target := _own(main, "Paul Ignatius")
+	_raid(main, target, "irn_qader", 3)
+	var threats := CommanderPicture.inbound(sim.unit_manager, sim.threat_manager, sim.player_faction)
+	var awaiting := AirDefence.awaiting_clearance(sim.unit_manager, sim.threat_manager, sim.player_faction)
+	assert_true(awaiting.size() > 0, "on manual defence the rounds wait for the order")
+	assert_eq(main._uncleared_inbound(threats), awaiting.size(), "the cue counts what the simulation holds waiting")
+	for u: Unit in sim.unit_manager.get_faction_units(sim.player_faction):
+		if AirDefence.intercept_rejection(u) == "":
+			u.raid_clearance_until_s = SimClock.sim_time + 600.0
+			break
+	assert_eq(main._uncleared_inbound(threats), 0, "a standing raid clearance leaves nothing waiting")
+	_close(main)

@@ -91,6 +91,9 @@ var _cancelled_rounds: Dictionary = {}  # "shooter|weapon|reason" -> {shooter, s
 ## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
 ## a consort off the link). Each is announced once, when it reaches the picture.
 var _unannounced: Array[Weapon] = []
+## When gunfire on the force was last called; a shoot is called once, not round by round.
+const GUNFIRE_CALL_INTERVAL_S := 60.0
+var _gunfire_called_at := -INF
 ## Contacts called on the radio line, by track number, with the classification last called for each.
 ## A contact has one number in every picture, so one a deep boat reported by voice is not called
 ## again when the networked plot gains it.
@@ -435,7 +438,7 @@ func _process(delta: float) -> void:
 		# The banner, countdown, and click-to-focus all describe the same highest-priority threat.
 		var primary: Dictionary = threats[0]
 		var weapon: Weapon = primary["weapon"]
-		var label := "TORPEDO IN THE WATER" if weapon.spec.is_torpedo() else ("BALLISTIC INBOUND" if weapon.threat_class() == "ballistic" else "MISSILE INBOUND")
+		var label := _inbound_label(weapon, "MISSILE INBOUND")
 		# On manual missile defence the SAMs wait for the commander: say which key sends them, and
 		# for how many rounds, for as long as any round he holds is still waiting on the order.
 		var waiting := _uncleared_inbound(threats) if options.manual_missile_defence() else 0
@@ -444,20 +447,23 @@ func _process(delta: float) -> void:
 	Debug.time_add("shell", Time.get_ticks_usec() - t0)
 
 
-## How many inbound missiles on the commander's picture no ship of the force has been cleared to
-## engage with its SAMs. Nothing when no ship could take the order: the cue must not promise a key
-## that would be refused.
+## How many inbound missiles on the commander's picture still wait for his order to engage: the
+## simulation's own list of rounds a ship on manual defence could take but has not been cleared to,
+## less every round while a ship that could fight it holds a standing clearance for the raid.
+## Nothing when no ship could take the order: the cue must not promise a key that would be refused.
 func _uncleared_inbound(threats: Array) -> int:
-	var ships := simulation.unit_manager.get_faction_units(simulation.player_faction).filter(func(u: Unit) -> bool:
-		return u.alive and _receives_report(u) and AirDefence.intercept_rejection(u) == "")
-	if ships.is_empty():
+	var waiting := AirDefence.awaiting_clearance(simulation.unit_manager, simulation.threat_manager, simulation.player_faction)
+	if waiting.is_empty():
 		return 0
-	var waiting := 0
+	var now := SimClock.sim_time
+	for u: Unit in simulation.unit_manager.get_faction_units(simulation.player_faction):
+		if u.alive and u.cleared_for_raid(now) and AirDefence.intercept_rejection(u) == "":
+			return 0
+	var count := 0
 	for entry: Dictionary in threats:
-		var w: Weapon = entry["weapon"]
-		if not w.spec.is_torpedo() and not ships.any(func(u: Unit) -> bool: return u.auto_air_defence or w.intercept_cleared.has(u.id)):
-			waiting += 1
-	return waiting
+		if waiting.has(entry["weapon"]):
+			count += 1
+	return count
 
 
 func _objective_summary() -> String:
@@ -556,6 +562,7 @@ func _reset_command_screen() -> void:
 	_civilian_incidents = PackedStringArray()
 	_foundered.clear()
 	_unannounced.clear()
+	_gunfire_called_at = -INF
 	_contacts_called.clear()
 	_report.hide()
 	_last_report = []
@@ -2368,11 +2375,33 @@ func _announce_unannounced_threats() -> void:
 			_announce_threat(w)
 
 
+## The banner's and the alarm's word for an inbound round of this kind; `missile` for a missile.
+static func _inbound_label(w: Weapon, missile: String) -> String:
+	match w.threat_class():
+		"torpedo":
+			return "TORPEDO IN THE WATER"
+		"ballistic":
+			return "BALLISTIC INBOUND"
+		"shell":
+			return "UNDER GUNFIRE"
+	return missile
+
+
 func _announce_threat(w: Weapon) -> void:
-	SimClock.drop_to_realtime()
 	_stats["hostile_rounds"] += 1
+	if w.threat_class() == "shell":
+		# A gun fires many rounds a minute: the first of a shoot is called, without the missile
+		# alarm, and the rest of it is not.
+		if SimClock.sim_time - _gunfire_called_at < GUNFIRE_CALL_INTERVAL_S:
+			return
+		_gunfire_called_at = SimClock.sim_time
+		SimClock.drop_to_realtime()
+		radio.flash("UNDER GUNFIRE — %s" % w.spec.display_name, "alert")
+		Debug.event("[Defence] gunfire inbound from %s" % w.spec.display_name)
+		return
+	SimClock.drop_to_realtime()
 	var seconds := int(w.time_to_reach_s(_nearest_own_unit_pos(w)))
-	var label := "TORPEDO IN THE WATER" if w.spec.is_torpedo() else ("BALLISTIC INBOUND" if w.threat_class() == "ballistic" else ("ANTI-RADIATION MISSILE INBOUND" if w.spec.is_anti_radiation() else "INCOMING"))
+	var label := _inbound_label(w, "ANTI-RADIATION MISSILE INBOUND" if w.spec.is_anti_radiation() else "INCOMING")
 	radio.flash("%s — %s, impact in ~%d s" % [label, w.spec.display_name, seconds], "alert")
 	if w.spec.is_anti_radiation():
 		radio.advise("It homes on a radar that is transmitting. A silent ship that keeps moving is not where it remembers; a ship with SAMs can shoot it down instead.")
