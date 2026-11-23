@@ -3312,9 +3312,11 @@ func _depth_readout(w: Vector2) -> String:
 ## Bottom-centre: the newest radio lines, the latest at the bottom, each fading after its hold.
 ## Width kept clear at each side of the radio line, for the corner readouts.
 const RADIO_SIDE_CLEAR_PX := 230.0
-## The plate behind the radio rows: this much margin round the text, deep sea blue, mostly opaque.
+## The plate behind the radio rows: this much margin round the text, a deep sea blue wash.
 const RADIO_PLATE_PAD := Vector2(10.0, 3.0)
-const COL_RADIO_PLATE := Color(0.02, 0.05, 0.12, 0.7)
+## Light enough that a symbol under the band keeps more than half its contrast with the sea, dark
+## enough that the shadowed rows still read over a busy plot.
+const COL_RADIO_PLATE := Color(0.02, 0.05, 0.12, 0.45)
 
 
 ## Splits a signal into rows no wider than `width`, breaking between words.
@@ -3553,11 +3555,20 @@ func _draw_hover_card() -> void:
 		lines.append("Masking height %d m (game estimate)" % int(l.elevation_m))
 		_draw_card(lines)
 		return
+	_draw_card(track_hover_lines(t))
+
+
+## The hover card for a contact the plot holds.
+func track_hover_lines(t: Track) -> PackedStringArray:
+	var lines := PackedStringArray()
 	lines.append("%s  %s" % [MapSymbols.track_number(t.id), t.description()])
 	lines.append("%s · %s" % [t.identity, DataDisplay.plot_text(t, SimClock.sim_time)])
 	lines.append("Source %s" % DataDisplay.source_readout(t))
 	if t.has_kinematics and not t.is_bearing_only():
 		lines.append("%sCSE %s  SPD %.0f kts  ·  damage %s" % ["LAST " if t.status != Track.Status.ACTIVE else "", Geo.format_bearing(t.course_deg), t.speed_kn, DataDisplay.damage_text(t)])
+	elif t.mover() == "land":
+		# A site ashore has no course or speed to estimate; "estimating" read as if it might move.
+		lines.append("Fixed site  ·  damage %s" % DataDisplay.damage_text(t))
 	else:
 		lines.append("Kinematics estimating  ·  damage %s" % DataDisplay.damage_text(t))
 	lines.append("Bearing only - range unresolved" if t.is_bearing_only() else "+/-%.1f nm (sensor estimate)" % t.position_error_nm)
@@ -3565,7 +3576,7 @@ func _draw_hover_card() -> void:
 	if ref != null and SubmarineComms.connected(ref) and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
 		lines.append("Radar jammed on this bearing")
 	lines.append(contact_hint(default_contact_verb(t) if _has_controllable_selection() else ""))
-	_draw_card(lines)
+	return lines
 
 
 ## The hover card's last line says what a right-click on this contact will do now.

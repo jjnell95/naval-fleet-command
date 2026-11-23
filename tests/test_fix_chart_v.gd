@@ -233,3 +233,55 @@ func test_a_boat_awaiting_check_in_is_captioned_clear_of_track_numbers() -> void
 		assert_true(map._labels.slot("t:T1040") != ChartLabels.HIDDEN, "the number keeps its place")
 	map.free()
 	units.free()
+
+
+# --- Radio band and fixed sites -------------------------------------------------------------------
+
+static func _luma(c: Color) -> float:
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+
+func test_an_own_ship_under_the_radio_band_stays_readable_and_keeps_its_number() -> void:
+	var map := _map()
+	map.post_message("HMS Duncan (D 37): Hit — critical · FIRE · FLOODING", "alert")
+	var plate: Rect2 = map.radio_layout()["plate"]
+	# The ship's symbol seen through the plate keeps more than half its contrast with the sea.
+	var wash := TacticalMap.COL_RADIO_PLATE
+	var symbol := TacticalMap.COL_FRIENDLY.lerp(Color(wash, 1.0), wash.a)
+	var sea := TacticalMap.COL_OCEAN.lerp(Color(wash, 1.0), wash.a)
+	var open := absf(_luma(TacticalMap.COL_FRIENDLY) - _luma(TacticalMap.COL_OCEAN))
+	assert_true(absf(_luma(symbol) - _luma(sea)) > 0.5 * open, "the symbol under the band is still plainly drawn")
+	# Its number stands clear of the band on a leader rather than being dropped.
+	var at := plate.get_center()
+	map._queue_label("u:7", at, MapSymbols.RADIUS, "0007", "", 1.0, false)
+	map._place_labels()
+	var k := map._labels.slot("u:7")
+	assert_true(k != ChartLabels.HIDDEN, "the ship under the band keeps its number")
+	if k != ChartLabels.HIDDEN:
+		assert_true(not ChartLabels.slot_box(map._label_queue[0], k).intersects(plate), "printed clear of the radio rows")
+	map.free()
+
+
+func _site() -> Track:
+	var t := Track.new()
+	t.id = "T1050"
+	t.identity = "HOSTILE"
+	t.domain = "land"
+	t.has_kinematics = false
+	t.status = Track.Status.ACTIVE
+	return t
+
+
+func test_a_fixed_land_site_does_not_read_as_if_it_might_move() -> void:
+	var map := _map()
+	var card := "\n".join(map.track_hover_lines(_site()))
+	assert_true(card.contains("Fixed site"), "the hover card names a fixed site: %s" % card)
+	assert_true(not card.contains("estimating"), "and does not say its motion is being estimated")
+	var ship := _site()
+	ship.domain = "surface"
+	assert_true("\n".join(map.track_hover_lines(ship)).contains("Kinematics estimating"), "a ship with no solution yet is still estimating")
+	map.free()
+	var panel := ContactPanel.new()
+	var detail := panel._detail_text(_site(), null, 0.0)
+	assert_true(detail.contains("fixed site") and not detail.contains("estimating"), "the contact panel says the same: %s" % detail)
+	panel.free()

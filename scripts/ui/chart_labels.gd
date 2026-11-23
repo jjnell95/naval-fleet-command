@@ -127,7 +127,12 @@ static func place(labels: Array, bounds := Rect2(), captions: Array = [], obstac
 	order.append_array(ordinary)
 	for i in order:
 		var l: Dictionary = labels[i]
-		var limit := OFFSETS.size() * (CALLOUT_LEVELS + 1 if i == primary else 1)
+		# A symbol under an obstacle (the radio band) has no clear place beside it: its label may
+		# stand out on a leader, as the inspected one's can, instead of being dropped.
+		var covered := false
+		for obstacle: Rect2 in obstacles:
+			covered = covered or obstacle.has_point(l.at)
+		var limit := OFFSETS.size() * (CALLOUT_LEVELS + 1 if i == primary or covered else 1)
 		var inside := HIDDEN
 		for k in limit:
 			var r := slot_box(l, k)
