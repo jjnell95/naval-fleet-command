@@ -3145,7 +3145,11 @@ func _queue_annotation_captions() -> void:
 				var r := float(aid.radius_nm) * ppn
 				if r >= 2.0 and view.grow(r).has_point(c):
 					var text := "%s  %s nm" % [aid.label, Geo.format_nm(float(aid.radius_nm))]
-					_queue_caption(c + Vector2(0.0, -r - 5.0), text, 11, col, true, Vector2.INF, [Vector2(0.0, 2.0 * r + 10.0 + _readout_font().get_ascent(11))])
+					# Over the circle; else under it, else beside its upper shoulders.
+					var shoulder := r * 0.7071
+					var half := _text_width(text, 11) * 0.5
+					var alts := [Vector2(0.0, 2.0 * r + 10.0 + _readout_font().get_ascent(11)), Vector2(shoulder + half + 6.0, r - shoulder), Vector2(-shoulder - half - 6.0, r - shoulder)]
+					_queue_caption(c + Vector2(0.0, -r - 5.0), text, 11, col, true, Vector2.INF, alts)
 			ChartAnnotations.CORRIDOR:
 				var middle := (c + world_to_screen(aid.to)) * 0.5
 				if view.has_point(middle):
