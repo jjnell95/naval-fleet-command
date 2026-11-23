@@ -24,6 +24,36 @@ const COAST_TWIST_KN := 8.0
 const COAST_TURNING_DEG := 5.0
 
 
+## A hull coming round by more than this checks that the circle she will turn on is open water, and
+## turns the other way when the short way would put her on the shore. The circle is taken this much
+## wider than her tactical radius, for the speed she gathers in the turn. GAMEPLAY_ESTIMATE.
+const SEA_ROOM_TURN_DEG := 45.0
+const SEA_ROOM_TURN_MARGIN := 1.5
+const SEA_ROOM_ARC_STEP_DEG := 20.0
+
+
+## Whether coming round by `turn_deg` (positive to starboard) from where she is would take her over
+## land: points along the arc she would steer, at the radius she turns on now or at the speed she
+## is working up to, whichever is wider.
+static func turn_meets_land(u: Unit, turn_deg: float) -> bool:
+	var speed := maxf(u.speed_kn, minf(u.ordered_speed_kn, u.effective_max_speed()))
+	var rate := maxf(u.spec.turn_rate_deg_s, 0.1)
+	var radius := Geo.knots_to_nm_per_s(speed) / deg_to_rad(rate)
+	if u.spec.length_m > 0.0:
+		radius = maxf(radius, u.spec.length_m * (1.5 if u.is_submarine() else 2.5) / 1852.0)
+	radius *= SEA_ROOM_TURN_MARGIN
+	var side := signf(turn_deg)
+	var centre := u.position + Geo.heading_to_vector(u.heading_deg + 90.0 * side) * radius
+	var swept := SEA_ROOM_ARC_STEP_DEG
+	while swept < absf(turn_deg) + SEA_ROOM_ARC_STEP_DEG:
+		var turned := minf(swept, absf(turn_deg))
+		var p := centre + Geo.heading_to_vector(u.heading_deg + side * turned - 90.0 * side) * radius
+		if Terrain.is_land(p):
+			return true
+		swept += SEA_ROOM_ARC_STEP_DEG
+	return false
+
+
 ## Fraction of economical patrol speed below which a fixed-wing aircraft cannot be flown.
 const MIN_FLYING_FRACTION := 0.6  # GAMEPLAY_ESTIMATE
 
@@ -175,6 +205,9 @@ static func step(u: Unit, dt: float) -> void:
 		desired += _baffle_clearing_offset(u, dt)
 	var max_turn := turn_rate_now(u) * dt
 	var off_course := Geo.heading_delta(u.heading_deg, desired)
+	if u.needs_sea_room() and absf(off_course) > SEA_ROOM_TURN_DEG and not Terrain.is_empty() and turn_meets_land(u, off_course) and not turn_meets_land(u, off_course - signf(off_course) * 360.0):
+		# The short way round would put her on the shore: she comes round the other way.
+		off_course -= signf(off_course) * 360.0
 	var delta := clampf(off_course, -max_turn, max_turn)
 	u.heading_deg = fposmod(u.heading_deg + delta, 360.0)
 
@@ -220,13 +253,17 @@ static func _step_in_sea_room(u: Unit, advance: Vector2, target_speed: float, co
 			u.coast_blocked = false
 		return
 	var made := u.position.distance_to(reached)
-	if made > 1e-9:
+	var headway := made >= Geo.knots_to_nm_per_s(target_speed) * dt * COAST_HEADWAY_FRACTION
+	# Sliding along the shore with way on, she is laid along it. Held without headway she is not:
+	# her head is being worked round with the engines, and laying it back along the beach every
+	# step would undo the twist and leave her creeping along the shore for good.
+	if made > 1e-9 and headway:
 		var along := Geo.bearing_deg(u.position, reached)
 		if absf(Geo.heading_delta(u.heading_deg, along)) <= COAST_TURN_MAX_DEG:
 			u.heading_deg = along
 	u.speed_kn = minf(u.speed_kn, made / maxf(dt, 1e-6) * 3600.0)
 	u.position = reached
-	if made >= Geo.knots_to_nm_per_s(target_speed) * dt * COAST_HEADWAY_FRACTION:
+	if headway:
 		u.coast_blocked_s = 0.0
 		return
 	# Held. The count starts at once, so that she can be twisted round; it runs on only while she

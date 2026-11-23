@@ -194,3 +194,82 @@ func test_a_consort_whose_shot_lies_beyond_the_screen_keeps_station_and_says_why
 	assert_true(escort.in_formation(), "she is in the screen")
 	um.free()
 	wm.free()
+
+
+# --- Holding the range off a coast -------------------------------------------------------------
+
+func test_a_destroyer_holding_her_range_off_musandam_is_never_put_on_the_shore() -> void:
+	Detection.set_environment({})
+	var ship := _ship("usn_ddg_arleigh_burke_iia", "BLUE", Vector2(-28.0, 10.2))
+	ship.heading_deg = 100.0
+	ship.ordered_heading_deg = 100.0
+	ship.speed_kn = 13.0
+	ship.ordered_speed_kn = 13.0
+	var target := _ship("irn_ffg_moudge", "RED", Vector2(60.0, -50.0))
+	target.health = 100000.0
+	var um := UnitManager.new()
+	um.add_unit(ship)
+	um.add_unit(target)
+	var wm := WeaponManager.new()
+	wm.unit_manager = um
+	wm.rng.seed = 7
+	um.weapon_manager = wm
+	Terrain.clear()
+	Terrain.load_from(ScenarioLoader.load_file("res://data/scenarios/gulf_01_hormuz.json"))
+	var t := _track(target)
+	assert_true(um.issue_order(ship, Order.attack(t)))
+	var now := 0.0
+	var nearest := INF
+	var crawling := 0.0
+	var longest_crawl := 0.0
+	while now < 9000.0 and ship.attack_track != null:
+		now += DT
+		um.tick(DT, now)
+		wm.tick(DT, now)
+		nearest = minf(nearest, Terrain.distance_to_land_nm(ship.position))
+		crawling = crawling + DT if now > 600.0 and ship.speed_kn < 5.0 and ship.ordered_speed_kn > 20.0 else 0.0
+		longest_crawl = maxf(longest_crawl, crawling)
+	assert_true(nearest > 0.0, "she is never on the beach (nearest %.2f NM)" % nearest)
+	assert_true(longest_crawl < 60.0, "and never creeps with full speed rung on (%.0f s at under 5 kn)" % longest_crawl)
+	assert_true(ship.attack_rounds_fired > 0, "the attack is carried on")
+	Terrain.clear()
+	um.free()
+	wm.free()
+
+
+## A coast to the south: the short way round from south-west to east would take her through it.
+func test_a_ship_with_the_shore_on_the_short_side_of_her_turn_comes_round_the_other_way() -> void:
+	Terrain.clear()
+	Terrain.load_from({"terrain": {"land": [{"id": "coast", "name": "Coast", "elevation_m": 40.0, "points_nm": [[-40, -30], [40, -30], [40, 0], [-40, 0]]}]}})
+	var ship := _ship("usn_ddg_arleigh_burke_iia", "BLUE", Vector2(0.0, 0.35))
+	ship.heading_deg = 219.0
+	ship.ordered_heading_deg = 219.0
+	ship.speed_kn = 18.0
+	ship.ordered_speed_kn = 25.0
+	ship.waypoints.assign([Vector2(10.0, 0.5)])
+	var nearest := INF
+	var first_turn := 0.0
+	for i in 2400:
+		Movement.step(ship, DT)
+		if i == 8:
+			first_turn = Geo.heading_delta(219.0, ship.heading_deg)
+		nearest = minf(nearest, Terrain.distance_to_land_nm(ship.position))
+	assert_true(first_turn > 0.0, "she comes round to starboard, away from the shore (%.1f deg)" % first_turn)
+	assert_true(nearest > 0.05, "and keeps off it (nearest %.2f NM)" % nearest)
+	assert_true(ship.position.x > 2.0, "and is on her way east (%.1f NM)" % ship.position.x)
+	Terrain.clear()
+
+
+func test_a_ship_with_open_water_on_both_sides_still_turns_the_short_way() -> void:
+	Terrain.clear()
+	Terrain.load_from({"terrain": {"land": [{"id": "coast", "name": "Coast", "elevation_m": 40.0, "points_nm": [[-40, -30], [40, -30], [40, -20], [-40, -20]]}]}})
+	var ship := _ship("usn_ddg_arleigh_burke_iia", "BLUE", Vector2(0.0, 0.35))
+	ship.heading_deg = 219.0
+	ship.ordered_heading_deg = 219.0
+	ship.speed_kn = 18.0
+	ship.ordered_speed_kn = 25.0
+	ship.waypoints.assign([Vector2(10.0, 0.5)])
+	for i in 8:
+		Movement.step(ship, DT)
+	assert_true(Geo.heading_delta(219.0, ship.heading_deg) < 0.0, "with sea room she turns to port, the short way")
+	Terrain.clear()
