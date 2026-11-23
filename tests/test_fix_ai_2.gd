@@ -282,3 +282,51 @@ func test_the_enemy_sends_a_crippled_ship_a_round_or_two_not_a_full_volley() -> 
 	ship.magazines[asm.id] = 1
 	assert_eq(ai._salvo_for(ship, asm, fresh), 1, "never more than the magazine holds")
 	ai.free()
+
+
+# --- An operation's event can free or hold a side's weapons ---------------------------------
+
+func test_an_event_frees_a_battery_held_with_weapons_tight_and_can_hold_it_again() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var tm := TrackManager.new()
+	var mm := MissionManager.new()
+	mm.unit_manager = um
+	mm.track_manager = tm
+	var director := OperationDirector.new()
+	director.unit_manager = um
+	director.track_manager = tm
+	director.mission_manager = mm
+	var units := [
+		{"platform": "cw90_perry", "callsign": "Escort", "faction": "BLUE", "position_nm": [0, 0]},
+		{"platform": "cw90_nanuchka", "callsign": "Corvette", "faction": "RED", "position_nm": [0, 30]},
+	]
+	var events := [
+		{"id": "tight", "side": "RED", "at_s": 0, "ai": [{"units": ["Corvette"], "roe": "tight"}]},
+		{"id": "free", "side": "RED", "at_s": 600, "ai": [{"units": ["Corvette", "Escort"], "roe": "FREE"}]},
+		{"id": "hold", "side": "RED", "at_s": 900, "ai": [{"units": ["Corvette"], "roe": 0}]},
+	]
+	var sc := {"player_faction": "BLUE", "map": {"anchor_lat": 68.0, "anchor_lon": 4.0}, "units": units,
+		"objectives": {"victory": [{"id": "watch", "type": "time_elapsed", "seconds": 3600, "text": "Watch"}], "loss": []}, "events": events}
+	ScenarioLoader.populate(um, sc)
+	mm.configure(sc)
+	director.configure(sc, 7)
+	var corvette: Unit = null
+	var escort: Unit = null
+	for u: Unit in um.units:
+		if u.callsign == "Corvette": corvette = u
+		if u.callsign == "Escort": escort = u
+	escort.roe = Unit.Roe.TIGHT
+	director.tick(1.0)
+	assert_eq(corvette.roe, Unit.Roe.TIGHT, "in the battle from the start, weapons tight")
+	director.tick(600.0)
+	assert_eq(corvette.roe, Unit.Roe.FREE, "the event frees her")
+	assert_eq(escort.roe, Unit.Roe.TIGHT, "a RED event cannot touch a BLUE ship's posture")
+	director.tick(900.0)
+	assert_eq(corvette.roe, Unit.Roe.HOLD, "and a number is the posture itself")
+	assert_true(OperationDirector.event_problem({"units": units, "events": [{"id": "x", "side": "RED", "ai": [{"units": ["Corvette"], "roe": "loose"}]}]}).contains("not hold, tight or free"))
+	assert_eq(OperationDirector.event_problem({"units": units, "events": [{"id": "x", "side": "RED", "ai": [{"units": ["Corvette"], "roe": "hold"}]}]}), "")
+	director.free()
+	mm.free()
+	tm.free()
+	um.free()

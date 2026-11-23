@@ -222,6 +222,7 @@ func test_tasking_changes_say_what_changed_and_a_bonus_never_blocks_the_win() ->
 	assert_eq(_mm.briefing, "New orders.")
 	assert_eq(_mm.tasking_updates, [{"time_s": 600.0, "text": "TASKING UPDATE: the handover moves north; the corvette is a bonus target."}])
 	_unit("Cargo").position = Vector2(0, 20)
+	_mm.record_order(_unit("Escort"), Order.move(Vector2(0, 25)))  # commanded, so the task is the commander's
 	_mm.tick(3600.0)
 	assert_eq(_mm.result, MissionManager.Result.RUNNING, "the old box no longer counts")
 	_unit("Cargo").position = Vector2(0, 25)
