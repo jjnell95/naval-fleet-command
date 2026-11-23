@@ -190,20 +190,36 @@ func test_continuation_of_an_enemy_mission_plan_matches_the_uninterrupted_battle
 	assert_eq(plan.phase, AIPlan.Phase.RECON, "the scout is looking at the first save")
 	assert_true(_unit("Backfire Scout").airborne())
 	var searching := _write_and_read(SimSnapshot.capture(_sim))
-	SimClock.advance(900.0 - 150.75)
-	var expected_found := _bytes()
-	assert_eq(plan.phase, AIPlan.Phase.ATTACK, "the carrier was found and the window has run")
-	assert_true(plan.weapons_free)
+	# The second save is inside the first volley, whenever this seed's strike comes: before the
+	# 900 s comparison or after it. The uninterrupted battle is read at both times in order.
+	var expected_found := PackedByteArray()
+	var found := [-1, false]  # the plan's phase and weapons release at 900 s
 	while plan.salvos == 0 and SimClock.sim_time < 3000.0:
 		SimClock.advance(0.25)
+		if is_equal_approx(SimClock.sim_time, 900.0):
+			expected_found = _bytes()
+			found = [plan.phase, plan.weapons_free]
 	SimClock.advance(2.75)  # off the one- and two-second cycle boundaries
 	var at := SimClock.sim_time
 	assert_true(plan.salvos > 0, "the strike has fired by the second save")
-	assert_true(at < float(plan.volley_until.get(plan.target_track_id, -1.0)), "the volley is still open")
+	var volley := ""  # the contact whose volley is open at the save
+	for id: String in plan.volley_until:
+		if at < float(plan.volley_until[id]):
+			volley = id
+	assert_true(volley != "", "the volley is still open")
 	assert_true(not _sim.weapon_manager._pending.is_empty() or not _sim.weapon_manager.in_flight.is_empty(), "rounds on the way")
+	var progress := [plan.salvos, plan.weapons_free]
 	var striking := SimSnapshot.capture(_sim)
-	SimClock.advance(500.0)
-	var expected_struck := _bytes()
+	var expected_struck := PackedByteArray()
+	if expected_found.is_empty():
+		SimClock.advance(900.0 - SimClock.sim_time)
+		expected_found = _bytes()
+		found = [plan.phase, plan.weapons_free]
+	assert_eq(found[0], AIPlan.Phase.ATTACK, "the carrier was found and the window has run")
+	assert_true(found[1])
+	assert_true(at + 500.0 >= SimClock.sim_time, "the volley's continuation ends after the search's")
+	SimClock.advance(at + 500.0 - SimClock.sim_time)
+	expected_struck = _bytes()
 	_free()
 	_fresh(PLAN_FIXTURE, 999)
 	assert_eq(_sim.restore_snapshot(searching), "")
@@ -219,8 +235,8 @@ func test_continuation_of_an_enemy_mission_plan_matches_the_uninterrupted_battle
 	assert_eq(_sim.restore_snapshot(striking), "")
 	plan = _sim.ai_controllers["RED"].plans[0]
 	assert_true(_sim.track_manager.get_tracks("RED").has(plan.target), "the plan's target is the track in its side's own picture")
-	assert_true(plan.weapons_free and plan.salvos > 0, "the strike's progress comes back")
-	assert_true(not plan.assessing(plan.target_track_id, at) and plan.assessing(plan.target_track_id, at + AIPlan.VOLLEY_S + 1.0), "the open volley, and the shared assessment after it")
+	assert_eq([plan.salvos, plan.weapons_free], progress, "the strike's progress comes back")
+	assert_true(not plan.assessing(volley, at) and plan.assessing(volley, at + AIPlan.VOLLEY_S + 1.0), "the open volley, and the shared assessment after it")
 	SimClock.advance(500.0)
 	got = _bytes()
 	if got != expected_struck:

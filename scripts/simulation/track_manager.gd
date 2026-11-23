@@ -51,6 +51,8 @@ const HISTORY_INTERVAL_S := 30.0
 const HISTORY_LENGTH := 48
 ## Damage pool assumed for a contact whose class is not yet known, for battle damage assessment.
 const GENERIC_HEALTH := 100.0  # GAMEPLAY
+## The sources a signature library can match a class from.
+const SIGNATURE_SOURCES: Array[String] = ["esm", "sonar_passive", "sonar_active", "sonar_cz", "sonobuoy"]
 ## A radar plot this close on an aircraft accumulates toward a probable type. GAMEPLAY_ESTIMATE.
 const RADAR_RECOGNITION_NM := 60.0
 const RADAR_RECOGNITION_S := 60.0
@@ -77,6 +79,18 @@ const REMEMBERED_FIELDS: Array[String] = ["classification", "identity", "domain"
 var _next_number: Dictionary = {}  # faction -> int
 ## How many times a report has been filed in a picture, for tests and the measuring tools.
 var picture_filings := 0
+## When the sensor cycle being filed began. SensorManager spreads a cycle over the ticks of its
+## second and sets this before each slice, so the reports of one cycle are merged as one look
+## however many ticks they come in over; NAN, or a time outside that second, makes every report
+## a cycle of its own, as for a caller filing one directly.
+var cycle_at := NAN
+const CYCLE_S := 1.0  # SensorManager.SENSOR_DT
+
+
+func _cycle_for(now: float) -> float:
+	if is_nan(cycle_at) or now < cycle_at - 1e-6 or now - cycle_at >= CYCLE_S - 1e-6:
+		return now
+	return cycle_at
 
 
 func configure_recognition(brief: Dictionary) -> void:
@@ -163,7 +177,7 @@ func report_intel(faction: String, target: Unit, reported_pos: Vector2, error_nm
 	t.position_error_nm = error_nm
 	t.source = "intel"
 	t.source_sensor = source_name
-	_record_history(t, now)
+	_record_history(t, now, now)
 	track_added.emit(faction, t)
 	return t
 
@@ -197,13 +211,15 @@ func _new_track(key: String, faction: String, target: Unit, position: Vector2, n
 
 func _observe_picture(key: String, faction: String, c: SensorContact, now: float, dt: float, shared: bool) -> void:
 	picture_filings += 1
+	var cycle := _cycle_for(now)
 	var target := c.target
 	var t := find_track(key, target)
 	var is_new := t == null
 	if is_new:
 		t = _new_track(key, faction, target, c.position, now)
-	var already_this_cycle := (not is_new) and is_equal_approx(t.last_seen_time, now)
+	var already_this_cycle := (not is_new) and (is_equal_approx(t.last_seen_time, now) or is_equal_approx(t._cycle_at, cycle))
 	if not already_this_cycle:
+		t._cycle_at = cycle
 		var reacquired := not is_new and t.age_s(now) > t.stale_after_s()
 		# The side's own first look at a reported contact replaces the report outright: neither its
 		# position nor its age is evidence the sensor should be blended with.
@@ -317,12 +333,14 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	t.networked = shared
 	t.status = Track.Status.ACTIVE
 	t.last_seen_time = now
-	_record_history(t, now)
+	_record_history(t, now, cycle)
 	if ranged and (firm or c.solution_quality >= SOUND_SOLUTION_QUALITY - 0.1):
 		if not firm:
 			t._obs_estimated = true
-		if not t._obs_times.is_empty() and is_equal_approx(t._obs_times[-1], now):
+		if not t._obs_times.is_empty() and (is_equal_approx(t._obs_times[-1], now) or t._obs_times[-1] >= cycle - 1e-6):
+			# A later look in the same cycle stands for the cycle's measurement.
 			t._obs_pos[-1] = c.position
+			t._obs_times[-1] = maxf(t._obs_times[-1], now)
 		else:
 			t._obs_times.append(now)
 			t._obs_pos.append(c.position)
@@ -446,6 +464,7 @@ func _range_carried(t: Track) -> bool:
 
 
 func tick(now: float, dt: float) -> void:
+	var cycle := _cycle_for(now)
 	for faction in _tracks.keys():
 		var list: Array = _tracks[faction]
 		for i in range(list.size() - 1, -1, -1):
@@ -461,8 +480,8 @@ func tick(now: float, dt: float) -> void:
 				if not t.confirmed_destroyed:
 					track_lost.emit(faction, t)
 				continue
-			if is_equal_approx(t.last_seen_time, now):
-				continue
+			if is_equal_approx(t.last_seen_time, now) or is_equal_approx(t._cycle_at, cycle):
+				continue  # looked at this cycle
 			if age > t.stale_after_s():
 				t.status = Track.Status.STALE
 			# What was heard transmitting two minutes ago is not known to be transmitting now.
@@ -589,7 +608,7 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 		t.domain = _plot_domain(c)
 	# Emission/acoustic signature libraries give a probable class, not a hull name or proof of
 	# intent. A generic radar range/velocity plot cannot identify an exact platform by waiting.
-	if c.source in ["esm", "sonar_passive", "sonar_active", "sonar_cz", "sonobuoy"]:
+	if c.source in SIGNATURE_SOURCES:
 		t.signature_time_s += maxf(gain - t._cycle_signature_gain, 0.0)
 		t._cycle_signature_gain = maxf(gain, t._cycle_signature_gain)
 		if t.signature_time_s >= Track.CLASS_TIMES_S[2] and t.classification < Track.Classification.IDENTIFIED:
@@ -761,10 +780,12 @@ func _reset_kinematics(t: Track) -> void:
 	t.course_deg = 0.0
 
 
-func _record_history(t: Track, now: float) -> void:
+## `cycle` is when the sensor cycle filing it began: a later look in that cycle moves its point.
+func _record_history(t: Track, now: float, cycle: float) -> void:
 	if not t.history_times.is_empty():
-		if is_equal_approx(t.history_times[-1], now):
+		if is_equal_approx(t.history_times[-1], now) or t.history_times[-1] >= cycle - 1e-6:
 			t.history_positions[-1] = t.position
+			t.history_times[-1] = maxf(t.history_times[-1], now)
 			return
 		if now - t.history_times[-1] < HISTORY_INTERVAL_S:
 			return

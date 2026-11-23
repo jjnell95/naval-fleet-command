@@ -71,6 +71,9 @@ extends RefCounted
 ##                               data display, 3D view, simulation ticks, shell), draw calls and
 ##                               memory. Add --run to measure with the clock going. Quits after,
 ##                               unless --screenshot follows (its hold then starts after the sample).
+##   --perf-autosave=S           force an autosave S seconds into the --perf sample, so its frames are
+##                               in the budget; it is written under user://dev-perf-saves, not with
+##                               the player's saves
 
 var main: Main
 
@@ -319,7 +322,7 @@ func handle_flags() -> void:
 		_engage_after(engage_after)
 	var perf := arg(args, "--perf=", 0.0)
 	if perf > 0.0:
-		await _perf(perf)
+		await _perf(perf, arg(args, "--perf-autosave=", -1.0))
 		if shot == "":
 			main.get_tree().quit()
 			return
@@ -330,8 +333,11 @@ func handle_flags() -> void:
 ## The frame budget: after a second for the screen to settle, every frame for `seconds` is timed,
 ## with the script time the profiled paths report (Debug.time_add) and the renderer's counts.
 ## Frame times under a software renderer say little; the script times and draw calls carry over.
-func _perf(seconds: float) -> void:
+func _perf(seconds: float, autosave_at := -1.0) -> void:
 	await main.get_tree().create_timer(1.0).timeout
+	var autosave_forced := false
+	if autosave_at >= 0.0:
+		SaveGame.root_override = "user://dev-perf-saves"
 	Debug.timings.clear()
 	Debug.profiling = true
 	var frames := 0
@@ -344,6 +350,9 @@ func _perf(seconds: float) -> void:
 	var previous_frame := t_start
 	var sim_start := SimClock.sim_time
 	while Time.get_ticks_usec() - t_start < seconds * 1.0e6:
+		if autosave_at >= 0.0 and not autosave_forced and Time.get_ticks_usec() - t_start >= autosave_at * 1.0e6:
+			SaveGame.force_next_autosave = true
+			autosave_forced = true
 		await main.get_tree().process_frame
 		var frame_time := Time.get_ticks_usec()
 		var dt := float(frame_time - previous_frame) / 1000.0
@@ -367,6 +376,9 @@ func _perf(seconds: float) -> void:
 	print("[Perf] %s at %s, %d units, clock %s" % [main.simulation.scenario_name, main.get_viewport_rect().size, main.simulation.unit_manager.units.size(), "paused" if SimClock.paused else "%dx" % int(SimClock.multiplier())])
 	print("[Perf] %d frames in %.1f s: %.1f fps, frame avg %.1f ms, p95 %.1f ms, worst %.1f ms; main-loop process step avg %.2f ms (scripts and engine together, not script time alone; the paths below are script time)" % [frames, elapsed, frames / maxf(elapsed, 0.001), total / maxf(frames, 1), p95, worst_ms, process_ms / maxf(frames, 1)])
 	print("[Perf] simulated %.3f s per wall second; the clock reads %s" % [(SimClock.sim_time - sim_start) / maxf(elapsed, 0.001), SimClock.rate_text()])
+	if autosave_forced:
+		var error := SaveGame.finish_writing()
+		print("[Perf] an autosave was forced %.1f s into the sample: %s" % [autosave_at, "written" if error == "" and not SaveGame.force_next_autosave else "NOT written %s" % error])
 	var paths := path_ms.keys()
 	paths.sort()
 	for path in paths:
