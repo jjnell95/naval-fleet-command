@@ -86,6 +86,7 @@ func _ready() -> void:
 	air_mission_manager.unit_manager = unit_manager
 	air_mission_manager.aviation_manager = aviation_manager
 	air_mission_manager.track_manager = track_manager
+	air_mission_manager.threat_manager = threat_manager
 	add_child(air_mission_manager)
 	group_attack_manager = GroupAttackManager.new()
 	group_attack_manager.name = "GroupAttackManager"

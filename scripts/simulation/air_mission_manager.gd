@@ -37,6 +37,10 @@ const BREAK_OFF_S := 120.0
 const THREAT_SWITCH_NM := 10.0
 ## A held course within about 60 degrees of a point counts as closing on it.
 const CLOSING_COS := 0.5
+## A CAP fighter that sees a round coming at it breaks when the round is this close to arriving,
+## as the other side's fighters do and the commander can order: soon enough that the turn is built
+## up by the endgame, and the break is flown again while the round is still coming. GAMEPLAY_ESTIMATE.
+const MISSILE_BREAK_S := 40.0
 ## A reconnaissance or ASW aircraft looks at contacts this far beyond its search area.
 const SEARCH_MARGIN_NM := 5.0
 ## An unarmed sensor aircraft keeps at least this far from a ship it has not identified as
@@ -76,6 +80,7 @@ const ALERT_RADIUS_NM := 15.0
 var unit_manager: UnitManager
 var aviation_manager: AviationManager
 var track_manager: TrackManager
+var threat_manager: ThreatManager
 var missions: Array[AirMission] = []
 var now_s := 0.0
 var _next_id := 1
@@ -797,10 +802,36 @@ func tick(dt: float, now: float) -> void:
 	_accum += dt
 	while _accum >= CYCLE_DT - 1e-6:
 		_accum -= CYCLE_DT
+		_break_from_missiles()
 		for m in missions:
 			if m.active:
 				_step(m)
 		_scramble_alerts()
+
+
+## A CAP fighter with a round it can see coming at it breaks: the endgame is then flown against a
+## turning target, as it is against the other side's fighters. The break interrupts the steering,
+## not the mission, and the attack it was flying takes up again after it.
+func _break_from_missiles() -> void:
+	if threat_manager == null:
+		return
+	var factions: Array[String] = []
+	for m in missions:
+		if m.active and m.kind == AirMission.Kind.CAP and not factions.has(m.faction):
+			factions.append(m.faction)
+	for faction in factions:
+		for entry: Dictionary in AirDefence.inbound_threats(unit_manager, threat_manager, faction):
+			var a: Unit = entry["target"]
+			if not a.is_aircraft() or a.spec.can_hover or not a.airborne() or a.evasion_remaining_s > 0.0:
+				continue
+			if float(entry["time_s"]) > MISSILE_BREAK_S or not threat_manager.visible_to(a, entry["weapon"]):
+				continue
+			var m := mission_for(a)
+			if m == null or m.kind != AirMission.Kind.CAP:
+				continue
+			var order := Order.evade()
+			if _crew(a, order) and order.execution_accepted:
+				_report(m, "%s breaking: missile inbound" % a.callsign, true)
 
 
 func _step(m: AirMission) -> void:
@@ -1382,7 +1413,14 @@ static func cap_commits(m: AirMission, a: Unit, t: Track, margin := 0.0) -> bool
 	if _from_guarded(m, t.position) > leash + shot:
 		return false
 	var shot_at := cap_shot_point(a, t)
-	return shot_at.is_finite() and _from_guarded(m, shot_at) <= leash
+	if not shot_at.is_finite() or _from_guarded(m, shot_at) > leash:
+		return false
+	# A raid that would have its shot away first is not gone out to meet: the fighter is sent only
+	# when the raid is coming for what the CAP holds and can be met over it. One already sent stays
+	# on it, or it would turn its tail on a raid that is about to shoot.
+	if margin > 0.0 and outshoots(a, t):
+		return _closing_on_guarded(m, t) and _from_guarded(m, shot_at) <= m.radius_nm
+	return true
 
 
 ## A hostile air contact inside this airframe's own missile reach and closing on it: one that has
@@ -1394,6 +1432,50 @@ static func threatens(a: Unit, t: Track) -> bool:
 	if d > aam_reach_nm(a) or d < 0.01:
 		return false
 	return Geo.heading_to_vector(t.course_deg).dot((a.position - t.position) / d) > CLOSING_COS
+
+
+## Whether this air contact, by the class the plot gives it, would have its shot away at the fighter
+## first, the two closing head on with the fighter at dash: the no-escape range of its best
+## air-to-air round against the fighter beats the fighter's own against it. Both sides fire at their
+## no-escape range, so this is who shoots first. A contact of no known class is not judged.
+static func outshoots(a: Unit, t: Track) -> bool:
+	var known := Combat._reported_platform(t)
+	if known == null or not t.position.is_finite() or t.position.distance_to(a.position) < 0.01:
+		return false
+	var own := 0.0
+	for spec: WeaponSpec in a.weapons_for_track(t):
+		own = maxf(own, Combat.air_no_escape_range_nm(spec, t, a.position, Combat.effective_range_nm(a, spec)))
+	# The fighter as the contact would hold it: its own type, coming straight in at dash.
+	var me := Track.new()
+	me.domain = "air"
+	me.position = a.position
+	me.has_kinematics = true
+	me.course_deg = Geo.bearing_deg(a.position, t.position)
+	me.speed_kn = a.spec.flight_speed("dash")
+	me.classification = Track.Classification.CLASS_KNOWN
+	me.known_class = a.spec.short_name
+	me.known_category = a.spec.category
+	var theirs := 0.0
+	for wid: String in known.weapon_loadout:
+		var w := DataDB.weapon(wid)
+		if w != null and w.target_types.has("air") and w.type in ["aam", "sam"]:
+			theirs = maxf(theirs, Combat.air_no_escape_range_nm(w, me, t.position))
+	return theirs > own
+
+
+## Whether a contact's held course is bringing it in on the CAP's station or the group it protects.
+static func _closing_on_guarded(m: AirMission, t: Track) -> bool:
+	if not t.has_kinematics or t.speed_kn <= 0.0:
+		return false
+	var heading := Geo.heading_to_vector(t.course_deg)
+	var centres: Array[Vector2] = [m.station]
+	if m.cap_intent == "protect" and m.protected_unit != null and m.protected_unit.alive:
+		centres.append(m.protected_unit.position)
+	for c in centres:
+		var to := c - t.position
+		if to.length() < 0.01 or heading.dot(to.normalized()) > CLOSING_COS:
+			return true
+	return false
 
 
 ## Distance from the nearer of the CAP's station and the group it protects.
