@@ -622,7 +622,9 @@ func _step_attack(u: Unit, dt: float) -> void:
 		return
 	var check: Dictionary = solution["check"]
 	if bool(check["ok"]):
-		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
+		# A weapon the commander named fires its default salvo; one the attack chose is sized to
+		# what the plot says is left of the contact.
+		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id)) if u.attack_weapon_id != "" else u.salvo_for_track(spec, track)
 		if weapon_manager != null and weapon_manager.launch(u, spec, track, salvo, now_s):
 			u.attack_rounds_fired += salvo
 			u.attack_assess_until_s = -1.0
@@ -753,8 +755,9 @@ func _localise_from_the_dip(u: Unit, track: Track, dt: float) -> bool:
 
 
 ## The weapon the attack would fire now: the named one, else the first that can be fired in the
-## order weapons_for_track ranks them (longest reach first, guns last). When none can, the most
-## preferred one's refusal decides what the platform does about it.
+## order weapons_for_track ranks them (the gun at small craft in its reach, else the cheapest round
+## meant for the target that reaches with margin). When none can, the most preferred one's refusal
+## decides what the platform does about it.
 func _attack_solution(u: Unit, track: Track) -> Dictionary:
 	var candidates: Array[WeaponSpec] = []
 	if u.attack_weapon_id != "":

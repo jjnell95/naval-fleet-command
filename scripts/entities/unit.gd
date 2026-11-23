@@ -17,6 +17,14 @@ enum Emcon { FREE, SILENT }
 enum Roe { HOLD, TIGHT, FREE }
 
 const COMPONENTS := ["propulsion", "sensors", "weapons"]
+## Weapon choice. A shot inside this fraction of a weapon's reach, and beyond this multiple of its
+## minimum range, is one it makes with margin. A surface contact whose reported class is no
+## stronger than SMALL_CRAFT_HEALTH is small craft, for the gun. A missile that strikes ashore from
+## beyond LAND_ATTACK_REACH_NM is a land-attack cruise missile. GAMEPLAY.
+const WEAPON_REACH_MARGIN := 0.9
+const WEAPON_MIN_RANGE_MARGIN := 1.1
+const SMALL_CRAFT_HEALTH := 30.0
+const LAND_ATTACK_REACH_NM := 150.0
 
 var id := -1
 var callsign := ""
@@ -397,17 +405,96 @@ func can_engage_domain(domain: String) -> bool:
 	return false
 
 
-## Weapons with rounds left that can engage a given track, best reach first and guns last.
+## Weapons with rounds left that can engage a given track, in the order a captain would reach
+## for them, judged from the plot alone: the reported class (through it the catalogue's hull
+## strength), the domain and the range. A weapon that reaches with margin comes before one that
+## does not; among those, the kind meant for the target comes first, and the cheapest of a kind,
+## which is the shortest-ranged round, before a dearer one. A gun leads against small craft inside
+## its reach. Out of reach, the longest reach leads, so the platform closes for the nearest shot.
+## Against aircraft the outer layer leads, as before, so the inner one keeps a second chance.
 func weapons_for_track(t: Track) -> Array[WeaponSpec]:
 	var out: Array[WeaponSpec] = []
 	for w in weapons:
 		if magazine_count(w.id) > 0 and Combat.suits_track(w, t):
 			out.append(w)
+	if t.domain == "air" or out.size() < 2:
+		out.sort_custom(func(a: WeaponSpec, c: WeaponSpec) -> bool:
+			if a.is_gun() != c.is_gun():
+				return c.is_gun()
+			return a.max_range_nm > c.max_range_nm)
+		return out
+	var range_nm := position.distance_to(t.position) if t.position.is_finite() else INF
+	var small := t.domain == "surface" and TrackManager.assessed_health(t) <= SMALL_CRAFT_HEALTH
+	var keys := {}
+	for w in out:
+		var reaches := weapon_reaches(w, range_nm)
+		var reach := Combat.effective_range_nm(self, w)
+		keys[w] = [0 if reaches else 1, _weapon_tier(w, t.domain, small and reaches), reach if reaches else -reach, w.damage, w.id]
 	out.sort_custom(func(a: WeaponSpec, c: WeaponSpec) -> bool:
-		if a.is_gun() != c.is_gun():
-			return c.is_gun()
-		return a.max_range_nm > c.max_range_nm)
+		var ka: Array = keys[a]
+		var kc: Array = keys[c]
+		for i in ka.size():
+			if ka[i] != kc[i]:
+				return ka[i] < kc[i]
+		return false)
 	return out
+
+
+## Whether a round reaches this range with margin: inside the fraction of its reach a captain
+## trusts and clear of its minimum range.
+func weapon_reaches(w: WeaponSpec, range_nm: float) -> bool:
+	var reach := Combat.effective_range_nm(self, w)
+	return range_nm <= reach * WEAPON_REACH_MARGIN and range_nm >= Combat.minimum_range_nm(w) * WEAPON_MIN_RANGE_MARGIN
+
+
+## How well a kind of weapon suits a kind of target, best first. WeaponSpec carries no role, so it
+## is read from what the data does say: a missile that strikes inland from beyond
+## LAND_ATTACK_REACH_NM is a land-attack cruise missile, which a ship gets only after a ship-killer;
+## a lightweight torpedo and an ASW rocket are anti-submarine weapons, which a ship gets last.
+func _weapon_tier(w: WeaponSpec, domain: String, gun_on_small_craft: bool) -> int:
+	if w.is_gun():
+		return 0 if gun_on_small_craft else 3
+	match domain:
+		"surface":
+			if w.is_anti_radiation():
+				return 2
+			if w.is_torpedo():
+				return 1 if w.is_heavyweight_torpedo() else 4
+			if w.type == "asw_rocket":
+				return 4
+			if w.target_types.has("land") and w.max_range_nm >= LAND_ATTACK_REACH_NM:
+				return 2
+			return 1
+	return 1
+
+
+## The rounds the standing attack sends at a contact with this weapon: enough to finish what the
+## plot says is left of it, never more than the weapon's default salvo or the magazine holds. What
+## is left is the catalogue strength of the reported class (a generic hull when the class is not
+## known) less this side's own damage estimate, so a nearly dead ship gets one more round, not a
+## full salvo. Against aircraft the weapon's own doctrine salvo stands: a miss there is the risk.
+func salvo_for_track(spec: WeaponSpec, t: Track) -> int:
+	var most := mini(maxi(spec.salvo_default, 1), magazine_count(spec.id))
+	if most <= 1 or t.domain == "air":
+		return most
+	var range_nm := position.distance_to(t.position) if t.position.is_finite() else -1.0
+	var per_round := spec.damage * expected_hit_chance(spec, t, range_nm)
+	if per_round <= 0.0:
+		return most
+	var remaining := TrackManager.assessed_health(t, spec.id) * (1.0 - clampf(t.damage_estimate, 0.0, 99.0) / 100.0)
+	return clampi(ceili(remaining / per_round), 1, most)
+
+
+## The chance one round hits, as the shooter can judge it from the plot: the weapon's rated figure,
+## and for gunfire the fall with range and with the plotted speed of the target (Combat's model).
+func expected_hit_chance(spec: WeaponSpec, t: Track, range_nm := -1.0) -> float:
+	if not spec.is_gun():
+		return clampf(spec.base_pk, 0.0, 1.0)
+	var range_factor := 1.0
+	if range_nm >= 0.0 and spec.max_range_nm > 0.0:
+		range_factor = lerpf(1.0, Combat.GUN_PK_AT_MAX_RANGE, clampf(range_nm / spec.max_range_nm, 0.0, 1.0))
+	var speed := t.speed_kn if t.has_kinematics else 0.0
+	return clampf(spec.base_pk * range_factor / (1.0 + maxf(speed, 0.0) / Combat.GUN_SPEED_HALVING_KN), 0.0, 1.0)
 
 
 ## Interceptors with rounds left, longest reach first, so defence engages in layers.
