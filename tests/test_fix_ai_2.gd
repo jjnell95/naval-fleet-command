@@ -252,3 +252,33 @@ func test_northern_passage_left_to_itself_grades_under_forty() -> void:
 	assert_eq(sim.mission_manager.result, MissionManager.Result.VICTORY, "the standing defences bring the freighter through")
 	assert_true(int(a["percent"]) < 40, "but nobody commanded the passage: %s" % MissionManager.assessment_text(a))
 	sim.free()
+
+
+# --- The enemy sizes its salvo from its plot ------------------------------------------------
+
+func test_the_enemy_sends_a_crippled_ship_a_round_or_two_not_a_full_volley() -> void:
+	var asm := _weapon("asm")
+	asm.target_types = PackedStringArray(["surface"])
+	asm.max_range_nm = 70.0
+	asm.damage = 40.0
+	asm.base_pk = 0.9
+	asm.salvo_default = 4
+	var ship := _unit("RED", "Raider", Vector2.ZERO, "corvette")
+	ship.weapons.append(asm)
+	ship.magazines[asm.id] = 8
+	var fresh := Track.new()
+	fresh.domain = "surface"
+	fresh.position = Vector2(0.0, 20.0)
+	var hurt := Track.new()
+	hurt.domain = "surface"
+	hurt.position = Vector2(0.0, 20.0)
+	hurt.damage_estimate = 90.0
+	var ai := AIController.new()
+	var full := ai._salvo_for(ship, asm, fresh)
+	var finishing := ai._salvo_for(ship, asm, hurt)
+	assert_eq(full, ship.salvo_for_track(asm, fresh), "the AI's volley is the one the player's ships would size")
+	assert_eq(finishing, 1, "one round finishes what the plot says is left")
+	assert_true(finishing < full, "a crippled ship gets fewer rounds than a sound one: %d against %d" % [finishing, full])
+	ship.magazines[asm.id] = 1
+	assert_eq(ai._salvo_for(ship, asm, fresh), 1, "never more than the magazine holds")
+	ai.free()

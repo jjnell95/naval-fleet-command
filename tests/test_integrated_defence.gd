@@ -345,5 +345,5 @@ func test_the_ai_fires_a_weapons_own_salvo_at_an_aircraft_not_an_anti_ship_volle
 	var surface := Track.new()
 	surface.domain = "surface"
 	assert_eq(ai._salvo_for(ship, sam, air), 2, "two SAMs at one aircraft")
-	assert_eq(ai._salvo_for(ship, ship.weapons[1], surface), AIController.ASM_SALVO, "a full volley at a ship")
+	assert_true(ai._salvo_for(ship, ship.weapons[1], surface) > 2, "a volley at a ship, sized from the plot")
 	ai.free()

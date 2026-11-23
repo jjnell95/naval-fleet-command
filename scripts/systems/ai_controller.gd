@@ -586,7 +586,21 @@ func _would_radiate_to_shoot(u: Unit) -> bool:
 	return u.is_aircraft() or _guiding_rounds(u) or _can_shoot_missiles(u) or not _anti_radiation_inbound(u)
 
 
+## The volley the doctrine sends, trimmed when the captain's own plot says fewer will do: against
+## a ship, a boat or a site ashore he sizes it as the player's ships do (Unit.salvo_for_track),
+## from the reported class's strength less the damage he estimates, so a crippled corvette gets a
+## round or two. A target the plot says needs the weapon's whole salvo still gets the doctrine
+## volley, to saturate its defences.
 func _salvo_for(u: Unit, spec: WeaponSpec, t: Track = null) -> int:
+	var volley := _doctrine_salvo(u, spec, t)
+	if t != null and t.domain in ["surface", "subsurface", "land"]:
+		var sized := u.salvo_for_track(spec, t)
+		if sized < mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id)):
+			return clampi(sized, 1, maxi(volley, 1))
+	return volley
+
+
+func _doctrine_salvo(u: Unit, spec: WeaponSpec, t: Track) -> int:
 	var rounds := _offensive_rounds(u, spec)
 	if spec.is_gun():
 		return mini(spec.salvo_default, rounds)
