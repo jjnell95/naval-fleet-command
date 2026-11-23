@@ -381,3 +381,48 @@ func test_a_circuit_held_off_a_ship_does_not_flicker_with_the_plot() -> void:
 	assert_eq(changes, 0, "on station throughout")
 	assert_eq(relaid, 0, "the circuit is not moved for a wandering plot")
 	_done()
+
+
+# --- A section holds as two aircraft after the commander's attack ---------------------------------
+
+## Two Tomcats launched with no mission are given the commander's attack on one raid; when the raid
+## is shot down they hold where they finished, each on its own pattern two miles apart, not one
+## pattern flown by both.
+func test_a_section_holds_apart_after_the_commanders_attack() -> void:
+	_load(CARRIER_WATCH)
+	var cv: Unit = null
+	for u in _sim.unit_manager.units:
+		if u.callsign == IKE:
+			cv = u
+	assert_true(_sim.unit_manager.issue_order(cv, Order.launch_flight("cw90_f14a", 2)), "launch two Tomcats")
+	var pair: Array[Unit] = []
+	for i in 300:
+		SimClock.advance(1.0)
+		pair.clear()
+		for a in cv.embarked:
+			if a.spec.id == "cw90_f14a" and a.airborne():
+				pair.append(a)
+		if pair.size() == 2:
+			break
+	assert_eq(pair.size(), 2, "both airborne")
+	SimClock.advance(60.0)
+	var raid := _raid(pair[0].position + Vector2(70, 0), "T1960", "", pair[0].position, 0.0)
+	raid.has_kinematics = false
+	raid.known_class = ""
+	for a in pair:
+		var o := Order.attack(raid)
+		assert_true(_sim.unit_manager.issue_order(a, o), o.receipt)
+	SimClock.advance(30.0)
+	assert_true(pair[0].position.distance_to(pair[1].position) < 2.0, "the section flew in together: %.1f nm" % pair[0].position.distance_to(pair[1].position))
+	raid.confirmed_destroyed = true
+	SimClock.advance(2.0)
+	for a in pair:
+		assert_eq(a.attack_track, null, "%s's attack is over" % a.callsign)
+		assert_true(a.holding(), "%s holds" % a.callsign)
+	assert_true(pair[0].hold_point.distance_to(pair[1].hold_point) >= AirMissionManager.SECTION_SPACING_NM, "on holds %.1f nm apart" % pair[0].hold_point.distance_to(pair[1].hold_point))
+	var closest := INF
+	for i in 600:
+		SimClock.advance(1.0)
+		closest = minf(closest, pair[0].position.distance_to(pair[1].position))
+	assert_true(closest >= 1.0, "flown as two aircraft: closest %.2f nm in ten minutes" % closest)
+	_done()
