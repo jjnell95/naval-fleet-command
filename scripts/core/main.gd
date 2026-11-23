@@ -331,6 +331,23 @@ func _ready() -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
 			return
 		radio.flash("%s cannot return to station: %s" % [u.callsign, reason.to_lower()], "warn", u))
+	simulation.unit_manager.blocked_by_coast.connect(func(u: Unit) -> void:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
+			return
+		radio.flash("%s: blocked by coast — stopped" % u.callsign, "warn", u))
+	# A ship on manual missile defence lights her radar to fight inbound rounds, or holds fire silent.
+	simulation.weapon_manager.self_defence_emcon.connect(func(u: Unit, lit: bool) -> void:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
+			return
+		if lit:
+			radio.flash("%s: radar on to engage inbound missiles" % u.callsign, "warn", u)
+		else:
+			radio.flash("%s holds fire: radar silent" % u.callsign, "warn", u))
+	# Decoys broke a torpedo's lock: the ship hears it go off searching long before it runs out.
+	simulation.weapon_manager.torpedo_decoyed.connect(func(_threat: Weapon, from_unit: Unit) -> void:
+		if from_unit == null or from_unit.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(from_unit):
+			return
+		radio.flash("Torpedo decoyed, searching", "good", from_unit))
 	simulation.unit_manager.attack_ended.connect(func(u: Unit, t: Track, reason: String) -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
 			return
@@ -2472,6 +2489,12 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 			radio.flash("Battery flat. Steerage way only until we snorkel", "alert", u)
 		"battery_charged":
 			radio.flash("Charge complete. Snorkel secured, returning to depth", "good", u)
+		"array_recovering":
+			radio.flash("Recovering the towed array", "warn", u)
+		"dip_raising":
+			radio.flash("Raising the dipping sonar", "warn", u)
+		"initiative_report":
+			radio.flash(u.comms_initiative_report, "warn", u)
 
 
 ## How one of the commander's own rounds ended without a hit, in plain words. A hit is reported by

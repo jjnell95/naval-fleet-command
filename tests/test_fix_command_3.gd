@@ -496,3 +496,41 @@ func test_classic_keys_translate_in_front_of_the_default_layout() -> void:
 	assert_true(" | ".join(KeyCommands.all_rows()).contains("R / P / E"), "turned off, the default layout is back")
 	assert_true(main.radio.journal.size() >= before, "the radio still answers")
 	_close(main)
+
+
+# --- Reports that reach the commander --------------------------------------------------------
+
+func _said(main: Main, fragment: String, from := 0) -> bool:
+	for line: String in main.radio.journal.slice(from):
+		if line.contains(fragment):
+			return true
+	return false
+
+
+func test_simulation_reports_reach_the_radio() -> void:
+	var main := _open("northern_passage.json")
+	var sim := main.simulation
+	var u := _own(main, "Truxtun")
+	var from := main.radio.journal.size()
+	sim.unit_manager.blocked_by_coast.emit(u)
+	assert_true(_said(main, "blocked by coast — stopped", from), "a ship stopped by the coast says so")
+	sim.weapon_manager.self_defence_emcon.emit(u, true)
+	assert_true(_said(main, "radar on to engage inbound missiles", from), "a silent ship lighting up to fight says so")
+	sim.weapon_manager.self_defence_emcon.emit(u, false)
+	assert_true(_said(main, "holds fire: radar silent", from), "and one holding fire silent")
+	sim.weapon_manager.torpedo_decoyed.emit(null, u)
+	assert_true(_said(main, "Torpedo decoyed, searching", from), "a torpedo pulled off by decoys is reported at once")
+	main._on_casualty_event(u, "array_recovering")
+	assert_true(_said(main, "Recovering the towed array", from))
+	main._on_casualty_event(u, "dip_raising")
+	assert_true(_said(main, "Raising the dipping sonar", from))
+	u.comms_initiative_report = "Contact report: submarine to the north"
+	main._on_casualty_event(u, "initiative_report")
+	assert_true(_said(main, "Contact report: submarine to the north", from))
+	# Another side's ship stopped by the coast is not the commander's business.
+	var before := main.radio.journal.size()
+	var enemy := _enemy_ship(main)
+	sim.unit_manager.blocked_by_coast.emit(enemy)
+	sim.weapon_manager.torpedo_decoyed.emit(null, enemy)
+	assert_eq(main.radio.journal.size(), before, "nothing is said for the other side")
+	_close(main)
