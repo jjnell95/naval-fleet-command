@@ -245,6 +245,24 @@ static func elevation_at(p: Vector2) -> float:
 
 # --- Line queries -----------------------------------------------------------------------
 
+## The highest ground anywhere on the stretch from `a` to `b`, endpoints included, walked at half
+## the raster spacing so that no cell the stretch crosses is stepped over. Zero over open sea.
+static func highest_ground_along(a: Vector2, b: Vector2) -> float:
+	if _grid.is_empty():
+		return 0.0
+	var top := maxf(elevation_at(a), elevation_at(b))
+	var d := a.distance_to(b)
+	if d < 1e-4:
+		return top
+	var span := _land_span(a, b)
+	if span.x > span.y:
+		return top
+	var steps := maxi(int(ceilf(d * (span.y - span.x) / (_cell_nm * 0.5))), 1)
+	for i in steps + 1:
+		top = maxf(top, elevation_at(a.lerp(b, lerpf(span.x, span.y, float(i) / float(steps)))))
+	return top
+
+
 ## True when the ground between two points rises above the line joining them. Heights are metres
 ## above sea level: a mast height for a ship, altitude for an aircraft, zero for anything on the
 ## surface. Endpoints are excluded, so a radar sited ashore is not blinded by its own hill.

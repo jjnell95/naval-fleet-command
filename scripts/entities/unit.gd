@@ -893,6 +893,17 @@ func station_circuit_from_here() -> Array[Vector2]:
 	return out
 
 
+## A task that stands but has no need of the helm gives it back to the screen: the consort takes
+## up her formation station again while the task waits for its shot. UnitManager has checked the
+## guide is there to keep station on.
+func rejoin_formation_station() -> void:
+	forget_plan()
+	waypoints.clear()
+	nav_goal = Vector2.INF
+	attack_holding = false
+	_resume_station()
+
+
 ## UnitManager has already checked the station is still there to return to.
 func _resume_station() -> void:
 	station_note = ""
