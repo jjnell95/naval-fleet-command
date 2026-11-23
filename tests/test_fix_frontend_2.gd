@@ -158,3 +158,75 @@ func test_staged_autosaves_keep_only_the_newest() -> void:
 	assert_eq(autos.size(), SaveGame.AUTOSAVE_KEEP, "the oldest are dropped")
 	assert_eq(str(autos[0]["slot"]), SaveGame.AUTOSAVE_PREFIX + str(SaveGame.AUTOSAVE_KEEP + 2), "newest first")
 	_close_main(main)
+
+
+# --- The grey-surface severity inks are the theme's -------------------------------------------
+
+static func _luminance(c: Color) -> float:
+	var lin := func(x: float) -> float: return x / 12.92 if x <= 0.04045 else pow((x + 0.055) / 1.055, 2.4)
+	return 0.2126 * lin.call(c.r) + 0.7152 * lin.call(c.g) + 0.0722 * lin.call(c.b)
+
+
+static func _contrast(a: Color, b: Color) -> float:
+	var la := _luminance(a)
+	var lb := _luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+func test_the_theme_names_severity_inks_that_read_on_every_grey_face() -> void:
+	var inks := {"alert": [UITheme.FACE_INK_ALERT, UITheme.HEX_FACE_INK_ALERT], "warn": [UITheme.FACE_INK_WARN, UITheme.HEX_FACE_INK_WARN], "good": [UITheme.FACE_INK_GOOD, UITheme.HEX_FACE_INK_GOOD]}
+	for severity: String in inks:
+		var ink: Color = inks[severity][0]
+		assert_eq(Color(str(inks[severity][1])), ink, "%s: the colour and its hex agree" % severity)
+		for face: Color in [UITheme.JFC_FACE, UITheme.JFC_FACE_HOVER, UITheme.JFC_FACE_DOWN]:
+			var ratio := _contrast(ink, face)
+			assert_true(ratio >= 4.5, "%s on %s is %.2f:1" % [severity, face.to_html(false), ratio])
+		assert_eq(Color(str(StatusBoards.SEVERITY_COLORS[severity])), ink, "the boards' %s message ink is the theme's" % severity)
+
+
+# --- The desk's list takes the height of its rows; the orders get the rest --------------------
+
+## Lays out `control` now, as the next frames would: containers sort top down, and a wrapped
+## label's height follows the width it was given, so it is measured again and the sort repeated.
+static func _lay_out(control: Control) -> void:
+	for pass_index in 3:
+		for label: Control in control.find_children("*", "Label", true, false):
+			label.update_minimum_size()
+		control.propagate_notification(Container.NOTIFICATION_SORT_CHILDREN)
+
+
+func test_the_desk_list_stands_as_tall_as_its_rows_and_the_orders_box_gets_the_rest() -> void:
+	var log_path := CommanderLog.path_override
+	CommanderLog.path_override = "user://test-frontend-two-log-%d.json" % Time.get_ticks_usec()
+	# 1600x900 at 100 percent, and the same window at 125 percent.
+	for screen: Vector2i in [Vector2i(1600, 900), Vector2i(1280, 720)]:
+		var port := SubViewport.new()
+		port.size = screen
+		port.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		_root().add_child(port)
+		var themed := Control.new()
+		themed.theme = UITheme.build()
+		themed.size = Vector2(screen)
+		port.add_child(themed)
+		var menu := ScenarioMenu.new()
+		themed.add_child(menu)
+		menu._set_era("operations")
+		_lay_out(menu)
+		var list := menu._list
+		assert_true(list.item_count >= 5, "the operations shelf is listed")
+		list.force_update_list_size()
+		var last := list.get_item_rect(list.item_count - 1)
+		var frame := list.get_theme_stylebox("panel").get_minimum_size().y
+		var inside := list.size.y - list.get_theme_stylebox("panel").get_margin(SIDE_BOTTOM)
+		assert_true(inside >= last.end.y - 1.0, "%s: every row is shown (%d px for %d px of rows)" % [screen, int(inside), int(last.end.y)])
+		var head := menu._top.size.y - list.size.y
+		var needed := maxf(head + last.end.y + frame * 0.5, menu._map_min_side)
+		assert_true(menu._top.size.y <= needed + last.size.y * 0.5, "%s: the list and map stand %d px tall where %d px hold every row" % [screen, int(menu._top.size.y), int(needed)])
+		assert_true(menu._preview.size.y >= menu._map_min_side, "the map keeps a readable size")
+		# At 100 percent a short shelf hands about 65 px to the orders; at 125 percent the list
+		# already fills the map's height, so there is nothing to hand over and nothing is lost.
+		var least := 200.0 if screen.x == 1600 else 110.0
+		assert_true(menu._detail.size.y >= least, "%s: the orders box has the height the list does not need, %d px" % [screen, int(menu._detail.size.y)])
+		port.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CommanderLog.path()))
+	CommanderLog.path_override = log_path

@@ -23,7 +23,7 @@ const TITLES := ["ORDERS", "TASK GROUP", "TRACK FILE", "COMMS", "ASSESSMENT"]
 const ASSESSMENT_REFRESH_S := 1.0
 const MAX_MESSAGES := 120
 ## Inks for grey chrome, each at least 4.5:1 on the lightest button face.
-const SEVERITY_COLORS := {"alert": "#8c0c0c", "warn": "#603600", "good": "#075012"}
+const SEVERITY_COLORS := {"alert": UITheme.HEX_FACE_INK_ALERT, "warn": UITheme.HEX_FACE_INK_WARN, "good": UITheme.HEX_FACE_INK_GOOD}
 ## The boards dock at the foot of the chart and stand only as tall as their content, so the plot
 ## above stays in view while orders are given. They never reach higher than this below the top.
 const TOP_CLEARANCE := 18.0
