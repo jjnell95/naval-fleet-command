@@ -403,3 +403,39 @@ func test_the_clock_of_an_ended_mission_does_not_run_again() -> void:
 	assert_true(not SimClock.paused, "the next mission's Space resumes its watch")
 	SimClock.set_paused(true)
 	_close(main)
+
+
+# --- Every in-mission dialog names itself and closes the same way -----------------------------
+
+func test_the_in_mission_dialogs_share_one_heading_and_one_close() -> void:
+	var main := _open("northern_passage.json")
+	_window(main)
+	main.map.select_units([_own(main, "Truxtun")])
+	var cases := [
+		[KEY_E, true, false, "WEAPON CONTROL", main._weapon_control],
+		[KEY_J, false, false, "FLEET OPERATIONS", main._fleet_operations],
+		[KEY_A, false, false, "STATUS BOARDS", main.status_boards],
+		[KEY_K, false, true, "ACTIONS", main._command_palette],
+		[KEY_H, false, false, "KEY COMMANDS", main._key_help],
+	]
+	for c: Array in cases:
+		main.map.grab_focus()
+		_key(main, c[0], c[1], c[2])
+		var dialog: Control = c[4]
+		assert_true(dialog.visible, "%s opens from its key" % c[3])
+		var header := dialog.find_child("DialogHeader", true, false)
+		assert_true(header != null, "%s has the shared dialog header" % c[3])
+		if header == null:
+			continue
+		var title := header.get_node("Title") as Label
+		var close := header.get_node("Close") as Button
+		assert_eq(title.text, c[3], "%s names itself in the header" % c[3])
+		assert_eq(title.theme_type_variation, "TitleLabel", "%s in the one title face" % c[3])
+		assert_eq(close.text, UITheme.DIALOG_CLOSE, "%s closes with the one CLOSE" % c[3])
+		assert_eq(close.get_index(), header.get_child_count() - 1, "%s keeps CLOSE at the right" % c[3])
+		var stray := dialog.find_children("*", "Button", true, false).filter(func(b: Button) -> bool: return b.text.contains("RETURN TO CHART") or b.text.contains("CLOSE  ["))
+		assert_true(stray.is_empty(), "%s has no second way to close: %s" % [c[3], str(stray.map(func(b: Button) -> String: return b.text))])
+		close.pressed.emit()
+		assert_true(not dialog.visible, "%s's CLOSE puts it away" % c[3])
+	assert_true(not main._has_visible_modal(), "and nothing is left open")
+	_close(main)

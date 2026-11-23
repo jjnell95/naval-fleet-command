@@ -48,18 +48,10 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	add_child(box)
-	var header := HBoxContainer.new()
+	var header := UITheme.dialog_header("Status boards", close_boards, "A / Esc")
+	# The boards stand over a running chart: the button must not take the keys from it.
+	(header.get_node("Close") as Button).focus_mode = Control.FOCUS_NONE
 	box.add_child(header)
-	var title := Label.new()
-	title.text = "STATUS BOARDS"
-	title.theme_type_variation = "HeaderLabel"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-	var close := Button.new()
-	close.text = "CLOSE  [A]"
-	close.focus_mode = Control.FOCUS_NONE
-	close.pressed.connect(close_boards)
-	header.add_child(close)
 	_tabs = TabContainer.new()
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(_tabs)

@@ -93,10 +93,7 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	_panel.add_child(box)
-	var title := Label.new()
-	title.text = "KEY COMMANDS"
-	title.theme_type_variation = "HeaderLabel"
-	box.add_child(title)
+	box.add_child(UITheme.dialog_header("Key commands", close, "any key or click"))
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", int(COLUMN_GAP))
 	box.add_child(columns)
@@ -105,11 +102,6 @@ func _ready() -> void:
 	columns.add_child(_left)
 	columns.add_child(_right)
 	_fill()
-	var hint := Label.new()
-	hint.text = "Any key or click to close"
-	hint.theme_type_variation = "DimLabel"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(hint)
 	get_viewport().size_changed.connect(func() -> void:
 		if visible:
 			_fill())
