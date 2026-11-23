@@ -294,3 +294,24 @@ func test_a_section_on_station_keeps_apart() -> void:
 	assert_true(close <= samples / 20, "%d of %d samples under 1 nm apart, nearest %.2f nm" % [close, samples, nearest])
 	assert_true(nearest >= 0.8, "nearest %.2f nm" % nearest)
 	_done()
+
+
+## A Tomcat already fighting a hostile that is coming in on it does not hop to a second one a few
+## miles nearer, and turns only for one a good deal nearer.
+func test_a_cap_fighter_in_a_fight_does_not_hop_between_threats() -> void:
+	_load(CARRIER_WATCH)
+	var m := _cap_on_station(Vector2(-40, -40))
+	var a: Unit = m.aircraft[0]
+	var first := _raid(a.position + Vector2(0, 58), "T1999")
+	_moving(first, Geo.bearing_deg(first.position, a.position), 500.0)
+	_advance(2.0)
+	assert_eq(a.attack_track, first, "it takes the one coming in on it")
+	var second := _raid(a.position + (first.position - a.position).rotated(PI / 2.0).normalized() * (a.position.distance_to(first.position) - 3.0), "T2000")
+	_moving(second, Geo.bearing_deg(second.position, a.position), 500.0)
+	_advance(2.0)
+	assert_eq(a.attack_track, first, "a second only a little nearer does not take it off the first")
+	second.position = a.position + (second.position - a.position).normalized() * (a.position.distance_to(first.position) - 20.0)
+	second.course_deg = Geo.bearing_deg(second.position, a.position)
+	_advance(2.0)
+	assert_eq(a.attack_track, second, "one much nearer does")
+	_done()

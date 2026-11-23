@@ -32,6 +32,9 @@ const AIR_DEFENCE_MARGIN_NM := 5.0
 ## and recalled every few seconds on a raid at the edge. GAMEPLAY_ESTIMATE.
 const COMMIT_HYSTERESIS_NM := 5.0
 const BREAK_OFF_S := 120.0
+## A fighter in a fight with one hostile coming in on it turns to another only if that one is this
+## much nearer. GAMEPLAY_ESTIMATE.
+const THREAT_SWITCH_NM := 10.0
 ## A held course within about 60 degrees of a point counts as closing on it.
 const CLOSING_COS := 0.5
 ## A reconnaissance or ASW aircraft looks at contacts this far beyond its search area.
@@ -998,6 +1001,10 @@ func _answer_threat(m: AirMission, a: Unit, task: Dictionary) -> bool:
 	var busy_nm := a.position.distance_to(busy_with.position) if a.attack_track != null else INF
 	var best: Track = null
 	var best_d := busy_nm
+	# One already coming in on it is the fight it is in: it turns from that only for one a good
+	# deal nearer, or it would hop between two and never settle on either long enough to shoot.
+	if a.attack_track != null and threatens(a, a.attack_track):
+		best_d -= THREAT_SWITCH_NM
 	for t: Track in _nearby(m, a, INF):
 		if t == a.attack_track or not threatens(a, t):
 			continue
