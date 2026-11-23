@@ -146,3 +146,54 @@ func test_an_aircraft_heard_by_many_listeners_is_filed_cheaply() -> void:
 	assert_true(track != null and not track.is_bearing_only() and track.contributors.size() == 24, "every listener hears it and the crossed lines fix it")
 	assert_true(best < 150.0, "an intercept costs %.1f us, under 150" % best)
 	_free(world)
+
+
+const TAIWAN := "res://data/scenarios/pacific_02_taiwan_strait.json"
+
+
+func _battle(path: String, seed: int) -> Simulation:
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	sim.seed_override = seed
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario(path), path)
+	sim.ai_plays_player = true
+	sim._build_ai()
+	return sim
+
+
+func _end(sim: Simulation) -> void:
+	sim.unit_manager.clear()
+	sim.get_parent().remove_child(sim)
+	sim.free()
+
+
+## At one times a second the sensor cycle is spread over the four ticks of its second: no tick
+## files more than twice the reports of the median tick, where the whole cycle once landed in one
+## tick and the other three filed nothing. A contact several observers hold in different ticks is
+## still one look a cycle: its classification grows by a cycle's worth each second, not four.
+func test_the_sensor_cycle_is_spread_over_the_ticks_of_its_second() -> void:
+	var sim := _battle(TAIWAN, 2)
+	SimClock.advance(300.0)
+	var tm := sim.track_manager
+	var filed := PackedInt32Array()
+	var spent := PackedFloat64Array()
+	Debug.profiling = true
+	for i in 400:
+		Debug.timings.clear()
+		var before := tm.picture_filings
+		SimClock.advance(0.25)
+		filed.append(tm.picture_filings - before)
+		spent.append(float(Debug.timings.get("sim/sensors", 0)) / 1000.0)
+	Debug.profiling = false
+	Debug.timings.clear()
+	var sorted := filed.duplicate()
+	sorted.sort()
+	var median := sorted[sorted.size() / 2]
+	var busiest := sorted[-1]
+	var times := spent.duplicate()
+	times.sort()
+	print("    reports filed per tick: median %d, most %d; sensor time per tick: median %.2f ms, worst %.2f ms" % [median, busiest, times[times.size() / 2], times[-1]])
+	assert_true(median > 0, "every tick files some of the cycle's reports (median %d)" % median)
+	assert_true(busiest <= 2 * median, "no tick files more than twice the median tick's reports (%d against %d)" % [busiest, median])
+	_end(sim)

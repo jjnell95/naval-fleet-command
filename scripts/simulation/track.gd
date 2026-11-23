@@ -124,6 +124,8 @@ var _obs_pos := PackedVector2Array()
 ## thrown away when a measured plot arrives, a fit through measured plots is not.
 var _obs_estimated := false
 var _last_est_time := -1.0
+## When the sensor cycle that last looked at this contact began (TrackManager.cycle_at).
+var _cycle_at := -1.0e9
 var _cycle_start_position := Vector2.ZERO
 var _cycle_start_major := 1.0
 var _cycle_range_held := false

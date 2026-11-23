@@ -50,7 +50,7 @@ const GROUP_SKIP := {}
 const MANAGER_FIELDS := {
 	"UnitManager": ["now_s", "_next_id", "engage_on_hostile_id"],
 	"TrackManager": ["_tracks", "_by_target", "_local_keys", "_track_ids", "_dropped_ids", "_next_number"],
-	"SensorManager": ["_accum"],
+	"SensorManager": ["_accum", "_slice", "_cycle_at"],
 	"ThreatManager": ["_observers", "_detected", "_first_seen"],
 	"WeaponManager": ["in_flight", "_next_id", "_launcher_ready_at", "now_s", "_pending", "_pending_dirty"],
 	"AviationManager": ["_accum", "_next_buoy_id"],
@@ -62,11 +62,12 @@ const MANAGER_FIELDS := {
 }
 ## Manager variables that are deliberately not saved, and why. SensorManager.reference_path is a
 ## development switch between two cycles that produce the same tracks, not engagement state, and
-## its two counters measure work. An older save that still carries the removed _last_heading and
+## its two counters measure work. TrackManager.cycle_at is set by the sensor cycle before each of
+## its slices from the SensorManager's own saved cycle time. An older save that still carries the removed _last_heading and
 ## _manoeuvre is restored without them, as restore skips names a manager does not have.
 const MANAGER_TRANSIENT := {
 	"UnitManager": ["units", "weapon_manager"],
-	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings"],
+	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings", "cycle_at"],
 	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path", "sonar_pairs_weighed", "lookout_pairs_weighed"],
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],

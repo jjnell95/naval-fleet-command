@@ -140,7 +140,7 @@ func _install_scenario(sc: Dictionary, path: String) -> void:
 	# Keep full-rate sensors, defence and AI on different fixed ticks instead of one burst.
 	_defence_accum = 0.5
 	_ai_accum = 0.25
-	sensor_manager._accum = 0.0
+	sensor_manager.reset()
 	scenario_path = path
 	scenario_name = scenario.get("name", "UNNAMED")
 	player_faction = scenario.get("player_faction", "BLUE")
