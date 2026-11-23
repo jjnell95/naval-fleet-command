@@ -50,6 +50,10 @@ var tma_quality := 0.0  # 0 = bearing only, 1 = a range solution worth shooting 
 ## When a range last came in: a measured plot, or a solution worked from bearings. A contact then
 ## held on bearings alone keeps that range, dead-reckoned, for as long as it would be kept unseen.
 var range_time := -1.0e9
+## While the plot holds no range: since when the bearings have kept giving one good enough to
+## plot, and when they last did. A range once lost is taken back only when a new one has stood.
+var solution_since := -1.0e9
+var solution_seen := -1.0e9
 ## Where the unit holding the contact on a bearing was when it took the last one: the near end of
 ## the line on the chart. Not finite for a contact that is not held on a bearing.
 var bearing_origin := Vector2.INF
