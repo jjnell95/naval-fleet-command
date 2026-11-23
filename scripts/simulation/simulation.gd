@@ -258,6 +258,8 @@ func _on_order_issued(u: Unit, o: Order) -> void:
 		Order.Type.SET_ROE:
 			if u.roe == Unit.Roe.HOLD:
 				weapon_manager.cancel_salvo(u)
+		Order.Type.DESIGNATE:
+			o.execution_accepted = track_manager.designate(u.faction, o.track, o.designation)
 		Order.Type.CANCEL_FIRE:
 			# A member of a group attack leaves it first, so the group hears why its rounds came
 			# back; the cancel then refunds whatever else the platform has queued.

@@ -323,6 +323,9 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return Formation.can_join(u, order.leader)
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
+		Order.Type.DESIGNATE:
+			# The commander's word on his own side's plot, passed through any platform he has hooked.
+			return order.track != null and order.track.owner_faction == u.faction and TrackManager.DESIGNATIONS.has(order.designation)
 	return false
 
 

@@ -9,7 +9,7 @@ const INTERVALS := [0.0, 3600.0, 7200.0, 14400.0]
 const MAX_PENDING := 64
 ## A boat's own defensive acts are never held for a check-in: the crew carries them out as soon
 ## as it is told, or before.
-const NEVER_QUEUED := [Order.Type.REQUEST_SUB_CHECKIN, Order.Type.EVADE, Order.Type.DEPLOY_COUNTERMEASURES]
+const NEVER_QUEUED := [Order.Type.REQUEST_SUB_CHECKIN, Order.Type.EVADE, Order.Type.DEPLOY_COUNTERMEASURES, Order.Type.DESIGNATE]
 
 ## Reports a boat has made at a check-in since the simulation last asked: {unit, event} with event
 ## `initiative_report`; the words are the unit's comms_initiative_report.

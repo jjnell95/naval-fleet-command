@@ -120,6 +120,8 @@ static func _visual_pass(sm: SensorManager, observer: Unit, now: float) -> void:
 			continue
 		if d > Detection.radar_horizon_nm(Detection.mast_or_altitude_m(observer), height):
 			continue
+		if Detection.cloud_between(Detection.mast_or_altitude_m(observer), height):
+			continue
 		if Detection.terrain_masks(observer, target):
 			continue
 		sm._report_visual(observer, target, d, slant, limit, error, now)

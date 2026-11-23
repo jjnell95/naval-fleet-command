@@ -25,6 +25,14 @@ const BEARING_BLEND := 0.25  # a bearing estimate only nudges it
 ## Track.RANGE_HELD_QUALITY. The gap stops a marginal geometry flipping the plot between a fix and
 ## a bare bearing every time the solution is reworked.
 const RANGE_ACCEPT_QUALITY := 0.3
+## A contact that has had a range and lost it gets one back only from a solution that has stood
+## this long without a break of more than a sensor cycle or so; crossed lines on a fast contact
+## rework every second, and a marginal crossing would otherwise toggle the plot.
+const RANGE_REACCEPT_DWELL_S := 20.0
+const SOLUTION_GAP_S := 2.5
+## How long a lookout must hold a contact in sight, without a break, to read its colours from
+## further off than he could read its name. GAMEPLAY_ESTIMATE.
+const VISUAL_MARKINGS_S := 20.0
 const MIN_BEARING_RANGE_NM := 0.3
 ## A solution this good is plotted at the full bearing blend and feeds the course and speed fit;
 ## a poorer one pulls the plot less and claims no course.
@@ -65,7 +73,7 @@ var _track_ids: Dictionary = {}
 var _dropped_ids: Dictionary = {}
 ## What a plot remembers of a contact it has dropped, should it turn up again where it was.
 const REMEMBERED_FIELDS: Array[String] = ["classification", "identity", "domain", "known_class", "known_category", "known_callsign",
-	"class_is_probable", "class_evidence", "identity_evidence", "observation_time_s", "signature_time_s", "radar_recognition_s", "damage_estimate"]
+	"class_is_probable", "class_evidence", "identity_evidence", "identity_designated", "observation_time_s", "signature_time_s", "radar_recognition_s", "damage_estimate"]
 var _next_number: Dictionary = {}  # faction -> int
 ## How many times a report has been filed in a picture, for tests and the measuring tools.
 var picture_filings := 0
@@ -263,8 +271,12 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		if t._obs_estimated or not t._cycle_range_held:
 			_reset_kinematics(t)
 	elif ranged and not t._cycle_range_held:
-		# The first range on a bare bearing: the line's nominal position was never a place.
-		t._cycle_snap = true
+		# The first range on a bare bearing: the line's nominal position was never a place. A plot
+		# still carried at a range it lost is one, if a loose one: a sound solution, or one much
+		# tighter than the plot's own ellipse, replaces it, but a marginal one is closed on at the
+		# contact's own pace, owning up in the ellipse to the distance still to go.
+		if not _range_carried(t) or c.solution_quality >= SOUND_SOLUTION_QUALITY or c.error_major_nm * 2.0 <= t._cycle_start_major:
+			t._cycle_snap = true
 		_reset_kinematics(t)
 	t._cycle_has_plot = true
 	t._cycle_firm = firm
@@ -377,8 +389,12 @@ func _speed_limit_kn(t: Track, c: SensorContact) -> float:
 ## contact that never had one, the plot is only the line, carried at whatever range it last had.
 func _bearing_plot(t: Track, raw: SensorContact, report: Dictionary, solution: Dictionary, now: float, dt: float, fresh: bool) -> SensorContact:
 	var held := t._cycle_range_held
-	if not solution.is_empty() and float(solution["quality"]) >= (Track.RANGE_HELD_QUALITY if held else RANGE_ACCEPT_QUALITY):
-		return _resolved_contact(raw, solution)
+	if not solution.is_empty():
+		var quality := float(solution["quality"])
+		if held and quality >= Track.RANGE_HELD_QUALITY:
+			return _resolved_contact(raw, solution)
+		if not held and quality >= RANGE_ACCEPT_QUALITY and _solution_stands(t, now):
+			return _resolved_contact(raw, solution)
 	var c := _resolved_contact(raw, {"position": raw.position, "major": raw.error_major_nm, "minor": raw.error_minor_nm, "axis": raw.error_axis_deg, "quality": 0.0})
 	if fresh:
 		return c
@@ -405,9 +421,28 @@ func _bearing_plot(t: Track, raw: SensorContact, report: Dictionary, solution: D
 			c.solution_quality = quality
 			c.error_major_nm = maxf(major, c.error_minor_nm)
 			return c
-	# Only the line is left. Its length is the set's to say, not the old fix's.
+	# Only the line is left. Its length is the set's to say, but a plot still carried at a range it
+	# lost is no better known for losing it: it keeps the ellipse it had, growing, out to the far end
+	# of the line.
 	c.error_major_nm = maxf(raw.error_major_nm, c.error_minor_nm)
+	if t.range_time > -1.0e8:
+		c.error_major_nm = maxf(c.error_major_nm, minf(major, maxf(raw.bearing_range_limit_nm, raw.error_major_nm)))
 	return c
+
+
+## Whether a solution good enough to plot has now stood long enough to be plotted. A contact never
+## ranged takes the first one at once; one that has had a range and lost it waits, so a crossing at
+## the edge of usable geometry does not swap the plot between a fix and a line each cycle.
+func _solution_stands(t: Track, now: float) -> bool:
+	if now - t.solution_seen > SOLUTION_GAP_S:
+		t.solution_since = now
+	t.solution_seen = now
+	return t.range_time < -1.0e8 or now - t.solution_since >= RANGE_REACCEPT_DWELL_S
+
+
+## Whether the plot stands where a range once put it, carried along the bearings since.
+func _range_carried(t: Track) -> bool:
+	return t.range_time > -1.0e8
 
 
 func tick(now: float, dt: float) -> void:
@@ -565,7 +600,7 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 			t.class_evidence = "Emitter library match" if c.source == "esm" else "Acoustic library match"
 			var brief: Dictionary = recognition_affiliations.get(faction, {})
 			var affiliation := String(brief.get(c.target.spec.id, ""))
-			if t.identity == "UNKNOWN" and affiliation in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
+			if t.identity == "UNKNOWN" and not t.identity_designated and affiliation in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
 				t.identity = affiliation
 				t.identity_evidence = "Scenario recognition brief"
 	# Aircraft only, and only close: a firm radar plot held long enough gives a probable type from
@@ -580,7 +615,7 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 			t.class_is_probable = true
 			t.class_evidence = "Radar recognition"
 			var aff := String(recognition_affiliations.get(faction, {}).get(c.target.spec.id, ""))
-			if t.identity == "UNKNOWN" and aff in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
+			if t.identity == "UNKNOWN" and not t.identity_designated and aff in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
 				t.identity = aff
 				t.identity_evidence = "Scenario recognition brief"
 	if c.visual_identification:
@@ -594,9 +629,16 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 		t.known_category = c.target.spec.category
 		t.class_is_probable = false
 		t.class_evidence = "Visual recognition"
-		# Markings provide positive affiliation, independently of a library's probable class.
-		t.identity = "NEUTRAL" if neutral_factions.has(c.target.faction) else ("FRIENDLY" if c.target.faction == faction else "HOSTILE")
-		t.identity_evidence = "Visual markings"
+		# Markings provide positive affiliation, independently of a library's probable class. They
+		# are read where the name is, close to, or by a lookout who has kept the glasses on her a
+		# while: one glance at the limit of a look makes out a shape, which is a class, not a flag.
+		var now := t.last_seen_time
+		if now - t.visual_seen > SOLUTION_GAP_S:
+			t.visual_since = now
+		t.visual_seen = now
+		if (c.visual_named or now - t.visual_since >= VISUAL_MARKINGS_S) and not t.identity_designated:
+			t.identity = "NEUTRAL" if neutral_factions.has(c.target.faction) else ("FRIENDLY" if c.target.faction == faction else "HOSTILE")
+			t.identity_evidence = "Visual markings"
 	if t.domain == "land" and t.has_kinematics:
 		# Known now to stand ashore: whatever motion was fitted before was the scatter of its plots.
 		_reset_kinematics(t)
@@ -620,6 +662,25 @@ static func _plot_domain(c: SensorContact) -> String:
 	return "surface"
 
 
+const DESIGNATIONS: Array[String] = ["HOSTILE", "NEUTRAL", "FRIENDLY", "UNKNOWN"]
+const DESIGNATION_EVIDENCE := "Commander's designation"
+
+
+## The commander's own call on a contact, entered in his side's plot: the identity stands, with his
+## name to it, until he changes it or the contact is seen firing on the side. False, and nothing
+## changed, for a contact this side does not hold or an identity that is not one.
+func designate(faction: String, t: Track, identity: String) -> bool:
+	if t == null or t.owner_faction != faction or t.confirmed_destroyed or t.status == Track.Status.LOST or not DESIGNATIONS.has(identity):
+		return false
+	var changed := t.identity != identity or t.identity_designated != (identity != "UNKNOWN")
+	t.identity = identity
+	t.identity_designated = identity != "UNKNOWN"
+	t.identity_evidence = DESIGNATION_EVIDENCE if identity != "UNKNOWN" else ""
+	if changed:
+		track_classified.emit(faction, t)
+	return true
+
+
 ## Attribute a visibly originating hostile weapon only when the launcher is held locally,
 ## accurately and freshly. Seeing a distant incoming missile does not reveal its hidden source.
 func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
@@ -635,6 +696,7 @@ func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
 		if t != null and t.identity != "HOSTILE":
 			t.identity = "HOSTILE"
 			t.identity_evidence = "Observed hostile launch"
+			t.identity_designated = false
 			if t.networked:
 				track_classified.emit(observer.faction, t)
 			elif not observer.datalink_connected():
