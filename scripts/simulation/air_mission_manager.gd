@@ -838,7 +838,8 @@ func _break_from_missiles() -> void:
 				continue
 			var order := Order.evade()
 			if _crew(a, order) and order.execution_accepted:
-				_report(m, "%s breaking: missile inbound" % a.callsign, true)
+				# Said on the net, not kept as the mission's standing note: it is over in seconds.
+				mission_report.emit(m, "%s breaking: missile inbound" % a.callsign, false)
 
 
 func _step(m: AirMission) -> void:
