@@ -43,6 +43,9 @@ const LAMP_KINDS := {
 	"beacon": [Color(1.0, 0.12, 0.08), 1.1],
 }
 const BEACON_PHASES := 4
+## An installation stands on a graded platform of earth this deep, so that it meets the hillside
+## round it wherever the ground under its footprint is uneven.
+const PLINTH_DEPTH_M := 8.0
 ## Sun shadows: the reach around the subject, as a multiple of its length.
 const SHADOW_REACH := 4.0
 ## Sky, sea and light for day, twilight and night: [sky top, horizon, zenith, haze, fog].
@@ -94,13 +97,14 @@ var _wind := Vector2.RIGHT
 var _wind2 := Vector2(0.8, 0.6)
 var _visibility_nm := WorldPresentation.DEFAULT_VISIBILITY_NM
 var _ring_mesh: ArrayMesh
+var _plinth_mesh: ArrayMesh
 var _disc_mesh: PlaneMesh
 var _disc_material: StandardMaterial3D
 var _materials: Dictionary = {}
 var _events: Array[Dictionary] = []
 var _launch_clock: Dictionary = {}  # launcher key -> anim time of its last launch cloud or flash
 var _flagged: Dictionary = {}  # aircraft key -> the last deck event reported for it: "launch" or "recovery"
-var _ground: Dictionary = {}  # installation key -> ground height, computed once
+var _ground: Dictionary = {}  # installation key -> [chart position, ground height there]
 var _warm := false
 var _sun_key := Vector2(INF, INF)
 var _sun_up := 0.0
@@ -187,6 +191,7 @@ func build() -> void:
 	effects = WorldEffects.new()
 	add_child(effects)
 	_ring_mesh = WorldMeshes.ring()
+	_plinth_mesh = WorldMeshes.plinth()
 	_bow_mesh = PlaneMesh.new()
 	_bow_mesh.size = Vector2.ONE
 	_bow_mesh.subdivide_width = 23
@@ -558,7 +563,7 @@ func _apply_entry(e: Dictionary, focus_key: String) -> void:
 				pitch += deg_to_rad(2.5) * unit.flooding
 				lift -= unit.flooding * rec["height_m"] * 0.12
 		"land":
-			lift = -bounds.position.y * scale + _ground_under(key, pos) - rec["height_m"] * 0.06
+			lift = -bounds.position.y * scale + _ground_under(key, pos, _footprint_m(bounds, scale))
 		"air":
 			roll = _bank_for(key, heading)
 		"subsurface":
@@ -599,6 +604,16 @@ func _fit_out(rec: Dictionary, e: Dictionary) -> void:
 	var bounds: AABB = rec["bounds"]
 	if rec["model_id"].begins_with("marker:"):
 		return
+	if domain == "land" and root.get_node_or_null("Plinth") == null:
+		var plinth := MeshInstance3D.new()
+		plinth.name = "Plinth"
+		plinth.mesh = _plinth_mesh
+		plinth.material_override = WorldMaterials.material_for("earth", "")
+		var scale := WorldPresentation.model_scale(float(e["length_m"]))
+		# Just under the model's lowest face, so a pad modelled as a single sheet does not flicker.
+		plinth.position = Vector3(bounds.get_center().x, bounds.position.y - 0.05 / scale, bounds.get_center().z)
+		plinth.scale = Vector3(bounds.size.x * 1.02, PLINTH_DEPTH_M / scale, bounds.size.z * 1.02)
+		root.add_child(plinth)
 	if domain == "air" and not root.has_meta("rotor"):
 		var spec := DataDB.platform(rec["model_id"])
 		if spec != null and spec.can_hover:
@@ -727,18 +742,35 @@ func _apply_lamps(rec: Dictionary, e: Dictionary) -> void:
 		lamp.visible = want
 
 
-## Ground height under an installation, worked out once: it does not move.
-func _ground_under(key: String, pos: Vector2) -> float:
-	if _ground.has(key):
-		return _ground[key]
+## Ground height under an installation, worked out once for each place it stands: the highest
+## ground under its footprint (`reach_m` from its centre), so no corner of the site is buried, and
+## its plinth fills down to the rest. An installation does not move, but its plot does as the fix
+## improves, and the model must stand on the ground where it is now drawn.
+func _ground_under(key: String, pos: Vector2, reach_m := 0.0) -> float:
+	var known: Array = _ground.get(key, [])
+	if not known.is_empty() and known[0] == pos and (known[2] == reach_m or reach_m == 0.0):
+		return known[1]
+	var h := _ground_at_site(pos)
+	var r := reach_m / WorldPresentation.NM_TO_M
+	if r > 0.0:
+		for d: Vector2 in [Vector2(r, r), Vector2(-r, r), Vector2(r, -r), Vector2(-r, -r)]:
+			h = maxf(h, _ground_at_site(pos + d * 0.7071))
+	_ground[key] = [pos, h, reach_m]
+	return h
+
+
+func _ground_at_site(pos: Vector2) -> float:
 	var inland := Terrain.distance_to_land_nm(pos)
 	var l := Terrain.land_at(pos)
 	if l != null:
 		inland = l.distance_to_shore_nm(pos)
 	var h := land.height_at(pos, inland * WorldPresentation.NM_TO_M) if land != null else WorldLand.BASE_M
-	h = maxf(h, WorldLand.BASE_M)
-	_ground[key] = h
-	return h
+	return maxf(h, WorldLand.BASE_M)
+
+
+## Half the diagonal of a model's footprint, in metres.
+static func _footprint_m(bounds: AABB, scale: float) -> float:
+	return Vector2(bounds.size.x, bounds.size.z).length() * 0.5 * scale
 
 
 ## Heave, pitch and roll from the swell under a hull. Big ships answer the sea less.
@@ -790,6 +822,11 @@ func _apply_look(rec: Dictionary, e: Dictionary, _focus_key: String) -> void:
 		tint = "ghost:%s" % color.to_html(false)
 	elif kind == "plotted" and rec["model_id"].begins_with("marker:"):
 		tint = "marker:%s" % color.to_html(false)
+	elif kind == "plotted" and e["domain"] == "land":
+		# An installation's finishes are earthworks, hardstand and drab vehicles, nothing a navy
+		# paints, so it keeps them and reads as an emplacement on its ground; tinted, its pad turned
+		# into a pale slab on the hillside. The ring and the caption say it is the plot's.
+		tint = ""
 	elif kind == "plotted":
 		# A subdued class representation; identity stays on the plot and uncertainty ring.
 		# Bright faction-painted hulls read like damage or light emitted by the target itself.
@@ -815,10 +852,15 @@ func _apply_look(rec: Dictionary, e: Dictionary, _focus_key: String) -> void:
 		var track: Track = e.get("track")
 		if track != null:
 			radius = clampf(maxf(radius, track.position_error_nm * WorldPresentation.NM_TO_M), radius, 3.0 * WorldPresentation.NM_TO_M)
-		ring.material_override = _flat_material("ring:%s:0.45" % color.to_html(false), Color(color, 0.45), false)
 		var root: Node3D = rec["root"]
 		var at := Vector3(root.position.x, 0.0, root.position.z)
-		ring.position = Vector3(at.x, swell_at(at) + 0.6, at.z)
+		if e["domain"] == "land":
+			# Laid on the ground, not the sea under it, and drawn over the hills it crosses.
+			ring.material_override = _flat_material("ring:%s:0.45:over" % color.to_html(false), Color(color, 0.45), true)
+			ring.position = Vector3(at.x, _ground_under(rec["key"], rec["nm"]) + 1.0, at.z)
+		else:
+			ring.material_override = _flat_material("ring:%s:0.45" % color.to_html(false), Color(color, 0.45), false)
+			ring.position = Vector3(at.x, swell_at(at) + 0.6, at.z)
 		ring.scale = Vector3.ONE * radius
 		ring.visible = true
 	elif ring != null:

@@ -64,10 +64,14 @@ static func visual_range_nm(observer: Unit, target: Unit, env: Dictionary) -> fl
 static func in_visual_range(observers: Array, target: Unit, env: Dictionary) -> bool:
 	if target.submerged():
 		return false
+	var vis := visibility_nm(env)
 	for o: Unit in observers:
 		if not o.is_engageable() or o.submerged():
 			continue  # a stowed aircraft or a boat below periscope depth has no lookout above water
-		if o.position.distance_to(target.position) <= visual_range_nm(o, target, env) and not Terrain.masks_line_of_sight(o.position, sighting_height_m(o), target.position, sighting_height_m(target)):
+		var d := o.position.distance_to(target.position)
+		if d > vis:
+			continue  # the horizon can only shorten the weather's range, so nothing past it is seen
+		if d <= visual_range_nm(o, target, env) and not Terrain.masks_line_of_sight(o.position, sighting_height_m(o), target.position, sighting_height_m(target)):
 			return true
 	return false
 
@@ -86,30 +90,97 @@ static func in_visual_range(observers: Array, target: Unit, env: Dictionary) -> 
 ##   label, sublabel, color
 ##   unit        the Unit for own and visual presentations, else null
 ##   track       the Track for plotted (and labelled visual) presentations, else null
-static func unit_entries(unit_manager: UnitManager, track_manager: TrackManager, player_faction: String, env: Dictionary, neutral_factions := PackedStringArray()) -> Array[Dictionary]:
+##
+## With a `centre_nm`, only what lies within `max_range_nm` of it is considered at all, and of
+## that only the `cap` nearest (as `cull` measures them) are built, so a large fleet costs what
+## the view can show and not what the scenario holds. The keys in `keep_keys` (the hook and what
+## the Action camera follows) are built wherever they are. Without a centre, everything is.
+static func unit_entries(unit_manager: UnitManager, track_manager: TrackManager, player_faction: String, env: Dictionary, neutral_factions := PackedStringArray(), centre_nm := Vector2.INF, max_range_nm := INF, cap := -1, keep_keys := PackedStringArray()) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if unit_manager == null:
 		return out
+	var bounded := centre_nm.is_finite()
+	var keep_units: Dictionary = {}
+	var keep_tracks: Dictionary = {}
+	for k: String in keep_keys:
+		if k.begins_with("u:"):
+			keep_units[int(k.substr(2))] = true
+		elif k.begins_with("t:"):
+			keep_tracks[k.substr(2)] = true
 	var own: Array[Unit] = []
 	for u: Unit in unit_manager.units:
 		if u.faction == player_faction and u.is_engageable():
 			own.append(u)
 	var tracks: Array = track_manager.get_tracks(player_faction) if track_manager != null else []
+	# A held contact a lookout can also see is drawn as the sighted unit, so keeping the contact
+	# keeps the unit it holds. Association is all `truth` is read for.
+	for t: Track in tracks:
+		if keep_tracks.has(t.id) and t.truth != null:
+			keep_units[t.truth.id] = true
+	# Only a lookout within the weather's visibility of the considered area can see into it.
+	var lookouts: Array[Unit] = own
+	if bounded and is_finite(max_range_nm):
+		var reach := max_range_nm + visibility_nm(env)
+		lookouts = own.filter(func(o: Unit) -> bool: return o.position.distance_to(centre_nm) <= reach)
+	# Candidates in the order the entries are listed: [kind, Unit or Track, distance squared, kept].
+	var candidates: Array = []
 	for u in own:
-		out.append(own_entry(u))
+		var p := SubmarineComms.reported_position(u)
+		var keep := keep_units.has(u.id)
+		if not bounded or keep or p.distance_to(centre_nm) <= max_range_nm:
+			candidates.append(["own", u, p.distance_squared_to(centre_nm) if bounded else 0.0, keep])
 	var sighted: Dictionary = {}
+	var looked_at: Dictionary = {}
 	for u: Unit in unit_manager.units:
 		if u.faction == player_faction or not u.is_engageable():
 			continue
-		if in_visual_range(own, u, env):
-			out.append(visual_entry(u, _track_holding(tracks, u), neutral_factions.has(u.faction)))
+		var keep := keep_units.has(u.id)
+		var near := not bounded or u.position.distance_to(centre_nm) <= max_range_nm
+		if not near and not keep:
+			continue
+		looked_at[u] = true
+		if in_visual_range(lookouts if near else own, u, env):
+			candidates.append(["visual", u, u.position.distance_squared_to(centre_nm) if bounded else 0.0, keep])
 			sighted[u] = true
 	for t: Track in tracks:
 		if not plottable(t):
 			continue
-		if t.truth != null and sighted.has(t.truth):
-			continue  # a sighted unit is shown once, as what it is
-		out.append(plotted_entry(t))
+		var keep := keep_tracks.has(t.id)
+		if bounded and not keep and t.position.distance_to(centre_nm) > max_range_nm:
+			continue
+		if t.truth != null:
+			if sighted.has(t.truth):
+				continue  # a sighted unit is shown once, as what it is
+			var u: Unit = t.truth
+			if not looked_at.has(u) and u.faction != player_faction and u.is_engageable():
+				looked_at[u] = true
+				if in_visual_range(own, u, env):
+					sighted[u] = true
+					continue  # seen out of range: drawn neither as itself nor as the plot
+		candidates.append(["plotted", t, t.position.distance_squared_to(centre_nm) if bounded else 0.0, keep])
+	var chosen: Dictionary = {}
+	if cap >= 0:
+		var order: Array = []
+		for i in candidates.size():
+			if candidates[i][3]:
+				chosen[i] = true
+			else:
+				order.append(i)
+		order.sort_custom(func(a: int, b: int) -> bool: return float(candidates[a][2]) < float(candidates[b][2]))
+		for i in mini(cap, order.size()):
+			chosen[order[i]] = true
+	for i in candidates.size():
+		if cap >= 0 and not chosen.has(i):
+			continue
+		var c: Array = candidates[i]
+		match c[0]:
+			"own":
+				out.append(own_entry(c[1]))
+			"visual":
+				var u: Unit = c[1]
+				out.append(visual_entry(u, _track_holding(tracks, u), neutral_factions.has(u.faction)))
+			"plotted":
+				out.append(plotted_entry(c[1]))
 	return out
 
 

@@ -1,5 +1,6 @@
 extends TestCase
-## The rendered recognition art is built from data/platforms by tools/blender; these tests keep
+## The rendered recognition art is built from data/platforms by tools/art (and, for the platforms
+## only it covers, tools/blender; assets/README.md says which); these tests keep
 ## the two in step so a new platform cannot ship without a picture, and check the loader's
 ## contract that the display code relies on.
 
