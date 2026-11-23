@@ -126,6 +126,8 @@ var _bearing_latest: Dictionary = {}
 var bearing_observers: Dictionary = {}
 var bearing_solution_at := -1.0e9
 var bearing_solution_cache: Dictionary = {}
+## Lines filed on a contact that may be an aircraft since its fix was last crossed.
+var bearing_lines_since_solution := 0
 var observation_time_s := 0.0
 var first_seen_time := 0.0
 var last_seen_time := 0.0

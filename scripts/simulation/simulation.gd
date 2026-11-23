@@ -356,30 +356,64 @@ func _step(dt: float) -> void:
 	# seen as arrived.
 	group_attack_manager.tick(dt, SimClock.sim_time)
 	profile_at = Time.get_ticks_usec()
+	# The player's side works its air defence with the rest of the defence step and every other side
+	# half a second later, and the AI commanders think in two turns half a second apart, so in a
+	# large battle neither step lands whole in one tick. Both halves follow from the saved
+	# accumulators.
+	var defence_before := _defence_accum
 	_defence_accum += dt
 	while _defence_accum >= DEFENCE_DT - 1e-6:
 		_defence_accum -= DEFENCE_DT
 		DefensiveResponse.run_cycle(unit_manager, threat_manager, weapon_manager)
-		AirDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
+		AirDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time, [player_faction])
 		# The sides with no AI commander (the player's): their ships on Weapons Free answer hostile
 		# aircraft in their envelope. An AI side does this through its own controller.
 		if not ai_controllers.has(player_faction):
 			AirDefence.engage_hostile_aircraft(unit_manager, track_manager, weapon_manager, SimClock.sim_time, [player_faction])
 		TorpedoDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time)
 		SubmarineInitiative.run_cycle(unit_manager, threat_manager)
+	if _crossed_half_second(defence_before, _defence_accum):
+		var others := _other_sides()
+		if not others.is_empty():
+			AirDefence.run_cycle(unit_manager, threat_manager, weapon_manager, SimClock.sim_time, others)
 	Debug.time_add("sim/defence", Time.get_ticks_usec() - profile_at)
 	profile_at = Time.get_ticks_usec()
 	if ai_enabled:
+		var ai_before := _ai_accum
 		_ai_accum += dt
 		while _ai_accum >= AI_DT - 1e-6:
 			_ai_accum -= AI_DT
-			weapon_manager.begin_channel_batch()
-			for c in ai_controllers.values():
-				c.tick(SimClock.sim_time)
-			weapon_manager.end_channel_batch()
+			_tick_ai(0)
+		if _crossed_half_second(ai_before, _ai_accum):
+			_tick_ai(1)
 	Debug.time_add("sim/ai", Time.get_ticks_usec() - profile_at)
 	CommandTraining.tick(self)
 	mission_manager.tick(SimClock.sim_time)
+
+
+## Whether an accumulator, emptied each time its step runs, has just passed half a second since.
+static func _crossed_half_second(before: float, after: float) -> bool:
+	return before < 0.5 - 1e-6 and after >= 0.5 - 1e-6
+
+
+## Every side with ships in the engagement but the player's, in the order their units are listed.
+func _other_sides() -> Array:
+	var out: Array = []
+	for u in unit_manager.units:
+		if u.faction != player_faction and not out.has(u.faction) and u.is_engageable():
+			out.append(u.faction)
+	return out
+
+
+## One turn of the AI commanders: the first, third and so on, or the second, fourth and so on.
+func _tick_ai(turn: int) -> void:
+	var controllers := ai_controllers.values()
+	if turn >= controllers.size():
+		return
+	weapon_manager.begin_channel_batch()
+	for i in range(turn, controllers.size(), 2):
+		controllers[i].tick(SimClock.sim_time)
+	weapon_manager.end_channel_batch()
 
 
 ## The operation's events, first in the tick (OperationDirector). Reinforcements enter through

@@ -69,7 +69,7 @@ const MANAGER_FIELDS := {
 ## does not have.
 const MANAGER_TRANSIENT := {
 	"UnitManager": ["units", "weapon_manager"],
-	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings", "cycle_at"],
+	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings", "bearing_solutions_worked", "cycle_at"],
 	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path", "sonar_pairs_weighed", "lookout_pairs_weighed", "_jammer_fits", "_jammer_fits_of", "_jammer_fits_last"],
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
@@ -148,15 +148,22 @@ class Refs:
 				return out
 			TYPE_DICTIONARY:
 				var object_keys := false
+				var plain := not (v as Dictionary).is_typed()
 				for k in v:
 					if typeof(k) == TYPE_OBJECT:
 						object_keys = true
 						break
+					if plain and typeof(v[k]) >= TYPE_OBJECT:
+						plain = false
 				if object_keys:
 					var pairs := []
 					for k in v:
 						pairs.append([enc(k), enc(v[k])])
 					return {"$pairs": pairs}
+				if plain:
+					# Nothing in it to convert or copy deeper: a bearing report, of which a track's
+					# history holds a hundred and more, is copied whole.
+					return (v as Dictionary).duplicate()
 				var d := {}
 				for k in v:
 					var x: Variant = v[k]

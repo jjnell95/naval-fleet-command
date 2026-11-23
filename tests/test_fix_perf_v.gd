@@ -118,34 +118,45 @@ func test_a_look_in_an_open_sample_updates_it_in_place() -> void:
 	assert_eq(int(second["n"]), 2, "two looks")
 
 
-## Two dozen listeners hearing one aircraft's radar each file an intercept every cycle, and each one
-## reworks the crossed fix from all two dozen lines. An intercept cost 180 us on the plot as it was;
-## the best of three runs of twenty cycles must come in under 150.
-func test_an_aircraft_heard_by_many_listeners_is_filed_cheaply() -> void:
-	var world := _ring_round_an_emitter(24, 45.0)
-	var um: UnitManager = world[0]
-	var tm: TrackManager = world[1]
+## ESM time per intercept over twenty cycles of a ring of listeners round one aircraft.
+func _esm_per_intercept_us(world: Array, listeners: int, start: int) -> float:
 	var sm: SensorManager = world[2]
-	var emitter: Unit = um.units[0]
+	Debug.profiling = true
+	Debug.timings.clear()
+	for cycle in 20:
+		sm.run_cycle(float(start + cycle))
+	Debug.profiling = false
+	var spent := float(Debug.timings.get("sensors/esm", 0)) / (20.0 * listeners)
+	Debug.timings.clear()
+	return spent
+
+
+## Two dozen listeners hearing one aircraft's radar each file an intercept every cycle. Each one
+## used to rework the crossed fix from every line, so an intercept cost more the more listeners
+## heard the contact: 1.7 times as much with two dozen as with six on the plot as it was, 1.4
+## once the fix read the history in place. Filed cheaply, an intercept costs the same however many
+## hear it. The two rings are timed in turn, best of five each, so a busy machine slows both alike.
+func test_an_aircraft_heard_by_many_listeners_is_filed_cheaply() -> void:
+	var many := _ring_round_an_emitter(24, 45.0)
+	var few := _ring_round_an_emitter(6, 45.0)
+	var emitter: Unit = (many[0] as UnitManager).units[0]
 	assert_true(emitter.in_flight() and emitter.radar_emitting(), "the aircraft is up and transmitting")
 	for second in 20:
-		sm.run_cycle(float(second))
-	var best := INF
+		(many[2] as SensorManager).run_cycle(float(second))
+		(few[2] as SensorManager).run_cycle(float(second))
+	var best_many := INF
+	var best_few := INF
 	var second := 20
-	for run in 3:
-		Debug.profiling = true
-		Debug.timings.clear()
-		for cycle in 20:
-			sm.run_cycle(float(second))
-			second += 1
-		Debug.profiling = false
-		best = minf(best, float(Debug.timings.get("sensors/esm", 0)) / (20.0 * 24.0))
-	Debug.timings.clear()
-	var track := tm.find_track("BLUE", emitter)
-	print("    an intercept on an aircraft two dozen listeners hear: %.1f us" % best)
+	for run in 5:
+		best_many = minf(best_many, _esm_per_intercept_us(many, 24, second))
+		best_few = minf(best_few, _esm_per_intercept_us(few, 6, second))
+		second += 20
+	var track := (many[1] as TrackManager).find_track("BLUE", emitter)
+	print("    an intercept on an aircraft two dozen listeners hear: %.1f us; six hear: %.1f us" % [best_many, best_few])
 	assert_true(track != null and not track.is_bearing_only() and track.contributors.size() == 24, "every listener hears it and the crossed lines fix it")
-	assert_true(best < 150.0, "an intercept costs %.1f us, under 150" % best)
-	_free(world)
+	assert_true(best_many <= 1.2 * best_few, "an intercept two dozen listeners share costs %.1f us against %.1f us for six, within a fifth" % [best_many, best_few])
+	_free(few)
+	_free(many)
 
 
 const TAIWAN := "res://data/scenarios/pacific_02_taiwan_strait.json"
@@ -279,18 +290,42 @@ func test_a_capture_stores_every_field_as_its_encoding_would() -> void:
 	_end(sim)
 
 
-## The frame an autosave is taken in holds only the capture, and the capture of a 48-a-side fleet
-## a hundred seconds in takes well under the 200 ms it did; encoding, compression and the file all
-## follow off the main thread where there are threads.
+## What the capture did before it read each script's variable list once and stored plain values
+## as they are: the property list of every unit and track walked, and every field encoded. Timed in
+## the same process at the same moment as the capture, it is the yardstick a busy machine cannot
+## move: both slow alike.
+func _generic_encoding_ms(sim: Simulation) -> float:
+	var at := Time.get_ticks_usec()
+	var refs := SimSnapshot.Refs.new()
+	var objects: Array = []
+	objects.append_array(sim.unit_manager.units)
+	for key in sim.track_manager._tracks:
+		objects.append_array(sim.track_manager._tracks[key])
+	var out: Array = []
+	for obj: Object in objects:
+		var fields := {}
+		for p: Dictionary in obj.get_property_list():
+			if int(p["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+				fields[p["name"]] = refs.enc(obj.get(p["name"]))
+		out.append(fields)
+	return float(Time.get_ticks_usec() - at) / 1000.0
+
+
+## The frame an autosave is taken in holds only the capture, and the capture of a 48-a-side fleet a
+## hundred seconds in costs well under what walking and encoding its units and tracks the generic
+## way does (the whole capture took more than that walk before; about a third of it now). Encoding,
+## compression and the file all follow off the main thread where there are threads.
 func test_an_autosave_holds_one_frame_only_for_a_quick_capture() -> void:
 	var sim := _fleet()
 	SimClock.advance(100.0)
 	var best := INF
+	var yardstick := INF
 	var snapshot := {}
 	for attempt in 3:
 		var at := Time.get_ticks_usec()
 		snapshot = sim.capture_snapshot()
 		best = minf(best, float(Time.get_ticks_usec() - at) / 1000.0)
+		yardstick = minf(yardstick, _generic_encoding_ms(sim))
 	assert_true((snapshot.get("errors", ["?"]) as Array).is_empty(), "the capture is whole")
 	var scratch := "user://test-perf-saves-%d" % OS.get_process_id()
 	SaveGame.root_override = scratch
@@ -300,6 +335,9 @@ func test_an_autosave_holds_one_frame_only_for_a_quick_capture() -> void:
 	var at := Time.get_ticks_usec()
 	job.step()
 	var first_step := float(Time.get_ticks_usec() - at) / 1000.0
+	var reference_at := Time.get_ticks_usec()
+	var _bytes := var_to_bytes(snapshot)
+	var encoding := float(Time.get_ticks_usec() - reference_at) / 1000.0
 	assert_eq(SaveGame.finish_writing(), "", "the autosave is written")
 	var back := SaveGame.read(job.path)
 	assert_eq(back.get("error", "?"), "", "and reads back")
@@ -308,18 +346,19 @@ func test_an_autosave_holds_one_frame_only_for_a_quick_capture() -> void:
 	SaveGame.use_worker = threads
 	SaveGame.root_override = ""
 	DirAccess.remove_absolute(scratch)
-	print("    48-a-side fleet at 100 s: capture %.1f ms; the autosave's next frame %.1f ms" % [best, first_step])
-	assert_true(best < 120.0, "the capture takes %.1f ms, under 120" % best)
-	assert_true(first_step < 10.0, "the frame after it hands the encoding on (%.1f ms)" % first_step)
+	print("    48-a-side fleet at 100 s: capture %.1f ms against %.1f ms for the generic walk; the autosave's next frame %.1f ms, encoding the snapshot %.1f ms" % [best, yardstick, first_step, encoding])
+	assert_true(best <= 0.6 * yardstick, "the capture takes %.1f ms, under three fifths of the generic walk's %.1f ms" % [best, yardstick])
+	assert_true(first_step <= 0.5 * encoding, "the frame after it hands the encoding on (%.1f ms against %.1f ms to encode it)" % [first_step, encoding])
 	_end(sim)
 
 
 ## Two minutes of the 48-a-side fleet with AI on both sides, tick by tick. Before the cycle was
-## spread, every fourth tick carried it whole and filed every report, and a twentieth of the ticks
-## took more than four times the median tick. Now every quarter of the second files part of the
-## cycle, and the 95th percentile tick stays within three and a half times the median (about two
-## and a half on a quiet machine). The bound is a ratio, so it holds on a machine shared with other
-## work; the figures themselves are printed.
+## spread, every fourth tick carried it whole and filed every report, and took more than ten times
+## as long on average as the other three. Now every quarter of the second files part of the cycle,
+## and the dearest quarter of the second costs on average within three times the cheapest (about
+## twice on a quiet machine). A mean over two minutes of one quarter against another's, both timed
+## in the same run, holds on a machine shared with other work, where one tick's time does not; the
+## figures are printed.
 func test_a_48_a_side_fleet_keeps_every_tick_short() -> void:
 	var sim := _fleet()
 	var tm := sim.track_manager
@@ -341,10 +380,18 @@ func test_a_48_a_side_fleet_keeps_every_tick_short() -> void:
 	var median := sorted[sorted.size() / 2]
 	var p95 := sorted[int(sorted.size() * 0.95)]
 	var p99 := sorted[int(sorted.size() * 0.99)]
-	print("    48-a-side fleet, 120 s: tick mean %.1f ms, median %.1f, p95 %.1f, p99 %.1f, max %.1f; reports by quarter of the second %s" % [
-		mean, median, p95, p99, sorted[-1], by])
+	var by_quarter := PackedFloat64Array([0.0, 0.0, 0.0, 0.0])
+	for i in ticks.size():
+		by_quarter[i % 4] += ticks[i] / (ticks.size() / 4.0)
+	var dearest := 0.0
+	var cheapest := INF
+	for ms in by_quarter:
+		dearest = maxf(dearest, ms)
+		cheapest = minf(cheapest, ms)
+	print("    48-a-side fleet, 120 s: tick mean %.1f ms, median %.1f, p95 %.1f, p99 %.1f, max %.1f; mean by quarter of the second %.1f %.1f %.1f %.1f ms; reports by quarter %s" % [
+		mean, median, p95, p99, sorted[-1], by_quarter[0], by_quarter[1], by_quarter[2], by_quarter[3], by])
 	assert_eq(_spread(by), "", "every quarter of the second files part of the cycle")
-	assert_true(p95 <= 3.5 * median, "the 95th percentile tick (%.1f ms) is within three and a half times the median (%.1f ms)" % [p95, median])
+	assert_true(dearest <= 3.0 * cheapest, "the dearest quarter of the second (%.1f ms a tick) is within three times the cheapest (%.1f ms)" % [dearest, cheapest])
 	_end(sim)
 
 
