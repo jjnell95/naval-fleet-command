@@ -209,24 +209,29 @@ def _barrier(d):
     boat = 'Soviet submarine (Victor III)'
     gate = next(o for o in d['objectives']['loss'] if o['id'] == 'breakout')['center_nm']
     second = 'Soviet submarine 2 (Victor III)'
+    # The builder lays the lanes out in the boat's frame and hands them over; see build_cold_war.
+    lanes = d.pop('_barrier_lanes')
+    start, route = lanes['second'][0], lanes['second'][1:]
     return [
         dict(id='transit_lane', side='RED', at_s=0, variants=[
             dict(id='direct', ai=[dict(units=[boat], patrol_nm=[gate])]),
-            dict(id='western', ai=[dict(units=[boat], patrol_nm=[[-5.0, 4.0], gate])]),
-            dict(id='eastern', ai=[dict(units=[boat], patrol_nm=[[9.0, -2.0], gate])])]),
-        dict(id='array_cue', at_s_window=[600, 1800], unless=held('BLUE', [boat], allow_stale=True),
+            dict(id='western', ai=[dict(units=[boat], patrol_nm=lanes['western'])]),
+            dict(id='eastern', ai=[dict(units=[boat], patrol_nm=lanes['eastern'])])]),
+        dict(id='array_cue', at_s_window=[900, 2700], unless=held('BLUE', [boat], allow_stale=True),
              intel=[report(boat, 12, 'Fixed acoustic array')],
              message='Fixed acoustic array cue: a submerged contact near {pos}, accuracy about 12 nm. A cue is not a '
                      'firing solution; localize it with buoys or Dallas before committing a torpedo.'),
         # A commander who hears the escort may stop running and fight. Whether this one does is drawn.
         dict(id='boat_turns', side='RED', chance=0.6, when=held('RED', ['USS Spruance (DD 963)']),
              ai=[dict(units=[boat], ai_posture='standard')]),
-        dict(id='second_boat', chance=0.35, at_s_window=[3600, 6000],
-             reinforcements=[dict(platform='cw90_victor3', callsign=second, faction='RED', position_nm=[-14.0, 16.0],
-                                  heading_deg=160, speed_kn=7, depth_m=160, radar_on=False, ai_posture='breakout',
-                                  patrol_nm=[[-8.0, 2.0], gate])],
+        # Late enough to come as a surprise, early enough that a second boat left alone at its
+        # quiet 7 kn still reaches the gate inside the watch.
+        dict(id='second_boat', chance=0.35, at_s_window=[2400, 4800],
+             reinforcements=[dict(platform='cw90_victor3', callsign=second, faction='RED', position_nm=start,
+                                  heading_deg=round(_bearing(start, route[0]), 1), speed_kn=7, depth_m=160, radar_on=False,
+                                  ai_posture='breakout', patrol_nm=route)],
              intel=[report(second, 15, 'Fixed acoustic array')],
-             objectives=dict(add_loss=[dict(id='breakout_2', type='reach_area', callsigns=[second], center_nm=gate, radius_nm=3,
+             objectives=dict(add_loss=[dict(id='breakout_2', type='reach_area', callsigns=[second], center_nm=gate, radius_nm=lanes['exit_radius_nm'],
                                             count=1, text='Second Victor III crossed the southern barrier')],
                              update={'neutralize': dict(callsigns=[boat, second], text='Neutralize both Victor IIIs')}),
              message='TASKING UPDATE: the fixed array holds a second submerged contact near {pos}, accuracy about 15 nm, '
@@ -522,8 +527,8 @@ WATCH_LEG_NM = 25.0  # one leg of a watch circuit along the guide's authored cou
 OPENINGS = {
     'cold_war_01_convoy': dict(guide='MV North Star', route='handover',
                                consorts=['USS Elrod (FFG 55)', 'USS Nicholas (FFG 47)']),
-    'cold_war_02_barrier': dict(pickets={'USS Spruance (DD 963)': [[8.0, -3.0], [-10.0, -3.0]],
-                                         'USS Dallas (SSN 700)': [[6.0, 4.0], [-6.0, 4.0]]}),
+    # The barrier ships walk the lines the builder gives them across the transit lanes.
+    'cold_war_02_barrier': dict(pickets={'USS Spruance (DD 963)': None, 'USS Dallas (SSN 700)': None}),
     'cold_war_03_carrier': dict(guide='USS Dwight D. Eisenhower (CVN 69)', watch=True,
                                 consorts=['USS Bunker Hill (CG 52)', 'USS Spruance (DD 963)']),
     'aegis_bastion': dict(guide='USS Dwight D. Eisenhower (CVN 69)', watch=True,
