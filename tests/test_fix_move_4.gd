@@ -268,3 +268,84 @@ func test_a_torpedo_attack_from_too_close_opens_beyond_the_enable_run_and_fires(
 	assert_true(fired_at[0] > 0.0, "the ship opens and fires (ended: %s, phase '%s')" % [str(ended), ship.attack_phase])
 	assert_true(fired_at[0] >= Combat.minimum_range_nm(fish), "from beyond the enable run and its margin (%.2f nm)" % fired_at[0])
 	h.free_all()
+
+
+# --- A fixed-wing aircraft waiting to fire stands off ------------------------------------------
+
+func test_a_strike_aircraft_held_from_firing_inside_its_envelope_stands_off_instead_of_flying_on() -> void:
+	var asm := WeaponSpec.new()
+	asm.id = "test_air_asm"
+	asm.display_name = "Test ASM"
+	asm.type = "asm"
+	asm.max_range_nm = 60.0
+	asm.min_range_nm = 2.0
+	asm.speed_kn = 480.0
+	asm.turn_rate_deg_s = 30.0
+	asm.seeker_range_nm = 8.0
+	asm.damage = 40.0
+	asm.base_pk = 1.0
+	asm.salvo_default = 2
+	var hull := _test_hull()
+	hull.domain = "air"
+	hull.max_speed_kn = 400.0
+	hull.cruise_speed_kn = 300.0
+	hull.cruise_altitude_m = 3000.0
+	hull.max_altitude_m = 9000.0
+	hull.altitude_rate_m_s = 20.0
+	hull.endurance_s = 36000.0
+	hull.turn_rate_deg_s = 3.0
+	hull.length_m = 18.0
+	var strike := Unit.new()
+	strike.spec = hull
+	strike.faction = "BLUE"
+	strike.callsign = "BLUE strike"
+	strike.health = 100.0
+	strike.position = Vector2(0, -55)
+	strike.flight_state = Unit.FlightState.AIRBORNE
+	strike.fuel_s = hull.endurance_s
+	strike.altitude_m = hull.cruise_altitude_m
+	strike.ordered_altitude_m = hull.cruise_altitude_m
+	strike.speed_kn = hull.cruise_speed_kn
+	strike.ordered_speed_kn = hull.cruise_speed_kn
+	strike.weapons.append(asm)
+	strike.magazines[asm.id] = 4
+	var ship := Unit.new()
+	ship.spec = _test_hull()
+	ship.faction = "RED"
+	ship.callsign = "RED ship"
+	ship.health = 100.0
+	var t := Track.new()
+	t.id = "T2003"
+	t.owner_faction = "BLUE"
+	t.truth = ship
+	t.status = Track.Status.ACTIVE
+	t.domain = "surface"
+	t.identity = "HOSTILE"
+	t.classification = Track.Classification.SURFACE
+	# A merchant the side holds as neutral lies alongside the target, in the seeker's basket.
+	var merchant := Track.new()
+	merchant.id = "T2004"
+	merchant.owner_faction = "BLUE"
+	merchant.position = Vector2(0.4, 0)
+	merchant.status = Track.Status.ACTIVE
+	merchant.domain = "surface"
+	merchant.identity = "NEUTRAL"
+	merchant.classification = Track.Classification.SURFACE
+	var picture := TrackManager.new()
+	picture._tracks["BLUE"] = [t, merchant]
+	var previous: TrackManager = Combat.picture_source if is_instance_valid(Combat.picture_source) else null
+	Combat.picture_source = picture
+	var h := _harness([strike, ship])
+	assert_true(h.um.issue_order(strike, Order.move(Vector2(0, 200))))
+	assert_true(h.um.issue_order(strike, Order.attack(t)))
+	var closest := INF
+	for i in int(1500.0 / DT):
+		h.advance(DT)
+		t.last_seen_time = h.now
+		closest = minf(closest, strike.position.distance_to(ship.position))
+	assert_eq(strike.attack_rounds_fired, 0, "the neutral keeps the shot from being taken")
+	assert_eq(strike.attack_track, t, "and the task stands, waiting for the line to clear")
+	assert_true(closest >= 0.7 * asm.max_range_nm - 1.0, "it waits off the ship, not over it (closest %.1f nm)" % closest)
+	Combat.picture_source = previous if is_instance_valid(previous) else null
+	h.free_all()
+	picture.free()

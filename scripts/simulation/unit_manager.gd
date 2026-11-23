@@ -821,12 +821,13 @@ func _clearing_point(u: Unit, track: Track, standoff_nm: float) -> Vector2:
 
 ## With rounds away, a salvo being assessed or the fire control busy, there is nothing to close
 ## for. A platform the attack is already steering keeps its range; one that is not carries on with
-## its own orders, except that a fixed-wing aircraft which has released is turned away before
-## those orders carry it in over the target.
+## its own orders, except that a fixed-wing aircraft is turned away before those orders carry it in
+## over the target: one that has released, and one in reach that is waiting to (a launcher, a
+## neutral in the line of fire), which can shoot as well from the hold as from over the ship.
 func _keep_geometry(u: Unit, track: Track, standoff_nm: float, dt: float) -> void:
 	if u.plan_kept:
 		_steer_attack(u, track, standoff_nm, dt)
-	elif u.attack_rounds_fired > 0 and _stands_off(u, track):
+	elif _stands_off(u, track):
 		var floor_nm := _hold_off_floor_nm(standoff_nm)
 		if u.position.distance_to(track.position) <= floor_nm + _turn_room_nm(u):
 			u.take_steering()
