@@ -15,6 +15,8 @@ signal swap_requested
 signal fullscreen_requested
 ## A right-click on the pane with a platform hooked: that platform's menu, at this viewport position.
 signal platform_menu_requested(viewport_pos: Vector2)
+## A right-click on a contact the plot holds: that contact's menu, as the chart gives it.
+signal contact_menu_requested(track: Track, viewport_pos: Vector2)
 
 const CAM_TETHER := WorldCamera.TETHER
 const CAM_FLYBY := WorldCamera.FLYBY
@@ -680,6 +682,10 @@ func _menu_at(screen: Vector2) -> void:
 	if map == null or not _live():
 		return
 	var entry := _scene.pick_entry(screen) if _scene != null else {}
+	var held: Track = entry.get("track") if entry.get("kind") in ["visual", "plotted"] else null
+	if held != null:
+		contact_menu_requested.emit(held, get_global_transform_with_canvas() * screen)
+		return
 	if entry.get("kind") == "own":
 		var unit: Unit = entry.get("unit")
 		if unit != null and unit.is_engageable() and not map.selected.has(unit):

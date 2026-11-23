@@ -93,10 +93,7 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	_panel.add_child(box)
-	var title := Label.new()
-	title.text = "KEY COMMANDS"
-	title.theme_type_variation = "HeaderLabel"
-	box.add_child(title)
+	box.add_child(UITheme.dialog_header("Key commands", close, "any key or click"))
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", int(COLUMN_GAP))
 	box.add_child(columns)
@@ -105,11 +102,6 @@ func _ready() -> void:
 	columns.add_child(_left)
 	columns.add_child(_right)
 	_fill()
-	var hint := Label.new()
-	hint.text = "Any key or click to close"
-	hint.theme_type_variation = "DimLabel"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(hint)
 	get_viewport().size_changed.connect(func() -> void:
 		if visible:
 			_fill())
@@ -127,15 +119,17 @@ func _fill() -> void:
 
 ## The Classic key layout's rows: [keys, what it does, the default row it takes the place of, or
 ## "" to add it]. A default row whose key the layout takes for something else and gives no other
-## key is listed in CLASSIC_DROPPED.
+## key is listed in CLASSIC_DROPPED; the number row's time scales give way to the groups.
 const CLASSIC_ROWS := [
-	["P / Space", "Pause or resume", "Space"],
+	["P", "Pause or resume", "Space"],
 	["T", "Next time scale", ""],
+	["Space", "Hook the platform heard last on the radio", ""],
 	["Tab", "Hook the next own platform", "Tab"],
 	["Ctrl+click / Ctrl+right-click", "Zoom the chart in / out on the point", "B"],
 	["B / L", "Hooked aircraft return to base", "L"],
-	["R / E", "Radar / emission control", "R / P / E"],
-	["Shift+C", "Emission control", ""],
+	["E", "Engage cursor: click a contact for the hooked platforms to attack", ""],
+	["R / Shift+C", "Radar / emission control", "R / P / E"],
+	["1..9", "Recall a fleet selection group (Ctrl+1..9 saves one)", "Ctrl+1..9 / Alt+1..9"],
 	["Shift+1 / 2 / 3", "Speed: a third, two thirds or all of each platform's top speed", ""],
 	["Shift+7 / 8 / 9", "Aircraft low / cruise / high; boats periscope / patrol / deep", ""],
 ]
@@ -158,6 +152,7 @@ static func commands() -> Array:
 
 static func _classic_layout(sections: Array) -> Array:
 	var added: Array = []
+	(sections[0][1] as Array).remove_at(1)
 	for section: Array in sections:
 		var rows: Array = section[1]
 		for i in range(rows.size() - 1, -1, -1):

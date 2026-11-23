@@ -157,7 +157,9 @@ func observe(um: UnitManager) -> void:
 		_complete("return")
 
 
-func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Track = null, torpedo := false, manager: MissionManager = null) -> void:
+## `gunfire` says every inbound round is a shell: no interceptor answers it, so the guide does not
+## send the commander to the missile defence keys.
+func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Track = null, torpedo := false, manager: MissionManager = null, gunfire := false) -> void:
 	if lesson_id != "" and manager != null:
 		_refresh_training(manager)
 		return
@@ -169,9 +171,12 @@ func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Trac
 	_action_id = ""
 	if inbound:
 		_title.text = "COMMAND GUIDE · DEFEND THE CONVOY"
-		text = "Inbound reported. Space pauses the watch. " + ("Manual defence: select an escort and press X to engage inbound missiles; Defence shows the threat picture." if options.manual_missile_defence() else "Automatic missile defence is on. Open Defence to review threats and remaining rounds.")
+		var pause_key := "P" if KeyCommands.classic else "Space"
+		text = "Inbound reported. %s pauses the watch. " % pause_key + ("Manual defence: select an escort and press X to engage inbound missiles; Defence shows the threat picture." if options.manual_missile_defence() else "Automatic missile defence is on. Open Defence to review threats and remaining rounds.")
 		if torpedo:
-			text = "Torpedo reported. Space pauses the watch. Open Defence to review the threat and countermeasures. Missile intercept orders do not stop a torpedo."
+			text = "Torpedo reported. %s pauses the watch. Open Defence to review the threat and countermeasures. Missile intercept orders do not stop a torpedo." % pause_key
+		elif gunfire:
+			text = "Under gunfire. %s pauses the watch. Shells cannot be shot down: open the range, turn the threatened ship away or return fire. Defence shows the threat picture." % pause_key
 		action = "Defence"
 		_action_id = "open_defence"
 	elif index == STEPS.size():

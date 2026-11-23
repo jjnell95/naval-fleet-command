@@ -41,6 +41,8 @@ var _air_operations: AirOperations
 var _air_picking := false
 ## A quick air mission waiting for its point on the chart: {base, mission}. Empty when none.
 var _quick_air: Dictionary = {}
+## The Classic E key's engage cursor is up: the next contact clicked is attacked by the hook.
+var _engage_picking := false
 var _saves: SavedEngagements
 ## Simulated time of the last autosave in this engagement.
 var _autosaved_at := 0.0
@@ -80,11 +82,13 @@ var _last_report: Array = []
 ## real time, and the salvos and hits that follow inside this interval of each other do not.
 const ENGAGEMENT_QUIET_S := 300.0
 var _engagements: Dictionary = {}  # engagement key -> simulation time of its last launch or hit
-## Rounds end one at a time and are reported a salvo at a time: an entry waits until nothing has
-## been added to it for the quiet interval, or it has waited the longest a report may.
+## Rounds end one at a time and are reported a salvo at a time: an entry waits until no round of
+## that weapon from its shooters is still queued or flying at that contact and nothing has been
+## added for the quiet interval, or it has waited the longest a report may. A salvo leaves the
+## launcher seconds apart and is shot down over minutes, so the longest wait is long.
 const ROUND_REPORT_QUIET_S := 3.0
-const ROUND_REPORT_MAX_S := 12.0
-var _round_reports: Dictionary = {}  # "weapon|target" -> {name, at, outcomes {words -> rounds}, first, last}
+const ROUND_REPORT_MAX_S := 300.0
+var _round_reports: Dictionary = {}  # "weapon|target" -> {name, at, outcomes {words -> rounds}, first, last, sources [[shooter, spec, track]]}
 var _cancelled_rounds: Dictionary = {}  # "shooter|weapon|reason" -> {shooter, spec, reason, count, last}
 ## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
 ## a consort off the link). Each is announced once, when it reaches the picture.
@@ -155,7 +159,7 @@ func _ready() -> void:
 	add_child(voice)
 	data_display.map = map
 	data_display.simulation = simulation
-	data_display.pause_requested.connect(SimClock.toggle_pause)
+	data_display.pause_requested.connect(_toggle_pause)
 	data_display.scale_step_requested.connect(func(step: int) -> void: _set_time_scale(SimClock.speed_index + step))
 	data_display.messages_requested.connect(_on_message_lamp)
 	status_boards.comms_shown.connect(func() -> void: data_display.unread_alerts = 0)
@@ -190,6 +194,7 @@ func _ready() -> void:
 	_world_view.fullscreen_requested.connect(_toggle_world_full)
 	# The 3D pane's right-click asks for the same menu as the data display's.
 	_world_view.platform_menu_requested.connect(_on_display_menu)
+	_world_view.contact_menu_requested.connect(_on_world_contact_menu)
 	_view_frame.add_child(_world_view)
 	map.context_menu_requested.connect(_on_map_context)
 	contact_panel.track_manager = simulation.track_manager
@@ -428,9 +433,10 @@ func _process(delta: float) -> void:
 	_announce_unannounced_threats()
 	_call_private_contacts()
 	if SimClock.paused:
-		_flush_round_reports(true)
+		_flush_round_reports(false, true)
 	var threats := _commander_inbound()
-	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager)
+	var gunfire := not threats.is_empty() and threats.all(func(e: Dictionary) -> bool: return (e["weapon"] as Weapon).threat_class() == "shell")
+	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager, gunfire)
 	_command_guide.visible = _command_taken and _command_guide.enabled and not _has_visible_modal() and not status_boards.visible and not _views_swapped and not _world_full
 	_command_guide.position = map.global_position - global_position + Vector2(14, 14)
 	if threats.is_empty():
@@ -543,6 +549,7 @@ func _reset_command_screen() -> void:
 	var opening := _opening_view()
 	map.fit_initial_view(Vector2(opening.x, opening.y), opening.z)
 	radio.clear()
+	_engage_picking = false
 	voice.stop()
 	radio.set_scenario_name(simulation.scenario_name)
 	status_boards.close_boards()
@@ -1016,10 +1023,18 @@ func _build_screens() -> void:
 			_air_operations.apply_station(pos)
 			_end_air_pick())
 	map.contact_picked.connect(func(t: Track) -> void:
+		if _engage_picking:
+			_engage_picking = false
+			_apply_order_to_selection(Order.attack(t))
+			return
 		if _air_picking:
 			_air_operations.apply_target(t)
 			_end_air_pick())
 	map.pick_cancelled.connect(func() -> void:
+		if _engage_picking:
+			_engage_picking = false
+			radio.advise("Engage cancelled")
+			return
 		if not _quick_air.is_empty():
 			_quick_air = {}
 			radio.advise("Air tasking cancelled")
@@ -1188,7 +1203,7 @@ func _has_visible_modal() -> bool:
 func _restore_modal_pause_if_clear() -> void:
 	if not _modal_pause_captured or _has_visible_modal():
 		return
-	var restore := _modal_was_paused
+	var restore := _modal_was_paused or _mission_over()
 	_modal_pause_captured = false
 	SimClock.set_paused(restore)
 	_set_background_input_enabled(true)
@@ -1537,8 +1552,8 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "next_chart_view", "label": "Next chart view", "description": "Go forward through the chart views you revisited.", "shortcut": "]", "enabled": map.can_revisit_chart_view(true)},
 		{"id": "fit_theatre", "label": "Fit operation area", "description": "Return to the scenario's full chart extent.", "shortcut": "", "enabled": true},
 		{"id": "toggle_radar", "label": "Toggle radar", "description": "Mixed or silent selections converge active; all-active selections go silent.", "shortcut": "R", "enabled": controllable and radar_state >= 0, "state": _state_name(radar_state, "off", "on"), "reason": "The selection has no controllable radar."},
-		{"id": "toggle_sonar", "label": "Toggle active sonar", "description": "Mixed or passive selections converge active; all-active selections go passive.", "shortcut": "P", "enabled": controllable and sonar_state >= 0, "state": _state_name(sonar_state, "passive", "active"), "reason": "The selection has no controllable sonar."},
-		{"id": "toggle_emcon", "label": "Toggle emission control", "description": "Switch the selection between silent and free emissions.", "shortcut": "E", "enabled": controllable, "state": _state_name(emcon_state, "free", "silent"), "reason": "Hook a controllable platform first."},
+		{"id": "toggle_sonar", "label": "Toggle active sonar", "description": "Mixed or passive selections converge active; all-active selections go passive.", "shortcut": "" if classic_keys else "P", "enabled": controllable and sonar_state >= 0, "state": _state_name(sonar_state, "passive", "active"), "reason": "The selection has no controllable sonar."},
+		{"id": "toggle_emcon", "label": "Toggle emission control", "description": "Switch the selection between silent and free emissions.", "shortcut": "Shift+C" if classic_keys else "E", "enabled": controllable, "state": _state_name(emcon_state, "free", "silent"), "reason": "Hook a controllable platform first."},
 		{"id": "symbols", "label": "NTDS or graphic symbols", "description": "Cycle NTDS symbols and small, medium and large graphic symbols.", "shortcut": "Tab", "enabled": true, "state": ["NTDS", "small", "medium", "large"][clampi(int(layers.get("symbol_mode", 0)), 0, 3)]},
 		{"id": "toggle_leaders", "label": "Velocity leaders", "description": "Speed-scaled course lines on every symbol.", "shortcut": "Shift+V", "enabled": true, "state": _on_off(layers, "leaders")},
 		{"id": "toggle_track_numbers", "label": "Track numbers", "description": "Four-digit track numbers beside the symbols.", "shortcut": "Shift+K", "enabled": true, "state": _on_off(layers, "track_numbers")},
@@ -1553,7 +1568,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "toggle_graticule", "label": "Graticule", "description": "Latitude and longitude lines on the chart.", "shortcut": "", "enabled": true, "state": _on_off(layers, "graticule")},
 		{"id": "toggle_key", "label": "Symbol key", "description": "The NTDS symbol key.", "shortcut": "F2", "enabled": true, "state": _on_off(layers, "key")},
 		{"id": "range_circle", "label": "Range circle", "description": "A range ring from the hooked platform through the cursor; B again fixes it, then clears it.", "shortcut": "B", "enabled": true},
-		{"id": "toggle_pause", "label": "Pause or resume time", "description": "Stop or resume simulation time without changing acceleration.", "shortcut": "Space", "enabled": true, "state": "paused" if SimClock.paused else "running"},
+		{"id": "toggle_pause", "label": "Pause or resume time", "description": "Stop or resume simulation time without changing acceleration.", "shortcut": "P" if classic_keys else "Space", "enabled": true, "state": "paused" if SimClock.paused else "running"},
 		{"id": "debrief", "label": "Debrief", "description": "The after-action report again, once the mission has ended.", "shortcut": "F1", "enabled": not _last_report.is_empty(), "reason": "The mission is still running."},
 		{"id": "briefing", "label": "Orders and briefing", "description": "Objectives, failure conditions, environment and controls.", "shortcut": "F1", "enabled": true},
 		{"id": "library", "label": "Reference", "description": "Platforms and weapons, with models; opens on a hooked contact's class once it is classified.", "shortcut": "F7", "enabled": true},
@@ -1578,7 +1593,7 @@ func _palette_actions() -> Array[Dictionary]:
 		actions.append({"id": "ui_scale_%d" % percent, "label": "Interface size: %d%%" % percent, "description": "Scale text, chart labels and controls together.", "shortcut": "", "enabled": true, "state": "selected" if InterfaceScale.percent == percent else ""})
 	var ladder := SimClock.speeds()
 	for i in ladder.size():
-		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(ladder[i]), "description": "Set simulation acceleration; time remains paused until resumed." + (" The ceiling." if i == ladder.size() - 1 and ladder.size() < SimClock.SPEEDS.size() else ""), "shortcut": str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
+		actions.append({"id": "speed_%d" % i, "label": "Set time to %d×" % int(ladder[i]), "description": "Set simulation acceleration; time remains paused until resumed." + (" The ceiling." if i == ladder.size() - 1 and ladder.size() < SimClock.SPEEDS.size() else ""), "shortcut": "" if classic_keys else str(i + 1), "enabled": true, "state": "selected" if SimClock.speed_index == i else ""})
 	return actions
 
 
@@ -1749,7 +1764,7 @@ func _run_palette_action(id: String) -> void:
 		"range_circle":
 			map.toggle_range_circle()
 		"toggle_pause":
-			SimClock.toggle_pause()
+			_toggle_pause()
 		"briefing":
 			_show_briefing()
 		"debrief":
@@ -1788,10 +1803,11 @@ func _run_palette_action(id: String) -> void:
 				_set_time_scale(int(id.trim_prefix("speed_")))
 
 
-## Space is the pause key on the command deck. It is taken here, before the GUI sees it, because a
-## focused button also answers Space: pausing just after clicking ENGAGE would fire again. Tab is
-## taken here too (NTDS or graphic symbols), before the GUI spends it on focus navigation.
-## Text fields and the full-screen surfaces keep both keys.
+## Space is the pause key on the command deck (under the Classic keys it hooks the platform on the
+## radio). It is taken here, before the GUI sees it, because a focused button also answers Space:
+## pausing just after clicking ENGAGE would fire again. Tab is taken here too (NTDS or graphic
+## symbols), before the GUI spends it on focus navigation. Text fields and the full-screen
+## surfaces keep both keys.
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		_classic_chart_zoom(event)
@@ -1820,7 +1836,10 @@ func _input(event: InputEvent) -> void:
 	if focus is LineEdit or focus is TextEdit:
 		return
 	if k.keycode == KEY_SPACE:
-		SimClock.toggle_pause()
+		if classic_keys:
+			_hook_speaker()
+		else:
+			_toggle_pause()
 	elif map.is_visible_in_tree() and not map.menu_open and (focus == null or focus == map) and not (k.ctrl_pressed or k.meta_pressed or k.alt_pressed or k.shift_pressed):
 		# Only from the chart: on the status boards Tab still walks the controls.
 		if classic_keys:
@@ -2022,7 +2041,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F7:
 			_open_reference()
 		KEY_SPACE:
-			SimClock.toggle_pause()
+			_toggle_pause()
 		KEY_ESCAPE:
 			if _world_full:
 				_toggle_world_full()
@@ -2089,16 +2108,53 @@ func _classic_key(k: InputEventKey) -> bool:
 			_:
 				return false
 		return true
+	# The number row picks groups, as it did in the old games; T is the time key.
+	if k.keycode >= KEY_1 and k.keycode <= KEY_9:
+		_recall_control_group(k.keycode - KEY_0)
+		return true
 	match k.keycode:
 		KEY_P:
-			SimClock.toggle_pause()
+			_toggle_pause()
 		KEY_T:
 			_set_time_scale((SimClock.speed_index + 1) % SimClock.speeds().size())
 		KEY_B:
 			_return_selected_aircraft()
+		KEY_E:
+			_toggle_engage_cursor()
 		_:
 			return false
 	return true
+
+
+## Classic E: the engage cursor. The next contact clicked is attacked by every hooked own
+## platform, as a right-click on a hostile is; E again or Escape puts the cursor away.
+func _toggle_engage_cursor() -> void:
+	if _engage_picking:
+		map.cancel_interaction_mode()
+		return
+	if _air_picking or not _quick_air.is_empty():
+		return
+	if not map.selected.any(func(u: Unit) -> bool: return u.faction == simulation.player_faction and u.alive):
+		radio.advise("Hook a platform to engage with, then press E")
+		return
+	map.set_pick_mode(true, "Engage: click a contact (E or Esc cancels)")
+	_engage_picking = true
+
+
+## Classic Space: hooks the platform heard last on the radio, or the contact it reported.
+func _hook_speaker() -> void:
+	var speaker := radio.last_speaker
+	var u := speaker as Unit
+	if u != null and u.alive and u.faction == simulation.player_faction:
+		map.select_units([u])
+		if not Rect2(Vector2.ZERO, map.size).has_point(map.world_to_screen(SubmarineComms.reported_position(u))):
+			map.center_on_selection()
+		return
+	var t := speaker as Track
+	if t != null and _commander_sees_track(t):
+		map.select_track(t)
+		return
+	radio.advise("No platform on the radio to hook")
 
 
 ## Ctrl+click on the chart under the Classic keys: the left button zooms in on the point, the
@@ -2144,6 +2200,19 @@ func _height_step(step: int) -> void:
 	_apply_unit_orders(pairs)
 
 
+## Pauses or resumes the watch. A mission that has ended stays stopped: its debrief is the last
+## word on it, and the clock running on would play past the result.
+func _toggle_pause() -> void:
+	if SimClock.paused and _mission_over():
+		radio.advise("The mission has ended: F1 shows the debrief, M the missions")
+		return
+	SimClock.toggle_pause()
+
+
+func _mission_over() -> bool:
+	return not _last_report.is_empty()
+
+
 ## Turns the Classic key layout on or off; the H board follows it. `persist` keeps the choice.
 func set_classic_keys(on: bool, persist := true) -> void:
 	classic_keys = on
@@ -2158,7 +2227,7 @@ func set_classic_keys(on: bool, persist := true) -> void:
 func _set_time_scale(index: int) -> void:
 	var ladder := SimClock.speeds()
 	if index >= ladder.size():
-		radio.advise("%d× is the ceiling: %s" % [int(SimClock.ceiling()), "keys 1 to %d set the time scale" % ladder.size() if ladder.size() > 1 else "time runs at real time only"])
+		radio.advise("%d× is the ceiling: %s" % [int(SimClock.ceiling()), ("T steps the time scale" if classic_keys else "keys 1 to %d set the time scale" % ladder.size()) if ladder.size() > 1 else "time runs at real time only"])
 		return
 	SimClock.set_speed_index(maxi(index, 0))
 
@@ -2593,11 +2662,25 @@ func _on_own_round_resolved(w: Weapon) -> void:
 	var key := "%s|%s" % [w.spec.id, at]
 	var now := SimClock.sim_time
 	if not _round_reports.has(key):
-		_round_reports[key] = {"name": w.spec.compact_name(), "at": at, "outcomes": {}, "first": now, "last": now}
+		_round_reports[key] = {"name": w.spec.compact_name(), "at": at, "outcomes": {}, "first": now, "last": now, "sources": []}
 	var entry: Dictionary = _round_reports[key]
 	var words: String = ROUND_LOSS_WORDS[w.dead_reason]
 	entry["outcomes"][words] = int(entry["outcomes"].get(words, 0)) + 1
 	entry["last"] = now
+	if w.shooter != null and w.target_track != null:
+		for spec: WeaponSpec in [w.spec, w.delivery_spec]:
+			var source := [w.shooter, spec, w.target_track]
+			if spec != null and not (entry["sources"] as Array).has(source):
+				(entry["sources"] as Array).append(source)
+
+
+## A round report's salvo is still open while any of its shooters has a round of that weapon
+## queued or flying at that contact.
+func _round_salvo_open(entry: Dictionary) -> bool:
+	for source: Array in entry.get("sources", []):
+		if simulation.weapon_manager.committed_rounds(source[0], source[1], source[2]) > 0:
+			return true
+	return false
 
 
 ## One line for a salvo's rounds at one contact: "3 × Harpoon at track 1002 shot down", or with
@@ -2615,15 +2698,16 @@ static func round_report_line(entry: Dictionary) -> String:
 	return "%s %s" % [what, outcomes.keys()[0]] if outcomes.size() == 1 else "%s: %s" % [what, ", ".join(parts)]
 
 
-## Says the round reports that have gathered all they will. `all` says every one now: the clock
-## has stopped, or the mission is over.
-func _flush_round_reports(all := false) -> void:
+## Says the round reports that have gathered all they will. `all` says every one now: the mission
+## is over or another begins. `stopped` says the clock has stopped, so a finished salvo need not
+## wait out the quiet interval; one with rounds still on the way waits for them.
+func _flush_round_reports(all := false, stopped := false) -> void:
 	if _round_reports.is_empty() and _cancelled_rounds.is_empty():
 		return
 	var now := SimClock.sim_time
 	for key: String in _cancelled_rounds.keys():
 		var c: Dictionary = _cancelled_rounds[key]
-		if not all and now - float(c["last"]) < 1.0:
+		if not (all or stopped) and now - float(c["last"]) < 1.0:
 			continue
 		_cancelled_rounds.erase(key)
 		var n := int(c["count"])
@@ -2633,7 +2717,7 @@ func _flush_round_reports(all := false) -> void:
 		radio.flash("Cannot fire %s: %s" % [(c["spec"] as WeaponSpec).display_name, reason], "warn", c["shooter"])
 	for key: String in _round_reports.keys():
 		var entry: Dictionary = _round_reports[key]
-		if not all and now - float(entry["last"]) < ROUND_REPORT_QUIET_S and now - float(entry["first"]) < ROUND_REPORT_MAX_S:
+		if not all and now - float(entry["first"]) < ROUND_REPORT_MAX_S and (_round_salvo_open(entry) or (not stopped and now - float(entry["last"]) < ROUND_REPORT_QUIET_S)):
 			continue
 		_round_reports.erase(key)
 		radio.flash(round_report_line(entry), "warn")
@@ -2909,6 +2993,14 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 
 ## Right-click on the data display: the menu of what it is reading out. The contact being
 ## inspected, else the hooked platforms, else the CDS menu.
+## A right-click on a contact in the 3D view: the contact's menu, as a right-click on it on the
+## chart gives, with the hooked platforms as its shooters.
+func _on_world_contact_menu(t: Track, viewport_pos: Vector2) -> void:
+	if _has_visible_modal() or not _commander_sees_track(t):
+		return
+	_on_map_context(Vector2.ZERO, {"kind": "track", "track": t, "viewport_pos": viewport_pos})
+
+
 func _on_display_menu(viewport_pos := Vector2.INF) -> void:
 	if _has_visible_modal():
 		return
@@ -3417,7 +3509,7 @@ func _store_control_group(number: int) -> void:
 		radio.advise("Select friendly platforms before saving a group")
 		return
 	_control_groups[number] = ids
-	radio.advise("Group %d saved: %d platforms. Alt+%d recalls it." % [number, ids.size(), number])
+	radio.advise("Group %d saved: %d platforms. %s%d recalls it." % [number, ids.size(), "" if classic_keys else "Alt+", number])
 
 
 func _recall_control_group(number: int) -> void:

@@ -35,14 +35,7 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
-	var heading := HBoxContainer.new()
-	box.add_child(heading)
-	var title := Label.new()
-	title.text = "FLEET OPERATIONS"
-	title.theme_type_variation = "TitleLabel"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_child(title)
-	_button(heading, "RETURN TO CHART [J]", func() -> void: closed.emit())
+	box.add_child(UITheme.dialog_header("Fleet operations", func() -> void: closed.emit(), "J / Esc"))
 	_summary = Label.new()
 	_summary.clip_text = true
 	box.add_child(_summary)

@@ -63,12 +63,7 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
-	var heading := HBoxContainer.new()
-	box.add_child(heading)
-	var title := _label(heading, "WEAPON CONTROL")
-	title.theme_type_variation = "TitleLabel"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_button(heading, "RETURN TO CHART [Shift+E]", func() -> void: closed.emit())
+	box.add_child(UITheme.dialog_header("Weapon control", func() -> void: closed.emit(), "Shift+E / Esc"))
 	var selectors := HBoxContainer.new()
 	box.add_child(selectors)
 	_label(selectors, "CONTACT")
