@@ -230,3 +230,79 @@ func test_the_desk_list_stands_as_tall_as_its_rows_and_the_orders_box_gets_the_r
 		port.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(CommanderLog.path()))
 	CommanderLog.path_override = log_path
+
+
+# --- Every way of replacing a running engagement asks first and autosaves it ------------------
+
+static func _answer(host: Node, yes: bool) -> void:
+	var dialog := ConfirmDiscard.asking(host)
+	if dialog == null:
+		return
+	(dialog.get_ok_button() if yes else dialog.get_cancel_button()).pressed.emit()
+
+
+func test_save_and_play_from_the_editor_mid_mission_asks_and_autosaves_first() -> void:
+	var main := _open_main()
+	main._autosave_enabled = true
+	_play(25)
+	SimClock.set_paused(true)
+	var running := SimClock.sim_time
+	main._show_editor()
+	main._editor.play_requested.emit("res://data/scenarios/northern_passage.json")
+	assert_eq(SimClock.sim_time, running, "SAVE AND PLAY does not drop the engagement on one click")
+	var dialog := ConfirmDiscard.asking(main)
+	assert_true(dialog != null and dialog.question().contains("autosaved"), "it asks, saying the engagement is kept")
+	_answer(main, false)
+	assert_eq(SimClock.sim_time, running, "keeping it keeps it")
+	assert_true(main._command_taken)
+	main._editor.play_requested.emit("res://data/scenarios/northern_passage.json")
+	_answer(main, true)
+	assert_eq(SimClock.sim_time, 0.0, "confirmed, the mission opens")
+	assert_true(main._briefing.visible, "at its briefing")
+	assert_eq(_autosaves().size(), 1, "and the abandoned engagement was autosaved")
+	_close_main(main)
+
+
+func test_ctrl_f10_and_the_debrief_restart_ask_while_the_engagement_runs() -> void:
+	var main := _open_main()
+	main._autosave_enabled = true
+	_play(20)
+	SimClock.set_paused(true)
+	var running := SimClock.sim_time
+	main._request_restart()
+	assert_eq(SimClock.sim_time, running, "Ctrl+F10 does not restart on its own")
+	assert_true(ConfirmDiscard.asking(main) != null, "it puts the question")
+	_answer(main, false)
+	main._request_restart()
+	assert_eq(SimClock.sim_time, running, "nor on a second press")
+	_answer(main, true)
+	assert_eq(SimClock.sim_time, 0.0, "confirmed, it restarts")
+	assert_eq(_autosaves().size(), 1, "with the old run autosaved")
+	# Once the engagement has ended there is nothing to keep: the debrief's RESTART is the choice.
+	main._on_briefing_start()
+	_play(5)
+	SimClock.set_paused(true)
+	main.simulation.mission_manager._finish(MissionManager.Result.DEFEAT, "The convoy was lost")
+	main._report.restart_pressed.emit()
+	assert_true(ConfirmDiscard.asking(main) == null, "an ended engagement restarts without a question")
+	assert_eq(SimClock.sim_time, 0.0)
+	_close_main(main)
+
+
+func test_quickload_autosaves_the_engagement_it_replaces() -> void:
+	var main := _open_main()
+	main._autosave_enabled = true
+	_play(10)
+	SimClock.set_paused(true)
+	var saved_at := SimClock.sim_time
+	main.quicksave()
+	_play(30)
+	SimClock.set_paused(true)
+	var left_at := SimClock.sim_time
+	main.quickload()
+	assert_eq(SimClock.sim_time, saved_at, "the quicksave is back")
+	var autos := _autosaves()
+	assert_eq(autos.size(), 1, "and the engagement it replaced was autosaved")
+	if autos.size() == 1:
+		assert_eq(float(autos[0]["sim_time"]), left_at, "at the moment it was left")
+	_close_main(main)

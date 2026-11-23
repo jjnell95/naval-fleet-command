@@ -675,9 +675,11 @@ func load_engagement(path: String) -> String:
 	if validation != "":
 		return validation
 	# Validation checks the save's shape and every reference before anything changes, but the
-	# restore still replaces the running engagement before it finishes. Keep a copy to put back.
+	# restore still replaces the running engagement before it finishes. Keep a copy to put back,
+	# and autosave it, as every other way of leaving an engagement does.
 	var kept := {}
 	if save_refusal() == "":
+		_autosave_if_due(true)
 		kept = {"simulation": simulation.capture_snapshot(), "presentation": _capture_presentation()}
 	var why := _install_engagement(payload)
 	if why == "":
@@ -837,16 +839,16 @@ func _close_saved_engagements() -> void:
 	call_deferred("_focus_map_if_clear")
 
 
-## Restarting throws away the whole mission, so from the command deck it takes a second press.
-## The briefing and the after-action report restart directly; there it is the deliberate choice.
+## Restarting throws away the whole engagement, so while one runs every way of asking for it (the
+## orders board's RESTART, Ctrl+F10, the actions list, the debrief) puts the shared question first
+## and autosaves the engagement it ends. Once it has ended there is nothing to lose.
 func _request_restart() -> void:
-	var now := Time.get_ticks_msec()
-	if now - _restart_armed_ms <= RESTART_CONFIRM_MS:
-		_restart_armed_ms = -RESTART_CONFIRM_MS
+	if save_refusal() != "":
 		restart_scenario()
 		return
-	_restart_armed_ms = now
-	radio.advise("Restart this operation? Press Ctrl+F10 again to confirm")
+	ConfirmDiscard.ask(self, "Restart the operation", "Start %s again from the beginning? The engagement at %s is autosaved first, so Saved Engagements can bring it back." % [simulation.scenario_name, Geo.format_duration(SimClock.sim_time)], "Restart", func() -> void:
+		_autosave_if_due(true)
+		restart_scenario(), "Keep commanding")
 
 
 func restart_scenario() -> void:
@@ -959,9 +961,17 @@ func _build_screens() -> void:
 
 	_editor = ScenarioEditor.new()
 	_editor.name = "ScenarioEditor"
+	# SAVE AND PLAY while an engagement runs asks as the desk does, and autosaves it first.
 	_editor.play_requested.connect(func(path: String) -> void:
-		start_scenario(path)
-		_show_briefing())
+		var play := func() -> void:
+			_autosave_if_due(true)
+			start_scenario(path)
+			_show_briefing()
+		if save_refusal() != "":
+			play.call()
+			return
+		var chosen := str(ScenarioLoader.load_file(path).get("name", "the edited mission"))
+		ConfirmDiscard.ask(self, "Abandon the engagement", "%s is running at %s. Leave it and play %s? It is autosaved first, so Saved Engagements can bring it back." % [simulation.scenario_name, Geo.format_duration(SimClock.sim_time), chosen], "Abandon it", play, "Keep editing"))
 	_editor.closed.connect(func() -> void:
 		_show_menu()
 		var saved := _editor.opened_path()
@@ -976,13 +986,7 @@ func _build_screens() -> void:
 	_briefing.unit_manager = simulation.unit_manager
 	_briefing.start_pressed.connect(_on_briefing_start)
 	# RESTART on the orders board, mid-mission, asks first and autosaves the engagement it ends.
-	_briefing.restart_pressed.connect(func() -> void:
-		if save_refusal() != "":
-			restart_scenario()
-			return
-		ConfirmDiscard.ask(self, "Restart the operation", "Start %s again from the beginning? The engagement at %s is autosaved first, so Saved Engagements can bring it back." % [simulation.scenario_name, Geo.format_duration(SimClock.sim_time)], "Restart", func() -> void:
-			_autosave_if_due(true)
-			restart_scenario(), "Keep commanding"))
+	_briefing.restart_pressed.connect(_request_restart)
 	_briefing.menu_pressed.connect(_show_menu)
 	_briefing.guide_toggled.connect(func(on: bool) -> void:
 		_command_guide.enabled = on and _command_guide.available)
@@ -992,7 +996,7 @@ func _build_screens() -> void:
 	_report = AfterAction.new()
 	_report.name = "AfterAction"
 	_report.review_pressed.connect(_close_report)
-	_report.restart_pressed.connect(restart_scenario)
+	_report.restart_pressed.connect(_request_restart)
 	_report.menu_pressed.connect(_show_menu)
 	add_child(_report)
 
