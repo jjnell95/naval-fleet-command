@@ -130,6 +130,7 @@ A review of the whole game after M43, fixed area by area and then in rounds of r
 - A scenario unit can start with weapons held or tight, and an operation's event can set a side's weapons posture, so a battery can be in the battle from the start with weapons tight until an event frees it.
 - Every operation opens with its guide on her route (a watch carrier on a 25 nm circuit), the escorts formed on her where the builder placed them and the pickets on their own lines, so **Return to Station** means something from the first second.
 - In Hormuz the Qeshm battery comes out of its hide after 10-15 minutes and the ballistic battery after 15-25 minutes, once a drone has reported a tanker (by 40-50 minutes at the latest), so the convoy forms before the first salvo; the UKMTO fire-mission warning follows the ballistic battery.
+- In Hormuz, shooting down both Mohajer drones is a bonus task from the first second, so killing them early, as the first orders advise, is credited as a late kill is; killing both before the ballistic battery comes up still calls off the drone-spotted fire mission, though the battery can still fire on what its own plot holds.
 - The Iceland-Faroe Barrier is laid out at sea scale: the Victor III opens 24 nm up one of three lanes 22 nm apart, beyond either ship's hearing, and breaks out into a broad exit inside a six-hour watch.
 - Nicholas in the convoy and Spruance in the carrier watch open radiating, and the North Cape Kilo starts inside the screen, as the briefing says.
 
