@@ -330,3 +330,23 @@ func test_an_event_frees_a_battery_held_with_weapons_tight_and_can_hold_it_again
 	mm.free()
 	tm.free()
 	um.free()
+
+
+func test_a_scenario_unit_can_start_with_weapons_tight_and_an_invalid_posture_keeps_free() -> void:
+	Terrain.clear()
+	var um := UnitManager.new()
+	var sc := {"player_faction": "BLUE", "map": {"anchor_lat": 68.0, "anchor_lon": 4.0}, "units": [
+		{"platform": "cw90_nanuchka", "callsign": "Tight", "faction": "RED", "position_nm": [0, 30], "roe": "tight"},
+		{"platform": "cw90_nanuchka", "callsign": "Held", "faction": "RED", "position_nm": [5, 30], "roe": 0},
+		{"platform": "cw90_nanuchka", "callsign": "Loose", "faction": "RED", "position_nm": [10, 30], "roe": "loose"},
+		{"platform": "cw90_perry", "callsign": "Plain", "faction": "BLUE", "position_nm": [0, 0]},
+	]}
+	ScenarioLoader.populate(um, sc)
+	var by_name := {}
+	for u: Unit in um.units:
+		by_name[u.callsign] = u
+	assert_eq((by_name["Tight"] as Unit).roe, Unit.Roe.TIGHT, "a unit-level 'roe' sets the starting posture")
+	assert_eq((by_name["Held"] as Unit).roe, Unit.Roe.HOLD, "a number is the posture itself")
+	assert_eq((by_name["Loose"] as Unit).roe, Unit.Roe.FREE, "an invalid posture is ignored")
+	assert_eq((by_name["Plain"] as Unit).roe, Unit.Roe.FREE, "no key keeps weapons free")
+	um.free()

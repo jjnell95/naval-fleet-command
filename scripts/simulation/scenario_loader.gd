@@ -54,6 +54,12 @@ static func populate(um: UnitManager, scenario: Dictionary) -> void:
 		u.ordered_depth_m = u.depth_m
 		u.battery = clampf(float(ud.get("battery", 1.0)), 0.0, 1.0)  # a diesel boat's charge at the start
 		u.ai_posture = ud.get("ai_posture", "standard")
+		if ud.has("roe"):  # a unit can start with weapons held or tight; an event's ai item frees it
+			var roe_level := OperationDirector.roe_level(ud["roe"])
+			if roe_level < 0:
+				push_warning("ScenarioLoader: unknown roe '%s' on %s" % [str(ud["roe"]), u.callsign])
+			else:
+				u.roe = roe_level as Unit.Roe
 		u.ai_plan_id = str(ud.get("ai_plan", ""))
 		u.ai_role = str(ud.get("ai_role", ""))
 		u.auto_countermeasures = bool(ud.get("auto_countermeasures", true))
