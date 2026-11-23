@@ -81,10 +81,12 @@ A review of the whole game after M43, fixed area by area.
 - A CAP commits on a hostile inside its own missile reach and on a raid closing on it or on what it covers, pursues 60 nm by default, and flies a square inscribed in its ring. **Intercept with fighters** goes for the contact at dash, fires and comes home. The ready alert scrambles on a raid closing inside 220 nm.
 - The deck recovers the aircraft with the least fuel to spare first and lands helicopters on a spot of their own, so a recall runs nobody dry. Fixed-wing aircraft leave the deck with flying speed, and a section goes off 15 s apart.
 - Reconnaissance leaves hostile contacts alone, and an unarmed sensor aircraft flies at least 40 nm off any ship not known to be harmless; a strike turns for home once its fire-and-forget salvo is away. A refused launch names the facility, and a mission whose aircraft are all lost ends 'All aircraft lost'.
+- The Air Operations dialog stands as tall as what it shows, in the shared dialog header, with the mission plan beside the deck list, both at least six rows deep, and the order receipt in a fixed footer; on a narrow window the deck goes under the plan. A mission the chosen aircraft cannot fly opens on a type that can.
 
 ### Operations
 
 - In Hormuz the Qeshm battery comes out of its hide after 10-15 minutes and the ballistic battery after 15-25 minutes, once a drone has reported a tanker (by 40-50 minutes at the latest), so the convoy forms before the first salvo; the UKMTO fire-mission warning follows the ballistic battery.
+- Mission effectiveness grades conduct as well as outcome: a victory won with no orders while an enemy was at sea earns a quarter of the task, each hit the force lands on a neutral or on its own ships costs 10 and is listed, and rounds far beyond what their targets were worth cost up to 10. A scenario unit or an event can set a side's weapons posture to hold, tight or free.
 - Nicholas in the convoy and Spruance in the carrier watch open radiating, and the North Cape Kilo starts inside the screen, as the briefing says.
 
 ### The enemy
@@ -92,6 +94,7 @@ A review of the whole game after M43, fixed area by area.
 - An AI ship under fire answers any hostile it holds and can reach, whatever its plan is waiting for, and keeps shooting while it turns away from a round.
 - The AI picks shots with the launcher's own test and falls through to the next weapon when one is refused.
 - A ship patrolling with her radar off that is hit, or sees a round coming, radiates until the shooting has stopped for a while.
+- The enemy trims its doctrine volley when its own plot says fewer rounds will do, so a crippled ship is sent a round or two.
 
 ### Screen and reports
 
@@ -108,12 +111,15 @@ A review of the whole game after M43, fixed area by area.
 - Every status board on every tab fits inside the chart at 100, 110 and 125%, scrolling where a page does not fit; the Orders board stands on the chart's bottom edge, the key list fits the window, the weapon-state inks reach 4.5:1 contrast and the COURSE box reads the course steered.
 - The desk's ACCEPT and CANCEL are worded buttons and a locked campaign step names the win that opens it; the Classic summary wraps; the Reference has a compact layout for short screens, a general block for every platform and words for every weapon's speed, warhead and seeker, and opens on the flagship; the debrief card is sized from the screen; front-end dialogs share one header.
 - Leaving or restarting a running engagement from the desk, and deleting a save, ask first, and leaving or restarting autosaves; the editor's NEW asks and is an undo step.
+- SAVE AND PLAY in the editor, Ctrl+F10, the actions list's restart and the debrief's RESTART ask before replacing a running engagement and autosave it, and a load autosaves the engagement it replaces. The desk's operation list stands as tall as its rows. A right-click in the 3D window opens the hooked platform's menu, and shore installations stand on graded earth platforms with their earthworks drawn.
 
 ### Speed
 
 - The sensor cycle weighs a sonar or lookout pair only inside some reach, files a linked unit's reports once in the shared plot, finds bearing samples through a per-track index and trims crossed fixes; the profiler shows its set-up and lookout pass.
 - Each per-tick unit step runs only for units it applies to. Seeded state dumps of two scenarios are byte-identical before and after.
 - The chart's moving marks (threat rings, flashes, the red edge of a hit, the radio fade) are drawn on a layer of their own every frame, and the plot under them only on a simulation tick, a view change or the idle rate; the coastline is stroked on its own layer when the view moves, shifted rather than re-projected on a pan.
+- The 3D view builds entries and sight-line tests only for the nearest units within its reach (a 321-unit fleet: 13.8 ms average, 77 ms worst before; 5.8 and 11 ms after), and the readiness bars and recognition card redraw only on a change.
+- An autosave captures the engagement in one frame and writes it over the next ones, on a worker thread where there are threads (Taiwan Strait at 1500 s: longest frame 172 ms before, 136 ms after).
 
 ### Measured
 
