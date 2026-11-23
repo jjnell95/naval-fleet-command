@@ -237,7 +237,8 @@ func refresh() -> void:
 			item.set_text(2, "--" if disconnected else str(u.magazine_count(spec.id)))
 			item.set_text(3, "--" if disconnected else str(queued))
 			item.set_text(4, "--" if disconnected else str(wm.committed_rounds(u, spec, target) - queued))
-			item.set_text(5, "%.1f - %s" % [spec.min_range_nm, Geo.format_nm(Combat.effective_range_nm(u, spec))])
+			# The near figure is the range a shot is refused inside: for a torpedo, beyond its enable run.
+			item.set_text(5, "%.1f - %s" % [Combat.minimum_range_nm(spec), Geo.format_nm(Combat.effective_range_nm(u, spec))])
 			item.set_text(6, "%ds" % int(check.get("flight_time_s", 0.0)) if check.has("flight_time_s") else "--")
 			var state: String = str(check.reason)
 			if check.ok:

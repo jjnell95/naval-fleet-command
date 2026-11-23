@@ -613,3 +613,25 @@ func test_the_intercept_item_says_what_the_fighters_do() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/ui/cds_menus.gd")
 	assert_true(not source.contains("A CAP over the contact"), "the intercept is not described as a CAP")
 	assert_true(source.contains("go for the contact at dash speed, fire on it"), "it says the fighters dash, fire and come home")
+
+
+func test_weapon_control_gives_a_torpedos_minimum_range_beyond_its_enable_run() -> void:
+	var main := _open("northern_passage.json")
+	# A torpedo whose enable run reaches past the minimum range written in its figures.
+	var ship := _own(main, "Amundsen")
+	for i in ship.weapons.size():
+		if ship.weapons[i].is_torpedo():
+			var long_run: WeaponSpec = ship.weapons[i].duplicate()
+			long_run.run_to_enable_nm = long_run.min_range_nm + 1.0
+			ship.weapons[i] = long_run
+	main.map.select_units([ship])
+	main._toggle_weapon_control()
+	var found := 0
+	for item: TreeItem in main._weapon_control._items:
+		var spec: WeaponSpec = item.get_metadata(0)[1]
+		found += int(Combat.minimum_range_nm(spec) > spec.min_range_nm + 0.05)
+		var near := Combat.minimum_range_nm(spec)
+		assert_true(item.get_text(5).begins_with("%.1f - " % near), "%s reads %s, from %.1f nm" % [spec.id, item.get_text(5), near])
+	assert_true(found > 0, "the force carries a torpedo with an enable run beyond its listed minimum")
+	main._toggle_weapon_control()
+	_close(main)
