@@ -273,3 +273,65 @@ func test_a_ship_with_open_water_on_both_sides_still_turns_the_short_way() -> vo
 		Movement.step(ship, DT)
 	assert_true(Geo.heading_delta(219.0, ship.heading_deg) < 0.0, "with sea room she turns to port, the short way")
 	Terrain.clear()
+
+
+# --- A scenario's patrol line of two corners ---------------------------------------------------
+
+func _on_two_corner_line(faction := "BLUE") -> Unit:
+	var ship := _ship("rnon_ffg_fridtjof_nansen", faction, Vector2(0.0, 0.0))
+	# As the scenario loader lays a `route_circuit` of two points: out and back along a line.
+	var line: Array[Vector2] = [Vector2(0.0, 0.0), Vector2(20.0, 0.0)]
+	ship.apply_order(Order.patrol(line))
+	return ship
+
+
+func test_a_ship_on_a_two_corner_scenario_patrol_goes_back_to_it_after_a_task() -> void:
+	var ship := _on_two_corner_line()
+	var contact := _ship("rnon_ffg_fridtjof_nansen", "RED", Vector2(6.0, 12.0))
+	var m := _managers([ship, contact])
+	var um: UnitManager = m[0]
+	var wm: WeaponManager = m[1]
+	var unavailable: Array = []
+	um.station_unavailable.connect(func(_u: Unit, why: String) -> void: unavailable.append(why))
+	var resumed: Array = []
+	um.station_resumed.connect(func(_u: Unit, why: String) -> void: resumed.append(why))
+	assert_eq(UnitManager.station_rejection(ship), "", "the line she was given is a station she can go back to")
+	var t := _track(contact)
+	t.identity = "UNKNOWN"
+	t.classification = Track.Classification.SURFACE
+	t.known_class = ""
+	assert_true(um.issue_order(ship, Order.investigate(t)))
+	var now := 0.0
+	for i in 1200:
+		now += DT
+		um.tick(DT, now)
+	t.classification = Track.Classification.IDENTIFIED
+	t.identity = "NEUTRAL"
+	for i in 8:
+		now += DT
+		um.tick(DT, now)
+	assert_eq(ship.investigation_track, null, "the look is over")
+	assert_eq(unavailable, [], "she is not told her station is unavailable")
+	assert_eq(resumed.size(), 1, "she goes back to it by herself")
+	assert_true(ship.patrol_active and ship.on_station(), "and sails her line again")
+	um.free()
+	wm.free()
+
+
+func test_a_two_corner_scenario_patrol_takes_a_new_speed_and_a_commanded_return() -> void:
+	var ship := _on_two_corner_line()
+	var m := _managers([ship])
+	var um: UnitManager = m[0]
+	var wm: WeaponManager = m[1]
+	assert_true(um.issue_order(ship, Order.set_speed(20.0)), "the speed of the line she is sailing can be changed")
+	var t := _track(_ship("rnon_ffg_fridtjof_nansen", "RED", Vector2(5, 5)))
+	t.identity = "UNKNOWN"
+	t.classification = Track.Classification.SURFACE
+	assert_true(um.issue_order(ship, Order.investigate(t)), "she is sent to look at something")
+	assert_true(um.issue_order(ship, Order.return_to_station()), "and the commander can send her back to it")
+	assert_true(ship.patrol_active, "on her line")
+	# A circuit the commander lays still needs three corners.
+	var two: Array[Vector2] = [Vector2(0, 0), Vector2(20, 0)]
+	assert_true(UnitManager.patrol_rejection(ship, two) != "")
+	um.free()
+	wm.free()

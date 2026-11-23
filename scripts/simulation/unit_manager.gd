@@ -289,7 +289,7 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 				return false
 			# The circuit as ordered, not the points still ahead: those may include the way
 			# round a coast to its first corner, which is no part of it.
-			if u.patrol_active and patrol_rejection(u, u.station_route if not u.station_route.is_empty() else u.waypoints, order.speed_kn, false) != "":
+			if u.patrol_active and patrol_rejection(u, u.station_route if not u.station_route.is_empty() else u.waypoints, order.speed_kn, false, true) != "":
 				return false
 			return _steerable(u)
 		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS:
@@ -360,7 +360,7 @@ static func station_rejection(u: Unit) -> String:
 		return "Aircraft committed to fuel or recovery"
 	match u.station_kind:
 		"patrol":
-			var reason := patrol_rejection(u, u.station_circuit_from_here(), u.station_speed())
+			var reason := patrol_rejection(u, u.station_circuit_from_here(), u.station_speed(), true, true)
 			return "" if reason == "" else "Station unavailable: " + reason.to_lower()
 		"formation":
 			if u.station_leader == null or not u.station_leader.alive:
@@ -1038,13 +1038,16 @@ func _on_unit_destroyed(target: Unit, _killer_faction: String) -> void:
 
 
 ## Validate the entire circuit before changing any standing order. No partial patrol over land.
-## `approach` also asks for a way by sea from where the platform is to the first corner.
-static func patrol_rejection(u: Unit, points: Array[Vector2], speed_kn := -1.0, approach := true) -> String:
+## `approach` also asks for a way by sea from where the platform is to the first corner. A circuit
+## the commander lays needs three corners; one the platform already `standing` holds may be the
+## scenario's line of two, sailed out and back, and going back to it or changing its speed is not
+## refused for that.
+static func patrol_rejection(u: Unit, points: Array[Vector2], speed_kn := -1.0, approach := true, standing := false) -> String:
 	if u == null or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
 		return "Select a deployed mobile platform"
 	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
 		return "Aircraft must be airborne and available for tasking"
-	if points.size() < 3 or points.size() > 16:
+	if points.size() < (2 if standing else 3) or points.size() > 16:
 		return "A patrol needs 3 to 16 corners"
 	for p: Vector2 in points:
 		if not p.is_finite():
