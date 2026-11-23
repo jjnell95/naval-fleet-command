@@ -134,6 +134,34 @@ func test_the_dialog_stands_as_tall_as_its_content() -> void:
 	_done()
 
 
+## A 1280 x 720 window at 125 percent leaves 1024 x 576: the deck goes under the plan instead of
+## pushing the dialog off both sides, and only then may the page scroll.
+func test_a_narrow_window_puts_the_deck_under_the_plan() -> void:
+	_load()
+	var cv := _unit(IKE)
+	var window := Vector2(1024, 576)
+	var ui := _dialog(window)
+	ui.open_for([cv])
+	ui._type_id = TOMCAT
+	ui.refresh()
+	ui._plan_tabs.current_tab = 1
+	ui.set_mission_kind(AirMission.Kind.CAP)
+	_layout(ui)
+	var dialog := ui._dialog.get_global_rect()
+	assert_true(ui._upper.vertical, "the deck stacks under the plan")
+	assert_true(Rect2(Vector2.ZERO, window).encloses(dialog), "the dialog %s stands inside the window" % dialog)
+	for c: Control in [ui._back, ui._launch, ui._base_picker, ui._mission_picker, ui._station_button, ui._receipt]:
+		assert_true(_inside(dialog, c), "%s %s stands inside the dialog %s" % [c.get_class(), c.get_global_rect(), dialog])
+	ui.free()
+	_load()
+	ui = _dialog(Vector2(1600, 900))
+	ui.open_for([_unit(IKE)])
+	_layout(ui)
+	assert_true(not ui._upper.vertical, "a wide window keeps the deck beside the plan")
+	ui.free()
+	_done()
+
+
 # --- The mission planner does not carry a wrong choice ------------------------------------
 
 ## Choosing a mission the chosen type cannot fly moves the type picker to the deck's type that

@@ -92,6 +92,7 @@ var _header: HBoxContainer
 var _body: ScrollContainer
 var _page: VBoxContainer
 var _deck_frame: ScrollContainer
+var _upper: BoxContainer
 var _footer: HBoxContainer
 var _fit_queued := false
 
@@ -186,10 +187,11 @@ func _ready() -> void:
 	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	identity.add_child(_portrait)
 
-	# The plan on the left, and beside it the deck it draws on, so both lists keep their rows.
-	var upper := HBoxContainer.new()
-	upper.add_theme_constant_override("separation", 14)
-	page.add_child(upper)
+	# The plan on the left and the deck beside it; on a window too narrow for both, one above the other.
+	_upper = BoxContainer.new()
+	_upper.add_theme_constant_override("separation", 14)
+	page.add_child(_upper)
+	var upper := _upper
 	var plan := VBoxContainer.new()
 	plan.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	plan.size_flags_stretch_ratio = 1.5
@@ -478,7 +480,14 @@ func _fit() -> void:
 	_fit_queued = false
 	if _dialog == null or size.y <= 0.0:
 		return
-	_dialog.custom_minimum_size.x = minf(DIALOG_WIDTH, maxf(size.x - 2.0 * EDGE_MARGIN, 0.0))
+	var dialog_width := minf(DIALOG_WIDTH, maxf(size.x - 2.0 * EDGE_MARGIN, 0.0))
+	_dialog.custom_minimum_size.x = dialog_width
+	var plan := _upper.get_child(0) as Control
+	var gap := float(_upper.get_theme_constant("separation"))
+	var inner_width := dialog_width - _dialog.get_theme_stylebox("panel").get_minimum_size().x
+	var stacked := plan.get_combined_minimum_size().x + gap + _deck_frame.get_combined_minimum_size().x > inner_width
+	if _upper.vertical != stacked:
+		_upper.vertical = stacked
 	var frame_gap := float(_frame.get_theme_constant("separation"))
 	var chrome := _dialog.get_theme_stylebox("panel").get_minimum_size().y + _header.get_combined_minimum_size().y + _footer.get_combined_minimum_size().y + 2.0 * frame_gap
 	var room := size.y - 2.0 * EDGE_MARGIN - chrome
@@ -489,39 +498,39 @@ func _fit() -> void:
 	var tree := _current_tree()
 	var tree_want := 0.0
 	var tree_floor := 0.0
-	var tree_row := 0.0
 	if tree != null:
-		tree_row = _tree_row_height(tree)
+		var tree_row := _tree_row_height(tree)
 		var frame := tree.get_theme_stylebox("panel").get_minimum_size().y
-		var entries := maxi(_tree_rows(tree), 1)
-		tree_want = frame + tree_row * float(entries + 1)
+		tree_want = frame + tree_row * float(maxi(_tree_rows(tree), 1) + 1)
 		tree_floor = minf(tree_want, frame + tree_row * float(MIN_LIST_ROWS + 1))
 	# Everything on the page that is not one of the two lists.
-	var page_now := _page.get_combined_minimum_size().y
-	var upper := _deck_frame.get_parent() as Control
-	var plan_height := (upper.get_child(0) as Control).get_combined_minimum_size().y
+	var plan_height := plan.get_combined_minimum_size().y
 	var lower_now := _lower_tabs.get_combined_minimum_size().y if _lower_tabs.visible else 0.0
 	var lower_chrome := lower_now - (tree.get_combined_minimum_size().y if tree != null else 0.0)
-	var fixed := page_now - upper.get_combined_minimum_size().y - lower_now
-	var spare := room - fixed - maxf(plan_height, deck_floor) - (lower_chrome + tree_floor if tree != null else 0.0)
+	var fixed := _page.get_combined_minimum_size().y - _upper.get_combined_minimum_size().y - lower_now
 	var deck_height := deck_floor
 	var tree_height := tree_floor
-	if spare > 0.0:
-		# The deck stands beside the plan, so rows up to the plan's height cost nothing.
-		var deck_free := clampf(plan_height - deck_floor, 0.0, deck_want - deck_floor)
-		deck_height += deck_free
-		var deck_more := maxf(deck_want - deck_height, 0.0)
-		var tree_more := maxf(tree_want - tree_height, 0.0)
-		var wanted := deck_more + tree_more
-		if wanted > 0.0:
-			var share := minf(spare / wanted, 1.0)
-			deck_height += deck_more * share
-			tree_height += tree_more * share
-	_deck_frame.custom_minimum_size.y = floorf(deck_height)
+	# Beside the plan, deck rows up to the plan's height cost nothing.
+	if not stacked:
+		deck_height = clampf(plan_height, deck_floor, deck_want)
+	var spare := room - fixed - _upper_height(stacked, plan_height, deck_height, gap) - (lower_chrome + tree_height if tree != null else 0.0)
+	var deck_more := maxf(deck_want - deck_height, 0.0)
+	var tree_more := maxf(tree_want - tree_height, 0.0)
+	if spare > 0.0 and deck_more + tree_more > 0.0:
+		var share := minf(spare / (deck_more + tree_more), 1.0)
+		deck_height += deck_more * share
+		tree_height += tree_more * share
+	deck_height = floorf(deck_height)
+	tree_height = floorf(tree_height)
+	_deck_frame.custom_minimum_size.y = deck_height
 	for t: Tree in [_roster, _missions]:
-		t.custom_minimum_size.y = floorf(tree_height) if t == tree else 0.0
-	var page_height := fixed + maxf(plan_height, floorf(deck_height)) + (lower_chrome + floorf(tree_height) if tree != null else 0.0)
+		t.custom_minimum_size.y = tree_height if t == tree else 0.0
+	var page_height := fixed + _upper_height(stacked, plan_height, deck_height, gap) + (lower_chrome + tree_height if tree != null else 0.0)
 	_body.custom_minimum_size.y = minf(page_height, maxf(room, 0.0))
+
+
+static func _upper_height(stacked: bool, plan_height: float, deck_height: float, gap: float) -> float:
+	return plan_height + gap + deck_height if stacked else maxf(plan_height, deck_height)
 
 
 func _deck_row_height() -> float:
