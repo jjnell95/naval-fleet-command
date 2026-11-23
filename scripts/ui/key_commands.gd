@@ -125,12 +125,68 @@ func _fill() -> void:
 		_add_section(_left if i == 1 else _right, sections[i])
 
 
-## The board's rows with the number keys written for the time ladder in use.
+## The Classic key layout's rows: [keys, what it does, the default row it takes the place of, or
+## "" to add it]. A default row whose key the layout takes for something else and gives no other
+## key is listed in CLASSIC_DROPPED.
+const CLASSIC_ROWS := [
+	["P / Space", "Pause or resume", "Space"],
+	["T", "Next time scale", ""],
+	["Tab", "Hook the next own platform", "Tab"],
+	["Ctrl+click / Ctrl+right-click", "Zoom the chart in / out on the point", "B"],
+	["B / L", "Hooked aircraft return to base", "L"],
+	["R / E", "Radar / emission control", "R / P / E"],
+	["Shift+C", "Emission control", ""],
+	["Shift+1 / 2 / 3", "Speed: a third, two thirds or all of each platform's top speed", ""],
+	["Shift+7 / 8 / 9", "Aircraft low / cruise / high; boats periscope / patrol / deep", ""],
+]
+const CLASSIC_DROPPED := ["T"]
+
+## Set by Main: the board lists the Classic key layout while it is in use.
+static var classic := false
+
+
+## The board's rows with the number keys written for the time ladder in use, in the key layout
+## in use.
 static func commands() -> Array:
 	var out: Array = COMMANDS.duplicate(true)
 	var time_rows: Array = out[0][1]
 	time_rows[1] = time_row(SimClock.speeds())
+	if classic:
+		out = _classic_layout(out)
 	return out
+
+
+static func _classic_layout(sections: Array) -> Array:
+	var added: Array = []
+	for section: Array in sections:
+		var rows: Array = section[1]
+		for i in range(rows.size() - 1, -1, -1):
+			if str(rows[i][0]) in CLASSIC_DROPPED and str(section[0]) == "3D VIEW":
+				rows.remove_at(i)
+	for entry: Array in CLASSIC_ROWS:
+		var replaced := false
+		for section: Array in sections:
+			var rows: Array = section[1]
+			for i in rows.size():
+				if str(entry[2]) != "" and str(rows[i][0]) == str(entry[2]):
+					rows[i] = [entry[0], entry[1]]
+					replaced = true
+					break
+			if replaced:
+				break
+		if not replaced:
+			added.append([entry[0], entry[1]])
+	# The time step joins the TIME section; the rest head the commands, in the table's order.
+	var commands_rows: Array = sections[sections.size() - 1][1]
+	var at := 0
+	for row: Array in added:
+		if str(row[0]) == "T":
+			(sections[0][1] as Array).append(row)
+		else:
+			commands_rows.insert(at, row)
+			at += 1
+	sections[0][0] = "TIME  (CLASSIC KEYS)"
+	return sections
 
 
 ## "1 - 3", "Time scale 1x, 2x, 4x (the ceiling)" for a short ladder; the Normal ladder as before.

@@ -106,6 +106,12 @@ var _preferred := GameOptions.normal()
 var _options_from_engagement := false
 ## A smoke, a probe, a sweep or a screenshot: the sound devices and the stored settings are left alone.
 var _driven_run := false
+## The Classic key layout (off by default): a translation in front of the default key handler for
+## the keys a commander raised on the late-1990s fleet games reaches for. A user setting.
+var classic_keys := false
+## The mouse button whose Ctrl+click zoomed the chart under the Classic keys; its release is
+## swallowed too, so the chart never sees half a click.
+var _classic_zoom_button := MOUSE_BUTTON_NONE
 
 
 func _ready() -> void:
@@ -363,6 +369,7 @@ func _ready() -> void:
 	# crew audio playback.
 	_driven_run = scripted or CrewVoice.automated_run() or not args.is_empty()
 	InterfaceScale.initialize(get_window(), _driven_run, args)
+	set_classic_keys(args.has("--classic-keys") or (not _driven_run and bool(UserSettings.get_value("controls", "classic_keys", false))), false)
 	if _driven_run:
 		UserSettings.writable = false
 		# Smokes and sweeps play Normal whatever the player chose, so their outcomes never depend on
@@ -1535,7 +1542,7 @@ static func _on_off(state: Dictionary, key: String) -> String:
 ## What the chart and the regional map are currently showing, for the menus' check marks.
 func _cds_state() -> Dictionary:
 	var state := {"symbol_mode": map.symbol_mode, "radar_coverage": regional.show_radar_coverage, "sound": SoundFx.enabled, "voice": voice.enabled, "ambient": SoundFx.ambient_enabled,
-		"options": options, "debrief": not _last_report.is_empty()}
+		"options": options, "debrief": not _last_report.is_empty(), "classic_keys": classic_keys}
 	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "coverage", "graticule", "key", "weapon_ranges"]:
 		state[layer] = map.has_layer(layer)
 	state.merge(CommandBar.filter_state(map))
@@ -1553,6 +1560,10 @@ func _state_name(state: int, off_name: String, on_name: String) -> String:
 func _run_palette_action(id: String) -> void:
 	if id.begins_with("ui_scale_"):
 		InterfaceScale.apply(get_window(), int(id.trim_prefix("ui_scale_")))
+		return
+	if id == "classic_keys":
+		set_classic_keys(not classic_keys)
+		radio.advise("Classic keys %s: H lists them" % ("on" if classic_keys else "off"))
 		return
 	match id:
 		"guide_aircraft":
@@ -1723,6 +1734,9 @@ func _run_palette_action(id: String) -> void:
 ## taken here too (NTDS or graphic symbols), before the GUI spends it on focus navigation.
 ## Text fields and the full-screen surfaces keep both keys.
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		_classic_chart_zoom(event)
+		return
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
 		return
@@ -1750,7 +1764,10 @@ func _input(event: InputEvent) -> void:
 		SimClock.toggle_pause()
 	elif map.is_visible_in_tree() and not map.menu_open and (focus == null or focus == map) and not (k.ctrl_pressed or k.meta_pressed or k.alt_pressed or k.shift_pressed):
 		# Only from the chart: on the status boards Tab still walks the controls.
-		map.cycle_symbol_mode()
+		if classic_keys:
+			_hook_next_platform()
+		else:
+			map.cycle_symbol_mode()
 	else:
 		return
 	get_viewport().set_input_as_handled()
@@ -1847,6 +1864,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	# double as chart commands. Escape and the function keys are not text and still answer.
 	var focus := get_viewport().gui_get_focus_owner()
 	if (focus is LineEdit or focus is TextEdit) and k.keycode != KEY_ESCAPE and not (k.keycode >= KEY_F1 and k.keycode <= KEY_F12):
+		return
+	if classic_keys and _classic_key(k):
+		get_viewport().set_input_as_handled()
 		return
 	if (k.ctrl_pressed or k.meta_pressed) and k.shift_pressed and k.keycode in [KEY_S, KEY_L, KEY_O]:
 		# Checked before the Ctrl table: Ctrl+S alone is the scale bar, Ctrl+L the lat-long readout.
@@ -1992,6 +2012,85 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+
+## The Classic key layout's own keys, read before the default ones. True when the key was one of
+## them; every other key falls through to the default layout unchanged.
+func _classic_key(k: InputEventKey) -> bool:
+	if k.ctrl_pressed or k.meta_pressed or k.alt_pressed:
+		return false
+	if k.shift_pressed:
+		match k.keycode:
+			KEY_C:
+				_toggle_emcon_on_selection()
+			KEY_1, KEY_2, KEY_3:
+				_speed_step(k.keycode - KEY_0)
+			KEY_7, KEY_8, KEY_9:
+				_height_step(k.keycode - KEY_7)
+			_:
+				return false
+		return true
+	match k.keycode:
+		KEY_P:
+			SimClock.toggle_pause()
+		KEY_T:
+			_set_time_scale((SimClock.speed_index + 1) % SimClock.speeds().size())
+		KEY_B:
+			_return_selected_aircraft()
+		_:
+			return false
+	return true
+
+
+## Ctrl+click on the chart under the Classic keys: the left button zooms in on the point, the
+## right zooms out from it, and neither orders a move or an attack.
+func _classic_chart_zoom(mb: InputEventMouseButton) -> void:
+	if not classic_keys or mb.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+		return
+	if not mb.pressed:
+		if mb.button_index == _classic_zoom_button:
+			_classic_zoom_button = MOUSE_BUTTON_NONE
+			get_viewport().set_input_as_handled()
+		return
+	if not (mb.ctrl_pressed or mb.meta_pressed) or _has_visible_modal() or not map.is_visible_in_tree() or map.menu_open:
+		return
+	var at := map.get_global_transform_with_canvas().affine_inverse() * mb.position
+	if not Rect2(Vector2.ZERO, map.size).has_point(at):
+		return
+	map._zoom_at(at, 2.0 if mb.button_index == MOUSE_BUTTON_LEFT else 0.5)
+	map.queue_redraw()
+	_classic_zoom_button = mb.button_index
+	get_viewport().set_input_as_handled()
+
+
+## Shift+1, 2, 3: a third, two thirds or all of each hooked platform's own top speed.
+func _speed_step(step: int) -> void:
+	var pairs: Array = []
+	for u: Unit in map.selected:
+		if u.faction == simulation.player_faction and u.spec.max_speed_kn > 0.0:
+			pairs.append([u, Order.set_speed(u.effective_max_speed() * float(step) / 3.0)])
+	if pairs.is_empty():
+		radio.advise("Hook a platform that can move")
+		return
+	_apply_unit_orders(pairs)
+
+
+## Shift+7, 8, 9: low, cruise or high for hooked aircraft; periscope, patrol or deep for boats.
+func _height_step(step: int) -> void:
+	var pairs := _altitude_orders([150.0, -1.0, -2.0][step])
+	pairs.append_array(_depth_orders([18.0, -1.0, 200.0][step]))
+	if pairs.is_empty():
+		radio.advise("Hook an aircraft or a submarine")
+		return
+	_apply_unit_orders(pairs)
+
+
+## Turns the Classic key layout on or off; the H board follows it. `persist` keeps the choice.
+func set_classic_keys(on: bool, persist := true) -> void:
+	classic_keys = on
+	KeyCommands.classic = on
+	if persist:
+		UserSettings.set_value("controls", "classic_keys", on)
 
 
 ## A time scale by its step on the ladder in use (the number keys, SCALE, the time menu). A step

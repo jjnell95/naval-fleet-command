@@ -9,6 +9,7 @@ extends RefCounted
 ##   --scenario=res://path       load this scenario instead of the default
 ##   --seed=N                    pin every generator, so runs repeat exactly
 ##   --autopilot                 let the opposing-force AI command the player's side as well
+##   --classic-keys              use the Classic key layout (P pause, T time step, Tab next platform…)
 ##   --preset=classic            play under the Classic gameplay options (8× actual ceiling, manual
 ##                               missile defence, attack on orders); any driven run is Normal
 ##                               otherwise, and never reads or saves the player's own options

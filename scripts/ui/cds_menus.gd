@@ -318,6 +318,8 @@ static func options_items(state: Dictionary) -> Array:
 		var on := bool(state.get(key, o.option_on(key))) if sound else o.option_on(key)
 		items.append(item(GameOptions.option_text(key), {"kind": "palette", "id": key if sound else "option_" + key}, false, GameOptions.option_tooltip(key), 1 if on else 0))
 	items.append(sep())
+	items.append(item("Classic keys", {"kind": "palette", "id": "classic_keys"}, false, "P pauses, T steps the time scale, Tab hooks the next platform, B sends aircraft home, Shift+C sets emission control, Shift+1 to 3 and 7 to 9 set speed and height, Ctrl+click zooms. H lists them.", 1 if bool(state.get("classic_keys", false)) else 0))
+	items.append(sep())
 	for percent: int in InterfaceScale.PERCENTAGES:
 		items.append(item("Interface size: %d%%" % percent, {"kind": "palette", "id": "ui_scale_%d" % percent}, false, "Scale text, chart labels and controls together.", 1 if InterfaceScale.percent == percent else 0))
 	return items

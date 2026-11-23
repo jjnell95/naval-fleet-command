@@ -117,15 +117,18 @@ func test_the_orders_board_stands_at_the_foot_of_the_chart_at_its_own_height() -
 
 func test_the_key_list_fits_the_window_at_every_interface_size() -> void:
 	var main := _open("northern_passage.json")
-	for percent: int in SIZES:
-		_window(main, percent)
-		main._key_help.open()
-		_settle(main)
-		# The board is centred in the window, so it is on screen when it is no larger than the window.
-		var screen := main.get_viewport_rect().size
-		var panel: Vector2 = main._key_help._panel.get_combined_minimum_size()
-		assert_true(panel.x <= screen.x - 24.0 and panel.y <= screen.y, "%d%%: the key list %s fits the window %s" % [percent, str(panel), str(screen)])
-		main._key_help.close()
+	for classic: bool in [false, true]:
+		main.set_classic_keys(classic, false)
+		for percent: int in SIZES:
+			_window(main, percent)
+			main._key_help.open()
+			_settle(main)
+			# The board is centred in the window, so it is on screen when it is no larger than the window.
+			var screen := main.get_viewport_rect().size
+			var panel: Vector2 = main._key_help._panel.get_combined_minimum_size()
+			assert_true(panel.x <= screen.x - 24.0 and panel.y <= screen.y, "%d%%%s: the key list %s fits the window %s" % [percent, " classic" if classic else "", str(panel), str(screen)])
+			main._key_help.close()
+	main.set_classic_keys(false, false)
 	_close(main)
 
 
@@ -393,4 +396,103 @@ func test_fleet_operations_and_weapon_control_are_as_tall_as_their_rows() -> voi
 	var weapons := _panel_of(main._weapon_control).get_global_rect()
 	assert_true(weapons.size.y < screen.y * 0.85, "one ship's systems do not fill the window: %d of %d px" % [int(weapons.size.y), int(screen.y)])
 	main._toggle_weapon_control()
+	_close(main)
+
+
+# --- The Classic key layout ------------------------------------------------------------------
+
+func _key(main: Main, keycode: Key, shift := false, ctrl := false) -> void:
+	var e := InputEventKey.new()
+	e.keycode = keycode
+	e.physical_keycode = keycode
+	e.pressed = true
+	e.shift_pressed = shift
+	e.ctrl_pressed = ctrl
+	main.get_viewport().push_input(e)
+	var up := e.duplicate() as InputEventKey
+	up.pressed = false
+	main.get_viewport().push_input(up)
+
+
+func _click(main: Main, at: Vector2, button: MouseButton, ctrl: bool) -> void:
+	for pressed in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = button
+		e.position = at
+		e.global_position = at
+		e.pressed = pressed
+		e.ctrl_pressed = ctrl
+		main.get_viewport().push_input(e)
+
+
+func test_the_default_layout_is_untouched_until_classic_keys_are_chosen() -> void:
+	var main := _open("northern_passage.json")
+	assert_true(not main.classic_keys, "the Classic keys are off by default")
+	var u := _own(main, "Truxtun")
+	main.map.select_units([u])
+	main.map.grab_focus()
+	var sonar := u.active_sonar_on
+	_key(main, KEY_P)
+	assert_true(u.active_sonar_on != sonar, "P still works the active sonar")
+	assert_true(SimClock.paused, "and does not touch the clock")
+	assert_true(" | ".join(KeyCommands.all_rows()).contains("R / P / E: Radar / active sonar / emission control"), "the key list shows the default layout")
+	var items := CdsMenus.options_items(main._cds_state())
+	var offered := items.filter(func(i: Dictionary) -> bool: return str(i.get("text", i.get("label", ""))).begins_with("Classic keys"))
+	assert_eq(offered.size(), 1, "the options menu offers the Classic keys")
+	_close(main)
+
+
+func test_classic_keys_translate_in_front_of_the_default_layout() -> void:
+	var main := _open("northern_passage.json")
+	_window(main, 100)
+	main.set_classic_keys(true, false)
+	var u := _own(main, "Truxtun")
+	main.map.select_units([u])
+	main.map.grab_focus()
+	var sonar := u.active_sonar_on
+	_key(main, KEY_P)
+	assert_true(not SimClock.paused, "P resumes the watch")
+	_key(main, KEY_P)
+	assert_true(SimClock.paused, "and pauses it")
+	assert_eq(u.active_sonar_on, sonar, "the sonar is left alone")
+	SimClock.set_speed_index(0)
+	_key(main, KEY_T)
+	assert_eq(SimClock.speed_index, 1, "T steps to the next time scale")
+	_key(main, KEY_TAB)
+	assert_true(main.map.selected.size() == 1 and main.map.selected[0] != u, "Tab hooks the next own platform")
+	main.map.select_units([u])
+	main.map.grab_focus()
+	_key(main, KEY_C, true)
+	assert_eq(u.emcon, Unit.Emcon.SILENT, "Shift+C sets emission control")
+	# A ship keeping station refuses a speed; the guide she keeps it on takes one.
+	var guide := _own(main, "Northern Light")
+	main.map.select_units([guide])
+	main.map.grab_focus()
+	_key(main, KEY_1, true)
+	assert_near(guide.ordered_speed_kn, guide.effective_max_speed() / 3.0, 0.2, "Shift+1 is a third of her own top speed")
+	_key(main, KEY_3, true)
+	assert_near(guide.ordered_speed_kn, guide.effective_max_speed(), 0.2, "Shift+3 is all of it")
+	main.map.select_units([u])
+	main.map.grab_focus()
+	var before := main.radio.journal.size()
+	_key(main, KEY_8, true)
+	_key(main, KEY_B)
+	assert_true(main.map.selected.has(u), "B and Shift+8 with a ship hooked change nothing on the chart")
+	# Ctrl+click zooms the chart and orders nothing.
+	var ppn := main.map.ppn
+	var waypoints := u.waypoints.size()
+	var centre := main.map.get_global_rect().get_center()
+	_click(main, centre, MOUSE_BUTTON_LEFT, true)
+	assert_near(main.map.ppn, minf(ppn * 2.0, TacticalMap.MAX_PPN), 0.001, "Ctrl+click zooms the chart in")
+	_click(main, centre, MOUSE_BUTTON_RIGHT, true)
+	assert_near(main.map.ppn, ppn, 0.001, "Ctrl+right-click zooms it out")
+	assert_eq(u.waypoints.size(), waypoints, "and neither orders a move")
+	assert_true(main.map.selected.has(u), "nor drops the hook")
+	# The key list is built from the layout in use.
+	var rows := " | ".join(KeyCommands.all_rows())
+	assert_true(rows.contains("P / Space: Pause or resume") and rows.contains("Shift+1 / 2 / 3") and rows.contains("Tab: Hook the next own platform"), "the key list shows the Classic keys")
+	assert_true(not rows.contains("R / P / E"), "and not the default keys they replace")
+	main.set_classic_keys(false, false)
+	assert_true(" | ".join(KeyCommands.all_rows()).contains("R / P / E"), "turned off, the default layout is back")
+	assert_true(main.radio.journal.size() >= before, "the radio still answers")
 	_close(main)
