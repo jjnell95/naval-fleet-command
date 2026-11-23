@@ -129,7 +129,7 @@ Eleven missions ship. The operations desk opens on **Operations**, with difficul
 
 The **Campaigns** shelf takes the seven operations in order as two campaigns, **Northern Flank, September 1990** and **Four Crises, 2027**. An operation opens when the one before it has been won at 60% effectiveness or better. Nothing carries between operations.
 
-Every mission ends with a **mission effectiveness** from 0 to 100%: the task is worth 60 (nothing on a defeat), the force you kept 20 and the enemy's losses 20, with up to 10 more for bonus tasks unless the mission was lost. Each neutral vessel your weapons sink costs 25, pro rata for damage. The commander's log keeps each mission's best result.
+Every mission ends with a **mission effectiveness** from 0 to 100%: the task is worth 60 (nothing on a defeat), the force you kept 20 and the enemy's losses 20, with up to 10 more for bonus tasks unless the mission was lost. Conduct is charged against that: each hit your weapons land on a neutral (a civilian incident, listed in the debrief's figures) or on your own force costs 10 whatever the damage, each neutral vessel they sink 25 more, pro rata for damage, and rounds spent far beyond what their targets were worth up to 10. A mission won without a single order given, where there was an enemy at sea, earns only a quarter of the task. The commander's log keeps each mission's best result.
 
 ## What is modelled
 
