@@ -13,6 +13,8 @@ extends Control
 signal camera_mode_changed(mode: int)
 signal swap_requested
 signal fullscreen_requested
+## A right-click on the pane with a platform hooked: that platform's menu, at this viewport position.
+signal platform_menu_requested(viewport_pos: Vector2)
 
 const CAM_TETHER := WorldCamera.TETHER
 const CAM_FLYBY := WorldCamera.FLYBY
@@ -635,8 +637,9 @@ func _point_frame(focus: Dictionary) -> Dictionary:
 
 # --- Input ---------------------------------------------------------------------------------
 
-## Left drag orbits the tether, the wheel zooms it, and double-click inspects a platform or held
-## contact on the chart. Every mouse event is consumed here.
+## Left drag orbits the tether, the wheel zooms it, double-click inspects a platform or held
+## contact on the chart, and right-click opens the hooked platform's menu. Every mouse event is
+## consumed here.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var e := event as InputEventMouseButton
@@ -648,6 +651,9 @@ func _gui_input(event: InputEvent) -> void:
 					_dragging = true
 				else:
 					_dragging = false
+			MOUSE_BUTTON_RIGHT:
+				if e.pressed:
+					_menu_at(e.position)
 			MOUSE_BUTTON_WHEEL_UP:
 				if e.pressed:
 					rig.zoom_by(0.87)
@@ -666,6 +672,21 @@ func _gui_input(event: InputEvent) -> void:
 	elif event is InputEventPanGesture:
 		rig.zoom_by(1.0 + (event as InputEventPanGesture).delta.y * 0.02)
 		accept_event()
+
+
+## As on the chart, a right-click on one of our own platforms hooks it first; anywhere else it
+## opens the menu of whatever is hooked. With nothing hooked there is no menu to open.
+func _menu_at(screen: Vector2) -> void:
+	if map == null or not _live():
+		return
+	var entry := _scene.pick_entry(screen) if _scene != null else {}
+	if entry.get("kind") == "own":
+		var unit: Unit = entry.get("unit")
+		if unit != null and unit.is_engageable() and not map.selected.has(unit):
+			map.select_units([unit])
+	if map.selected.is_empty() and map.inspection_track() == null:
+		return
+	platform_menu_requested.emit(get_global_transform_with_canvas() * screen)
 
 
 func _select_at(screen: Vector2) -> void:

@@ -142,3 +142,72 @@ func test_the_portrait_redraws_only_when_the_platform_or_its_framing_changes() -
 	card.spec_override = DataDB.platform("cw90_slava")
 	assert_true(not card.refresh(), "the same platform again is no change")
 	card.free()
+
+
+# --- Right-click in the 3D pane ----------------------------------------------------------
+
+func _boot_view() -> Main:
+	var main: Main = preload("res://scenes/main/Main.tscn").instantiate()
+	(Engine.get_main_loop() as SceneTree).root.add_child(main)
+	main.start_scenario("res://data/scenarios/training_missile_defence.json")
+	main._on_briefing_start()
+	SimClock.set_paused(true)
+	var view := main._world_view
+	main._swap_views()
+	main._toggle_world_full()
+	# The synchronous suite does not yield a frame for the parent containers' layout.
+	view.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	view.size = Vector2(640, 360)
+	return main
+
+
+func _right_click(view: WorldView, at: Vector2) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_RIGHT
+	e.pressed = true
+	e.position = at
+	view._gui_input(e)
+	var up := e.duplicate() as InputEventMouseButton
+	up.pressed = false
+	view._gui_input(up)
+
+
+func _restore_after(main: Main) -> void:
+	main._cds_menus.close()
+	main.free()
+	SimClock.set_speed_index(0)
+	SimClock.set_paused(true)
+
+
+func test_right_click_on_the_3d_pane_opens_the_hooked_platforms_menu() -> void:
+	var main := _boot_view()
+	var view := main._world_view
+	var ship: Unit = main.simulation.unit_manager.get_faction_units(main.simulation.player_faction).filter(func(u: Unit) -> bool: return not u.is_aircraft() and u.is_engageable())[0]
+	main.map.clear_selection()
+	view._process(0.016)
+	_right_click(view, Vector2(20, 300))
+	assert_true(not main._cds_menus.is_open(), "with nothing hooked there is no platform menu to open")
+	main.map.select_units([ship])
+	view._process(0.016)
+	_right_click(view, Vector2(20, 300))
+	assert_true(main._cds_menus.is_open(), "with a ship hooked, a right-click in the 3D window opens its orders menu")
+	assert_eq(main.map.selected, [ship], "for the hooked ship")
+	_restore_after(main)
+
+
+func test_right_click_on_an_own_ship_in_the_3d_pane_hooks_it_first() -> void:
+	var main := _boot_view()
+	var view := main._world_view
+	var ship: Unit = main.simulation.unit_manager.get_faction_units(main.simulation.player_faction).filter(func(u: Unit) -> bool: return not u.is_aircraft() and u.is_engageable())[0]
+	main.map.select_units([ship])
+	view._process(0.016)
+	view._process(0.016)
+	var cam := view._scene.camera
+	var at := cam.unproject_position(WorldPresentation.to_world(ship.position, view._origin_nm, 0.0))
+	var picked := view._scene.pick_entry(at)
+	assert_eq(picked.get("key", ""), "u:%d" % ship.id, "the hooked ship is under the cursor at %s" % at)
+	main.map.clear_selection()
+	_right_click(view, at)
+	assert_eq(main.map.selected, [ship], "right-clicking a ship of ours hooks it, as on the chart")
+	assert_true(main._cds_menus.is_open(), "and opens its menu")
+	_restore_after(main)
