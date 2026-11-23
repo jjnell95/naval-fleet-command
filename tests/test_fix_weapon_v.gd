@@ -307,3 +307,74 @@ func test_an_anti_radiation_round_homing_on_a_silent_emitter_ends_at_full_range(
 	assert_true(not wm.in_flight.has(w), "nothing is left in flight")
 	assert_near(site.health, 100.0, 0.01, "the site is untouched")
 	_cleanup(wm)
+
+
+# --- hook:group-budget: a group's default budget is what the target needs ---------------------
+
+func _catalogue_ship(sim: Simulation, platform: String, callsign: String, pos: Vector2) -> Unit:
+	var u := Unit.new()
+	u.spec = DataDB.platform(platform)
+	u.faction = "BLUE"
+	u.callsign = callsign
+	u.health = u.spec.health
+	u.position = pos
+	u.roe = Unit.Roe.FREE
+	for sid in u.spec.sensor_ids:
+		u.sensors.append(DataDB.sensor(sid))
+	for wid in u.spec.weapon_loadout:
+		u.weapons.append(DataDB.weapon(wid))
+		u.magazines[wid] = u.spec.weapon_loadout[wid]
+	sim.unit_manager.add_unit(u)
+	return u
+
+
+## Three ships group-attack a surface contact. Fresh, it draws the volley its strength needs, no
+## more than a salvo from each. Assessed 76% destroyed, the group's default is a round or two in
+## all, and that is what the group fires, not a salvo per ship.
+func test_a_group_attack_on_a_nearly_dead_target_fires_a_round_or_two_in_all() -> void:
+	Terrain.clear()
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	sim.ai_enabled = false
+	sim.weapon_manager.rng.seed = 7
+	var members: Array = [
+		_catalogue_ship(sim, "usn_ddg_arleigh_burke_iia", "Ignatius", Vector2(0, 0)),
+		_catalogue_ship(sim, "rnon_ffg_fridtjof_nansen", "Nansen", Vector2(4, 0)),
+		_catalogue_ship(sim, "rnon_ffg_fridtjof_nansen", "Amundsen", Vector2(-4, 0)),
+	]
+	var t := Track.new()
+	t.id = "T1077"
+	t.owner_faction = "BLUE"
+	t.identity = "HOSTILE"
+	t.domain = "surface"
+	t.classification = Track.Classification.SURFACE
+	t.status = Track.Status.ACTIVE
+	t.position = Vector2(0, 40)
+	t.last_seen_time = SimClock.sim_time
+	sim.track_manager._tracks["BLUE"] = [t]
+	var volley := 0
+	for u: Unit in members:
+		for spec: WeaponSpec in u.weapons_for_track(t):
+			if bool(sim.weapon_manager.engagement_check(u, spec, t, 0.0).ok):
+				volley += mini(spec.salvo_default, u.magazine_count(spec.id))
+				break
+	var fresh := GroupAttackManager.default_budget(members, t, sim.weapon_manager)
+	assert_true(fresh >= 2 and fresh <= volley, "a fresh contact draws what its strength needs, at most a salvo each: %d of %d" % [fresh, volley])
+	t.damage_estimate = 76.0
+	var nearly_dead := GroupAttackManager.default_budget(members, t, sim.weapon_manager)
+	assert_true(nearly_dead >= 1 and nearly_dead <= 2, "76%% destroyed: %d rounds in all, not %d" % [nearly_dead, volley])
+	sim.unit_manager.issue_order(members[0], Order.group_attack(members, [t], 0))
+	var g: GroupAttack = sim.group_attack_manager.groups.back() if not sim.group_attack_manager.groups.is_empty() else null
+	assert_true(g != null, "the group attack is running")
+	if g != null:
+		assert_eq(g.budget, nearly_dead, "the order takes the default budget")
+		for i in 400:
+			t.last_seen_time = SimClock.sim_time
+			t.status = Track.Status.ACTIVE
+			SimClock.advance(DT)
+		assert_true(g.fired_total >= 1 and g.fired_total <= 2, "the group fired %d rounds" % g.fired_total)
+	sim.weapon_manager.clear()
+	sim.group_attack_manager.clear()
+	sim.unit_manager.clear()
+	sim.free()

@@ -458,8 +458,11 @@ func test_the_contact_menu_offers_a_group_attack_only_with_two_armed_platforms_h
 	for entry: Dictionary in CdsMenus.engage_items([ignatius, nansen], t, true, wm):
 		if str(entry.get("text", "")).begins_with("Group attack"):
 			found = entry
-	var expected := mini(DataDB.weapon(TOMAHAWK).salvo_default, 8) + mini(DataDB.weapon(NSM).salvo_default, 8)
-	assert_eq(str(found.get("text", "")), "Group attack (%d rounds)..." % expected, "one ordinary salvo from each")
+	# What the contact needs, sized once for the group, and never more than a salvo from each.
+	var volley := mini(DataDB.weapon(TOMAHAWK).salvo_default, 8) + mini(DataDB.weapon(NSM).salvo_default, 8)
+	var expected := GroupAttackManager.default_budget([ignatius, nansen], t, wm)
+	assert_true(expected >= 1 and expected <= volley, "%d of at most %d" % [expected, volley])
+	assert_eq(str(found.get("text", "")), "Group attack (%d rounds)..." % expected, "the group's default budget")
 	assert_true(not bool(found.get("disabled", true)))
 	assert_eq(str(found["action"]["kind"]), "group_attack")
 	assert_eq(int(found["action"]["budget"]), expected)
