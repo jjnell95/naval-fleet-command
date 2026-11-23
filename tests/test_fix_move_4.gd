@@ -128,11 +128,22 @@ func test_a_contact_assessed_three_quarters_destroyed_draws_a_one_round_reattack
 	var frigate := _ship("irn_ffg_alvand", "RED", Vector2(0, 30))
 	var t := _track(frigate)
 	var harpoon := DataDB.weapon("rgm_84_harpoon")
-	assert_eq(shooter.salvo_for_track(harpoon, t), 2, "a fresh 55-point frigate is worth two")
+	assert_eq(shooter.salvo_for_track(harpoon, t), 3, "a fresh 55-point frigate with a 35 mm mount is worth three")
 	t.damage_estimate = 76.0
 	assert_eq(shooter.salvo_for_track(harpoon, t), 1, "one more round for what is left")
 	var result := _attack(shooter, frigate, t, 10.0)
 	assert_eq(int(result["fired"]), 1, "the re-attack is one round, not four")
+
+
+func test_a_defended_ship_is_sent_rounds_enough_to_get_one_through() -> void:
+	var shooter := _ship("cw90_perry", "BLUE", Vector2.ZERO)
+	var corvette := _ship("cw90_nanuchka", "RED", Vector2(0, 6))
+	var t := _track(corvette)
+	var harpoon := DataDB.weapon("cw90_harpoon")
+	assert_eq(shooter.weapons_for_track(t)[0], harpoon)
+	assert_eq(shooter.salvo_for_track(harpoon, t), 4, "a corvette with a SAM and a close-in gun gets the full salvo")
+	t.damage_estimate = 76.0
+	assert_eq(shooter.salvo_for_track(harpoon, t), 2, "and badly hurt, a pair: one alone would be shot down")
 
 
 func test_an_unclassified_contact_is_assumed_a_medium_hull() -> void:

@@ -485,16 +485,37 @@ func salvo_for_track(spec: WeaponSpec, t: Track) -> int:
 	return clampi(ceili(remaining / per_round), 1, most)
 
 
-## The chance one round hits, as the shooter can judge it from the plot: the weapon's rated figure,
-## and for gunfire the fall with range and with the plotted speed of the target (Combat's model).
+## The chance one round hits, as the shooter can judge it from the plot: the weapon's rated figure;
+## for a missile, times the chance it lives through the close-in defences the reported class is
+## fitted with (none assumed for a contact not yet classified), so a defended ship is still sent
+## rounds enough to get one through; for gunfire, the fall with range and with the plotted speed
+## of the target (Combat's model).
 func expected_hit_chance(spec: WeaponSpec, t: Track, range_nm := -1.0) -> float:
 	if not spec.is_gun():
-		return clampf(spec.base_pk, 0.0, 1.0)
+		return clampf(spec.base_pk * _reported_defence_leak(spec, t), 0.0, 1.0)
 	var range_factor := 1.0
 	if range_nm >= 0.0 and spec.max_range_nm > 0.0:
 		range_factor = lerpf(1.0, Combat.GUN_PK_AT_MAX_RANGE, clampf(range_nm / spec.max_range_nm, 0.0, 1.0))
 	var speed := t.speed_kn if t.has_kinematics else 0.0
 	return clampf(spec.base_pk * range_factor / (1.0 + maxf(speed, 0.0) / Combat.GUN_SPEED_HALVING_KN), 0.0, 1.0)
+
+
+## The chance a missile is not shot down by the point and area defences in the catalogue fit of
+## the class the plot reports: each layer that engages missiles gets its own chance at it.
+func _reported_defence_leak(spec: WeaponSpec, t: Track) -> float:
+	if spec.is_torpedo() or t.classification < Track.Classification.CLASS_KNOWN or t.known_class == "":
+		return 1.0
+	var platform := DataDB.platform_by_short_name(t.known_class, spec.id)
+	if platform == null:
+		return 1.0
+	var leak := 1.0
+	var ids: Array = platform.weapon_loadout.keys()
+	ids.sort()
+	for wid: String in ids:
+		var defence := DataDB.weapon(wid)
+		if defence != null and defence.is_interceptor() and defence.target_types.has("missile"):
+			leak *= 1.0 - Combat.intercept_probability(defence, spec)
+	return leak
 
 
 ## Interceptors with rounds left, longest reach first, so defence engages in layers.
