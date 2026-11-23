@@ -45,6 +45,15 @@ const HEX_INK_BLUE := "#1010c0"
 const HEX_INK_RED := "#a80c0c"
 const HEX_INK_GREEN := "#0b661a"
 const HEX_INK_AMBER := "#7a4800"
+## Severity inks for text on the grey button faces: each reads at 4.5:1 or better on JFC_FACE,
+## JFC_FACE_HOVER and JFC_FACE_DOWN alike, so a warning keeps its contrast when the button is
+## hovered or held down.
+const FACE_INK_ALERT := Color("8c0c0c")
+const FACE_INK_WARN := Color("603600")
+const FACE_INK_GOOD := Color("075012")
+const HEX_FACE_INK_ALERT := "#8c0c0c"
+const HEX_FACE_INK_WARN := "#603600"
+const HEX_FACE_INK_GOOD := "#075012"
 
 # --- Front end: the operations desk, briefing, editor and reference over the backdrop -------
 const METAL := Color(150.0 / 255.0, 152.0 / 255.0, 160.0 / 255.0, 0.78)

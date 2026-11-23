@@ -157,10 +157,11 @@ Slower checks that CI does not run:
 python3 tools/smoke_scenarios.py "$GODOT" work/sweep                     # every operation on two seeds, the AI on both sides
 python3 tools/opening_plans.py "$GODOT" --seeds=2,13 --jobs=4            # scripted openings against the AI, tabulated (about 20 minutes on four cores)
 godot --headless --path . --script tools/measure_sensor_cycle.gd -- --paths=reference,optimized --repeats=3
+godot --headless --path . --script tools/autosave_frames.gd -- --autopilot --ff=1500 [--no-worker]   # the longest frame with and without an autosave
 NODE_PATH=/opt/node-tools/node_modules node tools/web/browser_check.cjs  # boot the browser build, save, reload, load, delete
 ```
 
-`tools/measure_sensor_cycle.gd` times the shipped sensor cycle against the original pair-by-pair passes in `tools/measure_sensor_cycle_reference.gd`, which `SensorManager` runs instead of its own while its development switch `reference_path` is on. `tests/test_sensor_cycle.gd` uses the same switch to check that both make the same reports in the same order. The sound mix has its own playback check, `tools/audio/audio_playtest.gd`, described with the audio build in `assets/audio/README.md`; `tools/web/audio_check.cjs` checks sound in the browser build.
+`tools/measure_sensor_cycle.gd` times the shipped sensor cycle against the original pair-by-pair passes in `tools/measure_sensor_cycle_reference.gd`, which `SensorManager` runs instead of its own while its development switch `reference_path` is on. `tests/test_sensor_cycle.gd` uses the same switch to check that both make the same reports in the same order. `tools/autosave_frames.gd` (with `tools/autosave_frames_run.gd`) forces an autosave on the command screen through `SaveGame.force_next_autosave` and prints the longest frame beside the longest without one; `--no-worker` writes it a stage a frame, as the browser build does. The sound mix has its own playback check, `tools/audio/audio_playtest.gd`, described with the audio build in `assets/audio/README.md`; `tools/web/audio_check.cjs` checks sound in the browser build.
 
 ## Data builders
 

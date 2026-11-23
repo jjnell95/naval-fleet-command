@@ -33,6 +33,9 @@ var _play_reason: Label
 const SUMMARY_WIDTH := 380.0
 const SUMMARY_WIDTH_COMPACT := 330.0
 const SUMMARY_LINES := 2
+## The map beside the list is never drawn smaller than this, however short the list.
+const MAP_MIN_SIDE := 180.0
+const MAP_MIN_SIDE_COMPACT := 160.0
 
 var _entries: Array = []
 var _all_entries: Array = []
@@ -56,6 +59,9 @@ var _subtitle: Label
 var _mast_note: Label
 var _panel: PanelContainer
 var _top: HBoxContainer
+## The map's side for the screen size, and its least; the list's row count sets it in between.
+var _map_side := 262.0
+var _map_min_side := MAP_MIN_SIDE
 var _intro: Button
 var _campaign_1990: Button
 ## The options the desk shows: Main's, set by set_options. The desk never saves them itself.
@@ -319,8 +325,9 @@ func _apply_layout() -> void:
 		_margin.add_theme_constant_override("margin_" + key, side)
 	for key in ["top", "bottom"]:
 		_margin.add_theme_constant_override("margin_" + key, edge)
-	var map_side := 200.0 if compact else 262.0
-	_preview.custom_minimum_size = Vector2(map_side, map_side)
+	_map_side = 200.0 if compact else 262.0
+	_map_min_side = MAP_MIN_SIDE_COMPACT if compact else MAP_MIN_SIDE
+	_fit_list()
 	_rail.custom_minimum_size.x = 0.0 if compact else 250.0
 	_rail.visible = not compact and _portrait.spec_override != null
 	_subtitle.visible = not compact
@@ -330,6 +337,25 @@ func _apply_layout() -> void:
 	_intent.max_lines_visible = 2
 	_mission_title.add_theme_font_size_override("font_size", 22 if compact else 26)
 	_title.set_font_size(38 if compact else 54)
+
+
+## The list stands as tall as its rows and no taller, up to the map's full side (beyond that it
+## scrolls), and the map beside it follows: the height a short shelf does not need goes to the
+## orders below, which are the longest text on the desk.
+func _fit_list() -> void:
+	if _list == null or _preview == null:
+		return
+	var head := (_left.get_child(0) as Control).get_combined_minimum_size().y + float(_left.get_theme_constant("separation"))
+	var panel := _list.get_theme_stylebox("panel")
+	# Row rectangles start below the panel's top margin and include their separation.
+	var rows := panel.get_minimum_size().y
+	if _list.item_count > 0:
+		_list.force_update_list_size()
+		rows = _list.get_item_rect(_list.item_count - 1).end.y + panel.get_margin(SIDE_BOTTOM)
+	var list_height := minf(ceilf(rows), _map_side - head)
+	_list.custom_minimum_size.y = maxf(list_height, 0.0)
+	var side := clampf(head + list_height, _map_min_side, _map_side)
+	_preview.custom_minimum_size = Vector2(side, side)
 
 
 ## `played` says the current operation was actually commanded, not merely loaded at start-up:
@@ -511,6 +537,7 @@ func _populate(current_path := "") -> void:
 			var done := CampaignBook.progress(c, log)
 			parts.append("%s  %d OF %d WON" % [str(c.get("short_name", c.get("name", ""))), int(done["won"]), int(done["total"])])
 		_count.text = "   ·   ".join(parts)
+	_fit_list()
 	_set_play(not _entries.is_empty(), "" if not _entries.is_empty() else "NO MISSION ON THIS SHELF")
 	if not _entries.is_empty():
 		_list.select(selected)

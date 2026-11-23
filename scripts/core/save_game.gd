@@ -48,8 +48,11 @@ static func slot_path(slot: String) -> String:
 ## Writes atomically: a temporary file first, renamed over the old one only once it is complete,
 ## so a save interrupted part-way never destroys the previous one. Returns "" or the reason.
 static func write(path: String, header: Dictionary, payload: Dictionary) -> String:
-	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
-	var raw := var_to_bytes(payload)
+	return _store(path, _pack(header, var_to_bytes(payload)))
+
+
+## The file's body: the header and the compressed engagement, each behind its length.
+static func _pack(header: Dictionary, raw: PackedByteArray) -> PackedByteArray:
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	var body := StreamPeerBuffer.new()
 	var header_bytes := var_to_bytes(header)
@@ -58,19 +61,163 @@ static func write(path: String, header: Dictionary, payload: Dictionary) -> Stri
 	body.put_u32(raw.size())
 	body.put_u32(packed.size())
 	body.put_data(packed)
+	return body.data_array
+
+
+static func _store(path: String, body: PackedByteArray) -> String:
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var temporary := path + ".tmp"
 	var file := FileAccess.open(temporary, FileAccess.WRITE)
 	if file == null:
 		return "Cannot write the save (%s)" % error_string(FileAccess.get_open_error())
 	file.store_buffer(MAGIC.to_utf8_buffer())
 	file.store_8(FILE_FORMAT)
-	file.store_buffer(_digest(body.data_array))
-	file.store_buffer(body.data_array)
+	file.store_buffer(_digest(body))
+	file.store_buffer(body)
 	file.close()  # on the web this is what commits the file to persistent storage
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
 	var err := DirAccess.rename_absolute(temporary, path)
 	return "" if err == OK else "Cannot finish the save (%s)" % error_string(err)
+
+
+# --- Autosaves written a stage at a time -----------------------------------------------------
+
+## A test or a measuring run sets this to take the next check for an autosave as due, in any
+## session and paused or not; it clears once that autosave is begun.
+static var force_next_autosave := false
+## Where the platform has threads, an autosave's compression, checksum and file run on a worker.
+## The browser build has none, so there each takes a frame of its own.
+static var use_worker := OS.has_feature("threads")
+## The autosave still being written, or null. One at a time, so their slots stay in order.
+static var _writing: Writing = null
+
+
+## An autosave that never holds up one frame for the whole job. The caller captures the
+## engagement in its own frame, because a save is one consistent moment; then the encoding, the
+## compression, the file (in the next autosave slot) and the pruning of old autosaves each take a
+## later frame, or everything after the encoding runs on a worker thread. A run that ends in the
+## middle leaves the previous autosaves whole, as every write goes to a temporary file first.
+class Writing:
+	extends RefCounted
+	signal finished(error: String)
+	## The file written, once it has been.
+	var path := ""
+	var error := ""
+	var done := false
+	var _header: Dictionary
+	var _payload: Dictionary
+	var _raw := PackedByteArray()
+	var _body := PackedByteArray()
+	var _stage := 0
+	var _task := -1
+
+	func _init(header: Dictionary, payload: Dictionary) -> void:
+		_header = header
+		_payload = payload
+
+	## One stage, on the frame that calls it; true once there is nothing left to do in a frame.
+	func step() -> bool:
+		if done:
+			return true
+		if _task >= 0:
+			if not WorkerThreadPool.is_task_completed(_task):
+				return false
+			_join()
+			return true
+		match _stage:
+			0:
+				# The engagement's containers are encoded here, on the main thread, so a worker
+				# only ever holds bytes that nothing else can change.
+				_raw = var_to_bytes(_payload)
+				_payload = {}
+				_stage = 1
+				if SaveGame.use_worker:
+					_task = WorkerThreadPool.add_task(_rest, false, "Autosave")
+				return false
+			1:
+				_pack_stage()
+			2:
+				_store_stage()
+			_:
+				_prune_stage()
+				_end()
+				return true
+		return false
+
+	## Does whatever is left now, waiting for the worker if it has it. Returns "" or why it failed.
+	func finish() -> String:
+		while not done:
+			if _task >= 0:
+				_join()
+			else:
+				step()
+		return error
+
+	func _rest() -> void:
+		_pack_stage()
+		_store_stage()
+		_prune_stage()
+
+	func _pack_stage() -> void:
+		_body = SaveGame._pack(_header, _raw)
+		_raw = PackedByteArray()
+		_stage = 2
+
+	func _store_stage() -> void:
+		path = SaveGame.slot_path(SaveGame.next_autosave_slot())
+		error = SaveGame._store(path, _body)
+		_body = PackedByteArray()
+		_stage = 3
+
+	func _prune_stage() -> void:
+		if error == "":
+			SaveGame.prune_autosaves()
+		_stage = 4
+
+	func _join() -> void:
+		WorkerThreadPool.wait_for_task_completion(_task)
+		_task = -1
+		_end()
+
+	func _end() -> void:
+		done = true
+		if SaveGame._writing == self:
+			SaveGame._writing = null
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree != null and tree.process_frame.is_connected(_on_frame):
+			tree.process_frame.disconnect(_on_frame)
+		if error != "":
+			Debug.event("[Save] Autosave failed: %s" % error)
+		finished.emit(error)
+
+	func _on_frame() -> void:
+		step()
+
+
+## Begins an autosave of a captured engagement; the file follows over the next frames. An earlier
+## autosave still being written is finished first.
+static func begin_autosave(header: Dictionary, payload: Dictionary) -> Writing:
+	finish_writing()
+	var job := Writing.new(header, payload)
+	_writing = job
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree != null:
+		tree.process_frame.connect(job._on_frame)
+	return job
+
+
+## The autosave still being written, or null.
+static func writing() -> Writing:
+	return _writing if _writing != null and not _writing.done else null
+
+
+## Finishes the autosave being written, if any, before this returns: before the engagement is
+## replaced, or before anything that must see it on disk. Returns "" or why it failed.
+static func finish_writing() -> String:
+	if _writing == null:
+		return ""
+	return _writing.finish()
 
 
 ## The header alone, for a list of saves. Empty when the file is not a readable save.
