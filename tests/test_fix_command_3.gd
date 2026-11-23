@@ -368,3 +368,29 @@ func test_the_command_bar_and_data_display_show_the_achieved_rate_when_short() -
 	assert_eq(main.command_bar.buttons["time_menu"].text, "60× ▾", "within a tenth of the asked rate only the asked rate shows")
 	SimClock.set_paused(true)
 	_close(main)
+
+
+# --- Dialogs stand as tall as their content --------------------------------------------------
+
+func _panel_of(dialog: Control) -> PanelContainer:
+	return dialog.find_children("*", "PanelContainer", true, false)[0]
+
+
+func test_fleet_operations_and_weapon_control_are_as_tall_as_their_rows() -> void:
+	var main := _open("northern_passage.json")
+	_window(main, 100)
+	main.map.select_units([_own(main, "Truxtun")])
+	main._toggle_fleet_operations()
+	_settle(main)
+	var screen := main.get_viewport_rect().size
+	var fleet := _panel_of(main._fleet_operations).get_global_rect()
+	assert_true(fleet.size.y < screen.y * 0.75, "a force of a few groups does not fill the window: %d of %d px" % [int(fleet.size.y), int(screen.y)])
+	var list: ItemList = main._fleet_operations._list
+	assert_true(list.size.y >= list.item_count * 20.0, "every group row has its height: %d rows in %d px" % [list.item_count, int(list.size.y)])
+	main._toggle_fleet_operations()
+	main._toggle_weapon_control()
+	_settle(main)
+	var weapons := _panel_of(main._weapon_control).get_global_rect()
+	assert_true(weapons.size.y < screen.y * 0.85, "one ship's systems do not fill the window: %d of %d px" % [int(weapons.size.y), int(screen.y)])
+	main._toggle_weapon_control()
+	_close(main)
