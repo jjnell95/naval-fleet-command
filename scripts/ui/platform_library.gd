@@ -352,7 +352,9 @@ func inspect(asset_id: String, weapon := false) -> void:
 	for i in _specs.size():
 		if _specs[i].id == asset_id:
 			_list.select(_rows.find(i))
+			# Once more after the list is laid out: a library opened this frame has no row heights yet.
 			_list.ensure_current_is_visible()
+			_list.ensure_current_is_visible.call_deferred()
 			_select(i)
 			return
 	_empty_entry("Catalogue entry unavailable", "Choose a platform or ordnance entry.")
