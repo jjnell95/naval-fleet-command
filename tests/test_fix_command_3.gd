@@ -490,7 +490,7 @@ func test_classic_keys_translate_in_front_of_the_default_layout() -> void:
 	assert_true(main.map.selected.has(u), "nor drops the hook")
 	# The key list is built from the layout in use.
 	var rows := " | ".join(KeyCommands.all_rows())
-	assert_true(rows.contains("P / Space: Pause or resume") and rows.contains("Shift+1 / 2 / 3") and rows.contains("Tab: Hook the next own platform"), "the key list shows the Classic keys")
+	assert_true(rows.contains("P: Pause or resume") and rows.contains("Shift+1 / 2 / 3") and rows.contains("Tab: Hook the next own platform"), "the key list shows the Classic keys")
 	assert_true(not rows.contains("R / P / E"), "and not the default keys they replace")
 	main.set_classic_keys(false, false)
 	assert_true(" | ".join(KeyCommands.all_rows()).contains("R / P / E"), "turned off, the default layout is back")
