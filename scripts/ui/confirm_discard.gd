@@ -21,6 +21,12 @@ static func ask(host: Node, title_text: String, question: String, discard_text: 
 		dialog = ConfirmDiscard.new()
 		dialog.name = NODE_NAME
 		host.add_child(dialog)
+		# A screen closed under the question takes it away, kept, rather than leave it waiting.
+		var item := host as CanvasItem
+		if item != null:
+			item.visibility_changed.connect(func() -> void:
+				if not item.is_visible_in_tree():
+					dialog._answer(false))
 	host.move_child(dialog, -1)
 	dialog._on_confirm = on_confirm
 	dialog._title.text = title_text.to_upper()
@@ -35,7 +41,7 @@ static func ask(host: Node, title_text: String, question: String, discard_text: 
 ## The dialog on `host` while it is asking, or null.
 static func asking(host: Node) -> ConfirmDiscard:
 	var dialog := host.get_node_or_null(NODE_NAME) as ConfirmDiscard
-	return dialog if dialog != null and dialog.visible else null
+	return dialog if dialog != null and dialog.is_visible_in_tree() else null
 
 
 func _init() -> void:
@@ -105,7 +111,8 @@ func get_cancel_button() -> Button:
 ## answer that has the focus (keeping, unless the commander moved to the other), the arrows and
 ## Tab move between the two.
 func _input(event: InputEvent) -> void:
-	if not visible:
+	# Only while it can be seen: a question left up on a screen that was then hidden holds nothing.
+	if not is_visible_in_tree():
 		return
 	var k := event as InputEventKey
 	if k == null:

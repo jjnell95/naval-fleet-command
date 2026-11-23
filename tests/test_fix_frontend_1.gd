@@ -493,3 +493,17 @@ func test_the_briefing_guide_is_a_tick_box_beside_its_words_and_the_f3_line_name
 	for named in ["LAUNCH NOW", "PICK ON CHART", "RETURN & LAND"]:
 		assert_true(help.contains(named), "the F3 line names %s" % named)
 		assert_true(labels.has(named), "and the air operations dialog has a %s button" % named)
+
+
+func test_a_question_left_on_a_screen_that_closes_goes_with_it_and_keeps_the_work() -> void:
+	var host := PanelContainer.new()
+	_root().add_child(host)
+	var thrown := [false]
+	ConfirmDiscard.ask(host, "Delete", "Delete it?", "Delete", func() -> void: thrown[0] = true)
+	assert_true(ConfirmDiscard.asking(host) != null)
+	host.hide()
+	assert_true(ConfirmDiscard.asking(host) == null, "closing the screen takes the question away")
+	host.show()
+	assert_true(ConfirmDiscard.asking(host) == null, "and it does not come back by itself")
+	assert_true(not thrown[0], "nothing was thrown away")
+	host.free()
