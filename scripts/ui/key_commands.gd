@@ -54,7 +54,7 @@ const COMMANDS := [
 		["F7", "Reference for the selected platform or inspected contact"],
 		["Ctrl+K", "Actions"],
 		["M / Ctrl+E", "Missions / scenario editor"],
-		["Ctrl+F10 twice", "Restart the mission"],
+		["Ctrl+F10", "Restart the mission (asks first)"],
 		["Ctrl+Shift+S / L", "Quicksave / quickload"],
 		["Ctrl+Shift+O", "Saved engagements and autosaves"],
 		["Ctrl+M", "Sound on or off"],

@@ -20,6 +20,13 @@ const EXTENT_PUSH := 0.4
 const REPLACE_S := 0.25
 const CELL_PX := 48.0
 const GAP_PX := 2.0
+## A number keeps this far clear of the hook's brackets, so it reads as a number beside the
+## brackets rather than as part of them.
+const HOOK_GAP_PX := 6.0
+## Between one label and another, or another symbol, a label keeps this much clear: more above and
+## below than across, so two numbers in neighbouring corners do not stack into one block that sits
+## between both symbols and could belong to either.
+const LABEL_GAP := Vector2(2.0, 5.0)
 const CALLOUT_STEP := Vector2(20, 15)
 const CALLOUT_LEVELS := 6
 
@@ -82,7 +89,7 @@ static func _signature(captions: Array) -> PackedStringArray:
 ## height, so the brackets never cut into the number.
 static func box(at: Vector2, extent: float, size: Vector2, ascent: float, offset: Vector2, hook := 0.0) -> Rect2:
 	var push := OFFSET_PX + Vector2.ONE * (extent - MapSymbols.RADIUS) * EXTENT_PUSH
-	push.x = maxf(push.x, hook + GAP_PX)
+	push.x = maxf(push.x, hook + HOOK_GAP_PX) if hook > 0.0 else push.x
 	var gap := push.y - ascent  # the block's edge this far past the centre, above or below
 	var left := at.x + push.x if offset.x > 0.0 else at.x - push.x - size.x
 	var top := at.y + gap if offset.y > 0.0 else at.y - gap - size.y
@@ -140,7 +147,7 @@ static func place(labels: Array, bounds := Rect2(), captions: Array = [], obstac
 				continue
 			if inside == HIDDEN:
 				inside = k
-			if _clear(grid, rects, owners, r.grow(GAP_PX), i):
+			if _clear(grid, rects, owners, r.grow_individual(LABEL_GAP.x, LABEL_GAP.y, LABEL_GAP.x, LABEL_GAP.y), i):
 				slots[l.key] = k
 				_insert(grid, rects, owners, r, _OWNER_PLACED)
 				break
