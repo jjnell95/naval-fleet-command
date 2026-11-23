@@ -213,3 +213,56 @@ func test_the_key_list_names_the_classic_keys_it_now_has() -> void:
 	main.set_classic_keys(false, false)
 	assert_true(" | ".join(KeyCommands.all_rows()).contains("Time scale 1x"), "the default layout lists the time scales again")
 	_close(main)
+
+
+# --- The player's own salvo shot down is one report -------------------------------------------
+
+const RANGE_SCENARIO := {"id": "test_salvo_report", "name": "Salvo Report", "player_faction": "BLUE", "environment": {"sea_state": 3}, "map": {"center_nm": [0, 0], "extent_nm": 120},
+	"objectives": {"text": "Range", "victory": [{"id": "hold", "type": "time_elapsed", "seconds": 60000}], "loss": []}, "units": [
+	{"platform": "usn_ddg_burke_iii", "callsign": "USS Shooter", "faction": "BLUE", "position_nm": [0, 0], "speed_kn": 0},
+	{"platform": "rfn_cg_slava", "callsign": "Defended Cruiser", "faction": "RED", "position_nm": [0, 30], "speed_kn": 0}]}
+
+
+func _range(main_seed: int) -> Main:
+	var path := "user://test-salvo-report-%d.json" % Time.get_ticks_usec()
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(RANGE_SCENARIO))
+	file.close()
+	var main := _open(path, null, main_seed)
+	DirAccess.remove_absolute(path)
+	return main
+
+
+func test_a_salvo_shot_down_over_minutes_is_one_radio_line() -> void:
+	var main := _range(3)
+	var sim := main.simulation
+	var own: Unit = sim.unit_manager.get_engageable_units("BLUE")[0]
+	var enemy: Unit = sim.unit_manager.get_engageable_units("RED")[0]
+	enemy.radar_on = true
+	sim.track_manager.observe("BLUE", enemy, enemy.position, 1, 1, SimClock.sim_time, 1, 10)
+	var track := sim.track_manager.find_track("BLUE", enemy)
+	track.identity = "HOSTILE"
+	track.domain = "surface"
+	main.map.select_units([own])
+	main.map.select_track(track)
+	var lost: Array[float] = []
+	sim.weapon_manager.weapon_resolved.connect(func(w: Weapon) -> void:
+		if w.faction == "BLUE" and w.spec.id == "tomahawk_block_v" and Main.ROUND_LOSS_WORDS.has(w.dead_reason):
+			lost.append(SimClock.sim_time))
+	var from := main.radio.journal.size()
+	main._apply_order_to_selection(Order.engage(track, "tomahawk_block_v", 8))
+	var paused_once := false
+	for step in 120:
+		SimClock.advance(5.0)
+		if not lost.is_empty() and not paused_once:
+			# The commander stops the clock with the salvo still on its way: nothing is said early.
+			paused_once = true
+			SimClock.set_paused(true)
+			main._process(0.016)
+	var lines := main.radio.journal.slice(from).filter(func(l: String) -> bool: return l.contains("Tomahawk at track") and not l.contains("away"))
+	assert_true(lost.size() >= 4, "the cruiser defeats most of the salvo: %d" % lost.size())
+	assert_true(lost.max() - lost.min() > 30.0, "over a long interval (%.0f s), not in one instant" % (lost.max() - lost.min()))
+	assert_eq(lines.size(), 1, "the salvo is one line on the radio: %s" % str(lines))
+	if lines.size() == 1:
+		assert_true(str(lines[0]).contains("%d × Tomahawk at track" % lost.size()), "naming every round lost: %s" % lines[0])
+	_close(main)

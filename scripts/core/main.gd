@@ -82,11 +82,13 @@ var _last_report: Array = []
 ## real time, and the salvos and hits that follow inside this interval of each other do not.
 const ENGAGEMENT_QUIET_S := 300.0
 var _engagements: Dictionary = {}  # engagement key -> simulation time of its last launch or hit
-## Rounds end one at a time and are reported a salvo at a time: an entry waits until nothing has
-## been added to it for the quiet interval, or it has waited the longest a report may.
+## Rounds end one at a time and are reported a salvo at a time: an entry waits until no round of
+## that weapon from its shooters is still queued or flying at that contact and nothing has been
+## added for the quiet interval, or it has waited the longest a report may. A salvo leaves the
+## launcher seconds apart and is shot down over minutes, so the longest wait is long.
 const ROUND_REPORT_QUIET_S := 3.0
-const ROUND_REPORT_MAX_S := 12.0
-var _round_reports: Dictionary = {}  # "weapon|target" -> {name, at, outcomes {words -> rounds}, first, last}
+const ROUND_REPORT_MAX_S := 300.0
+var _round_reports: Dictionary = {}  # "weapon|target" -> {name, at, outcomes {words -> rounds}, first, last, sources [[shooter, spec, track]]}
 var _cancelled_rounds: Dictionary = {}  # "shooter|weapon|reason" -> {shooter, spec, reason, count, last}
 ## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
 ## a consort off the link). Each is announced once, when it reaches the picture.
@@ -430,7 +432,7 @@ func _process(delta: float) -> void:
 	_announce_unannounced_threats()
 	_call_private_contacts()
 	if SimClock.paused:
-		_flush_round_reports(true)
+		_flush_round_reports(false, true)
 	var threats := _commander_inbound()
 	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager)
 	_command_guide.visible = _command_taken and _command_guide.enabled and not _has_visible_modal() and not status_boards.visible and not _views_swapped and not _world_full
@@ -2645,11 +2647,25 @@ func _on_own_round_resolved(w: Weapon) -> void:
 	var key := "%s|%s" % [w.spec.id, at]
 	var now := SimClock.sim_time
 	if not _round_reports.has(key):
-		_round_reports[key] = {"name": w.spec.compact_name(), "at": at, "outcomes": {}, "first": now, "last": now}
+		_round_reports[key] = {"name": w.spec.compact_name(), "at": at, "outcomes": {}, "first": now, "last": now, "sources": []}
 	var entry: Dictionary = _round_reports[key]
 	var words: String = ROUND_LOSS_WORDS[w.dead_reason]
 	entry["outcomes"][words] = int(entry["outcomes"].get(words, 0)) + 1
 	entry["last"] = now
+	if w.shooter != null and w.target_track != null:
+		for spec: WeaponSpec in [w.spec, w.delivery_spec]:
+			var source := [w.shooter, spec, w.target_track]
+			if spec != null and not (entry["sources"] as Array).has(source):
+				(entry["sources"] as Array).append(source)
+
+
+## A round report's salvo is still open while any of its shooters has a round of that weapon
+## queued or flying at that contact.
+func _round_salvo_open(entry: Dictionary) -> bool:
+	for source: Array in entry.get("sources", []):
+		if simulation.weapon_manager.committed_rounds(source[0], source[1], source[2]) > 0:
+			return true
+	return false
 
 
 ## One line for a salvo's rounds at one contact: "3 × Harpoon at track 1002 shot down", or with
@@ -2667,15 +2683,16 @@ static func round_report_line(entry: Dictionary) -> String:
 	return "%s %s" % [what, outcomes.keys()[0]] if outcomes.size() == 1 else "%s: %s" % [what, ", ".join(parts)]
 
 
-## Says the round reports that have gathered all they will. `all` says every one now: the clock
-## has stopped, or the mission is over.
-func _flush_round_reports(all := false) -> void:
+## Says the round reports that have gathered all they will. `all` says every one now: the mission
+## is over or another begins. `stopped` says the clock has stopped, so a finished salvo need not
+## wait out the quiet interval; one with rounds still on the way waits for them.
+func _flush_round_reports(all := false, stopped := false) -> void:
 	if _round_reports.is_empty() and _cancelled_rounds.is_empty():
 		return
 	var now := SimClock.sim_time
 	for key: String in _cancelled_rounds.keys():
 		var c: Dictionary = _cancelled_rounds[key]
-		if not all and now - float(c["last"]) < 1.0:
+		if not (all or stopped) and now - float(c["last"]) < 1.0:
 			continue
 		_cancelled_rounds.erase(key)
 		var n := int(c["count"])
@@ -2685,7 +2702,7 @@ func _flush_round_reports(all := false) -> void:
 		radio.flash("Cannot fire %s: %s" % [(c["spec"] as WeaponSpec).display_name, reason], "warn", c["shooter"])
 	for key: String in _round_reports.keys():
 		var entry: Dictionary = _round_reports[key]
-		if not all and now - float(entry["last"]) < ROUND_REPORT_QUIET_S and now - float(entry["first"]) < ROUND_REPORT_MAX_S:
+		if not all and now - float(entry["first"]) < ROUND_REPORT_MAX_S and (_round_salvo_open(entry) or (not stopped and now - float(entry["last"]) < ROUND_REPORT_QUIET_S)):
 			continue
 		_round_reports.erase(key)
 		radio.flash(round_report_line(entry), "warn")
