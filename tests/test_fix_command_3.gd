@@ -635,3 +635,49 @@ func test_weapon_control_gives_a_torpedos_minimum_range_beyond_its_enable_run() 
 	assert_true(found > 0, "the force carries a torpedo with an enable run beyond its listed minimum")
 	main._toggle_weapon_control()
 	_close(main)
+
+
+# --- The time-rate rule -------------------------------------------------------------------------
+
+func test_a_new_esm_line_alone_does_not_drop_the_clock_to_real_time() -> void:
+	var main := _open("northern_passage.json")
+	var t := _held_contact_any(main)
+	assert_true(t != null, "the plot holds a contact")
+	if t == null:
+		_close(main)
+		return
+	SimClock.set_paused(false)
+	SimClock.set_speed_index(5)
+	t.source = "esm"
+	t.identity = "UNKNOWN"
+	main._contacts_called.erase(main._contact_key(t))
+	var from := main.radio.journal.size()
+	main._call_new_contact(t)
+	assert_eq(SimClock.speed_index, 5, "a new ESM line on its own leaves 60x running")
+	assert_true(_said(main, "New contact", from), "but it is still called")
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = "Trawler"
+	main._call_classification(t)
+	assert_eq(SimClock.speed_index, 5, "and so does classifying it, while it is not held hostile")
+	# The same contact held hostile, or a radar contact, gives up the compression.
+	t.identity = "HOSTILE"
+	t.known_class = "Frigate"
+	main._call_classification(t)
+	assert_eq(SimClock.speed_index, 0, "a contact held hostile drops to real time")
+	SimClock.set_speed_index(5)
+	t.source = "radar"
+	t.identity = "UNKNOWN"
+	main._contacts_called.erase(main._contact_key(t))
+	main._call_new_contact(t)
+	assert_eq(SimClock.speed_index, 0, "a new radar contact still drops to real time")
+	SimClock.set_paused(true)
+	_close(main)
+
+
+func _held_contact_any(main: Main) -> Track:
+	for step in 40:
+		var tracks: Array = main.map._visible_tracks()
+		if not tracks.is_empty():
+			return tracks[0]
+		SimClock.advance(5.0)
+	return null

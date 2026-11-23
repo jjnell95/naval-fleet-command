@@ -3516,13 +3516,22 @@ func _call_new_contact(t: Track) -> void:
 	if _contacts_called.has(_contact_key(t)):
 		return
 	_contacts_called[_contact_key(t)] = ""
-	SimClock.drop_to_realtime()
+	if _contact_stops_clock(t):
+		SimClock.drop_to_realtime()
 	_stats["contacts"] += 1
 	_report_contact(t, "New contact, track %s (%s)" % [DataDisplay.track_number_for_track(t), DataDisplay.source_text(t.source)], "warn")
 	SoundFx.play("contact", 0.5)
 	voice.say("new_contact", null, {"track": t})
 	contact_panel.refresh()
 	Debug.event("[Contact] %s gained on %s at %.1f nm from the nearest of ours" % [t.id, t.source, _nearest_own_distance(t.position)])
+
+
+## Time compression is given up for what may need an order now: a weapon inbound, a hit, a new
+## contact by radar, sonar or sight, or anything held hostile. A line of electronic support alone,
+## a radar heard far off and not held hostile, is called and plotted but leaves the clock running;
+## a busy sea is full of them.
+static func _contact_stops_clock(t: Track) -> bool:
+	return t.identity == "HOSTILE" or t.source != "esm"
 
 
 ## What a classification call says about a track, so the same news from a second picture is not
@@ -3541,7 +3550,8 @@ func _call_classification(t: Track) -> void:
 		return
 	_contacts_called[_contact_key(t)] = call
 	if t.classification == Track.Classification.CLASS_KNOWN:
-		SimClock.drop_to_realtime()
+		if _contact_stops_clock(t):
+			SimClock.drop_to_realtime()
 		if t.identity == "HOSTILE":
 			_stats["classified"] += 1
 		_report_contact(t, "Track %s classified %s, %s" % [DataDisplay.track_number_for_track(t), t.known_class, t.identity.to_lower()], "alert" if t.identity == "HOSTILE" else "info")
