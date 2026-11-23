@@ -10,12 +10,18 @@ signal aircraft_selected(aircraft: Unit)
 ## Hand the chart to the commander to pick a station or search area (false) or a strike target.
 signal chart_pick_requested(contact: bool)
 
-const DIALOG_SIZE := Vector2(880.0, 690.0)
+## The widest the dialog stands, and the least room it leaves at the window's edges.
+const DIALOG_WIDTH := 1240.0
+const EDGE_MARGIN := 16.0
+## Each list shows at least this many entries before the dialog asks the page to scroll.
+const MIN_LIST_ROWS := 6
+const DECK_ROW_GAP := 3
 const DECK_COLUMNS := ["AIRFRAME", "SELECTED", "TIME", "STATE", "FUEL"]
 ## Mission planner choices, in AirMission.Kind order.
 const MISSION_CHOICES := ["Combat air patrol", "Reconnaissance / identification", "ASW search", "Strike"]
 ## How long the hint keeps showing an accepted launch before it goes back to the deck state.
 const ACCEPTED_HINT_S := 120.0
+const RECEIPT_PROMPT := "Choose a quantity, then Launch or Assign mission. Closing this window sends no orders."
 
 var simulation: Simulation
 var _base_picker: OptionButton
@@ -76,6 +82,19 @@ var _anchor_picker: OptionButton
 var _anchors: Array[Unit] = []
 var _pursuit: SpinBox
 var _airborne_page: VBoxContainer
+## What the commander last ticked for relief and return to station: a mission that cannot use an
+## option shows it clear and greyed, and one that can shows the choice again.
+var _relief_choice := false
+var _auto_return_choice := true
+var _dialog: PanelContainer
+var _frame: VBoxContainer
+var _header: HBoxContainer
+var _body: ScrollContainer
+var _page: VBoxContainer
+var _deck_frame: ScrollContainer
+var _upper: BoxContainer
+var _footer: HBoxContainer
+var _fit_queued := false
 
 
 func _ready() -> void:
@@ -88,39 +107,51 @@ func _ready() -> void:
 	var center := CenterContainer.new()
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
-	var dialog := PanelContainer.new()
-	dialog.theme_type_variation = "JfcDialog"
-	dialog.custom_minimum_size = DIALOG_SIZE
-	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
-	center.add_child(dialog)
-	var frame := VBoxContainer.new()
-	dialog.add_child(frame)
-	var body_scroll := ScrollContainer.new()
-	body_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body_scroll.follow_focus = true
-	body_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	frame.add_child(body_scroll)
-	var page := VBoxContainer.new()
-	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	page.add_theme_constant_override("separation", 6)
-	body_scroll.add_child(page)
-
-	var header := HBoxContainer.new()
-	page.add_child(header)
-	var title := _label("AIR OPERATIONS", 14)
-	title.add_theme_font_override("font", UITheme.data_font())
-	title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	header.add_child(title)
+	_dialog = PanelContainer.new()
+	_dialog.theme_type_variation = "JfcDialog"
+	_dialog.mouse_filter = Control.MOUSE_FILTER_STOP
+	center.add_child(_dialog)
+	_frame = VBoxContainer.new()
+	_frame.add_theme_constant_override("separation", 6)
+	_dialog.add_child(_frame)
+	_header = UITheme.dialog_header("Air operations", func() -> void: closed.emit(), "F3 / Esc")
+	_frame.add_child(_header)
+	var title := _header.get_node("Title") as Label
+	# The title keeps its width; the readiness line beside it gives way first.
+	title.clip_text = false
+	title.size_flags_horizontal = Control.SIZE_FILL
+	_back = _header.get_node("Close") as Button
 	_summary = _label("", 11, UITheme.INK_DIM)
 	_summary.clip_text = true
 	_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_summary.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(_summary)
+	_header.add_child(_summary)
+	_header.move_child(_summary, 1)
+	# Only a window too small for even the shortest lists scrolls the page; otherwise the dialog
+	# stands as tall as what it shows.
+	_body = ScrollContainer.new()
+	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.follow_focus = true
+	_body.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_frame.add_child(_body)
+	_page = VBoxContainer.new()
+	_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_page.add_theme_constant_override("separation", 6)
+	_body.add_child(_page)
+	var page := _page
 
+	var identity := HBoxContainer.new()
+	identity.add_theme_constant_override("separation", 10)
+	page.add_child(identity)
+	var choice := VBoxContainer.new()
+	choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	choice.add_theme_constant_override("separation", 4)
+	identity.add_child(choice)
 	var pickers := HBoxContainer.new()
 	pickers.add_theme_constant_override("separation", 10)
-	page.add_child(pickers)
+	choice.add_child(pickers)
 	_base_picker = OptionButton.new()
 	_base_picker.custom_minimum_size = Vector2(340, 28)
 	_base_picker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -147,25 +178,34 @@ func _ready() -> void:
 			_refresh_launch()
 			_count.value = mini(1, int(_count.max_value)))
 	pickers.add_child(_type_picker)
-	var gap := Control.new()
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pickers.add_child(gap)
-	_portrait = TextureRect.new()
-	_portrait.custom_minimum_size = Vector2(120, 52)
-	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	pickers.add_child(_portrait)
 	_type_detail = _label("", 12, UITheme.INK_DIM)
 	_type_detail.clip_text = true
-	page.add_child(_type_detail)
+	choice.add_child(_type_detail)
+	_portrait = TextureRect.new()
+	_portrait.custom_minimum_size = Vector2(140, 60)
+	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	identity.add_child(_portrait)
 
+	# The plan on the left and the deck beside it; on a window too narrow for both, one above the other.
+	_upper = BoxContainer.new()
+	_upper.add_theme_constant_override("separation", 14)
+	page.add_child(_upper)
+	var upper := _upper
+	var plan := VBoxContainer.new()
+	plan.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	plan.size_flags_stretch_ratio = 1.5
+	plan.add_theme_constant_override("separation", 6)
+	upper.add_child(plan)
 	_plan_tabs = TabContainer.new()
 	_plan_tabs.use_hidden_tabs_for_min_size = false
-	page.add_child(_plan_tabs)
+	plan.add_child(_plan_tabs)
 	var launch_page := VBoxContainer.new()
 	launch_page.name = "LAUNCH"
 	_plan_tabs.add_child(launch_page)
-	launch_page.add_child(_label("Choose a quantity below. Ready aircraft launch in deck order; assign orders after takeoff.", 13, UITheme.INK_DIM))
+	var launch_help := _label("Choose a quantity below. Ready aircraft launch in deck order; assign orders after takeoff.", 13, UITheme.INK_DIM)
+	launch_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	launch_page.add_child(launch_help)
 	var mission_page := VBoxContainer.new()
 	mission_page.name = "MISSION PLAN"
 	_plan_tabs.add_child(mission_page)
@@ -181,15 +221,14 @@ func _ready() -> void:
 	_mission_picker.clip_text = true
 	_mission_picker.accessibility_name = "Air mission"
 	_mission_picker.tooltip_text = "Launch to a mission: the deck keeps the airframes tasked, queues what it cannot launch yet, and brings them home on fuel."
-	for choice: String in MISSION_CHOICES:
-		_mission_picker.add_item(choice)
+	for mission_choice: String in MISSION_CHOICES:
+		_mission_picker.add_item(mission_choice)
 	_mission_picker.item_selected.connect(func(i: int) -> void: set_mission_kind(i))
 	mission_row.add_child(_mission_picker)
 	_station_button = _button("PICK ON CHART", func() -> void: chart_pick_requested.emit(_mission_kind == AirMission.Kind.STRIKE))
 	_station_button.tooltip_text = "Close this dialog and click the station or search area on the chart; a strike picks a held contact"
 	mission_row.add_child(_station_button)
-	var mission_options := HBoxContainer.new()
-	mission_page.add_child(mission_options)
+	var mission_options := mission_row
 	mission_options.add_child(_label("RADIUS", 12))
 	_radius = SpinBox.new()
 	_radius.min_value = AirMissionManager.MIN_RADIUS_NM
@@ -200,40 +239,57 @@ func _ready() -> void:
 	_radius.accessibility_name = "Station or search radius"
 	_radius.value_changed.connect(func(_v: float) -> void: _refresh_launch())
 	mission_options.add_child(_radius)
+	# The standing options and, for a CAP, what it guards and how far it chases, on one line.
+	var standing := HBoxContainer.new()
+	standing.add_theme_constant_override("separation", 8)
+	mission_page.add_child(standing)
 	_relief = CheckBox.new()
 	_relief.text = "Relief"
 	_relief.tooltip_text = "Launch a ready reserve airframe in time to take over as each one on station turns for home"
-	_relief.toggled.connect(func(_on: bool) -> void: _refresh_launch())
-	mission_options.add_child(_relief)
+	_relief.toggled.connect(func(on: bool) -> void:
+		_relief_choice = on
+		_refresh_launch())
+	standing.add_child(_relief)
 	_auto_return = CheckBox.new()
 	_auto_return.text = "Back to station"
 	_auto_return.button_pressed = true
 	_auto_return.tooltip_text = "After identifying or intercepting a contact, return to the station without being told"
-	mission_options.add_child(_auto_return)
+	_auto_return.toggled.connect(func(on: bool) -> void: _auto_return_choice = on)
+	standing.add_child(_auto_return)
 	_cap_options = HBoxContainer.new()
-	mission_page.add_child(_cap_options)
+	_cap_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cap_options.add_theme_constant_override("separation", 8)
+	standing.add_child(_cap_options)
 	_cap_intent = OptionButton.new()
 	_cap_intent.add_item("Hold area")
 	_cap_intent.add_item("Protect group")
 	_cap_intent.accessibility_name = "CAP purpose"
+	_cap_intent.fit_to_longest_item = false
+	_cap_intent.clip_text = true
+	_cap_intent.custom_minimum_size.x = 136
 	_cap_intent.item_selected.connect(func(_i: int) -> void:
 		_anchor_picker.disabled = _cap_intent.selected == 0 or _anchors.is_empty()
 		_refresh_launch())
 	_cap_options.add_child(_cap_intent)
 	_anchor_picker = OptionButton.new()
-	_anchor_picker.custom_minimum_size.x = 210
+	_anchor_picker.custom_minimum_size.x = 120
+	_anchor_picker.fit_to_longest_item = false
+	_anchor_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_anchor_picker.clip_text = true
 	_anchor_picker.accessibility_name = "Group protected by CAP"
 	_anchor_picker.tooltip_text = "The CAP station follows this platform; interceptors prioritize closing threats."
 	_anchor_picker.item_selected.connect(func(_i: int) -> void: _refresh_launch())
 	_cap_options.add_child(_anchor_picker)
-	_cap_options.add_child(_label("PURSUIT BEYOND AREA", 12))
+	var pursuit_label := _label("PURSUIT", 12)
+	pursuit_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	pursuit_label.tooltip_text = "How far beyond the station an interceptor may chase its contact"
+	_cap_options.add_child(pursuit_label)
 	_pursuit = SpinBox.new()
 	_pursuit.min_value = 0
 	_pursuit.max_value = AirMissionManager.MAX_RADIUS_NM
 	_pursuit.value = AirMissionManager.COMMIT_MARGIN_NM
 	_pursuit.suffix = "nm"
-	_pursuit.custom_minimum_size.x = 90
+	_pursuit.custom_minimum_size.x = 84
 	_pursuit.accessibility_name = "CAP pursuit distance beyond station"
 	_pursuit.tooltip_text = "Mission interceptors return when their contact leaves this boundary."
 	_cap_options.add_child(_pursuit)
@@ -241,23 +297,9 @@ func _ready() -> void:
 	_station_label.clip_text = true
 	mission_page.add_child(_station_label)
 
-	# The deck: one row per airframe of the chosen type aboard the host, in the order the deck
-	# will send them, with a read-only selection indicator.
-	var deck_frame := ScrollContainer.new()
-	deck_frame.custom_minimum_size.y = 65
-	deck_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	deck_frame.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	page.add_child(deck_frame)
-	_deck = GridContainer.new()
-	_deck.columns = DECK_COLUMNS.size()
-	_deck.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_deck.add_theme_constant_override("h_separation", 30)
-	_deck.add_theme_constant_override("v_separation", 3)
-	deck_frame.add_child(_deck)
-
 	var launch_row := HBoxContainer.new()
 	launch_row.add_theme_constant_override("separation", 10)
-	page.add_child(launch_row)
+	plan.add_child(launch_row)
 	launch_row.add_child(_label("AIRCRAFT", 12))
 	_count = SpinBox.new()
 	_count.min_value = 0
@@ -276,11 +318,27 @@ func _ready() -> void:
 	launch_row.add_child(_cancel_edit)
 	_launch_hint = _label("", 12, UITheme.INK_DIM)
 	_launch_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_launch_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	launch_row.add_child(_launch_hint)
+	_launch_hint.max_lines_visible = 2
+	_launch_hint.custom_minimum_size.y = 34
+	plan.add_child(_launch_hint)
+
+	# The deck: one row per airframe of the chosen type aboard the host, in the order the deck
+	# will send them, with a read-only selection indicator.
+	_deck_frame = ScrollContainer.new()
+	_deck_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_deck_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_deck_frame.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	upper.add_child(_deck_frame)
+	_deck = GridContainer.new()
+	_deck.columns = DECK_COLUMNS.size()
+	_deck.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_deck.add_theme_constant_override("h_separation", 16)
+	_deck.add_theme_constant_override("v_separation", DECK_ROW_GAP)
+	_deck_frame.add_child(_deck)
 
 	_lower_tabs = TabContainer.new()
 	_lower_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_lower_tabs.tab_changed.connect(func(_i: int) -> void: _queue_fit())
 	page.add_child(_lower_tabs)
 	var airborne_page := VBoxContainer.new()
 	_airborne_page = airborne_page
@@ -301,7 +359,6 @@ func _ready() -> void:
 	_roster.column_titles_visible = true
 	_roster.select_mode = Tree.SELECT_ROW
 	_roster.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_roster.custom_minimum_size.y = 100
 	_roster.accessibility_name = "Friendly aircraft status roster"
 	_roster.tooltip_text = "Double-click an airframe or press Enter to show it on the chart."
 	_roster.item_activated.connect(_show_aircraft_on_chart)
@@ -321,8 +378,9 @@ func _ready() -> void:
 		_refresh_recovery())
 	airborne_page.add_child(_roster)
 	_aircraft_detail = _label("Select an airframe to see fuel, ordnance and landing options.", 12, UITheme.INK_DIM)
-	_aircraft_detail.custom_minimum_size.y = 26
+	_aircraft_detail.custom_minimum_size.y = 34
 	_aircraft_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_aircraft_detail.max_lines_visible = 2
 	airborne_page.add_child(_aircraft_detail)
 	var recovery_row := HBoxContainer.new()
 	recovery_row.add_theme_constant_override("separation", 10)
@@ -352,7 +410,6 @@ func _ready() -> void:
 	_missions.column_titles_visible = true
 	_missions.select_mode = Tree.SELECT_ROW
 	_missions.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_missions.custom_minimum_size.y = 100
 	_missions.accessibility_name = "Air missions and the state of each airframe"
 	var mission_columns := ["MISSION / AIRFRAME", "STATE", "FUEL", "DECK"]
 	for i in mission_columns.size():
@@ -368,32 +425,142 @@ func _ready() -> void:
 		_selected_mission = meta as AirMission if meta is AirMission else null
 		_refresh_mission_detail())
 	missions_page.add_child(_missions)
+	# The selected mission's account, with its own commands beside it rather than under it.
+	var mission_foot := HBoxContainer.new()
+	mission_foot.add_theme_constant_override("separation", 10)
+	missions_page.add_child(mission_foot)
 	_mission_detail = _label("Assign a mission above; its airframes and what each is doing appear here.", 12, UITheme.INK_DIM)
-	_mission_detail.custom_minimum_size.y = 26
+	_mission_detail.custom_minimum_size.y = 34
+	_mission_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mission_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	missions_page.add_child(_mission_detail)
-	var mission_buttons := HBoxContainer.new()
-	mission_buttons.add_theme_constant_override("separation", 10)
-	missions_page.add_child(mission_buttons)
+	_mission_detail.max_lines_visible = 2
+	mission_foot.add_child(_mission_detail)
 	_edit_mission = _button("EDIT MISSION", _edit_selected_mission)
+	_edit_mission.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_edit_mission.tooltip_text = "Move or resize the station, change strength and relief; keep the assigned aircraft."
-	mission_buttons.add_child(_edit_mission)
+	mission_foot.add_child(_edit_mission)
 	_cancel_mission = _button("CANCEL MISSION", _cancel_selected_mission)
+	_cancel_mission.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_cancel_mission.tooltip_text = "Strike off queued launches and bring the mission's airborne aircraft home"
-	mission_buttons.add_child(_cancel_mission)
-	_receipt = _label("Choose a quantity, then Launch or Assign mission. Closing this window sends no orders.", 12, UITheme.INK)
-	_receipt.custom_minimum_size.y = 26
-	_receipt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	page.add_child(_receipt)
+	mission_foot.add_child(_cancel_mission)
 
-	var footer := HBoxContainer.new()
-	frame.add_child(footer)
-	_clock_hint = _label("Paused while Air Operations is open.", 13, UITheme.INK_DIM)
-	_clock_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(_clock_hint)
-	_back = _button("CLOSE", func() -> void: closed.emit())
-	_back.tooltip_text = "Close without sending orders; preserve the previous clock state  [F3 / Esc]"
-	footer.add_child(_back)
+	# The footer never scrolls: what became of the last order stays in sight beside the clock.
+	_footer = HBoxContainer.new()
+	_footer.add_theme_constant_override("separation", 14)
+	_frame.add_child(_footer)
+	_receipt = _label(RECEIPT_PROMPT, 12, UITheme.INK)
+	_receipt.custom_minimum_size.y = 20
+	_receipt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_receipt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_receipt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_receipt.max_lines_visible = 2
+	_footer.add_child(_receipt)
+	_clock_hint = _label("Paused while Air Operations is open.", 12, UITheme.INK_DIM)
+	_clock_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_clock_hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_footer.add_child(_clock_hint)
+	resized.connect(_queue_fit)
+	# Wrapped text only knows its height once laid out, so measure again whenever the page does.
+	_page.minimum_size_changed.connect(_queue_fit)
+	visibility_changed.connect(_queue_fit)
+	_queue_fit()
+
+
+## Stands the dialog as tall as what it shows. Each list wants a row per entry; both keep at
+## least MIN_LIST_ROWS rows, and what room is left goes to whichever still has rows hidden. Only
+## when the window cannot hold even that does the page itself scroll.
+func _queue_fit() -> void:
+	if _fit_queued or not is_inside_tree():
+		return
+	_fit_queued = true
+	_fit.call_deferred()
+
+
+func _fit() -> void:
+	_fit_queued = false
+	if _dialog == null or size.y <= 0.0:
+		return
+	var dialog_width := minf(DIALOG_WIDTH, maxf(size.x - 2.0 * EDGE_MARGIN, 0.0))
+	_dialog.custom_minimum_size.x = dialog_width
+	var plan := _upper.get_child(0) as Control
+	var gap := float(_upper.get_theme_constant("separation"))
+	var inner_width := dialog_width - _dialog.get_theme_stylebox("panel").get_minimum_size().x
+	var stacked := plan.get_combined_minimum_size().x + gap + _deck_frame.get_combined_minimum_size().x > inner_width
+	if _upper.vertical != stacked:
+		_upper.vertical = stacked
+	var frame_gap := float(_frame.get_theme_constant("separation"))
+	var chrome := _dialog.get_theme_stylebox("panel").get_minimum_size().y + _header.get_combined_minimum_size().y + _footer.get_combined_minimum_size().y + 2.0 * frame_gap
+	var room := size.y - 2.0 * EDGE_MARGIN - chrome
+	# Deck rows: a heading and an entry per airframe (or the one line saying there are none).
+	var deck_row := _deck_row_height()
+	var deck_want := deck_row * float(maxi(_deck_rows.size(), 1) + 1)
+	var deck_floor := minf(deck_want, deck_row * float(MIN_LIST_ROWS + 1))
+	var tree := _current_tree()
+	var tree_want := 0.0
+	var tree_floor := 0.0
+	if tree != null:
+		var tree_row := _tree_row_height(tree)
+		var frame := tree.get_theme_stylebox("panel").get_minimum_size().y
+		tree_want = frame + tree_row * float(maxi(_tree_rows(tree), 1) + 1)
+		tree_floor = minf(tree_want, frame + tree_row * float(MIN_LIST_ROWS + 1))
+	# Everything on the page that is not one of the two lists.
+	var plan_height := plan.get_combined_minimum_size().y
+	var lower_now := _lower_tabs.get_combined_minimum_size().y if _lower_tabs.visible else 0.0
+	var lower_chrome := lower_now - (tree.get_combined_minimum_size().y if tree != null else 0.0)
+	var fixed := _page.get_combined_minimum_size().y - _upper.get_combined_minimum_size().y - lower_now
+	var deck_height := deck_floor
+	var tree_height := tree_floor
+	# Beside the plan, deck rows up to the plan's height cost nothing.
+	if not stacked:
+		deck_height = clampf(plan_height, deck_floor, deck_want)
+	var spare := room - fixed - _upper_height(stacked, plan_height, deck_height, gap) - (lower_chrome + tree_height if tree != null else 0.0)
+	var deck_more := maxf(deck_want - deck_height, 0.0)
+	var tree_more := maxf(tree_want - tree_height, 0.0)
+	if spare > 0.0 and deck_more + tree_more > 0.0:
+		var share := minf(spare / (deck_more + tree_more), 1.0)
+		deck_height += deck_more * share
+		tree_height += tree_more * share
+	deck_height = floorf(deck_height)
+	tree_height = floorf(tree_height)
+	_deck_frame.custom_minimum_size.y = deck_height
+	for t: Tree in [_roster, _missions]:
+		t.custom_minimum_size.y = tree_height if t == tree else 0.0
+	var page_height := fixed + _upper_height(stacked, plan_height, deck_height, gap) + (lower_chrome + tree_height if tree != null else 0.0)
+	_body.custom_minimum_size.y = minf(page_height, maxf(room, 0.0))
+
+
+static func _upper_height(stacked: bool, plan_height: float, deck_height: float, gap: float) -> float:
+	return plan_height + gap + deck_height if stacked else maxf(plan_height, deck_height)
+
+
+func _deck_row_height() -> float:
+	var font := get_theme_font("font", "Label")
+	return font.get_height(13) + float(DECK_ROW_GAP)
+
+
+func _current_tree() -> Tree:
+	if _lower_tabs == null or not _lower_tabs.visible:
+		return null
+	return _roster if _lower_tabs.current_tab == 0 else _missions
+
+
+## How many rows a tree shows when nothing is folded.
+func _tree_rows(tree: Tree) -> int:
+	var rows := 0
+	var item := tree.get_root().get_first_child() if tree.get_root() != null else null
+	while item != null:
+		rows += 1
+		item = item.get_next_in_tree()
+	return rows
+
+
+func _tree_row_height(tree: Tree) -> float:
+	var first := tree.get_root().get_first_child() if tree.get_root() != null else null
+	if first != null:
+		var area := tree.get_item_area_rect(first)
+		if area.size.y > 0.0:
+			return area.size.y + float(tree.get_theme_constant("v_separation"))
+	return tree.get_theme_font("font").get_height(tree.get_theme_font_size("font_size")) + float(tree.get_theme_constant("v_separation")) + 6.0
 
 
 func set_clock_context(was_paused: bool) -> void:
@@ -473,12 +640,6 @@ func open_strike(selection: Array, target: Track) -> void:
 		refresh()
 	set_mission_kind(AirMission.Kind.STRIKE)
 	_target = target
-	# Open on a type that can carry it out, if the deck has one.
-	if _base != null and not AirMissionManager.type_suits(DataDB.platform(_type_id), AirMission.Kind.STRIKE):
-		for group in inventory(_base):
-			if AirMissionManager.type_suits(DataDB.platform(group["id"]), AirMission.Kind.STRIKE):
-				_type_id = group["id"]
-				break
 	_refresh_types()
 
 
@@ -496,6 +657,12 @@ func set_mission_kind(kind: int) -> void:
 	_mission_kind = kind
 	if _mission_picker == null:
 		return
+	# A mission the chosen type cannot fly opens on the deck's type that can, with most ready.
+	if kind >= 0 and _editing_mission == null and _type_id != "" and not AirMissionManager.type_suits(DataDB.platform(_type_id), kind):
+		var suited := suited_type(_base, kind)
+		if suited != "":
+			_type_id = suited
+			_count.set_value_no_signal(1)
 	_plan_tabs.set_block_signals(true)
 	_plan_tabs.set_current_tab(0 if kind < 0 else 1)
 	_plan_tabs.set_block_signals(false)
@@ -504,16 +671,32 @@ func set_mission_kind(kind: int) -> void:
 	_cap_options.visible = kind == AirMission.Kind.CAP
 	_station_button.disabled = kind < 0
 	_radius.editable = kind >= 0 and kind != AirMission.Kind.STRIKE
-	_relief.disabled = kind < 0 or kind == AirMission.Kind.STRIKE
-	_auto_return.disabled = kind < 0 or kind == AirMission.Kind.STRIKE
+	var standing := kind >= 0 and kind != AirMission.Kind.STRIKE
+	if kind < 0:
+		_relief_choice = false
+	_relief.disabled = not standing
+	_auto_return.disabled = not standing
+	_relief.set_pressed_no_signal(_relief_choice and standing)
+	_auto_return.set_pressed_no_signal(_auto_return_choice and standing)
 	_station_button.text = "PICK TARGET" if kind == AirMission.Kind.STRIKE else "PICK ON CHART"
 	if kind >= 0 and kind != AirMission.Kind.STRIKE:
 		_radius.set_value_no_signal(AirMissionManager.default_radius(kind))
-	if kind < 0:
-		_relief.set_pressed_no_signal(false)
-	elif int(_count.value) == 0:
+	if kind >= 0 and int(_count.value) == 0:
 		_count.set_value_no_signal(1)
 	_refresh_launch()
+	_queue_fit()
+
+
+## The type aboard `base` best suited to a mission of `kind`: the one with most airframes ready,
+## the first in the type list on a tie; "" when none can fly it.
+static func suited_type(base: Unit, kind: int) -> String:
+	var best := ""
+	var most := -1
+	for group in inventory(base):
+		if AirMissionManager.type_suits(DataDB.platform(group["id"]), kind) and int(group["ready"]) > most:
+			most = int(group["ready"])
+			best = group["id"]
+	return best
 
 
 func mission_kind() -> int:
@@ -545,8 +728,16 @@ func clear_selection() -> void:
 	_destinations.clear()
 	_deck_rows.clear()
 	_deck_key = ""
+	_station = Vector2.INF
+	_target = null
+	_accepted_text = ""
+	_accepted_key = ""
+	_accepted_at_s = -INF
 	if _roster != null:
 		_roster.clear()
+	if _receipt != null:
+		_receipt.text = RECEIPT_PROMPT
+		_receipt.remove_theme_color_override("font_color")
 
 
 func _process(delta: float) -> void:
@@ -592,6 +783,7 @@ func refresh() -> void:
 	_refresh_roster()
 	_refresh_recovery()
 	_refresh_missions()
+	_queue_fit()
 
 
 static func inventory(base: Unit) -> Array[Dictionary]:
@@ -693,7 +885,8 @@ func _refresh_launch() -> void:
 	_count.max_value = maximum
 	_count.editable = maximum > 0
 	var count := int(_count.value)
-	_launch.text = "LAUNCH %d × %s" % [count, spec.short_name]
+	# With nothing left to send (just after a launch, say) the button names the type, not "0 ×".
+	_launch.text = "LAUNCH %d × %s" % [count, spec.short_name] if count > 0 else "LAUNCH %s" % spec.short_name
 	_launch.disabled = maximum <= 0 or count <= 0
 	if reason != "" and _accepted_key == _launch_key() and SimClock.sim_time - _accepted_at_s <= ACCEPTED_HINT_S:
 		_launch_hint.text = _accepted_text
@@ -718,7 +911,7 @@ func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reas
 	_count.max_value = available
 	_count.editable = available > 0
 	var count := mini(int(_count.value), available)
-	_launch.text = "UPDATE %s %d" % [_editing_mission.kind_name(), _editing_mission.id] if _editing_mission != null else "ASSIGN %s · %d" % [AirMission.KIND_LABELS[_mission_kind].to_upper(), count]
+	_launch.text = "UPDATE %s %d" % [_editing_mission.kind_name(), _editing_mission.id] if _editing_mission != null else ("ASSIGN %s · %d" % [AirMission.KIND_LABELS[_mission_kind].to_upper(), count] if count > 0 else "ASSIGN %s" % AirMission.KIND_LABELS[_mission_kind].to_upper())
 	var why := amm.revision_rejection(_base, _planned_order()) if _editing_mission != null else amm.mission_rejection(_base, _mission_kind, _type_id, _station, _target)
 	if why == "":
 		why = amm._intent_rejection(_base, _planned_order())
@@ -732,10 +925,11 @@ func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reas
 			where = "TARGET: none — PICK TARGET, or open Air strike from a contact's menu"
 	elif _station.is_finite():
 		var on_station := AirMissionManager.station_time_s(spec, _base.position.distance_to(_station))
-		where = "STATION: %s  ·  %.0f nm %s from %s  ·  radius %.0f nm  ·  about %d min on station each" % [_position_text(_station), _base.position.distance_to(_station), Geo.format_bearing(Geo.bearing_deg(_base.position, _station)), _base.callsign, _radius.value, maxi(int(on_station / 60.0), 0)]
+		where = "STATION: %s  ·  %.0f nm %s  ·  radius %.0f nm  ·  about %d min on station each" % [_position_text(_station), _base.position.distance_to(_station), Geo.format_bearing(Geo.bearing_deg(_base.position, _station)), _radius.value, maxi(int(on_station / 60.0), 0)]
 	else:
 		where = "STATION: none — PICK ON CHART to place it"
 	_station_label.text = where
+	_station_label.tooltip_text = where
 	_launch.disabled = why != "" or count <= 0
 	if why != "":
 		_launch_hint.text = why
@@ -772,8 +966,11 @@ func _rebuild_deck(rows: Array[Unit]) -> void:
 			_deck.add_child(h)
 		for i in rows.size():
 			var a := rows[i]
-			var name_label := _label("%s  (%s)" % [a.callsign, a.spec.short_name], 13)
+			# Every row is the chosen type, so the callsign alone names it.
+			var name_label := _label(a.callsign, 13)
 			name_label.clip_text = true
+			name_label.mouse_filter = Control.MOUSE_FILTER_PASS
+			name_label.tooltip_text = "%s  (%s)" % [a.callsign, a.spec.display_name]
 			name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			_deck.add_child(name_label)
 			var selected_label := _label("—", 13)
@@ -787,6 +984,7 @@ func _rebuild_deck(rows: Array[Unit]) -> void:
 				_deck.add_child(cell)
 		if rows.is_empty():
 			_deck.add_child(_label("No airframes of this type aboard.", 12, UITheme.INK_DIM))
+		_queue_fit()
 	var selected := selected_rows(_deck_rows, int(_count.value))
 	for i in _deck_rows.size():
 		var a := _deck_rows[i]
@@ -817,13 +1015,18 @@ func _launch_selected() -> void:
 		return
 	if _mission_kind >= 0:
 		var order := _planned_order()
+		var missions_before := simulation.air_mission_manager.active_missions(simulation.player_faction).size()
 		order_requested.emit(_base, order)
 		if _editing_mission != null:
 			if order.execution_accepted:
 				_finish_edit()
 			return
-		# Clear quantity after submission to prevent an accidental duplicate assignment.
+		# Clear quantity after submission to prevent an accidental duplicate assignment, and the
+		# station or target with it, so the next mission is placed afresh rather than on this one's.
 		_count.set_value_no_signal(0)
+		if simulation.air_mission_manager.active_missions(simulation.player_faction).size() > missions_before:
+			_station = Vector2.INF
+			_target = null
 		_lower_tabs.current_tab = 1
 		refresh()
 		return
@@ -1026,6 +1229,8 @@ func _edit_selected_mission() -> void:
 	set_mission_kind(m.kind)
 	_station = m.station
 	_radius.set_value_no_signal(m.radius_nm)
+	_relief_choice = m.relief
+	_auto_return_choice = m.auto_return
 	_relief.set_pressed_no_signal(m.relief)
 	_auto_return.set_pressed_no_signal(m.auto_return)
 	_cap_intent.select(1 if m.cap_intent == "protect" else 0)
