@@ -29,6 +29,8 @@ func _ready() -> void:
 	add_child(margin)
 	var panel := PanelContainer.new()
 	panel.theme_type_variation = "JfcDialog"
+	# As tall as its rows, not the window: the chart stays in view above and below it.
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	margin.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
@@ -50,7 +52,7 @@ func _ready() -> void:
 	box.add_child(hint)
 	_list = ItemList.new()
 	_list.select_mode = ItemList.SELECT_MULTI
-	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_list.size_flags_vertical = Control.SIZE_FILL
 	_list.add_theme_font_override("font", UITheme.data_font())
 	_list.add_theme_constant_override("v_separation", 14)
 	_list.multi_selected.connect(func(_index: int, _on: bool) -> void: _choose())
@@ -150,9 +152,17 @@ func refresh(order_result := "") -> void:
 		_list.set_item_tooltip(_list.item_count - 1, "Worst station error, usable interceptor ammunition and expendable countermeasure packs. Aircraft aboard are managed separately in Air Operations.")
 	_summary.text = "%d task groups / independent units   |   %d ships and boats   |   %d airborne aircraft" % [_groups.size(), hulls, flying]
 	_sync_group_selection()
+	_fit_list()
 	if order_result != "":
 		_receipt.text = order_result
 		_receipt.tooltip_text = order_result
+
+
+## The group list stands as tall as its groups, up to half the window; more than that scroll.
+func _fit_list() -> void:
+	var row := _list.get_theme_font("font").get_height(_list.get_theme_font_size("font_size")) + _list.get_theme_constant("v_separation")
+	var frame := _list.get_theme_stylebox("panel").get_minimum_size().y
+	_list.custom_minimum_size.y = minf(maxi(1, _list.item_count) * row + frame, get_viewport_rect().size.y * 0.45)
 
 
 func _sync_group_selection() -> void:

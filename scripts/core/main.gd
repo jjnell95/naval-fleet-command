@@ -91,6 +91,13 @@ var _cancelled_rounds: Dictionary = {}  # "shooter|weapon|reason" -> {shooter, s
 ## Inbound rounds the side has detected but the commander's picture does not hold yet (seen only by
 ## a consort off the link). Each is announced once, when it reaches the picture.
 var _unannounced: Array[Weapon] = []
+## When gunfire on the force was last called; a shoot is called once, not round by round.
+const GUNFIRE_CALL_INTERVAL_S := 60.0
+var _gunfire_called_at := -INF
+## How often a ship on fire or flooding reports her damage-control state (simulation seconds).
+const DC_REPORT_INTERVAL_S := 180.0
+## Own ships with a casualty, and when each last reported it.
+var _dc_reported: Dictionary = {}
 ## Contacts called on the radio line, by track number, with the classification last called for each.
 ## A contact has one number in every picture, so one a deep boat reported by voice is not called
 ## again when the networked plot gains it.
@@ -106,6 +113,12 @@ var _preferred := GameOptions.normal()
 var _options_from_engagement := false
 ## A smoke, a probe, a sweep or a screenshot: the sound devices and the stored settings are left alone.
 var _driven_run := false
+## The Classic key layout (off by default): a translation in front of the default key handler for
+## the keys a commander raised on the late-1990s fleet games reaches for. A user setting.
+var classic_keys := false
+## The mouse button whose Ctrl+click zoomed the chart under the Classic keys; its release is
+## swallowed too, so the chart never sees half a click.
+var _classic_zoom_button := MOUSE_BUTTON_NONE
 
 
 func _ready() -> void:
@@ -126,6 +139,7 @@ func _ready() -> void:
 	status_boards.host(unit_panel, StatusBoards.BOARD_TASK_GROUP)
 	status_boards.host(contact_panel, StatusBoards.BOARD_TRACKS)
 	status_boards.finish_boards()
+	status_boards.assessment_source = _battle_assessment
 	status_boards.hide()
 	status_boards.closed.connect(_focus_map_if_clear)
 	status_boards.report_located.connect(_show_chart_location)
@@ -324,6 +338,23 @@ func _ready() -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
 			return
 		radio.flash("%s cannot return to station: %s" % [u.callsign, reason.to_lower()], "warn", u))
+	simulation.unit_manager.blocked_by_coast.connect(func(u: Unit) -> void:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
+			return
+		radio.flash("%s: blocked by coast — stopped" % u.callsign, "warn", u))
+	# A ship on manual missile defence lights her radar to fight inbound rounds, or holds fire silent.
+	simulation.weapon_manager.self_defence_emcon.connect(func(u: Unit, lit: bool) -> void:
+		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
+			return
+		if lit:
+			radio.flash("%s: radar on to engage inbound missiles" % u.callsign, "warn", u)
+		else:
+			radio.flash("%s holds fire: radar silent" % u.callsign, "warn", u))
+	# Decoys broke a torpedo's lock: the ship hears it go off searching long before it runs out.
+	simulation.weapon_manager.torpedo_decoyed.connect(func(_threat: Weapon, from_unit: Unit) -> void:
+		if from_unit == null or from_unit.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(from_unit):
+			return
+		radio.flash("Torpedo decoyed, searching", "good", from_unit))
 	simulation.unit_manager.attack_ended.connect(func(u: Unit, t: Track, reason: String) -> void:
 		if u.faction != simulation.player_faction or simulation.ai_plays_player or not _receives_report(u):
 			return
@@ -362,6 +393,7 @@ func _ready() -> void:
 	# crew audio playback.
 	_driven_run = scripted or CrewVoice.automated_run() or not args.is_empty()
 	InterfaceScale.initialize(get_window(), _driven_run, args)
+	set_classic_keys(args.has("--classic-keys") or (not _driven_run and bool(UserSettings.get_value("controls", "classic_keys", false))), false)
 	if _driven_run:
 		UserSettings.writable = false
 		# Smokes and sweeps play Normal whatever the player chose, so their outcomes never depend on
@@ -410,7 +442,7 @@ func _process(delta: float) -> void:
 		# The banner, countdown, and click-to-focus all describe the same highest-priority threat.
 		var primary: Dictionary = threats[0]
 		var weapon: Weapon = primary["weapon"]
-		var label := "TORPEDO IN THE WATER" if weapon.spec.is_torpedo() else ("BALLISTIC INBOUND" if weapon.threat_class() == "ballistic" else "MISSILE INBOUND")
+		var label := _inbound_label(weapon, "MISSILE INBOUND")
 		# On manual missile defence the SAMs wait for the commander: say which key sends them, and
 		# for how many rounds, for as long as any round he holds is still waiting on the order.
 		var waiting := _uncleared_inbound(threats) if options.manual_missile_defence() else 0
@@ -419,20 +451,23 @@ func _process(delta: float) -> void:
 	Debug.time_add("shell", Time.get_ticks_usec() - t0)
 
 
-## How many inbound missiles on the commander's picture no ship of the force has been cleared to
-## engage with its SAMs. Nothing when no ship could take the order: the cue must not promise a key
-## that would be refused.
+## How many inbound missiles on the commander's picture still wait for his order to engage: the
+## simulation's own list of rounds a ship on manual defence could take but has not been cleared to,
+## less every round while a ship that could fight it holds a standing clearance for the raid.
+## Nothing when no ship could take the order: the cue must not promise a key that would be refused.
 func _uncleared_inbound(threats: Array) -> int:
-	var ships := simulation.unit_manager.get_faction_units(simulation.player_faction).filter(func(u: Unit) -> bool:
-		return u.alive and _receives_report(u) and AirDefence.intercept_rejection(u) == "")
-	if ships.is_empty():
+	var waiting := AirDefence.awaiting_clearance(simulation.unit_manager, simulation.threat_manager, simulation.player_faction)
+	if waiting.is_empty():
 		return 0
-	var waiting := 0
+	var now := SimClock.sim_time
+	for u: Unit in simulation.unit_manager.get_faction_units(simulation.player_faction):
+		if u.alive and u.cleared_for_raid(now) and AirDefence.intercept_rejection(u) == "":
+			return 0
+	var count := 0
 	for entry: Dictionary in threats:
-		var w: Weapon = entry["weapon"]
-		if not w.spec.is_torpedo() and not ships.any(func(u: Unit) -> bool: return u.auto_air_defence or w.intercept_cleared.has(u.id)):
-			waiting += 1
-	return waiting
+		if waiting.has(entry["weapon"]):
+			count += 1
+	return count
 
 
 func _objective_summary() -> String:
@@ -531,6 +566,8 @@ func _reset_command_screen() -> void:
 	_civilian_incidents = PackedStringArray()
 	_foundered.clear()
 	_unannounced.clear()
+	_gunfire_called_at = -INF
+	_dc_reported.clear()
 	_contacts_called.clear()
 	_report.hide()
 	_last_report = []
@@ -836,6 +873,15 @@ func _arrange_views() -> void:
 	_world_view.rig.cut()
 	_sync_overlay()
 	call_deferred("_focus_map_if_clear")
+
+
+## The battle as the commander's staff would put it: the mission's running score and its tasks,
+## the kills the plot has confirmed and the force's own losses.
+func _battle_assessment() -> Dictionary:
+	var mm := simulation.mission_manager
+	if mm == null or simulation.unit_manager == null:
+		return {}
+	return {"assessment": mm.assessment(), "objectives": mm.victory_objectives, "kills": _kills, "losses": _losses}
 
 
 ## The status boards sit over the top area; while they are up the chart there draws no readouts
@@ -1442,7 +1488,8 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "camera_flyby", "label": "Fly-by camera", "description": "Hold a point ahead of the hooked platform and let it pass.", "shortcut": "F11", "enabled": true},
 		{"id": "camera_action", "label": "Action camera", "description": "Cut to launches, hits and deck events you can see, then back.", "shortcut": "F12", "enabled": true},
 		{"id": "camera_detached", "label": "Detached camera", "description": "Stop the camera where it is and watch the platform move away.", "shortcut": "F8", "enabled": true},
-		{"id": "status_boards", "label": "Status boards", "description": "Orders, task group, track file and comms boards over the chart.", "shortcut": "A", "enabled": true, "state": "open" if status_boards.visible else "closed"},
+		{"id": "status_boards", "label": "Status boards", "description": "Orders, task group, track file, comms and assessment boards over the chart.", "shortcut": "A", "enabled": true, "state": "open" if status_boards.visible else "closed"},
+		{"id": "battle_assessment", "label": "Battle assessment", "description": "Mission effectiveness so far, losses on both sides and each task's state.", "shortcut": "", "enabled": true},
 		{"id": "plot_move", "label": "Plot route", "description": "Arm a left-click route; Shift chains waypoints. Right-click water moves the hooked platform at once.", "shortcut": "W", "enabled": movable, "state": "armed" if map.interaction_mode == TacticalMap.InteractionMode.MOVE else "off", "reason": "Hook a deployed mobile platform first."},
 		{"id": "return_to_station", "label": "Return to station", "description": "Resume the patrol, screen or air station that an investigation, attack or refuelling interrupted.", "shortcut": "S", "enabled": movable and map.selected.any(func(u: Unit) -> bool: return u.has_station()), "reason": "The hooked platforms hold no station."},
 		{"id": "auto_return", "label": "Auto-return to station", "description": "Go back to station by itself once an identification, interception or attack ends. A newer order always stands.", "shortcut": "", "enabled": movable, "state": _auto_return_state(), "reason": "Hook a deployed mobile platform first."},
@@ -1524,7 +1571,7 @@ static func _on_off(state: Dictionary, key: String) -> String:
 ## What the chart and the regional map are currently showing, for the menus' check marks.
 func _cds_state() -> Dictionary:
 	var state := {"symbol_mode": map.symbol_mode, "radar_coverage": regional.show_radar_coverage, "sound": SoundFx.enabled, "voice": voice.enabled, "ambient": SoundFx.ambient_enabled,
-		"options": options, "debrief": not _last_report.is_empty()}
+		"options": options, "debrief": not _last_report.is_empty(), "classic_keys": classic_keys}
 	for layer in ["leaders", "track_numbers", "tags", "trails", "relief", "latlon", "scale", "sensors", "coverage", "graticule", "key", "weapon_ranges"]:
 		state[layer] = map.has_layer(layer)
 	state.merge(CommandBar.filter_state(map))
@@ -1542,6 +1589,10 @@ func _state_name(state: int, off_name: String, on_name: String) -> String:
 func _run_palette_action(id: String) -> void:
 	if id.begins_with("ui_scale_"):
 		InterfaceScale.apply(get_window(), int(id.trim_prefix("ui_scale_")))
+		return
+	if id == "classic_keys":
+		set_classic_keys(not classic_keys)
+		radio.advise("Classic keys %s: H lists them" % ("on" if classic_keys else "off"))
 		return
 	match id:
 		"guide_aircraft":
@@ -1591,6 +1642,8 @@ func _run_palette_action(id: String) -> void:
 			_world_view.set_camera_mode(WorldView.CAM_DETACHED)
 		"status_boards":
 			_toggle_boards()
+		"battle_assessment":
+			_toggle_boards(StatusBoards.BOARD_ASSESSMENT)
 		"plot_move":
 			map.set_move_mode(map.interaction_mode != TacticalMap.InteractionMode.MOVE)
 			map.grab_focus()
@@ -1710,6 +1763,9 @@ func _run_palette_action(id: String) -> void:
 ## taken here too (NTDS or graphic symbols), before the GUI spends it on focus navigation.
 ## Text fields and the full-screen surfaces keep both keys.
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		_classic_chart_zoom(event)
+		return
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
 		return
@@ -1737,7 +1793,10 @@ func _input(event: InputEvent) -> void:
 		SimClock.toggle_pause()
 	elif map.is_visible_in_tree() and not map.menu_open and (focus == null or focus == map) and not (k.ctrl_pressed or k.meta_pressed or k.alt_pressed or k.shift_pressed):
 		# Only from the chart: on the status boards Tab still walks the controls.
-		map.cycle_symbol_mode()
+		if classic_keys:
+			_hook_next_platform()
+		else:
+			map.cycle_symbol_mode()
 	else:
 		return
 	get_viewport().set_input_as_handled()
@@ -1834,6 +1893,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	# double as chart commands. Escape and the function keys are not text and still answer.
 	var focus := get_viewport().gui_get_focus_owner()
 	if (focus is LineEdit or focus is TextEdit) and k.keycode != KEY_ESCAPE and not (k.keycode >= KEY_F1 and k.keycode <= KEY_F12):
+		return
+	if classic_keys and _classic_key(k):
+		get_viewport().set_input_as_handled()
 		return
 	if (k.ctrl_pressed or k.meta_pressed) and k.shift_pressed and k.keycode in [KEY_S, KEY_L, KEY_O]:
 		# Checked before the Ctrl table: Ctrl+S alone is the scale bar, Ctrl+L the lat-long readout.
@@ -1979,6 +2041,85 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+
+## The Classic key layout's own keys, read before the default ones. True when the key was one of
+## them; every other key falls through to the default layout unchanged.
+func _classic_key(k: InputEventKey) -> bool:
+	if k.ctrl_pressed or k.meta_pressed or k.alt_pressed:
+		return false
+	if k.shift_pressed:
+		match k.keycode:
+			KEY_C:
+				_toggle_emcon_on_selection()
+			KEY_1, KEY_2, KEY_3:
+				_speed_step(k.keycode - KEY_0)
+			KEY_7, KEY_8, KEY_9:
+				_height_step(k.keycode - KEY_7)
+			_:
+				return false
+		return true
+	match k.keycode:
+		KEY_P:
+			SimClock.toggle_pause()
+		KEY_T:
+			_set_time_scale((SimClock.speed_index + 1) % SimClock.speeds().size())
+		KEY_B:
+			_return_selected_aircraft()
+		_:
+			return false
+	return true
+
+
+## Ctrl+click on the chart under the Classic keys: the left button zooms in on the point, the
+## right zooms out from it, and neither orders a move or an attack.
+func _classic_chart_zoom(mb: InputEventMouseButton) -> void:
+	if not classic_keys or mb.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+		return
+	if not mb.pressed:
+		if mb.button_index == _classic_zoom_button:
+			_classic_zoom_button = MOUSE_BUTTON_NONE
+			get_viewport().set_input_as_handled()
+		return
+	if not (mb.ctrl_pressed or mb.meta_pressed) or _has_visible_modal() or not map.is_visible_in_tree() or map.menu_open:
+		return
+	var at := map.get_global_transform_with_canvas().affine_inverse() * mb.position
+	if not Rect2(Vector2.ZERO, map.size).has_point(at):
+		return
+	map._zoom_at(at, 2.0 if mb.button_index == MOUSE_BUTTON_LEFT else 0.5)
+	map.queue_redraw()
+	_classic_zoom_button = mb.button_index
+	get_viewport().set_input_as_handled()
+
+
+## Shift+1, 2, 3: a third, two thirds or all of each hooked platform's own top speed.
+func _speed_step(step: int) -> void:
+	var pairs: Array = []
+	for u: Unit in map.selected:
+		if u.faction == simulation.player_faction and u.spec.max_speed_kn > 0.0:
+			pairs.append([u, Order.set_speed(u.effective_max_speed() * float(step) / 3.0)])
+	if pairs.is_empty():
+		radio.advise("Hook a platform that can move")
+		return
+	_apply_unit_orders(pairs)
+
+
+## Shift+7, 8, 9: low, cruise or high for hooked aircraft; periscope, patrol or deep for boats.
+func _height_step(step: int) -> void:
+	var pairs := _altitude_orders([150.0, -1.0, -2.0][step])
+	pairs.append_array(_depth_orders([18.0, -1.0, 200.0][step]))
+	if pairs.is_empty():
+		radio.advise("Hook an aircraft or a submarine")
+		return
+	_apply_unit_orders(pairs)
+
+
+## Turns the Classic key layout on or off; the H board follows it. `persist` keeps the choice.
+func set_classic_keys(on: bool, persist := true) -> void:
+	classic_keys = on
+	KeyCommands.classic = on
+	if persist:
+		UserSettings.set_value("controls", "classic_keys", on)
 
 
 ## A time scale by its step on the ladder in use (the number keys, SCALE, the time menu). A step
@@ -2239,11 +2380,33 @@ func _announce_unannounced_threats() -> void:
 			_announce_threat(w)
 
 
+## The banner's and the alarm's word for an inbound round of this kind; `missile` for a missile.
+static func _inbound_label(w: Weapon, missile: String) -> String:
+	match w.threat_class():
+		"torpedo":
+			return "TORPEDO IN THE WATER"
+		"ballistic":
+			return "BALLISTIC INBOUND"
+		"shell":
+			return "UNDER GUNFIRE"
+	return missile
+
+
 func _announce_threat(w: Weapon) -> void:
-	SimClock.drop_to_realtime()
 	_stats["hostile_rounds"] += 1
+	if w.threat_class() == "shell":
+		# A gun fires many rounds a minute: the first of a shoot is called, without the missile
+		# alarm, and the rest of it is not.
+		if SimClock.sim_time - _gunfire_called_at < GUNFIRE_CALL_INTERVAL_S:
+			return
+		_gunfire_called_at = SimClock.sim_time
+		SimClock.drop_to_realtime()
+		radio.flash("UNDER GUNFIRE — %s" % w.spec.display_name, "alert")
+		Debug.event("[Defence] gunfire inbound from %s" % w.spec.display_name)
+		return
+	SimClock.drop_to_realtime()
 	var seconds := int(w.time_to_reach_s(_nearest_own_unit_pos(w)))
-	var label := "TORPEDO IN THE WATER" if w.spec.is_torpedo() else ("BALLISTIC INBOUND" if w.threat_class() == "ballistic" else ("ANTI-RADIATION MISSILE INBOUND" if w.spec.is_anti_radiation() else "INCOMING"))
+	var label := _inbound_label(w, "ANTI-RADIATION MISSILE INBOUND" if w.spec.is_anti_radiation() else "INCOMING")
 	radio.flash("%s — %s, impact in ~%d s" % [label, w.spec.display_name, seconds], "alert")
 	if w.spec.is_anti_radiation():
 		radio.advise("It homes on a radar that is transmitting. A silent ship that keeps moving is not where it remembers; a ship with SAMs can shoot it down instead.")
@@ -2360,6 +2523,12 @@ func _on_casualty_event(u: Unit, event: String) -> void:
 			radio.flash("Battery flat. Steerage way only until we snorkel", "alert", u)
 		"battery_charged":
 			radio.flash("Charge complete. Snorkel secured, returning to depth", "good", u)
+		"array_recovering":
+			radio.flash("Recovering the towed array", "warn", u)
+		"dip_raising":
+			radio.flash("Raising the dipping sonar", "warn", u)
+		"initiative_report":
+			radio.flash(u.comms_initiative_report, "warn", u)
 
 
 ## How one of the commander's own rounds ended without a hit, in plain words. A hit is reported by
@@ -3043,10 +3212,11 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 			voice.say(_ack_event(order), reporter, {"track": order.track})
 		if order.type == Order.Type.SET_ROE and order.roe == Unit.Roe.FREE:
 			radio.flash("Weapons free permits firing on unidentified contacts. Neutral sinkings can fail the mission.", "warn")
-		if order.type == Order.Type.MOVE and not Terrain.is_empty() and not receipt.begins_with("Queued for submarine"):
+		if order.type == Order.Type.MOVE and not order.append and not receipt.begins_with("Queued for submarine"):
+			# A destination behind a headland is reached by a route round it, laid as extra legs.
 			for u in map.selected:
-				if u.faction == simulation.player_faction and u.needs_sea_room() and Terrain.first_land_contact(SubmarineComms.reported_position(u), order.target_pos) >= 0.0:
-					radio.flash("Land on that course — following the coast", "warn", u)
+				if u.faction == simulation.player_faction and u.needs_sea_room() and u.waypoints.size() > 1:
+					radio.flash("Routing round the coast", "info", u)
 					break
 	elif attempted > 0:
 		# The platform says it cannot; the console says why.
@@ -3076,7 +3246,12 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 				reason = UnitManager.engage_rejection(map.selected[0], order)
 			radio.advise("Cannot fire at track %s · %s" % [DataDisplay.track_number_for_track(order.track), reason if reason != "" else "no firing solution"])
 			return
-		radio.advise("Order refused by %d selected platform%s%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else "", " · %s" % refusal if refusal != "" and order.type != Order.Type.MOVE else ""])
+		var why := ""
+		if order.type == Order.Type.MOVE:
+			why = " — %s" % order.receipt.to_lower() if order.receipt != "" else " — pick a point in the water"
+		elif refusal != "":
+			why = " · %s" % refusal
+		radio.advise("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", why])
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
 			_world_view.add_effect(order.target_pos, "refused")
@@ -3292,6 +3467,43 @@ func _keep_contact_hooked() -> void:
 func _on_clock_tick(_dt: float) -> void:
 	_keep_contact_hooked()
 	_flush_round_reports()
+	_report_damage_control()
+
+
+## A ship fighting a fire or flooding reports her damage-control state every few minutes, so a
+## casualty that ends in her loss is never a surprise a quarter of an hour after the hit.
+func _report_damage_control() -> void:
+	var now := SimClock.sim_time
+	for u: Unit in simulation.unit_manager.get_faction_units(simulation.player_faction):
+		if not u.alive or u.is_aircraft() or (u.fire <= 0.0 and u.flooding <= 0.0):
+			_dc_reported.erase(u)
+			continue
+		if not _dc_reported.has(u):
+			# The hit itself was reported; the first state report follows a round of the parties.
+			_dc_reported[u] = now
+			continue
+		if now - float(_dc_reported[u]) < DC_REPORT_INTERVAL_S or not _receives_report(u):
+			continue
+		_dc_reported[u] = now
+		radio.flash(damage_control_report(u), "alert" if Damage.health_fraction(u) < 0.35 else "warn", u)
+
+
+## "Damage control: fire spreading, flooding held · hull 46%".
+static func damage_control_report(u: Unit) -> String:
+	var parts := PackedStringArray()
+	if u.fire > 0.0:
+		parts.append("fire %s" % _casualty_word(u.fire))
+	if u.flooding > 0.0:
+		parts.append("flooding %s" % _casualty_word(u.flooding))
+	return "Damage control: %s · hull %d%%" % [", ".join(parts), roundi(Damage.health_fraction(u) * 100.0)]
+
+
+static func _casualty_word(level: float) -> String:
+	if level >= 0.6:
+		return "out of control"
+	if level >= 0.3:
+		return "serious"
+	return "being fought"
 
 
 ## A unit off the link reports its own picture by voice. TrackManager says so, as it happens, with
@@ -3346,13 +3558,22 @@ func _call_new_contact(t: Track) -> void:
 	if _contacts_called.has(_contact_key(t)):
 		return
 	_contacts_called[_contact_key(t)] = ""
-	SimClock.drop_to_realtime()
+	if _contact_stops_clock(t):
+		SimClock.drop_to_realtime()
 	_stats["contacts"] += 1
 	_report_contact(t, "New contact, track %s (%s)" % [DataDisplay.track_number_for_track(t), DataDisplay.source_text(t.source)], "warn")
 	SoundFx.play("contact", 0.5)
 	voice.say("new_contact", null, {"track": t})
 	contact_panel.refresh()
 	Debug.event("[Contact] %s gained on %s at %.1f nm from the nearest of ours" % [t.id, t.source, _nearest_own_distance(t.position)])
+
+
+## Time compression is given up for what may need an order now: a weapon inbound, a hit, a new
+## contact by radar, sonar or sight, or anything held hostile. A line of electronic support alone,
+## a radar heard far off and not held hostile, is called and plotted but leaves the clock running;
+## a busy sea is full of them.
+static func _contact_stops_clock(t: Track) -> bool:
+	return t.identity == "HOSTILE" or t.source != "esm"
 
 
 ## What a classification call says about a track, so the same news from a second picture is not
@@ -3371,7 +3592,8 @@ func _call_classification(t: Track) -> void:
 		return
 	_contacts_called[_contact_key(t)] = call
 	if t.classification == Track.Classification.CLASS_KNOWN:
-		SimClock.drop_to_realtime()
+		if _contact_stops_clock(t):
+			SimClock.drop_to_realtime()
 		if t.identity == "HOSTILE":
 			_stats["classified"] += 1
 		_report_contact(t, "Track %s classified %s, %s" % [DataDisplay.track_number_for_track(t), t.known_class, t.identity.to_lower()], "alert" if t.identity == "HOSTILE" else "info")

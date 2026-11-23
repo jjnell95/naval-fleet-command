@@ -61,6 +61,8 @@ var _rtb_btn: Button
 var _buoy_btn: Button
 var _weapon_list_signature := ""
 var _shown_weapon: WeaponSpec
+var _course_unit: Unit
+var _course_shown := -1
 
 
 func _ready() -> void:
@@ -371,9 +373,14 @@ func _sync_quick_actions() -> void:
 			roe_mixed = true
 	var roe_text: String = "MIXED" if roe_mixed else (["HOLD", "TIGHT", "FREE"][roe] if roe >= 0 else "—")
 	_roe_btn.text = "WPNS %s" % roe_text
-	var roe_col := UITheme.COL_AMBER if roe_mixed or roe == Unit.Roe.TIGHT else (UITheme.COL_RED if roe == Unit.Roe.HOLD else UITheme.COL_TEXT)
-	for key in ["font_color", "font_hover_color", "font_focus_color"]:
-		_roe_btn.add_theme_color_override(key, roe_col)
+	# The posture sits on grey chrome, so it takes the inks made for grey: weapons free is the
+	# button's own ink, tight or mixed the dark amber, hold the dark red.
+	var severity := "warn" if roe_mixed or roe == Unit.Roe.TIGHT else ("alert" if roe == Unit.Roe.HOLD else "")
+	for key in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
+		if severity == "":
+			_roe_btn.remove_theme_color_override(key)
+		else:
+			_roe_btn.add_theme_color_override(key, Color(StatusBoards.SEVERITY_COLORS[severity]))
 	_roe_btn.disabled = not _controllable
 	_engagement_tab_btn.disabled = not _controllable
 	_engagement_tab_btn.text = ("ENGAGE " + _target.id) if _target != null else "ENGAGE"
@@ -417,17 +424,20 @@ func _sync_defence() -> void:
 			automatic = "MIXED"
 	var detail := DefensiveResponse.status(_units[0]) if _units.size() == 1 else "%d active / %d evading" % [active, evading]
 	var missile_mode := "AUTO" if manual == 0 else ("MANUAL" if manual == _units.size() else "MIXED")
-	_defence_summary.text = "Missile defence %s / %s / CM %s / %d RF/IR packs / %d acoustic / %s" % [missile_mode, policy.to_upper(), automatic, packs, acoustic, detail]
+	_defence_summary.text = "Missile defence %s / %s / CM %s / %d RF/IR packs / %d acoustic" % [missile_mode, policy.to_upper(), automatic, packs, acoustic]
+	if detail != "":
+		_defence_summary.text += " / " + detail
 	if _units.is_empty():
 		_defence_summary.text = "Select a friendly platform to see its defence settings"
 	_defence_summary.tooltip_text = _defence_summary.text
 
 
-## A MIXED selection state reads amber without tinting the whole button.
+## A MIXED selection state reads amber without tinting the whole button: the dark amber made for
+## grey chrome, as the bright one is for the navy data surface.
 func _mark_mixed(button: Button, mixed: bool) -> void:
 	for key in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
 		if mixed:
-			button.add_theme_color_override(key, UITheme.COL_AMBER)
+			button.add_theme_color_override(key, Color(StatusBoards.SEVERITY_COLORS["warn"]))
 		else:
 			button.remove_theme_color_override(key)
 
@@ -484,11 +494,24 @@ func set_units(units: Array, controllable: bool, movable := controllable) -> voi
 	_command_authorized = controllable and not units.is_empty()
 	_movement_authorized = movable and _command_authorized
 	_sync_live_eligibility(true)
-	if units.size() == 1:
-		var u: Unit = units[0]
-		var heading := u.ordered_heading_deg if SubmarineComms.connected(u) else SubmarineComms.reported_heading(u)
-		_heading.value = posmod(roundi(heading), 360)
+	_load_course(true)
 	_sync_quick_actions()
+
+
+## The COURSE box shows the course the hooked platform (the lead of a group) is steering, as the
+## ship's own course changes: a new leg, a turn for a station. A figure the commander is typing,
+## or has stepped to and not yet set, is left alone until the ship's own course moves.
+func _load_course(force := false) -> void:
+	if _heading == null or _units.is_empty():
+		return
+	var u: Unit = _units[0]
+	var heading := u.ordered_heading_deg if SubmarineComms.connected(u) else SubmarineComms.reported_heading(u)
+	var course := posmod(roundi(heading), 360)
+	if not force and (u == _course_unit and course == _course_shown or _heading.get_line_edit().has_focus()):
+		return
+	_course_unit = u
+	_course_shown = course
+	_heading.value = course
 
 
 ## Ownership and hull capability persist while an aircraft changes deck state; active command
@@ -691,6 +714,7 @@ func current_weapon_spec() -> WeaponSpec:
 
 
 func refresh() -> void:
+	_load_course()
 	if _current_weapon_list_signature() != _weapon_list_signature:
 		_rebuild_weapons()
 	else:

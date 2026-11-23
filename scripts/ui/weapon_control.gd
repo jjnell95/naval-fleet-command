@@ -57,6 +57,8 @@ func _ready() -> void:
 	add_child(margin)
 	var panel := PanelContainer.new()
 	panel.theme_type_variation = "JfcDialog"
+	# As tall as its rows, not the window: the chart stays in view above and below it.
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	margin.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
@@ -91,7 +93,7 @@ func _ready() -> void:
 	_tree.hide_root = true
 	_tree.column_titles_visible = true
 	_tree.select_mode = Tree.SELECT_ROW
-	_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tree.size_flags_vertical = Control.SIZE_FILL
 	_tree.add_theme_constant_override("v_separation", 9)
 	var titles := ["PLATFORM / SYSTEM", "ROLE", "LEFT", "QUEUED", "AWAY", "RANGE nm", "TOF", "SOLUTION", "SALVO"]
 	var widths := [185, 110, 45, 60, 45, 90, 55, 160, 65]
@@ -235,7 +237,8 @@ func refresh() -> void:
 			item.set_text(2, "--" if disconnected else str(u.magazine_count(spec.id)))
 			item.set_text(3, "--" if disconnected else str(queued))
 			item.set_text(4, "--" if disconnected else str(wm.committed_rounds(u, spec, target) - queued))
-			item.set_text(5, "%.1f - %s" % [spec.min_range_nm, Geo.format_nm(Combat.effective_range_nm(u, spec))])
+			# The near figure is the range a shot is refused inside: for a torpedo, beyond its enable run.
+			item.set_text(5, "%.1f - %s" % [Combat.minimum_range_nm(spec), Geo.format_nm(Combat.effective_range_nm(u, spec))])
 			item.set_text(6, "%ds" % int(check.get("flight_time_s", 0.0)) if check.has("flight_time_s") else "--")
 			var state: String = str(check.reason)
 			if check.ok:
@@ -251,7 +254,28 @@ func refresh() -> void:
 			item.set_range(8, int(_plan.get(key, 0)))
 	_quality.text = WeaponPresentation.track_quality(target, SimClock.sim_time)
 	_update_plan_summary()
+	_fit_tree()
 	_building = false
+
+
+## The system table stands as tall as its title and its rows, up to half the window; more than that
+## scroll.
+func _fit_tree() -> void:
+	var last: TreeItem = null
+	var item := _tree.get_root().get_first_child() if _tree.get_root() != null else null
+	var rows := 1
+	while item != null:
+		last = item
+		rows += 1
+		item = item.get_next_in_tree()
+	var frame := _tree.get_theme_stylebox("panel").get_minimum_size().y
+	# The tree measures its rows (range cells stand taller than text); before it has, estimate.
+	var content := rows * (_tree.get_theme_font("font").get_height(_tree.get_theme_font_size("font_size")) + _tree.get_theme_constant("v_separation") + 18.0)
+	if last != null:
+		var area := _tree.get_item_area_rect(last)
+		if area.size.y > 0.0:
+			content = area.end.y
+	_tree.custom_minimum_size.y = minf(content + frame + 2.0, get_viewport_rect().size.y * 0.5)
 
 
 func _edit_quantity() -> void:
