@@ -245,3 +245,105 @@ func test_no_button_of_the_debrief_has_the_focus_so_space_cannot_close_it() -> v
 	main.get_viewport().push_input(up)
 	assert_true(main._report.visible, "Space leaves the debrief up")
 	_close_main(main)
+
+
+# --- One click never throws work away ------------------------------------------------------
+
+static func _answer(host: Node, yes: bool) -> void:
+	var dialog := ConfirmDiscard.asking(host)
+	if dialog == null:
+		return
+	(dialog.get_ok_button() if yes else dialog.get_cancel_button()).pressed.emit()
+
+
+func _autosaves() -> Array:
+	return SaveGame.list_saves().filter(func(h: Dictionary) -> bool: return str(h.get("kind", "")) == "auto")
+
+
+func test_choosing_an_operation_from_the_desk_mid_mission_asks_and_autosaves_first() -> void:
+	var main := _open_main()
+	main._autosave_enabled = true
+	SimClock.set_paused(false)
+	for i in 38:
+		SimClock.advance(1.0)
+	SimClock.set_paused(true)
+	var running := SimClock.sim_time
+	main._show_menu()
+	main._menu._intro.pressed.emit()
+	assert_eq(SimClock.sim_time, running, "one click on START does not end the engagement")
+	var dialog := ConfirmDiscard.asking(main)
+	assert_true(dialog != null, "it asks first")
+	if dialog != null:
+		assert_true(dialog.dialog_text.contains("autosaved"), "saying the engagement is kept: " + dialog.dialog_text)
+		assert_true(dialog.get_cancel_button().text != "" and dialog.get_ok_button().text != "", "both answers are worded")
+	_answer(main, false)
+	assert_eq(SimClock.sim_time, running, "keeping it keeps it")
+	assert_true(main._command_taken)
+	main._menu._intro.pressed.emit()
+	_answer(main, true)
+	assert_eq(SimClock.sim_time, 0.0, "abandoning it opens the new operation")
+	assert_true(main._briefing.visible, "at its briefing")
+	assert_eq(_autosaves().size(), 1, "and the abandoned engagement was autosaved on the way out")
+	_close_main(main)
+
+
+func test_restart_from_the_orders_board_mid_mission_asks_first() -> void:
+	var main := _open_main()
+	main._autosave_enabled = true
+	SimClock.set_paused(false)
+	for i in 20:
+		SimClock.advance(1.0)
+	SimClock.set_paused(true)
+	var running := SimClock.sim_time
+	main._briefing.restart_pressed.emit()
+	assert_eq(SimClock.sim_time, running, "one click on RESTART does not restart")
+	assert_true(ConfirmDiscard.asking(main) != null, "it asks first")
+	_answer(main, false)
+	assert_eq(SimClock.sim_time, running, "keeping it keeps it")
+	main._briefing.restart_pressed.emit()
+	_answer(main, true)
+	assert_eq(SimClock.sim_time, 0.0, "confirmed, it restarts")
+	assert_eq(_autosaves().size(), 1, "with the old run autosaved")
+	_close_main(main)
+
+
+func test_deleting_a_saved_engagement_asks_first() -> void:
+	var main := _open_main()
+	SimClock.advance(5.0)
+	assert_eq(main.save_engagement("save-1", "manual", "Before the raid"), "")
+	var path := SaveGame.slot_path("save-1")
+	assert_true(FileAccess.file_exists(path))
+	main._toggle_saved_engagements()
+	main._saves._delete.pressed.emit()
+	assert_true(FileAccess.file_exists(path), "one click on DELETE deletes nothing")
+	var dialog := ConfirmDiscard.asking(main._saves)
+	assert_true(dialog != null and dialog.dialog_text.contains("Before the raid"), "it names the save it would delete")
+	_answer(main._saves, false)
+	assert_true(FileAccess.file_exists(path), "keeping it keeps it")
+	main._saves._delete.pressed.emit()
+	_answer(main._saves, true)
+	assert_true(not FileAccess.file_exists(path), "confirmed, it is deleted")
+	_close_main(main)
+
+
+func test_the_editors_new_asks_and_can_be_undone() -> void:
+	var editor := ScenarioEditor.new()
+	_root().add_child(editor)
+	editor.load_dict(ScenarioLoader.load_file("res://data/scenarios/northern_passage.json"))
+	var units: int = editor.scenario["units"].size()
+	assert_true(units > 0)
+	editor._ask_new()
+	assert_eq(editor.scenario["units"].size(), units, "one click on NEW clears nothing")
+	assert_true(ConfirmDiscard.asking(editor) != null, "it asks first")
+	_answer(editor, true)
+	assert_eq(editor.scenario["units"].size(), 0, "confirmed, the mission is empty")
+	editor.undo()
+	assert_eq(editor.scenario["units"].size(), units, "and UNDO brings the mission back")
+	assert_eq(str(editor.scenario.get("name", "")), str(ScenarioLoader.load_file("res://data/scenarios/northern_passage.json").get("name", "")))
+	editor.redo()
+	assert_eq(editor.scenario["units"].size(), 0, "REDO clears it again")
+	editor.undo()
+	editor._ask_new()
+	_answer(editor, false)
+	assert_eq(editor.scenario["units"].size(), units, "keeping it keeps it")
+	editor.free()

@@ -671,8 +671,11 @@ func _install_engagement(payload: Dictionary) -> String:
 	return ""
 
 
-func _autosave_if_due() -> void:
-	if not _autosave_enabled or _scripted_session or SimClock.paused or SimClock.sim_time - _autosaved_at < SaveGame.AUTOSAVE_INTERVAL_S:
+## `leaving` saves now, paused or not, because the engagement is about to be replaced.
+func _autosave_if_due(leaving := false) -> void:
+	if not _autosave_enabled or _scripted_session:
+		return
+	if not leaving and (SimClock.paused or SimClock.sim_time - _autosaved_at < SaveGame.AUTOSAVE_INTERVAL_S):
 		return
 	if save_refusal() != "":
 		return
@@ -879,9 +882,18 @@ func _build_screens() -> void:
 	_library.hide()
 	_menu = ScenarioMenu.new()
 	_menu.name = "ScenarioMenu"
+	# Leaving a running engagement for another operation asks first, and autosaves it on the way
+	# out so Saved Engagements can still bring it back.
 	_menu.scenario_chosen.connect(func(path: String) -> void:
-		start_scenario(path)
-		_show_briefing())
+		var leave := func() -> void:
+			_autosave_if_due(true)
+			start_scenario(path)
+			_show_briefing()
+		if save_refusal() != "":
+			leave.call()
+			return
+		var chosen := str(ScenarioLoader.load_file(path).get("name", "the chosen operation"))
+		ConfirmDiscard.ask(self, "Abandon the engagement", "%s is running at %s. Leave it and open %s? It is autosaved first, so Saved Engagements can bring it back." % [simulation.scenario_name, Geo.format_duration(SimClock.sim_time), chosen], "Abandon it", leave, "Keep commanding"))
 	_menu.dismissed.connect(_hide_screens)
 	_menu.editor_requested.connect(_show_editor)
 	_menu.library_requested.connect(_toggle_library)
@@ -907,7 +919,14 @@ func _build_screens() -> void:
 	_briefing.mission_manager = simulation.mission_manager
 	_briefing.unit_manager = simulation.unit_manager
 	_briefing.start_pressed.connect(_on_briefing_start)
-	_briefing.restart_pressed.connect(restart_scenario)
+	# RESTART on the orders board, mid-mission, asks first and autosaves the engagement it ends.
+	_briefing.restart_pressed.connect(func() -> void:
+		if save_refusal() != "":
+			restart_scenario()
+			return
+		ConfirmDiscard.ask(self, "Restart the operation", "Start %s again from the beginning? The engagement at %s is autosaved first, so Saved Engagements can bring it back." % [simulation.scenario_name, Geo.format_duration(SimClock.sim_time)], "Restart", func() -> void:
+			_autosave_if_due(true)
+			restart_scenario(), "Keep commanding"))
 	_briefing.menu_pressed.connect(_show_menu)
 	_briefing.guide_toggled.connect(func(on: bool) -> void:
 		_command_guide.enabled = on and _command_guide.available)

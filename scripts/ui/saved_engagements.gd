@@ -77,15 +77,22 @@ func _ready() -> void:
 	_save = _button("SAVE NOW", func() -> void: save_requested.emit())
 	_save.tooltip_text = "Save the running engagement as a new entry"
 	buttons.add_child(_save)
-	_delete = _button("DELETE", func() -> void:
-		var h := _selected()
-		if not h.is_empty():
-			delete_requested.emit(str(h["path"])))
+	_delete = _button("DELETE", _ask_delete)
 	buttons.add_child(_delete)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(gap)
 	buttons.add_child(_button("CLOSE", func() -> void: closed.emit()))
+
+
+## A deleted save cannot be brought back, so DELETE names it and asks first.
+func _ask_delete() -> void:
+	var h := _selected()
+	if h.is_empty():
+		return
+	var path := str(h["path"])
+	var name := "%s, %s at %s" % [str(h.get("label", h.get("slot", "this save"))), str(h.get("scenario_name", "")), str(h.get("clock_text", ""))]
+	ConfirmDiscard.ask(self, "Delete saved engagement", "Delete %s? It cannot be brought back." % name, "Delete", func() -> void: delete_requested.emit(path), "Keep it")
 
 
 func _button(text: String, action: Callable) -> Button:
