@@ -432,6 +432,7 @@ func test_the_reference_runs_by_nation_under_headings_counts_properly_and_opens_
 	lib.free()
 	var main := _open_main()
 	var flag := CommanderPicture.default_hook(main.simulation.unit_manager, main.simulation.player_faction)
+	assert_eq(main._library.simulation, main.simulation, "main hands the library its simulation rather than leaving it to find a sibling by name")
 	main._toggle_library()
 	assert_true(main._library.visible)
 	assert_eq(main._library._stage._id, flag.spec.id, "the library opens on the flagship, %s" % flag.spec.short_name)

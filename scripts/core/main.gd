@@ -923,6 +923,7 @@ func _on_message_lamp() -> void:
 
 func _build_screens() -> void:
 	_library = PlatformLibrary.new()
+	_library.simulation = simulation
 	_library.closed.connect(_close_library)
 	add_child(_library)
 	_library.hide()
