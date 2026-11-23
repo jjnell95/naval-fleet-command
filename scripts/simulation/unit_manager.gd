@@ -656,7 +656,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			# In reach of the plot but not of where the contact will be: it is opening. Keep
 			# closing on it rather than holding at a standoff the lead point never enters.
 			u.attack_phase = "Intercept track"
-			goal = _steer_attack(u, track, maxf(range_nm * 0.5, spec.min_range_nm * 1.5 + 0.5), dt)
+			goal = _steer_attack(u, track, maxf(range_nm * 0.5, Combat.minimum_range_nm(spec) * 1.5 + 0.5), dt)
 		"NO LINE OF FIRE":
 			# Land between the shooter and the round's path: move to water with an open line.
 			goal = _clearing_point(u, track, standoff)
@@ -681,7 +681,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			return
 		"TOO CLOSE":
 			u.attack_phase = "Opening to range"
-			goal = _steer_attack(u, track, maxf(spec.min_range_nm * 1.5, 1.0), dt, true)
+			goal = _steer_attack(u, track, maxf(Combat.minimum_range_nm(spec) * 1.5, 1.0), dt, true)
 		"MAGAZINE EMPTY":
 			_end_attack(u, track, "Magazines empty")
 			return

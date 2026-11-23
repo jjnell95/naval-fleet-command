@@ -197,3 +197,74 @@ func test_a_cap_ordered_without_a_pursuit_may_chase_the_standard_sixty_miles() -
 	assert_true(sim.unit_manager.issue_order(cv, Order.revise_air_mission(m, m.station + Vector2(5, 0), 10.0, 2, false, true)))
 	assert_eq(m.pursuit_nm, 40.0, "a revision that names no pursuit keeps the mission's own")
 	_free_sim(sim)
+
+
+# --- A torpedo shot opens beyond the enable run -----------------------------------------------
+
+func _test_hull(domain := "surface") -> PlatformSpec:
+	var p := PlatformSpec.new()
+	p.short_name = "Test"
+	p.domain = domain
+	p.max_speed_kn = 28.0
+	p.cruise_speed_kn = 14.0
+	p.turn_rate_deg_s = 6.0
+	p.accel_kn_s = 1.0
+	p.health = 100.0
+	p.length_m = 120.0
+	if domain == "subsurface":
+		p.max_depth_m = 300.0
+		p.depth_rate_m_s = 1.0
+	return p
+
+
+func test_a_torpedo_attack_from_too_close_opens_beyond_the_enable_run_and_fires() -> void:
+	var fish := WeaponSpec.new()
+	fish.id = "test_long_enable_torpedo"
+	fish.display_name = "Test torpedo"
+	fish.type = "torpedo"
+	fish.target_types = PackedStringArray(["subsurface"])
+	fish.max_range_nm = 12.0
+	fish.min_range_nm = 0.5
+	fish.run_to_enable_nm = 2.0
+	fish.speed_kn = 45.0
+	fish.damage = 60.0
+	fish.base_pk = 1.0
+	fish.salvo_default = 1
+	var ship := Unit.new()
+	ship.spec = _test_hull()
+	ship.faction = "BLUE"
+	ship.callsign = "BLUE ship"
+	ship.health = 100.0
+	ship.weapons.append(fish)
+	ship.magazines[fish.id] = 4
+	var boat := Unit.new()
+	boat.spec = _test_hull("subsurface")
+	boat.faction = "RED"
+	boat.callsign = "RED boat"
+	boat.health = 100.0
+	boat.position = Vector2(0, 1.6)
+	boat.depth_m = 100.0
+	var t := Track.new()
+	t.id = "T2002"
+	t.owner_faction = "BLUE"
+	t.truth = boat
+	t.position = boat.position
+	t.position_error_nm = 0.2
+	t.status = Track.Status.ACTIVE
+	t.domain = "subsurface"
+	t.identity = "HOSTILE"
+	t.classification = Track.Classification.SURFACE
+	var h := _harness([ship, boat])
+	var ended: Array = []
+	h.um.attack_ended.connect(func(_u: Unit, _t: Track, reason: String) -> void: ended.append(reason))
+	assert_true(h.um.issue_order(ship, Order.attack(t)))
+	var fired_at := [-1.0]
+	for i in int(600.0 / DT):
+		h.advance(DT)
+		t.last_seen_time = h.now
+		if ship.attack_rounds_fired > 0:
+			fired_at[0] = ship.position.distance_to(boat.position)
+			break
+	assert_true(fired_at[0] > 0.0, "the ship opens and fires (ended: %s, phase '%s')" % [str(ended), ship.attack_phase])
+	assert_true(fired_at[0] >= Combat.minimum_range_nm(fish), "from beyond the enable run and its margin (%.2f nm)" % fired_at[0])
+	h.free_all()
