@@ -332,7 +332,7 @@ def catalogue():
              max_speed_kn=32.0, mast_height_m=18.0, turn_rate_deg_s=4.0, fire_control_channels=1,
              role="Littoral missile ambush",
              service_note="Project 1234.1: six P-120 missiles, Osa-M, AK-176 and AK-630. The corvette's large anti-ship salvo is offset by a small defensive magazine.")
-    platform("merchant", "North Atlantic merchantman", "Merchant", "Civilian", "merchant",
+    platform("merchant", "North Atlantic merchantman", "Merchant", "Civil", "merchant",
              ["civil_nav"], {}, length_m=160.0, displacement_t=17000.0, max_speed_kn=17.0,
              cruise_speed_kn=14.0, health=95.0, fire_control_channels=0, decoy_count=0,
              has_datalink=False, role="Protected cargo vessel", service_note="Generic period cargo ship with a fictional name. It represents convoy traffic; no particular civilian hull is claimed.")

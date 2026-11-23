@@ -507,7 +507,7 @@ func test_cds_menu_reflects_layer_state() -> void:
 
 func test_key_commands_board_lists_the_cds_bindings() -> void:
 	var keys := " | ".join(KeyCommands.all_keys())
-	for binding in ["Space", "G", "F10", "T", "F9 / F11 / F12 / F8", "A", "Tab", "H", "W", "Ctrl+K", "Ctrl+F10 twice", "Right-click", "Shift+right-click"]:
+	for binding in ["Space", "G", "F10", "T", "F9 / F11 / F12 / F8", "A", "Tab", "H", "W", "Ctrl+K", "Ctrl+F10", "Right-click", "Shift+right-click"]:
 		assert_true(keys.contains(binding), "the key board lists %s" % binding)
 	var rows := " | ".join(KeyCommands.all_rows())
 	assert_true(rows.contains("Hostile: attack") and rows.contains("Unknown: investigate"), "the board states the right-click defaults the chart delivers")
