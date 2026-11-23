@@ -587,12 +587,6 @@ static func _time_to_enter_s(from: Vector2, range_nm: float, threat: Weapon) -> 
 	return (-b - sqrt(disc)) / a if disc >= 0.0 else INF
 
 
-## Distinct rounds each ship currently has interceptors in the air against. Kept for the
-## defence board, which reads it; WeaponManager.channel_loads is the one source.
-static func _channels_in_use(weapon_manager: WeaponManager) -> Dictionary:
-	return weapon_manager.channel_loads()
-
-
 ## Data decides what an interceptor can shoot at. The air-defence layers list "missile" and
 ## "ballistic"; the one weapon that lists "torpedo" (Paket-NK) is fired by TorpedoDefence, not here.
 static func _can_intercept(spec: WeaponSpec, threat: Weapon) -> bool:

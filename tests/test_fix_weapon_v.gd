@@ -547,3 +547,10 @@ func test_a_ship_runs_from_a_torpedo_as_soon_as_she_holds_it_and_keeps_laying_de
 		assert_true(float(laid_at[i]) - float(laid_at[i - 1]) >= DefensiveResponse.RELOAD_SECONDS - 1.0, "at the launcher's interval: %s" % str(laid_at))
 	tm.free()
 	_cleanup(wm)
+
+
+# --- c-defence#12: one source for channel loads ------------------------------------------------
+
+func test_the_defence_board_alias_for_channel_loads_is_gone() -> void:
+	var source := (load("res://scripts/systems/air_defence.gd") as GDScript).source_code
+	assert_true(not source.contains("_channels_in_use"), "WeaponManager.channel_loads is the only reading of channel loads")
