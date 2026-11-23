@@ -702,6 +702,24 @@ func _shadow_standoff(u: Unit) -> float:
 	return maxf(minf(by_weapon, by_sensor), 8.0)
 
 
+## How far an aircraft holding on a ship keeps from it: outside the longest air-defence missile the
+## plot knows the ship's class to carry, plus a margin (AirMissionManager.air_defence_standoff_nm,
+## as a CAP keeps). A ship of no known class sets nothing here. An aircraft that can strike the ship
+## only from inside that cover is not held off: pressing home is the AI's call, as before.
+func _air_defence_hold_nm(u: Unit, t: Track) -> float:
+	if t.domain == "air" or t.domain == "subsurface" or Combat._reported_platform(t) == null:
+		return 0.0
+	var cover := AirMissionManager.air_defence_standoff_nm(t)
+	if cover <= 0.0:
+		return 0.0
+	var reach := 0.0
+	for w: WeaponSpec in u.weapons_for_track(t):
+		reach = maxf(reach, Combat.effective_range_nm(u, w))
+	if reach > 0.0 and reach < cover:
+		return 0.0
+	return cover
+
+
 ## An airframe whose sensors only work over the contact: a dipping set has to be in the water and
 ## a sonobuoy has to be dropped on top of the datum. Everything else is better off standing off.
 func _is_asw_airframe(u: Unit) -> bool:
@@ -923,6 +941,7 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 		if t.domain == "air" and _air_shot_range(u, t) > 0.0:
 			_fight_air(u, b, t, range_nm, now)
 			return
+		standoff_nm = maxf(standoff_nm, _air_defence_hold_nm(u, t))
 		if range_nm <= standoff_nm:
 			_command(u, b, Geo.vector_to_heading(u.position - t.position), u.spec.cruise_speed_kn, now)
 			return
@@ -1705,12 +1724,30 @@ func _scout_close(u: Unit, b: Dictionary, t: Track, standoff_nm: float, now: flo
 	if u.is_aircraft() and not (t.domain == "subsurface" and _is_asw_airframe(u)):
 		b["target"] = t
 		_manage_altitude(u, false)
-		if u.position.distance_to(t.position) <= standoff_nm:
+		standoff_nm = maxf(standoff_nm, _air_defence_hold_nm(u, t))
+		var point := _standoff_point(u, t.position, standoff_nm)
+		var clear := _clear_of_air_defence(u, point)
+		if u.position.distance_to(t.position) <= standoff_nm and clear == point:
 			_command(u, b, Geo.vector_to_heading(u.position - t.position), u.spec.cruise_speed_kn, now)
 			return
-		_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
+		_move_to(u, b, clear, now)
 		return
 	_do_close(u, b, [t], standoff_nm, now)
+
+
+## `point`, or where it is pushed out to when it lies inside the known air-defence cover of a ship
+## on the plot (_air_defence_hold_nm): a scout keeping its distance from the ship it watches must
+## not hold that distance over the escort beside it.
+func _clear_of_air_defence(u: Unit, point: Vector2) -> Vector2:
+	for s: Track in track_manager.tracks_for(u):
+		if s.status == Track.Status.LOST:
+			continue
+		var cover := _air_defence_hold_nm(u, s)
+		var d := point.distance_to(s.position)
+		if cover > 0.0 and d < cover:
+			var away := (point - s.position).normalized() if d > 0.01 else (u.position - s.position).normalized()
+			point = s.position + away * cover
+	return point
 
 
 ## Legs through an area: its centre first, then round it.
