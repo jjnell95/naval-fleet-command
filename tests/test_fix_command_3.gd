@@ -681,3 +681,30 @@ func _held_contact_any(main: Main) -> Track:
 			return tracks[0]
 		SimClock.advance(5.0)
 	return null
+
+
+# --- Casualty reports ---------------------------------------------------------------------------
+
+func test_a_ship_on_fire_reports_her_damage_control_state_every_few_minutes() -> void:
+	var main := _open("northern_passage.json")
+	var u := _own(main, "Amundsen")
+	u.fire = 0.4
+	u.flooding = 0.1
+	u.health = u.spec.health * 0.5
+	var from := main.radio.journal.size()
+	var reports := func() -> int:
+		return main.radio.journal.slice(from).filter(func(l: String) -> bool: return l.contains("Damage control:")).size()
+	SimClock.advance(30.0)
+	assert_eq(reports.call(), 0, "the first state report waits for the parties to get to work")
+	for minute in 7:
+		u.fire = 0.4  # held burning, whatever the parties manage
+		SimClock.advance(60.0)
+	var n: int = reports.call()
+	assert_true(n >= 2 and n <= 3, "a report every three minutes or so: %d in seven" % n)
+	var line := str(main.radio.journal.slice(from).filter(func(l: String) -> bool: return l.contains("Damage control:"))[0])
+	assert_true(line.contains("fire") and line.contains("hull "), "it gives the fire and the hull: %s" % line)
+	u.fire = 0.0
+	u.flooding = 0.0
+	SimClock.advance(400.0)
+	assert_eq(reports.call(), n, "a ship with nothing burning makes no report")
+	_close(main)

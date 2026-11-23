@@ -94,6 +94,10 @@ var _unannounced: Array[Weapon] = []
 ## When gunfire on the force was last called; a shoot is called once, not round by round.
 const GUNFIRE_CALL_INTERVAL_S := 60.0
 var _gunfire_called_at := -INF
+## How often a ship on fire or flooding reports her damage-control state (simulation seconds).
+const DC_REPORT_INTERVAL_S := 180.0
+## Own ships with a casualty, and when each last reported it.
+var _dc_reported: Dictionary = {}
 ## Contacts called on the radio line, by track number, with the classification last called for each.
 ## A contact has one number in every picture, so one a deep boat reported by voice is not called
 ## again when the networked plot gains it.
@@ -563,6 +567,7 @@ func _reset_command_screen() -> void:
 	_foundered.clear()
 	_unannounced.clear()
 	_gunfire_called_at = -INF
+	_dc_reported.clear()
 	_contacts_called.clear()
 	_report.hide()
 	_last_report = []
@@ -3462,6 +3467,43 @@ func _keep_contact_hooked() -> void:
 func _on_clock_tick(_dt: float) -> void:
 	_keep_contact_hooked()
 	_flush_round_reports()
+	_report_damage_control()
+
+
+## A ship fighting a fire or flooding reports her damage-control state every few minutes, so a
+## casualty that ends in her loss is never a surprise a quarter of an hour after the hit.
+func _report_damage_control() -> void:
+	var now := SimClock.sim_time
+	for u: Unit in simulation.unit_manager.get_faction_units(simulation.player_faction):
+		if not u.alive or u.is_aircraft() or (u.fire <= 0.0 and u.flooding <= 0.0):
+			_dc_reported.erase(u)
+			continue
+		if not _dc_reported.has(u):
+			# The hit itself was reported; the first state report follows a round of the parties.
+			_dc_reported[u] = now
+			continue
+		if now - float(_dc_reported[u]) < DC_REPORT_INTERVAL_S or not _receives_report(u):
+			continue
+		_dc_reported[u] = now
+		radio.flash(damage_control_report(u), "alert" if Damage.health_fraction(u) < 0.35 else "warn", u)
+
+
+## "Damage control: fire spreading, flooding held · hull 46%".
+static func damage_control_report(u: Unit) -> String:
+	var parts := PackedStringArray()
+	if u.fire > 0.0:
+		parts.append("fire %s" % _casualty_word(u.fire))
+	if u.flooding > 0.0:
+		parts.append("flooding %s" % _casualty_word(u.flooding))
+	return "Damage control: %s · hull %d%%" % [", ".join(parts), roundi(Damage.health_fraction(u) * 100.0)]
+
+
+static func _casualty_word(level: float) -> String:
+	if level >= 0.6:
+		return "out of control"
+	if level >= 0.3:
+		return "serious"
+	return "being fought"
 
 
 ## A unit off the link reports its own picture by voice. TrackManager says so, as it happens, with
