@@ -148,15 +148,22 @@ class Refs:
 				return out
 			TYPE_DICTIONARY:
 				var object_keys := false
+				var plain := not (v as Dictionary).is_typed()
 				for k in v:
 					if typeof(k) == TYPE_OBJECT:
 						object_keys = true
 						break
+					if plain and typeof(v[k]) >= TYPE_OBJECT:
+						plain = false
 				if object_keys:
 					var pairs := []
 					for k in v:
 						pairs.append([enc(k), enc(v[k])])
 					return {"$pairs": pairs}
+				if plain:
+					# Nothing in it to convert or copy deeper: a bearing report, of which a track's
+					# history holds a hundred and more, is copied whole.
+					return (v as Dictionary).duplicate()
 				var d := {}
 				for k in v:
 					var x: Variant = v[k]
