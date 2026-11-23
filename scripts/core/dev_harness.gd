@@ -94,14 +94,11 @@ func handle_flags() -> void:
 	if args.has("--fleet-workshop-smoke"):
 		load("res://scripts/core/fleet_workshop_smoke.gd").run(main)
 		return
-	if args.has("--cold-war-probe"):
-		load("res://scripts/core/cold_war_probe.gd").run(main)
-		return
 	if args.has("--cold-war-smoke"):
-		ColdWarSmoke.run(main)
+		load("res://scripts/core/cold_war_smoke.gd").run(main)
 		return
 	if args.has("--aviation-smoke"):
-		AviationSmoke.run(main)
+		load("res://scripts/core/aviation_smoke.gd").run(main)
 		return
 	var shot := ""
 	var fast_forward := 0.0
@@ -368,7 +365,7 @@ func _perf(seconds: float) -> void:
 	for s in samples:
 		total += s
 	print("[Perf] %s at %s, %d units, clock %s" % [main.simulation.scenario_name, main.get_viewport_rect().size, main.simulation.unit_manager.units.size(), "paused" if SimClock.paused else "%dx" % int(SimClock.multiplier())])
-	print("[Perf] %d frames in %.1f s: %.1f fps, frame avg %.1f ms, p95 %.1f ms, worst %.1f ms; script process avg %.2f ms" % [frames, elapsed, frames / maxf(elapsed, 0.001), total / maxf(frames, 1), p95, worst_ms, process_ms / maxf(frames, 1)])
+	print("[Perf] %d frames in %.1f s: %.1f fps, frame avg %.1f ms, p95 %.1f ms, worst %.1f ms; main-loop process step avg %.2f ms (scripts and engine together, not script time alone; the paths below are script time)" % [frames, elapsed, frames / maxf(elapsed, 0.001), total / maxf(frames, 1), p95, worst_ms, process_ms / maxf(frames, 1)])
 	print("[Perf] simulated %.3f s per wall second" % [(SimClock.sim_time - sim_start) / maxf(elapsed, 0.001)])
 	var paths := path_ms.keys()
 	paths.sort()

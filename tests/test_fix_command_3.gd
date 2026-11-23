@@ -594,3 +594,16 @@ func test_the_x_cue_agrees_with_the_simulation_and_a_standing_raid_clearance() -
 			break
 	assert_eq(main._uncleared_inbound(threats), 0, "a standing raid clearance leaves nothing waiting")
 	_close(main)
+
+
+# --- The harness ------------------------------------------------------------------------------
+
+func test_the_harness_loads_every_smoke_suite_by_path_and_the_pack_leaves_them_out() -> void:
+	var harness := FileAccess.get_file_as_string("res://scripts/core/dev_harness.gd")
+	assert_true(not harness.contains("cold_war_probe"), "no flag loads a script that is gone")
+	assert_true(not RegEx.create_from_string("\\b(ColdWarSmoke|AviationSmoke)\\b").search(harness), "the harness names no smoke suite by class")
+	var config := ConfigFile.new()
+	config.load("res://export_presets.cfg")
+	var excludes := str(config.get_value("preset.0", "exclude_filter", ""))
+	for suite in ["scripts/core/cold_war_smoke.gd", "scripts/core/aviation_smoke.gd"]:
+		assert_true(excludes.contains(suite), "%s is not packed for players" % suite)
