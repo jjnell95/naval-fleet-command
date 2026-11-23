@@ -360,7 +360,8 @@ func test_with_no_route_a_hull_keeps_her_course_and_her_speed_from_before_the_at
 func test_a_consort_that_leaves_the_screen_to_close_rejoins_it_by_default() -> void:
 	var guide := _unit("BLUE", Vector2.ZERO)
 	var escort := _unit("BLUE", Vector2(4, 6), 100.0, [_gun(30.0)], 400)
-	var target := _unit("RED", Vector2(20, 30), 60.0)
+	# Out of gun range, but near enough the screen for her to go out and close.
+	var target := _unit("RED", Vector2(12, 13), 60.0)
 	var h := _harness([guide, escort, target])
 	assert_true(h.um.issue_order(guide, Order.move(Vector2(0, 300))))
 	assert_true(h.um.issue_order(guide, Order.set_speed(12.0)))
@@ -584,7 +585,9 @@ func test_the_result_stays_on_the_read_out_after_the_crew_returns_to_station() -
 	var guide := _unit("BLUE", Vector2.ZERO)
 	guide.callsign = "Guide"
 	var escort := _unit("BLUE", Vector2(4, 6), 100.0, [_gun(30.0)], 400)
-	var target := _unit("RED", Vector2(14, 22), 60.0)
+	# Out of gun range on the quarter, near enough the screen for her to go out and close, so that
+	# she is well off her station when she has done.
+	var target := _unit("RED", Vector2(11, -1), 200.0)
 	var h := _harness([guide, escort, target])
 	assert_true(h.um.issue_order(guide, Order.move(Vector2(0, 300))))
 	assert_true(h.um.issue_order(guide, Order.set_speed(12.0)))
@@ -710,6 +713,24 @@ func test_a_long_stern_chase_is_not_mistaken_for_a_stall() -> void:
 	var target := _unit("RED", Vector2(0, 100), 800.0)
 	target.heading_deg = 0.0
 	target.ordered_heading_deg = 0.0
+	# She closes at 23.8 kn: a slow chase, but one she is winning.
+	target.speed_kn = 20.0
+	target.ordered_speed_kn = 20.0
+	var h := _harness([ship, target])
+	var t := _track(target)
+	h.plots.append(t)
+	assert_true(h.um.issue_order(ship, Order.attack(t)))
+	h.advance(1800.0)
+	assert_true(h.ended.is_empty(), "half an hour into a chase she is slowly winning, the attack still stands")
+	assert_true(ship.speed_kn > 20.0, "and she is still chasing")
+	h.free_all()
+
+
+func test_a_stern_chase_she_cannot_win_is_given_up() -> void:
+	var ship := _unit("BLUE", Vector2.ZERO, 100.0, [_asm(60.0)])
+	var target := _unit("RED", Vector2(0, 100), 800.0)
+	target.heading_deg = 0.0
+	target.ordered_heading_deg = 0.0
 	target.speed_kn = 26.0
 	target.ordered_speed_kn = 26.0
 	var h := _harness([ship, target])
@@ -717,8 +738,9 @@ func test_a_long_stern_chase_is_not_mistaken_for_a_stall() -> void:
 	h.plots.append(t)
 	assert_true(h.um.issue_order(ship, Order.attack(t)))
 	h.advance(1800.0)
-	assert_true(h.ended.is_empty(), "half an hour into a chase she is not winning, the attack still stands")
-	assert_true(ship.speed_kn > 20.0, "and she is still chasing")
+	assert_eq(h.ended.size(), 1, "a faster contact running away is not chased to the end of the mission")
+	if not h.ended.is_empty():
+		assert_eq(h.ended[0][2], "Cannot engage: contact is opening")
 	h.free_all()
 
 

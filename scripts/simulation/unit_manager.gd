@@ -52,8 +52,20 @@ const ATTACK_PROGRESS_FRACTION := 0.1
 ## How long a helicopter stays in the dip trying to turn its own bearing into a range before it
 ## raises the dome and runs down the bearing instead. GAMEPLAY_ESTIMATE.
 const ATTACK_LOCALISE_S := 300.0
+## A consort with a screen station closes for her shot only while the firing point lies this near
+## her station; a contact further off is engaged from the screen or not at all, so an attack never
+## takes an escort out of the screen to chase. GAMEPLAY_ESTIMATE.
+const ATTACK_SCREEN_LEASH_NM := 3.0
+## Held to her station, she leaves it again only once the firing point is this much of the leash
+## from it, so a contact on the edge does not take her out and back every few seconds.
+const ATTACK_SCREEN_RELEASE := 0.8
+## A hull closing on a contact the plot says she gains on more slowly than this is in a chase she
+## cannot win, and the stall guard counts it. GAMEPLAY_ESTIMATE.
+const ATTACK_MIN_CLOSING_KN := 1.0
 const NO_SEA_ROUTE_TO_CONTACT := "No sea route to the contact"
 const NO_SEA_ROUTE_TO_FIRE := "No sea route to a firing position"
+const SCREEN_HELD := "Out of reach from her screen station"
+const SCREEN_HELD_PHASE := "Holding station · contact out of reach"
 
 var units: Array[Unit] = []
 ## The attack task fires through here. Simulation sets it; a unit manager without one can still
@@ -650,13 +662,20 @@ func _step_attack(u: Unit, dt: float) -> void:
 			u.attack_progress_pos = u.position
 			return
 		"OUT OF RANGE", "BEARING ONLY / NO RANGE SOLUTION", "NO INTERCEPT SOLUTION", "TARGET CAN OUTRUN THE SHOT", "NO RADAR FIX ON AIRCRAFT":
-			u.attack_phase = "Intercept track"
-			goal = _steer_attack(u, track, standoff, dt)
+			if _held_to_screen(u, track, standoff):
+				why = SCREEN_HELD
+			else:
+				u.attack_phase = "Intercept track"
+				goal = _steer_attack(u, track, standoff, dt)
 		"INTERCEPT BEYOND WEAPON RANGE":
 			# In reach of the plot but not of where the contact will be: it is opening. Keep
 			# closing on it rather than holding at a standoff the lead point never enters.
-			u.attack_phase = "Intercept track"
-			goal = _steer_attack(u, track, maxf(range_nm * 0.5, Combat.minimum_range_nm(spec) * 1.5 + 0.5), dt)
+			var closer := maxf(range_nm * 0.5, Combat.minimum_range_nm(spec) * 1.5 + 0.5)
+			if _held_to_screen(u, track, closer):
+				why = SCREEN_HELD
+			else:
+				u.attack_phase = "Intercept track"
+				goal = _steer_attack(u, track, closer, dt)
 		"NO LINE OF FIRE":
 			# Land between the shooter and the round's path: move to water with an open line.
 			goal = _clearing_point(u, track, standoff)
@@ -701,31 +720,86 @@ func _step_attack(u: Unit, dt: float) -> void:
 	_count_stall(u, track, goal, why, dt)
 
 
+## Whether a consort that keeps a screen station is held to it for this shot: the nearest point
+## from which the weapon would reach lies beyond ATTACK_SCREEN_LEASH_NM of her station. She then
+## goes back to the screen if the attack had taken her out of it, fires from there if the contact
+## comes into reach, and the stall guard ends the task if it does not. An aircraft on a CAP or a
+## patrolling ship is not held: closing on what comes past is what the station is for.
+func _held_to_screen(u: Unit, track: Track, standoff_nm: float) -> bool:
+	if u.is_aircraft() or not u.auto_return or u.station_kind != "formation" or standoff_nm <= 0.0:
+		return false
+	var station := u.station_point()
+	if not station.is_finite():
+		return false
+	var held := u.attack_phase == SCREEN_HELD_PHASE
+	var leash := ATTACK_SCREEN_LEASH_NM * (ATTACK_SCREEN_RELEASE if held else 1.0)
+	if station.distance_to(track.position) - standoff_nm <= leash:
+		return false
+	u.attack_phase = SCREEN_HELD_PHASE
+	if u.plan_kept and station_rejection(u) == "":
+		u.rejoin_formation_station()
+	return true
+
+
 ## Unable to fire and getting no nearer to being able to: after a while, say why and stop. With
 ## somewhere to steer for, what counts is the platform's own way toward it, measured from where it
 ## was a tick ago, so a hull held against a coast stalls although its engines are turning and it
-## still has a route, and a long stern chase of a contact that is opening does not. A hull still
-## coming round onto the bearing is given the time to do it.
+## still has a route. A hull that is making way but that the plot says is not gaining on the
+## contact, a stern chase of a faster ship, stalls as well: she would chase it to the end of the
+## mission. A hull still coming round onto the bearing is given the time to do it.
 func _count_stall(u: Unit, track: Track, goal: Vector2, why: String, dt: float) -> void:
 	if u.attack_track != track:
 		return  # the step that chose the goal has already ended the task
 	var before := u.attack_progress_pos
 	u.attack_progress_pos = u.position
-	if goal.is_finite():
+	if why == SCREEN_HELD:
+		# Kept in the screen, she is no nearer her shot unless the screen itself is closing the
+		# contact, as a convoy steaming toward it does.
+		if _screen_closing_kn(u, track) >= ATTACK_MIN_CLOSING_KN:
+			u.attack_stall_s = 0.0
+			return
+	elif goal.is_finite():
 		if not before.is_finite():
 			return
 		# Rounding a headland the hull may be opening from its firing point for a while: on a sea
 		# route, the way it is making is measured to the point it is steering for.
 		var mark: Vector2 = u.waypoints[0] if u.on_sea_route() else goal
 		var gained := before.distance_to(mark) - u.position.distance_to(mark)
-		if gained >= Geo.knots_to_nm_per_s(maxf(u.speed_kn, 1.0)) * dt * ATTACK_PROGRESS_FRACTION:
+		var turning := u.speed_kn >= 2.0 and absf(Geo.heading_delta(u.heading_deg, Geo.bearing_deg(u.position, mark))) > 60.0
+		var losing := not u.is_aircraft() and not u.on_sea_route() and _plot_closing_kn(u, track) < ATTACK_MIN_CLOSING_KN
+		if losing:
+			why = "contact is opening"
+		elif gained >= Geo.knots_to_nm_per_s(maxf(u.speed_kn, 1.0)) * dt * ATTACK_PROGRESS_FRACTION:
 			u.attack_stall_s = 0.0
 			return
-		if u.speed_kn >= 2.0 and absf(Geo.heading_delta(u.heading_deg, Geo.bearing_deg(u.position, mark))) > 60.0:
+		elif turning:
 			return
 	u.attack_stall_s += dt
 	if u.attack_stall_s >= ATTACK_STALL_S:
 		_end_attack(u, track, "Cannot engage: " + why.to_lower())
+
+
+## How fast she could close the plot on the line of sight at the speed the attack has ordered,
+## against the contact's plotted course and speed: what the chase will come to once she has worked
+## up to it, not the knots she happens to be making as she comes round. INF when the plot gives no
+## motion to judge by.
+static func _plot_closing_kn(u: Unit, track: Track) -> float:
+	if not track.has_kinematics or u.position.distance_to(track.position) < 0.001:
+		return INF
+	var line := (track.position - u.position).normalized()
+	var theirs := Geo.heading_to_vector(track.course_deg) * track.speed_kn
+	return minf(u.ordered_speed_kn, u.effective_max_speed()) - theirs.dot(line)
+
+
+## How fast the range to the plot is closing with the way she is actually making, a contact with
+## no plotted motion taken as still.
+static func _screen_closing_kn(u: Unit, track: Track) -> float:
+	if u.position.distance_to(track.position) < 0.001:
+		return INF
+	var line := (track.position - u.position).normalized()
+	var own := Geo.heading_to_vector(u.heading_deg) * u.speed_kn
+	var theirs := Geo.heading_to_vector(track.course_deg) * track.speed_kn if track.has_kinematics else Vector2.ZERO
+	return (own - theirs).dot(line)
 
 
 ## A helicopter in the dip, ordered to attack a contact its own set holds as a bearing with no
