@@ -22,7 +22,7 @@ extends RefCounted
 ##   --fresh                rebuild the save at --from (needed after a change to the save format)
 ##
 ## Stepped phase: the clock is advanced one 0.25 s tick at a time. Each sensor cycle's own time is
-## read from the profiler (Debug.time_add "sim/sensors" on the ticks the cycle ran), each tick's
+## read from the profiler (Debug.time_add "sim/sensors" on the ticks its slices ran), each tick's
 ## wall time is timed around SimClock.advance, and every 120 simulated seconds a batch of move
 ## orders goes to the player's ships, timed as it is issued and with the tick that carries it.
 ## The final state's digest must be the same for every path: an optimisation that changed the
@@ -225,6 +225,7 @@ func _stepped(sim: Simulation, span: float) -> Dictionary:
 	var order_ms := PackedFloat64Array()
 	var order_tick_ms := PackedFloat64Array()
 	var sensor_total := 0.0
+	var open_cycle := 0.0
 	var totals := {}
 	Debug.profiling = true
 	while SimClock.sim_time < stop - TICK * 0.5:
@@ -241,10 +242,14 @@ func _stepped(sim: Simulation, span: float) -> Dictionary:
 		if carrying:
 			order_tick_ms.append(tick_ms)
 		sensor_total += float(Debug.timings.get("sim/sensors", 0)) / 1000.0
+		# A cycle is spread over the ticks of its second: its time is its slices', summed up to the
+		# tick that closes it (the one that ages the plots).
+		open_cycle += float(Debug.timings.get("sim/sensors", 0)) / 1000.0
+		for k in ["radar", "esm", "sonar", "buoys", "tracks", "weapons"]:
+			parts[k] = float(parts.get(k, 0.0)) + float(Debug.timings.get("sensors/" + k, 0)) / 1000.0
 		if Debug.timings.has("sensors/tracks"):
-			cycles.append(float(Debug.timings.get("sim/sensors", 0)) / 1000.0)
-			for k in ["radar", "esm", "sonar", "buoys", "tracks", "weapons"]:
-				parts[k] = float(parts.get(k, 0.0)) + float(Debug.timings.get("sensors/" + k, 0)) / 1000.0
+			cycles.append(open_cycle)
+			open_cycle = 0.0
 		for k: String in Debug.timings:
 			totals[k] = float(totals.get(k, 0.0)) + float(Debug.timings[k])
 	Debug.profiling = false
