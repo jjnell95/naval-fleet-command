@@ -211,3 +211,51 @@ func test_right_click_on_an_own_ship_in_the_3d_pane_hooks_it_first() -> void:
 	assert_eq(main.map.selected, [ship], "right-clicking a ship of ours hooks it, as on the chart")
 	assert_true(main._cds_menus.is_open(), "and opens its menu")
 	_restore_after(main)
+
+
+# --- An installation on its site ---------------------------------------------------------
+
+func test_a_plotted_shore_battery_stands_on_its_site_as_an_emplacement() -> void:
+	Terrain.load_from({"terrain": {"land": [{"id": "test_island", "name": "Test Island", "elevation_m": 300.0, "points_nm": [[-5, -5], [5, -5], [5, 5], [-5, 5]]}]}})
+	var scene := WorldScene.new()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.add_child(scene)
+	scene.build()
+	var um := UnitManager.new()
+	var tm := TrackManager.new()
+	var battery := _unit("irn_battery_qader", "RED", Vector2(0.5, 0.0))
+	um.add_unit(battery)
+	var t := _hold(tm, "T1", battery, Vector2(0.6, 0.1))
+	t.domain = "land"
+	t.classification = Track.Classification.CLASS_KNOWN
+	t.known_class = battery.spec.short_name
+	t.known_category = battery.spec.category
+	t.position_error_nm = 0.5
+	var entry := WorldPresentation.plotted_entry(t)
+	assert_eq(entry["model"], "irn_battery_qader", "the plot knows the class, so the class model is drawn")
+	scene.update(0.016, [entry], entry["key"])
+	var rec: Dictionary = scene._records[entry["key"]]
+	assert_eq(rec["tint"], "", "an installation keeps its earthworks, hardstand and vehicles instead of a pale wash")
+	var model: Node3D = rec["root"]
+	var bounds: AABB = rec["bounds"]
+	var ground := scene.ground_at(model.position)
+	assert_true(ground > 10.0, "the island stands well above the sea (%.1f m)" % ground)
+	var foot := model.position.y + bounds.position.y * model.scale.y
+	assert_true(foot >= ground - 0.01, "the site is not sunk into the ground under it (foot %.1f, ground %.1f)" % [foot, ground])
+	var plinth := model.get_node_or_null("Plinth") as MeshInstance3D
+	assert_true(plinth != null and plinth.visible, "it stands on a graded platform of earth")
+	var plinth_bottom := model.position.y + (plinth.position.y - plinth.scale.y) * model.scale.y
+	assert_true(plinth_bottom < ground - 2.0, "which reaches down into the hillside round it")
+	var ring: MeshInstance3D = rec["ring"]
+	assert_true(ring != null and ring.visible, "the plot's uncertainty ring is still drawn")
+	assert_true(ring.position.y >= ground, "on the ground, not on the sea beneath it (ring at %.1f m)" % ring.position.y)
+	# The fix improves and the plot moves: the model stands on the ground where it now is.
+	t.position = Vector2(-3.5, 2.0)
+	entry = WorldPresentation.plotted_entry(t)
+	scene.update(0.016, [entry], entry["key"])
+	assert_near(model.position.y + bounds.position.y * model.scale.y, scene._ground_under(entry["key"], t.position, WorldScene._footprint_m(bounds, model.scale.y)), 0.01, "the moved plot is grounded afresh")
+	root.remove_child(scene)
+	scene.free()
+	um.free()
+	tm.free()
+	Terrain.clear()
