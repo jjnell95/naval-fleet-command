@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # Bumped when the pass changes. A file already at or past it is left alone, so running this module
 # on its own only re-encodes the shipped files; regenerate through the five builders.
-REVISION = 29
+REVISION = 30
 # Each operation has a distinct command problem: one 2027 operation per chart region and three
 # 1990 operations. M35 cut the overlapping missions; the two exercises stay on the Training shelf.
 PLANS = {
@@ -48,6 +48,9 @@ EVENT_READINESS = {
 READINESS_FALLBACK_S = 12600
 # Hormuz's shore batteries, which leave the opening force and come out of their hides by event.
 HORMUZ_BATTERIES = ('Qeshm coastal battery', 'Bandar Abbas ballistic battery')
+# The drones that spot for the ballistic battery, and the theatre builder's first order about them.
+DRONES = ['Mohajer 81', 'Mohajer 82']
+DRONE_ORDER = 'Killing the drones early is cheaper than stopping the missiles late.'
 
 
 def _modern_wing(host):
@@ -321,6 +324,8 @@ def _hormuz(d):
 
     def swarm(origin, route):
         return [_moved(boat, [origin[0] + 1.2 * (i % 2), origin[1] - 1.0 * i], route, callsign='Peykaap %d' % (7 + i)) for i in range(4)]
+    d['first_orders'] = [o.replace(DRONE_ORDER, DRONE_ORDER + ' Shooting down both Mohajers is a bonus task from the start.')
+                         for o in d['first_orders']]
     return [
         # The convoy passing Larak, as Iran's own plot shows it, is the signal for a second swarm,
         # from ahead or from astern.
@@ -341,11 +346,18 @@ def _hormuz(d):
         dict(id='qeshm_battery_up', side='RED', at_s_window=[600, 900], reinforcements=[qeshm]),
         dict(id='ballistic_battery_up', side='RED', at_s_window=[900, 1500], when=held('RED', tankers, 'CLASS_KNOWN'),
              latest_s_window=[2400, 3000], reinforcements=[ballistic]),
+        # The bonus for the drones is on offer from the first second, as the first orders say, not
+        # added by the fire mission: added there, a force that killed them early, as the orders
+        # advise, was never offered it, and one that let the fire come and killed them afterwards
+        # was paid for waiting. It enters by event because the authoring checks know a base's
+        # aircraft by callsign only through the events. Both drones down before the battery is up
+        # still calls the fire mission off.
+        dict(id='drones_spotting', at_s=0, objectives=dict(add=[bonus('drones_down', DRONES, 'Shoot down both Mohajer drones')])),
         dict(id='fire_mission', chance=0.7, after=['ballistic_battery_up'],
-             unless=lost(['Mohajer 81', 'Mohajer 82']),
-             objectives=dict(add=[bonus('drones_down', ['Mohajer 81', 'Mohajer 82'], 'Shoot down both Mohajer drones')]),
+             unless=lost(DRONES),
+             objectives=dict(update={'drones_down': dict(text='Shoot down both Mohajer drones spotting for the Khalij Fars battery')}),
              message='TASKING UPDATE: intercepts show a Mohajer passing a tanker\'s position to the Khalij Fars battery. Expect '
-                     'ballistic fire on the convoy. Shooting down both drones is a bonus task.'),
+                     'ballistic fire on the convoy for as long as a drone is up to spot for it.'),
     ]
 
 

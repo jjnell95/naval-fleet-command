@@ -5454,7 +5454,7 @@
   "first_orders": [
     "Paul Ignatius is formed ahead of the convoy in the outbound lane, Duncan on the Iranian side and Languedoc astern, where her sonar meets the Ghadir; Return to Station puts any of them back.",
     "The swarm comes from Qeshm at fifty knots. Radar on, weapons free, and guns for anything inside five miles: a Harpoon or an Exocet that loses a boat in the strait will find a dhow, and a neutral sunk by your fire ends the mission.",
-    "The Khalij Fars battery fires on drone reports. Killing the drones early is cheaper than stopping the missiles late.",
+    "The Khalij Fars battery fires on drone reports. Killing the drones early is cheaper than stopping the missiles late. Shooting down both Mohajers is a bonus task from the start.",
     "F1 lists the operation sequence, live task progress and tasking updates. Contact reports go on the plot as wide datums to investigate; they are never firing solutions."
   ],
   "setting_note": "A fictional May 2027 crisis. Real geography and traffic lanes, real class names; the deployment and the engagement are invented.",
@@ -5706,7 +5706,7 @@
     }
   },
   "recognition_note": "In this fictional operation, the brief declares recognized opposing military families hostile. Sensor-library evidence is required; an unidentified radar return is not hostile. The brief contains no positions, exact callsigns, or guarantee that a listed type is present.",
-  "operation_revision": 29,
+  "operation_revision": 30,
   "collection": "operations",
   "operation_plan": [
     {
@@ -6058,18 +6058,8 @@
       ]
     },
     {
-      "id": "fire_mission",
-      "chance": 0.7,
-      "after": [
-        "ballistic_battery_up"
-      ],
-      "unless": {
-        "type": "all_units_lost",
-        "callsigns": [
-          "Mohajer 81",
-          "Mohajer 82"
-        ]
-      },
+      "id": "drones_spotting",
+      "at_s": 0,
       "objectives": {
         "add": [
           {
@@ -6083,8 +6073,29 @@
             "text": "Shoot down both Mohajer drones"
           }
         ]
+      }
+    },
+    {
+      "id": "fire_mission",
+      "chance": 0.7,
+      "after": [
+        "ballistic_battery_up"
+      ],
+      "unless": {
+        "type": "all_units_lost",
+        "callsigns": [
+          "Mohajer 81",
+          "Mohajer 82"
+        ]
       },
-      "message": "TASKING UPDATE: intercepts show a Mohajer passing a tanker's position to the Khalij Fars battery. Expect ballistic fire on the convoy. Shooting down both drones is a bonus task."
+      "objectives": {
+        "update": {
+          "drones_down": {
+            "text": "Shoot down both Mohajer drones spotting for the Khalij Fars battery"
+          }
+        }
+      },
+      "message": "TASKING UPDATE: intercepts show a Mohajer passing a tanker's position to the Khalij Fars battery. Expect ballistic fire on the convoy for as long as a drone is up to spot for it."
     }
   ],
   "ai_plans": [
