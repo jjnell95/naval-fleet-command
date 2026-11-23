@@ -55,7 +55,8 @@ static func run(main: Main) -> void:
 	checks["firing solution and plan summary retain visible height"] = board._quality.size.y > 0 and board._detail.size.y > 0 and board._plan_summary.size.y > 0 and not board._quality.text.is_empty()
 	board._role_option.select(1)
 	board._role_option.item_selected.emit(1)
-	checks["filtering discloses hidden planned systems"] = board._plan_summary.text.contains("3 systems hidden by filter")
+	# The Mk 45 is dual-purpose and stays listed under the air filter; the two Tomahawks are hidden.
+	checks["filtering discloses hidden planned systems"] = board._plan_summary.text.contains("2 systems hidden by filter")
 	board._role_option.select(0)
 	board._role_option.item_selected.emit(0)
 	await _shot(main, "weapon-control-plan")

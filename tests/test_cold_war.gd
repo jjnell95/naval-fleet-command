@@ -151,7 +151,11 @@ func test_barrier_can_resolve_by_kill_watch_or_breakout() -> void:
 			Damage.apply(boat, 10000)
 		if outcome == "breakout":
 			boat.position = h[1].loss_objectives[1].center
-		h[1].tick(301 if outcome == "kill" else 10800)
+		var watch := 0.0
+		for o: Dictionary in h[2]["objectives"]["victory"]:
+			if o["id"] == "watch":
+				watch = float(o["seconds"])
+		h[1].tick(301 if outcome == "kill" else watch)
 		assert_eq(h[1].result, MissionManager.Result.DEFEAT if outcome == "breakout" else MissionManager.Result.VICTORY)
 		_cleanup(h)
 

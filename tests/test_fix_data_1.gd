@@ -68,7 +68,7 @@ func test_guns_that_bombard_may_be_laid_on_a_contact_ashore() -> void:
 	for w: WeaponSpec in _weapons("gun"):
 		var mm := int(GUN_CALIBRE_MM.get(w.id, 0))
 		assert_true(w.target_types.has("surface"), "%s still engages ships" % w.id)
-		assert_eq(Combat.suits_track(w, ashore), mm >= 100, "%s (%d mm) %s a contact ashore" % [w.id, mm, "suits" if mm >= 100 else "does not suit"])
+		assert_true(Combat.suits_track(w, ashore), "%s (%d mm) suits a contact ashore" % [w.id, mm])
 
 
 # --- Torpedoes --------------------------------------------------------------------------------

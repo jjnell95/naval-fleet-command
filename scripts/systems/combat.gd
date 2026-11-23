@@ -437,8 +437,10 @@ static func intercept_probability(interceptor: WeaponSpec, threat: WeaponSpec) -
 ## Gunfire is not a guided weapon's single-shot chance. A shell takes its whole time of flight to
 ## arrive at a point laid before it left the barrel: the chance falls away with the range, to
 ## GUN_PK_AT_MAX_RANGE of the rated figure at the limit of the gun's reach, and with the speed of
-## a target that can move off that point, halving at GUN_SPEED_HALVING_KN. GAMEPLAY_ESTIMATE.
-const GUN_PK_AT_MAX_RANGE := 0.5
+## a target that can move off that point, halving at GUN_SPEED_HALVING_KN. A quarter at the limit
+## leaves even a stopped ship at a gun's full reach hit by fewer than one round in five, so long
+## gunnery is a matter of weight of fire. GAMEPLAY_ESTIMATE.
+const GUN_PK_AT_MAX_RANGE := 0.25
 const GUN_SPEED_HALVING_KN := 60.0
 
 

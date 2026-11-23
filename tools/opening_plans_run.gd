@@ -28,7 +28,7 @@ const PLANS := {
 ## Carrier Watch also needs an aircraft recovered after a sortie, and a CAP kept up with reliefs
 ## for the whole watch lands its first section after it, so its margin is half an hour.
 const CAP_S := {
-	"cold_war_01_convoy": 10860.0, "cold_war_02_barrier": 10860.0, "cold_war_03_carrier": 9000.0,
+	"cold_war_01_convoy": 10860.0, "cold_war_02_barrier": 21660.0, "cold_war_03_carrier": 9000.0,
 	"aegis_bastion": 14460.0, "pacific_02_taiwan_strait": 18060.0, "gulf_01_hormuz": 36060.0,
 	"med_01_tartus": 30000.0,
 }
@@ -152,19 +152,19 @@ func _open() -> void:
 			_order(_u(ELROD), Order.set_speed(26.0))
 			_air(ELROD, AirMission.Kind.RECON, "cw90_sh60b", 1, box, 12.0)
 		"cold_war_02_barrier/forward_barrier":
-			# Dallas walks a slow line across the lanes north of the barrier; the helicopters and
-			# the Orion search ahead of it; Spruance keeps back.
-			_order(_u(DALLAS), Order.patrol([Vector2(-4.0, 4.0), Vector2(9.0, 4.0)] as Array[Vector2]))
+			# Dallas walks a slow line across the lanes six miles north-east of the barrier; the
+			# helicopters and the Orion search up the lanes ahead of it; Spruance keeps back.
+			_order(_u(DALLAS), Order.patrol([Vector2(-4.95, 13.44), Vector2(12.02, -3.54)] as Array[Vector2]))
 			_order(_u(DALLAS), Order.set_speed(5.0))
-			_order(_u(SPRUANCE), Order.move(Vector2(3.0, -3.0)))
-			_air(SPRUANCE, AirMission.Kind.ASW, "cw90_sh60b", 2, Vector2(2.0, 7.0), 8.0, null, true)
-			_air(KEFLAVIK, AirMission.Kind.ASW, "cw90_p3c", 1, Vector2(3.0, 9.0), 12.0)
+			_order(_u(SPRUANCE), Order.move(Vector2(2.12, -6.36)))
+			_air(SPRUANCE, AirMission.Kind.ASW, "cw90_sh60b", 2, Vector2(7.07, 7.07), 12.0, null, true)
+			_air(KEFLAVIK, AirMission.Kind.ASW, "cw90_p3c", 1, Vector2(11.31, 11.31), 16.0)
 		"cold_war_02_barrier/gate_defence":
-			# Everything on the gate itself; the Orion waits for the array's cue.
-			var gate := _box("breakout")
-			_order(_u(DALLAS), Order.move(gate + Vector2(1.0, 3.0)))
-			_order(_u(SPRUANCE), Order.move(gate + Vector2(8.0, 2.0)))
-			_air(SPRUANCE, AirMission.Kind.ASW, "cw90_sh60b", 2, gate + Vector2(0.0, 4.0), 6.0, null, true)
+			# Everything back on the near edge of the breakout, south-west of the barrier line;
+			# the Orion waits for the array's cue.
+			_order(_u(DALLAS), Order.move(Vector2(-5.66, -5.66)))
+			_order(_u(SPRUANCE), Order.move(Vector2(0.0, -11.31)))
+			_air(SPRUANCE, AirMission.Kind.ASW, "cw90_sh60b", 2, Vector2(-4.24, -4.24), 10.0, null, true)
 		"cold_war_03_carrier/all_cap", "cold_war_03_carrier/strike_slava":
 			# The Hawkeye and four Tomcats north of the group, toward the raid axes but outside the
 			# cruiser's SA-N-6 wherever she waits, with relief from the reserve.
@@ -261,7 +261,7 @@ func _step() -> void:
 				if _once("orion_to_cue"):
 					_air(KEFLAVIK, AirMission.Kind.ASW, "cw90_p3c", 1, t.position, 12.0)
 			if now >= 2400.0 and _once("orion_late"):
-				_air(KEFLAVIK, AirMission.Kind.ASW, "cw90_p3c", 1, Vector2(2.0, 4.0), 12.0)
+				_air(KEFLAVIK, AirMission.Kind.ASW, "cw90_p3c", 1, Vector2(2.83, 2.83), 12.0)
 			_engage([DALLAS, SPRUANCE], "subsurface", 20.0)
 		"cold_war_03_carrier/all_cap":
 			if now >= 1800.0 and _once("second_cap"):

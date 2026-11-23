@@ -83,6 +83,8 @@ DECOY_RESISTANCE = {"mk46": .9, "mk48": .9, "set65": .8, "test71": .85, "at1": .
 # The heavyweights a boat fires down a tube and steers by wire onto the plot it keeps working
 # (WeaponSpec.midcourse_updates). The SET-65 and the wake-homer run on their launch setting.
 WIRE_GUIDED = {"mk48", "test71"}
+# What a naval gun may be laid on: a ship, a contact ashore, or an aircraft.
+GUN_TARGETS = ["surface", "land", "air"]
 
 
 def weapon(key, name, kind, targets, reach, speed, damage, **kw):
@@ -231,10 +233,11 @@ def catalogue():
     weapon("aim9m", "AIM-9M Sidewinder", "aam", ["air"], 8, 1600, 34,
            guidance="infrared_homing", base_pk=.65, min_range_nm=.5, altitude_m=6000.0)
     # Shells are on the missiles' damage scale: a 5-inch round is a sixteenth of a Harpoon, so a gun
-    # action is decided by weight of fire over minutes, not by the first few hits. The larger
-    # calibres also bombard: they may be laid on a contact ashore.
-    weapon("mk45", "Mk 45 5-inch/54 gun", "gun", ["surface", "land"], 11, 1500, 2.5, base_pk=.65)
-    weapon("mk75", "Mk 75 76 mm gun", "gun", ["surface"], 8, 1600, 1, base_pk=.65)
+    # action is decided by weight of fire over minutes, not by the first few hits. Every one of
+    # these mounts is dual-purpose: it may be laid on a contact ashore or on an aircraft, where
+    # the fall of accuracy with range and target speed leaves a jet all but safe from it.
+    weapon("mk45", "Mk 45 5-inch/54 gun", "gun", GUN_TARGETS, 11, 1500, 2.5, base_pk=.65)
+    weapon("mk75", "Mk 75 76 mm gun", "gun", GUN_TARGETS, 8, 1600, 1, base_pk=.65)
     weapon("phalanx", "Phalanx Block 0/1 CIWS", "ciws", ["missile", "air"], 1.2, 2200, 15,
            base_pk=.40)
     weapon("moskit", "P-270 Moskit / SS-N-22 Sunburn", "asm", ["surface"], 60, 1350, 62,
@@ -251,9 +254,9 @@ def catalogue():
            base_pk=.51, min_range_nm=.6)
     weapon("osa_m", "Osa-M / SA-N-4 Gecko", "sam", ["missile", "air"], 5, 1600, 26,
            base_pk=.43, min_range_nm=.7)
-    weapon("ak130", "AK-130 twin 130 mm gun", "gun", ["surface", "land"], 12, 1500, 3, base_pk=.66)
-    weapon("ak100", "AK-100 100 mm gun", "gun", ["surface", "land"], 10, 1500, 1.5, base_pk=.64)
-    weapon("ak176", "AK-176 76 mm gun", "gun", ["surface"], 8, 1500, 1, base_pk=.64)
+    weapon("ak130", "AK-130 twin 130 mm gun", "gun", GUN_TARGETS, 12, 1500, 3, base_pk=.66)
+    weapon("ak100", "AK-100 100 mm gun", "gun", GUN_TARGETS, 10, 1500, 1.5, base_pk=.64)
+    weapon("ak176", "AK-176 76 mm gun", "gun", GUN_TARGETS, 8, 1500, 1, base_pk=.64)
     weapon("ak630", "AK-630 CIWS", "ciws", ["missile", "air"], 1.1, 2100, 14, base_pk=.37)
     weapon("set65", "SET-65 anti-submarine torpedo", "torpedo", ["subsurface"], 8, 40, 68, wire_guidance=0)
     weapon("test71", "TEST-71M torpedo", "torpedo", ["subsurface"], 10, 40, 72)
@@ -333,8 +336,10 @@ def catalogue():
              ["civil_nav"], {}, length_m=160.0, displacement_t=17000.0, max_speed_kn=17.0,
              cruise_speed_kn=14.0, health=95.0, fire_control_channels=0, decoy_count=0,
              has_datalink=False, role="Protected cargo vessel", service_note="Generic period cargo ship with a fictional name. It represents convoy traffic; no particular civilian hull is claimed.")
+    # The footprint (modelling value, see DATA_SOURCES.md) draws the air station's model with a
+    # 2,400 m runway, a common main runway at a military jet base; it is not Keflavik's survey.
     platform("airfield", "Shore air station", "Air station", "", "shore base", [], {},
-             domain="land", max_speed_kn=0.0, cruise_speed_kn=0.0, health=400.0,
+             domain="land", max_speed_kn=0.0, cruise_speed_kn=0.0, health=400.0, length_m=2700.0,
              aircraft_capacity=16, aviation_facility="airfield", fire_control_channels=0,
              decoy_count=0, role="Land-based aviation", service_note="Fixed recovery and launch point at a real airfield. No installation layout or actual 1990 deployment is asserted.")
 
@@ -408,6 +413,9 @@ class Mission:
             force_note="Period identities; fictional 1990 deployment. Tactical magazines and reduced air detachments represent weapons available in this mission, not full real-world readiness.")
     def xy(self, lat, lon):
         return g.pos(lat,lon,self.lat,self.lon)
+    def latlon(self, p):
+        """The chart position of a point given in nautical miles about the anchor."""
+        return (self.lat + p[1] / 60.0, self.lon + p[0] / (60.0 * math.cos(math.radians(self.lat))))
     def unit(self, platform_id, name, faction, lat, lon, heading=0, speed=0, **extra):
         # A hull placed ashore, or a field placed at sea, is an authoring error worth failing on.
         ashore = g.is_land(lat, lon)
@@ -493,28 +501,52 @@ def scenarios():
     s.d["forces"]="NATO: 2 Perry frigates, 1 cargo ship, 1 SH-60B / USSR: 1 missile corvette / neutral shipping"
     yield s.write()
 
+    # The barrier is laid out at sea scale. A Victor III on its quiet 7 kn transit is heard by
+    # Dallas at about ten miles and by Spruance's array at about six, and a Mk 48 reaches 22; so
+    # the boat opens more than twenty miles up its lane from both barrier ships, unheard, and its
+    # three lanes cross the barrier line 22 miles apart, more than one listener or one torpedo
+    # covers. The breakout is a broad exit south of the line, not a point every lane converges on,
+    # so a ship parked on it does not hold all three. Six hours is what the longest lane takes at
+    # that speed, with half an hour in hand: the watch is long enough for an unfound boat to break
+    # out, so holding it is not a formality.
+    WATCH_S=21600
+    def lane(along, across):
+        """A point in the boat's frame: `along` miles down its south-westerly transit from the
+        barrier line, `across` miles to the west of the direct lane."""
+        a=math.radians(225.0)
+        c=math.radians(315.0)
+        return [round(along*math.sin(a)+across*math.sin(c),2),round(along*math.cos(a)+across*math.cos(c),2)]
     s=Mission("cold_war_02_barrier","THE ICELAND-FAROE BARRIER",63.12,-11.65,720,-30,"1990-09-16T01:10:00",
-      "Intermediate",25,"ASW barrier commander","Passive bearings, sonobuoys, layer depth and firing solutions",
-      "Deny the Victor III its southern exit. Hold the barrier for three hours, or neutralize the boat.",
+      "Intermediate",40,"ASW barrier commander","Passive bearings, sonobuoys, layer depth and firing solutions",
+      "Deny the Victor III its southern exit. Hold the barrier for six hours, or neutralize the boat.",
       ["Select Dallas to view its local sonar picture. Keep it slow and passive; build a solution before committing a Mk 48.",
-       "Launch a Spruance SH-60B toward the suspected passage and drop sonobuoys. It has no dipping sonar.",
+       "Launch a Spruance SH-60B up the transit lanes north-east of the barrier and drop sonobuoys. It has no dipping sonar.",
        "Use Keflavik's P-3C to extend the search. Protect Spruance and prevent the submarine reaching the southern gate."],
-      "16 September 1990, Iceland-Faroe Ridge. An unidentified Soviet Victor III is attempting an Atlantic breakout. USS Dallas and USS Spruance hold a compact barrier, with a P-3C detachment at Keflavik. A seasonal acoustic layer complicates the search; below-layer listening and deliberate localization matter more than speed. This is a submarine search, not a radar duel.",
+      "16 September 1990, Iceland-Faroe Ridge. An unidentified Soviet Victor III is attempting an Atlantic breakout down one of the lanes across the ridge's southern flank. USS Dallas and USS Spruance hold a barrier more than twenty miles wide, with a P-3C detachment at Keflavik. The boat is somewhere up the lanes, beyond either ship's hearing. A seasonal acoustic layer complicates the search; below-layer listening and deliberate localization matter more than speed. This is a submarine search, not a radar duel.",
       theatre="North Atlantic")
     s.d["environment"].update(sea_state=4,wind_kn=23,visibility_nm=6,layer_depth_m=140,layer_strength=.55,cz_range_nm=30)
-    exit_gate=s.xy(62.98,-11.76)
+    exit_gate=lane(18,0)
+    EXIT_RADIUS=12
     red="Soviet submarine (Victor III)"
-    s.unit("los_angeles","USS Dallas (SSN 700)","BLUE",63.19,-11.48,25,6,depth_m=170,radar_on=False)
-    s.unit("spruance","USS Spruance (DD 963)","BLUE",63.01,-11.38,305,8,radar_on=False,
+    dallas_line=[lane(-3,13),lane(-3,-3)]
+    spruance_line=[lane(3,-1),lane(3,-17)]
+    s.unit("los_angeles","USS Dallas (SSN 700)","BLUE",*s.latlon(lane(0,5)),315,6,depth_m=170,radar_on=False,
+           patrol_nm=dallas_line)
+    s.unit("spruance","USS Spruance (DD 963)","BLUE",*s.latlon(lane(3,-9)),135,8,radar_on=False,
+           patrol_nm=spruance_line,
            air_wing=[dict(platform=ident("sh60b"),count=2,callsign="Spruance",first_modex=60,
-                          patrol_nm=[s.xy(63.24,-11.65),s.xy(63.08,-11.65)])])
+                          patrol_nm=[lane(-12,14),lane(-12,-14)])])
     s.unit("airfield","Keflavik Air Base","BLUE",63.985,-22.605,
-           air_wing=[dict(platform=ident("p3c"),count=1,callsign="Orion",squadron="Scenario patrol detachment",first_modex=21,patrol_nm=[s.xy(63.24,-11.65),s.xy(63.06,-11.80)])])
-    s.unit("victor3",red,"RED",63.30,-11.40,210,7,depth_m=160,radar_on=False,ai_posture="breakout",
-           patrol_nm=[exit_gate])
-    s.objectives("Deny the southern gate for 3 hours or neutralize the Victor III. A breakout or the loss of either barrier ship fails the mission.",
-       [hold(10800),destroyed([red])],[loss(["USS Dallas (SSN 700)","USS Spruance (DD 963)"],"Barrier ship lost"),
-       area("breakout",[red],exit_gate,"Victor III crossed the southern barrier",radius=3)],mode="any")
+           air_wing=[dict(platform=ident("p3c"),count=1,callsign="Orion",squadron="Scenario patrol detachment",first_modex=21,patrol_nm=[lane(-18,18),lane(-18,-18)])])
+    start=lane(-24,2)
+    s.unit("victor3",red,"RED",*s.latlon(start),round(math.degrees(math.atan2(exit_gate[0]-start[0],exit_gate[1]-start[1]))%360,3),7,
+           depth_m=160,radar_on=False,ai_posture="breakout",patrol_nm=[exit_gate])
+    # The lanes and the second boat's approach, in the same frame, for the operation pass.
+    s.d["_barrier_lanes"]=dict(western=[lane(0,11),lane(16,8)],eastern=[lane(0,-11),lane(16,-8)],
+                              second=[lane(-22,16),lane(0,7),lane(16,4)],exit_radius_nm=EXIT_RADIUS)
+    s.objectives("Deny the southern gate for 6 hours or neutralize the Victor III. A breakout or the loss of either barrier ship fails the mission.",
+       [hold(WATCH_S),destroyed([red])],[loss(["USS Dallas (SSN 700)","USS Spruance (DD 963)"],"Barrier ship lost"),
+       area("breakout",[red],exit_gate,"Victor III crossed the southern barrier",radius=EXIT_RADIUS)],mode="any")
     s.d["map"].update(focus_center_nm=[0,0],focus_extent_nm=110)
     s.d["forces"]="NATO: Dallas, Spruance, 2 SH-60B, 1 Keflavik P-3C / USSR: 1 Victor III"
     yield s.write()

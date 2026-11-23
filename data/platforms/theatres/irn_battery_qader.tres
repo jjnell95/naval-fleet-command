@@ -27,4 +27,5 @@ service_note = "Launchers in the hills behind the coast with a surveillance rada
 has_datalink = true
 aircraft_capacity = 0
 aviation_facility = "none"
+length_m = 560.0
 source_status = "PUBLIC: class identity, dimensions and broad fit; see docs/THEATRES_2027.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings, magazines and detachments. A 2027 recognition model, not a capability claim."

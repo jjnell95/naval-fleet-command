@@ -207,12 +207,20 @@ def submarine(key, name, short, nation, sensors, weapons, length, tonnes, speed,
     platform(key, name, short, nation, category, sensors, weapons, **values)
 
 
+# The ground a site of each kind covers, end to end, which the 3D view draws it at: the dispersal
+# of launchers, radars and control posts over a hide, not a surveyed layout. These are modelling
+# values (DATA_SOURCES.md), the length of each kind's site model in tools/art/build_models.py, so
+# its vehicles are drawn at their own size.
+SITE_FOOTPRINT_M = {"coastal missile battery": 560.0, "surface-to-air missile site": 640.0,
+                    "ballistic missile battery": 460.0, "drone launch site": 380.0}
+
+
 def site(key, name, short, nation, category, sensors, weapons, **kw):
     """A fixed installation ashore: a coastal missile battery, a SAM site, a drone launch site."""
     values = dict(domain="land", max_speed_kn=0.0, cruise_speed_kn=0.0, turn_rate_deg_s=0.0,
                   accel_kn_s=0.0, health=60.0, signature_factor=1.2, mast_height_m=30.0,
                   fire_control_channels=0, decoy_count=0, decoy_effectiveness=0.0, has_datalink=True,
-                  aircraft_capacity=0, aviation_facility="none")
+                  aircraft_capacity=0, aviation_facility="none", length_m=SITE_FOOTPRINT_M[category])
     values.update(kw)
     platform(key, name, short, nation, category, sensors, weapons, **values)
 
@@ -289,10 +297,10 @@ def catalogue():
     weapon("pla_hpj11_ciws", "H/PJ-11 eleven-barrel 30 mm CIWS", "ciws", ["missile", "air"], 1.4, 3200, 15, base_pk=0.42)
     weapon("pla_hpj12_ciws", "H/PJ-12 (Type 730) 30 mm CIWS", "ciws", ["missile", "air"], 1.2, 3000, 15, base_pk=0.38)
     weapon("pla_hpj13_30mm", "H/PJ-13 30 mm gun mount", "ciws", ["missile", "air"], 1.0, 2600, 12, base_pk=0.30)
-    # Shell damage is on the missiles' scale (a 130 mm round is about a fourteenth of a YJ-83);
-    # the heavy gun also bombards, the 76 mm does not.
-    weapon("pla_hpj45_130mm", "H/PJ-45A 130 mm gun", "gun", ["surface", "land"], 12, 1600, 3, base_pk=0.52)
-    weapon("pla_hpj26_76mm", "H/PJ-26 76 mm gun", "gun", ["surface"], 8, 1600, 1, base_pk=0.50, salvo_default=8)
+    # Shell damage is on the missiles' scale (a 130 mm round is about a fourteenth of a YJ-83).
+    # Both mounts are dual-purpose: a ship, a contact ashore or an aircraft.
+    weapon("pla_hpj45_130mm", "H/PJ-45A 130 mm gun", "gun", ["surface", "land", "air"], 12, 1600, 3, base_pk=0.52)
+    weapon("pla_hpj26_76mm", "H/PJ-26 76 mm gun", "gun", ["surface", "land", "air"], 8, 1600, 1, base_pk=0.50, salvo_default=8)
     weapon("pla_yu6", "Yu-6 heavyweight torpedo", "torpedo", ["surface", "subsurface"], 24, 50, 90,
            base_pk=0.70, run_to_enable_nm=1.0, acoustic_signature=0.7)
     weapon("pla_yu7", "Yu-7 lightweight torpedo", "torpedo", ["subsurface"], 6, 43, 55, base_pk=0.68, run_to_enable_nm=0.4)

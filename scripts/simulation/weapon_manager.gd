@@ -566,6 +566,12 @@ func _step(w: Weapon, dt: float) -> void:
 				w.dead_reason = "TARGET LOST"  # it went quiet and moved off the spot
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and _segment_distance_squared(previous, w.position, w.acquired.position) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
 		_resolve_impact(w)
+	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.spec.is_gun() and w.position.distance_to(w.acquired.position) > step_from.distance_to(w.acquired.position):
+		# A shell is not steered round after what it was laid on: where it passes the target is
+		# where it bursts or goes by, and the gunnery (Combat.hit_probability) decides which. An
+		# aircraft that has moved off the laid point would otherwise be circled until the round
+		# ran out of range.
+		_resolve_impact(w)
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.spec.profile == "ballistic" and w.position.distance_to(w.acquired.position) > step_from.distance_to(w.acquired.position):
 		# A ballistic round comes down once. Past its closest point it has no way back: it cannot
 		# pull round at that speed and it has no height left to do it in. It has missed.
