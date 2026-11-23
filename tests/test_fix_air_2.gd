@@ -131,3 +131,87 @@ func test_the_dialog_stands_as_tall_as_its_content() -> void:
 	assert_true(ui._header.is_ancestor_of(ui._back), "CLOSE sits in the header")
 	ui.free()
 	_done()
+
+
+# --- The mission planner does not carry a wrong choice ------------------------------------
+
+## Choosing a mission the chosen type cannot fly moves the type picker to the deck's type that
+## can, with one aircraft, instead of offering "ASSIGN STRIKE · 0" for a type with no weapons.
+func test_a_mission_opens_on_a_type_that_can_fly_it() -> void:
+	_load()
+	var cv := _unit(IKE)
+	var ui := _dialog(Vector2(1600, 900))
+	ui.open_for([cv])
+	ui._type_id = TOMCAT
+	ui.refresh()
+	ui._plan_tabs.current_tab = 1
+	for kind: int in [AirMission.Kind.ASW, AirMission.Kind.STRIKE, AirMission.Kind.RECON, AirMission.Kind.CAP]:
+		ui.set_mission_kind(kind)
+		var label: String = AirMission.KIND_LABELS[kind]
+		var spec := DataDB.platform(ui._type_id)
+		assert_true(AirMissionManager.type_suits(spec, kind), "%s opens on %s, which cannot fly it" % [label, spec.short_name])
+		assert_eq(ui._type_picker.selected, ui._type_ids.find(ui._type_id), "%s: the picker shows the type chosen" % label)
+		assert_true(int(ui._count.value) >= 1, "%s: one aircraft to start with, not %d" % [label, int(ui._count.value)])
+		assert_true(not ui._launch_hint.text.contains("carries no") and not ui._launch_hint.text.contains("has no"), "%s: %s" % [label, ui._launch_hint.text])
+	ui._type_id = TOMCAT
+	ui.refresh()
+	ui.set_mission_kind(AirMission.Kind.CAP)
+	assert_eq(ui._type_id, TOMCAT, "a type that suits the mission is left alone")
+	ui.free()
+	_done()
+
+
+## After a CAP is assigned, the next mission starts with no station: Reconnaissance does not open
+## on the CAP's station with ASSIGN live.
+func test_an_assigned_station_does_not_carry_to_the_next_mission() -> void:
+	_load()
+	var cv := _unit(IKE)
+	var ui := _dialog(Vector2(1600, 900))
+	ui.open_for([cv])
+	_assign_cap(ui, cv, Vector2(40, 45), 2)
+	assert_eq(_sim.air_mission_manager.active_missions("BLUE").size(), 1, ui._receipt.text)
+	ui.set_mission_kind(AirMission.Kind.RECON)
+	assert_true(ui._station_label.text.contains("none"), ui._station_label.text)
+	assert_true(ui._launch.disabled, "nothing to assign until a search area is placed: %s" % ui._launch.text)
+	ui.set_mission_kind(AirMission.Kind.CAP)
+	assert_true(ui._station_label.text.contains("none"), "nor does the CAP keep it: %s" % ui._station_label.text)
+	ui.free()
+	_done()
+
+
+## Relief and Back to station mean nothing to a strike: they show clear as well as greyed, and
+## come back as the commander left them on a mission that uses them.
+func test_options_a_mission_cannot_use_show_clear() -> void:
+	_load()
+	var cv := _unit(IKE)
+	var ui := _dialog(Vector2(1600, 900))
+	ui.open_for([cv])
+	ui._plan_tabs.current_tab = 1
+	ui.set_mission_kind(AirMission.Kind.CAP)
+	ui._relief.button_pressed = true
+	assert_true(ui._auto_return.button_pressed)
+	ui.set_mission_kind(AirMission.Kind.STRIKE)
+	for box: CheckBox in [ui._relief, ui._auto_return]:
+		assert_true(box.disabled, "%s greyed for a strike" % box.text)
+		assert_true(not box.button_pressed, "%s not ticked for a strike" % box.text)
+	assert_true(not ui._planned_order().relief, "a strike order asks for no relief")
+	ui.set_mission_kind(AirMission.Kind.CAP)
+	assert_true(ui._relief.button_pressed and not ui._relief.disabled, "relief comes back for the CAP")
+	assert_true(ui._auto_return.button_pressed and not ui._auto_return.disabled, "so does back to station")
+	ui.free()
+	_done()
+
+
+## A new engagement does not open on the last one's receipt, station or target.
+func test_a_new_engagement_starts_with_a_clean_receipt() -> void:
+	_load()
+	var cv := _unit(IKE)
+	var ui := _dialog(Vector2(1600, 900))
+	ui.open_for([cv])
+	ui.apply_station(cv.position + Vector2(20, 20))
+	ui.show_receipt("Charles de Gaulle (R 91): launching 2 of 2 × Rafale M.", true)
+	ui.clear_selection()
+	assert_eq(ui._receipt.text, AirOperations.RECEIPT_PROMPT)
+	assert_true(not ui._station.is_finite(), "the station goes with the engagement")
+	ui.free()
+	_done()

@@ -21,6 +21,7 @@ const DECK_COLUMNS := ["AIRFRAME", "SELECTED", "TIME", "STATE", "FUEL"]
 const MISSION_CHOICES := ["Combat air patrol", "Reconnaissance / identification", "ASW search", "Strike"]
 ## How long the hint keeps showing an accepted launch before it goes back to the deck state.
 const ACCEPTED_HINT_S := 120.0
+const RECEIPT_PROMPT := "Choose a quantity, then Launch or Assign mission. Closing this window sends no orders."
 
 var simulation: Simulation
 var _base_picker: OptionButton
@@ -81,6 +82,10 @@ var _anchor_picker: OptionButton
 var _anchors: Array[Unit] = []
 var _pursuit: SpinBox
 var _airborne_page: VBoxContainer
+## What the commander last ticked for relief and return to station: a mission that cannot use an
+## option shows it clear and greyed, and one that can shows the choice again.
+var _relief_choice := false
+var _auto_return_choice := true
 var _dialog: PanelContainer
 var _frame: VBoxContainer
 var _header: HBoxContainer
@@ -239,12 +244,15 @@ func _ready() -> void:
 	_relief = CheckBox.new()
 	_relief.text = "Relief"
 	_relief.tooltip_text = "Launch a ready reserve airframe in time to take over as each one on station turns for home"
-	_relief.toggled.connect(func(_on: bool) -> void: _refresh_launch())
+	_relief.toggled.connect(func(on: bool) -> void:
+		_relief_choice = on
+		_refresh_launch())
 	standing.add_child(_relief)
 	_auto_return = CheckBox.new()
 	_auto_return.text = "Back to station"
 	_auto_return.button_pressed = true
 	_auto_return.tooltip_text = "After identifying or intercepting a contact, return to the station without being told"
+	_auto_return.toggled.connect(func(on: bool) -> void: _auto_return_choice = on)
 	standing.add_child(_auto_return)
 	_cap_options = HBoxContainer.new()
 	_cap_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -438,7 +446,7 @@ func _ready() -> void:
 	_footer = HBoxContainer.new()
 	_footer.add_theme_constant_override("separation", 14)
 	_frame.add_child(_footer)
-	_receipt = _label("Choose a quantity, then Launch or Assign mission. Closing this window sends no orders.", 12, UITheme.INK)
+	_receipt = _label(RECEIPT_PROMPT, 12, UITheme.INK)
 	_receipt.custom_minimum_size.y = 20
 	_receipt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_receipt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -623,12 +631,6 @@ func open_strike(selection: Array, target: Track) -> void:
 		refresh()
 	set_mission_kind(AirMission.Kind.STRIKE)
 	_target = target
-	# Open on a type that can carry it out, if the deck has one.
-	if _base != null and not AirMissionManager.type_suits(DataDB.platform(_type_id), AirMission.Kind.STRIKE):
-		for group in inventory(_base):
-			if AirMissionManager.type_suits(DataDB.platform(group["id"]), AirMission.Kind.STRIKE):
-				_type_id = group["id"]
-				break
 	_refresh_types()
 
 
@@ -646,6 +648,12 @@ func set_mission_kind(kind: int) -> void:
 	_mission_kind = kind
 	if _mission_picker == null:
 		return
+	# A mission the chosen type cannot fly opens on the deck's type that can, with most ready.
+	if kind >= 0 and _editing_mission == null and _type_id != "" and not AirMissionManager.type_suits(DataDB.platform(_type_id), kind):
+		var suited := suited_type(_base, kind)
+		if suited != "":
+			_type_id = suited
+			_count.set_value_no_signal(1)
 	_plan_tabs.set_block_signals(true)
 	_plan_tabs.set_current_tab(0 if kind < 0 else 1)
 	_plan_tabs.set_block_signals(false)
@@ -654,17 +662,32 @@ func set_mission_kind(kind: int) -> void:
 	_cap_options.visible = kind == AirMission.Kind.CAP
 	_station_button.disabled = kind < 0
 	_radius.editable = kind >= 0 and kind != AirMission.Kind.STRIKE
-	_relief.disabled = kind < 0 or kind == AirMission.Kind.STRIKE
-	_auto_return.disabled = kind < 0 or kind == AirMission.Kind.STRIKE
+	var standing := kind >= 0 and kind != AirMission.Kind.STRIKE
+	if kind < 0:
+		_relief_choice = false
+	_relief.disabled = not standing
+	_auto_return.disabled = not standing
+	_relief.set_pressed_no_signal(_relief_choice and standing)
+	_auto_return.set_pressed_no_signal(_auto_return_choice and standing)
 	_station_button.text = "PICK TARGET" if kind == AirMission.Kind.STRIKE else "PICK ON CHART"
 	if kind >= 0 and kind != AirMission.Kind.STRIKE:
 		_radius.set_value_no_signal(AirMissionManager.default_radius(kind))
-	if kind < 0:
-		_relief.set_pressed_no_signal(false)
-	elif int(_count.value) == 0:
+	if kind >= 0 and int(_count.value) == 0:
 		_count.set_value_no_signal(1)
 	_refresh_launch()
 	_queue_fit()
+
+
+## The type aboard `base` best suited to a mission of `kind`: the one with most airframes ready,
+## the first in the type list on a tie; "" when none can fly it.
+static func suited_type(base: Unit, kind: int) -> String:
+	var best := ""
+	var most := -1
+	for group in inventory(base):
+		if AirMissionManager.type_suits(DataDB.platform(group["id"]), kind) and int(group["ready"]) > most:
+			most = int(group["ready"])
+			best = group["id"]
+	return best
 
 
 func mission_kind() -> int:
@@ -696,8 +719,16 @@ func clear_selection() -> void:
 	_destinations.clear()
 	_deck_rows.clear()
 	_deck_key = ""
+	_station = Vector2.INF
+	_target = null
+	_accepted_text = ""
+	_accepted_key = ""
+	_accepted_at_s = -INF
 	if _roster != null:
 		_roster.clear()
+	if _receipt != null:
+		_receipt.text = RECEIPT_PROMPT
+		_receipt.remove_theme_color_override("font_color")
 
 
 func _process(delta: float) -> void:
@@ -974,13 +1005,18 @@ func _launch_selected() -> void:
 		return
 	if _mission_kind >= 0:
 		var order := _planned_order()
+		var missions_before := simulation.air_mission_manager.active_missions(simulation.player_faction).size()
 		order_requested.emit(_base, order)
 		if _editing_mission != null:
 			if order.execution_accepted:
 				_finish_edit()
 			return
-		# Clear quantity after submission to prevent an accidental duplicate assignment.
+		# Clear quantity after submission to prevent an accidental duplicate assignment, and the
+		# station or target with it, so the next mission is placed afresh rather than on this one's.
 		_count.set_value_no_signal(0)
+		if simulation.air_mission_manager.active_missions(simulation.player_faction).size() > missions_before:
+			_station = Vector2.INF
+			_target = null
 		_lower_tabs.current_tab = 1
 		refresh()
 		return
@@ -1183,6 +1219,8 @@ func _edit_selected_mission() -> void:
 	set_mission_kind(m.kind)
 	_station = m.station
 	_radius.set_value_no_signal(m.radius_nm)
+	_relief_choice = m.relief
+	_auto_return_choice = m.auto_return
 	_relief.set_pressed_no_signal(m.relief)
 	_auto_return.set_pressed_no_signal(m.auto_return)
 	_cap_intent.select(1 if m.cap_intent == "protect" else 0)
