@@ -317,9 +317,27 @@ func test_a_cap_is_not_sent_on_a_bearings_only_air_position() -> void:
 	var raid := _raid(a.position + Vector2(40, 0), "T1984", "", a.position, 550.0)
 	raid.known_class = ""
 	raid.bearing_only = true
+	raid.tma_quality = 1.0
 	assert_true(not AirMissionManager.cap_commits(m, a, raid, AirMissionManager.COMMIT_HYSTERESIS_NM), "not sent on a bearings-only position")
 	raid.bearing_only = false
 	assert_true(AirMissionManager.cap_commits(m, a, raid, AirMissionManager.COMMIT_HYSTERESIS_NM), "sent on a radar fix")
+	_done()
+
+
+## Nor is a look sent at an unknown aircraft whose position is worked up from bearings alone.
+func test_a_cap_look_is_not_sent_on_a_bearings_only_air_position() -> void:
+	_load(CARRIER_WATCH)
+	var m := _tomcat_cap()
+	var unknown := _unknown(m.station + Vector2(15, 0), "T1985")
+	# A range worked up from the bearings, good enough to plot, not a radar fix.
+	unknown.bearing_only = true
+	unknown.tma_quality = 1.0
+	for i in 3:
+		SimClock.advance(1.0)
+	assert_eq(_count("identifying track T1985"), 0, "no look on a bearings-only position: %s" % [_reports])
+	unknown.bearing_only = false
+	SimClock.advance(2.0)
+	assert_eq(_count("identifying track T1985"), 1, "a look once it is held on radar: %s" % [_reports])
 	_done()
 
 

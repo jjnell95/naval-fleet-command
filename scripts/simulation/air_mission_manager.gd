@@ -1359,8 +1359,9 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 				attack = true
 		elif not attack and not recalled and t.identity == "UNKNOWN" and t.classification < Track.Classification.CLASS_KNOWN:
 			# The look is called off at the ring and the pursuit; it is sent only inside them by the
-			# same gap the intercept keeps, or one at the edge is sent and recalled by turns.
-			if t.position.distance_to(m.station) > m.radius_nm + m.pursuit_nm - COMMIT_HYSTERESIS_NM:
+			# same gap the intercept keeps, or one at the edge is sent and recalled by turns, and only
+			# on a radar fix: a position worked up from bearings can move a hundred miles at the next.
+			if t.bearing_only or t.position.distance_to(m.station) > m.radius_nm + m.pursuit_nm - COMMIT_HYSTERESIS_NM:
 				continue
 			if _committed(m.faction, t, false) > 0 or UnitManager.investigation_rejection(a, t) != "":
 				continue
