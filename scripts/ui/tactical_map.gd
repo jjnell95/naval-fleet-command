@@ -151,6 +151,8 @@ const COL_RADIO_ALERT := Color("ff5050")
 ## Interface advice on the radio line (RadioNet.advise): the same face, dimmed, so it reads as the
 ## console talking rather than the crew.
 const COL_RADIO_ADVICE := Color(0.78, 0.8, 0.84, 0.72)
+## The commander's own marks, circles and corridors: a colour no contact or own symbol uses.
+const COL_ANNOTATION := Color(0.96, 0.62, 0.96, 0.9)
 const COL_FIRE := Color(1.0, 0.55, 0.22)
 const DEFAULT_WIND_FROM_DEG := 250.0  # prevailing winter westerlies, when a scenario names none
 
@@ -202,6 +204,8 @@ var show_neutrals := true
 var show_unknowns := true
 var symbol_mode := SymbolMode.NTDS
 var range_circle := RangeCircle.OFF
+## The commander's own plotting aids: marks, fixed range circles and corridors.
+var annotations := ChartAnnotations.new()
 
 var _drag_mode := DragMode.NONE
 var _drag_button := MOUSE_BUTTON_NONE
@@ -441,6 +445,52 @@ func _clear_range_circle() -> void:
 	_range_unit = null
 	_range_track = null
 	_range_radius_nm = 0.0
+
+
+## What the chart menu needs to offer the plotting aids for a menu opened on `world_pos` (a world
+## point, or anything else when the menu was not opened on the chart).
+func chart_marks_state(world_pos: Variant = null) -> Dictionary:
+	var state := {"marks": annotations.items.size(), "corridor_from": annotations.corridor_from.is_finite()}
+	if world_pos is Vector2 and (world_pos as Vector2).is_finite():
+		state["mark_at"] = world_pos
+		var near := annotations.nearest(world_pos, ChartAnnotations.PICK_PX / maxf(ppn, 0.001))
+		if near >= 0:
+			state["mark_near"] = annotations.items[near].label
+	return state
+
+
+## Carries out a chart menu's plotting-aid action and returns the line that confirms it.
+func chart_mark_action(action: Dictionary) -> String:
+	var at: Variant = action.get("at", Vector2.INF)
+	var here: bool = at is Vector2 and (at as Vector2).is_finite()
+	var op := str(action.get("op", ""))
+	var said := ""
+	match op:
+		"mark":
+			var label := annotations.add_mark(at) if here else ""
+			said = "Mark %s laid at %s" % [label, _position_text(at)] if label != "" else "No mark laid"
+		"circle":
+			var label := annotations.add_circle(at, float(action.get("radius_nm", 0.0))) if here else ""
+			said = "Range circle %s: %s nm about %s" % [label, Geo.format_nm(float(action.get("radius_nm", 0.0))), _position_text(at)] if label != "" else "No range circle laid"
+		"corridor_start":
+			if here:
+				annotations.start_corridor(at)
+			said = "Corridor started: right-click its far end and choose End corridor here" if here else "No corridor started"
+		"corridor_end":
+			var label := annotations.end_corridor(at, float(action.get("width_nm", 0.0))) if here else ""
+			said = "Corridor %s laid, %s nm wide" % [label, Geo.format_nm(float(action.get("width_nm", 0.0)))] if label != "" else "No corridor laid: start it first, then pick a different far end"
+		"corridor_cancel":
+			annotations.corridor_from = Vector2.INF
+			said = "Corridor cancelled"
+		"remove":
+			var label := annotations.remove_near(at, ChartAnnotations.PICK_PX / maxf(ppn, 0.001)) if here else ""
+			said = "%s removed" % label if label != "" else "No mark there"
+		"clear":
+			var n := annotations.items.size()
+			annotations.clear()
+			said = "Chart marks cleared (%d)" % n
+	queue_redraw()
+	return said
 
 
 func set_follow_selection(enabled: bool) -> void:
@@ -724,6 +774,7 @@ func reset_presentation() -> void:
 	_wrecks.clear()
 	_own_alive.clear()
 	_clear_range_circle()
+	annotations.clear()
 	_weapon_trails.clear()
 	_trail_reference = null
 	_weapon_trail_time = -1.0
@@ -1738,6 +1789,7 @@ func _draw() -> void:
 	if show_range_grid:
 		_draw_range_rings()
 	var t2 := Time.get_ticks_usec()
+	_draw_annotations()
 	_draw_objectives()
 	_draw_air_missions()
 	_draw_move_preview()
@@ -3039,6 +3091,66 @@ func _draw_weapons() -> void:
 		draw_multiline(hostile_glyphs, COL_HOSTILE, 1.0, true)
 
 
+## The commander's plotting aids, under the plot so no symbol is hidden by one. Their labels are
+## placed with every other caption.
+func _draw_annotations() -> void:
+	var col := COL_ANNOTATION
+	var view := Rect2(Vector2.ZERO, size)
+	for aid: Dictionary in annotations.items:
+		var c := world_to_screen(aid.at)
+		match str(aid.kind):
+			ChartAnnotations.MARK:
+				if not view.grow(8.0).has_point(c):
+					continue
+				var arm := 5.0
+				draw_polyline(PackedVector2Array([c + Vector2(0, -arm), c + Vector2(arm, 0), c + Vector2(0, arm), c + Vector2(-arm, 0), c + Vector2(0, -arm)]), col, 1.5, true)
+				draw_circle(c, 1.5, col)
+			ChartAnnotations.CIRCLE:
+				var r := float(aid.radius_nm) * ppn
+				if r < 2.0 or not view.grow(r).has_point(c):
+					continue
+				_draw_dashed_circle(c, r, col, clampi(int(r * 0.3), 24, 180))
+				_draw_plus(c, 4.0, col)
+			ChartAnnotations.CORRIDOR:
+				var e := world_to_screen(aid.to)
+				if c.distance_to(e) < 1.0:
+					continue
+				var side := (e - c).normalized().orthogonal() * float(aid.width_nm) * 0.5 * ppn
+				draw_polyline(PackedVector2Array([c + side, e + side, e - side, c - side, c + side]), col, 1.0, true)
+				_draw_chart_dashes(c, e, Color(col, col.a * 0.6), 1.0, 6.0)
+	if annotations.corridor_from.is_finite():
+		var s := world_to_screen(annotations.corridor_from)
+		if view.grow(8.0).has_point(s):
+			_draw_plus(s, 6.0, col, 1.5)
+	_queue_annotation_captions()
+
+
+## Each aid's label, beside its mark, over its circle or at the middle of its corridor.
+func _queue_annotation_captions() -> void:
+	var col := COL_ANNOTATION
+	var view := Rect2(Vector2.ZERO, size)
+	for aid: Dictionary in annotations.items:
+		var c := world_to_screen(aid.at)
+		match str(aid.kind):
+			ChartAnnotations.MARK:
+				if view.has_point(c):
+					_queue_caption(c + Vector2(8, -6), aid.label, 11, col, false, Vector2.INF, _corner_alts(aid.label, 11, 8.0))
+			ChartAnnotations.CIRCLE:
+				var r := float(aid.radius_nm) * ppn
+				if r >= 2.0 and view.grow(r).has_point(c):
+					var text := "%s  %s nm" % [aid.label, Geo.format_nm(float(aid.radius_nm))]
+					_queue_caption(c + Vector2(0.0, -r - 5.0), text, 11, col, true, Vector2.INF, [Vector2(0.0, 2.0 * r + 10.0 + _readout_font().get_ascent(11))])
+			ChartAnnotations.CORRIDOR:
+				var middle := (c + world_to_screen(aid.to)) * 0.5
+				if view.has_point(middle):
+					var text := "%s  %s nm" % [aid.label, Geo.format_nm(float(aid.width_nm))]
+					_queue_caption(middle + Vector2(6, -6), text, 11, col, false, Vector2.INF, _corner_alts(text, 11, 6.0))
+	if annotations.corridor_from.is_finite():
+		var s := world_to_screen(annotations.corridor_from)
+		if view.has_point(s):
+			_queue_caption(s + Vector2(8, -6), "CORRIDOR START", 10, col, false, Vector2.INF, _corner_alts("CORRIDOR START", 10, 8.0))
+
+
 ## B: the quick range circle, white, with its radius in nmi over its top.
 func _draw_range_circle() -> void:
 	if range_circle == RangeCircle.OFF:
@@ -3168,12 +3280,16 @@ func _draw_readout() -> void:
 	if line != "":
 		_shadow_text(Vector2(x, baseline), line, READOUT_FONT_SIZE)
 		baseline -= READOUT_LINE_H
+	_shadow_text(Vector2(x, baseline), _position_text(w), READOUT_FONT_SIZE)
+
+
+## A world point as the readout gives it: latitude and longitude where the chart has an anchor.
+func _position_text(w: Vector2) -> String:
 	var m := _geo_map()
-	var position := ChartReadout.format_offset(w)
 	if m.has("anchor_lat"):
 		var ll := Geo.world_to_latlon(w, float(m["anchor_lat"]), float(m["anchor_lon"]))
-		position = ChartReadout.format_position(ll.x, ll.y)
-	_shadow_text(Vector2(x, baseline), position, READOUT_FONT_SIZE)
+		return ChartReadout.format_position(ll.x, ll.y)
+	return ChartReadout.format_offset(w)
 
 
 ## Depth over water, height over land, from the chart's rasters. Inside the charted box the
