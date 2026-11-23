@@ -67,7 +67,7 @@ Main (Control, main.gd)              theme = UITheme.build(); global keys; route
 │   ├── GroupAttackManager           attacks shared across several ships
 │   ├── MissionManager               objectives, victory and defeat, effectiveness
 │   ├── OperationDirector            the operation's events and seeded variations
-│   └── AI_<faction> (AIController)  one per computer-commanded side
+│   └── AI_<faction> (AIController)  one per computer-commanded side; the sides think in two turns half a second apart
 └── Layout (VBox)                    the CDS screen
     ├── Upper                        the top 68%: the chart, or the 3D view when G has swapped them
     │   ├── TacticalMap              the plot in one custom _draw(), with the floor, land, coast and
@@ -164,7 +164,7 @@ python3 tools/smoke_scenarios.py "$GODOT" work/sweep                     # every
 python3 tools/opening_plans.py "$GODOT" --seeds=2,13 --jobs=4            # scripted openings against the AI, tabulated (about 20 minutes on four cores)
 godot --headless --path . --script tools/measure_sensor_cycle.gd -- --paths=reference,optimized --repeats=3
 godot --headless --path . --script tools/autosave_frames.gd -- --autopilot --ff=1500 [--no-worker]   # the longest frame with and without an autosave
-godot --path . -- --scenario=... --run=5 --perf=8 --perf-autosave=3   # the frame budget with an autosave forced three seconds into the sample
+godot --path . -- --scenario=... --run=5 --perf=8 --perf-autosave=3 --perf-hold-rate   # the frame budget at 60x, with an autosave forced three seconds into the sample
 NODE_PATH=/opt/node-tools/node_modules node tools/web/browser_check.cjs  # boot the browser build, save, reload, load, delete
 ```
 
@@ -196,7 +196,7 @@ godot --path . --resolution 1600x900 -- --scenario=res://data/scenarios/pacific_
 godot --headless --path . -- --scenario=res://data/scenarios/northern_passage.json --seed=2 --autopilot --fastforward=600 --dump   # state report after ten minutes
 ```
 
-The ones used most: `--scenario=`, `--seed=` (pins every generator), `--fastforward=S`, `--autopilot` (the AI commands the player's side too), `--no-ai`, `--preset=classic`, `--pick=CALLSIGN`, `--run[=N]`, `--hold=S --screenshot=PATH`, `--dump`, `--perf=S`, `--perf-autosave=S`, `--classic-keys`, `--debug` (the truth overlay), `--open-menu[=SHELF]`, `--boards[=N]`, `--world-view=full|swap` and `--world-camera=NAME`. Screenshots need a window; headless runs use `--dump`. A driven run plays under Normal rules unless `--preset=classic` is given, and never reads or saves the player's own options.
+The ones used most: `--scenario=`, `--seed=` (pins every generator), `--fastforward=S`, `--autopilot` (the AI commands the player's side too), `--no-ai`, `--preset=classic`, `--pick=CALLSIGN`, `--run[=N]`, `--hold=S --screenshot=PATH`, `--dump`, `--perf=S`, `--perf-autosave=S`, `--perf-hold-rate` (keeps the clock at the `--run` rate through the sample when an engagement event would drop it to real time), `--classic-keys`, `--debug` (the truth overlay), `--open-menu[=SHELF]`, `--boards[=N]`, `--world-view=full|swap` and `--world-camera=NAME`. Screenshots need a window; headless runs use `--dump`. A driven run plays under Normal rules unless `--preset=classic` is given, and never reads or saves the player's own options.
 
 ## The browser build
 

@@ -2,7 +2,7 @@
 
 Naval Fleet Command is a single-player naval command game built in Godot 4.7.2, in which you command a task force from a combat direction screen rather than steer one ship. Every contact starts as an uncertain report from radar, sonar, ESM or a lookout, and you decide what it is, where to put your ships and aircraft, and when a salvo is worth the missiles. The operations are fiction on real charts of the North Atlantic, the Western Pacific, the Gulf and the Mediterranean, set in 2027 and in 1990.
 
-It is in the tradition of the late-1990s fleet-command games. Original art and code; no Jane's assets or affiliation.
+It is in the tradition of the late-1990s fleet-command games. The art and code are original, with no assets from any commercial game and no affiliation with one.
 
 ![The command screen off the North Cape: the relief chart with depth contours along the Norwegian coast and the fleet's tracks, with the regional map, the 3D view of the hooked destroyer and the data display below](docs/command-view.jpg)
 
@@ -142,7 +142,7 @@ The catalogues hold 140 platforms, 148 weapons and 173 sensors across the 2027 a
 - **Weapons:** missiles with seekers that search a basket and can be decoyed, wire-guided heavyweight torpedoes that search about their aim point and can be decoyed, anti-radiation missiles, guns by calibre that engage ships, targets ashore and aircraft, ballistic anti-ship missiles on a single abstract profile, and one-way attack drones.
 - **Defence:** layered missile defence across the force with guidance channels and shoot-look-shoot, close-in guns, chaff and flares against missiles, acoustic decoys, anti-torpedo rounds and turning away against torpedoes, and evasive steering.
 - **Platforms:** ship turning by hull length and speed, routing round the coast, formation stations and screens, damage, fire and flooding, coastal and ballistic missile batteries, SAM sites and air stations ashore, and conventional submarines on a battery with a snorkel and, for two classes, an air-independent plant.
-- **Aviation:** launch, recovery, fuel, deck cycles and rearming; terrain clearance; CAP, reconnaissance, ASW search and strike missions with relief; deck ready alerts.
+- **Aviation:** launch, recovery, fuel, deck cycles and rearming; terrain clearance; CAP, reconnaissance, ASW search and strike missions with relief; fighters that commit only on raids they can shoot inside their leash and break from missiles they see coming; deck ready alerts.
 - **The enemy:** an AI that works from its own held tracks, follows a mission plan, sizes its salvos from what its plot says of the target, answers fire and defends itself.
 - **Charts:** four regions built from Natural Earth 1:10m land and bathymetry, with GMTED2010 land heights for the relief. This is generalised cartography, not navigation data.
 

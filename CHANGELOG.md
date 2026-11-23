@@ -31,7 +31,8 @@ A review of the whole game after M43, fixed area by area and then in rounds of r
 - A **Filters** submenu shows or hides hostile, allied, neutral and unknown contacts, routes and the range grid.
 - A **Chart marks** submenu lays labelled marks, range circles fixed on a chosen point and corridors of a chosen width; they are kept with the saved picture.
 - The radio line has a band of its own in a light wash: chart names, captions and track numbers are placed clear of it, and a number that would fall under it stands clear on a leader.
-- Patrol, ring, CPA and time-to-go captions are placed with alternatives instead of printed over each other, as are the caption of a boat awaiting check-in and the label of a fixed range circle; contacts on one spot share one label, the hooked platform's number sits beyond its brackets, and an airframe on a mission station leaves the naming to the mission's ring.
+- Patrol, ring, CPA and time-to-go captions are placed with alternatives instead of printed over each other, as are the caption of a boat awaiting check-in and the label of a fixed range circle; contacts on one spot share one label, and an airframe on a mission station leaves the naming to the mission's ring. A caption whose place changes between placements is placed afresh, which ends a crash in the label placer.
+- The hooked platform's number stands six pixels clear of its brackets, and chart numbers keep five pixels above and below each other, so two in neighbouring corners no longer stack between both symbols.
 - An intercept is drawn as a line from the deck to its contact, as a strike is, with no hold ring to drag; a torpedo's minimum-range ring and legend give the range inside which the shot is refused.
 - A right-click on the regional display sends the hooked platforms there, **Shift** adding a leg, and says why when it cannot.
 - A right-click in the 3D view opens the hooked platform's menu, hooking an own ship under the cursor first as the chart does; on a contact it opens that contact's attack and investigate menu.
@@ -52,6 +53,7 @@ A review of the whole game after M43, fixed area by area and then in rounds of r
 
 - Passive contacts are ranged from the reach they were heard at and from bearing rate across a turn, with an uncertainty to match, and a contact's last range is carried forward on new bearings instead of jumping to a nominal guess.
 - A lost bearing range comes back only from a solution that has stood 20 s, a marginal one is closed on at the contact's pace, giving a range up never shrinks the ellipse, and a one-listener range is withheld when the bearings show the contact has turned.
+- Within one sensor cycle a bare bearing never displaces a range, a marginal first range waits five seconds before it is taken, and a plot that a range put beyond the end of a bearing line stays there, so crossed intercepts on an aircraft no longer throw the plot a hundred miles out along the line and back.
 - A measured plot has its domain on the first look, so weapons can be laid on it at once; a missile-quality plot needs a sound range solution. Aircraft are fixed from intercepts only on lines taken together, and the first radar plot is taken outright.
 - Lost contacts age by what they are. A contact found again where it was keeps what was known of it, one found elsewhere gets a new number, and a stale plot that is hit leaves a datum.
 - Fixed sites and contacts known to stand ashore get no course or speed and are never dead-reckoned, and an estimated plot closes on a reworked solution no faster than the contact could travel.
@@ -59,6 +61,7 @@ A review of the whole game after M43, fixed area by area and then in rounds of r
 - A pinging dipping sonar can be heard, sea state and damage affect ping intercepts and sonobuoys, a submerged boat's ESM is deaf, and a contact's radiating state expires.
 - A ship with her radar off is warned of inbound missiles by ESM on a searching seeker and by eye at close range.
 - An aircraft with a datalink keeps no private picture, and a dipping helicopter localises its own bearing from the dip.
+- The Mohajer-6's radar signature is rated by the fourth-root radar law, so a radiating destroyer holds the drone at about 60 nm instead of 16.
 - The escorts carry the hull sonars they are built with, every surface ship has her own radiated noise, submarine and towed-array hearing is longer, dipping sets are shorter, and a lookout no longer out-sees a radar against boats.
 
 ### Weapons and defence
@@ -82,14 +85,16 @@ A review of the whole game after M43, fixed area by area and then in rounds of r
 
 ### Aircraft
 
-- A CAP turns on a hostile coming in on it and commits on a raid closing on it or on what it covers only when it can shoot inside its leash and out of hostile ship missile cover; the same test recalls it, with a break-off, so it no longer flaps. A fighter busy with one hostile turns to another only for one well nearer.
+- A CAP turns on a hostile coming in on it and commits on a raid closing on it or on what it covers only when it can shoot inside its leash and out of hostile ship missile cover; the same test recalls it, with a break-off. It is sent only 5 nm inside the reach it is kept to, kept on a closing raid until the raid's course opens, never sent on an air position worked up from bearings alone, and a fighter just recalled is not sent out again until it is back on station or two minutes have passed, so it no longer flaps. A fighter busy with one hostile turns to another only for one well nearer, and a CAP's look at an unknown aircraft is sent only on a radar fix.
+- A CAP fighter breaks once a missile it can see coming is 40 s from it, a break called on the net as a warning, and takes up its attack again afterwards. A raid that would have its shot away first is waited for over the station instead of flown out to meet.
+- A CAP circuit moved out of a ship's missile cover is laid 3 nm wider than it need be and moved again only when it is no longer clear, so a wandering plot no longer flips the airframe on it between on station and transiting.
 - A CAP ordered without a pursuit may chase 60 nm past its ring, a revision that names no pursuit keeps the mission's own, and a CAP flies a square inscribed in its ring, a section on offset circuits.
 - **Intercept with fighters** keeps the raid: the fighters go for that contact at dash, fire and come home, with no station ring.
 - The ready alert scrambles on a raid closing inside 220 nm, with a pursuit that reaches it, even while a CAP is up that is not going for that raid.
 - Reconnaissance leaves hostile contacts alone, an unarmed sensor aircraft flies at least 40 nm off any ship not known to be harmless, and a scouting or shadowing aircraft keeps outside the known missile cover of the ships it watches. A quick look at a ship goes to a helicopter or an armed jet.
 - Strike aircraft hold off after release and hold where a task ends, turn for home once a fire-and-forget salvo is away, and a fixed-wing aircraft held from firing by a neutral in the line of fire or a busy launcher holds off on its own side instead of flying over the target. Aircraft fly their tasks at no less than cruise speed.
 - The deck calls down the waiting aircraft with the least fuel to spare first, and a carrier lands helicopters on a spot of their own close astern, so a recall runs nobody dry. A helicopter queued behind a busy carrier deck waits for the flight deck, not the catapults.
-- Fixed-wing aircraft leave the deck with flying speed and a little height on the ship's heading, and a section goes off 15 s apart, so the wingman is a second symbol.
+- Fixed-wing aircraft leave the deck with flying speed and a little height on the ship's heading, and a section goes off 15 s apart, so the wingman is a second symbol. Aircraft of a section that finish a task together hold on their own patterns 2 nm apart, along the diagonal as their station circuits are.
 - An aircraft keeps her terrain clearance over every raster cell of her next two minutes of track, and altitude orders are held to a per-type minimum above the sea.
 - A refused launch names the deck's facility (runways, flight deck, launch spots, catapults), and a mission whose aircraft were all lost ends 'All aircraft lost'.
 - The Air Operations dialog stands as tall as what it shows, with the mission plan beside the deck list, both at least six rows deep at 1600 x 900 and at 125 percent, and the order receipt in a fixed footer; on a window too narrow for both the deck goes under the plan.
@@ -114,13 +119,14 @@ A review of the whole game after M43, fixed area by area and then in rounds of r
 - An AI ship under fire answers any hostile it holds and can reach, whatever its plan is waiting for, and keeps shooting while it turns away from a round.
 - The AI picks shots with the launcher's own test and falls through to the next weapon when one is refused.
 - A ship patrolling with her radar off that is hit, or sees a round coming, radiates until the shooting has stopped for a while.
+- The enemy fires on a range worked from bearings only while its crew's solution still gives it and once the range has stood a minute, not on one carried on after the solution fell apart.
 - The enemy trims its doctrine volley when its own plot says fewer rounds will do, sizing it from the reported class and damage estimate as the player's ships do, so a crippled ship is sent a round or two.
 
 ### Missions
 
 - Mission effectiveness grades conduct as well as outcome. A victory won with no order that put the force to work, while an enemy was at sea, earns a quarter of the task; emission, rules-of-engagement and automation settings do not count as command.
 - Each hit the force lands on a neutral is a civilian incident and each on its own ships fratricide, 10 apiece whatever the damage; rounds far beyond what their targets were worth cost up to 10; and the share of the mission a formation escort spent more than 1.5 nm off her station costs up to 20.
-- The debrief lists every civilian incident by vessel, as the plot knew her when she was hit, with the weapon and the mission minute, beside the neutrals sunk, and an uncommanded victory is marked "(no orders)" on the effectiveness line.
+- The debrief lists every civilian incident by vessel, as the plot knew her when she was hit, with the weapon and the mission minute, beside the neutrals sunk; such a hit is not also counted as a hit scored, and an uncommanded victory is marked "(no orders)" on the effectiveness line.
 - A scenario unit can start with weapons held or tight, and an operation's event can set a side's weapons posture, so a battery can be in the battle from the start with weapons tight until an event frees it.
 - Every operation opens with its guide on her route (a watch carrier on a 25 nm circuit), the escorts formed on her where the builder placed them and the pickets on their own lines, so **Return to Station** means something from the first second.
 - In Hormuz the Qeshm battery comes out of its hide after 10-15 minutes and the ballistic battery after 15-25 minutes, once a drone has reported a tanker (by 40-50 minutes at the latest), so the convoy forms before the first salvo; the UKMTO fire-mission warning follows the ballistic battery.
@@ -129,23 +135,26 @@ A review of the whole game after M43, fixed area by area and then in rounds of r
 
 ### The front end
 
-- One shared question comes before work is thrown away: leaving or restarting a running engagement from the desk, SAVE AND PLAY in the editor, **Ctrl+F10**, the Actions restart and the debrief's RESTART ask first and autosave the engagement; deleting a saved engagement asks; the editor's NEW asks and is an undo step; a quickload or load autosaves the engagement it replaces.
+- One shared question comes before work is thrown away: leaving or restarting a running engagement from the desk, SAVE AND PLAY in the editor, **Ctrl+F10** (one press, as the key list now says), the Actions restart and the debrief's RESTART ask first and autosave the engagement; deleting a saved engagement asks; the editor's NEW asks and is an undo step; a quickload or load autosaves the engagement it replaces.
 - A question left on a screen that closes goes with it, keeping the work, and takes no keys while unseen.
 - **Esc** or **F1** returns from the pre-mission briefing to the desk; the debrief stays up under **Space** and reopens with **F1**, the chart menu or Actions.
 - The desk's ACCEPT and CANCEL are worded buttons, a disabled one is visibly out, a locked campaign step names the win that opens it, and the GAMEPLAY summary wraps. The operation list stands as tall as its rows and hands the spare height to the orders box.
-- The Reference runs by nation and kind under headings, with the air stations of no one navy under SHORE AND SHARED after every navy, opens scrolled to the flagship, counts in words, and gives every platform a general block (speed, reach, ceiling or depth, countermeasures) and every weapon its speed, warhead and seeker in words. On a short screen it takes a compact sheet, as the desk and briefing do.
+- The Reference runs by nation and kind under headings, with the air stations of no one navy under SHORE AND SHARED after every navy, opens scrolled to the flagship, counts in words, and gives every platform a general block (speed, reach, ceiling or depth, countermeasures) and every weapon its speed, warhead and seeker in words. The 1990 merchantman stands with the other civil shipping under one heading. On a short screen it takes a compact sheet, as the desk and briefing do.
 - The debrief card is sized from the screen, its results and the exchange-and-log column read side by side, tile notes wrap, the results take the focus, and a short screen's tighter spacing keeps the results whole.
+- The overview map on the desk and the briefing places the own force before the place names, so a name moves a line clear of the ships instead of printing across them.
 - The front end's dialogs and the confirmation share the in-mission dialog header, the briefing guide is a tick box beside its words, the editor's mission drop-down is the height of its other controls, and the F3 help line names the Air Operations dialog's real controls.
 
 ### Performance
 
 - The sensor cycle weighs a sonar or lookout pair only inside some reach, files a linked unit's reports once in the shared plot, finds bearing samples through a per-track index, trims crossed fixes and lets pairs beyond every horizon go; the profiler shows its set-up and lookout pass.
 - The sensor cycle is spread over the four ticks of its second, its observers dealt to the ticks by the reports each filed last time, heaviest first, and merged as one cycle; a cycle with little work runs whole in its first slice, and jammers are looked for only among the units fitted with one.
+- A fast contact's bearings are crossed once for all the lines filed at one moment instead of once per listener, and again once half its listeners have filed since the last fix, so a raid heard by a whole force no longer costs the square of its listeners.
+- The air defence step works the player's side with the rest of the defence step and the other sides half a second later, and the AI commanders think in two turns half a second apart, so neither step lands whole in one tick of a large battle.
 - Each per-tick unit step runs only for the units it applies to. Seeded state dumps of two scenarios were byte-identical before and after that change.
 - The chart's moving marks (threat rings, flashes, the red edge of a hit, the radio fade) are drawn on a layer of their own every frame, and the plot under them only on a simulation tick, a view change or the idle rate. The coastline is stroked on its own layer when the view moves, shifted rather than re-projected on a pan, and the own-unit list is built once per chart draw.
 - The 3D view builds entries and sight-line tests only for the nearest units within its reach (a 321-unit fleet: 13.8 ms average, 77 ms worst before; 5.8 and 11 ms after), and the readiness bars and recognition card redraw only on a change.
-- An autosave captures the engagement in one frame and encodes, compresses and writes it over the next ones, on a worker thread where there are threads and a stage a frame where there are none (Taiwan Strait at 1500 s: longest frame 172 ms before, 136 ms after). A capture of a 48-a-side fleet takes about 50 ms instead of 200.
-- The `--perf` report says what rate the clock showed beside what was delivered, and `--perf-autosave=S` forces an autosave inside the sample.
+- An autosave captures the engagement in one frame and encodes, compresses and writes it over the next ones, on a worker thread where there are threads and a stage a frame where there are none (Taiwan Strait at 1500 s: longest frame 172 ms before, 136 ms after). A capture reads each script's variable list once and copies a dictionary of plain values whole, so a 48-a-side fleet is captured in about 50 ms instead of 200.
+- The `--perf` report says what rate the clock showed beside what was delivered. `--perf-autosave=S` forces an autosave inside the sample, after the harness has taken command, and says why when one is not written; `--perf-hold-rate` keeps the clock at the rate `--run` set through the sample, so an operation whose events drop it to real time can still be measured at speed.
 
 ### Measured
 
@@ -194,6 +203,7 @@ In the Taiwan Strait and at Hormuz a combat event early in the sample drops the 
 ### Repository
 
 - The test runner discovers `tests/test_*.gd` instead of keeping a list, and resets the static world state between files.
+- The performance tests bound cost by ratios measured in the same run (many listeners against few, the capture against the generic walk, one quarter of the second against another, the 95th percentile tick against the median), so a busy machine cannot fail them.
 - The data builders run again, `python3 tools/scenarios/rebuild_all.py --check` proves `data/` is what they write, and CI now runs that check, so a hand edit under `data/` fails the build.
 - 165 dated milestone notes, screenshots and validation records (49 MB) are deleted from `docs/`; they stay in git history. Unused tools, dead code and the assets of retired weapons are gone, and tests check that every asset, tool and link is reachable.
 - Weapon and sensor definitions that nothing carries are deleted, with their models and renders. An older save that names a retired Sidewinder id still loads.
