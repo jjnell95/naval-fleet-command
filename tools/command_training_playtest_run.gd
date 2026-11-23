@@ -85,6 +85,9 @@ func run(scene_tree: SceneTree) -> void:
 
 func _open_lesson(id: String) -> void:
 	main._menu.scenario_chosen.emit("res://data/scenarios/%s.json" % id)
+	# From a lesson in progress the desk asks before leaving it; the next lesson is the choice.
+	if ConfirmDiscard.asking(main) != null:
+		ConfirmDiscard.asking(main).get_ok_button().pressed.emit()
 	await _frames()
 	checks["briefing offers resumable guide " + id] = main._briefing._guide.visible and main._briefing._guide.button_pressed
 	main._briefing._start.pressed.connect(func() -> void: SimClock.set_paused(true), CONNECT_ONE_SHOT)

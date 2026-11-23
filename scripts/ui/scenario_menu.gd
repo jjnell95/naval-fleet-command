@@ -3,7 +3,7 @@ extends PanelContainer
 ## Operations desk. Scenario files supply the briefing and period, including custom missions.
 ## Drawn as a late-1990s front end: the dusk backdrop, one translucent grey-metal panel, the
 ## wordmark, big bevelled shelf buttons, a starred mission list beside its map, the orders in a
-## text box below, and ACCEPT / CANCEL captions beside their buttons.
+## text box below, and ACCEPT / CANCEL as big buttons, with the reason beside ACCEPT when it is out.
 
 signal scenario_chosen(path: String)
 signal dismissed()
@@ -27,7 +27,13 @@ var _detail: RichTextLabel
 var _preview: ScenarioPreview
 var _play: Button
 var _close: Button
-var _close_pair: Control
+## Beside ACCEPT, why it cannot be pressed; empty while it can.
+var _play_reason: Label
+## The GAMEPLAY summary's width on a wide and a compact desk, and the lines it may take.
+const SUMMARY_WIDTH := 380.0
+const SUMMARY_WIDTH_COMPACT := 330.0
+const SUMMARY_LINES := 2
+
 var _entries: Array = []
 var _all_entries: Array = []
 ## The shelf on view. The authored operations are the front door, as the mission list was in
@@ -135,10 +141,13 @@ func _ready() -> void:
 			popup.set_item_checked(popup.get_item_index(1000 + percent), InterfaceScale.percent == percent))
 	popup.id_pressed.connect(_toggle_option)
 	style_row.add_child(_options_menu)
+	# Wraps rather than clips: a right-aligned clipped line loses its head, the ceiling, first.
 	_options_summary = _label("", 12, UITheme.INK_BLUE)
 	_options_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_options_summary.clip_text = true
-	_options_summary.custom_minimum_size.x = 380
+	_options_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_options_summary.max_lines_visible = SUMMARY_LINES
+	_options_summary.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_options_summary.custom_minimum_size.x = SUMMARY_WIDTH
 	_options_box.add_child(_options_summary)
 
 	# Two front doors: the training operation that teaches the screen, and the period campaign.
@@ -268,20 +277,29 @@ func _ready() -> void:
 	library.tooltip_text = "Reference library of every platform and weapon  [F7]"
 	library.pressed.connect(func() -> void: library_requested.emit())
 	buttons.add_child(library)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	buttons.add_child(spacer)
-	_play = Button.new()
-	_play.focus_mode = Control.FOCUS_ALL
+	# Why ACCEPT is out, beside it, so a locked campaign step says which win opens it.
+	_play_reason = _label("", 14, UITheme.MENU_INK)
+	_play_reason.add_theme_font_override("font", UITheme.caption_font())
+	_play_reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_play_reason.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_play_reason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_play_reason.clip_text = true
+	_play_reason.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	buttons.add_child(_play_reason)
+	_play = _button("ACCEPT")
+	_play.theme_type_variation = "MenuBigButton"
+	_play.add_theme_font_size_override("font_size", 18)
+	_play.custom_minimum_size.x = 120
 	_play.tooltip_text = "Read the briefing for the selected operation  [Enter]"
 	_play.pressed.connect(_on_play)
-	buttons.add_child(UITheme.caption_pair("Accept", _play))
-	_close = Button.new()
-	_close.focus_mode = Control.FOCUS_ALL
+	buttons.add_child(_play)
+	_close = _button("CANCEL")
+	_close.theme_type_variation = "MenuBigButton"
+	_close.add_theme_font_size_override("font_size", 18)
+	_close.custom_minimum_size.x = 120
 	_close.tooltip_text = "Close this desk and return to the operation already loaded  [Esc]"
 	_close.pressed.connect(func() -> void: dismissed.emit())
-	_close_pair = UITheme.caption_pair("Cancel", _close)
-	buttons.add_child(_close_pair)
+	buttons.add_child(_close)
 	var note := _label("Historical equipment, fictional operations. Performance and detection values are simulation estimates.", 11, Color(UITheme.MENU_INK, 0.75))
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(note)
@@ -307,7 +325,7 @@ func _apply_layout() -> void:
 	_rail.visible = not compact and _portrait.spec_override != null
 	_subtitle.visible = not compact
 	_mast_note.visible = not compact
-	_options_summary.custom_minimum_size.x = 300.0 if compact else 380.0
+	_options_summary.custom_minimum_size.x = SUMMARY_WIDTH_COMPACT if compact else SUMMARY_WIDTH
 	_layout.add_theme_constant_override("separation", 8 if compact else 12)
 	_intent.max_lines_visible = 2
 	_mission_title.add_theme_font_size_override("font_size", 22 if compact else 26)
@@ -493,7 +511,7 @@ func _populate(current_path := "") -> void:
 			var done := CampaignBook.progress(c, log)
 			parts.append("%s  %d OF %d WON" % [str(c.get("short_name", c.get("name", ""))), int(done["won"]), int(done["total"])])
 		_count.text = "   ·   ".join(parts)
-	_play.disabled = _entries.is_empty()
+	_set_play(not _entries.is_empty(), "" if not _entries.is_empty() else "NO MISSION ON THIS SHELF")
 	if not _entries.is_empty():
 		_list.select(selected)
 		_on_selected(selected)
@@ -593,7 +611,6 @@ static func _shelf_of(entry: Dictionary) -> String:
 
 func allow_back(can_go_back: bool) -> void:
 	_close.visible = can_go_back
-	_close_pair.visible = can_go_back
 
 
 func focus_default() -> void:
@@ -626,8 +643,7 @@ func _on_selected(i: int) -> void:
 		details.insert(0, "%s, operation %d of %d" % [str(e["campaign_name"]), int(e["campaign_step"]), int(e["campaign_total"])])
 	_mission_meta.text = "  ·  ".join(details).to_upper()
 	var locked := str(e.get("campaign_state", "")) == CampaignBook.LOCKED
-	_play.disabled = locked
-	_play.tooltip_text = "Win the operation before it to open this one" if locked else "Read the briefing for the selected operation  [Enter]"
+	_set_play(not locked, locked_reason(e) if locked else "")
 	var objective: Dictionary = sc.get("objectives", {})
 	_intent.text = sc.get("commander_intent", objective.get("text", "Read the situation and establish your command priorities."))
 	var lines := PackedStringArray()
@@ -698,6 +714,21 @@ func _on_selected(i: int) -> void:
 	_detail.text = "\n".join(lines)
 	_detail.scroll_to_line(0)
 	_apply_layout()
+
+
+## ACCEPT on or off, and when off, the reason shown beside it and in its tooltip.
+func _set_play(enabled: bool, reason: String) -> void:
+	_play.disabled = not enabled
+	_play_reason.text = reason
+	_play.tooltip_text = "Read the briefing for the selected operation  [Enter]" if enabled else reason
+
+
+## What must be won to open a locked campaign step, in the words beside ACCEPT.
+static func locked_reason(e: Dictionary) -> String:
+	var previous := str(e.get("campaign_previous", ""))
+	if previous == "":
+		return "LOCKED"
+	return "LOCKED: WIN %s AT %d%% FIRST" % [previous.to_upper(), int(e.get("campaign_gate", 60))]
 
 
 func _on_play() -> void:

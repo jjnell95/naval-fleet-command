@@ -4,6 +4,7 @@ extends PanelContainer
 ## The front end's REFERENCE: the dusk backdrop, a grey-metal panel, a starred-list look for the
 ## catalogue, the 3D stage in the three-line frame and the dossier in a text box.
 signal closed()
+const ORBIT_HINT := "DRAG TO ORBIT  ·  SCROLL TO ZOOM"
 const FACILITY_NAMES := {
 	"airfield": "Airfield",
 	"helicopter": "Helicopter deck",
@@ -11,11 +12,67 @@ const FACILITY_NAMES := {
 	"stobar": "Ski-jump carrier",
 	"catobar": "Catapult carrier"
 }
+## The order the list runs in within a nation, and the words for each kind of weapon, by which
+## the ordnance list is grouped and its dossier says what a round is for.
+const DOMAIN_ORDER := ["surface", "subsurface", "air", "land"]
+const WEAPON_TYPES := {
+	"asm": "Anti-ship and strike missiles",
+	"sam": "Surface-to-air missiles",
+	"aam": "Air-to-air missiles",
+	"torpedo": "Torpedoes",
+	"asw_rocket": "Anti-submarine rockets",
+	"bomb": "Bombs",
+	"gun": "Guns",
+	"ciws": "Close-in weapon systems",
+}
+## A seeker's label in the data, said in words.
+const SEEKERS := {
+	"acoustic_homing": "acoustic homing, active and passive sonar",
+	"active_radar": "active radar",
+	"active_radar_homing": "active radar homing",
+	"autonomous_imaging_infrared": "imaging infrared, autonomous target choice",
+	"ballistic": "none: a ballistic round on a computed trajectory",
+	"fire_control_directed": "none: aimed by the ship's fire-control radar",
+	"gps_inertial": "satellite-aided inertial navigation to a fixed point",
+	"imaging_infrared": "imaging infrared",
+	"inertial_active": "inertial midcourse, active radar terminal homing",
+	"inertial_delivery": "inertial flight to the drop point, then the payload's own seeker",
+	"inertial_electro_optical": "inertial midcourse, electro-optical terminal homing",
+	"inertial_infrared_hit_to_kill": "inertial midcourse, infrared homing to a direct hit",
+	"inertial_terminal": "inertial midcourse, terminal seeker",
+	"inertial_terminal_seeker": "inertial midcourse, terminal seeker",
+	"inertial_terrain_matching": "inertial with terrain matching over land",
+	"infrared": "infrared",
+	"infrared_homing": "infrared homing",
+	"laser_abstract": "laser guidance",
+	"passive_radar_homing": "passive radar homing on the target's emissions",
+	"passive_rf_infrared": "passive radio-frequency and infrared homing",
+	"radar_directed": "none: aimed by its mount's own radar",
+	"semi_active_abstract": "semi-active, on the launcher's illuminating radar",
+	"semi_active_laser": "semi-active laser, on a designator's spot",
+	"track_via_missile": "track-via-missile, guided from the launching ship",
+	"unguided": "none: an unguided round",
+	"wake_homing_abstracted": "wake homing, following the ship's wake",
+}
+const PROFILES := {
+	"sea_skimming": "sea-skimming",
+	"high": "high, diving on the target",
+	"direct": "direct fire",
+	"subsurface": "under water",
+	"ballistic": "ballistic",
+	"exoatmospheric": "above the atmosphere",
+}
+
 var _list: ItemList
 var _detail: RichTextLabel
 var _stage: ModelStage
 var _search: LineEdit
 var _specs: Array = []
+## The list's rows: an index into _specs, or -1 for a heading row.
+var _rows: Array[int] = []
+## Set by Main when it can; otherwise the sibling Simulation node is used. The library opens on
+## the player's flagship from it, when it is opened without a subject.
+var simulation: Simulation
 var _weapons := false
 var _domain := "all"
 var _domain_picker: OptionButton
@@ -28,47 +85,30 @@ var _loadout_title: Label
 var _platform_button: Button
 var _weapon_button: Button
 var _spin_button: Button
+var _margin: MarginContainer
+var _layout: VBoxContainer
+var _kicker: Label
+var _hint: Label
+var _belt: ScrollContainer
 
 func _ready() -> void:
 	theme_type_variation = "OverlayPanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(UITheme.backdrop())
 	var margin := MarginContainer.new()
-	for side in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + side, 36)
-	for side in ["top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 24)
+	_margin = margin
 	add_child(margin)
 	var sheet := PanelContainer.new()
 	sheet.theme_type_variation = "MenuPanel"
 	margin.add_child(sheet)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	_layout = v
 	sheet.add_child(v)
-	var masthead := HBoxContainer.new()
-	v.add_child(masthead)
-	var heading := VBoxContainer.new()
-	heading.add_theme_constant_override("separation", 2)
-	masthead.add_child(heading)
-	var brand := UITheme.caption("Reference")
-	brand.add_theme_font_size_override("font_size", 34)
-	heading.add_child(brand)
-	var kicker := Label.new()
-	kicker.text = "Platforms and ordnance: recognition, fit and game envelope"
-	kicker.theme_type_variation = "MenuLabel"
-	heading.add_child(kicker)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	masthead.add_child(spacer)
-	var back := Button.new()
-	back.text = "CLOSE"
-	back.theme_type_variation = "MenuBigButton"
-	back.add_theme_font_size_override("font_size", 18)
-	back.custom_minimum_size = Vector2(140, 40)
-	back.tooltip_text = "Close the reference  [F7 / Esc]"
-	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	back.pressed.connect(func() -> void: closed.emit())
-	masthead.add_child(back)
+	v.add_child(UITheme.dialog_header("Reference", func() -> void: closed.emit(), "F7 / Esc", true))
+	_kicker = Label.new()
+	_kicker.text = "Platforms and ordnance: recognition, fit and game figures"
+	_kicker.theme_type_variation = "MenuLabel"
+	v.add_child(_kicker)
 	var toolbar := HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 12)
 	v.add_child(toolbar)
@@ -128,7 +168,7 @@ func _ready() -> void:
 	_list.fixed_icon_size = Vector2i(48, 30)
 	_list.add_theme_constant_override("v_separation", 6)
 	_list.add_theme_font_size_override("font_size", 13)
-	_list.item_selected.connect(_select)
+	_list.item_selected.connect(func(row: int) -> void: _select(_spec_index(row)))
 	left.add_child(_list)
 	var center := VBoxContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -180,18 +220,19 @@ func _ready() -> void:
 	_stage.spin_changed.connect(_spin_button.set_pressed_no_signal)
 	_spin_button.button_pressed = true
 	view_bar.add_child(_spin_button)
-	var hint := Label.new()
-	hint.text = "  DRAG TO ORBIT  ·  SCROLL TO ZOOM"
-	hint.theme_type_variation = "MenuLabel"
-	hint.add_theme_font_size_override("font_size", 11)
-	hint.clip_text = true
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	view_bar.add_child(hint)
+	_hint = Label.new()
+	_hint.text = "  " + ORBIT_HINT
+	_hint.theme_type_variation = "MenuLabel"
+	_hint.add_theme_font_size_override("font_size", 11)
+	_hint.clip_text = true
+	_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	view_bar.add_child(_hint)
+	_stage.tooltip_text = ORBIT_HINT.capitalize()
 	_loadout_title = UITheme.caption("")
 	_loadout_title.add_theme_font_size_override("font_size", 16)
 	center.add_child(_loadout_title)
 	var belt := ScrollContainer.new()
-	belt.custom_minimum_size.y = 116
+	_belt = belt
 	belt.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	center.add_child(belt)
 	_loadout = HBoxContainer.new()
@@ -219,7 +260,35 @@ func _ready() -> void:
 	note.theme_type_variation = "MenuLabel"
 	note.add_theme_font_size_override("font_size", 11)
 	v.add_child(note)
+	resized.connect(_apply_layout)
+	_apply_layout()
+	visibility_changed.connect(func() -> void:
+		if visible:
+			open_home())
 	_filter("")
+
+
+## A short screen (a laptop, or a larger interface size) takes a compact sheet, as the desk and
+## the briefing do: tighter margins, a lower model stage and loadout belt, and the orbit hint left
+## to the stage's tooltip rather than cut short beside the view buttons.
+func _apply_layout() -> void:
+	if _margin == null:
+		return
+	var compact := is_compact(get_viewport_rect().size)
+	for side in ["left", "right"]:
+		_margin.add_theme_constant_override("margin_" + side, 16 if compact else 36)
+	for side in ["top", "bottom"]:
+		_margin.add_theme_constant_override("margin_" + side, 10 if compact else 24)
+	_layout.add_theme_constant_override("separation", 6 if compact else 12)
+	_kicker.visible = not compact
+	_hint.visible = not compact
+	_title.add_theme_font_size_override("font_size", 28 if compact else 40)
+	_stage.custom_minimum_size = Vector2(260, 150 if compact else 240)
+	_belt.custom_minimum_size.y = 100 if compact else 116
+
+
+static func is_compact(viewport_size: Vector2) -> bool:
+	return viewport_size.x < 1300.0 or viewport_size.y < 850.0
 
 
 func focus_default() -> void:
@@ -282,18 +351,47 @@ func inspect(asset_id: String, weapon := false) -> void:
 	_filter("", [], false)
 	for i in _specs.size():
 		if _specs[i].id == asset_id:
-			_list.select(i)
+			_list.select(_rows.find(i))
+			# Once more after the list is laid out: a library opened this frame has no row heights yet.
 			_list.ensure_current_is_visible()
+			_list.ensure_current_is_visible.call_deferred()
 			_select(i)
 			return
 	_empty_entry("Catalogue entry unavailable", "Choose a platform or ordnance entry.")
 
+
+## The platform the library opens on: the player's flagship in the loaded operation, or "".
+func home_id() -> String:
+	var sim := simulation
+	if sim == null and get_parent() != null:
+		sim = get_parent().get_node_or_null("Simulation") as Simulation
+	if sim == null or sim.unit_manager == null:
+		return ""
+	var flag := CommanderPicture.default_hook(sim.unit_manager, sim.player_faction)
+	return flag.spec.id if flag != null and flag.spec != null else ""
+
+
+## Opens on the flagship: every opening without a subject starts there, as the dossier of the
+## ship the commander is in. Main inspects a contact or a hooked unit after this when it has one.
+func open_home() -> void:
+	var id := home_id()
+	if id != "":
+		inspect(id)
+
+
+func _spec_index(row: int) -> int:
+	return _rows[row] if row >= 0 and row < _rows.size() else -1
+
 func _filter(query: String, candidates: Array = [], select_first := true) -> void:
 	_list.clear()
 	_specs.clear()
+	_rows.clear()
+	# The whole catalogue runs by nation and then by type under headings; a short list of operator
+	# variants keeps the order it was given.
+	var grouped := candidates.is_empty()
 	var records := candidates
 	if records.is_empty():
-		records = DataDB.all_weapons() if _weapons else DataDB.all_platforms()
+		records = sorted_catalogue(_weapons)
 	var terms := Array(query.to_lower().split(" ", false))
 	for p in records:
 		var name_text: String = p.family if _weapons else p.short_name
@@ -308,15 +406,78 @@ func _filter(query: String, candidates: Array = [], select_first := true) -> voi
 		search_text = search_text.to_lower()
 		if not terms.all(func(term: String) -> bool: return term in search_text) or (_domain != "all" and (not WeaponPresentation.matches(p, _domain) if _weapons else category != _domain)):
 			continue
+		if grouped:
+			var heading := group_name(p, _weapons)
+			if _specs.is_empty() or group_name(_specs[-1], _weapons) != heading:
+				_list.add_item(heading.to_upper())
+				var head_row := _list.item_count - 1
+				_list.set_item_selectable(head_row, false)
+				_list.set_item_custom_fg_color(head_row, UITheme.INK_BLUE)
+				_list.set_item_tooltip_enabled(head_row, false)
+				_rows.append(-1)
 		_specs.append(p)
+		_rows.append(_specs.size() - 1)
 		_list.add_item(name_text, PlatformArt.thumbnail(p.id, _weapons))
 		_list.set_item_tooltip(_list.item_count - 1, p.display_name)
-	_count.text = "%02d %s" % [_specs.size(), "WEAPON SYSTEMS" if _weapons else "PLATFORM CLASSES"]
+	_count.text = count_text(_specs.size(), _weapons)
 	if select_first and not _specs.is_empty():
-		_list.select(0)
+		_list.select(_rows.find(0))
 		_select(0)
 	elif _specs.is_empty():
 		_empty_entry("No matches", "Try another search or domain.")
+
+## "140 PLATFORM CLASSES", "1 WEAPON SYSTEM", "NO MATCHES".
+static func count_text(n: int, weapons: bool) -> String:
+	if n == 0:
+		return "NO MATCHES"
+	if weapons:
+		return "%d WEAPON SYSTEM%s" % [n, "" if n == 1 else "S"]
+	return "%d PLATFORM CLASS%s" % [n, "" if n == 1 else "ES"]
+
+
+## The heading a catalogue entry sits under: its nation, or for ordnance its kind.
+static func group_name(entry: Resource, weapons: bool) -> String:
+	if weapons:
+		return WEAPON_TYPES.get((entry as WeaponSpec).type, "Other ordnance")
+	return (entry as PlatformSpec).nation
+
+
+## The catalogue in reading order: platforms by nation, then surface, submarine, air and shore,
+## then kind and name; ordnance by kind, then family and name.
+static func sorted_catalogue(weapons: bool) -> Array:
+	var out: Array = (DataDB.all_weapons() if weapons else DataDB.all_platforms()).duplicate()
+	if weapons:
+		var kinds := WEAPON_TYPES.keys()
+		out.sort_custom(func(a: WeaponSpec, b: WeaponSpec) -> bool:
+			var ka := kinds.find(a.type) if kinds.has(a.type) else kinds.size()
+			var kb := kinds.find(b.type) if kinds.has(b.type) else kinds.size()
+			if ka != kb:
+				return ka < kb
+			if a.family != b.family:
+				return a.family.naturalnocasecmp_to(b.family) < 0
+			return a.display_name.naturalnocasecmp_to(b.display_name) < 0)
+	else:
+		out.sort_custom(func(a: PlatformSpec, b: PlatformSpec) -> bool:
+			var na := _nation_key(a.nation)
+			var nb := _nation_key(b.nation)
+			if na != nb:
+				return na < nb
+			var da := DOMAIN_ORDER.find(a.domain)
+			var db := DOMAIN_ORDER.find(b.domain)
+			if da != db:
+				return da < db
+			if a.category != b.category:
+				return a.category.naturalnocasecmp_to(b.category) < 0
+			if a.short_name != b.short_name:
+				return a.short_name.naturalnocasecmp_to(b.short_name) < 0
+			return a.id < b.id)
+	return out
+
+
+## Nations alphabetically, with merchant and civilian shipping after every navy.
+static func _nation_key(nation: String) -> String:
+	return ("~" if nation.begins_with("Civil") else "") + nation.to_lower()
+
 
 func _empty_entry(title: String, subtitle: String) -> void:
 	_stage.show_asset("", _weapons)
@@ -361,10 +522,9 @@ func _select(index: int) -> void:
 	if p.recognition_note != "":
 		lines.append(UITheme.section_bb("Recognition", true))
 		lines.append(p.recognition_note + "\n")
-	if p.length_m > 0.0:
-		lines.append("[color=%s]LENGTH[/color]   %.1f m" % [UITheme.HEX_INK_DIM, p.length_m])
-	if p.domain in ["surface", "subsurface"] and p.displacement_t > 0.0:
-		lines.append("[color=%s]DISPLACEMENT[/color]   %d t" % [UITheme.HEX_INK_DIM, roundi(p.displacement_t)])
+	lines.append(UITheme.section_bb("General", true))
+	for row: Array in general_rows(p):
+		lines.append(_row_bb(row))
 	if p.aircraft_capacity > 0:
 		lines.append("[color=%s]AVIATION[/color]   %s" % [UITheme.HEX_INK_DIM, FACILITY_NAMES.get(p.flight_facility(), p.flight_facility())])
 		lines.append("[color=%s]GAME AIRFRAME CAPACITY[/color]   %d" % [UITheme.HEX_INK_DIM, p.aircraft_capacity])
@@ -387,11 +547,119 @@ func _select(index: int) -> void:
 	if p.weapon_loadout.is_empty():
 		_loadout_title.text = "UNARMED PLATFORM"
 
+static func _row_bb(row: Array) -> String:
+	return "[color=%s]%s[/color]   %s" % [UITheme.HEX_INK_DIM, str(row[0]).to_upper(), str(row[1])]
+
+
+## A platform's general figures as [label, words] rows: size, speed, reach, ceiling or depth and
+## countermeasures, each only where the catalogue holds it. The game's estimates, said plainly.
+static func general_rows(p: PlatformSpec) -> Array:
+	var rows: Array = []
+	if p.length_m > 0.0:
+		rows.append(["Length", "%.1f m" % p.length_m])
+	if p.domain in ["surface", "subsurface"] and p.displacement_t > 0.0:
+		rows.append(["Displacement", "%s t" % _thousands(roundi(p.displacement_t))])
+	if p.domain == "land":
+		rows.append(["Basing", "ashore: %s" % p.category])
+	var top := maxf(p.max_speed_kn, p.dash_speed_kn) if p.domain == "air" else p.max_speed_kn
+	if top > 0.0:
+		rows.append(["Top speed", "%d kn%s" % [roundi(top), " submerged" if p.domain == "subsurface" else ""]])
+	if p.cruise_speed_kn > 0.0 and p.cruise_speed_kn < top:
+		rows.append(["Cruise", "%d kn" % roundi(p.cruise_speed_kn)])
+	if p.domain == "air" and p.endurance_s > 0.0:
+		var hours := p.endurance_s / 3600.0
+		rows.append(["Endurance", "%s at cruise, about %s nm" % [_hours(hours), _thousands(roundi(hours * p.cruise_speed_kn / 10.0) * 10)]])
+	if p.domain == "subsurface":
+		if p.category.contains("nuclear"):
+			rows.append(["Endurance", "nuclear plant: submerged for the whole patrol"])
+		elif p.battery_hotel_h > 0.0 or p.battery_sprint_h > 0.0:
+			rows.append(["Battery", "about %s stopped, %s flat out" % [_hours(p.battery_hotel_h), _hours(p.battery_sprint_h)]])
+		if p.aip_endurance_h > 0.0:
+			rows.append(["Air-independent", "%s at up to %d kn" % [_hours(p.aip_endurance_h), roundi(p.aip_speed_kn)]])
+		if p.max_depth_m > 0.0:
+			rows.append(["Depth", "%d m (%s ft)" % [roundi(p.max_depth_m), _thousands(roundi(p.max_depth_m * 3.28084 / 10.0) * 10)]])
+	if p.domain == "air" and p.max_altitude_m > 0.0:
+		rows.append(["Ceiling", "%s ft" % _thousands(roundi(p.max_altitude_m * 3.28084 / 100.0) * 100)])
+	var measures := PackedStringArray()
+	if p.decoy_count > 0:
+		measures.append("%d %s" % [p.decoy_count, "flare and chaff loads" if p.domain == "air" else ("noisemaker canisters" if p.domain == "subsurface" else "chaff and decoy salvoes")])
+	if p.torpedo_decoy != "":
+		measures.append("%s%s" % [p.torpedo_decoy, ", towed" if p.towed_torpedo_decoy else (", %d torpedo decoys" % p.torpedo_decoy_count if p.torpedo_decoy_count > 0 else "")])
+	if not measures.is_empty():
+		rows.append(["Countermeasures", "; ".join(measures)])
+	if p.sonobuoy_count > 0:
+		rows.append(["Sonobuoys", str(p.sonobuoy_count)])
+	return rows
+
+
+## A weapon's general figures as [label, words] rows: what it is for, how fast and far it goes,
+## its warhead and its seeker, in words rather than the game's labels.
+static func weapon_rows(w: WeaponSpec) -> Array:
+	var rows: Array = []
+	rows.append(["Kind", {"asm": "anti-ship or strike missile", "sam": "surface-to-air missile", "aam": "air-to-air missile", "torpedo": "torpedo", "asw_rocket": "anti-submarine rocket", "bomb": "bomb", "gun": "gun mount", "ciws": "close-in weapon system"}.get(w.type, "ordnance")])
+	var targets := PackedStringArray()
+	for t: String in w.target_types:
+		targets.append({"surface": "ships", "subsurface": "submarines", "air": "aircraft", "land": "targets ashore", "missile": "missiles", "torpedo": "torpedoes"}.get(t, t))
+	rows.append(["Targets", ", ".join(targets)])
+	if w.speed_kn > 0.0:
+		var mach := "" if w.type == "torpedo" else "  (Mach %.1f)" % (w.speed_kn / 661.5)
+		rows.append(["Speed", "%s kn%s" % [_thousands(roundi(w.speed_kn)), mach]])
+	rows.append(["Range", "%s to %s nm" % [_figure(w.min_range_nm), _figure(w.max_range_nm)]])
+	rows.append(["Warhead", warhead_words(w)])
+	rows.append(["Seeker", SEEKERS.get(w.guidance, w.guidance.replace("_", " "))])
+	if not w.type in ["gun", "ciws"]:
+		rows.append(["Flight", PROFILES.get(w.profile, w.profile.replace("_", " "))])
+	return rows
+
+
+## The warhead in words, from the game's damage figure and the kind of round.
+static func warhead_words(w: WeaponSpec) -> String:
+	if w.type == "ciws":
+		return "small-calibre rounds in a stream"
+	if w.type == "gun":
+		return "high-explosive shells"
+	if w.type == "torpedo":
+		return "heavyweight torpedo charge" if w.damage >= 60.0 else "lightweight torpedo charge"
+	if w.damage < 15.0:
+		return "light, against aircraft and small craft"
+	if w.damage < 40.0:
+		return "medium"
+	if w.damage < 70.0:
+		return "heavy, ship-killing"
+	return "very heavy"
+
+
+static func _figure(nm: float) -> String:
+	return ("%.1f" % nm) if nm < 10.0 else str(roundi(nm))
+
+
+static func _hours(h: float) -> String:
+	if h >= 48.0:
+		return "%d days" % roundi(h / 24.0)
+	var minutes := roundi(h * 60.0 / 5.0) * 5
+	if minutes >= 60:
+		return ("%d h" % (minutes / 60)) if minutes % 60 == 0 else "%d h %02d min" % [minutes / 60, minutes % 60]
+	return "%d min" % maxi(roundi(h * 60.0), 1)
+
+
+static func _thousands(n: int) -> String:
+	var digits := str(absi(n))
+	var out := ""
+	while digits.length() > 3:
+		out = "," + digits.right(3) + out
+		digits = digits.left(digits.length() - 3)
+	return ("-" if n < 0 else "") + digits + out
+
+
 func _show_weapon(w: WeaponSpec) -> void:
 	_eyebrow.text = "ORDNANCE  /  %s  /  %s" % [w.type.to_upper(), ("GUN MOUNT" if w.type in ["gun", "ciws"] else w.profile.replace("_", " ").to_upper())]
 	_title.text = w.family.to_upper()
 	_subtitle.text = w.display_name
-	_detail.text = "[font_size=18][b]%s[/b][/font_size]\n\n[font_size=11][color=%s]TARGET DOMAIN[/color][/font_size]\n%s\n\n[font_size=11][color=%s]GUIDANCE MODEL[/color][/font_size]\n%s\n\n[font_size=11][color=%s]GAME ENVELOPE[/color][/font_size]\n%.1f–%.1f nm\n\n[font_size=11][color=%s]SYSTEM PROFILE[/color][/font_size]\n%s\n\n[color=%s]Family recognition model. Variants and real configurations differ. These figures describe simulation tuning.[/color]" % [w.display_name, UITheme.HEX_INK_BLUE, ", ".join(w.target_types).to_upper(), UITheme.HEX_INK_BLUE, w.guidance.replace("_", " "), UITheme.HEX_INK_BLUE, w.min_range_nm, w.max_range_nm, UITheme.HEX_INK_BLUE, ("Gun mount / projectile" if w.type in ["gun", "ciws"] else w.profile.replace("_", " ")), UITheme.HEX_INK_DIM]
+	var lines := PackedStringArray(["[font_size=18][b]%s[/b][/font_size]\n" % w.display_name, UITheme.section_bb("General", true)])
+	for row: Array in weapon_rows(w):
+		lines.append(_row_bb(row))
+	lines.append("\n[color=%s]Family recognition model. Variants and real configurations differ. These figures are the game's own estimates, not the real system's performance.[/color]" % UITheme.HEX_INK_DIM)
+	_detail.text = "\n".join(lines)
 	_loadout_title.text = "CARRIED BY  /  SELECT TO INSPECT"
 	for p: PlatformSpec in DataDB.all_platforms():
 		if not p.weapon_loadout.has(w.id):

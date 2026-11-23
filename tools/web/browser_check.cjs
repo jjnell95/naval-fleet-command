@@ -26,7 +26,21 @@ const server = http.createServer((req, res) => {
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const url = `http://127.0.0.1:${server.address().port}/play/index.html`;
-const executablePath = process.env.CHROMIUM || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// CHROMIUM names a browser outright; otherwise the newest chromium-* under the Playwright browser
+// directory is used, whichever build is installed, and failing that Playwright's own.
+function findChromium() {
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  if (!fs.existsSync(base)) return undefined;
+  const builds = fs.readdirSync(base).filter(n => /^chromium-\d+$/.test(n)).sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]));
+  for (const build of builds) {
+    for (const sub of ['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium', 'chrome-win/chrome.exe']) {
+      const candidate = path.join(base, build, sub);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
+const executablePath = process.env.CHROMIUM || findChromium();
 const browser = await chromium.launch({ executablePath, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 const report = { url, errors: [], console_errors: [], console_warnings: 0, started: false, screenshots: [] };

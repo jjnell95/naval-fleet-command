@@ -149,25 +149,13 @@ func test_front_end_backdrop_is_the_games_own_render_and_small() -> void:
 	rect.free()
 
 
-func test_caption_pair_names_its_empty_button_and_the_caption_presses_it() -> void:
-	var button := Button.new()
-	var pressed := [0]
-	button.pressed.connect(func() -> void: pressed[0] += 1)
-	var row := UITheme.caption_pair("Accept", button)
-	var caption := row.get_child(0) as Label
-	assert_eq(caption.text, "ACCEPT")
-	assert_eq(caption.theme_type_variation, "MenuCaption")
-	assert_eq(button.text, "", "the button itself is an empty bevel")
-	assert_eq(button.accessibility_name, "Accept", "but it is named for keyboard and screen-reader users")
-	var click := InputEventMouseButton.new()
-	click.button_index = MOUSE_BUTTON_LEFT
-	click.pressed = true
-	caption.gui_input.emit(click)
-	assert_eq(pressed[0], 1, "clicking the caption presses the button")
-	button.disabled = true
-	caption.gui_input.emit(click)
-	assert_eq(pressed[0], 1, "not while it is disabled")
-	row.free()
+func test_desk_accept_and_cancel_carry_their_words_on_their_faces() -> void:
+	var menu := ScenarioMenu.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(menu)
+	assert_eq(menu._play.text, "ACCEPT", "no empty bevel beside a caption: the word is on the button")
+	assert_eq(menu._close.text, "CANCEL")
+	assert_true(not UITheme.new().has_method("caption_pair"), "the empty-button pair is gone")
+	menu.free()
 
 
 func test_mission_stars_follow_difficulty() -> void:

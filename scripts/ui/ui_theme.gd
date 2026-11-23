@@ -129,6 +129,8 @@ const HEX_FLOOD := "#5aa0ff"
 const HEX_CHIP := "#16204a"
 
 # --- Type scale (px at the 1600 × 900 reference canvas) ------------------------------------
+## The one word every dialog's close button carries.
+const DIALOG_CLOSE := "CLOSE"
 const SIZE_EYEBROW := 11
 const SIZE_SMALL := 12
 const SIZE_BODY := 13
@@ -246,8 +248,7 @@ static func eyebrow(text: String, clip := false) -> Label:
 	return l
 
 
-## A yellow front-end caption: heavy italic with a black outline, as over a list or beside the
-## ACCEPT and CANCEL buttons.
+## A yellow front-end caption: heavy italic with a black outline, as over a list.
 static func caption(text: String) -> Label:
 	var l := Label.new()
 	l.text = text.to_upper()
@@ -256,25 +257,38 @@ static func caption(text: String) -> Label:
 	return l
 
 
-## A caption beside the empty bevel button it names ("ACCEPT [   ]"). Clicking the caption
-## presses the button; the button carries the name for keyboard and screen-reader users.
-static func caption_pair(text: String, button: Button) -> HBoxContainer:
+## The one dialog header: the title in the heavy italic face at the left, a single CLOSE button
+## at the right, so every dialog names itself and closes the same way, with the same word, in the
+## same place. `close_keys` goes in the button's tooltip ("Esc", "F7 / Esc"). The children are
+## named Title and Close for callers that want them back.
+static func dialog_header(title: String, on_close: Callable, close_keys := "Esc", front_end := false) -> HBoxContainer:
 	var row := HBoxContainer.new()
+	row.name = "DialogHeader"
 	row.add_theme_constant_override("separation", 10)
-	var label := caption(text)
-	label.mouse_filter = Control.MOUSE_FILTER_STOP
-	label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	label.gui_input.connect(func(event: InputEvent) -> void:
-		var click := event as InputEventMouseButton
-		if click != null and click.button_index == MOUSE_BUTTON_LEFT and click.pressed and not button.disabled:
-			button.pressed.emit())
+	var label := Label.new()
+	label.name = "Title"
+	label.text = title.to_upper()
+	if front_end:
+		label.theme_type_variation = "MenuCaption"
+		label.add_theme_font_size_override("font_size", 34)
+	else:
+		label.theme_type_variation = "TitleLabel"
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.clip_text = true
 	row.add_child(label)
-	button.text = ""
-	button.custom_minimum_size = Vector2(maxf(button.custom_minimum_size.x, 64.0), maxf(button.custom_minimum_size.y, 36.0))
-	button.accessibility_name = text.capitalize()
-	if button.tooltip_text == "":
-		button.tooltip_text = text.capitalize()
-	row.add_child(button)
+	var close := Button.new()
+	close.name = "Close"
+	close.text = DIALOG_CLOSE
+	close.focus_mode = Control.FOCUS_ALL
+	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	close.custom_minimum_size = Vector2(140, 40) if front_end else Vector2(110, 30)
+	if front_end:
+		close.theme_type_variation = "MenuBigButton"
+		close.add_theme_font_size_override("font_size", 18)
+	close.tooltip_text = "Close  [%s]" % close_keys if close_keys != "" else "Close"
+	close.pressed.connect(on_close)
+	row.add_child(close)
 	return row
 
 
@@ -641,7 +655,11 @@ static func _buttons(t: Theme, on_navy: bool) -> void:
 	big_hover.face_top = Color("f0f2f6")
 	var big_down := bevel(Color("6c6e7c"), true, 5, Color("20202c"), 2.0)
 	big_down.face_top = Color("8a8c98")
-	var big_off := bevel(Color("9ea0a8"), false, 5, Color(0.12, 0.12, 0.18, 0.6), 2.0)
+	# Out of use: flat, darker and without the sheen, its lettering faded into the face, so it
+	# cannot be taken for a live button beside one.
+	var big_off := bevel(Color("8a8c96"), false, 5, Color(0.12, 0.12, 0.18, 0.5), 2.0)
+	big_off.light = Color(JFC_BEVEL_HI, 0.35)
+	big_off.dark = Color(JFC_BEVEL_LO, 0.35)
 	var faces := {"normal": big, "hover": big_hover, "pressed": big_down, "hover_pressed": big_down, "disabled": big_off}
 	t.set_type_variation("MenuBigButton", "Button")
 	for type in ["MenuBigButton", "MenuButton"]:
@@ -655,7 +673,7 @@ static func _buttons(t: Theme, on_navy: bool) -> void:
 		# The chosen one of a row (a shelf, a page) is pressed in, darker, its words in white.
 		for key in ["font_pressed_color", "font_hover_pressed_color", "icon_pressed_color"]:
 			t.set_color(key, type, Color.WHITE)
-		t.set_color("font_disabled_color", type, Color("5a5a70"))
+		t.set_color("font_disabled_color", type, Color("b8b9c4"))
 		# A one-pixel light emboss round the navy lettering; it vanishes into the white of a pressed one.
 		t.set_color("font_outline_color", type, Color(1, 1, 1, 0.4))
 		t.set_constant("outline_size", type, 1)

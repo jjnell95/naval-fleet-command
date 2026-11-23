@@ -82,6 +82,11 @@ func run(scene_tree: SceneTree) -> void:
 	checks["operations desk fits at 125"] = _fits(main._menu._intro) and _fits(main._menu._options_menu)
 	await _shot("operations-desk-125")
 	await _click_control(main._menu._intro)
+	# Leaving the running engagement asks first; the question fits too, and abandoning goes on.
+	var ask := ConfirmDiscard.asking(main)
+	checks["abandoning the engagement asks first and fits at 125"] = ask != null and _fits(ask.get_ok_button()) and _fits(ask.get_cancel_button())
+	if ask != null:
+		await _click_control(ask.get_ok_button())
 	checks["briefing start fits at 125"] = _fits(main._briefing._start)
 	await _shot("briefing-125")
 	_finish()
