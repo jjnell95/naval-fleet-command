@@ -130,3 +130,126 @@ func test_every_lane_is_a_real_breakout_inside_the_watch() -> void:
 		assert_true(crossings[0].distance_to(crossings[1]) > 20.0, "the outer lanes cross the barrier %.1f nm apart, more than Dallas hears a quiet Victor across" % crossings[0].distance_to(crossings[1]))
 	assert_true(dallas.distance_to(exit_at) > radius, "Dallas does not open inside the breakout")
 	assert_true(radius >= 8.0, "the breakout is a broad exit south of the line (radius %.0f nm), not a point every lane converges on" % radius)
+
+
+# --- Naval guns ---------------------------------------------------------------------------------
+
+## A destroyer with the gun under test fitted, a target of `platform` at `range_nm` dead ahead, and
+## the director's track on it.
+func _gun_range(gun_id: String, platform: String, domain: String, range_nm: float, hover := true) -> Dictionary:
+	var um := UnitManager.new()
+	var target_def := {"platform": platform, "callsign": "Target", "faction": "RED", "position_nm": [0, range_nm], "heading_deg": 90.0, "speed_kn": 0.0}
+	ScenarioLoader.populate(um, {"units": [
+		{"platform": "usn_ddg_arleigh_burke_iia", "callsign": "Shooter", "faction": "BLUE", "position_nm": [0, 0], "heading_deg": 0.0, "speed_kn": 0.0},
+		target_def]})
+	var ship: Unit = um.units[0]
+	var target: Unit = um.units[1]
+	if domain == "air":
+		target.flight_state = Unit.FlightState.AIRBORNE
+		target.altitude_m = 150.0
+		target.fuel_s = 99999.0
+		if hover:
+			# In the hover, as a dipping helicopter is.
+			target.speed_kn = 0.0
+			target.ordered_speed_kn = 0.0
+			target.waypoints.clear()
+	var spec := DataDB.weapon(gun_id)
+	if ship.get_weapon(gun_id) == null:
+		ship.weapons.append(spec)
+	ship.magazines[spec.id] = 600
+	var wm := WeaponManager.new()
+	wm.unit_manager = um
+	wm.rng.seed = 7
+	Damage.rng.seed = 7
+	var t := Track.new()
+	t.id = "G1"
+	t.owner_faction = "BLUE"
+	t.truth = target
+	t.position = target.position
+	t.status = Track.Status.ACTIVE
+	t.domain = domain
+	t.identity = "HOSTILE"
+	t.has_kinematics = true
+	t.altitude_m = target.altitude_m
+	return {"um": um, "wm": wm, "ship": ship, "target": target, "track": t, "spec": spec}
+
+
+func _free_range(r: Dictionary) -> void:
+	(r["um"] as UnitManager).free()
+	(r["wm"] as WeaponManager).free()
+
+
+## Every naval gun listed only ships, and the 76 mm and 57 mm mounts not even a contact ashore, so
+## a destroyer could not put a round into a hovering helicopter four miles off or a coastal battery
+## five miles inland: WRONG WEAPON FOR CONTACT. Every mount in the catalogue is dual-purpose.
+func test_a_naval_gun_can_be_laid_on_a_helicopter_and_a_shore_battery() -> void:
+	var guns := DataDB.all_weapons().filter(func(w: WeaponSpec) -> bool: return w.is_gun())
+	assert_true(guns.size() >= 15, "the catalogue's guns are found")
+	for spec: WeaponSpec in guns:
+		var reach := minf(4.0, spec.max_range_nm - 1.0)
+		var air := _gun_range(spec.id, "rn_helo_wildcat", "air", reach)
+		var check: Dictionary = (air["wm"] as WeaponManager).engagement_check(air["ship"], spec, air["track"], 0.0)
+		assert_true(check["ok"], "%s may be laid on a helicopter %.0f nm off (%s)" % [spec.id, reach, check.get("reason", "")])
+		_free_range(air)
+		var ashore := _gun_range(spec.id, "irn_battery_qader", "land", reach)
+		check = (ashore["wm"] as WeaponManager).engagement_check(ashore["ship"], spec, ashore["track"], 0.0)
+		assert_true(check["ok"], "%s may be laid on a coastal battery %.0f nm off (%s)" % [spec.id, reach, check.get("reason", "")])
+		_free_range(ashore)
+
+
+## The rounds a 76 mm mount fires at a helicopter fly, arrive and are resolved like any other
+## gunfire: in the hover some hit and it is hurt; flying, each round still bursts or goes by where
+## it passes, rather than circling the helicopter until it runs out of range.
+func test_rounds_fired_at_a_helicopter_arrive_and_some_hit() -> void:
+	for hover: bool in [true, false]:
+		var r := _gun_range("oto_76mm_gun", "rn_helo_wildcat", "air", 3.0, hover)
+		var wm: WeaponManager = r["wm"]
+		var um: UnitManager = r["um"]
+		var helicopter: Unit = r["target"]
+		var tally := {"hit": 0, "resolved": 0, "ran_out": 0}
+		wm.weapon_impact.connect(func(_f: String, _s: WeaponSpec, _u: Unit, hit: bool) -> void:
+			tally["resolved"] += 1
+			if hit:
+				tally["hit"] += 1)
+		wm.weapon_resolved.connect(func(w: Weapon) -> void:
+			if w.dead_reason == "RANGE EXHAUSTED":
+				tally["ran_out"] += 1)
+		var before := helicopter.health
+		var rounds := 20 if hover else 6
+		wm.launch(r["ship"], r["spec"], r["track"], rounds, 0.0)
+		var now := 0.0
+		while now < float(rounds) * (r["spec"] as WeaponSpec).launch_interval_s + 60.0:
+			now += SimClock.TICK_DT
+			um.tick(SimClock.TICK_DT)
+			wm.tick(SimClock.TICK_DT, now)
+		var how := "in the hover" if hover else "flying"
+		assert_true(int(tally["resolved"]) > 0, "%s: the rounds reach the helicopter and are resolved (%d)" % [how, int(tally["resolved"])])
+		assert_eq(int(tally["ran_out"]), 0, "%s: no round circles it until it runs out of range" % how)
+		if hover:
+			assert_true(int(tally["hit"]) > 0 and helicopter.health < before, "some of twenty hit (%d), and it is hurt (%.1f of %.1f)" % [int(tally["hit"]), helicopter.health, before])
+		_free_range(r)
+
+
+## At its full reach a gun used to keep half its rated chance, 0.28 a round against a stopped
+## destroyer: long-range gunnery that sank ships. It now falls to under one in five against
+## anything, however large and however still, while close in the rating stands.
+func test_a_gun_at_its_full_reach_hits_fewer_than_one_round_in_five() -> void:
+	var big := Unit.new()
+	big.spec = DataDB.platform("civ_tanker_vlcc")
+	big.speed_kn = 0.0
+	var burke := Unit.new()
+	burke.spec = DataDB.platform("usn_ddg_arleigh_burke_iia")
+	burke.speed_kn = 0.0
+	for spec: WeaponSpec in DataDB.all_weapons():
+		if not spec.is_gun():
+			continue
+		var at_limit := Combat.hit_probability(spec, big, spec.max_range_nm)
+		assert_true(at_limit < 0.2, "%s at %.0f nm against a stopped tanker: %.2f a round" % [spec.id, spec.max_range_nm, at_limit])
+		var close := Combat.hit_probability(spec, burke, 1.0)
+		assert_true(close > 0.35, "%s at a mile against a stopped destroyer keeps its rating: %.2f" % [spec.id, close])
+		# The fire control sizes its salvo on the same fall with range.
+		var plotted := Track.new()
+		plotted.has_kinematics = true
+		plotted.speed_kn = 0.0
+		var judged := burke.expected_hit_chance(spec, plotted, spec.max_range_nm)
+		assert_true(judged < 0.2, "%s: the fire control expects under one in five at full reach too (%.2f)" % [spec.id, judged])
