@@ -143,6 +143,12 @@ var _cycle_bearing_held := false
 var _cycle_snap := false
 var _cycle_has_plot := false
 var _cycle_firm := false
+## What the cycle's plot so far stands on: 2 a measurement, 1 a range worked from bearings, 0 a
+## bare line. A later look in the cycle replaces it only from as good a footing or better.
+var _cycle_rank := 0
+## Whether the contact had been given a range before this cycle began: one given in the cycle
+## does not make a second look in the same cycle a re-acquisition.
+var _cycle_ranged_before := false
 var _cycle_error := INF
 var _cycle_observation_gain := 0.0
 var _cycle_tma_start := 0.0
