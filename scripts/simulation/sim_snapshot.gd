@@ -50,7 +50,7 @@ const GROUP_SKIP := {}
 const MANAGER_FIELDS := {
 	"UnitManager": ["now_s", "_next_id", "engage_on_hostile_id"],
 	"TrackManager": ["_tracks", "_by_target", "_local_keys", "_track_ids", "_dropped_ids", "_next_number"],
-	"SensorManager": ["_accum", "_slice", "_cycle_at"],
+	"SensorManager": ["_accum", "_slice", "_cycle_at", "_plan", "_work"],
 	"ThreatManager": ["_observers", "_detected", "_first_seen"],
 	"WeaponManager": ["in_flight", "_next_id", "_launcher_ready_at", "now_s", "_pending", "_pending_dirty"],
 	"AviationManager": ["_accum", "_next_buoy_id"],

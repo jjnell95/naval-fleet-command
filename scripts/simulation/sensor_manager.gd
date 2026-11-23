@@ -7,12 +7,14 @@ extends Node
 ## sender. Sonar hears everything that makes noise, but passively it gives a bearing and only a
 ## guess at range until the listener has manoeuvred enough to work up a solution.
 ##
-## In play a cycle is spread over the ticks of its second: each tick takes every SLICES-th
-## observer, and the last also files the buoys, ages the plots and finds the rounds in flight, so
-## no one tick carries the whole cycle. Every report in it is filed as part of the cycle that began
-## at the first slice (TrackManager.cycle_at), so a contact several observers hold is merged once a
-## cycle, as when they all looked at once. run_cycle runs a whole cycle in one go, as tests and the
-## measuring tools want it.
+## In play a cycle is spread over the ticks of its second: each tick takes a share of the
+## observers, and the last also files the buoys, ages the plots and finds the rounds in flight, so
+## no one tick carries the whole cycle. The shares are dealt at the start of each cycle to even out
+## the work, by how many reports each observer filed in its last look: a few observers (an
+## airborne radar, a ship hearing a whole raid) can file most of a cycle's reports. Every report
+## in a cycle is filed as part of the cycle that began at its first slice (TrackManager.cycle_at),
+## so a contact several observers hold is merged once a cycle, as when they all looked at once.
+## run_cycle runs a whole cycle in one go, as tests and the measuring tools want it.
 
 const SENSOR_DT := 1.0
 const SLICES := 4
@@ -41,6 +43,12 @@ var _accum := 0.0  # time towards the next slice
 ## The slice of the cycle that runs next, and when the cycle it belongs to began.
 var _slice := 0
 var _cycle_at := 0.0
+## The cycle's observers by slice (unit indices, in unit order), and the reports each observer
+## filed in its last look (unit index -> count), which the next cycle is dealt by.
+var _plan: Array = []
+var _work: Dictionary = {}
+## What an observer's passes cost before it files anything, counted as reports.
+const OBSERVER_WORK := 8
 ## Development switch: run the original pair-by-pair passes (REFERENCE_PASSES) instead of the
 ## ones that work out each unit's figures once per cycle. Both make the same reports in the same
 ## order with the same random draws, so the tracks come out identical (tests/test_sensor_cycle.gd
@@ -154,6 +162,8 @@ func reset() -> void:
 	_accum = 0.0
 	_slice = 0
 	_cycle_at = 0.0
+	_plan = []
+	_work = {}
 
 
 func tick(dt: float) -> void:
@@ -163,20 +173,54 @@ func tick(dt: float) -> void:
 		run_slice(SimClock.sim_time)
 
 
-## The next slice of the cycle: every SLICES-th observer, from the slice's own index.
+## The next slice of the cycle.
 func run_slice(now: float) -> void:
-	if _slice == 0:
-		_cycle_at = now
-	_run(now, _cycle_at, _slice, SLICES, _slice == SLICES - 1)
+	if _slice == 0 or _plan.size() != SLICES:
+		if _slice == 0:
+			_cycle_at = now
+		_deal()
+	_run(now, _cycle_at, _plan[_slice], _slice == SLICES - 1)
 	_slice = (_slice + 1) % SLICES
 
 
 ## A whole cycle at once: every observer in unit order, then the buoys, the plots and the rounds.
 func run_cycle(now: float) -> void:
-	_run(now, now, 0, 1, true)
+	_run(now, now, range(unit_manager.units.size()), true)
 
 
-func _run(now: float, cycle: float, first: int, stride: int, closes: bool) -> void:
+## Deals the cycle's observers to its slices, the heaviest first, each to the slice with the least
+## work so far (the earlier on a tie), so that each tick carries about a quarter of it.
+func _deal() -> void:
+	var order: Array = []
+	var work := {}
+	for i in unit_manager.units.size():
+		if unit_manager.units[i].is_engageable():
+			var filed := int(_work.get(i, 0))
+			work[i] = filed
+			order.append([filed + OBSERVER_WORK, i])
+	_work = work
+	order.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0] or (a[0] == b[0] and a[1] < b[1]))
+	var loads := PackedInt32Array()
+	loads.resize(SLICES)
+	loads.fill(0)
+	var dealt: Array = []
+	for k in SLICES:
+		dealt.append([])
+	for item: Array in order:
+		var lightest := 0
+		for k in range(1, SLICES):
+			if loads[k] < loads[lightest]:
+				lightest = k
+		dealt[lightest].append(item[1])
+		loads[lightest] += item[0]
+	_plan = []
+	for k in SLICES:
+		var share: Array = dealt[k]
+		share.sort()
+		_plan.append(PackedInt32Array(share))
+
+
+func _run(now: float, cycle: float, observers: Variant, closes: bool) -> void:
 	track_manager.cycle_at = cycle
 	var setup := Time.get_ticks_usec()
 	Detection.refresh_jammers(unit_manager.units)
@@ -186,14 +230,16 @@ func _run(now: float, cycle: float, first: int, stride: int, closes: bool) -> vo
 	var facts: CycleFacts = null if reference != null else CycleFacts.new(unit_manager.units)
 	var cz_outer := _cz_outer_nm()
 	Debug.time_add("sensors/setup", Time.get_ticks_usec() - setup)
-	for i in range(first, unit_manager.units.size(), stride):
+	for i: int in observers:
 		var observer := unit_manager.units[i]
 		if not observer.is_engageable():
 			continue
+		var filed := track_manager.picture_filings
 		# One observer at a time, radar then sonar then ESM then the lookouts, whichever path runs:
 		# that order is the order of the random draws, and so of every seeded outcome.
 		if reference != null:
 			reference.run_observer(self, observer, cz_outer, now, spent)
+			_work[i] = track_manager.picture_filings - filed
 			continue
 		var at := Time.get_ticks_usec()
 		_radar_pass_indexed(facts, i, now)
@@ -207,6 +253,7 @@ func _run(now: float, cycle: float, first: int, stride: int, closes: bool) -> vo
 		spent[1] += late - mid
 		spent[2] += seen - late
 		spent[3] += Time.get_ticks_usec() - seen
+		_work[i] = track_manager.picture_filings - filed
 	Debug.time_add("sensors/radar", spent[0])
 	Debug.time_add("sensors/sonar", spent[1])
 	Debug.time_add("sensors/esm", spent[2])
