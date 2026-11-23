@@ -99,3 +99,62 @@ func test_a_forced_autosave_in_a_harness_run_is_written() -> void:
 	DirAccess.remove_absolute(scratch)
 	SaveGame.root_override = saved_root
 	main.free()
+
+
+func _battle(path: String, seed: int) -> Simulation:
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	sim.seed_override = seed
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario(path), path)
+	sim.ai_plays_player = true
+	sim._build_ai()
+	return sim
+
+
+func _end(sim: Simulation) -> void:
+	sim.unit_manager.clear()
+	sim.get_parent().remove_child(sim)
+	sim.free()
+
+
+## In a large battle the defence step and the commanders' thinking each landed whole in one tick
+## of the second, the dearest ticks of all. The player's side works its air defence in one tick
+## and the other side half a second later, every second; the two commanders think half a second
+## apart, every two seconds each.
+func test_the_sides_defend_and_think_in_different_ticks() -> void:
+	var sim := _battle("res://data/scenarios/pacific_02_taiwan_strait.json", 2)
+	var ships := {}  # side -> one of its ships
+	for u in sim.unit_manager.units:
+		if u.is_engageable() and not u.is_aircraft() and not ships.has(u.faction) and sim.ai_controllers.has(u.faction):
+			ships[u.faction] = u
+	assert_true(ships.has("BLUE") and ships.has("RED"), "a ship on each side")
+	var cleared := {}  # side -> the ticks its air defence ran in, read off an expired raid clearance
+	var thought := {}  # side -> the ticks its commander thought in, read off its decision cycle's threat list
+	for tick in 16:
+		var lists := {}
+		for side in ships:
+			(ships[side] as Unit).raid_clearance_until_s = 0.0
+			lists[side] = (sim.ai_controllers[side] as AIController)._cycle_inbound
+		SimClock.advance(0.25)
+		for side in ships:
+			if (ships[side] as Unit).raid_clearance_until_s < 0.0:
+				if not cleared.has(side):
+					cleared[side] = []
+				cleared[side].append(tick)
+			if not is_same((sim.ai_controllers[side] as AIController)._cycle_inbound, lists[side]):
+				if not thought.has(side):
+					thought[side] = []
+				thought[side].append(tick)
+	_end(sim)
+	var blue: Array = cleared.get("BLUE", [])
+	var red: Array = cleared.get("RED", [])
+	assert_true(blue.size() == 4 and red.size() == 4, "each side's air defence ran once a second (%s, %s)" % [blue, red])
+	for k in mini(blue.size(), red.size()):
+		assert_true(absi(int(blue[k]) - int(red[k])) == 2, "the two sides half a second apart (%s against %s)" % [blue, red])
+	var blue_thought: Array = thought.get("BLUE", [])
+	var red_thought: Array = thought.get("RED", [])
+	assert_true(blue_thought.size() == 2 and red_thought.size() == 2, "each commander thought every two seconds (%s)" % [thought])
+	for k in mini(blue_thought.size(), red_thought.size()):
+		var apart := absi(int(blue_thought[k]) - int(red_thought[k]))
+		assert_true(apart == 2 or apart == 6, "the two commanders half a second apart (%s)" % [thought])

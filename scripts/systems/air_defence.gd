@@ -142,7 +142,10 @@ static func inbound_threats(unit_manager: UnitManager, threat_manager: ThreatMan
 ## the first round while the second was not answered at all until a launcher came free. Within a
 ## pass a ship with a guidance channel to spare is asked before a nearer one that is saturated, so
 ## a raid spreads across the screen instead of queuing on one hull.
-static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float) -> int:
+##
+## `sides`, when given, limits the cycle to those sides' ships: each side's defence is its own, so
+## the sides can be worked in different ticks of the second.
+static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, weapon_manager: WeaponManager, now: float, sides: Array = []) -> int:
 	weapon_manager.begin_channel_batch()
 	var missiles := {}  # unit -> its missile layers with rounds left, innermost first
 	var guns := {}  # unit -> its close-in weapons with rounds left
@@ -150,7 +153,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 	var launched := 0
 	var by_faction: Dictionary = {}
 	for u in unit_manager.units:
-		if not u.is_engageable():
+		if not u.is_engageable() or (not sides.is_empty() and not sides.has(u.faction)):
 			continue
 		if u.raid_clearance_until_s >= 0.0 and (now > u.raid_clearance_until_s or u.roe == Unit.Roe.HOLD or u.auto_air_defence):
 			u.raid_clearance_until_s = -1.0
