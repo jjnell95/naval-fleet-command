@@ -129,3 +129,47 @@ func test_the_overview_map_prints_no_place_name_across_an_own_ship() -> void:
 				assert_true(not (layout["force"] as Array).is_empty(), "the force is on the map at %d px" % side)
 				assert_true(names.has("NORTH CAPE"), "the cape the force is rounding is still named at %d px: %s" % [side, names])
 	preview.free()
+
+
+# --- The chart's numbers: clear of the hook and of each other ----------------------------------
+
+func _label(key: String, at: Vector2, number: String, priority := false) -> Dictionary:
+	var hook := roundf(TacticalMap._bracket_box(MapSymbols.RADIUS) * 0.5) + MapSymbols.STROKE * 0.5 if priority else 0.0
+	return {"key": key, "at": at, "extent": MapSymbols.RADIUS, "size": Vector2(39, 17), "ascent": 13.0, "priority": priority, "number": number, "tag": "", "alpha": 1.0, "hook": hook}
+
+
+func test_the_hooked_number_stands_a_clear_space_from_its_brackets() -> void:
+	var at := Vector2(400, 300)
+	var hooked := _label("u:1", at, "0004", true)
+	var half := roundf(TacticalMap._bracket_box(MapSymbols.RADIUS) * 0.5) + MapSymbols.STROKE * 0.5
+	for k in ChartLabels.OFFSETS.size():
+		var rect := ChartLabels.slot_box(hooked, k)
+		var clear := rect.position.x - (at.x + half) if ChartLabels.OFFSETS[k].x > 0.0 else (at.x - half) - rect.end.x
+		assert_true(clear >= 5.0, "the number in corner %d stands %.0f px from the brackets' outer edge, enough not to read as '[]0004'" % [k, clear])
+
+
+func test_numbers_in_neighbouring_corners_do_not_stack_into_one_block() -> void:
+	# Northern Passage at ten minutes, 1280x720: the hooked flagship, the frigate and the merchant
+	# in a column, a contact beside them, as the chart queued them.
+	var labels := [
+		_label("t:1001", Vector2(732, 275), "1001"),
+		_label("t:1002", Vector2(635, 361), "1002"),
+		_label("t:1003", Vector2(743, 238), "1003"),
+		_label("u:1", Vector2(607, 331), "0001", true),
+		_label("u:2", Vector2(607, 368), "0002"),
+		_label("u:3", Vector2(589, 349), "0003"),
+	]
+	var slots := ChartLabels.place(labels, Rect2(0, 0, 1280, 720))
+	var placed: Array[Rect2] = []
+	for l: Dictionary in labels:
+		var k := int(slots[l.key])
+		assert_true(k != ChartLabels.HIDDEN, "%s keeps its number" % l.number)
+		if k != ChartLabels.HIDDEN:
+			placed.append(ChartLabels.slot_box(l, k))
+	for i in placed.size():
+		for j in range(i + 1, placed.size()):
+			var a := placed[i]
+			var b := placed[j]
+			if a.position.x < b.end.x and b.position.x < a.end.x:
+				var gap := maxf(b.position.y - a.end.y, a.position.y - b.end.y)
+				assert_true(gap >= 4.0, "two numbers over each other keep %.0f px apart, enough to read as two labels: %s %s" % [gap, a, b])
