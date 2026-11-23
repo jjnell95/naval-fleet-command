@@ -280,6 +280,15 @@ func test_choosing_an_operation_from_the_desk_mid_mission_asks_and_autosaves_fir
 	assert_eq(SimClock.sim_time, running, "keeping it keeps it")
 	assert_true(main._command_taken)
 	main._menu._intro.pressed.emit()
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.physical_keycode = KEY_ENTER
+	enter.pressed = true
+	main.get_viewport().push_input(enter)
+	assert_eq(SimClock.sim_time, running, "Enter on the question keeps the engagement too")
+	assert_true(main._menu.visible, "and leaves the desk where it was")
+	if ConfirmDiscard.asking(main) == null:
+		main._menu._intro.pressed.emit()
 	_answer(main, true)
 	assert_eq(SimClock.sim_time, 0.0, "abandoning it opens the new operation")
 	assert_true(main._briefing.visible, "at its briefing")
@@ -347,3 +356,86 @@ func test_the_editors_new_asks_and_can_be_undone() -> void:
 	_answer(editor, false)
 	assert_eq(editor.scenario["units"].size(), units, "keeping it keeps it")
 	editor.free()
+
+
+# --- The Reference's dossiers and order ----------------------------------------------------
+
+static func _rows_text(rows: Array) -> String:
+	var out := PackedStringArray()
+	for r: Array in rows:
+		out.append("%s: %s" % [r[0], r[1]])
+	return "\n".join(out)
+
+
+func test_a_dossier_gives_speed_reach_ceiling_or_depth_and_countermeasures() -> void:
+	var ship := DataDB.platform("usn_ddg_burke_iii")
+	var text := _rows_text(PlatformLibrary.general_rows(ship))
+	for label in ["Top speed", "Displacement", "Countermeasures"]:
+		assert_true(text.contains(label + ":"), "a destroyer's dossier has %s:\n%s" % [label, text])
+	assert_true(text.contains("%d kn" % roundi(ship.max_speed_kn)), "its top speed from the catalogue")
+	var aircraft: PlatformSpec = null
+	var boat: PlatformSpec = null
+	for p: PlatformSpec in DataDB.all_platforms():
+		if aircraft == null and p.domain == "air" and p.endurance_s > 0.0 and p.max_altitude_m > 0.0:
+			aircraft = p
+		if boat == null and p.domain == "subsurface" and p.max_depth_m > 0.0:
+			boat = p
+	var air_text := _rows_text(PlatformLibrary.general_rows(aircraft))
+	assert_true(air_text.contains("Endurance:") and air_text.contains("Ceiling:") and air_text.contains(" nm"), "an aircraft's has endurance, range and ceiling:\n" + air_text)
+	var sub_text := _rows_text(PlatformLibrary.general_rows(boat))
+	assert_true(sub_text.contains("Depth:") and (sub_text.contains("Endurance:") or sub_text.contains("Battery:")), "a submarine's has depth and endurance:\n" + sub_text)
+	for p: PlatformSpec in DataDB.all_platforms():
+		var rows := PlatformLibrary.general_rows(p)
+		assert_true(not rows.is_empty(), "%s has a general block" % p.id)
+		for r: Array in rows:
+			assert_true(not str(r[1]).contains("_") and str(r[1]) != "", "%s %s reads as words: %s" % [p.id, r[0], r[1]])
+
+
+func test_a_weapon_dossier_says_speed_warhead_and_seeker_in_words() -> void:
+	for w: WeaponSpec in DataDB.all_weapons():
+		var text := _rows_text(PlatformLibrary.weapon_rows(w))
+		for label in ["Speed", "Range", "Warhead", "Seeker"]:
+			assert_true(text.contains(label + ":"), "%s has %s:\n%s" % [w.id, label, text])
+		assert_true(not text.contains("_"), "%s is said in words, not the game's labels:\n%s" % [w.id, text])
+	var mk48 := DataDB.weapon("mk48_adcap")
+	if mk48 != null:
+		var t := _rows_text(PlatformLibrary.weapon_rows(mk48))
+		assert_true(t.contains("acoustic") and t.contains("heavyweight"), t)
+
+
+func test_the_reference_runs_by_nation_under_headings_counts_properly_and_opens_on_the_flagship() -> void:
+	var lib := PlatformLibrary.new()
+	_root().add_child(lib)
+	var nations := []
+	var last := ""
+	for i in lib._specs.size():
+		var p: PlatformSpec = lib._specs[i]
+		if p.nation != last:
+			assert_true(not nations.has(p.nation), "%s is listed together, not in two places" % p.nation)
+			nations.append(p.nation)
+			var row := lib._rows.find(i)
+			assert_true(row > 0 and lib._rows[row - 1] == -1 and lib._list.get_item_text(row - 1) == p.nation.to_upper(), "with its heading over it: %s" % p.nation)
+			assert_true(not lib._list.is_item_selectable(row - 1), "a heading is not an entry")
+			last = p.nation
+	assert_eq(lib._count.text, "%d PLATFORM CLASSES" % DataDB.all_platforms().size())
+	lib._search.text = "zzzz no such class"
+	lib._filter(lib._search.text)
+	assert_eq(lib._count.text, "NO MATCHES", "an empty search does not print 00")
+	lib._search.text = ""
+	lib._set_mode(true)
+	assert_true(lib._count.text.ends_with("WEAPON SYSTEMS") and lib._count.text.begins_with(str(DataDB.all_weapons().size())))
+	var kinds := []
+	for w: WeaponSpec in lib._specs:
+		if kinds.is_empty() or kinds[-1] != w.type:
+			assert_true(not kinds.has(w.type), "ordnance runs by kind: %s" % w.type)
+			kinds.append(w.type)
+	lib.free()
+	var main := _open_main()
+	var flag := CommanderPicture.default_hook(main.simulation.unit_manager, main.simulation.player_faction)
+	main._toggle_library()
+	assert_true(main._library.visible)
+	assert_eq(main._library._stage._id, flag.spec.id, "the library opens on the flagship, %s" % flag.spec.short_name)
+	assert_eq(main._library._title.text, flag.spec.short_name.to_upper())
+	assert_true(main._library._detail.text.contains("TOP SPEED"), "with its general block")
+	main._toggle_library()
+	_close_main(main)
