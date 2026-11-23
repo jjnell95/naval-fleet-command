@@ -19,7 +19,8 @@ enum Result { RUNNING, VICTORY, DEFEAT }
 ## the mission is won, so before any penalty a commanded victory grades 60 to 100 and a defeat
 ## 0 to 40; keeping the force and hurting the enemy are the rest. Conduct is charged against
 ## that: every hit the force's own weapons land on a neutral or on one of its own, a neutral
-## sunk, and rounds spent far beyond what their targets were worth. All of it is GAMEPLAY tuning.
+## sunk, rounds spent far beyond what their targets were worth, and a screen left with holes in
+## it. All of it is GAMEPLAY tuning.
 const TASK_WEIGHT := 60.0
 const FORCE_WEIGHT := 20.0
 const ATTRITION_WEIGHT := 20.0
@@ -42,9 +43,23 @@ const ECONOMY_SCALE := 100.0
 const AMMUNITION_ALLOWANCE := 0.5
 const ROUND_POINTS := {"asm": 10.0, "torpedo": 12.0, "asw_rocket": 6.0, "bomb": 3.0, "sam": 6.0, "aam": 5.0, "ciws": 0.05, "gun": 0.3}
 const DEFAULT_ROUND_POINTS := 5.0
-## Standing doctrine the screen issues to every arriving unit on the commander's options: an order
-## in form, not a command decision, so it does not count as taking command.
-const DOCTRINE_ORDERS := [Order.Type.SET_AIR_DEFENCE_MODE]
+## The orders that count as taking command: those that put a platform somewhere, set it on a
+## target or a search, or send aircraft. Emission, rules of engagement, automation switches and
+## standing doctrine (the air-defence mode the screen issues to every arrival) leave the fight
+## to the crews, so a commander who only flips one of them has still not commanded.
+const COMMAND_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.SET_SPEED, Order.Type.STOP,
+	Order.Type.SET_DEPTH, Order.Type.SET_ALTITUDE, Order.Type.ENGAGE, Order.Type.LAUNCH_AIRCRAFT, Order.Type.RETURN_TO_BASE,
+	Order.Type.DEPLOY_SONOBUOY, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.DEPLOY_COUNTERMEASURES,
+	Order.Type.EVADE, Order.Type.RESUME_PLAN, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK,
+	Order.Type.RETURN_TO_STATION, Order.Type.AIR_MISSION, Order.Type.GROUP_ATTACK, Order.Type.INTERCEPT,
+	Order.Type.DEPLOY_DIPPING_SONAR, Order.Type.ASW_SEARCH]
+## Screen discipline. A ship given a formation station on a guide is part of that guide's screen
+## until the commander releases her (Break Formation or another assignment); while she is more
+## than SCREEN_TOLERANCE_NM from her station the screen has a hole in it. The share of the
+## mission the screen was short costs up to SCREEN_WEIGHT: an escort that chases the enemy for
+## most of the passage leaves the convoy open for most of it, whatever she earns in attrition.
+const SCREEN_WEIGHT := 20.0
+const SCREEN_TOLERANCE_NM := 1.5
 ## Bonus tasks are credited on top, up to this in all, unless the mission was lost. GAMEPLAY: big
 ## enough to be worth a risk, small enough that skipping them still leaves a full-marks victory.
 const BONUS_WEIGHT := 10.0
@@ -79,7 +94,7 @@ var neutral_factions := PackedStringArray()
 ## Tasking updates received during this engagement, oldest first, as {"time_s", "text"}: the
 ## briefing lists them under the original orders.
 var tasking_updates: Array = []
-## Orders the player's side gave its own units that direct the force (doctrine excluded).
+## Orders the player's side gave its own units that direct the force (COMMAND_ORDERS).
 var orders_given := 0
 ## Hits the player's own weapons landed on neutrals, oldest first, as {"time_s", "callsign",
 ## "weapon"}: the debrief lists them.
@@ -89,6 +104,11 @@ var own_fire_hits := 0
 ## Offensive rounds the player's side fired, priced by ROUND_POINTS, by the target unit's id as a
 ## string ("" for a contact that was nothing).
 var rounds_spent: Dictionary = {}
+## Seconds of the mission a screen was kept, seconds of it one or more escorts were off station,
+## and the time of the last tick they were counted at (negative before the first).
+var screen_s := 0.0
+var screen_short_s := 0.0
+var screen_last_s := -1.0
 
 
 func configure(scenario: Dictionary) -> void:
@@ -98,6 +118,9 @@ func configure(scenario: Dictionary) -> void:
 	civilian_incidents.clear()
 	own_fire_hits = 0
 	rounds_spent.clear()
+	screen_s = 0.0
+	screen_short_s = 0.0
+	screen_last_s = -1.0
 	victory_mode = str(scenario.get("victory_mode", "all"))
 	neutral_factions = PackedStringArray()
 	for f in scenario.get("neutral_factions", []):
@@ -126,6 +149,7 @@ func _scoped(o: MissionObjective) -> MissionObjective:
 func tick(now: float) -> void:
 	if result != Result.RUNNING or unit_manager == null:
 		return
+	_count_screen(now)
 	for o in loss_objectives:
 		if not o.complete and o.evaluate(unit_manager, now, track_manager):
 			objective_completed.emit(o, true)
@@ -146,6 +170,29 @@ func tick(now: float) -> void:
 				objective_completed.emit(o, false)
 	if done > 0 and (victory_mode == "any" or done == terminal_count):
 		_finish(Result.VICTORY, briefing)
+
+
+func _count_screen(now: float) -> void:
+	var dt := now - screen_last_s if screen_last_s >= 0.0 else 0.0
+	screen_last_s = now
+	if dt <= 0.0:
+		return
+	var kept := false
+	var short := false
+	for u: Unit in unit_manager.units:
+		if not u.alive or u.departed or u.faction != player_faction or u.is_aircraft() or u.station_kind != "formation":
+			continue
+		var point := u.station_point()
+		if not point.is_finite():
+			continue
+		kept = true
+		if u.position.distance_to(point) > SCREEN_TOLERANCE_NM:
+			short = true
+			break
+	if kept:
+		screen_s += dt
+		if short:
+			screen_short_s += dt
 
 
 func prerequisites_complete(ids: PackedStringArray) -> bool:
@@ -239,7 +286,7 @@ func listen(weapons: WeaponManager) -> void:
 func record_order(u: Unit, o: Order) -> void:
 	if result != Result.RUNNING or u == null or u.faction != player_faction:
 		return
-	if o.origin == "player" and o.execution_accepted and not DOCTRINE_ORDERS.has(o.type):
+	if o.origin == "player" and o.execution_accepted and COMMAND_ORDERS.has(o.type):
 		orders_given += 1
 
 
@@ -286,7 +333,7 @@ func assessment() -> Dictionary:
 		"bonus_done": 0, "bonus_total": 0, "bonus": 0.0, "percent": 0,
 		"orders_given": orders_given, "commanded": true, "civilian_incidents": civilian_incidents.duplicate(true),
 		"neutral_hits": civilian_incidents.size(), "own_fire_hits": own_fire_hits, "own_fire": 0.0,
-		"ammunition_excess": 0.0, "economy": 0.0}
+		"ammunition_excess": 0.0, "economy": 0.0, "screen_short": 0.0, "screen": 0.0}
 	for o in victory_objectives:
 		if o.phase_only:
 			continue
@@ -338,6 +385,9 @@ func assessment() -> Dictionary:
 		excess += maxf(float(rounds_spent[key]) - float(allowance.get(key, 0.0)), 0.0)
 	out["ammunition_excess"] = excess
 	out["economy"] = ECONOMY_WEIGHT * clampf(excess / ECONOMY_SCALE, 0.0, 1.0)
+	if screen_s > 0.0:
+		out["screen_short"] = clampf(screen_short_s / screen_s, 0.0, 1.0)
+		out["screen"] = SCREEN_WEIGHT * float(out["screen_short"])
 	out["force"] = FORCE_WEIGHT * (1.0 - float(out["friendly_lost"]) / float(out["friendly_points"])) if out["friendly_points"] > 0 else FORCE_WEIGHT
 	out["attrition"] = ATTRITION_WEIGHT * clampf(float(out["hostile_earned"]) / float(out["hostile_points"]), 0.0, 1.0) if out["hostile_points"] > 0 else ATTRITION_WEIGHT
 	# A bonus taken on the way to a defeat bought nothing.
@@ -346,7 +396,7 @@ func assessment() -> Dictionary:
 		if not out["commanded"]:
 			out["bonus"] = float(out["bonus"]) * UNCOMMANDED_TASK_SHARE
 	var earned := float(out["task"]) + float(out["force"]) + float(out["attrition"]) + float(out["bonus"])
-	var charged := float(out["civilian"]) + float(out["own_fire"]) + float(out["economy"])
+	var charged := float(out["civilian"]) + float(out["own_fire"]) + float(out["economy"]) + float(out["screen"])
 	out["percent"] = clampi(int(round(earned - charged)), 0, 100)
 	return out
 
@@ -374,4 +424,6 @@ static func assessment_text(a: Dictionary) -> String:
 		parts.append("Own fire −%d (%d %s on your force)" % [int(round(float(a.get("own_fire", 0.0)))), own_hits, "hit" if own_hits == 1 else "hits"])
 	if float(a.get("economy", 0.0)) >= 0.5:
 		parts.append("Ammunition −%d" % int(round(float(a["economy"]))))
+	if float(a.get("screen", 0.0)) >= 0.5:
+		parts.append("Screen −%d (short %d%%)" % [int(round(float(a["screen"]))), int(round(100.0 * float(a.get("screen_short", 0.0))))])
 	return "%s = %d%%" % [" · ".join(parts), int(a["percent"])]
