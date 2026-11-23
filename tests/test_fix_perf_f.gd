@@ -35,8 +35,9 @@ func _ring_round_an_emitter(listeners: int, radius_nm: float) -> Array:
 
 
 ## Two dozen listeners each file a line on one aircraft every cycle. The plot crosses the lines it
-## holds once for each moment it files them at, not once for every listener that reports: the
-## work a cycle no longer grows with the square of the listeners, and the fix is as good.
+## holds at the first line of each moment and again once half the listeners have filed since, not
+## once for every listener that reports: the work a cycle no longer grows with the square of the
+## listeners, and the fix is as good.
 func test_lines_filed_together_are_crossed_once_a_look() -> void:
 	var world := _ring_round_an_emitter(24, 45.0)
 	var um: UnitManager = world[0]
@@ -53,8 +54,9 @@ func test_lines_filed_together_are_crossed_once_a_look() -> void:
 	assert_true(track != null and not track.is_bearing_only() and track.contributors.size() == 24, "every listener hears it and the crossed lines fix it")
 	var miss := track.position.distance_to(emitter.position)
 	assert_true(miss <= maxf(track.position_error_nm, 0.5), "the fix is %.2f nm from the aircraft, inside its %.2f nm ellipse" % [miss, track.position_error_nm])
-	assert_true(whole <= 20, "twenty cycles of two dozen lines crossed %d times, at most once a cycle" % whole)
-	# Spread over the ticks of the second, the lines filed in each tick are crossed once.
+	assert_true(whole <= 20 * 2, "twenty cycles of two dozen lines crossed %d times, at most twice a cycle" % whole)
+	# Spread over the ticks of the second, the lines filed in each tick are crossed once, and once
+	# more when half the listeners have filed since.
 	before = tm.bearing_solutions_worked
 	for second in range(40, 50):
 		for quarter in SensorManager.SLICES:
@@ -62,5 +64,5 @@ func test_lines_filed_together_are_crossed_once_a_look() -> void:
 	var sliced := tm.bearing_solutions_worked - before
 	miss = track.position.distance_to(emitter.position)
 	assert_true(not track.is_bearing_only() and miss <= maxf(track.position_error_nm, 0.5), "still fixed, %.2f nm off inside %.2f nm" % [miss, track.position_error_nm])
-	assert_true(sliced <= 10 * SensorManager.SLICES, "ten seconds in slices crossed %d times, at most once a tick" % sliced)
+	assert_true(sliced <= 10 * (SensorManager.SLICES + 2), "ten seconds in slices crossed %d times, about once a tick" % sliced)
 	_free(world)

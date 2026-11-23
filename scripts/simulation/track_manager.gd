@@ -362,10 +362,10 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 ## The range solution the crew currently has from this track's bearings, aged to `now`; empty when
 ## they have none. A crew reworks its TMA every ten seconds, and at once when another listener
 ## joins. Something that may be an aircraft is fixed only by lines taken together, so its fix is
-## reworked at every look and never carried forward on a course it does not have: once for all the
-## lines filed at one moment, since a raid heard by a whole force brings in a line per listener
-## each cycle, and crossing every line again for each of them made the picture's cost grow with
-## the square of the listeners.
+## reworked as the lines come in and never carried forward on a course it does not have: at the
+## first line filed at a new moment, and again once half its listeners have filed since. A raid
+## heard by a whole force brings in a line per listener each cycle, and crossing every line again
+## for each of them made the picture's cost grow with the square of the listeners.
 func _bearing_solution(t: Track, c: SensorContact, now: float) -> Dictionary:
 	if c.bearing_key == "":
 		return {}
@@ -373,9 +373,13 @@ func _bearing_solution(t: Track, c: SensorContact, now: float) -> Dictionary:
 	var fast := limit > BearingSolution.SHIP_SPEED_LIMIT_KN
 	if fast and t.bearing_observers.size() < 2:
 		return {}  # one listener never crosses its own line
-	var due := now > t.bearing_solution_at + 1e-6 if fast else now - t.bearing_solution_at >= BearingSolution.SAMPLE_INTERVAL_S
+	var due := now - t.bearing_solution_at >= BearingSolution.SAMPLE_INTERVAL_S
+	if fast:
+		t.bearing_lines_since_solution += 1
+		due = now > t.bearing_solution_at + 1e-6 or t.bearing_lines_since_solution * 2 > t.bearing_observers.size()
 	if due:
 		bearing_solutions_worked += 1
+		t.bearing_lines_since_solution = 0
 		t.bearing_solution_cache = BearingSolution.estimate(t.bearing_history, now, limit)
 		t.bearing_solution_at = now
 	var cached := t.bearing_solution_cache
