@@ -29,6 +29,10 @@ const RANGE_ACCEPT_QUALITY := 0.3
 ## this long without a break of more than a sensor cycle or so; crossed lines on a fast contact
 ## rework every second, and a marginal crossing would otherwise toggle the plot.
 const RANGE_REACCEPT_DWELL_S := 20.0
+## A first range from a marginal solution waits this long for the solution to stand; a sound one
+## is taken at once. A crossing that holds for a moment and then falls apart would otherwise throw
+## the plot a hundred miles out along the line and back again.
+const FIRST_RANGE_DWELL_S := 5.0
 const SOLUTION_GAP_S := 2.5
 ## How long a lookout must hold a contact in sight, without a break, to read its colours from
 ## further off than he could read its name. GAMEPLAY_ESTIMATE.
@@ -232,6 +236,8 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		t._cycle_snap = is_new or reacquired or from_report
 		t._cycle_has_plot = false
 		t._cycle_firm = false
+		t._cycle_rank = 0
+		t._cycle_ranged_before = _range_carried(t)
 		t._cycle_error = INF
 		t._cycle_observation_gain = 0.0
 		t._cycle_signature_gain = 0.0
@@ -276,8 +282,11 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 			t.bearing_holder_time = now
 	var error := maxf(c.error_major_nm, c.error_minor_nm)
 	var firm := not c.bearing_only
+	# A bare line's ellipse is only the set's nominal reach, not a measure of where the contact is,
+	# so it never displaces a range in the same cycle however small it is drawn.
+	var rank := 2 if firm else (1 if c.solution_quality >= Track.RANGE_HELD_QUALITY else 0)
 	if t._cycle_has_plot:
-		if (t._cycle_firm and not firm) or (t._cycle_firm == firm and error >= t._cycle_error):
+		if rank < t._cycle_rank or (rank == t._cycle_rank and error >= t._cycle_error):
 			return
 	var ranged := firm or (not c.placed and c.solution_quality >= Track.RANGE_HELD_QUALITY)
 	if firm and t._cycle_bearing_held:
@@ -291,15 +300,18 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 		# still carried at a range it lost is one, if a loose one: a sound solution, or one much
 		# tighter than the plot's own ellipse, replaces it, but a marginal one is closed on at the
 		# contact's own pace, owning up in the ellipse to the distance still to go.
-		if not _range_carried(t) or c.solution_quality >= SOUND_SOLUTION_QUALITY or c.error_major_nm * 2.0 <= t._cycle_start_major:
+		if not t._cycle_ranged_before or c.solution_quality >= SOUND_SOLUTION_QUALITY or c.error_major_nm * 2.0 <= t._cycle_start_major:
 			t._cycle_snap = true
 		_reset_kinematics(t)
 	t._cycle_has_plot = true
 	t._cycle_firm = firm
+	t._cycle_rank = rank
 	t._cycle_error = error
 	if firm:
 		t.last_firm_time = now
 	if ranged:
+		if now - t.range_time > SOLUTION_GAP_S:
+			t.range_since = now
 		t.range_time = now
 	var blend := FIRM_BLEND
 	if c.bearing_only:
@@ -411,7 +423,7 @@ func _bearing_plot(t: Track, raw: SensorContact, report: Dictionary, solution: D
 		var quality := float(solution["quality"])
 		if held and quality >= Track.RANGE_HELD_QUALITY:
 			return _resolved_contact(raw, solution)
-		if not held and quality >= RANGE_ACCEPT_QUALITY and _solution_stands(t, now):
+		if not held and quality >= RANGE_ACCEPT_QUALITY and _solution_stands(t, now, quality):
 			return _resolved_contact(raw, solution)
 	var c := _resolved_contact(raw, {"position": raw.position, "major": raw.error_major_nm, "minor": raw.error_minor_nm, "axis": raw.error_axis_deg, "quality": 0.0})
 	if fresh:
@@ -425,7 +437,11 @@ func _bearing_plot(t: Track, raw: SensorContact, report: Dictionary, solution: D
 	if raw.bearing_key != "":
 		var line := float(report.get("smooth", raw.error_axis_deg))
 		var along := Geo.heading_to_vector(line)
-		range_nm = clampf((start - raw.bearing_origin).dot(along), MIN_BEARING_RANGE_NM, maxf(raw.bearing_range_limit_nm, MIN_BEARING_RANGE_NM))
+		# A plot a range once put beyond the line's nominal end stays out there: the line's length
+		# is the set's guess, the range was evidence.
+		var far := maxf(raw.bearing_range_limit_nm, MIN_BEARING_RANGE_NM)
+		range_nm = (start - raw.bearing_origin).dot(along)
+		range_nm = maxf(range_nm, MIN_BEARING_RANGE_NM) if t._cycle_ranged_before else clampf(range_nm, MIN_BEARING_RANGE_NM, far)
 		c.position = start.lerp(raw.bearing_origin + along * range_nm, BEARING_BLEND)
 		c.error_axis_deg = line
 		c.error_minor_nm = maxf(range_nm * tan(deg_to_rad(raw.bearing_accuracy_deg * 2.0)), 0.2)
@@ -444,18 +460,22 @@ func _bearing_plot(t: Track, raw: SensorContact, report: Dictionary, solution: D
 	# of the line.
 	c.error_major_nm = maxf(raw.error_major_nm, c.error_minor_nm)
 	if t.range_time > -1.0e8:
-		c.error_major_nm = maxf(c.error_major_nm, minf(major, maxf(raw.bearing_range_limit_nm, raw.error_major_nm)))
+		c.error_major_nm = maxf(c.error_major_nm, minf(major, maxf(maxf(raw.bearing_range_limit_nm, raw.error_major_nm), range_nm)))
 	return c
 
 
 ## Whether a solution good enough to plot has now stood long enough to be plotted. A contact never
-## ranged takes the first one at once; one that has had a range and lost it waits, so a crossing at
-## the edge of usable geometry does not swap the plot between a fix and a line each cycle.
-func _solution_stands(t: Track, now: float) -> bool:
+## ranged takes a sound first one at once and a marginal one after a few seconds; one that has had a
+## range and lost it waits longer, so a crossing at the edge of usable geometry does not swap the
+## plot between a fix and a line each cycle. What the contact had before this cycle decides, not a
+## range an earlier look in the same cycle has just given it.
+func _solution_stands(t: Track, now: float, quality: float) -> bool:
 	if now - t.solution_seen > SOLUTION_GAP_S:
 		t.solution_since = now
 	t.solution_seen = now
-	return t.range_time < -1.0e8 or now - t.solution_since >= RANGE_REACCEPT_DWELL_S
+	if t._cycle_ranged_before:
+		return now - t.solution_since >= RANGE_REACCEPT_DWELL_S
+	return quality >= SOUND_SOLUTION_QUALITY or now - t.solution_since >= FIRST_RANGE_DWELL_S
 
 
 ## Whether the plot stands where a range once put it, carried along the bearings since.

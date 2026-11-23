@@ -27,6 +27,10 @@ const DRIFT_SUBSURFACE_KN := 8.0
 const FASTEST_SHIP_KN := 70.0
 ## Below this solution quality a bearing-held contact has no range worth plotting.
 const RANGE_HELD_QUALITY := 0.2
+## A range worked from bearings is current while the crew's solution has given it within this long,
+## and settled once it has kept coming without a break for this long. GAMEPLAY_ESTIMATE.
+const PASSIVE_RANGE_CURRENT_S := 5.0
+const PASSIVE_RANGE_SETTLE_S := 60.0
 ## The solution quality at which a range worked from bearings is good enough to shoot a missile at.
 const FIRE_CONTROL_SOLUTION_QUALITY := 0.5
 ## Once the ellipse of an unseen contact is this long, moving the plot along its last course is
@@ -50,6 +54,8 @@ var tma_quality := 0.0  # 0 = bearing only, 1 = a range solution worth shooting 
 ## When a range last came in: a measured plot, or a solution worked from bearings. A contact then
 ## held on bearings alone keeps that range, dead-reckoned, for as long as it would be kept unseen.
 var range_time := -1.0e9
+## Since when ranges have kept coming in without a break: how long the current range has stood.
+var range_since := -1.0e9
 ## While the plot holds no range: since when the bearings have kept giving one good enough to
 ## plot, and when they last did. A range once lost is taken back only when a new one has stood.
 var solution_since := -1.0e9
@@ -143,6 +149,12 @@ var _cycle_bearing_held := false
 var _cycle_snap := false
 var _cycle_has_plot := false
 var _cycle_firm := false
+## What the cycle's plot so far stands on: 2 a measurement, 1 a range worked from bearings, 0 a
+## bare line. A later look in the cycle replaces it only from as good a footing or better.
+var _cycle_rank := 0
+## Whether the contact had been given a range before this cycle began: one given in the cycle
+## does not make a second look in the same cycle a re-acquisition.
+var _cycle_ranged_before := false
 var _cycle_error := INF
 var _cycle_observation_gain := 0.0
 var _cycle_tma_start := 0.0
@@ -226,6 +238,22 @@ func stale_after_s() -> float:
 ## range is measured or soundly worked out. A stale plot is where the contact was, a report from
 ## outside was never a fire-control solution and a loose estimate is a place to search; a missile
 ## sent to any of them finds empty sea, or whatever else is there.
+## Whether a range worked from bearings is one a captain would shoot on: the crew's solution gives
+## it now, not a range carried on after the solution fell apart, and it has stood long enough to be
+## seen to settle. A first solution on thin geometry, or one a target's turn has thrown off, lands
+## the plot miles short with a small ellipse that says nothing of it, and it is the next few looks
+## that show it wandering. A range a measurement gave and the bearings now carry is as good as its
+## ellipse says, and a plot that is not on bearings at all is not asked.
+func passive_range_credible(now: float) -> bool:
+	if not bearing_only:
+		return true
+	if is_bearing_only():
+		return false
+	if last_firm_time >= range_time - 1e-6:
+		return true
+	return now - range_time <= PASSIVE_RANGE_CURRENT_S and now - range_since >= PASSIVE_RANGE_SETTLE_S
+
+
 func fire_control_quality() -> bool:
 	if status != Status.ACTIVE or reported or confirmed_destroyed:
 		return false

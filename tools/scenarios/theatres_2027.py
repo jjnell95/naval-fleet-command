@@ -176,6 +176,13 @@ def platform(key, name, short, nation, category, sensors, weapons, **kw):
     resource("platforms", key, d, ["sensor_ids"])
 
 
+# A radar's reach goes as the fourth root of its target's cross-section, while `signature_factor`
+# scales the rated air reach directly, so a small drone's factor is that root of its cross-section
+# over the rated target's. A composite airframe the size of a Mohajer-6 is taken at a hundredth of
+# a fighter's: 0.01 ** 0.25, about 0.3. A modelling value, not a measured cross-section.
+MOHAJER_RADAR_SIGNATURE = 0.3
+
+
 def aircraft(key, name, short, nation, category, sensors, weapons, speed, **kw):
     values = dict(domain="air", max_speed_kn=float(speed), cruise_speed_kn=float(speed * 0.62),
                   turn_rate_deg_s=6.0, accel_kn_s=4.0, health=25.0, signature_factor=0.7,
@@ -624,7 +631,7 @@ def catalogue():
     aircraft("irn_uav_mohajer6", "Mohajer-6 unmanned aircraft", "Mohajer-6", "Iran", "unmanned aircraft",
              ["irn_mohajer_eo"], {}, 110,
              cruise_speed_kn=90.0, cruise_altitude_m=4500.0, max_altitude_m=5500.0, endurance_s=43200.0, health=6.0,
-             signature_factor=0.08, length_m=5.7, launch_requirement="runway", decoy_count=0, fire_control_channels=1,
+             signature_factor=MOHAJER_RADAR_SIGNATURE, length_m=5.7, launch_requirement="runway", decoy_count=0, fire_control_channels=1,
              role="Over-the-horizon spotting for the batteries and the boats")
     site("irn_battery_qader", "Qader / Noor coastal anti-ship battery", "Battery Qader", "Iran", "coastal missile battery",
          ["irn_coastal_radar", "irn_esm"], {"irn_qader": 8, "irn_noor": 8}, health=50.0, mast_height_m=80.0,
