@@ -35,14 +35,25 @@ const BREAK_OFF_S := 120.0
 ## A fighter in a fight with one hostile coming in on it turns to another only if that one is this
 ## much nearer. GAMEPLAY_ESTIMATE.
 const THREAT_SWITCH_NM := 10.0
-## A held course within about 60 degrees of a point counts as closing on it.
+## A held course within about 60 degrees of a point counts as closing on it. A fighter sent after
+## a hostile closing on it stays on it until the hostile's course is opening the range: a plot that
+## swings the course across the 60-degree line must not send and recall it by turns.
 const CLOSING_COS := 0.5
+const STILL_CLOSING_COS := 0.0
+## A CAP fighter that sees a round coming at it breaks when the round is this close to arriving,
+## as the other side's fighters do and the commander can order: soon enough that the turn is built
+## up by the endgame, and the break is flown again while the round is still coming. GAMEPLAY_ESTIMATE.
+const MISSILE_BREAK_S := 40.0
 ## A reconnaissance or ASW aircraft looks at contacts this far beyond its search area.
 const SEARCH_MARGIN_NM := 5.0
 ## An unarmed sensor aircraft keeps at least this far from a ship it has not identified as
 ## harmless: it is the one aircraft on the plot that cannot answer a missile, and its radar and
 ## ESM do their work from here. GAMEPLAY_ESTIMATE, about a ship's area-defence missile reach.
 const SENSOR_STANDOFF_NM := 40.0
+## A circuit moved out of a ship's cover is laid this much further out than it need be, and moved
+## again only when it is no longer clear or twice this from where it would now go. GAMEPLAY_ESTIMATE,
+## above the mile or two a ship's plot wanders between fixes.
+const STANDOFF_SLACK_NM := 3.0
 ## Interceptors sent at one hostile contact; unknown contacts get one look each.
 const INTERCEPTORS_PER_TRACK := 2
 ## An airframe within this of its station centre plus radius counts as on station.
@@ -76,6 +87,7 @@ const ALERT_RADIUS_NM := 15.0
 var unit_manager: UnitManager
 var aviation_manager: AviationManager
 var track_manager: TrackManager
+var threat_manager: ThreatManager
 var missions: Array[AirMission] = []
 var now_s := 0.0
 var _next_id := 1
@@ -797,10 +809,37 @@ func tick(dt: float, now: float) -> void:
 	_accum += dt
 	while _accum >= CYCLE_DT - 1e-6:
 		_accum -= CYCLE_DT
+		_break_from_missiles()
 		for m in missions:
 			if m.active:
 				_step(m)
 		_scramble_alerts()
+
+
+## A CAP fighter with a round it can see coming at it breaks: the endgame is then flown against a
+## turning target, as it is against the other side's fighters. The break interrupts the steering,
+## not the mission, and the attack it was flying takes up again after it.
+func _break_from_missiles() -> void:
+	if threat_manager == null:
+		return
+	var factions: Array[String] = []
+	for m in missions:
+		if m.active and m.kind == AirMission.Kind.CAP and not factions.has(m.faction):
+			factions.append(m.faction)
+	for faction in factions:
+		for entry: Dictionary in AirDefence.inbound_threats(unit_manager, threat_manager, faction):
+			var a: Unit = entry["target"]
+			if not a.is_aircraft() or a.spec.can_hover or not a.airborne() or a.evasion_remaining_s > 0.0:
+				continue
+			if float(entry["time_s"]) > MISSILE_BREAK_S or not threat_manager.visible_to(a, entry["weapon"]):
+				continue
+			var m := mission_for(a)
+			if m == null or m.kind != AirMission.Kind.CAP:
+				continue
+			var order := Order.evade()
+			if _crew(a, order) and order.execution_accepted:
+				# Said on the net, not kept as the mission's standing note: it is over in seconds.
+				mission_report.emit(m, "%s breaking: missile inbound" % a.callsign, false)
 
 
 func _step(m: AirMission) -> void:
@@ -1006,7 +1045,7 @@ func _answer_threat(m: AirMission, a: Unit, task: Dictionary) -> bool:
 	if a.attack_track != null and threatens(a, a.attack_track):
 		best_d -= THREAT_SWITCH_NM
 	for t: Track in _nearby(m, a, INF):
-		if t == a.attack_track or not threatens(a, t):
+		if t == a.attack_track or t.bearing_only or not threatens(a, t, COMMIT_HYSTERESIS_NM):
 			continue
 		var d := a.position.distance_to(t.position)
 		if d < best_d and UnitManager.attack_rejection(a, t) == "":
@@ -1134,14 +1173,17 @@ func _step_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 		task["state"] = AirMission.HOLDING
 		_look(m, a, task)
 		return
-	if _keep_standoff(m, a, task):
-		return
+	# A circuit moved out from a ship is the station all the same: whether the airframe is on it is
+	# read from where it is, the same second.
+	_keep_standoff(m, a, task)
 	var half := float(task.get("half", m.radius_nm)) + STATION_ARRIVAL_MARGIN_NM
 	var offset := a.position - (task.get("centre", m.station) as Vector2) - _slot_offset(m, a, task)
 	task["state"] = AirMission.ON_STATION if absf(offset.x) <= half and absf(offset.y) <= half else AirMission.TRANSITING
 	if task["state"] == AirMission.ON_STATION and now_s >= float(task.get("broke_off_until", -INF)):
 		task.erase("broke_off")
 		task.erase("broke_off_until")
+	if task["state"] == AirMission.ON_STATION:
+		task.erase("recalled_until")
 	# The mission sets the speed when the airframe's state changes (out at transit, on station at
 	# patrol), not every second: a dash the commander orders on station stands until the next change.
 	if str(task.get("speed_for", "")) != str(task["state"]):
@@ -1215,29 +1257,37 @@ func _slot_offset(m: AirMission, a: Unit, task: Dictionary) -> Vector2:
 ## An unarmed sensor aircraft flies its circuit no nearer than the stand-off to any ship the plot
 ## does not call friendly or neutral, and any reconnaissance airframe, once its look has told the
 ## plot what a ship is, keeps outside that ship's missile cover: the circuit is moved out along the
-## line from the ship, and back when the ship has gone. Returns true when it was moved this second.
+## line from the ship, and back when the ship has gone. It is laid STANDOFF_SLACK_NM further out
+## than it need be and moved again only when it is no longer clear or that far from where it would
+## now be laid, so that a ship's plot wandering by a mile or two does not move it every few seconds.
+## Returns true when it was moved this second.
 func _keep_standoff(m: AirMission, a: Unit, task: Dictionary) -> bool:
 	if not _unarmed_fixed_wing(a) and m.kind != AirMission.Kind.RECON:
 		return false
 	var half := float(task.get("half", m.radius_nm))
+	var current: Vector2 = task.get("centre", m.station)
 	var centre := m.station
 	var from := ""
 	var kept := 0.0
+	var clear_of_all := true
 	for t: Track in _nearby(m, a, INF):
 		var standoff := _standoff_nm(a, t)
+		if standoff <= 0.0:
+			continue
 		var clear := standoff + half * sqrt(2.0)
-		if standoff <= 0.0 or t.position.distance_to(centre) >= clear:
+		if t.position.distance_to(current) < clear:
+			clear_of_all = false
+		if t.position.distance_to(centre) >= clear:
 			continue
 		var away := centre - t.position
 		if away.length() < 0.01:
 			away = m.base.position - t.position
 		if away.length() < 0.01:
 			away = Vector2(0, -1)
-		centre = t.position + away.normalized() * clear
+		centre = t.position + away.normalized() * (clear + STANDOFF_SLACK_NM)
 		from = t.id
 		kept = standoff
-	var current: Vector2 = task.get("centre", m.station)
-	if centre.distance_to(current) < 2.0:
+	if centre.distance_to(current) < 2.0 or (clear_of_all and centre.distance_to(current) <= 2.0 * STANDOFF_SLACK_NM):
 		return false
 	_assign_station(m, a, task, centre)
 	if from != "" and from != str(task.get("standoff_from", "")):
@@ -1286,6 +1336,9 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 	var best: Track = null
 	var best_d := INF
 	var attack := false
+	# Just called back to its station: nothing sends it out again until it is back or BREAK_OFF_S
+	# has passed, except a hostile coming in on it.
+	var recalled := now_s < float(task.get("recalled_until", -INF))
 	for t: Track in _nearby(m, a, INF):
 		if not _probably_air(t):
 			continue
@@ -1295,7 +1348,7 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 			var threat := threatens(a, t)
 			if threat:
 				d = a.position.distance_to(t.position) - 1000.0
-			elif t == task.get("broke_off") or _committed(m.faction, t, true) >= INTERCEPTORS_PER_TRACK:
+			elif recalled or t == task.get("broke_off") or _committed(m.faction, t, true) >= INTERCEPTORS_PER_TRACK:
 				continue
 			if not _cap_pursues(m, a, t, COMMIT_HYSTERESIS_NM):
 				continue
@@ -1305,8 +1358,11 @@ func _cap_look(m: AirMission, a: Unit, task: Dictionary) -> void:
 				best = t
 				best_d = d
 				attack = true
-		elif not attack and t.identity == "UNKNOWN" and t.classification < Track.Classification.CLASS_KNOWN:
-			if t.position.distance_to(m.station) > m.radius_nm + m.pursuit_nm:
+		elif not attack and not recalled and t.identity == "UNKNOWN" and t.classification < Track.Classification.CLASS_KNOWN:
+			# The look is called off at the ring and the pursuit; it is sent only inside them by the
+			# same gap the intercept keeps, or one at the edge is sent and recalled by turns, and only
+			# on a radar fix: a position worked up from bearings can move a hundred miles at the next.
+			if t.bearing_only or t.position.distance_to(m.station) > m.radius_nm + m.pursuit_nm - COMMIT_HYSTERESIS_NM:
 				continue
 			if _committed(m.faction, t, false) > 0 or UnitManager.investigation_rejection(a, t) != "":
 				continue
@@ -1369,9 +1425,15 @@ static func cap_commit_nm(m: AirMission, a: Unit) -> float:
 ## answered wherever the fighter is. Otherwise it goes only if it can get its shot away without
 ## flying beyond its leash of the station or of the group it protects, meeting the raid on its held
 ## course and speed, and never on one further out than a missile shot beyond that leash. One with
-## rounds away on its contact supports them a missile's flight further.
+## rounds away on its contact supports them a missile's flight further. A `margin` above zero is
+## the test for sending: it is that much stricter than the one for keeping, so nothing sent at the
+## edge is recalled by the next second's plot.
 static func cap_commits(m: AirMission, a: Unit, t: Track, margin := 0.0) -> bool:
-	if threatens(a, t):
+	# A position worked up from bearings alone is no fix on an aircraft: it can swing tens of miles
+	# from one second to the next, and nothing can be fired on it. One is not gone out to.
+	if margin > 0.0 and t.bearing_only:
+		return false
+	if threatens(a, t, margin, CLOSING_COS if margin > 0.0 else STILL_CLOSING_COS):
 		return true
 	var leash := cap_commit_nm(m, a) - margin
 	var shot := aam_reach_nm(a)
@@ -1382,18 +1444,76 @@ static func cap_commits(m: AirMission, a: Unit, t: Track, margin := 0.0) -> bool
 	if _from_guarded(m, t.position) > leash + shot:
 		return false
 	var shot_at := cap_shot_point(a, t)
-	return shot_at.is_finite() and _from_guarded(m, shot_at) <= leash
+	if not shot_at.is_finite() or _from_guarded(m, shot_at) > leash:
+		return false
+	# A raid that would have its shot away first is not gone out to meet: the fighter is sent only
+	# when the raid is coming for what the CAP holds and can be met over it. One already sent stays
+	# on it, or it would turn its tail on a raid that is about to shoot.
+	if margin > 0.0 and outshoots(a, t):
+		return met_over_guarded(m, t, shot_at)
+	return true
+
+
+## Whether a raid that would shoot first is coming for what the CAP holds and would be met over it:
+## the only way a fighter is sent at one.
+static func met_over_guarded(m: AirMission, t: Track, shot_at: Vector2) -> bool:
+	return _closing_on_guarded(m, t) and shot_at.is_finite() and _from_guarded(m, shot_at) <= m.radius_nm
 
 
 ## A hostile air contact inside this airframe's own missile reach and closing on it: one that has
-## fired on it, or is about to. A fighter turns to answer it whatever else it is doing.
-static func threatens(a: Unit, t: Track) -> bool:
+## fired on it, or is about to. A fighter turns to answer it whatever else it is doing. A fighter is
+## sent on one only `margin` inside that reach, and kept on it out to the reach itself.
+static func threatens(a: Unit, t: Track, margin := 0.0, closing_cos := CLOSING_COS) -> bool:
 	if t.identity != "HOSTILE" or not _probably_air(t) or not t.has_kinematics or t.speed_kn <= 0.0:
 		return false
 	var d := t.position.distance_to(a.position)
-	if d > aam_reach_nm(a) or d < 0.01:
+	if d > aam_reach_nm(a) - margin or d < 0.01:
 		return false
-	return Geo.heading_to_vector(t.course_deg).dot((a.position - t.position) / d) > CLOSING_COS
+	return Geo.heading_to_vector(t.course_deg).dot((a.position - t.position) / d) > closing_cos
+
+
+## Whether this air contact, by the class the plot gives it, would have its shot away at the fighter
+## first, the two closing head on with the fighter at dash: the no-escape range of its best
+## air-to-air round against the fighter beats the fighter's own against it. Both sides fire at their
+## no-escape range, so this is who shoots first. A contact of no known class is not judged.
+static func outshoots(a: Unit, t: Track) -> bool:
+	var known := Combat._reported_platform(t)
+	if known == null or not t.position.is_finite() or t.position.distance_to(a.position) < 0.01:
+		return false
+	var own := 0.0
+	for spec: WeaponSpec in a.weapons_for_track(t):
+		own = maxf(own, Combat.air_no_escape_range_nm(spec, t, a.position, Combat.effective_range_nm(a, spec)))
+	# The fighter as the contact would hold it: its own type, coming straight in at dash.
+	var me := Track.new()
+	me.domain = "air"
+	me.position = a.position
+	me.has_kinematics = true
+	me.course_deg = Geo.bearing_deg(a.position, t.position)
+	me.speed_kn = a.spec.flight_speed("dash")
+	me.classification = Track.Classification.CLASS_KNOWN
+	me.known_class = a.spec.short_name
+	me.known_category = a.spec.category
+	var theirs := 0.0
+	for wid: String in known.weapon_loadout:
+		var w := DataDB.weapon(wid)
+		if w != null and w.target_types.has("air") and w.type in ["aam", "sam"]:
+			theirs = maxf(theirs, Combat.air_no_escape_range_nm(w, me, t.position))
+	return theirs > own
+
+
+## Whether a contact's held course is bringing it in on the CAP's station or the group it protects.
+static func _closing_on_guarded(m: AirMission, t: Track) -> bool:
+	if not t.has_kinematics or t.speed_kn <= 0.0:
+		return false
+	var heading := Geo.heading_to_vector(t.course_deg)
+	var centres: Array[Vector2] = [m.station]
+	if m.cap_intent == "protect" and m.protected_unit != null and m.protected_unit.alive:
+		centres.append(m.protected_unit.position)
+	for c in centres:
+		var to := c - t.position
+		if to.length() < 0.01 or heading.dot(to.normalized()) > CLOSING_COS:
+			return true
+	return false
 
 
 ## Distance from the nearer of the CAP's station and the group it protects.
@@ -1445,7 +1565,7 @@ static func cap_shot_point(a: Unit, t: Track) -> Vector2:
 func _cap_pursues(m: AirMission, a: Unit, t: Track, margin := 0.0) -> bool:
 	if not cap_commits(m, a, t, margin):
 		return false
-	if threatens(a, t):
+	if threatens(a, t, margin, CLOSING_COS if margin > 0.0 else STILL_CLOSING_COS):
 		return true
 	var shot_at := cap_shot_point(a, t)
 	return not shot_at.is_finite() or _air_defence_over(m.faction, shot_at, a.position, margin) == null
@@ -1505,6 +1625,7 @@ func _enforce_cap_boundary(m: AirMission, a: Unit, task: Dictionary) -> void:
 		# contact comes in on it.
 		task["broke_off"] = assigned
 		task["broke_off_until"] = now_s + BREAK_OFF_S
+		task["recalled_until"] = now_s + BREAK_OFF_S
 		task["state"] = AirMission.TRANSITING
 		_report(m, "%s returning: contact outside CAP pursuit boundary" % a.callsign, true)
 

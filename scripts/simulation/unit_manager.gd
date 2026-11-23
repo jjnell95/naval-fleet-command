@@ -409,6 +409,29 @@ func _finish_task(u: Unit, started: int, reason: String) -> void:
 	elif Movement.must_keep_flying(u) and u.waypoints.is_empty():
 		# On a bare course with nowhere to go: hold here rather than fly it to the end of the fuel.
 		Movement.enter_hold(u, u.position)
+	if u.is_aircraft() and u.holding():
+		var spread := _clear_hold_point(u, u.hold_point)
+		if spread != u.hold_point:
+			Movement.enter_hold(u, spread)
+
+
+## Where an aircraft whose task has ended holds: where it is, unless another of its side already
+## holds about there, as a section that attacked together finishes together. It then takes the next
+## point out along the diagonal, as a section's station circuits are laid, so the two are flown and
+## drawn as two aircraft and not one.
+func _clear_hold_point(u: Unit, at: Vector2) -> Vector2:
+	var spacing := AirMissionManager.SECTION_SPACING_NM
+	for k in 9:
+		var step := ceilf(k / 2.0) * spacing
+		var point := at + (Vector2(step, step) if k % 2 == 1 else Vector2(-step, -step))
+		var free := true
+		for o in units:
+			if o != u and o.alive and o.faction == u.faction and o.is_aircraft() and o.holding() and o.hold_point.distance_to(point) < spacing:
+				free = false
+				break
+		if free:
+			return point
+	return at
 
 
 ## Uses only information held by this unit's faction, including datalink visibility. An

@@ -74,7 +74,7 @@ const MANAGER_TRANSIENT := {
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
 	"AviationManager": ["unit_manager", "sonobuoys", "map_center", "map_extent_nm"],
-	"AirMissionManager": ["unit_manager", "aviation_manager", "track_manager", "missions"],
+	"AirMissionManager": ["unit_manager", "aviation_manager", "track_manager", "threat_manager", "missions"],
 	# The group attack records are saved on their own, below; their rounds' tags are on the
 	# queued shots and the weapons themselves.
 	"GroupAttackManager": ["unit_manager", "track_manager", "weapon_manager", "groups"],
