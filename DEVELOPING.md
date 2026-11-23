@@ -25,11 +25,13 @@ scenes/main/Main.tscn   the root scene (Control): the CDS screen layout and the 
 scripts/core/           main.gd (the wiring), order.gd, geo.gd, debug.gd, game_options.gd,
                         save_game.gd, commander_log.gd, campaign_book.gd, dev_harness.gd and the
                         interface suites it starts (*_smoke.gd)
-scripts/simulation/     Simulation and its managers, SimClock, Track, SensorContact, the scenario
-                        loader, index and workshop, SimSnapshot, AirMission, GroupAttack
+scripts/simulation/     Simulation and its managers, SimClock, Track, SensorContact, Sonobuoy,
+                        RelativeMotion, MissionObjective, the scenario loader, index and workshop,
+                        SimSnapshot, AirMission, GroupAttack
 scripts/systems/        static rules and the AI: Movement, Detection, Combat, Damage, AirDefence,
                         TorpedoDefence, DefensiveResponse, Acoustics, Bathymetry, Terrain, Landmass,
-                        Formation, BearingSolution, SubmarinePower, TowedArray, DippingSonar,
+                        Formation, BearingSolution, SubmarinePower, SubmarineComms,
+                        SubmarineInitiative, TowedArray, DippingSonar, CommandTraining,
                         AIController, AIPlan
 scripts/entities/       Unit (ground truth for every platform) and Weapon (a round in flight)
 scripts/data/           PlatformSpec, SensorSpec, WeaponSpec and DataDB, which scans data/
@@ -68,8 +70,10 @@ Main (Control, main.gd)              theme = UITheme.build(); global keys; route
 │   └── AI_<faction> (AIController)  one per computer-commanded side
 └── Layout (VBox)                    the CDS screen
     ├── Upper                        the top 68%: the chart, or the 3D view when G has swapped them
-    │   ├── TacticalMap              chart layers behind one custom _draw(); zoom, pan, hook, input
-    │   └── StatusBoards             the boards on A: OrdersPanel, UnitPanel, ContactPanel, comms
+    │   ├── TacticalMap              the plot in one custom _draw(), with the floor, land, coast and
+    │   │                            marks layers as children; zoom, pan, hook, input
+    │   └── StatusBoards             the boards on A: OrdersPanel, UnitPanel, ContactPanel, comms,
+    │                                assessment
     ├── MapEdge                      the bevel under the chart
     └── BottomStrip                  the bottom 32%, each pane in a BevelFrame
         ├── RegionalFrame            RegionalMap, built in code: the whole battle space
@@ -77,7 +81,7 @@ Main (Control, main.gd)              theme = UITheme.build(); global keys; route
         └── DataFrame → DataDisplay  the hooked item's data, watch time, time scale, message lamp
 ```
 
-The managers under Simulation are created in `simulation.gd`, not in the scene. Main also creates in code the radio traffic (`RadioNet`), the right-click menus (`CdsMenus`), the key board (`KeyCommands`), the crew voice and the full-screen overlays: operations desk, editor, briefing, after-action report, Actions palette, Air Operations and Reference. The autoloads are `SimClock`, `Debug` and `SoundFx`.
+The managers under Simulation are created in `simulation.gd`, not in the scene. Main also creates in code the radio traffic (`RadioNet`), the right-click menus (`CdsMenus`), the key board (`KeyCommands`), the crew voice and the full-screen overlays: operations desk, editor, briefing, after-action report, Actions palette, Air Operations, Fleet Operations, Weapon Control, Saved Engagements and Reference. `ConfirmDiscard` is the one question asked before work is thrown away, and `UITheme.dialog_header` gives every dialog the same title and CLOSE. The autoloads are `SimClock`, `Debug` and `SoundFx`.
 
 Units are in nautical miles on a flat plane with y north; speeds in knots, bearings in degrees true, altitude in feet and depth in metres. The scenario's map anchor ties the plane to latitude and longitude.
 
@@ -86,7 +90,8 @@ Units are in nautical miles on a flat plane with y north; speeds in knots, beari
 | File | What it does |
 |---|---|
 | `scripts/core/main.gd` | the seam: wires simulation signals to the screen, owns the hook, routes orders, the key map and the screens |
-| `scripts/ui/tactical_map.gd` | the chart: one `_draw()` for symbols, leaders, labels, routes, readouts and the radio line, and its input |
+| `scripts/ui/tactical_map.gd` | the chart: one `_draw()` for the plot (symbols, leaders, labels, routes, readouts, the radio line), `draw_marks` and `draw_coast` for its two layers, and its input |
+| `scripts/ui/chart_marks.gd`, `chart_coast.gd`, `chart_annotations.gd` | the layer of moving marks redrawn every frame, the coastline layer redrawn when the view moves, and the commander's own marks, fixed range circles and corridors |
 | `scripts/ui/chart_floor.gd`, `chart_land.gd`, `chart_relief.gd`, `chart_palette.gdshaderinc` | the relief chart under it: sea-floor bands, land heights and hill shading |
 | `scripts/ui/map_symbols.gd`, `chart_labels.gd`, `chart_readout.gd`, `sensor_coverage.gd` | NTDS and graphic symbols, track-number placement, the readout's formats, coverage shading |
 | `scripts/ui/radio_net.gd`, `radio_line.gd` | message traffic: the radio line, the comms board and the data display's lamp |
@@ -99,7 +104,8 @@ Units are in nautical miles on a flat plane with y north; speeds in knots, beari
 | `scripts/ui/fleet_operations.gd`, `fleet_roster.gd` | task-group readiness, selection, formation and defence orders; the roster and its search |
 | `scripts/ui/air_operations.gd`, `weapon_control.gd`, `briefing_panel.gd`, `after_action.gd` | in-mission dialogs |
 | `scripts/ui/scenario_menu.gd`, `scenario_editor.gd`, `platform_library.gd`, `saved_engagements.gd` | the front end: operations desk, editor, Reference and saves |
-| `scripts/ui/ui_theme.gd`, `jfc_style.gd`, `ui_icons.gd`, `interface_scale.gd` | the theme (built in code, no `.tres`), bevels and lamps, icons, interface size |
+| `scripts/ui/ui_theme.gd`, `jfc_style.gd`, `ui_icons.gd`, `interface_scale.gd` | the theme (built in code, no `.tres`) and the shared dialog header, bevels and lamps, icons, interface size |
+| `scripts/ui/confirm_discard.gd` | the shared question before leaving, restarting, clearing or deleting work |
 | `scripts/ui/sound_fx.gd`, `crew_voice.gd`, `user_settings.gd` | sound cues and the ambient bed, the bundled crew radio clips, preferences in `user://settings.cfg` |
 | `scripts/simulation/sim_snapshot.gd`, `scripts/core/save_game.gd` | saved engagements: the whole simulation state, and the files on disk |
 | `scripts/simulation/scenario_workshop.gd` | seeded custom fleets, authoring validation and reinforcement export |
@@ -127,7 +133,7 @@ The runner discovers every `tests/test_*.gd` file in name order, so a new test f
 
 ## Interface suites
 
-`.github/workflows/tests.yml` runs these on every pull request and on pushes to `main`, after the regression tests. The two Python scripts run headless; the rest drive the real game window with mouse and keyboard and need a display, so on a server wrap each in `xvfb-run -a -s "-screen 0 1280x720x24"` with the screen size matching `--resolution`. `$GODOT` is the path to the Godot binary.
+`.github/workflows/tests.yml` runs on every pull request and on pushes to `main`. It first checks that the scenario data is what the builders write (`rebuild_all.py --check`, under Data builders), imports the project, runs `tools/test_runner_self_check.py` and the regression tests, and then these. The two Python scripts run headless; the rest drive the real game window with mouse and keyboard and need a display, so on a server wrap each in `xvfb-run -a -s "-screen 0 1280x720x24"` with the screen size matching `--resolution`. `$GODOT` is the path to the Godot binary.
 
 ```sh
 python3 tools/verify_northern_passage.py "$GODOT"                       # Northern Passage outcomes and deterministic replay
@@ -174,7 +180,7 @@ python3 tools/scenarios/rebuild_all.py                # regenerate data/ in depe
 python3 tools/scenarios/rebuild_all.py --check        # regenerate, then fail if git sees a change
 ```
 
-`--check` is the test that `data/` is exactly what the builders write. Run it before committing any change under `data/` or `tools/scenarios/`. The regional coastlines, sea floor and land heights come from `import_coastlines.py`, `import_bathymetry.py` and `import_relief.py` over the Natural Earth and GMTED2010 downloads named in `regions.py`; their output is committed, so playing and rebuilding scenarios need no network access. `operation_design.py` and `build_command_training.py` apply the recognition briefs in `recognition_brief.py`.
+`--check` is the test that `data/` is exactly what the builders write, and CI runs it first. Run it before committing any change under `data/` or `tools/scenarios/`. The regional coastlines, sea floor and land heights come from `import_coastlines.py`, `import_bathymetry.py` and `import_relief.py` over the Natural Earth and GMTED2010 downloads named in `regions.py`; their output is committed, so playing and rebuilding scenarios need no network access. `operation_design.py` and `build_command_training.py` apply the recognition briefs in `recognition_brief.py`.
 
 Models and recognition art are built without Blender by `tools/art/` (`rebuild_air_subs.sh` for the revised aircraft and submarines, `render_assets.gd` for the renders); `tools/blender/` is the earlier pipeline, and must not be used to rebuild the entries `tools/art/` maintains. `assets/README.md` and `assets/audio/README.md` describe both pipelines and the audio build.
 
@@ -190,7 +196,7 @@ godot --path . --resolution 1600x900 -- --scenario=res://data/scenarios/pacific_
 godot --headless --path . -- --scenario=res://data/scenarios/northern_passage.json --seed=2 --autopilot --fastforward=600 --dump   # state report after ten minutes
 ```
 
-The ones used most: `--scenario=`, `--seed=` (pins every generator), `--fastforward=S`, `--autopilot` (the AI commands the player's side too), `--no-ai`, `--preset=classic`, `--pick=CALLSIGN`, `--run[=N]`, `--hold=S --screenshot=PATH`, `--dump`, `--perf=S`, `--debug` (the truth overlay), `--open-menu[=SHELF]`, `--boards[=N]`, `--world-view=full|swap` and `--world-camera=NAME`. Screenshots need a window; headless runs use `--dump`. A driven run plays under Normal rules unless `--preset=classic` is given, and never reads or saves the player's own options.
+The ones used most: `--scenario=`, `--seed=` (pins every generator), `--fastforward=S`, `--autopilot` (the AI commands the player's side too), `--no-ai`, `--preset=classic`, `--pick=CALLSIGN`, `--run[=N]`, `--hold=S --screenshot=PATH`, `--dump`, `--perf=S`, `--perf-autosave=S`, `--classic-keys`, `--debug` (the truth overlay), `--open-menu[=SHELF]`, `--boards[=N]`, `--world-view=full|swap` and `--world-camera=NAME`. Screenshots need a window; headless runs use `--dump`. A driven run plays under Normal rules unless `--preset=classic` is given, and never reads or saves the player's own options.
 
 ## The browser build
 
@@ -201,7 +207,7 @@ tools/web/build_web.sh                       # rebuild docs/play/index.pck and r
 GODOT=/path/to/godot tools/web/build_web.sh
 ```
 
-Exporting needs the 4.7.2 web export templates (the `web_*.zip` files and `version.txt` from the official `export_templates.tpz`) in `~/.local/share/godot/export_templates/4.7.2.stable/`. `export_presets.cfg` keeps the tests, tools, docs and the two smoke suites that only their flags load (`fleet_workshop_smoke.gd`, `weapon_control_smoke.gd`) out of the pack, and a test checks that nothing a shipped script names or preloads is left out.
+Exporting needs the 4.7.2 web export templates (the `web_*.zip` files and `version.txt` from the official `export_templates.tpz`) in `~/.local/share/godot/export_templates/4.7.2.stable/`. `export_presets.cfg` keeps the tests, tools, docs and the four smoke suites that only their flags load (`cold_war_smoke.gd`, `aviation_smoke.gd`, `fleet_workshop_smoke.gd`, `weapon_control_smoke.gd`) out of the pack, and a test checks that nothing a shipped script names or preloads is left out.
 
 ## Conventions that bite
 
@@ -212,7 +218,7 @@ Exporting needs the 4.7.2 web export templates (the `web_*.zip` files and `versi
 - **Every label that shows variable-length text needs `clip_text = true`**, or a long name widens the window and pushes panes off screen.
 - **Full-screen overlays use `set_anchors_and_offsets_preset`**, not `set_anchors_preset`.
 - **The theme is built in code** in `ui_theme.gd`: grey chrome from `build()`, the navy data family from `data_theme()`. A panel of data calls `UITheme.use_data_surface(self)`; a label on the wrong surface is unreadable.
-- **The chart is one `_draw()`**, not a node per unit, and hit testing is manual. Track numbers are queued while symbols are drawn and placed afterwards by `ChartLabels`, so a new mark should go through `_queue_label`, not draw its own text.
+- **The chart's plot is one `_draw()`**, not a node per unit, and hit testing is manual; only the floor, land, coast and marks layers are canvas items of their own. Track numbers are queued while symbols are drawn and placed afterwards by `ChartLabels`, so a new mark should go through `_queue_label`, not draw its own text.
 - **The chart's plot redraws on a simulation tick or a view change, otherwise at `TacticalMap.IDLE_REFRESH_S`; what moves between those (threat rings, flashes, the hit edge, the radio fade) is drawn every frame on the marks layer (`ChartMarks`).** A new chart animation goes in `TacticalMap.draw_marks` and `marks_animating`, not in the plot's `_draw`, or it will stutter or redraw the whole chart every frame. Hidden boards do not rebuild, so a test that reads a board's rows must show it first.
 - **GDScript lambdas capture locals by value.** Use an array or another reference type.
 - **The event log is quiet in release builds.** `Debug.event()` prints only in debug builds and scripted runs; a `print()` in gameplay code reaches a player's browser console.
@@ -226,7 +232,7 @@ Exporting needs the 4.7.2 web export templates (the `web_*.zip` files and `versi
 ## Before you call a change done
 
 1. The full regression suite ends `0 failed`.
-2. A change under `data/` or `tools/scenarios/` passes `python3 tools/scenarios/rebuild_all.py --check`.
+2. A change under `data/` or `tools/scenarios/` passes `python3 tools/scenarios/rebuild_all.py --check`; CI runs the same check.
 3. The interface suites that cover what you touched pass (all of them run in CI).
 4. A change to the model: the operations still play to an end with `tools/smoke_scenarios.py`, and a change that could move balance is flown with `tools/opening_plans.py` and compared with `main`.
 5. A change to the screen: take a screenshot with the dev harness in at least one operation per theatre and look at it. The tests cover the model and the text of the screen; only a screenshot shows the chart.

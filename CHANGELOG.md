@@ -4,122 +4,148 @@ Most recent first. The earlier history is compressed to a line or two per milest
 
 ## Overhaul, November 2026
 
-A review of the whole game after M43, fixed area by area.
+A review of the whole game after M43, fixed area by area and then in rounds of repairs. Each line is one change a player or developer would notice.
 
-### Contacts and the plot
+### Orders and the clock
 
-- Passive contacts are ranged from the reach they were heard at and from bearing rate across a turn, with an honest uncertainty. A contact's last range is carried forward on new bearings instead of jumping to a nominal guess.
-- A bearing-only contact is drawn as a line from the unit that hears it, with its number at the end, instead of a placed symbol.
-- A measured plot has its domain on the first look, so weapons can be laid on it at once. A missile-quality plot needs a sound range solution.
-- Aircraft are fixed from intercepts only on lines taken together, and the first radar plot is taken outright.
-- Lost contacts age by what they are. A contact found again where it was keeps what was known of it; one found elsewhere gets a new number. A stale plot that is hit leaves a datum.
-- Fixed sites and contacts known to stand ashore get no course or speed and are never dead-reckoned. An estimated plot closes on a reworked solution no faster than the contact could travel.
-- Lookouts recognise along the sight line, class before name, and the track file says what evidence would classify a contact.
-- A pinging dipping sonar can be heard; sea state and damage affect ping intercepts and sonobuoys; a submerged boat's ESM is deaf; a contact's radiating state expires.
+- An attack or investigation no longer stops the ship: she fires when in reach without touching her plan, closes briskly, keeps way on and goes back to the interrupted route, speed or station when the task ends. The radio says when a platform resumes its route, and task results stay on the readout after a return to station.
+- The standing attack chooses the weapon a captain would: the gun at small craft inside its reach, otherwise the cheapest round meant for the target that reaches with margin.
+- A salvo is sized to what the plot's reported class and damage estimate say is left of the contact, allowing for the class's close-in and area defences: a defended corvette still gets a full salvo, a badly hurt one a pair and an undefended boat one round. A group attack's default budget is sized once for the group, never more than a salvo from each ship.
+- Right-click investigates any contact of unknown allegiance, and **Identify contact** is offered on all of them, including an unknown of known class.
+- A contact's menu has **Designate**: the commander can enter it as hostile, neutral, friendly or unknown, and the call stands until changed.
+- With land in the line of fire a ship moves to the nearest point she can reach that clears it, and a standing attack whose line of fire holds a neutral holds fire and keeps the task while the traffic clears, and says so.
+- A torpedo attack begun too close first opens beyond the weapon's enable run and a margin, and Weapon Control's range column starts a torpedo at that range.
+- A move routed round a coast says so instead of warning of land on the course, a refused move or group order names the platform and gives the reason, and the radio says when chaff, flares or a decoy are fired with no seeker of their kind in reach.
+- The Orders board's COURSE box shows the course the hooked ship, or a group's lead, is steering, leaving alone a figure the commander is setting.
+- An optional **Classic keys** layout, off by default, turned on from the Gameplay menu and kept in the user settings: P pauses, T steps the time scale, Tab hooks the next platform, B or L sends aircraft home, E arms an engage cursor, Shift+C sets emission control, Shift+1 to 3 set a third, two thirds or all of each platform's top speed, Shift+7 to 9 set height or depth, the number row recalls the groups saved with Ctrl+1 to 9, Space hooks the platform heard last on the radio, and Ctrl+click or Ctrl+right-click zooms the chart in or out on the point. The H board and the Actions shortcuts follow the layout in use.
+- The command bar and the data display show the rate the clock is achieving beside the rate asked for when it falls under nine tenths of it (60x > 18x).
+- Time compression drops to real time once per engagement. A new electronic-support line not held hostile is called and plotted without dropping it; inbound weapons, hits, radar, sonar and visual contacts and anything hostile still do.
+- Once a mission has ended its clock stays stopped after the debrief is put away: Space, the Classic P, the pause action, the watch time button and a closing board no longer start it, and the radio says why.
+- Command keys are not taken from a focused text field.
+
+### The chart and the command screen
+
+- The chart, the inbound warnings and the opening hook show the force's picture, whatever is hooked, and the hook stays on a contact as one picture hands it to another.
+- The chart opens on the player's ships at command scale unless the scenario sets a focus, **Home** fits the same frame, and the coverage layer starts off.
+- A bearing-only contact is drawn as a line from the unit that hears it, with its number at the end.
+- A **Filters** submenu shows or hides hostile, allied, neutral and unknown contacts, routes and the range grid.
+- A **Chart marks** submenu lays labelled marks, range circles fixed on a chosen point and corridors of a chosen width; they are kept with the saved picture.
+- The radio line has a band of its own in a light wash: chart names, captions and track numbers are placed clear of it, and a number that would fall under it stands clear on a leader.
+- Patrol, ring, CPA and time-to-go captions are placed with alternatives instead of printed over each other, as are the caption of a boat awaiting check-in and the label of a fixed range circle; contacts on one spot share one label, the hooked platform's number sits beyond its brackets, and an airframe on a mission station leaves the naming to the mission's ring.
+- An intercept is drawn as a line from the deck to its contact, as a strike is, with no hold ring to drag; a torpedo's minimum-range ring and legend give the range inside which the shot is refused.
+- A right-click on the regional display sends the hooked platforms there, **Shift** adding a leg, and says why when it cannot.
+- A right-click in the 3D view opens the hooked platform's menu, hooking an own ship under the cursor first as the chart does; on a contact it opens that contact's attack and investigate menu.
+- Shore installations in the 3D view keep their earthworks and hardstand, stand on a graded earth platform at the highest ground under their footprint, and are drawn at the size their models are built to, an air station with a 2,400 m runway.
+- Every status board on every tab docks on the foot of the chart at its content's height and fits inside it at 100, 110 and 125 percent interface size, scrolling where a page does not fit, so the plot stays in view while orders are given. The key list wraps to fit the window.
+- An **Assessment** board, also offered in the chart menu and Actions, shows the running mission effectiveness, both sides' losses and each task's state.
+- The air-defence board names rounds by their short names, shows as many inbound rows as it has room for, counts ballistic-capable rounds beside the SAMs and calls gunfire gunfire.
+- Weapon Control, Fleet Operations, Air Operations, the status boards, Actions and the key list share one dialog header with one CLOSE at the right, and Fleet Operations and Weapon Control stand as tall as their rows.
+- The weapons posture, mixed states and comms severities on the grey chrome use inks that read at 4.5:1.
+- The data display credits a plot to the sensor and evidence that made it, and the readout has its own right-click menu.
+- The rounds of a salvo shot down, decoyed or missed at one contact are one radio line, sent once none of that weapon from its shooters is still queued or flying at it. The salvo receipt says what is away and what is on the launcher, and the firing board keeps the running group's budget.
+- Gunfire on the force is called once a shoot as UNDER GUNFIRE, without the missile alarm; the command guide then says the ship is under gunfire and how to answer it, and the **X** cue counts the rounds held waiting for clearance.
+- A hit on a contact held as neutral or friendly, or an own round hitting an unidentified ship it was not fired at, is an alert naming it.
+- A ship of the force on fire or flooding reports her damage-control state and hull every three minutes until the casualty is over. The coast, self-defence emission, torpedo decoy, towed array, dipping sonar and submarine initiative reports of the commander's own ships are on the radio.
+- A unit that is deep or off the link reports the contacts on its own picture on the radio, once per contact, and a boat calls her own contacts without waiting for a signal.
+
+### Sensors
+
+- Passive contacts are ranged from the reach they were heard at and from bearing rate across a turn, with an uncertainty to match, and a contact's last range is carried forward on new bearings instead of jumping to a nominal guess.
+- A lost bearing range comes back only from a solution that has stood 20 s, a marginal one is closed on at the contact's pace, giving a range up never shrinks the ellipse, and a one-listener range is withheld when the bearings show the contact has turned.
+- A measured plot has its domain on the first look, so weapons can be laid on it at once; a missile-quality plot needs a sound range solution. Aircraft are fixed from intercepts only on lines taken together, and the first radar plot is taken outright.
+- Lost contacts age by what they are. A contact found again where it was keeps what was known of it, one found elsewhere gets a new number, and a stale plot that is hit leaves a datum.
+- Fixed sites and contacts known to stand ashore get no course or speed and are never dead-reckoned, and an estimated plot closes on a reworked solution no faster than the contact could travel.
+- Lookouts recognise along the sight line, class before name. A look reads a contact's colours only close enough to read its name, or from further off once the lookout has held it in sight for 20 s, and broken cloud hides what is above its base from a lookout below. The track file says what evidence would classify a contact.
+- A pinging dipping sonar can be heard, sea state and damage affect ping intercepts and sonobuoys, a submerged boat's ESM is deaf, and a contact's radiating state expires.
 - A ship with her radar off is warned of inbound missiles by ESM on a searching seeker and by eye at close range.
-
-### The commander's picture
-
-- The chart, the inbound warnings and the opening hook show the force's picture, whatever is hooked.
-- A unit that is deep or off the link reports the contacts it holds on its own picture on the radio, once per contact. A boat calls her own contacts without waiting for a signal.
-- An aircraft with a datalink keeps no private picture.
-- The hook stays on a contact as one picture hands it to another.
-
-### Attacks, investigations and tasks
-
-- An attack or investigation no longer stops the ship: she fires when in reach without touching her plan, closes briskly, keeps way on, and goes back to the interrupted route, speed or station when the task ends. The radio says when a platform resumes its route.
-- Strike aircraft hold off after release and hold where a task ends. Aircraft fly their tasks at no less than cruise speed.
-- With land in the line of fire, a ship moves to the nearest point she can reach that clears it, and a stall guard measures the way she has made.
-- A standing attack whose line of fire holds a neutral holds fire and keeps the task while the traffic clears, and says so.
-- Right-click investigates any contact of unknown allegiance, and **Identify contact** is offered on all of them, including an unknown of known class. A dipping helicopter localises its own bearing from the dip.
-- Task results stay on the readout after a crew return to station.
-- A consort firing from her station inherits a lost guide's route.
-- The standing attack chooses the gun at small craft inside its reach, else the cheapest round meant for the target that reaches with margin, and sends rounds enough to finish what the plot says is left of the contact, allowing for its class's defences. A CAP's pursuit defaults to 60 nm. A torpedo attack begun too close opens beyond the enable run. A strike aircraft held from firing holds off the target.
-
-### Weapons and seekers
-
-- Seekers take the designated contact or the unit nearest the aim point, never their own side, and look before they lock. A shot with a held neutral or ally in the seeker basket is refused, and automatic anti-air fire holds with an own aircraft in the basket.
-- A round whose target is gone searches a few seeker radii on, then ends TARGET LOST. A missile at an aircraft coasts through a short break in guidance.
-- Heavyweight torpedoes from tubes are wire-guided and follow the plot their boat keeps working. Every torpedo's minimum range is beyond its enable run. Torpedo decoy resistance is rated by seeker generation, and the Rastrub and Yu-8 fly out as rocket-thrown weapons.
-- Gun shells are on the missiles' damage scale by calibre, gun accuracy depends on range and target speed, and guns that bombard can be laid on a contact ashore.
-- Ballistic missiles dive and can miss. The shared launcher timer is split into salvo spacing and a short cell service, so interceptors are not held behind a queued strike.
-- A tube torpedo is steered down its wire only while its firer is afloat and holds the contact; a torpedo searching with nothing in its seeker weaves either side of its course, and one that reaches its aim point empty searches a figure of eight about it for 150 s and ends NO ACQUISITION instead of running out its battery. A torpedo shot from inside its enable run is refused as TOO CLOSE.
-- A torpedo's hit chance falls for the target's speed only when her side has heard it and she is running from it. Decoys break an acoustic torpedo's lock instead of deleting it: it circles where it lost the ship and usually ends DECOYED; wake-homers ignore decoys. A fitted ship warns of a torpedo inside three miles and, on automatic countermeasures, turns away and runs.
-
-### Missile defence
-
-- The limit is on interceptors in the air at a round across the force, not rounds ever fired: leakers are re-engaged, shoot-look-shoot, cheapest layer first, ballistic-capable rounds are kept back, and guns fire every cycle.
-- Weapons Hold stops attacks only: a holding ship still fires interceptors, guns and anti-torpedo rounds at weapons threatening the force.
-- Manual missile defence leaves point-defence missiles and guns to the crew. **X** with no round named clears the whole raid until the sky is quiet or weapons are put on hold, and goes to the whole force when no missile-defence ship is hooked.
-- A detected round with no lock is engaged on detection if its course brings a ship inside its seeker's reach.
-- An escort whose only bar to defending is her own radar being off lights it and fights; under a radar-silent order she holds fire and says so once a raid.
-- Weapons Free against aircraft keeps one round in the air at a track across the force, a pair only at a fast closing jet.
-
-### Sensors and the catalogue
-
+- An aircraft with a datalink keeps no private picture, and a dipping helicopter localises its own bearing from the dip.
 - The escorts carry the hull sonars they are built with, every surface ship has her own radiated noise, submarine and towed-array hearing is longer, dipping sets are shorter, and a lookout no longer out-sees a radar against boats.
-- Weapon and sensor definitions that nothing carries are deleted, with their models and renders. An older save that names a retired Sidewinder id still loads.
+
+### Weapons and defence
+
+- Seekers take the designated contact or the unit nearest the aim point, never their own side, and look before they lock; a seeker that opens on the rail is range-gated on its aim point, so a merchant crossing beside the shooter is not taken.
+- A shot with a held neutral or ally in the seeker basket is refused. Automatic Weapons Free SAM fire holds for an own aircraft in the basket only when she shares the hostile plot's height band.
+- A missile or gun shot at a stale plot is refused with NO CURRENT FIX; torpedoes, anti-radiation rounds and sites ashore may still fire on one.
+- A round whose target is gone searches a few seeker radii on, then ends TARGET LOST; a missile at an aircraft coasts through a short break in guidance; an anti-radiation round homing on an emitter that went silent ends when its range is spent.
+- Every naval gun from 57 mm to 130 mm can be laid on a ship, a contact ashore or an aircraft. Shells are on the missiles' damage scale by calibre, accuracy depends on range and target speed and falls to a quarter at full reach, and a shell resolves where it passes its target instead of circling it.
+- Ballistic missiles dive and can miss. The shared launcher timer is split into salvo spacing and a short cell service, so interceptors are not held behind a queued strike.
+- A tube-launched heavyweight is steered down its wire on the firer's held track while the firer is afloat and holds the contact. A torpedo with nothing in its seeker weaves either side of its course, and one that reaches its aim point empty searches a figure of eight about it for 150 s and ends NO ACQUISITION instead of running out its battery.
+- A torpedo shot from inside its enable run is refused as TOO CLOSE, and every torpedo's minimum range is beyond its enable run. Decoy resistance is rated by seeker generation, and the Rastrub and Yu-8 fly out as rocket-thrown weapons.
+- A torpedo's hit chance falls for the target's speed only when her side has heard it and she is running from it. Decoys break an acoustic torpedo's lock instead of deleting it: it circles where it lost the ship and usually ends DECOYED. Wake-homers ignore decoys.
+- A ship's torpedo-defence fit warns of a torpedo inside three miles, sonar or none. On automatic countermeasures she turns away as soon as she holds a torpedo coming at her, and lays acoustic decoys each reload while it is still homing on her.
+- Missile defence limits interceptors in the air at a round across the force, not rounds ever fired: leakers are re-engaged, shoot-look-shoot, cheapest layer first, ballistic-capable rounds are kept back, and guns fire every cycle. A detected round with no lock is engaged on detection if its course brings a ship inside its seeker's reach.
+- Weapons Hold stops attacks only: a holding ship still fires interceptors, guns and anti-torpedo rounds at weapons threatening the force.
+- Manual missile defence leaves the point-defence missiles and guns to the crew, and its summary on the desk, the briefing and Actions says that only the area SAMs wait for the order. **X** with no round named clears the whole raid until the sky is quiet or weapons are put on hold, and goes to the whole force when no missile-defence ship is hooked.
+- Weapons Free against aircraft keeps one round in the air at a track across the force, a pair only at a fast closing jet.
+- The crew lights a radar the commander put out only against a round coming at that ship, says so, and puts it out again once the threat has passed unless the commander has ordered the radar since; under a silent emissions order she holds fire and says so once a raid.
 - A hull with ASW rockets and tubes states one anti-submarine reach on the weapons line.
 
-### Movement and stations
+### Aircraft
+
+- A CAP turns on a hostile coming in on it and commits on a raid closing on it or on what it covers only when it can shoot inside its leash and out of hostile ship missile cover; the same test recalls it, with a break-off, so it no longer flaps. A fighter busy with one hostile turns to another only for one well nearer.
+- A CAP ordered without a pursuit may chase 60 nm past its ring, a revision that names no pursuit keeps the mission's own, and a CAP flies a square inscribed in its ring, a section on offset circuits.
+- **Intercept with fighters** keeps the raid: the fighters go for that contact at dash, fire and come home, with no station ring.
+- The ready alert scrambles on a raid closing inside 220 nm, with a pursuit that reaches it, even while a CAP is up that is not going for that raid.
+- Reconnaissance leaves hostile contacts alone, an unarmed sensor aircraft flies at least 40 nm off any ship not known to be harmless, and a scouting or shadowing aircraft keeps outside the known missile cover of the ships it watches. A quick look at a ship goes to a helicopter or an armed jet.
+- Strike aircraft hold off after release and hold where a task ends, turn for home once a fire-and-forget salvo is away, and a fixed-wing aircraft held from firing by a neutral in the line of fire or a busy launcher holds off on its own side instead of flying over the target. Aircraft fly their tasks at no less than cruise speed.
+- The deck calls down the waiting aircraft with the least fuel to spare first, and a carrier lands helicopters on a spot of their own close astern, so a recall runs nobody dry. A helicopter queued behind a busy carrier deck waits for the flight deck, not the catapults.
+- Fixed-wing aircraft leave the deck with flying speed and a little height on the ship's heading, and a section goes off 15 s apart, so the wingman is a second symbol.
+- An aircraft keeps her terrain clearance over every raster cell of her next two minutes of track, and altitude orders are held to a per-type minimum above the sea.
+- A refused launch names the deck's facility (runways, flight deck, launch spots, catapults), and a mission whose aircraft were all lost ends 'All aircraft lost'.
+- The Air Operations dialog stands as tall as what it shows, with the mission plan beside the deck list, both at least six rows deep at 1600 x 900 and at 125 percent, and the order receipt in a fixed footer; on a window too narrow for both the deck goes under the plan.
+- In Air Operations a mission the chosen aircraft cannot fly opens on a type on deck that can, an assigned station or target is spent with its mission, options a strike cannot use show clear as well as greyed, the button names the type after an accepted launch, and a new engagement opens on a clean receipt.
+
+### Ships and submarines
 
 - Ships route round the coast by sea. A hull the coast holds stops and reports it, and a line of fire is cleared against the coastline itself.
-- Station keeping steers for a station led by the guide's velocity, and the guide paces the group a few knots under its slowest consort. A helm order to a formation escort interrupts her station instead of ending it, so **S** takes her back and **Rejoin formation** is offered. A speed order to a consort keeping station is refused with a reason.
-- A course order to a ship lying stopped gets way on. A last waypoint inside the turning circle is reached by coming round to it, not dropped.
-- Aircraft keep a safety height over the land below them and along their next two minutes of track, and altitude orders are held to a per-type minimum above the sea.
+- A hull coming round with the shore on the short side of her turn comes round the other way, and one held against a coast is not laid back along it, so holding a range off Musandam no longer leaves a destroyer creeping along the beach.
+- Station keeping steers for a station led by the guide's velocity, and the guide paces the group a few knots under its slowest consort.
+- A screen escort fires on an attack from her station and closes only while the firing point lies within 3 nm of it, and a hull gives up a chase the plot says she cannot win, so an attack never takes her out of the screen for the rest of the mission.
+- A helm order to a formation escort interrupts her station instead of ending it, so **S** takes her back and **Rejoin formation** is offered. A speed order to a consort keeping station is refused with a reason, and a consort firing from her station inherits a lost guide's route.
+- A course order to a ship lying stopped gets way on, and a last waypoint inside the turning circle is reached by coming round to it, not dropped.
+- A unit on a scenario's two-corner patrol line can go back to it after a task and take a new speed on it; only a circuit the commander lays needs three corners.
 - A helm or task order keeps a towed array streamed; only evasion or too much speed recovers it, and an unordered recovery is reported.
-- Every operation opens with its guide on her route (a watch carrier on a 25 nm circuit), the escorts formed on her where the builder placed them and the pickets on their own lines, so **Return to Station** means something from the first second.
-
-### Submarines
-
-- Under Classic rules a boat out of touch turns away from a torpedo she hears and snorkels by herself at a critical battery, reporting it at her next check-in. Evade and decoy orders are never queued. A snorkel order delivered in a check-in window keeps her up to charge.
-- A boat on a breakout route gets out of the way of a torpedo running at her, then takes up the route again; a boat already found may shoot back beyond the transit's torpedo range.
+- Under Classic rules a boat out of touch turns away from a torpedo she hears and snorkels by herself at a critical battery, reporting it at her next check-in. Evade and decoy orders are never queued, and a snorkel order delivered in a check-in window keeps her up to charge.
+- A boat on a breakout route gets out of the way of a torpedo running at her, then takes up the route again, and a boat already found may shoot back beyond the transit's torpedo range.
 - A boat holding only a bearing works legs either side of it for a solution, and a wire-guided torpedo goes on a rough range well inside its reach.
-
-### Air operations
-
-- A CAP commits on a hostile inside its own missile reach and on a raid closing on it or on what it covers, pursues 60 nm by default, and flies a square inscribed in its ring. **Intercept with fighters** goes for the contact at dash, fires and comes home. The ready alert scrambles on a raid closing inside 220 nm.
-- The deck recovers the aircraft with the least fuel to spare first and lands helicopters on a spot of their own, so a recall runs nobody dry. Fixed-wing aircraft leave the deck with flying speed, and a section goes off 15 s apart.
-- Reconnaissance leaves hostile contacts alone, and an unarmed sensor aircraft flies at least 40 nm off any ship not known to be harmless; a strike turns for home once its fire-and-forget salvo is away. A refused launch names the facility, and a mission whose aircraft are all lost ends 'All aircraft lost'.
-- The Air Operations dialog stands as tall as what it shows, in the shared dialog header, with the mission plan beside the deck list, both at least six rows deep, and the order receipt in a fixed footer; on a narrow window the deck goes under the plan. A mission the chosen aircraft cannot fly opens on a type that can.
-
-### Operations
-
-- In Hormuz the Qeshm battery comes out of its hide after 10-15 minutes and the ballistic battery after 15-25 minutes, once a drone has reported a tanker (by 40-50 minutes at the latest), so the convoy forms before the first salvo; the UKMTO fire-mission warning follows the ballistic battery.
-- Mission effectiveness grades conduct as well as outcome: a victory won with no orders while an enemy was at sea earns a quarter of the task, each hit the force lands on a neutral or on its own ships costs 10 and is listed, and rounds far beyond what their targets were worth cost up to 10. A scenario unit or an event can set a side's weapons posture to hold, tight or free.
-- Nicholas in the convoy and Spruance in the carrier watch open radiating, and the North Cape Kilo starts inside the screen, as the briefing says.
 
 ### The enemy
 
 - An AI ship under fire answers any hostile it holds and can reach, whatever its plan is waiting for, and keeps shooting while it turns away from a round.
 - The AI picks shots with the launcher's own test and falls through to the next weapon when one is refused.
 - A ship patrolling with her radar off that is hit, or sees a round coming, radiates until the shooting has stopped for a while.
-- The enemy trims its doctrine volley when its own plot says fewer rounds will do, so a crippled ship is sent a round or two.
+- The enemy trims its doctrine volley when its own plot says fewer rounds will do, sizing it from the reported class and damage estimate as the player's ships do, so a crippled ship is sent a round or two.
 
-### Screen and reports
+### Missions
 
-- The chart opens on the player's ships unless the scenario sets a focus, **Home** fits the same frame, and the coverage layer starts off.
-- A **Filters** submenu on the chart menus shows or hides hostile, neutral and unknown contacts, routes and the range grid.
-- The data display credits a plot to the sensor and evidence that made it, and the readout has its own right-click menu.
-- Own rounds shot down or missed are reported one line a salvo; the salvo receipt says what is away and what is on the launcher; time compression drops once per engagement; the firing board keeps the running group's budget.
-- A hit on a contact held as neutral or friendly, or an own round hitting an unidentified ship it was not fired at, is reported as an alert naming it.
-- The radio says when chaff, flares or a decoy are fired with no seeker of their kind in reach, and a refused group order names the platform and the reason.
-- Command keys are not taken from a focused text field. **Esc** or **F1** returns from the pre-mission briefing to the desk; the debrief stays up under **Space** and reopens with **F1**, the chart menu or Actions.
-- The radio line has a band of its own: chart names and track numbers are placed clear of it, with a plate behind its rows. Patrol, ring, CPA and time-to-go captions are placed with alternatives instead of printed over each other, contacts on one spot share one label, and the hooked platform's number sits beyond its brackets.
-- A right-click on the regional display sends the hooked platforms there, **Shift** adding a leg, and says why when it cannot.
-- An intercept is drawn as a line from the deck to its contact, as a strike is, with no hold ring to drag; a torpedo's minimum-range ring and legend give the range inside which the shot is refused, its enable run included.
-- Every status board on every tab fits inside the chart at 100, 110 and 125%, scrolling where a page does not fit; the Orders board stands on the chart's bottom edge, the key list fits the window, the weapon-state inks reach 4.5:1 contrast and the COURSE box reads the course steered.
-- The desk's ACCEPT and CANCEL are worded buttons and a locked campaign step names the win that opens it; the Classic summary wraps; the Reference has a compact layout for short screens, a general block for every platform and words for every weapon's speed, warhead and seeker, and opens on the flagship; the debrief card is sized from the screen; front-end dialogs share one header.
-- Leaving or restarting a running engagement from the desk, and deleting a save, ask first, and leaving or restarting autosaves; the editor's NEW asks and is an undo step.
-- SAVE AND PLAY in the editor, Ctrl+F10, the actions list's restart and the debrief's RESTART ask before replacing a running engagement and autosave it, and a load autosaves the engagement it replaces. The desk's operation list stands as tall as its rows. A right-click in the 3D window opens the hooked platform's menu, and shore installations stand on graded earth platforms with their earthworks drawn.
+- Mission effectiveness grades conduct as well as outcome. A victory won with no order that put the force to work, while an enemy was at sea, earns a quarter of the task; emission, rules-of-engagement and automation settings do not count as command.
+- Each hit the force lands on a neutral is a civilian incident and each on its own ships fratricide, 10 apiece whatever the damage; rounds far beyond what their targets were worth cost up to 10; and the share of the mission a formation escort spent more than 1.5 nm off her station costs up to 20.
+- The debrief lists every civilian incident by vessel, as the plot knew her when she was hit, with the weapon and the mission minute, beside the neutrals sunk, and an uncommanded victory is marked "(no orders)" on the effectiveness line.
+- A scenario unit can start with weapons held or tight, and an operation's event can set a side's weapons posture, so a battery can be in the battle from the start with weapons tight until an event frees it.
+- Every operation opens with its guide on her route (a watch carrier on a 25 nm circuit), the escorts formed on her where the builder placed them and the pickets on their own lines, so **Return to Station** means something from the first second.
+- In Hormuz the Qeshm battery comes out of its hide after 10-15 minutes and the ballistic battery after 15-25 minutes, once a drone has reported a tanker (by 40-50 minutes at the latest), so the convoy forms before the first salvo; the UKMTO fire-mission warning follows the ballistic battery.
+- The Iceland-Faroe Barrier is laid out at sea scale: the Victor III opens 24 nm up one of three lanes 22 nm apart, beyond either ship's hearing, and breaks out into a broad exit inside a six-hour watch.
+- Nicholas in the convoy and Spruance in the carrier watch open radiating, and the North Cape Kilo starts inside the screen, as the briefing says.
 
-### Speed
+### The front end
 
-- The sensor cycle weighs a sonar or lookout pair only inside some reach, files a linked unit's reports once in the shared plot, finds bearing samples through a per-track index and trims crossed fixes; the profiler shows its set-up and lookout pass.
-- Each per-tick unit step runs only for units it applies to. Seeded state dumps of two scenarios are byte-identical before and after.
-- The chart's moving marks (threat rings, flashes, the red edge of a hit, the radio fade) are drawn on a layer of their own every frame, and the plot under them only on a simulation tick, a view change or the idle rate; the coastline is stroked on its own layer when the view moves, shifted rather than re-projected on a pan.
+- One shared question comes before work is thrown away: leaving or restarting a running engagement from the desk, SAVE AND PLAY in the editor, **Ctrl+F10**, the Actions restart and the debrief's RESTART ask first and autosave the engagement; deleting a saved engagement asks; the editor's NEW asks and is an undo step; a quickload or load autosaves the engagement it replaces.
+- A question left on a screen that closes goes with it, keeping the work, and takes no keys while unseen.
+- **Esc** or **F1** returns from the pre-mission briefing to the desk; the debrief stays up under **Space** and reopens with **F1**, the chart menu or Actions.
+- The desk's ACCEPT and CANCEL are worded buttons, a disabled one is visibly out, a locked campaign step names the win that opens it, and the GAMEPLAY summary wraps. The operation list stands as tall as its rows and hands the spare height to the orders box.
+- The Reference runs by nation and kind under headings, with the air stations of no one navy under SHORE AND SHARED after every navy, opens scrolled to the flagship, counts in words, and gives every platform a general block (speed, reach, ceiling or depth, countermeasures) and every weapon its speed, warhead and seeker in words. On a short screen it takes a compact sheet, as the desk and briefing do.
+- The debrief card is sized from the screen, its results and the exchange-and-log column read side by side, tile notes wrap, the results take the focus, and a short screen's tighter spacing keeps the results whole.
+- The front end's dialogs and the confirmation share the in-mission dialog header, the briefing guide is a tick box beside its words, the editor's mission drop-down is the height of its other controls, and the F3 help line names the Air Operations dialog's real controls.
+
+### Performance
+
+- The sensor cycle weighs a sonar or lookout pair only inside some reach, files a linked unit's reports once in the shared plot, finds bearing samples through a per-track index, trims crossed fixes and lets pairs beyond every horizon go; the profiler shows its set-up and lookout pass.
+- The sensor cycle is spread over the four ticks of its second, its observers dealt to the ticks by the reports each filed last time, heaviest first, and merged as one cycle; a cycle with little work runs whole in its first slice, and jammers are looked for only among the units fitted with one.
+- Each per-tick unit step runs only for the units it applies to. Seeded state dumps of two scenarios were byte-identical before and after that change.
+- The chart's moving marks (threat rings, flashes, the red edge of a hit, the radio fade) are drawn on a layer of their own every frame, and the plot under them only on a simulation tick, a view change or the idle rate. The coastline is stroked on its own layer when the view moves, shifted rather than re-projected on a pan, and the own-unit list is built once per chart draw.
 - The 3D view builds entries and sight-line tests only for the nearest units within its reach (a 321-unit fleet: 13.8 ms average, 77 ms worst before; 5.8 and 11 ms after), and the readiness bars and recognition card redraw only on a change.
-- An autosave captures the engagement in one frame and writes it over the next ones, on a worker thread where there are threads (Taiwan Strait at 1500 s: longest frame 172 ms before, 136 ms after).
+- An autosave captures the engagement in one frame and encodes, compresses and writes it over the next ones, on a worker thread where there are threads and a stage a frame where there are none (Taiwan Strait at 1500 s: longest frame 172 ms before, 136 ms after). A capture of a 48-a-side fleet takes about 50 ms instead of 200.
+- The `--perf` report says what rate the clock showed beside what was delivered, and `--perf-autosave=S` forces an autosave inside the sample.
 
 ### Measured
 
@@ -166,9 +192,12 @@ After, a combat event early in the sample (at Hormuz a cruise-missile commit) dr
 ### Repository
 
 - The test runner discovers `tests/test_*.gd` instead of keeping a list, and resets the static world state between files.
-- The data builders run again, and `python3 tools/scenarios/rebuild_all.py --check` proves `data/` is what they write.
+- The data builders run again, `python3 tools/scenarios/rebuild_all.py --check` proves `data/` is what they write, and CI now runs that check, so a hand edit under `data/` fails the build.
 - 165 dated milestone notes, screenshots and validation records (49 MB) are deleted from `docs/`; they stay in git history. Unused tools, dead code and the assets of retired weapons are gone, and tests check that every asset, tool and link is reachable.
-- The interface suites are kept out of the browser pack.
+- Weapon and sensor definitions that nothing carries are deleted, with their models and renders. An older save that names a retired Sidewinder id still loads.
+- The interface suites are kept out of the browser pack, the cold-war and aviation smoke suites among them, loaded by path when their flags ask for them.
+- The art loader and its tests name `tools/art` as the pipeline for the revised models, with `tools/blender` kept for the platforms only it builds.
+- `tools/web/browser_check.cjs` finds whichever Chromium build is installed under the Playwright directory, and `CHROMIUM` still overrides it.
 - The documentation is three files: README.md, CHANGELOG.md and DEVELOPING.md, beside DATA_SOURCES.md and assets/README.md.
 
 ## Earlier history
