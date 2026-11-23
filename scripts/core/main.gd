@@ -614,6 +614,8 @@ func save_refusal() -> String:
 
 
 ## Writes the running engagement to a slot. `kind` is quick, auto or manual. Returns "" or why not.
+## An autosave (slot "") is only captured here; SaveGame writes it to the next autosave slot over
+## the frames that follow, so the autosave never stops the game for the whole job.
 func save_engagement(slot: String, kind: String, label: String) -> String:
 	var why := save_refusal()
 	if why != "":
@@ -636,7 +638,11 @@ func save_engagement(slot: String, kind: String, label: String) -> String:
 		"note": _objective_summary(),
 		"gameplay": options.label(),
 	}
-	return SaveGame.write(SaveGame.slot_path(slot), header, {"simulation": snapshot, "presentation": _capture_presentation()})
+	var payload := {"simulation": snapshot, "presentation": _capture_presentation()}
+	if slot == "":
+		SaveGame.begin_autosave(header, payload)
+		return ""
+	return SaveGame.write(SaveGame.slot_path(slot), header, payload)
 
 
 func quicksave() -> void:
@@ -708,18 +714,21 @@ func _install_engagement(payload: Dictionary) -> String:
 	return ""
 
 
-## `leaving` saves now, paused or not, because the engagement is about to be replaced.
+## `leaving` saves now, paused or not, and has the file on disk before it returns, because the
+## engagement is about to be replaced. SaveGame.force_next_autosave makes the next check due in any
+## session, so a measuring run or a test can exercise it.
 func _autosave_if_due(leaving := false) -> void:
-	if not _autosave_enabled or _scripted_session:
+	var forced := SaveGame.force_next_autosave
+	if not forced and (not _autosave_enabled or _scripted_session):
 		return
-	if not leaving and (SimClock.paused or SimClock.sim_time - _autosaved_at < SaveGame.AUTOSAVE_INTERVAL_S):
+	if not forced and not leaving and (SimClock.paused or SimClock.sim_time - _autosaved_at < SaveGame.AUTOSAVE_INTERVAL_S):
 		return
 	if save_refusal() != "":
 		return
+	SaveGame.force_next_autosave = false
 	_autosaved_at = SimClock.sim_time
-	var slot := SaveGame.next_autosave_slot()
-	if save_engagement(slot, "auto", "Autosave %s" % Geo.format_duration(SimClock.sim_time)) == "":
-		SaveGame.prune_autosaves()
+	if save_engagement("", "auto", "Autosave %s" % Geo.format_duration(SimClock.sim_time)) == "" and leaving:
+		SaveGame.finish_writing()
 
 
 ## What the screen itself has recorded that the simulation does not hold: the observed journal and
