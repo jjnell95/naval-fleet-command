@@ -96,17 +96,18 @@ func launch_rejection_reason(parent: Unit, which := "") -> String:
 	if not parent.spec.can_operate(chosen.spec):
 		return "INCOMPATIBLE FLIGHT DECK"
 	if parent.launch_spots_busy() >= parent.spec.launch_capacity():
-		return "%s COMMITTED" % launch_spots_name(parent).to_upper()
+		return "%s COMMITTED" % launch_spots_name(parent, chosen.spec).to_upper()
 	if parent.recovery_spots_busy() > 0 and parent.spec.flight_facility() != "airfield":
 		return "DECK RECOVERING"
 	return ""
 
 
 ## What a deck launches from, in words: a carrier's catapults, a field's runways, a ski-jump or
-## jump-jet deck's launch spots, a small ship's flight deck.
-static func launch_spots_name(parent: Unit) -> String:
+## jump-jet deck's launch spots, a small ship's flight deck. A helicopter leaves a carrier from a
+## spot on its flight deck, not a catapult.
+static func launch_spots_name(parent: Unit, aircraft: PlatformSpec = null) -> String:
 	match parent.spec.flight_facility():
-		"catobar": return "catapults"
+		"catobar": return "flight deck" if aircraft != null and aircraft.can_hover else "catapults"
 		"airfield": return "runways"
 		"helicopter": return "flight deck"
 	return "launch spots"

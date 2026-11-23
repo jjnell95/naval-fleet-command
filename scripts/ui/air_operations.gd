@@ -939,7 +939,7 @@ func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reas
 		_launch_hint.text = "Update station, radius and %d-aircraft strength. Assigned aircraft keep this mission." % count
 	else:
 		var queued := count - now
-		_launch_hint.text = "%d launch now%s%s." % [now, ", %d queued (%s)" % [queued, (deck_reason.to_lower() if deck_reason != "" else "%s committed" % AviationManager.launch_spots_name(_base)) if deck_reason != "" or spots < count else "awaiting ready aircraft"] if queued > 0 else "", ", relieved from ready reserve" if _relief.button_pressed else ""]
+		_launch_hint.text = "%d launch now%s%s." % [now, ", %d queued (%s)" % [queued, (deck_reason.to_lower() if deck_reason != "" else "%s committed" % AviationManager.launch_spots_name(_base, spec)) if deck_reason != "" or spots < count else "awaiting ready aircraft"] if queued > 0 else "", ", relieved from ready reserve" if _relief.button_pressed else ""]
 	_launch.tooltip_text = _launch_hint.text
 	_count.set_value_no_signal(count)
 
