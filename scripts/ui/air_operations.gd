@@ -876,7 +876,8 @@ func _refresh_launch() -> void:
 	_count.max_value = maximum
 	_count.editable = maximum > 0
 	var count := int(_count.value)
-	_launch.text = "LAUNCH %d × %s" % [count, spec.short_name]
+	# With nothing left to send (just after a launch, say) the button names the type, not "0 ×".
+	_launch.text = "LAUNCH %d × %s" % [count, spec.short_name] if count > 0 else "LAUNCH %s" % spec.short_name
 	_launch.disabled = maximum <= 0 or count <= 0
 	if reason != "" and _accepted_key == _launch_key() and SimClock.sim_time - _accepted_at_s <= ACCEPTED_HINT_S:
 		_launch_hint.text = _accepted_text
@@ -901,7 +902,7 @@ func _refresh_mission_plan(spec: PlatformSpec, ready: int, spots: int, deck_reas
 	_count.max_value = available
 	_count.editable = available > 0
 	var count := mini(int(_count.value), available)
-	_launch.text = "UPDATE %s %d" % [_editing_mission.kind_name(), _editing_mission.id] if _editing_mission != null else "ASSIGN %s · %d" % [AirMission.KIND_LABELS[_mission_kind].to_upper(), count]
+	_launch.text = "UPDATE %s %d" % [_editing_mission.kind_name(), _editing_mission.id] if _editing_mission != null else ("ASSIGN %s · %d" % [AirMission.KIND_LABELS[_mission_kind].to_upper(), count] if count > 0 else "ASSIGN %s" % AirMission.KIND_LABELS[_mission_kind].to_upper())
 	var why := amm.revision_rejection(_base, _planned_order()) if _editing_mission != null else amm.mission_rejection(_base, _mission_kind, _type_id, _station, _target)
 	if why == "":
 		why = amm._intent_rejection(_base, _planned_order())

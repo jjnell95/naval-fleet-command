@@ -6,17 +6,18 @@ extends TestCase
 const CARRIER_WATCH := "res://data/scenarios/cold_war_03_carrier.json"
 const IKE := "USS Dwight D. Eisenhower (CVN 69)"
 const TOMCAT := "cw90_f14a"
+const NORTHERN_PASSAGE := "res://data/scenarios/northern_passage.json"
 
 var _sim: Simulation
 var _holder: Control
 
 
-func _load() -> Simulation:
+func _load(path := CARRIER_WATCH) -> Simulation:
 	SimClock.set_paused(true)
 	_sim = Simulation.new()
 	_sim.seed_override = 7
 	(Engine.get_main_loop() as SceneTree).root.add_child(_sim)
-	assert_true(_sim.load_scenario(CARRIER_WATCH), CARRIER_WATCH)
+	assert_true(_sim.load_scenario(path), path)
 	_sim.ai_enabled = false
 	return _sim
 
@@ -213,5 +214,34 @@ func test_a_new_engagement_starts_with_a_clean_receipt() -> void:
 	ui.clear_selection()
 	assert_eq(ui._receipt.text, AirOperations.RECEIPT_PROMPT)
 	assert_true(not ui._station.is_finite(), "the station goes with the engagement")
+	ui.free()
+	_done()
+
+
+# --- An accepted launch is answered with what was done ------------------------------------
+
+## The first launch of the first operation: the destroyer's only helicopter goes, and the dialog
+## says so in its footer and hint, while the button names the type instead of "LAUNCH 0 ×" over
+## "Requested Aircraft Not Ready".
+func test_an_accepted_launch_shows_the_receipt_not_a_refusal() -> void:
+	_load(NORTHERN_PASSAGE)
+	var ship := _unit("USS Truxtun (DDG 103)")
+	assert_true(ship != null and not ship.stowed_aircraft().is_empty(), "the destroyer carries a ready helicopter")
+	var ui := _dialog(Vector2(1280, 720))
+	ui.order_requested.disconnect(ui.order_requested.get_connections()[0]["callable"])
+	ui.order_requested.connect(func(base: Unit, order: Order) -> void:
+		var before := base.launch_spots_busy()
+		var ok := _sim.unit_manager.issue_order(base, order)
+		ui.show_receipt("%s: launching %d of %d × MH-60R." % [base.callsign, base.launch_spots_busy() - before, order.aircraft_count] if ok else "refused", ok))
+	ui.open_for([ship])
+	assert_true(not ui._launch.disabled, "%s / %s" % [ui._launch.text, ui._launch_hint.text])
+	ui._launch_selected()
+	_layout(ui)
+	assert_true(ui._receipt.text.contains("launching 1 of 1"), ui._receipt.text)
+	assert_true(_inside(ui._dialog.get_global_rect(), ui._receipt), "the receipt is in sight")
+	assert_true(not ui._launch.text.contains("0 ×"), ui._launch.text)
+	assert_true(ui._launch.disabled, "nothing left to launch")
+	assert_true(not ui._launch_hint.text.to_lower().contains("not ready"), ui._launch_hint.text)
+	assert_true(ui._launch_hint.text.contains("launching"), ui._launch_hint.text)
 	ui.free()
 	_done()
