@@ -335,3 +335,37 @@ func test_a_two_corner_scenario_patrol_takes_a_new_speed_and_a_commanded_return(
 	assert_true(UnitManager.patrol_rejection(ship, two) != "")
 	um.free()
 	wm.free()
+
+
+# --- A low run over broken high ground ---------------------------------------------------------
+
+func test_a_jet_ordered_low_keeps_her_clearance_over_ridges_with_sea_between() -> void:
+	Terrain.clear()
+	var ridges := []
+	for y0: float in [10.0, 13.0, 16.0]:
+		ridges.append({"id": "ridge%d" % int(y0), "name": "Ridge", "elevation_m": 450.0, "points_nm": [[-10, y0], [10, y0], [10, y0 + 1.2], [-10, y0 + 1.2]]})
+	Terrain.load_from({"terrain": {"land": ridges}})
+	var jet := Unit.new()
+	jet.spec = DataDB.platform("usn_fighter_fa18e")
+	jet.faction = "BLUE"
+	jet.flight_state = Unit.FlightState.AIRBORNE
+	jet.fuel_s = jet.spec.endurance_s
+	jet.position = Vector2(0.5, -20.0)
+	jet.heading_deg = 0.0
+	jet.ordered_heading_deg = 0.0
+	jet.speed_kn = 450.0
+	jet.ordered_speed_kn = 450.0
+	jet.altitude_m = 150.0
+	jet.ordered_altitude_m = 150.0
+	jet.waypoints.assign([Vector2(0.5, 40.0)])
+	var least := INF
+	var over_land := 0
+	for i in 2400:
+		Movement.step(jet, DT)
+		var ground := Terrain.elevation_at(jet.position)
+		if ground > 0.0:
+			over_land += 1
+			least = minf(least, jet.altitude_m - ground)
+	assert_true(over_land > 0, "the run crosses the ridges")
+	assert_true(least >= Movement.TERRAIN_CLEARANCE_FIXED_WING_M - 5.0, "she keeps her clearance over every ridge (least %.0f m)" % least)
+	Terrain.clear()

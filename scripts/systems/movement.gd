@@ -298,11 +298,11 @@ static func _drop_stranded_waypoints(u: Unit) -> void:
 
 
 ## Over land an aircraft keeps at least this much height above the highest ground under it and on
-## the next minute or two of its track, whatever altitude it was ordered: a low run is flown over
+## the next two minutes of its track, whatever altitude it was ordered: a low run is flown over
 ## the sea, not through a hillside. GAMEPLAY_ESTIMATE.
 const TERRAIN_CLEARANCE_FIXED_WING_M := 150.0
 const TERRAIN_CLEARANCE_ROTARY_M := 60.0
-const TERRAIN_LOOKAHEAD_S: Array[float] = [60.0, 120.0]
+const TERRAIN_LOOKAHEAD_S := 120.0
 
 
 ## Aircraft climb and descend at a fixed rate. Anything that cannot fly stays on the surface.
@@ -324,15 +324,15 @@ static func _step_altitude(u: Unit, dt: float) -> void:
 	u.altitude_m = maxf(u.altitude_m, minf(Terrain.elevation_at(u.position), u.spec.max_altitude_m))
 
 
-## The highest ground under an aircraft and along the next stretch of its track. Zero at sea.
+## The highest ground under an aircraft and anywhere along the next stretch of its track, every
+## cell of it and not a few points on it: a gap of sea between two ridges does not let her down
+## into the second, and the height she has taken for a ridge is kept until she is over and past
+## it. Zero at sea.
 static func terrain_under(u: Unit) -> float:
 	if Terrain.is_empty():
 		return 0.0
-	var ground := Terrain.elevation_at(u.position)
-	var along := Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn)
-	for seconds: float in TERRAIN_LOOKAHEAD_S:
-		ground = maxf(ground, Terrain.elevation_at(u.position + along * seconds))
-	return ground
+	var along := Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn) * TERRAIN_LOOKAHEAD_S
+	return Terrain.highest_ground_along(u.position, u.position + along)
 
 
 ## Boats change depth at a fixed rate. Anything that cannot submerge simply stays at zero. The
