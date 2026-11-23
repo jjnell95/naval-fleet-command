@@ -360,7 +360,7 @@ func effectiveness() -> int:
 ## reads without them.
 static func assessment_text(a: Dictionary) -> String:
 	var parts := PackedStringArray()
-	parts.append("Task %d/%d%s" % [int(round(float(a["task"]))), int(TASK_WEIGHT), "" if bool(a.get("commanded", true)) else " (no orders given)"])
+	parts.append("Task %d/%d%s" % [int(round(float(a["task"]))), int(TASK_WEIGHT), "" if bool(a.get("commanded", true)) else " (no orders)"])
 	parts.append("Force %d/%d" % [int(round(float(a["force"]))), int(FORCE_WEIGHT)])
 	parts.append("Attrition %d/%d" % [int(round(float(a["attrition"]))), int(ATTRITION_WEIGHT)])
 	if int(a.get("bonus_total", 0)) > 0:

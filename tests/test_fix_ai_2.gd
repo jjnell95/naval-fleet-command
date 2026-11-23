@@ -80,7 +80,7 @@ func test_a_victory_won_without_a_single_order_grades_well_below_a_commanded_one
 	var idle := mm.assessment()
 	assert_true(not bool(idle["commanded"]), "nobody gave an order")
 	assert_true(int(idle["percent"]) < 40, "a victory nobody commanded grades under 40, not %d" % int(idle["percent"]))
-	assert_true(MissionManager.assessment_text(idle).contains("no orders given"), "the debrief says why: %s" % MissionManager.assessment_text(idle))
+	assert_true(MissionManager.assessment_text(idle).contains("(no orders)"), "the debrief says why: %s" % MissionManager.assessment_text(idle))
 	_free(h)
 	h = _passage()
 	mm = h[1]
