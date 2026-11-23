@@ -3178,10 +3178,11 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 			voice.say(_ack_event(order), reporter, {"track": order.track})
 		if order.type == Order.Type.SET_ROE and order.roe == Unit.Roe.FREE:
 			radio.flash("Weapons free permits firing on unidentified contacts. Neutral sinkings can fail the mission.", "warn")
-		if order.type == Order.Type.MOVE and not Terrain.is_empty() and not receipt.begins_with("Queued for submarine"):
+		if order.type == Order.Type.MOVE and not order.append and not receipt.begins_with("Queued for submarine"):
+			# A destination behind a headland is reached by a route round it, laid as extra legs.
 			for u in map.selected:
-				if u.faction == simulation.player_faction and u.needs_sea_room() and Terrain.first_land_contact(SubmarineComms.reported_position(u), order.target_pos) >= 0.0:
-					radio.flash("Land on that course — following the coast", "warn", u)
+				if u.faction == simulation.player_faction and u.needs_sea_room() and u.waypoints.size() > 1:
+					radio.flash("Routing round the coast", "info", u)
 					break
 	elif attempted > 0:
 		# The platform says it cannot; the console says why.
@@ -3211,7 +3212,12 @@ func _report_orders(order: Order, accepted: int, refused: int, receipt_override 
 				reason = UnitManager.engage_rejection(map.selected[0], order)
 			radio.advise("Cannot fire at track %s · %s" % [DataDisplay.track_number_for_track(order.track), reason if reason != "" else "no firing solution"])
 			return
-		radio.advise("Order refused by %d selected platform%s%s%s" % [refused, "" if refused == 1 else "s", " — pick a point in the water" if order.type == Order.Type.MOVE else "", " · %s" % refusal if refusal != "" and order.type != Order.Type.MOVE else ""])
+		var why := ""
+		if order.type == Order.Type.MOVE:
+			why = " — %s" % order.receipt.to_lower() if order.receipt != "" else " — pick a point in the water"
+		elif refusal != "":
+			why = " · %s" % refusal
+		radio.advise("Order refused by %d selected platform%s%s" % [refused, "" if refused == 1 else "s", why])
 		if order.type == Order.Type.MOVE:
 			map.add_effect(order.target_pos, "refused")
 			_world_view.add_effect(order.target_pos, "refused")

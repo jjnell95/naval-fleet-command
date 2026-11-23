@@ -534,3 +534,29 @@ func test_simulation_reports_reach_the_radio() -> void:
 	sim.weapon_manager.torpedo_decoyed.emit(null, enemy)
 	assert_eq(main.radio.journal.size(), before, "nothing is said for the other side")
 	_close(main)
+
+
+func test_a_move_round_the_coast_says_it_routes_and_a_refused_move_says_why() -> void:
+	var main := _open("northern_passage.json")
+	var guide := _own(main, "Northern Light")
+	main.map.select_units([guide])
+	var ashore := Vector2.INF
+	var behind := Vector2.INF
+	for ring in range(1, 40):
+		for step in 24:
+			var p: Vector2 = guide.position + Vector2.from_angle(TAU * step / 24.0) * ring * 5.0
+			if ashore == Vector2.INF and Terrain.is_land(p):
+				ashore = p
+			elif behind == Vector2.INF and not Terrain.is_land(p) and Terrain.first_land_contact(guide.position, p) >= 0.0 and Terrain.reachable_by_sea(guide.position, p):
+				behind = p
+	assert_true(ashore != Vector2.INF and behind != Vector2.INF, "the chart has land and water behind it near the force")
+	if behind != Vector2.INF:
+		var from := main.radio.journal.size()
+		main._apply_order_to_selection(Order.move(behind))
+		assert_true(guide.waypoints.size() > 1, "the guide is routed round the land")
+		assert_true(_said(main, "Routing round the coast", from), "and the radio says she is routed round: %s" % str(main.radio.journal.slice(from)))
+		assert_true(not _said(main, "following the coast", from), "not that she will follow the coast")
+	if ashore != Vector2.INF:
+		main._apply_order_to_selection(Order.move(ashore))
+		assert_true(main.radio.last_advice.contains("destination is ashore"), "a move onto land says why it is refused: %s" % main.radio.last_advice)
+	_close(main)
