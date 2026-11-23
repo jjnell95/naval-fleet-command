@@ -266,3 +266,50 @@ func test_a_salvo_shot_down_over_minutes_is_one_radio_line() -> void:
 	if lines.size() == 1:
 		assert_true(str(lines[0]).contains("%d × Tomahawk at track" % lost.size()), "naming every round lost: %s" % lines[0])
 	_close(main)
+
+
+# --- Gunfire is called gunfire, not a missile --------------------------------------------------
+
+const GUN_SCENARIO := {"id": "test_gunfire_call", "name": "Gunfire Call", "player_faction": "BLUE", "environment": {"sea_state": 2}, "map": {"center_nm": [0, 0], "extent_nm": 60},
+	"objectives": {"text": "Range", "victory": [{"id": "hold", "type": "time_elapsed", "seconds": 60000}], "loss": []}, "units": [
+	{"platform": "usn_ddg_burke_iii", "callsign": "USS Target", "faction": "BLUE", "position_nm": [0, 0], "speed_kn": 0},
+	{"platform": "rfn_ddg_udaloy", "callsign": "Gunner", "faction": "RED", "position_nm": [0, 7], "heading_deg": 90.0, "speed_kn": 0}]}
+
+
+func test_an_enemy_gun_shoot_is_called_gunfire_everywhere_the_commander_reads() -> void:
+	for manual: bool in [false, true]:
+		var path := "user://test-gunfire-%d.json" % Time.get_ticks_usec()
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		file.store_string(JSON.stringify(GUN_SCENARIO))
+		file.close()
+		var main := _open(path, GameOptions.classic() if manual else GameOptions.normal(), 3)
+		DirAccess.remove_absolute(path)
+		var sim := main.simulation
+		var own: Unit = sim.unit_manager.get_engageable_units("BLUE")[0]
+		var enemy: Unit = sim.unit_manager.get_engageable_units("RED")[0]
+		sim.track_manager.observe("RED", own, own.position, 1, 1, SimClock.sim_time, 1, 10)
+		var t := sim.track_manager.find_track("RED", own)
+		t.identity = "HOSTILE"
+		var from := main.radio.journal.size()
+		assert_true(sim.weapon_manager.launch(enemy, DataDB.weapon("ak100_gun"), t, 6, SimClock.sim_time), "the enemy gun opens fire")
+		var banner := ""
+		var guide := ""
+		var kind := ""
+		for step in 60:
+			SimClock.advance(0.5)
+			main._process(0.016)
+			if main.data_display.threat_text != "":
+				banner = main.data_display.threat_text
+				guide = main._command_guide._body.text
+				for w: Weapon in sim.weapon_manager.in_flight:
+					if w.faction == "RED":
+						kind = DefenceBoard.threat_kind(w)
+				break
+		var said := " | ".join(main.radio.journal.slice(from))
+		var mode := "manual" if manual else "automatic"
+		assert_true(said.contains("UNDER GUNFIRE"), "%s: the radio calls gunfire: %s" % [mode, said])
+		assert_true(not said.contains("INCOMING") and not said.contains("MISSILE"), "%s: and no missile: %s" % [mode, said])
+		assert_true(banner.begins_with("UNDER GUNFIRE"), "%s: the banner says gunfire: '%s'" % [mode, banner])
+		assert_eq(kind, "GUN", "%s: the defence board's row is a gun round" % mode)
+		assert_true(guide.contains("gunfire") and not guide.contains("missile"), "%s: the guide does not send the commander to the missile defence: '%s'" % [mode, guide])
+		_close(main)

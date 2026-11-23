@@ -434,7 +434,8 @@ func _process(delta: float) -> void:
 	if SimClock.paused:
 		_flush_round_reports(false, true)
 	var threats := _commander_inbound()
-	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager)
+	var gunfire := not threats.is_empty() and threats.all(func(e: Dictionary) -> bool: return (e["weapon"] as Weapon).threat_class() == "shell")
+	_command_guide.refresh(simulation.unit_manager, options, not threats.is_empty(), map.selected_track, not threats.is_empty() and (threats[0]["weapon"] as Weapon).spec.is_torpedo(), simulation.mission_manager, gunfire)
 	_command_guide.visible = _command_taken and _command_guide.enabled and not _has_visible_modal() and not status_boards.visible and not _views_swapped and not _world_full
 	_command_guide.position = map.global_position - global_position + Vector2(14, 14)
 	if threats.is_empty():
