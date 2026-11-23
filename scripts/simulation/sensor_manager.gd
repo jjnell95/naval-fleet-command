@@ -39,7 +39,9 @@ var threat_manager: ThreatManager
 var weapon_manager: WeaponManager
 var aviation_manager: AviationManager
 var rng := RandomNumberGenerator.new()
-var _accum := 0.0  # time towards the next slice
+## Time towards the next slice. An engagement starts three slices short, so its first slice runs a
+## second in, where its first whole cycle did: the first look at anything comes when it always has.
+var _accum := SLICE_DT - SENSOR_DT
 ## The slice of the cycle that runs next, and when the cycle it belongs to began.
 var _slice := 0
 var _cycle_at := 0.0
@@ -164,7 +166,7 @@ class CycleFacts:
 
 ## A new engagement starts a new cycle.
 func reset() -> void:
-	_accum = 0.0
+	_accum = SLICE_DT - SENSOR_DT
 	_slice = 0
 	_cycle_at = 0.0
 	_plan = []
