@@ -3,8 +3,13 @@ extends Control
 ## Horizontal readiness bars for one unit: hull, subsystems, fuel, decoys. Drawn, not text, so
 ## the state of a ship is readable at a glance from across the room.
 
-var unit: Unit
+var unit: Unit:
+	set(value):
+		unit = value
+		refresh()
 var _font: Font
+## What the bars were last drawn from, so a frame in which nothing has changed draws nothing.
+var _drawn: Array = []
 
 const ROW_H := 17.0
 
@@ -15,7 +20,21 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	refresh()
+
+
+## Asks for a redraw only when what the bars show has changed: the unit, a value, a stock count
+## or the repair mark. Returns whether it asked.
+func refresh() -> bool:
+	var state: Array = [unit, unit != null and Damage.repairing(unit)]
+	for r: Dictionary in rows_for(unit):
+		state.append(r["value"])
+		state.append(r.get("text", ""))
+	if state == _drawn:
+		return false
+	_drawn = state
 	queue_redraw()
+	return true
 
 
 func rows_for(u: Unit) -> Array:

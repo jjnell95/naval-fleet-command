@@ -108,3 +108,37 @@ func test_a_contact_seen_beyond_the_view_is_not_drawn_as_its_plot_inside_it() ->
 	assert_true(_keys(built).find("t:T1001") < 0, "so its plot does not stand in for it")
 	um.free()
 	tm.free()
+
+
+# --- Panels that redraw on change --------------------------------------------------------
+
+func test_readiness_bars_redraw_only_when_a_value_they_show_changes() -> void:
+	var bars := ReadinessBars.new()
+	var ship := _unit("cw90_ticonderoga", "BLUE", Vector2.ZERO)
+	bars.unit = ship
+	assert_true(not bars.refresh(), "setting the unit has already asked for its first drawing")
+	for i in 5:
+		assert_true(not bars.refresh(), "a frame in which nothing changed draws nothing")
+	ship.health = ship.spec.health * 0.6
+	assert_true(bars.refresh(), "a hit is drawn")
+	assert_true(not bars.refresh(), "once")
+	ship.components["sensors"] = 0.4
+	assert_true(bars.refresh(), "so is a damaged subsystem")
+	bars.unit = null
+	assert_true(not bars.refresh(), "clearing the unit asked for its own redraw")
+	bars.free()
+
+
+func test_the_portrait_redraws_only_when_the_platform_or_its_framing_changes() -> void:
+	var card := PlatformPortrait.new()
+	assert_true(card.refresh(), "the first frame draws the empty card")
+	for i in 5:
+		assert_true(not card.refresh(), "and nothing more while nothing changes")
+	card.spec_override = DataDB.platform("cw90_slava")
+	assert_true(not card.refresh(), "choosing a platform asked for its drawing as it was chosen")
+	assert_eq(card.shown_spec().id, "cw90_slava")
+	card.framed = true
+	assert_true(not card.refresh(), "so did framing it")
+	card.spec_override = DataDB.platform("cw90_slava")
+	assert_true(not card.refresh(), "the same platform again is no change")
+	card.free()

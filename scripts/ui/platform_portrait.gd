@@ -2,12 +2,23 @@ class_name PlatformPortrait
 extends Control
 ## Lit recognition card for an owned unit or a public catalogue entry. Falls back to the
 ## legacy profile, then a code-drawn category silhouette when presentation art is unavailable.
-var show_captions := true
+var show_captions := true:
+	set(value):
+		show_captions = value
+		refresh()
 var panel: UnitPanel
-var spec_override: PlatformSpec  # shown instead of the panel's selection (editor palette preview)
+var spec_override: PlatformSpec:  # shown instead of the panel's selection (editor palette preview)
+	set(value):
+		spec_override = value
+		refresh()
 ## Draw the three-line frame round the card, as on the front end.
-var framed := false
+var framed := false:
+	set(value):
+		framed = value
+		refresh()
 var _font: Font
+## What the card was last drawn from, so a frame in which nothing has changed draws nothing.
+var _drawn: Array = []
 
 
 func _ready() -> void:
@@ -16,8 +27,29 @@ func _ready() -> void:
 	_font = UITheme.body_font()
 
 
+## The selection lives on the panel, which may change it without telling the card.
 func _process(_delta: float) -> void:
+	refresh()
+
+
+## Asks for a redraw only when the platform shown or the way it is shown has changed. A new size
+## redraws a Control by itself. Returns whether it asked.
+func refresh() -> bool:
+	var state: Array = [shown_spec(), show_captions, framed]
+	if state == _drawn:
+		return false
+	_drawn = state
 	queue_redraw()
+	return true
+
+
+## The platform on the card: the override, else the panel's first selected unit's.
+func shown_spec() -> PlatformSpec:
+	if spec_override != null:
+		return spec_override
+	if panel != null and not panel._units.is_empty() and panel._units[0] != null:
+		return (panel._units[0] as Unit).spec
+	return null
 
 
 func _draw() -> void:
@@ -28,10 +60,7 @@ func _draw() -> void:
 		var r := size.x * (0.18 + i * 0.16)
 		draw_arc(Vector2(size.x * .55, size.y * .6), r, 0, TAU, 72, Color(UITheme.COL_ACCENT, 0.07), 1, true)
 	draw_line(Vector2(14, size.y - 26), Vector2(size.x - 14, size.y - 26), Color(UITheme.COL_ACCENT, 0.16), 1)
-	var unit: Unit = null
-	if panel != null and not panel._units.is_empty():
-		unit = panel._units[0]
-	var spec: PlatformSpec = spec_override if spec_override != null else (unit.spec if unit != null else null)
+	var spec := shown_spec()
 	var domain := spec.domain if spec != null else "surface"
 	var category := spec.category.to_lower() if spec != null else "destroyer"
 	var w := minf(size.x * 0.78, 620.0)
