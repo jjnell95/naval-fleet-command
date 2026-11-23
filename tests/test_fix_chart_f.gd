@@ -97,3 +97,35 @@ func test_hits_on_a_neutral_are_civilian_incidents_not_hits_scored() -> void:
 	CommanderLog.path_override = log_path
 	SimClock.set_speed_index(0)
 	SimClock.set_paused(true)
+
+
+# --- The overview map keeps its names off the force --------------------------------------------
+
+func test_the_overview_map_prints_no_place_name_across_an_own_ship() -> void:
+	var preview := ScenarioPreview.new()
+	_root().add_child(preview)
+	# The own symbol's frame and heading tick reach this far from its centre at the preview's scale.
+	var reach := (MapSymbols.RADIUS + MapSymbols.HEADING_TICK) * 0.8
+	for file in DirAccess.get_files_at("res://data/scenarios"):
+		if not file.ends_with(".json"):
+			continue
+		var sc: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/scenarios/" + file))
+		if not sc is Dictionary or not (sc as Dictionary).has("map"):
+			continue
+		preview.set_scenario(sc)
+		for side in [180.0, 240.0, 300.0, 380.0]:
+			preview.size = Vector2(side, side)
+			var layout := preview.label_layout()
+			var names := []
+			for placed: Dictionary in layout["labels"]:
+				names.append(placed["text"])
+				var rect: Rect2 = placed["rect"]
+				for unit: Dictionary in layout["force"]:
+					var ship := Rect2((unit["point"] as Vector2) - Vector2.ONE * reach, Vector2.ONE * reach * 2.0)
+					assert_true(not ship.intersects(rect), "%s: '%s' prints clear of the ship at %s on a %d px map" % [file, placed["text"], unit["point"], side])
+			if file == "aegis_bastion.json" and side >= 240.0:
+				# The desk's first operation opens with the force off the cape: the name moves
+				# clear of the ships rather than leaving the map unnamed.
+				assert_true(not (layout["force"] as Array).is_empty(), "the force is on the map at %d px" % side)
+				assert_true(names.has("NORTH CAPE"), "the cape the force is rounding is still named at %d px: %s" % [side, names])
+	preview.free()
