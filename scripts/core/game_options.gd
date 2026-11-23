@@ -194,7 +194,7 @@ func summary() -> String:
 func summary_lines() -> PackedStringArray:
 	var out := PackedStringArray()
 	out.append("Time: up to %d× (%s)" % [int(ceiling()), ", ".join(_scale_names())])
-	out.append("Missile defence: %s" % ("manual — ships fire SAMs only when ordered (X); close-in guns stay automatic" if manual_missile_defence() else "automatic"))
+	out.append("Missile defence: %s" % ("manual — area SAMs fire only when ordered (X); close-in guns and point-defence missiles fire by themselves" if manual_missile_defence() else "automatic"))
 	out.append("Auto-attack after investigation: %s" % ("on, within the rules of engagement" if engage_on_hostile_id else "off"))
 	out.append("Submarine communications: %s" % ("150 ft / 46 m communication windows (gameplay abstraction)" if submarine_comms else "immediate orders"))
 	out.append("Crew voice %s · ambient sound %s" % ["on" if voice else "off", "on" if ambient else "off"])

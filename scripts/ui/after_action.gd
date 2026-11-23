@@ -17,11 +17,15 @@ var _body: RichTextLabel
 var _timeline: RichTextLabel
 var _review: Button
 var _card: PanelContainer
+var _stack: VBoxContainer
 var _tiles: Dictionary = {}  # key -> {value: Label, note: Label}
 
 const TILE_NOTE_WIDTH := 96.0
 ## A half-line of space before a section heading, where a whole blank line cost a line of results.
 const GAP := "[font_size=6] [/font_size]\n"
+## The neutrals the debrief names one by one, and the strikes it lists for each, before it counts the rest.
+const MAX_NAMED_NEUTRALS := 5
+const MAX_HITS_NAMED := 3
 
 
 func _ready() -> void:
@@ -50,6 +54,7 @@ func _ready() -> void:
 		margin.add_theme_constant_override("margin_" + side, 16)
 	card.add_child(margin)
 	var v := VBoxContainer.new()
+	_stack = v
 	v.add_theme_constant_override("separation", 10)
 	margin.add_child(v)
 
@@ -149,6 +154,11 @@ func _fit_to_screen() -> void:
 	_title.add_theme_font_size_override("font_size", 40 if compact else 52)
 	for key: String in _tiles:
 		(_tiles[key]["value"] as Label).add_theme_font_size_override("font_size", 24 if compact else 30)
+	# Tighter spacing there too, so a results column whose grade and incidents wrap to a second
+	# line still reads whole at 1280 x 720.
+	_stack.add_theme_constant_override("separation", 6 if compact else 10)
+	for column: RichTextLabel in [_body, _timeline]:
+		column.add_theme_constant_override("line_separation", 1 if compact else 3)
 
 
 static func card_size(screen: Vector2) -> Vector2:
@@ -251,7 +261,7 @@ func show_report(result: String, summary: String, stats: Dictionary, objectives:
 		lines.append("%s   %s%s" % ["[color=%s][font_size=12]DONE[/font_size][/color]" % UITheme.HEX_INK_GREEN if mo.complete else "[color=%s][font_size=12]OPEN[/font_size][/color]" % UITheme.HEX_INK_AMBER, _safe(mo.text), "  (bonus)" if mo.optional else ""])
 	for mo: MissionObjective in loss_objectives:
 		lines.append("[color=%s]%s[/color]   %s" % [UITheme.HEX_INK_RED if mo.complete else UITheme.HEX_INK_DIM, "FAILED" if mo.complete else "AVOIDED", _safe(mo.text)])
-	lines.append(GAP + UITheme.section_bb("Civilian incidents", true) + "   " + ("No neutral vessels sunk by your force" if civilian_incidents.is_empty() else "[color=%s]%d neutral vessel(s) sunk by your force: %s[/color]" % [UITheme.HEX_INK_RED, civilian_incidents.size(), _safe(", ".join(civilian_incidents))]))
+	lines.append(GAP + UITheme.section_bb("Civilian incidents", true) + "   " + civilian_text(civilian_incidents, assessment.get("civilian_incidents", [])))
 	lines.append(UITheme.section_bb("Losses", true) + "   " + ("None" if losses.is_empty() else "[color=%s]%s[/color]" % [UITheme.HEX_INK_RED, _safe(", ".join(losses))]))
 	_body.text = "\n".join(lines)
 	# The exchange and the log share the second column: the exchange heads it, and the log under
@@ -281,6 +291,50 @@ func show_report(result: String, summary: String, stats: Dictionary, objectives:
 
 func default_focus() -> Control:
 	return _body
+
+
+## The civilian incidents the grade charges for: every hit the force landed on a neutral, by
+## vessel in the order first struck, with the weapon and the mission minute of each (a salvo's
+## rounds that struck together counted as one entry), and the neutrals sunk. `hits` is the
+## assessment's record ({time_s, callsign, weapon}); a report from an older build has none and
+## names only the sinkings.
+static func civilian_text(sunk: PackedStringArray, hits: Array) -> String:
+	if sunk.is_empty() and hits.is_empty():
+		return "No hits on neutral vessels by your force"
+	var parts := PackedStringArray()
+	if not hits.is_empty():
+		var order := PackedStringArray()
+		var by_vessel := {}  # callsign -> [[weapon, minute, count], ...]
+		for h: Dictionary in hits:
+			var name := str(h.get("callsign", ""))
+			if name == "":
+				name = "unidentified neutral"
+			if not by_vessel.has(name):
+				order.append(name)
+				by_vessel[name] = []
+			var entries: Array = by_vessel[name]
+			var weapon := str(h.get("weapon", ""))
+			var minute := int(float(h.get("time_s", 0.0)) / 60.0)
+			if not entries.is_empty() and entries[-1][0] == weapon and entries[-1][1] == minute:
+				entries[-1][2] += 1
+			else:
+				entries.append([weapon, minute, 1])
+		var named := PackedStringArray()
+		for i in mini(order.size(), MAX_NAMED_NEUTRALS):
+			var entries: Array = by_vessel[order[i]]
+			var shown := PackedStringArray()
+			for e: Array in entries.slice(0, MAX_HITS_NAMED):
+				var what := ("%s ×%d" % [e[0], e[2]] if e[2] > 1 else str(e[0])) if e[0] != "" else ("%d hits" % e[2] if e[2] > 1 else "hit")
+				shown.append("%s at %d min" % [what, e[1]])
+			if entries.size() > MAX_HITS_NAMED:
+				shown.append("%d more" % (entries.size() - MAX_HITS_NAMED))
+			named.append("%s (%s)" % [order[i], ", ".join(shown)])
+		if order.size() > MAX_NAMED_NEUTRALS:
+			named.append("%d other vessels" % (order.size() - MAX_NAMED_NEUTRALS))
+		parts.append("%d %s on a neutral: %s" % [hits.size(), "hit" if hits.size() == 1 else "hits", ", ".join(named)])
+	if not sunk.is_empty():
+		parts.append("%d neutral %s sunk: %s" % [sunk.size(), "vessel" if sunk.size() == 1 else "vessels", ", ".join(sunk)])
+	return "[color=%s]%s[/color]" % [UITheme.HEX_INK_RED, _safe(" · ".join(parts))]
 
 
 static func _safe(value: String) -> String:

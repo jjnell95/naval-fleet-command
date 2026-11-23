@@ -414,7 +414,7 @@ func test_the_reference_runs_by_nation_under_headings_counts_properly_and_opens_
 			assert_true(not nations.has(p.nation), "%s is listed together, not in two places" % p.nation)
 			nations.append(p.nation)
 			var row := lib._rows.find(i)
-			assert_true(row > 0 and lib._rows[row - 1] == -1 and lib._list.get_item_text(row - 1) == p.nation.to_upper(), "with its heading over it: %s" % p.nation)
+			assert_true(row > 0 and lib._rows[row - 1] == -1 and lib._list.get_item_text(row - 1) == PlatformLibrary.group_name(p, false).to_upper(), "with its heading over it: %s" % p.nation)
 			assert_true(not lib._list.is_item_selectable(row - 1), "a heading is not an entry")
 			last = p.nation
 	assert_eq(lib._count.text, "%d PLATFORM CLASSES" % DataDB.all_platforms().size())
