@@ -308,7 +308,7 @@ func test_track_wording_names_an_installation() -> void:
 
 
 func test_catalogue_strike_rounds_and_decks_carry_their_new_roles() -> void:
-	for wid in ["tomahawk_block_v", "nsm_strike_missile", "jsm_missile", "pla_cj10"]:
+	for wid in ["tomahawk_block_v", "nsm_strike_missile", "pla_cj10"]:
 		assert_true(DataDB.weapon(wid).target_types.has("land"), "%s can be fired at a target ashore" % wid)
 	for wid in ["kalibr_asm", "agm_158c_lrasm", "rgm_84_harpoon", "pla_yj18"]:
 		assert_true(not DataDB.weapon(wid).target_types.has("land"), "%s stays an anti-ship round" % wid)

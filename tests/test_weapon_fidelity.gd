@@ -38,8 +38,8 @@ func test_swept_forward_cone_rejects_astern_and_abeam_baskets() -> void:
 	assert_true(is_finite(WeaponManager.first_seeker_contact_fraction(Vector2.ZERO, Vector2.ZERO, Vector2(0, 1), 2.0, 0.0, 35.0)), "stationary seeker and reacquisition share the same geometry")
 
 
-func test_initial_acquisition_can_find_neutral_and_friendly_traffic() -> void:
-	for faction: String in ["NEUTRAL", "BLUE"]:
+func test_initial_acquisition_can_find_neutral_traffic_but_never_its_own_side() -> void:
+	for faction: String in ["NEUTRAL", "GREEN", "BLUE"]:
 		var wm := WeaponManager.new()
 		wm.unit_manager = UnitManager.new()
 		var civilian := _shooter()
@@ -53,7 +53,10 @@ func test_initial_acquisition_can_find_neutral_and_friendly_traffic() -> void:
 		w.position = Vector2(0, 0.5)
 		w.aim_point = Vector2(0, 2)
 		wm._try_acquire(w, Vector2.ZERO)
-		assert_true(w.acquired == civilian, "the seeker cannot read faction or a protected plot identity")
+		if faction == "BLUE":
+			assert_true(w.acquired == null, "a round is told about its own side before it leaves the rail")
+		else:
+			assert_true(w.acquired == civilian, "the seeker cannot read a protected plot identity")
 		wm.unit_manager.free()
 		wm.free()
 
@@ -102,8 +105,13 @@ func test_semi_active_guidance_still_requires_illumination() -> void:
 	var round := Weapon.new()
 	round.spec = spec
 	round.shooter = shooter
+	round.aim_point = Vector2(0, 50)
 	shooter.radar_on = false
+	# A missile fired at an aircraft coasts a moment on its last solution, then is lost.
 	wm._step(round, 0.25)
+	assert_eq(round.dead_reason, "", "one missed look is coasted through")
+	for i in int(WeaponManager.INTERCEPT_COAST_S / 0.25) + 1:
+		wm._step(round, 0.25)
 	assert_eq(round.dead_reason, "GUIDANCE LOST")
 	wm.free()
 

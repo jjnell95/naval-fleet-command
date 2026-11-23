@@ -13,6 +13,8 @@ signal pause_requested
 signal scale_step_requested(step: int)
 signal messages_requested
 signal threat_requested
+## A right-click on the read-out: the menu of whatever it is showing, at this viewport position.
+signal platform_menu_requested(viewport_pos: Vector2)
 
 const COL_BG := Color("0f1837")
 const COL_TITLE := Color("3a7fff")
@@ -251,6 +253,11 @@ static func reach_spans(u: Unit) -> Array:
 	var best := {}
 	for w in u.weapons:
 		best[w.type] = maxf(float(best.get(w.type, 0.0)), w.max_range_nm)
+	# Rocket-thrown and tube torpedoes do one job, anti-submarine: a hull with both states the one
+	# farthest reach, so the line keeps to one row on the biggest loadouts.
+	if best.has("asw_rocket") and best.has("torpedo"):
+		best["asw_rocket"] = maxf(float(best["asw_rocket"]), float(best["torpedo"]))
+		best.erase("torpedo")
 	var spans: Array = []
 	for job: Array in REACH_JOBS:
 		if best.has(job[1]):
@@ -358,10 +365,21 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null, group_att
 				return "Engage (%d × %s queued)" % [queued, spec.compact_name()]
 	if u.investigation_track != null:
 		return "Investigate track %s%s" % [track_number_for_track(u.investigation_track), " · then station" if u.auto_return and u.has_station() else ""]
+	var found := ""
 	if u.investigation_result != "":
-		return "Track %s: %s%s" % [MapSymbols.track_number(u.investigation_track_id), u.investigation_result, _off_station_hint(u)]
-	if u.attack_result != "":
-		return "Track %s: %s%s" % [MapSymbols.track_number(u.attack_track_id), u.attack_result, _off_station_hint(u)]
+		found = "Track %s: %s" % [MapSymbols.track_number(u.investigation_track_id), u.investigation_result]
+	elif u.attack_result != "":
+		found = "Track %s: %s" % [MapSymbols.track_number(u.attack_track_id), u.attack_result]
+	if found != "":
+		# What the last task found stays readable, but a platform on its way home or back to its
+		# station says that first: the old result is not what it is doing now.
+		if u.is_aircraft() and u.returning:
+			return "%s · %s" % ["Return to base" if u.recovery_base == null else "Return to %s" % u.recovery_base.callsign, found]
+		if u.has_station() and u.on_station():
+			var station := station_name(u.station_label, false) if u.station_label != "" else "station"
+			var arrived := u.patrol_legs_completed > 0 if u.station_kind == "patrol" else u.position.distance_to(u.station_point()) <= 1.0
+			return "%s %s · %s" % ["On" if arrived else "Returning to", station, found]
+		return found + _off_station_hint(u)
 	if u.is_aircraft():
 		match u.flight_state:
 			Unit.FlightState.STOWED:
@@ -391,6 +409,9 @@ static func orders_text(u: Unit, weapon_manager: WeaponManager = null, group_att
 		return "Patrol circuit (%d legs sailed)" % u.patrol_legs_completed
 	if not u.waypoints.is_empty():
 		return "Transit (%d wpt%s)" % [u.waypoints.size(), "" if u.waypoints.size() == 1 else "s"]
+	# Stopped against a coast: why she is not moving comes before where she belongs.
+	if u.coast_blocked:
+		return "Blocked by coast" + _off_station_hint(u)
 	if u.has_station():
 		return "Off station" + _off_station_hint(u)
 	if u.station_note != "":
@@ -458,7 +479,7 @@ static func track_rows(t: Track, ref: Unit, now: float) -> Array:
 	rows.append(_kv("SOURCE", source_readout(t)))
 	rows.append(_kv("CLASSIFICATION", t.class_confidence_text()))
 	rows.append(_kv("FIX", t.solution_text()))
-	if t.class_evidence != "": rows.append(_kv("CLASS EVIDENCE", t.class_evidence))
+	if t.class_evidence != "": rows.append(_kv("CLASS EVIDENCE", class_evidence_readout(t)))
 	if t.identity_evidence != "": rows.append(_kv("IDENTITY EVIDENCE", t.identity_evidence))
 	rows.append(_kv("%DAMAGE", damage_text(t)))
 	if ref != null and ref.alive:
@@ -519,7 +540,14 @@ static func damage_text(t: Track) -> String:
 static func source_readout(t: Track) -> String:
 	if t.source == "intel":
 		return "Contact report" + (", " + t.source_sensor if t.source_sensor != "" else "")
+	if t.source == "visual" or t.source_sensor_id == "lookout":
+		return "%s lookouts" % t.source_platform if t.source_platform != "" else "Visual"
 	var sensor := sensor_label(t.source_sensor)
+	# One catalogued set stands for a ship's whole radar fit. Where its name is for another medium
+	# than the contact's, the plot is credited to the ship's radar and not to a set that would
+	# not have held it.
+	if t.source == "radar" and not sensor_suits_domain(sensor, t.domain):
+		sensor = "radar"
 	if sensor != "" and t.source_platform != "":
 		return "%s %s%s" % [t.source_platform, sensor, _sonar_mode(t.source)]
 	if sensor != "":
@@ -529,6 +557,29 @@ static func source_readout(t: Track) -> String:
 	if t.contributors.is_empty() and t.source not in ["sonobuoy", "buoy"] and t.networked:
 		return "Link"
 	return source_text(t.source)
+
+
+## Whether a radar's catalogue name fits a contact in this medium. Only a name that states one
+## medium and not the other is a misfit ("air-search radar" on a ship, "surface-search radar" on an
+## aircraft); a multifunction or plainly named set fits anything.
+static func sensor_suits_domain(label: String, domain: String) -> bool:
+	var text := label.to_lower()
+	var air := text.contains("air-search") or text.contains("air search") or text.contains("early-warning") or text.contains("fighter radar")
+	var surface := text.contains("surface") or text.contains("navigation") or text.contains("maritime")
+	if domain in ["surface", "land"]:
+		return not air or surface
+	if domain == "air":
+		return not surface or air or text.contains("air")
+	return true
+
+
+## What established the class, as the track's record supports it. A look outranks a library: once
+## the contact's colours have been seen its class was seen with them, whatever an emitter or a
+## sound suggested before or since.
+static func class_evidence_readout(t: Track) -> String:
+	if t.class_evidence != "" and t.identity_evidence == "Visual markings":
+		return "Visual recognition"
+	return t.class_evidence
 
 
 ## A catalogue sensor name trimmed for a readout line: no "AN/" prefix and no fit note in
@@ -796,7 +847,7 @@ func _refresh_details() -> void:
 		_details_signature = signature
 	_details_alert.text = threat_text
 	_details_alert.visible = threat_text != ""
-	_details_clock.text = "%s · %s" % [clock_text(), "PAUSED" if SimClock.paused else "%dx — simulation running" % int(SimClock.multiplier())]
+	_details_clock.text = "%s · %s" % [clock_text(), "PAUSED" if SimClock.paused else "%s — simulation running" % SimClock.rate_text()]
 
 func _font() -> Font:
 	return UITheme.data_font()
@@ -922,8 +973,10 @@ func _draw() -> void:
 		for i in bars:
 			draw_rect(Rect2(bx + i * 9.0, footer_y + line_h * 0.5 - 3.0, 6.0, 6.0), COL_BARS)
 		scale_end = bx + bars * 9.0
-		draw_string(font, Vector2(scale_end + 6.0, footer_y + ascent), "%dx" % int(SimClock.multiplier()), HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2, Color(COL_BARS, 0.85))
-		scale_end += 6.0 + font.get_string_size("%dx" % int(SimClock.multiplier()), HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2).x
+		# The rate asked for, and beside it the rate delivered when the battle is too heavy for it.
+		var rate := SimClock.rate_text()
+		draw_string(font, Vector2(scale_end + 6.0, footer_y + ascent), rate, HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2, Color(COL_ALERT if SimClock.rate_short() else COL_BARS, 0.85))
+		scale_end += 6.0 + font.get_string_size(rate, HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 2).x
 	_scale_rect = Rect2(sx, footer_y, scale_end - sx, line_h)
 	_lamp_rect = Rect2(size.x - MARGIN.x - 11.0, footer_y + line_h * 0.5 - 5.5, 11.0, 11.0)
 	var lit := _lamp_lit()
@@ -1003,6 +1056,9 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 	elif _threat_rect.grow(3.0).has_point(mb.position):
 		threat_requested.emit()
+		accept_event()
+	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		platform_menu_requested.emit(get_global_transform_with_canvas() * mb.position)
 		accept_event()
 
 

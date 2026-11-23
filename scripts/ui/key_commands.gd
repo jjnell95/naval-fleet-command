@@ -50,17 +50,24 @@ const COMMANDS := [
 		["R / P / E", "Radar / active sonar / emission control"],
 		["A", "Status boards: orders, task group, track file, comms"],
 		["F3", "Air operations"],
-		["F1", "Orders and briefing"],
+		["F1", "Orders and briefing; the debrief once the mission has ended"],
 		["F7", "Reference for the selected platform or inspected contact"],
 		["Ctrl+K", "Actions"],
 		["M / Ctrl+E", "Missions / scenario editor"],
-		["Ctrl+F10 twice", "Restart the mission"],
+		["Ctrl+F10", "Restart the mission (asks first)"],
 		["Ctrl+Shift+S / L", "Quicksave / quickload"],
 		["Ctrl+Shift+O", "Saved engagements and autosaves"],
 		["Ctrl+M", "Sound on or off"],
 		["H", "This board"],
 	]],
 ]
+
+## The board keeps this far in from the window's edges, and a description never runs wider than
+## this, so on a wide screen the rows stay short enough to read across.
+const SCREEN_MARGIN := 48.0
+const COLUMN_GAP := 28.0
+const KEY_GAP := 16.0
+const MAX_DESCRIPTION := 560.0
 
 var _panel: PanelContainer
 var _left: VBoxContainer
@@ -86,23 +93,18 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	_panel.add_child(box)
-	var title := Label.new()
-	title.text = "KEY COMMANDS"
-	title.theme_type_variation = "HeaderLabel"
-	box.add_child(title)
+	box.add_child(UITheme.dialog_header("Key commands", close, "any key or click"))
 	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 28)
+	columns.add_theme_constant_override("separation", int(COLUMN_GAP))
 	box.add_child(columns)
 	_left = VBoxContainer.new()
 	_right = VBoxContainer.new()
 	columns.add_child(_left)
 	columns.add_child(_right)
 	_fill()
-	var hint := Label.new()
-	hint.text = "Any key or click to close"
-	hint.theme_type_variation = "DimLabel"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(hint)
+	get_viewport().size_changed.connect(func() -> void:
+		if visible:
+			_fill())
 
 
 func _fill() -> void:
@@ -115,12 +117,71 @@ func _fill() -> void:
 		_add_section(_left if i == 1 else _right, sections[i])
 
 
-## The board's rows with the number keys written for the time ladder in use.
+## The Classic key layout's rows: [keys, what it does, the default row it takes the place of, or
+## "" to add it]. A default row whose key the layout takes for something else and gives no other
+## key is listed in CLASSIC_DROPPED; the number row's time scales give way to the groups.
+const CLASSIC_ROWS := [
+	["P", "Pause or resume", "Space"],
+	["T", "Next time scale", ""],
+	["Space", "Hook the platform heard last on the radio", ""],
+	["Tab", "Hook the next own platform", "Tab"],
+	["Ctrl+click / Ctrl+right-click", "Zoom the chart in / out on the point", "B"],
+	["B / L", "Hooked aircraft return to base", "L"],
+	["E", "Engage cursor: click a contact for the hooked platforms to attack", ""],
+	["R / Shift+C", "Radar / emission control", "R / P / E"],
+	["1..9", "Recall a fleet selection group (Ctrl+1..9 saves one)", "Ctrl+1..9 / Alt+1..9"],
+	["Shift+1 / 2 / 3", "Speed: a third, two thirds or all of each platform's top speed", ""],
+	["Shift+7 / 8 / 9", "Aircraft low / cruise / high; boats periscope / patrol / deep", ""],
+]
+const CLASSIC_DROPPED := ["T"]
+
+## Set by Main: the board lists the Classic key layout while it is in use.
+static var classic := false
+
+
+## The board's rows with the number keys written for the time ladder in use, in the key layout
+## in use.
 static func commands() -> Array:
 	var out: Array = COMMANDS.duplicate(true)
 	var time_rows: Array = out[0][1]
 	time_rows[1] = time_row(SimClock.speeds())
+	if classic:
+		out = _classic_layout(out)
 	return out
+
+
+static func _classic_layout(sections: Array) -> Array:
+	var added: Array = []
+	(sections[0][1] as Array).remove_at(1)
+	for section: Array in sections:
+		var rows: Array = section[1]
+		for i in range(rows.size() - 1, -1, -1):
+			if str(rows[i][0]) in CLASSIC_DROPPED and str(section[0]) == "3D VIEW":
+				rows.remove_at(i)
+	for entry: Array in CLASSIC_ROWS:
+		var replaced := false
+		for section: Array in sections:
+			var rows: Array = section[1]
+			for i in rows.size():
+				if str(entry[2]) != "" and str(rows[i][0]) == str(entry[2]):
+					rows[i] = [entry[0], entry[1]]
+					replaced = true
+					break
+			if replaced:
+				break
+		if not replaced:
+			added.append([entry[0], entry[1]])
+	# The time step joins the TIME section; the rest head the commands, in the table's order.
+	var commands_rows: Array = sections[sections.size() - 1][1]
+	var at := 0
+	for row: Array in added:
+		if str(row[0]) == "T":
+			(sections[0][1] as Array).append(row)
+		else:
+			commands_rows.insert(at, row)
+			at += 1
+	sections[0][0] = "TIME  (CLASSIC KEYS)"
+	return sections
 
 
 ## "1 - 3", "Time scale 1x, 2x, 4x (the ceiling)" for a short ladder; the Normal ladder as before.
@@ -144,17 +205,35 @@ func _add_section(parent: VBoxContainer, section: Array) -> void:
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 2)
 	parent.add_child(grid)
+	var described: Array[Label] = []
+	var key_width := 0.0
 	for row: Array in section[1]:
 		var keys := Label.new()
 		keys.text = str(row[0])
 		keys.theme_type_variation = "ValueLabel"
 		grid.add_child(keys)
+		key_width = maxf(key_width, keys.get_theme_font("font").get_string_size(keys.text, HORIZONTAL_ALIGNMENT_LEFT, -1, keys.get_theme_font_size("font_size")).x)
 		var what := Label.new()
 		what.text = str(row[1])
+		what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		grid.add_child(what)
+		described.append(what)
+	# Two columns side by side must fit the window: the descriptions wrap in what is left beside
+	# their keys, so the board never runs off a small or scaled screen.
+	var width := minf(MAX_DESCRIPTION, _column_width() - key_width - KEY_GAP)
+	for what in described:
+		what.custom_minimum_size.x = maxf(120.0, width)
 	var gap := Control.new()
 	gap.custom_minimum_size.y = 6
 	parent.add_child(gap)
+
+
+## The width one of the two columns may take in the window as it is now.
+func _column_width() -> float:
+	var frame := 0.0
+	if _panel != null:
+		frame = _panel.get_theme_stylebox("panel").get_minimum_size().x
+	return (get_viewport_rect().size.x - SCREEN_MARGIN - frame - COLUMN_GAP) / 2.0
 
 
 func open() -> void:

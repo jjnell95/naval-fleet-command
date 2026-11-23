@@ -58,6 +58,20 @@ static func set_sun_elevation(elevation_deg: float) -> void:
 
 
 ## Multiplier on how far a lookout can recognise what he is looking at.
+## Broken cloud or worse hides what is above its base from a lookout below it, and the other way
+## about. The same cover and base the 3D view draws the sky with, and the same defaults.
+const CLOUD_HIDES_COVER := 0.6
+const DEFAULT_CLOUD_COVER := 0.28
+const DEFAULT_CLOUD_BASE_M := 1800.0
+
+
+static func cloud_between(height_a_m: float, height_b_m: float) -> bool:
+	if clampf(float(environment.get("cloud_cover", DEFAULT_CLOUD_COVER)), 0.0, 1.0) < CLOUD_HIDES_COVER:
+		return false
+	var base := maxf(float(environment.get("cloud_base_m", DEFAULT_CLOUD_BASE_M)), 100.0)
+	return (height_a_m >= base) != (height_b_m >= base)
+
+
 static func visual_light_factor() -> float:
 	return lerpf(NIGHT_VISUAL_FACTOR, 1.0, light)
 
@@ -445,7 +459,8 @@ static func active_sonar_detection_nm(listener: Unit, emitter: Unit) -> float:
 			if not sonar_sensor_ready(listener, s) or baffled(listener, s, emitter.position):
 				continue  # a dipping set hears nothing until it is in the water; a hull set nothing astern
 			best = maxf(best, s.passive_sensitivity_nm * 1.8 * self_noise_factor(listener, s))
-	return best
+	# The same sea and the same damaged arrays as any other sound the listener works with.
+	return best * sonar_environment_factor() * listener.sensor_efficiency()
 
 
 ## Best classification rate among the observer's sonars.
@@ -529,11 +544,15 @@ static func best_esm(listener: Unit, emitter: Unit) -> Dictionary:
 static func nominal_esm_ring_nm(listener: Unit) -> float:
 	var best := 0.0
 	for s in listener.sensors:
-		if s.kind != "esm":
-			continue
-		var horizon := radar_horizon_nm(observer_height_m(listener, s), BASELINE_TARGET_HEIGHT_M)
-		best = maxf(best, minf(30.0 * s.esm_gain, horizon))
+		if s.kind == "esm":
+			best = maxf(best, nominal_esm_range_nm(listener, s))
 	return best
+
+
+## One set's nominal reach against a ship radiating a typical search radar: what an operator
+## assumes of an intercept before anything says how far off, or how high, the emitter is.
+static func nominal_esm_range_nm(listener: Unit, sensor: SensorSpec) -> float:
+	return minf(30.0 * sensor.esm_gain, radar_horizon_nm(observer_height_m(listener, sensor), BASELINE_TARGET_HEIGHT_M))
 
 
 # --- Terrain ------------------------------------------------------------------------------

@@ -23,6 +23,7 @@ decoy_count = 12
 fire_control_channels = 4
 role = "Aegis area air defence"
 service_note = "Bunker Hill CG-52 period VLS fit with SPY-1A and SM-2MR; land-attack stores omitted. No ballistic-missile defence, SM-3, SM-6, ESSM or VL-ASROC."
+weapon_mount_arcs = {"cw90_mk45": [Vector2(0, 140), Vector2(180, 140)]}
 length_m = 172.8
 displacement_t = 9600.0
 aircraft_capacity = 2
@@ -31,6 +32,5 @@ default_air_wing = {"cw90_sh60b": 2}
 torpedo_decoy = "AN/SLQ-25 Nixie"
 towed_torpedo_decoy = true
 torpedo_decoy_effectiveness = 0.3
+acoustic_signature = 0.25
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."
-
-weapon_mount_arcs = {"cw90_mk45": [Vector2(0, 140), Vector2(180, 140)]}

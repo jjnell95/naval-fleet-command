@@ -873,10 +873,15 @@ func preview(lead: Unit, order: Order) -> String:
 	return text
 
 
-## One ordinary salvo from each platform that can fire on the contact now: the default salvo of
-## the weapon it would choose, clamped by its magazine. What the contact menu offers.
+## The rounds the group sends by default, and what the contact menu offers: what the contact needs,
+## sized once for the whole group rather than a kill salvo from every ship. Each platform that can
+## fire on it now says how many rounds of the weapon it would choose would finish what the plot says
+## is left of it (_rounds_needed); the largest figure is the need. The budget is never more than one
+## ordinary salvo from each, clamped by magazines, so a fresh target still draws the full volley and
+## a nearly dead one a round or two. Against an aircraft each ship's doctrine salvo stands.
 static func default_budget(members: Array, target: Track, wm: WeaponManager) -> int:
 	var total := 0
+	var need := 0
 	if target == null:
 		return 0
 	for u: Unit in members:
@@ -885,9 +890,24 @@ static func default_budget(members: Array, target: Track, wm: WeaponManager) -> 
 		for spec: WeaponSpec in u.weapons_for_track(target):
 			var check := wm.engagement_check(u, spec, target, wm.now_s) if wm != null else Combat.check_engagement(u, spec, target)
 			if bool(check["ok"]):
-				total += mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
+				var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
+				total += salvo
+				need = maxi(need, _rounds_needed(u, spec, target, salvo))
 				break
-	return total
+	return mini(total, need) if target.domain != "air" and need > 0 else total
+
+
+## Rounds of `spec` from `u` that would finish what the plot says is left of `t`: Unit.salvo_for_track's
+## reckoning (the reported class's strength less this side's damage estimate, over the damage one
+## round can be expected to do), without its cap at one launcher's salvo, since a group may need more
+## than any one ship sends. `salvo` stands where the reckoning has nothing to go on.
+static func _rounds_needed(u: Unit, spec: WeaponSpec, t: Track, salvo: int) -> int:
+	var range_nm := u.position.distance_to(t.position) if t.position.is_finite() else -1.0
+	var per_round := spec.damage * u.expected_hit_chance(spec, t, range_nm)
+	if per_round <= 0.0:
+		return salvo
+	var remaining := TrackManager.assessed_health(t, spec.id) * (1.0 - clampf(t.damage_estimate, 0.0, 99.0) / 100.0)
+	return maxi(ceili(remaining / per_round), 1)
 
 
 # --- Signals from the weapons ------------------------------------------------------------

@@ -39,14 +39,26 @@ const TORPEDO_SALVO := 2
 ## Paket-NK rounds the AI keeps back from an attack for torpedoes coming at its own ship.
 const ANTI_TORPEDO_RESERVE := 2
 ## A weapon that takes too long to arrive is shooting at where the target used to be. This one
-## rule keeps the AI from firing a 50 knot torpedo across twenty miles of ocean without needing a
-## special case for torpedoes. It is about targets that move: a shore installation is where it was
-## when the round left, so a land-attack round may take as long as it needs (`_is_fixed_target`).
+## rule keeps the AI from firing a free-running torpedo across twenty miles of ocean. It is about
+## targets that move: a shore installation is where it was when the round left, so a land-attack
+## round may take as long as it needs (`_is_fixed_target`), and a torpedo steered by wire is told
+## where the target has gone all the way there.
 const MAX_TIME_OF_FLIGHT_S := 480.0
 ## Above this a land track is taken to be moving, and the flight-time limit applies to it again.
 const FIXED_TARGET_MAX_KN := 1.0
 const MIN_SOLUTION_FOR_SLOW_WEAPON := 0.5  # a bearing with no range is not a firing solution
+## How long a ship that was shot at, or saw a round coming at it, counts itself under fire. While it
+## does it answers any hostile it holds and can reach, whatever its plan has it waiting for, and it
+## radiates to see what is shooting at it. GAMEPLAY_ESTIMATE.
+const UNDER_FIRE_MEMORY_S := 300.0
 const BREAKOUT_TORPEDO_NM := 8.0  # a boat breaking out shoots only at what is in its way
+## A boat working a contact on bearings: how long it holds each leg and how far off the line of
+## bearing it steers. A leg has to outlast the turn and still leave the bearing rate minutes to
+## show (BearingSolution.LEG_MIN_S); the change of course between legs is twice the offset.
+## GAMEPLAY_ESTIMATE.
+const TMA_LEG_S := 240.0
+const TMA_LEG_OFFSET_DEG := 50.0
+const BEARING_SHOT_FRACTION := 0.5  # a wire-guided fish goes on a rough range this far inside its reach
 const DIP_STANDOFF_NM := 1.2  # a dipping helicopter wants to be overhead, not at arm's length
 const BUOY_DROP_RANGE_NM := 9.0
 const BUOY_INTERVAL_S := 150.0
@@ -123,6 +135,13 @@ var _cycle_torpedoes: Array[Weapon] = []
 var _in_decision_cycle := false
 
 
+## Connected as soon as the controller is in the tree, so a round that lands before its first
+## decision cycle (the first step after a reload) is still felt.
+func _ready() -> void:
+	if weapon_manager != null and not weapon_manager.weapon_impact.is_connected(_on_impact):
+		weapon_manager.weapon_impact.connect(_on_impact)
+
+
 func tick(now: float) -> void:
 	if not enabled or unit_manager == null:
 		return
@@ -131,6 +150,8 @@ func tick(now: float) -> void:
 	_cycle_inbound = AirDefence.inbound_threats(unit_manager, threat_manager, faction) if threat_manager != null else []
 	_cycle_committed = {}
 	_cycle_torpedoes.clear()
+	if weapon_manager != null and not weapon_manager.weapon_impact.is_connected(_on_impact):
+		weapon_manager.weapon_impact.connect(_on_impact)
 	if weapon_manager != null:
 		# Flying and queued rounds alike, by track id. A salvo ordered during this cycle is counted
 		# in full the moment it is accepted, so the next ship in the loop sees all of it.
@@ -158,6 +179,13 @@ func tick(now: float) -> void:
 func _on_cycle_salvo(shooter: Unit, _spec: WeaponSpec, track: Track, rounds: int) -> void:
 	if shooter.faction == faction and track != null:
 		_cycle_committed[track.id] = int(_cycle_committed.get(track.id, 0)) + rounds
+
+
+## A round has struck this side's ship, or fallen close aboard: the crew knows it is being shot at
+## whether or not anything aboard saw the round coming.
+func _on_impact(_shooter_faction: String, _spec: WeaponSpec, target: Unit, _hit: bool) -> void:
+	if target != null and target.faction == faction and target.alive:
+		_board(target)["under_fire_time"] = weapon_manager.now_s
 
 
 func clear() -> void:
@@ -244,10 +272,13 @@ func _update_unit(u: Unit, now: float) -> void:
 	# them, and their decks launch for it, but they are not steered by it.
 	if AIPlan.SELF_DIRECTED_ROLES.has(task.get("role", "")):
 		task = {}
+	var inbound := _inbound_on(u)
+	if not inbound.is_empty():
+		b["under_fire_time"] = now
+	b["under_fire"] = now - float(b.get("under_fire_time", -1.0e9)) < UNDER_FIRE_MEMORY_S
 	if u.spec.max_speed_kn <= 0.0:
 		_do_shore_fires(u, b, hostiles, unknowns, now, task)  # a battery shoots; an airfield sends aircraft up
 		return
-	var inbound := _inbound_on(u)
 	var new_state := _choose_state(u, b, hostiles, unknowns, inbound, now) if task.is_empty() else _choose_plan_state(u, b, hostiles, unknowns, inbound, now, task)
 	if u.array_search_active and new_state not in [State.SEARCH, State.INVESTIGATE, State.SHADOW, State.ENGAGE]:
 		unit_manager.issue_order(u, Order.recover_towed_array())
@@ -366,8 +397,12 @@ func _inbound_on(u: Unit) -> Array:
 
 func _choose_state(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inbound: Array, now: float) -> State:
 	# A ship with somewhere to be does not stop to shadow, and does not turn away from a missile
-	# it has already decided to accept. Its own air defence still fires automatically.
+	# it has already decided to accept. Its own air defence still fires automatically. A torpedo
+	# is another matter: nothing aboard shoots one down, and running on into it ends the transit,
+	# so the boat or ship gets out of its way first and takes up the route again after.
 	if u.ai_posture == "breakout":
+		if _torpedo_among(inbound):
+			return State.DEFEND
 		if not _pick_engagement(u, b, hostiles, now).is_empty():
 			return State.ENGAGE
 		return State.PATROL
@@ -384,6 +419,13 @@ func _choose_state(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inb
 	if b["last_contact"] != Vector2.INF and now - float(b["last_contact_time"]) < CONTACT_MEMORY_S:
 		return State.SEARCH
 	return State.PATROL
+
+
+static func _torpedo_among(inbound: Array) -> bool:
+	for entry: Dictionary in inbound:
+		if (entry["weapon"] as Weapon).spec.is_torpedo():
+			return true
+	return false
 
 
 func _should_withdraw(u: Unit, hostiles: Array) -> bool:
@@ -425,8 +467,12 @@ func _rounds_already_committed(t: Track) -> int:
 ## Without a plan the nearest acceptable shot wins. A plan member (`task`) shoots only at what its
 ## plan is after, in the plan's order of preference, or at what has come close enough to threaten
 ## it; within the plan's round budget, and never while the plan is assessing its last volley.
-func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task := {}) -> Dictionary:
-	if u.roe != Unit.Roe.FREE:
+## A unit under fire answers: any hostile it holds and can reach counts as a threat to it, whatever
+## the plan is waiting for, and weapons tight is no bar to shooting back at a hostile.
+## Weapons named in `refused` were just turned down by the launcher and are passed over.
+func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task := {}, refused: Array = []) -> Dictionary:
+	var under_fire := bool(b.get("under_fire", false))
+	if u.roe == Unit.Roe.HOLD or (u.roe == Unit.Roe.TIGHT and not under_fire):
 		return {}  # tight or hold: it will defend itself but will not start anything
 	var plan: AIPlan = task.get("plan")
 	var engaged: Dictionary = b["engaged"]
@@ -436,6 +482,8 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 		var bucket := 0
 		if plan != null:
 			bucket = _plan_bucket(u, t, task)
+			if bucket < 0 and under_fire:
+				bucket = THREAT_BUCKET
 			if bucket < 0:
 				continue  # neither the plan's business nor close enough to be a threat
 		if t.status != Track.Status.ACTIVE or t.confirmed_destroyed:
@@ -465,14 +513,19 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			var quiet_transit := u.ai_posture == "breakout" and u.is_submarine()
 			if quiet_transit and not spec.is_torpedo():
 				continue
-			if _offensive_rounds(u, spec) <= 0:
+			if _offensive_rounds(u, spec) <= 0 or refused.has(spec.id):
 				continue
 			var check := Combat.check_engagement(u, spec, t)
 			if not check["ok"]:
 				continue
-			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM:
+			# Once it is being shot at, the boat has been found, and a fish back down the line is
+			# worth more than its silence.
+			if quiet_transit and check["range_nm"] > BREAKOUT_TORPEDO_NM and not under_fire:
 				continue
-			var long_flight := Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S
+			# A fish on a wire is steered all the way by the boat that fired it, so a long run is
+			# what it is built for, not a shot at where the target used to be.
+			var steered := spec.is_torpedo() and spec.supports_midcourse_updates()
+			var long_flight := Combat.time_of_flight_s(spec, check["range_nm"]) > MAX_TIME_OF_FLIGHT_S and not steered
 			if long_flight and not _is_fixed_target(t):
 				continue
 			# A distant installation will keep. A round that can also sink ships (Tomahawk) keeps its
@@ -480,7 +533,13 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 			var spare := _offensive_rounds(u, spec) - (ASM_SALVO if long_flight and spec.target_types.has("surface") else 0)
 			if spare <= 0:
 				continue
-			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON:
+			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON and not _bearing_shot(spec, t, check["range_nm"]):
+				continue
+			if not t.passive_range_credible(now):
+				continue  # a passive range that is stale or has not yet settled is a place to look
+			# Last, the launcher's own test (guidance, fire-control channels), so a shot it would
+			# refuse is passed over for the next weapon instead of being asked for every cycle.
+			if not _launcher_accepts(u, spec, t, now):
 				continue
 			var score: float = check["range_nm"] + bucket * PLAN_BUCKET_NM
 			if score < best_range:
@@ -497,7 +556,53 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 	return best
 
 
+## A wire-guided torpedo can go on a rough range: the boat keeps working the plot after it fires
+## and the wire carries each better answer to the round. So once the plot holds any range at all,
+## and that range is well inside the fish's reach, the captain shoots rather than wait for a
+## textbook solution and let the target walk out of his envelope.
+func _bearing_shot(spec: WeaponSpec, t: Track, range_nm: float) -> bool:
+	if not spec.is_torpedo() or not spec.supports_midcourse_updates():
+		return false
+	return t.tma_quality >= Track.RANGE_HELD_QUALITY and range_nm <= BEARING_SHOT_FRACTION * spec.max_range_nm
+
+
+## What the launcher will take, as WeaponManager judges it at launch. A radar the captain would
+## light for the shot counts as lit, because _shoot lights it before the order goes; one held
+## silent by an emissions order, or wrecked, does not, and the next weapon is tried instead.
+func _launcher_accepts(u: Unit, spec: WeaponSpec, t: Track, now: float) -> bool:
+	if weapon_manager == null:
+		return true
+	var lit := not u.radar_on and _would_radiate_to_shoot(u)
+	if lit:
+		u.radar_on = true
+	var ok := bool(weapon_manager.engagement_check(u, spec, t, now)["ok"])
+	if lit:
+		u.radar_on = false
+	return ok
+
+
+## Whether _manage_emissions(u, true) would switch this unit's radar on.
+func _would_radiate_to_shoot(u: Unit) -> bool:
+	if not u.has_radar() or u.is_submarine():
+		return false
+	return u.is_aircraft() or _guiding_rounds(u) or _can_shoot_missiles(u) or not _anti_radiation_inbound(u)
+
+
+## The volley the doctrine sends, trimmed when the captain's own plot says fewer will do: against
+## a ship, a boat or a site ashore he sizes it as the player's ships do (Unit.salvo_for_track),
+## from the reported class's strength less the damage he estimates, so a crippled corvette gets a
+## round or two. A target the plot says needs the weapon's whole salvo still gets the doctrine
+## volley, to saturate its defences.
 func _salvo_for(u: Unit, spec: WeaponSpec, t: Track = null) -> int:
+	var volley := _doctrine_salvo(u, spec, t)
+	if t != null and t.domain in ["surface", "subsurface", "land"]:
+		var sized := u.salvo_for_track(spec, t)
+		if sized < mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id)):
+			return clampi(sized, 1, maxi(volley, 1))
+	return volley
+
+
+func _doctrine_salvo(u: Unit, spec: WeaponSpec, t: Track) -> int:
 	var rounds := _offensive_rounds(u, spec)
 	if spec.is_gun():
 		return mini(spec.salvo_default, rounds)
@@ -532,6 +637,7 @@ func _act(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inbound: Arr
 			_do_engage(u, b, hostiles, now)
 		State.DEFEND:
 			_do_defend(u, b, inbound, now)
+			_shoot(u, b, hostiles, now, {}, u.is_submarine())
 		State.WITHDRAW:
 			_do_withdraw(u, b, hostiles, now)
 		State.SHADOW:
@@ -596,6 +702,24 @@ func _shadow_standoff(u: Unit) -> float:
 	if by_sensor <= 0.0:
 		return maxf(by_weapon, 8.0)
 	return maxf(minf(by_weapon, by_sensor), 8.0)
+
+
+## How far an aircraft holding on a ship keeps from it: outside the longest air-defence missile the
+## plot knows the ship's class to carry, plus a margin (AirMissionManager.air_defence_standoff_nm,
+## as a CAP keeps). A ship of no known class sets nothing here. An aircraft that can strike the ship
+## only from inside that cover is not held off: pressing home is the AI's call, as before.
+func _air_defence_hold_nm(u: Unit, t: Track) -> float:
+	if t.domain == "air" or t.domain == "subsurface" or Combat._reported_platform(t) == null:
+		return 0.0
+	var cover := AirMissionManager.air_defence_standoff_nm(t)
+	if cover <= 0.0:
+		return 0.0
+	var reach := 0.0
+	for w: WeaponSpec in u.weapons_for_track(t):
+		reach = maxf(reach, Combat.effective_range_nm(u, w))
+	if reach > 0.0 and reach < cover:
+		return 0.0
+	return cover
 
 
 ## An airframe whose sensors only work over the contact: a dipping set has to be in the water and
@@ -687,22 +811,50 @@ func _best_strike_range(u: Unit) -> float:
 	return maxf(best, 10.0)
 
 
-func _do_engage(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
-	var plan := _pick_engagement(u, b, hostiles, now)
-	if plan.is_empty():
-		return
-	var t: Track = plan["track"]
-	_manage_emissions(u, true)  # shooting is worth being seen for
-	# A refused shot (fire control saturated, out of the envelope after all) fired nothing, so it
-	# must not start the re-attack cooldown on that target.
-	if unit_manager.issue_order(u, Order.engage(t, plan["weapon"].id, plan["salvo"])):
-		b["target"] = t
-		b["engaged"][t.id] = now
-		# Wait until the salvo would actually have arrived before deciding it did not work.
-		var flight := Combat.time_of_flight_s(plan["weapon"], u.position.distance_to(t.position))
+## Picks the shot and orders it. Returns the pick, with "fired" set when the order was accepted,
+## or an empty Dictionary when there is no shot to take. `torpedoes_only` is for a boat running
+## from a torpedo: it snaps one back from where it is, and nothing that would bring it shallow.
+func _shoot(u: Unit, b: Dictionary, hostiles: Array, now: float, task := {}, torpedoes_only := false) -> Dictionary:
+	var refused: Array = []
+	if torpedoes_only:
+		for spec: WeaponSpec in u.weapons:
+			if not spec.is_torpedo():
+				refused.append(spec.id)
+	var pick := {}
+	var last := {}
+	# A refused shot (out of the envelope after all) fired nothing, so it must not start the
+	# re-attack cooldown on that target; the next weapon that suits is tried in its place.
+	while true:
+		pick = _pick_engagement(u, b, hostiles, now, task, refused)
+		if pick.is_empty():
+			return last
+		_manage_emissions(u, true)  # shooting is worth being seen for
+		if unit_manager.issue_order(u, Order.engage(pick["track"], pick["weapon"].id, pick["salvo"])):
+			break
+		refused.append(pick["weapon"].id)
+		last = pick
+	var t: Track = pick["track"]
+	var weapon: WeaponSpec = pick["weapon"]
+	pick["fired"] = true
+	b["target"] = t
+	b["engaged"][t.id] = now
+	# Wait until the salvo would actually have arrived before deciding it did not work.
+	var flight := Combat.time_of_flight_s(weapon, u.position.distance_to(t.position))
+	if task.is_empty():
 		# An aircraft is shot at, looked at once the rounds have had time to arrive, and shot at
 		# again; a ship gets the long assessment its damage needs.
 		b["cooldown_%s" % t.id] = maxf(flight * 1.2, AIR_REENGAGE_MIN_S) if t.domain == "air" else maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
+	else:
+		b["cooldown_%s" % t.id] = maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
+		var mission: AIPlan = task["plan"]
+		mission.note_salvo(t.id, flight, now)
+	return pick
+
+
+func _do_engage(u: Unit, b: Dictionary, hostiles: Array, now: float) -> void:
+	var plan := _shoot(u, b, hostiles, now)
+	if plan.is_empty():
+		return
 	if u.ai_posture == "breakout":
 		_do_patrol(u, b, now)  # keep running the route while shooting
 	else:
@@ -740,7 +892,8 @@ func _do_shore_fires(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, n
 
 
 ## Turn away from the incoming bearing at speed. Opening the geometry buys the ship's own
-## interceptors more time; the interception itself is automatic and needs no order.
+## interceptors more time; the interception itself is automatic and needs no order. The ship's
+## launchers and guns do not need its bow on the shooter, so it fights back while it turns.
 func _do_defend(u: Unit, b: Dictionary, inbound: Array, now: float) -> void:
 	_manage_emissions(u, true)
 	_manage_depth(u, DepthIntent.HIDE)  # a boat with a torpedo on it goes deep as well as away
@@ -790,16 +943,40 @@ func _do_close(u: Unit, b: Dictionary, targets: Array, standoff_nm: float, now: 
 		if t.domain == "air" and _air_shot_range(u, t) > 0.0:
 			_fight_air(u, b, t, range_nm, now)
 			return
+		standoff_nm = maxf(standoff_nm, _air_defence_hold_nm(u, t))
 		if range_nm <= standoff_nm:
 			_command(u, b, Geo.vector_to_heading(u.position - t.position), u.spec.cruise_speed_kn, now)
 			return
 		_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
+		return
+	if _work_bearing(u, b, t, now):
 		return
 	if standoff_nm <= 0.0 or range_nm <= standoff_nm:
 		_command(u, b, u.heading_deg, u.spec.cruise_speed_kn, now)  # on station, hold
 		return
 	# Approach along the bearing, stopping at the standoff distance.
 	_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
+
+
+## A boat holding a ship or a boat on bearings alone has no range to shoot on, and steaming on one
+## course never gives it one: the bearing drifts the same way whatever the range. So it works the
+## contact as a submarine captain does, in steady legs either side of the line of bearing, each
+## held long enough to read a bearing rate, until the plot has a solution worth a torpedo. Closing
+## on a lead either side of the bearing also shortens the range while it does. False when the
+## contact is not one to work this way, and the ordinary closing or holding applies.
+func _work_bearing(u: Unit, b: Dictionary, t: Track, now: float) -> bool:
+	if not u.is_submarine() or not t.bearing_only or t.tma_quality >= MIN_SOLUTION_FOR_SLOW_WEAPON:
+		return false
+	if t.domain not in ["surface", "subsurface"]:
+		return false
+	var leg := floori(now / TMA_LEG_S)
+	if int(b.get("tma_leg", -1)) != leg or str(b.get("tma_track", "")) != t.id:
+		var side := 1.0 if leg % 2 == 0 else -1.0
+		b["tma_leg"] = leg
+		b["tma_track"] = t.id
+		b["tma_course"] = fposmod(Geo.bearing_deg(u.position, t.position) + side * TMA_LEG_OFFSET_DEG, 360.0)
+	_command(u, b, _open_bearing(u, float(b["tma_course"])), u.spec.cruise_speed_kn, now)
+	return true
 
 
 ## The reach an aircraft searching open water should be using. Around a datum — a torpedo heard,
@@ -1414,6 +1591,7 @@ func _act_plan(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inbound
 	match b["state"]:
 		State.DEFEND:
 			_do_defend(u, b, inbound, now)
+			_shoot(u, b, hostiles, now, task, u.is_submarine())
 		State.WITHDRAW:
 			_do_withdraw(u, b, hostiles, now)
 		State.ENGAGE:
@@ -1427,21 +1605,9 @@ func _act_plan(u: Unit, b: Dictionary, hostiles: Array, unknowns: Array, inbound
 
 
 func _plan_fire(u: Unit, b: Dictionary, hostiles: Array, now: float, task: Dictionary) -> WeaponSpec:
-	var pick := _pick_engagement(u, b, hostiles, now, task)
-	if pick.is_empty():
-		return null
-	var t: Track = pick["track"]
-	var weapon: WeaponSpec = pick["weapon"]
-	_manage_emissions(u, true)
-	if not unit_manager.issue_order(u, Order.engage(t, weapon.id, pick["salvo"])):
-		return null  # refused: nothing left, so no cooldown and no volley
-	b["target"] = t
-	b["engaged"][t.id] = now
-	var flight := Combat.time_of_flight_s(weapon, u.position.distance_to(t.position))
-	b["cooldown_%s" % t.id] = maxf(ENGAGE_COOLDOWN_S, flight * 1.5)
-	var p: AIPlan = task["plan"]
-	p.note_salvo(t.id, flight, now)
-	return weapon
+	var pick := _shoot(u, b, hostiles, now, task)
+	# Refused: nothing left, so no cooldown and no volley.
+	return pick["weapon"] if bool(pick.get("fired", false)) else null
 
 
 func _plan_move(u: Unit, b: Dictionary, task: Dictionary, hostiles: Array, unknowns: Array, now: float, engaging: bool) -> void:
@@ -1560,12 +1726,30 @@ func _scout_close(u: Unit, b: Dictionary, t: Track, standoff_nm: float, now: flo
 	if u.is_aircraft() and not (t.domain == "subsurface" and _is_asw_airframe(u)):
 		b["target"] = t
 		_manage_altitude(u, false)
-		if u.position.distance_to(t.position) <= standoff_nm:
+		standoff_nm = maxf(standoff_nm, _air_defence_hold_nm(u, t))
+		var point := _standoff_point(u, t.position, standoff_nm)
+		var clear := _clear_of_air_defence(u, point)
+		if u.position.distance_to(t.position) <= standoff_nm and clear == point:
 			_command(u, b, Geo.vector_to_heading(u.position - t.position), u.spec.cruise_speed_kn, now)
 			return
-		_move_to(u, b, _standoff_point(u, t.position, standoff_nm), now)
+		_move_to(u, b, clear, now)
 		return
 	_do_close(u, b, [t], standoff_nm, now)
+
+
+## `point`, or where it is pushed out to when it lies inside the known air-defence cover of a ship
+## on the plot (_air_defence_hold_nm): a scout keeping its distance from the ship it watches must
+## not hold that distance over the escort beside it.
+func _clear_of_air_defence(u: Unit, point: Vector2) -> Vector2:
+	for s: Track in track_manager.tracks_for(u):
+		if s.status == Track.Status.LOST:
+			continue
+		var cover := _air_defence_hold_nm(u, s)
+		var d := point.distance_to(s.position)
+		if cover > 0.0 and d < cover:
+			var away := (point - s.position).normalized() if d > 0.01 else (u.position - s.position).normalized()
+			point = s.position + away * cover
+	return point
 
 
 ## Legs through an area: its centre first, then round it.
@@ -1784,7 +1968,10 @@ func _manage_emissions(u: Unit, need_radar: bool) -> void:
 		return
 	if not u.has_radar():
 		return
-	var want := need_radar or not u.has_esm() or _guiding_rounds(u)
+	# A ship that has just been hit, or has seen a round come at it, has nothing left to hide and
+	# everything to see: it radiates whatever its patrol posture says.
+	var under_fire := bool((_bb[u] as Dictionary).get("under_fire", false)) if _bb.has(u) else false
+	var want := need_radar or not u.has_esm() or _guiding_rounds(u) or under_fire
 	# A radar with nothing to shoot back with is only a beacon for the missile coming down its
 	# beam. A ship that can engage the round keeps its picture and fights it.
 	if want and not _guiding_rounds(u) and not _can_shoot_missiles(u) and _anti_radiation_inbound(u):

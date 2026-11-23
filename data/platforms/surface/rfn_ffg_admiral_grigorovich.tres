@@ -18,6 +18,7 @@ turn_rate_deg_s = 3.0
 accel_kn_s = 0.23
 health = 85.0
 signature_factor = 0.85
+acoustic_signature = 0.28
 sensor_ids = PackedStringArray("fregat_mae", "m20_escort_sonar", "mp_405")
 mast_height_m = 26.0
 fire_control_channels = 4

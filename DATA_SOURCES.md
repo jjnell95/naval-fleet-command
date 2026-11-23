@@ -1,6 +1,6 @@
 # Current source review
 
-See [M23 2027 theatres ledger](docs/THEATRES_2027.md) for the PLAN, Japanese, Iranian, Russian coastal and civilian records, [M21 Cold War 1990 sources and model limits](docs/COLD_WAR_1990.md), [M20 aviation and fleet catalogue](docs/AVIATION_ROSTER_M20.md), [M18 sea floor, acoustics and damage notes](docs/REALISM_M18.md) and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; later ledgers supersede conflicting fit and coastline claims.
+See [M23 2027 theatres ledger](docs/THEATRES_2027.md) for the PLAN, Japanese, Iranian, Russian coastal and civilian records, [M21 Cold War 1990 sources and model limits](docs/COLD_WAR_1990.md), [M20 aviation and fleet catalogue](docs/AVIATION_ROSTER_M20.md), M18 sea floor, acoustics and damage notes and [M16 source ledger and fidelity limits](docs/REALISM_M16.md). The milestone entries below are historical; later ledgers supersede conflicting fit and coastline claims.
 
 # Data Sources
 
@@ -295,13 +295,10 @@ endurance, sensor envelope, loadout, signature, deck timing — is a GAMEPLAY_ES
 | id | Family | Game values (range nm / speed kn / damage / pk) |
 |---|---|---|
 | agm_158c_lrasm | LRASM | 200 / 550 / 70 / 0.80 |
-| agm_158b_jassm_er | JASSM-ER | 500 / 520 / 65 / 0.72 |
-| jsm_missile | NSM/JSM | 150 / 520 / 50 / 0.78 |
 | agm_114_hellfire | Hellfire | 4.5 / 800 / 14 / 0.85 |
 | apkws_rocket | APKWS | 3 / 900 / 7 / 0.75 |
 | sea_venom | Sea Venom / ANL | 11 / 560 / 26 / 0.80 |
 | martlet_lmm | Martlet | 3.5 / 950 / 8 / 0.72 |
-| kh38_family | Kh-38 | 22 / 1100 / 32 / 0.74 |
 | oneway_attack_drone | Generic OWA drone | 350 / 100 / 22 / 0.55 |
 | aim9x_air | Sidewinder (air fit) | 12 / 1600 / 25 / 0.70 |
 
@@ -315,7 +312,7 @@ detection horizon from the aircraft's altitude, not the listed antenna height.
 
 `searchwater_2000`, `e801_oko`, `an_zpy_8`, `mq25_eo_ir`, `scaneagle_eo`, `skeldar_eo`,
 `orion_sar`, `orlan_eo`, `novella_p38`, `seaspray_7400`, `enr_nh90`, `fits_dipping`,
-`an_aqs_13f`, `mq25_esm`.
+`mq25_esm`.
 
 ## M18: bathymetry and the water column
 | Data | Source | Use |
@@ -423,7 +420,7 @@ Carrier Watch's detachment is 28 aircraft (12 F-14A+, 4 E-2C, 4 A-6E, 4 S-3A, 4 
 
 ## Weapon control and catalogue audit, 29 September 2026
 
-M30's [audit and source ledger](docs/2026-09-29-weapon-control.md#sources-and-uncertainty) records the JASSM, Mk 54/VL-ASROC, F-35B, Astute, APR-3 and Orion fit corrections. It separates verified roles from representative payload choices and gameplay estimates. The new bomb and ASW delivery models are abstractions, not certified launch envelopes or combat performance predictions.
+M30's audit and source ledger records the JASSM, Mk 54/VL-ASROC, F-35B, Astute, APR-3 and Orion fit corrections. It separates verified roles from representative payload choices and gameplay estimates. The new bomb and ASW delivery models are abstractions, not certified launch envelopes or combat performance predictions.
 
 ## Northern Passage, 30 September 2026
 
@@ -435,8 +432,35 @@ The route is two water-clear legs of 3 and 5 nautical miles in the shipped Natur
 
 No primary source was consulted for M40, and none is cited. What is taken as public is general only: that conventional submarines run submerged on a battery whose endurance falls steeply with speed, recharge by snorkelling on diesels, and that the Gotland and Type 039A/B classes carry air-independent plants and Taigei a lithium-ion battery; that the AGM-88, Kh-31P and YJ-91 are air-launched anti-radiation missiles, the YJ-91 derived from the Kh-31P; and that switching a radar off is the classic defence against one. The EA-18G, Su-34 and J-16 fits are fictional scenario allocations and their integration is not verified here.
 
-Every number is a GAMEPLAY_ESTIMATE: the battery hotel, sprint and charge hours, the air-independent hours and speeds, snorkel depth, speed, noise and radar signature, the missiles' ranges, speeds, seeker reach and cone, the 40% emitter-memory chance, the quarter-mile memory radius and the sensor damage of a hit. See [the M40 note](docs/2026-11-09-diesel-boats-anti-radiation-and-core-review.md).
+Every number is a GAMEPLAY_ESTIMATE: the battery hotel, sprint and charge hours, the air-independent hours and speeds, snorkel depth, speed, noise and radar signature, the missiles' ranges, speeds, seeker reach and cone, the 40% emitter-memory chance, the quarter-mile memory radius and the sensor damage of a hit. See the M40 note.
 
 ## Sonar baffles, 10 November 2026
 
-No source was consulted for M42. That a hull-mounted sonar has a blind arc astern, and that submarines turn to clear it, is taken as general public knowledge. The 30° half-angle, the 150-second clearing turn of 70° and the fifteen-minute interval are GAMEPLAY_ESTIMATE values, not any navy's practice. See [the M42 note](docs/2026-11-10-ships-against-the-light-fire-and-baffles.md).
+No source was consulted for M42. That a hull-mounted sonar has a blind arc astern, and that submarines turn to clear it, is taken as general public knowledge. The 30° half-angle, the 150-second clearing turn of 70° and the fifteen-minute interval are GAMEPLAY_ESTIMATE values, not any navy's practice. See the M42 note.
+
+## Catalogue review: guns, torpedoes, sonars and noise, 22 November 2026
+
+No primary source was consulted. What is taken as public is general only: that a naval shell carries a small fraction of an anti-ship missile's warhead; that a homing torpedo runs out before its seeker is enabled; that Rastrub-B, the Yu-8, VL-ASROC and the Type 07 carry a lightweight torpedo through the air and drop it; that the Type 45, FREMM, Type 26, Nansen, Iver Huitfeldt, Project 22350, Project 20380 and Alvand classes have bow or hull sonars, Udaloy the Polinom suite and Slava a hull set; and that surface ships differ widely in radiated noise by size, plant and purpose. Every number is a GAMEPLAY_ESTIMATE.
+
+- **Gun damage** is on the missiles' scale by calibre: 127 to 130 mm 2.5 to 3, 114 mm 2.2, 100 mm 1.5, 76 mm 1, 57 mm 0.6 (a Harpoon is 40). Every gun from 57 mm up is dual-purpose: it may be laid on a ship, a contact ashore or an aircraft (amended 23 November 2026; it was ships only, and ashore for 100 mm and over). Its chance a round falls with range to a quarter of the rated figure at the gun's full reach, and halves at 60 kn of target speed, so a jet is all but safe from it and a stopped ship at full reach is hit by fewer than one round in five.
+- **Torpedo decoy resistance** (`soft_kill_resistance`) follows the seeker generation: 0.8 to 0.9 for the 1990 pack and the export TEST-71ME, 1.0 to 1.4 for current weapons, 4.0 for wake-homers, which do not listen.
+- **Minimum range** of every torpedo is its enable run plus 0.3 nm (the anti-torpedo Paket-NK enables at its minimum range).
+- **Wire guidance** (`midcourse_updates`) is set on the tube-launched heavyweights that are steered by wire: Mk 48 (both), Spearfish, F21, Type 18, Yu-6, UGST, TEST-71M and TEST-71ME, Torpedo 62. While the firing unit lives and holds the contact, the round follows that unit's current plot rather than the one it was fired on. The SET-65, the 53-65 wake-homers and the lightweights keep their launch setting.
+- **Rocket-thrown torpedoes** (`asw_rocket`, flying at 600 to 620 kn) name their payload: VL-ASROC the Mk 54, Type 07 the Type 97, Yu-8 the Yu-7, the 1990 Rastrub-B the AT-1M and the current one the APR-3. The last two payloads stand for the missile's own lightweight torpedo, which the catalogue does not hold.
+- **New hull sonars**: `sonar_2091` (Type 45), `ums_4110` (FREMM), `sonar_2150` (Type 26), `spherion_mrs2000` (Nansen), `aso_94` (Iver Huitfeldt), `zarya_m` (Projects 22350 and 20380), `mgk_355_polinom` (Udaloy), `mg_332_tigan` (Slava); Alvand takes the existing `irn_hull_sonar`. Constellation and Mogami are left with their variable-depth sets alone, as built.
+- **Passive sensitivity** is the range at which a set hears a source of noise 1.0. Submarine suites are 36 to 60, towed and variable-depth arrays 26 to 46, hull sets 9 to 15, dipping sets 9 to 18. `tests/test_fix_data_1.gd` pins the resulting range table (a Los Angeles hears a Victor III at 5 kn at 13 nm in a calm sea; a hull sonar at 3).
+- **Surface-ship noise** (`acoustic_signature`) is set for every surface platform on the submarines' scale, from 0.03 for a speedboat and 0.14 for a frigate built to hunt submarines to 0.5 for a carrier. Noise rises with the fraction of full speed, so a merchantman at her service speed is still the loudest ship in a convoy.
+- **Radar against small craft**: no warship's radar suite is rated under 30 nm against a large ship, the Peykaap's radar signature is 0.25, and the MH-60R's AN/APS-153 is rated 130, so a boat is held by radar beyond a lookout's six miles and the helicopter's radar finds a periscope before an eye does.
+- **Removed**: `agm_158b_jassm_er`, `jsm_missile`, `kh38_family` and the sensor `an_aqs_13f`, which nothing carried; `aim9x_family`, a duplicate of `aim9x_air`, which the F-16C now carries.
+
+## The Iceland-Faroe Barrier at sea scale, 23 November 2026
+
+No source was consulted. The layout is a modelling choice made against the game's own sensor and weapon figures, not a reconstruction of any patrol. A Victor III on its 7 kn quiet transit is heard by Dallas at about 10 nm and by Spruance's towed array at about 6, and a Mk 48 reaches 22, so the boat opens 24 nm up its lane from Dallas and 29 from Spruance. Its three lanes run south-west across the ridge's southern flank and cross the barrier line 22 nm apart. The breakout is a circle of 12 nm radius 18 nm beyond the line, not a point the lanes meet. The watch is six hours, because the longest lane takes about five and a half at 7 kn: a boat nobody finds breaks out inside it. A second boat, when one comes, is released between 40 and 80 minutes in, in time to break out too. The water there is 600 to 750 m deep (the game's bathymetry), too shallow for convergence zones. All of these are GAMEPLAY_ESTIMATE values.
+
+## Footprints of installations ashore, 23 November 2026
+
+No source was consulted; every figure is a stated modelling value, not a survey of any site. An installation's `length_m` is the ground it covers end to end, which the 3D view draws its model at. An air station is 2,700 m, which draws its model's runway at 2,400 m, a common main runway at a military jet base. A coastal anti-ship battery is 560 m, a long-range surface-to-air missile site 640 m, a ballistic missile battery 460 m and a drone launch site 380 m: the dispersal of launchers, radars and control posts over a hide, at the length each kind's site model is built to (`tools/art/build_models.py`), so its vehicles are drawn at their own size. The air station's figure is set on `shore_air_station` by hand, since no builder writes it, and on the 1990 airfield by `build_cold_war.py`; the sites' come from `SITE_FOOTPRINT_M` in `theatres_2027.py`.
+
+## Drone radar signature, 23 November 2026
+
+No source was consulted. A radar's detection range goes as the fourth root of its target's radar cross-section, while a platform's `signature_factor` scales a set's rated air range directly. The Mohajer-6's factor is therefore that root of its cross-section over the rated target's: a composite airframe of its size is taken at a hundredth of a fighter's, and 0.01 to the power 0.25 is about 0.3 (it was 0.08, which would stand for a cross-section some 25,000 times smaller than a fighter's). A radiating Arleigh Burke's AN/SPY-1D(V), rated 200 nm against air, holds the drone at about 60 nm. The cross-section ratio and the resulting 0.3 are modelling values derived from that law (`MOHAJER_RADAR_SIGNATURE` in `theatres_2027.py`), not sourced or measured figures.

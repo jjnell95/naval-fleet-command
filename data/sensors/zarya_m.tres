@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SensorSpec" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/sensor_spec.gd" id="1_sensor"]
+
+[resource]
+script = ExtResource("1_sensor")
+id = "zarya_m"
+display_name = "Zarya-M bow sonar"
+kind = "sonar"
+emits = false
+range_surface_nm = 0.0
+range_air_nm = 0.0
+antenna_height_m = 0.0
+classify_rate = 0.9
+passive_sensitivity_nm = 11.0
+active_range_nm = 9.0
+bearing_accuracy_deg = 2.0
+self_noise_tolerance = 0.4
+source_status = "PUBLIC: system designation and the class it is fitted to. GAMEPLAY_ESTIMATE: all ranges, bearing accuracy and self-noise tolerance are tuning parameters on the catalogue's scale, not performance claims."

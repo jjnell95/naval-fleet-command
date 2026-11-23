@@ -7,6 +7,13 @@ const DEPTH_M := 45.72
 const WINDOW_S := 60.0
 const INTERVALS := [0.0, 3600.0, 7200.0, 14400.0]
 const MAX_PENDING := 64
+## A boat's own defensive acts are never held for a check-in: the crew carries them out as soon
+## as it is told, or before.
+const NEVER_QUEUED := [Order.Type.REQUEST_SUB_CHECKIN, Order.Type.EVADE, Order.Type.DEPLOY_COUNTERMEASURES, Order.Type.DESIGNATE]
+
+## Reports a boat has made at a check-in since the simulation last asked: {unit, event} with event
+## `initiative_report`; the words are the unit's comms_initiative_report.
+static var events: Array = []
 
 
 static func restricted(u: Unit) -> bool:
@@ -18,7 +25,7 @@ static func connected(u: Unit) -> bool:
 
 
 static func should_queue(u: Unit, o: Order) -> bool:
-	return restricted(u) and not connected(u) and o.origin == "player" and o.type != Order.Type.REQUEST_SUB_CHECKIN
+	return restricted(u) and not connected(u) and o.origin == "player" and o.type not in NEVER_QUEUED
 
 
 static func initialize(u: Unit, now: float) -> void:
@@ -106,10 +113,20 @@ static func step(u: Unit, now: float) -> Array[Order]:
 			u.comms_next_check_s = now + u.comms_interval_s if u.comms_interval_s > 0.0 else -1.0
 		_report(u, now)
 		u.comms_next_check_s = now + u.comms_interval_s if u.comms_interval_s > 0.0 else -1.0
+		if not u.comms_initiative.is_empty():
+			u.comms_initiative_report = "While out of touch: " + "; ".join(u.comms_initiative)
+			u.comms_initiative.clear()
+			if events.size() < 256:
+				events.append({"unit": u, "event": "initiative_report"})
 		ready = take_pending(u)
 		if u.comms_phase == "reporting":
 			if now >= u.comms_window_until_s:
-				u.ordered_depth_m = maxf(u.comms_return_depth_m, 0.0)
+				if u.snorkel_on:
+					# Told in the window to snorkel: she stays up to charge, and the depth she came
+					# up from is the one she goes back to once the charge is done.
+					u.snorkel_return_depth_m = u.comms_return_depth_m if u.comms_return_depth_m > Unit.PERISCOPE_DEPTH_M else -1.0
+				else:
+					u.ordered_depth_m = maxf(u.comms_return_depth_m, 0.0)
 				u.comms_return_depth_m = -1.0
 				u.comms_phase = "submerged"
 			else:
@@ -156,6 +173,12 @@ static func _begin(u: Unit) -> void:
 	u.ordered_depth_m = minf(u.ordered_depth_m, DEPTH_M)
 
 
+static func take_events() -> Array:
+	var out := events
+	events = []
+	return out
+
+
 static func _report(u: Unit, now: float) -> void:
 	u.comms_last_report_s = now
 	u.comms_report = {"position": u.position, "heading_deg": u.heading_deg, "speed_kn": u.speed_kn, "depth_m": u.depth_m, "health": u.health}
@@ -185,7 +208,8 @@ static func status(u: Unit, now: float) -> String:
 
 static func detail(u: Unit, now: float) -> String:
 	var next := "on demand" if u.comms_interval_s <= 0.0 else "in " + _duration(maxf(u.comms_next_check_s - now, 0.0))
-	return "%s\nNext check-in: %s · last report %s ago\n150 ft / 46 m communication depth is a Classic gameplay abstraction.\n%s" % [status(u, now), next, _duration(maxf(now - u.comms_last_report_s, 0.0)), u.comms_note]
+	var initiative := "\n" + u.comms_initiative_report if u.comms_initiative_report != "" else ""
+	return "%s\nNext check-in: %s · last report %s ago\n150 ft / 46 m communication depth is a Classic gameplay abstraction.\n%s%s" % [status(u, now), next, _duration(maxf(now - u.comms_last_report_s, 0.0)), u.comms_note, initiative]
 
 
 static func _duration(seconds: float) -> String:

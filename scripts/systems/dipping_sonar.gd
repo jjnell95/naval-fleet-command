@@ -10,6 +10,11 @@ const HOVER_M := 20.0
 const MAX_SPEED_KN := 1.0
 const MAX_ALTITUDE_M := 30.0
 
+## Raises the commander did not order in so many words, since the simulation last asked: {unit,
+## event} with event `dip_raising`. A helicopter cannot fly on with the dome in the water, so an
+## order that moves it raises the dome, and the crew says so.
+static var events: Array = []
+
 
 static func capable(u: Unit) -> bool:
 	if u == null or u.spec == null or not u.spec.can_hover:
@@ -57,8 +62,38 @@ static func on_order(u: Unit, order: Order) -> void:
 		deploy(u, order.listen_s)
 	elif order.type == Order.Type.RECOVER_DIPPING_SONAR:
 		recover(u)
+	elif order.type == Order.Type.ATTACK:
+		pass  # in reach it fires from the hover; the dome comes up only if it has to move (take_steering)
+	elif order.type == Order.Type.SET_SPEED and order.speed_kn <= MAX_SPEED_KN:
+		pass  # holding the hover is what the dip already does
+	elif order.type == Order.Type.SET_ALTITUDE and order.altitude_m <= MAX_ALTITUDE_M:
+		pass
 	elif order.type in Unit.NAVIGATION_ORDERS or order.type in [Order.Type.SET_SPEED, Order.Type.SET_ALTITUDE, Order.Type.EVADE, Order.Type.RESUME_PLAN]:
-		recover(u)
+		recover_announced(u)
+
+
+static func recover_announced(u: Unit) -> void:
+	var lowered := u.dip_phase in [Phase.LOWERING, Phase.LISTENING]
+	recover(u)
+	if not lowered:
+		return
+	if events.size() < 256:
+		events.append({"unit": u, "event": "dip_raising"})
+
+
+static func take_events() -> Array:
+	var out := events
+	events = []
+	return out
+
+
+## The contact is a bearing this aircraft's own lowered set is holding, with no range yet. The
+## plotted position of such a contact is a guess along the line; flying to it would raise the dome
+## and give up the only thing holding the contact, so the crew stays in the dip to resolve it.
+static func holds_bearing(u: Unit, track: Track) -> bool:
+	if track == null or not track.is_bearing_only() or not track.contributors.has(u):
+		return false
+	return capable(u) and u.dip_phase in [Phase.POSITIONING, Phase.LOWERING, Phase.LISTENING]
 
 
 ## Owns motion only during handling. Does not overwrite waypoints, station or ordered speed/height.

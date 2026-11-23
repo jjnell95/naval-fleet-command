@@ -15,6 +15,13 @@ signal station_resumed(unit: Unit, reason: String)
 ## A return to station could not be made: the guide was lost, the circuit is blocked, the airframe
 ## is committed to recovery. The platform keeps its present orders.
 signal station_unavailable(unit: Unit, reason: String)
+## A task ended and the platform took up the route it had interrupted, by itself. Not raised for a
+## return to station (station_resumed), nor when there was no route to go back to.
+signal route_resumed(unit: Unit, reason: String)
+## A hull ran out of water: held against a coast without headway, it has stopped and given up the
+## leg it was on. Raised once, and not when a task was steering it: the task then ends with the
+## reason "Blocked by coast" and reports through its own signal.
+signal blocked_by_coast(unit: Unit)
 
 ## How far inside a weapon's reach an attacking platform settles: on the edge of the envelope a
 ## target that opens a few knots is out of range again before the salvo is away. GAMEPLAY.
@@ -26,6 +33,39 @@ const ATTACK_ASSESS_S := 20.0
 ## A standing attack closes on a stale plot for this long before giving it back. GAMEPLAY_ESTIMATE.
 const ATTACK_STALE_S := 240.0
 const ATTACK_STALL_S := 180.0
+## A ship that has to close for an attack does so at this much of what her plant will give now,
+## unless she was already ordered faster. GAMEPLAY.
+const ATTACK_CLOSING_FRACTION := 0.85
+## Settled inside the standoff, a platform holds the band until the range has opened this far past
+## it. The weapon reaches 1.25 standoffs, so it is still in range when it turns to close again.
+const ATTACK_HOLD_RELEASE := 1.12
+## A fixed-wing aircraft attacking a ship or a shore target stays outside this much of the weapon's
+## reach once it is in range, rather than flying on over the defences it has just woken. GAMEPLAY.
+const ATTACK_HOLD_OFF_FRACTION := 0.7
+## A contact making less than this is circled at the standoff; a faster one is paralleled.
+const ATTACK_PARALLEL_MIN_KN := 3.0
+## A boat holds her firing range no faster than this, to keep her own sonar. GAMEPLAY_ESTIMATE.
+const ATTACK_QUIET_KN := 6.0
+## A hull closing on its firing point counts as making way when it gains this much of the distance
+## its speed should cover; pressed against a coast it gains nothing however fast the screws turn.
+const ATTACK_PROGRESS_FRACTION := 0.1
+## How long a helicopter stays in the dip trying to turn its own bearing into a range before it
+## raises the dome and runs down the bearing instead. GAMEPLAY_ESTIMATE.
+const ATTACK_LOCALISE_S := 300.0
+## A consort with a screen station closes for her shot only while the firing point lies this near
+## her station; a contact further off is engaged from the screen or not at all, so an attack never
+## takes an escort out of the screen to chase. GAMEPLAY_ESTIMATE.
+const ATTACK_SCREEN_LEASH_NM := 3.0
+## Held to her station, she leaves it again only once the firing point is this much of the leash
+## from it, so a contact on the edge does not take her out and back every few seconds.
+const ATTACK_SCREEN_RELEASE := 0.8
+## A hull closing on a contact the plot says she gains on more slowly than this is in a chase she
+## cannot win, and the stall guard counts it. GAMEPLAY_ESTIMATE.
+const ATTACK_MIN_CLOSING_KN := 1.0
+const NO_SEA_ROUTE_TO_CONTACT := "No sea route to the contact"
+const NO_SEA_ROUTE_TO_FIRE := "No sea route to a firing position"
+const SCREEN_HELD := "Out of reach from her screen station"
+const SCREEN_HELD_PHASE := "Holding station · contact out of reach"
 
 var units: Array[Unit] = []
 ## The attack task fires through here. Simulation sets it; a unit manager without one can still
@@ -58,18 +98,36 @@ func add_unit(u: Unit) -> void:
 func tick(dt: float, now := -1.0) -> void:
 	now_s = now if now >= 0.0 else now_s + dt
 	Formation.update_speed_caps(units)
+	# Most of a large order of battle is airframes in hangars and ships with no task, no station and
+	# no submarine communications; each step below is taken only by a unit it can apply to, so they
+	# pay for none of it. Each guard is the condition the step itself would return on.
 	for u in units:
 		if not u.alive:
 			continue
-		_deliver_submarine_orders(u, SubmarineComms.step(u, now_s))
-		DefensiveResponse.tick(u, dt)
-		_handoff_submarine_tasks(u)
-		_step_investigation(u, dt)
-		_step_attack(u, dt)
-		Formation.step(u)
+		var comms := SubmarineComms.restricted(u)
+		if comms:
+			_deliver_submarine_orders(u, SubmarineComms.step(u, now_s))
+		if u.evasion_remaining_s != 0.0 or u.countermeasure_remaining_s != 0.0 or u.countermeasure_reload_s != 0.0:
+			DefensiveResponse.tick(u, dt)
+		if comms:
+			_handoff_submarine_tasks(u)
+		if u.investigation_track != null:
+			_step_investigation(u, dt)
+		if u.attack_track != null:
+			_step_attack(u, dt)
+		# A task ended by an order rather than by its own step (fire cancelled) still hands the
+		# platform back to what it was doing.
+		if u.plan_kept and u.attack_track == null and u.investigation_track == null:
+			_finish_task(u, u.task_generation, u.attack_result if u.attack_result != "" else u.investigation_result)
+		if u.formation_leader != null:
+			Formation.step(u)
+		var was_blocked := u.coast_blocked
 		Movement.step(u, dt)
+		if u.coast_blocked and not was_blocked:
+			_report_blocked_by_coast(u)
 		# Detach before the next sensor cycle can update the shared picture after diving.
-		_handoff_submarine_tasks(u)
+		if comms:
+			_handoff_submarine_tasks(u)
 
 
 ## A task received over the link continues on the boat's own sensor picture once it dives.
@@ -90,6 +148,35 @@ func _handoff_submarine_tasks(u: Unit) -> void:
 				break
 
 
+## A hull that Movement has just stopped against a coast. A task that was steering it ends, so it
+## is not sent at the same beach on the next tick, and hands back to what it interrupted; anything
+## else simply stays stopped until it is given somewhere to go.
+func _report_blocked_by_coast(u: Unit) -> void:
+	if u.attack_track != null:
+		_end_attack(u, u.attack_track, "Blocked by coast")
+	elif u.investigation_track != null:
+		_end_investigation(u, u.investigation_track, "Blocked by coast")
+	else:
+		blocked_by_coast.emit(u)
+
+
+## Why a hull cannot be sent to this point, or "". Anything that flies goes where it is told. A
+## boat out of touch is judged from where it last reported, which is all the commander knows.
+static func move_rejection(u: Unit, order: Order) -> String:
+	if u == null or order == null or not u.needs_sea_room() or Terrain.is_empty():
+		return ""
+	if Terrain.is_land(order.target_pos):
+		return "Destination is ashore"
+	var from := u.position
+	if SubmarineComms.should_queue(u, order):
+		if order.append:
+			return ""  # added to a route the boat has yet to be given; checked when it is delivered
+		from = SubmarineComms.reported_position(u)
+	elif order.append and not u.waypoints.is_empty():
+		from = u.waypoints.back()
+	return "" if Terrain.reachable_by_sea(from, order.target_pos) else "No sea route"
+
+
 ## Returns false when this platform cannot carry out the order, so group-order receipts count
 ## actual capability rather than merely counting living selections. Dynamic subsystem checks
 ## (deck spots and fire-control channels) remain with their specialist managers.
@@ -99,9 +186,14 @@ func issue_order(u: Unit, order: Order) -> bool:
 		# counting refusals. Each pair on a firing board carries its own Order.
 		if order != null and order.type == Order.Type.ENGAGE:
 			order.receipt = engage_rejection(u, order)
+		elif order != null and order.type == Order.Type.SET_SPEED and u != null and u.alive and u.in_formation():
+			order.receipt = station_keeping_rejection(u)
 		return false
-	if order.type == Order.Type.MOVE and u.needs_sea_room() and Terrain.is_land(order.target_pos):
-		return false
+	if order.type == Order.Type.MOVE:
+		var why := move_rejection(u, order)
+		if why != "":
+			order.receipt = why
+			return false
 	order.execution_accepted = true
 	if SubmarineComms.should_queue(u, order):
 		SubmarineComms.initialize(u, now_s)
@@ -191,7 +283,13 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 		Order.Type.SET_DEFENCE_POLICY:
 			return u.is_engageable() and order.defence_policy in ["balanced", "conserve", "saturation"]
 		Order.Type.SET_SPEED:
-			if u.patrol_active and patrol_rejection(u, u.waypoints, order.speed_kn) != "":
+			# Station keeping sets a consort's speed every tick; a speed of her own would be
+			# overwritten at once. The group's speed is the guide's to order.
+			if u.in_formation():
+				return false
+			# The circuit as ordered, not the points still ahead: those may include the way
+			# round a coast to its first corner, which is no part of it.
+			if u.patrol_active and patrol_rejection(u, u.station_route if not u.station_route.is_empty() else u.waypoints, order.speed_kn, false, true) != "":
 				return false
 			return _steerable(u)
 		Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS:
@@ -237,7 +335,15 @@ static func can_accept_order(u: Unit, order: Order) -> bool:
 			return Formation.can_join(u, order.leader)
 		Order.Type.BREAK_FORMATION, Order.Type.SET_ROE:
 			return u.is_engageable()
+		Order.Type.DESIGNATE:
+			# The commander's word on his own side's plot, passed through any platform he has hooked.
+			return order.track != null and order.track.owner_faction == u.faction and TrackManager.DESIGNATIONS.has(order.designation)
 	return false
+
+
+## Why a consort in formation refuses a speed of her own.
+static func station_keeping_rejection(u: Unit) -> String:
+	return "Keeping station on %s: order the guide's speed" % u.formation_leader.callsign
 
 
 ## Steering a platform can take now. An aircraft on its way to the deck or the tanker is the aviation
@@ -257,7 +363,7 @@ static func station_rejection(u: Unit) -> String:
 		return "Aircraft committed to fuel or recovery"
 	match u.station_kind:
 		"patrol":
-			var reason := patrol_rejection(u, u.station_circuit_from_here(), u.station_speed())
+			var reason := patrol_rejection(u, u.station_circuit_from_here(), u.station_speed(), true, true)
 			return "" if reason == "" else "Station unavailable: " + reason.to_lower()
 		"formation":
 			if u.station_leader == null or not u.station_leader.alive:
@@ -285,19 +391,54 @@ func resume_station(u: Unit, reason: String) -> bool:
 	return true
 
 
-## After a task ends on its own: back to station when the platform is told to, and only when no
-## newer order arrived while the task ran. `started` is the generation the task began under.
-func _return_after_task(u: Unit, started: int, reason: String) -> void:
-	if not u.alive or not u.auto_return or not u.has_station() or u.on_station():
+## After a task ends, for whatever reason: the platform goes back to what the task interrupted,
+## unless a newer order arrived while it ran. `started` is the generation the task began under.
+## The station first, when the platform is told to return to it by itself; otherwise the route it
+## was on; with neither, a hull keeps her way on and an aircraft holds (Unit.resume_plan). A task
+## that never took the steering interrupted nothing, and the platform is still on its own orders.
+func _finish_task(u: Unit, started: int, reason: String) -> void:
+	if not u.alive or u.order_generation != started:
+		u.forget_plan()
 		return
-	if u.order_generation != started:
+	if u.auto_return and u.has_station() and not u.on_station() and resume_station(u, reason):
 		return
-	resume_station(u, reason)
+	if u.plan_kept:
+		u.resume_plan()
+		if u.has_route():
+			route_resumed.emit(u, reason)
+	elif Movement.must_keep_flying(u) and u.waypoints.is_empty():
+		# On a bare course with nowhere to go: hold here rather than fly it to the end of the fuel.
+		Movement.enter_hold(u, u.position)
+	if u.is_aircraft() and u.holding():
+		var spread := _clear_hold_point(u, u.hold_point)
+		if spread != u.hold_point:
+			Movement.enter_hold(u, spread)
+
+
+## Where an aircraft whose task has ended holds: where it is, unless another of its side already
+## holds about there, as a section that attacked together finishes together. It then takes the next
+## point out along the diagonal, as a section's station circuits are laid, so the two are flown and
+## drawn as two aircraft and not one.
+func _clear_hold_point(u: Unit, at: Vector2) -> Vector2:
+	var spacing := AirMissionManager.SECTION_SPACING_NM
+	for k in 9:
+		var step := ceilf(k / 2.0) * spacing
+		var point := at + (Vector2(step, step) if k % 2 == 1 else Vector2(-step, -step))
+		var free := true
+		for o in units:
+			if o != u and o.alive and o.faction == u.faction and o.is_aircraft() and o.holding() and o.hold_point.distance_to(point) < spacing:
+				free = false
+				break
+		if free:
+			return point
+	return at
 
 
 ## Uses only information held by this unit's faction, including datalink visibility. An
 ## investigation never obtains a hidden position or an early classification from Track.truth.
-static func investigation_rejection(u: Unit, track: Track) -> String:
+## `planning` is the question asked when the order is given: it also looks for the way by sea. The
+## task's own step asks without it every tick and finds the way as it steers.
+static func investigation_rejection(u: Unit, track: Track, planning := true) -> String:
 	if u == null or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
 		return "Select a deployed mobile platform"
 	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
@@ -312,12 +453,16 @@ static func investigation_rejection(u: Unit, track: Track) -> String:
 		return "Contact is not available to this unit"
 	if track.is_bearing_only():
 		return "Contact range unresolved"
-	if track.classification >= Track.Classification.CLASS_KNOWN:
+	# A probable class from an emitter or a sound is not an identity: a contact still UNKNOWN is
+	# worth closing to look at whatever the library made of it.
+	if track.classification >= Track.Classification.CLASS_KNOWN and track.identity != "UNKNOWN":
 		return "Contact classified"
 	if not track.position.is_finite():
 		return "Contact position unavailable"
-	if u.needs_sea_room() and (Terrain.is_land(track.position) or Terrain.first_land_contact(u.position, track.position) >= 0.0):
+	if u.needs_sea_room() and Terrain.is_land(track.position):
 		return "Land blocks investigation — choose another course"
+	if planning and u.needs_sea_room() and not Terrain.reachable_by_sea(u.position, track.position):
+		return NO_SEA_ROUTE_TO_CONTACT
 	return ""
 
 
@@ -329,17 +474,9 @@ func _step_investigation(u: Unit, dt: float) -> void:
 	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
 		u.clear_investigation()
 		return
-	var reason := investigation_rejection(u, track)
+	var reason := investigation_rejection(u, track, false)
 	if reason != "":
-		var started := u.task_generation
-		var identify_only := u.investigation_identify_only
-		u.investigation_track = null
-		u.investigation_result = reason
-		_hold_investigation_position(u)
-		investigation_ended.emit(u, track, reason)
-		if reason == "Contact classified" and not identify_only and _engage_identified(u, track, started):
-			return  # the attack's own end hands back to the station
-		_return_after_task(u, started, reason)
+		_end_investigation(u, track, reason)
 		return
 	if u.evasion_remaining_s > 0.0:
 		return
@@ -356,9 +493,21 @@ func _step_investigation(u: Unit, dt: float) -> void:
 			var dip := Order.deploy_dipping_sonar(180.0)
 			dip.origin = "crew"
 			issue_order(u, dip)
-	else:
-		u.waypoints.assign([track.position])
+	elif u.steer_for(track.position):
 		u.ordered_speed_kn = u.investigation_speed_kn
+	else:
+		_end_investigation(u, track, NO_SEA_ROUTE_TO_CONTACT)
+
+
+func _end_investigation(u: Unit, track: Track, reason: String) -> void:
+	var started := u.task_generation
+	var identify_only := u.investigation_identify_only
+	u.investigation_track = null
+	u.investigation_result = reason
+	investigation_ended.emit(u, track, reason)
+	if reason == "Contact classified" and not identify_only and _engage_identified(u, track, started):
+		return  # the attack inherits the interrupted plan and hands back to it when it ends
+	_finish_task(u, started, reason)
 
 
 func set_engage_on_hostile_id(faction: String, on: bool) -> void:
@@ -457,8 +606,10 @@ static func attack_rejection(u: Unit, track: Track, weapon_id := "") -> String:
 
 
 ## One step of the standing attack. Rounds in flight are left to arrive; then the shot is checked
-## again, the best weapon chosen, fired when the envelope allows, and the platform steered to a
-## standoff inside that envelope when it does not. The contact's position is the held plot.
+## again, the best weapon chosen and fired when the envelope allows. The platform is steered only
+## when it has to be: in reach it fires from wherever its own orders have it, in its screen station
+## or along its route, and the task takes the steering only to close, open, unmask or clear the
+## line of fire. The contact's position is the held plot.
 func _step_attack(u: Unit, dt: float) -> void:
 	var track := u.attack_track
 	if track == null:
@@ -480,10 +631,12 @@ func _step_attack(u: Unit, dt: float) -> void:
 		return
 	if u.evasion_remaining_s > 0.0:
 		return  # evasion outranks the task and hands back to it afterwards
+	if _localise_from_the_dip(u, track, dt):
+		return
 	if away > 0:
 		u.attack_phase = "Engaging track · %d round%s away" % [away, "" if away == 1 else "s"]
 		u.attack_assess_until_s = -1.0
-		_steer_attack(u, track, u.attack_standoff_nm, dt)
+		_keep_geometry(u, track, u.attack_standoff_nm, dt)
 		return
 	if u.attack_rounds_fired > 0:
 		# The salvo has arrived. Read the plot for a moment before spending more.
@@ -491,7 +644,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			u.attack_assess_until_s = now_s + ATTACK_ASSESS_S
 		if now_s < u.attack_assess_until_s:
 			u.attack_phase = "Engaging track · assessing"
-			_steer_attack(u, track, u.attack_standoff_nm, dt)
+			_keep_geometry(u, track, u.attack_standoff_nm, dt)
 			return
 	var solution := _attack_solution(u, track)
 	var spec: WeaponSpec = solution["spec"]
@@ -507,47 +660,73 @@ func _step_attack(u: Unit, dt: float) -> void:
 		return
 	var check: Dictionary = solution["check"]
 	if bool(check["ok"]):
-		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
+		# A weapon the commander named fires its default salvo; one the attack chose is sized to
+		# what the plot says is left of the contact.
+		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id)) if u.attack_weapon_id != "" else u.salvo_for_track(spec, track)
 		if weapon_manager != null and weapon_manager.launch(u, spec, track, salvo, now_s):
 			u.attack_rounds_fired += salvo
 			u.attack_assess_until_s = -1.0
 			u.attack_stall_s = 0.0
 			u.attack_standoff_nm = standoff
 			u.attack_phase = "Engaging track"
-			_steer_attack(u, track, u.attack_standoff_nm, dt)
+			_keep_geometry(u, track, u.attack_standoff_nm, dt)
 		else:
 			u.attack_phase = "Engaging track · awaiting launcher"
 		return
 	var why := str(check["reason"])
 	var range_nm := u.position.distance_to(track.position)
+	# Where the platform is steering to get its shot, when it is steering for one.
+	var goal := Vector2.INF
 	match why:
 		"MOUNT MASKED / ATTACK TO UNMASK":
 			u.attack_phase = "Turning to engage"
+			u.take_steering()
 			u.waypoints.clear()
 			u.ordered_heading_deg = float(check.get("unmask_heading_deg", u.heading_deg))
 			u.ordered_speed_kn = minf(u.spec.cruise_speed_kn, maxf(u.attack_speed_kn, 5.0))
 			u.attack_stall_s = 0.0
+			u.attack_progress_pos = u.position
 			return
 		"OUT OF RANGE", "BEARING ONLY / NO RANGE SOLUTION", "NO INTERCEPT SOLUTION", "TARGET CAN OUTRUN THE SHOT", "NO RADAR FIX ON AIRCRAFT":
-			u.attack_phase = "Intercept track"
-			_steer_attack(u, track, standoff, dt)
+			if _held_to_screen(u, track, standoff):
+				why = SCREEN_HELD
+			else:
+				u.attack_phase = "Intercept track"
+				goal = _steer_attack(u, track, standoff, dt)
 		"INTERCEPT BEYOND WEAPON RANGE":
 			# In reach of the plot but not of where the contact will be: it is opening. Keep
 			# closing on it rather than holding at a standoff the lead point never enters.
-			u.attack_phase = "Intercept track"
-			_steer_attack(u, track, maxf(range_nm * 0.5, spec.min_range_nm * 1.5 + 0.5), dt)
+			var closer := maxf(range_nm * 0.5, Combat.minimum_range_nm(spec) * 1.5 + 0.5)
+			if _held_to_screen(u, track, closer):
+				why = SCREEN_HELD
+			else:
+				u.attack_phase = "Intercept track"
+				goal = _steer_attack(u, track, closer, dt)
 		"NO LINE OF FIRE":
 			# Land between the shooter and the round's path: move to water with an open line.
-			var clear := Combat.clear_standoff_point(u.position, track.position, standoff)
-			if not clear.is_finite() or u.spec.max_speed_kn <= 0.0:
+			goal = _clearing_point(u, track, standoff)
+			if not goal.is_finite() or u.spec.max_speed_kn <= 0.0:
 				_end_attack(u, track, "No line of fire")
 				return
 			u.attack_phase = "Intercept track · clearing the line of fire"
-			u.waypoints.assign([clear])
-			u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn) if u.is_aircraft() and not u.spec.can_hover else u.attack_speed_kn
+			u.take_steering()
+			u.attack_holding = false
+			if not u.steer_for(goal):
+				_end_attack(u, track, NO_SEA_ROUTE_TO_FIRE)
+				return
+			u.ordered_speed_kn = _closing_speed(u, track)
+		"NEUTRAL IN THE LINE OF FIRE":
+			# A neutral or a friend lies where the round's seeker would look. Traffic moves: hold
+			# fire, keep the task and the geometry, and shoot when the line is clear. This is not
+			# a stall; the commander sees why and can cancel.
+			u.attack_phase = "Holding fire · neutral in the line of fire"
+			u.attack_stall_s = 0.0
+			u.attack_progress_pos = u.position
+			_keep_geometry(u, track, standoff, dt)
+			return
 		"TOO CLOSE":
 			u.attack_phase = "Opening to range"
-			_steer_attack(u, track, maxf(spec.min_range_nm * 1.5, 1.0), dt, true)
+			goal = _steer_attack(u, track, maxf(Combat.minimum_range_nm(spec) * 1.5, 1.0), dt, true)
 		"MAGAZINE EMPTY":
 			_end_attack(u, track, "Magazines empty")
 			return
@@ -563,19 +742,122 @@ func _step_attack(u: Unit, dt: float) -> void:
 		_:
 			# Fire control saturated, guidance unavailable: hold the geometry and try again.
 			u.attack_phase = "Attack track · " + why.to_lower()
-			_steer_attack(u, track, standoff, dt)
-	# Unable to fire and going nowhere: after a while, say why and stop, rather than park.
-	if not u.has_route():
-		u.attack_stall_s += dt
-		if u.attack_stall_s >= ATTACK_STALL_S:
-			_end_attack(u, track, "Cannot engage: " + why.to_lower())
-	else:
+			_keep_geometry(u, track, standoff, dt)
+	_count_stall(u, track, goal, why, dt)
+
+
+## Whether a consort that keeps a screen station is held to it for this shot: the nearest point
+## from which the weapon would reach lies beyond ATTACK_SCREEN_LEASH_NM of her station. She then
+## goes back to the screen if the attack had taken her out of it, fires from there if the contact
+## comes into reach, and the stall guard ends the task if it does not. An aircraft on a CAP or a
+## patrolling ship is not held: closing on what comes past is what the station is for.
+func _held_to_screen(u: Unit, track: Track, standoff_nm: float) -> bool:
+	if u.is_aircraft() or not u.auto_return or u.station_kind != "formation" or standoff_nm <= 0.0:
+		return false
+	var station := u.station_point()
+	if not station.is_finite():
+		return false
+	var held := u.attack_phase == SCREEN_HELD_PHASE
+	var leash := ATTACK_SCREEN_LEASH_NM * (ATTACK_SCREEN_RELEASE if held else 1.0)
+	if station.distance_to(track.position) - standoff_nm <= leash:
+		return false
+	u.attack_phase = SCREEN_HELD_PHASE
+	if u.plan_kept and station_rejection(u) == "":
+		u.rejoin_formation_station()
+	return true
+
+
+## Unable to fire and getting no nearer to being able to: after a while, say why and stop. With
+## somewhere to steer for, what counts is the platform's own way toward it, measured from where it
+## was a tick ago, so a hull held against a coast stalls although its engines are turning and it
+## still has a route. A hull that is making way but that the plot says is not gaining on the
+## contact, a stern chase of a faster ship, stalls as well: she would chase it to the end of the
+## mission. A hull still coming round onto the bearing is given the time to do it.
+func _count_stall(u: Unit, track: Track, goal: Vector2, why: String, dt: float) -> void:
+	if u.attack_track != track:
+		return  # the step that chose the goal has already ended the task
+	var before := u.attack_progress_pos
+	u.attack_progress_pos = u.position
+	if why == SCREEN_HELD:
+		# Kept in the screen, she is no nearer her shot unless the screen itself is closing the
+		# contact, as a convoy steaming toward it does.
+		if _screen_closing_kn(u, track) >= ATTACK_MIN_CLOSING_KN:
+			u.attack_stall_s = 0.0
+			return
+	elif goal.is_finite():
+		if not before.is_finite():
+			return
+		# Rounding a headland the hull may be opening from its firing point for a while: on a sea
+		# route, the way it is making is measured to the point it is steering for.
+		var mark: Vector2 = u.waypoints[0] if u.on_sea_route() else goal
+		var gained := before.distance_to(mark) - u.position.distance_to(mark)
+		var turning := u.speed_kn >= 2.0 and absf(Geo.heading_delta(u.heading_deg, Geo.bearing_deg(u.position, mark))) > 60.0
+		var losing := not u.is_aircraft() and not u.on_sea_route() and _plot_closing_kn(u, track) < ATTACK_MIN_CLOSING_KN
+		if losing:
+			why = "contact is opening"
+		elif gained >= Geo.knots_to_nm_per_s(maxf(u.speed_kn, 1.0)) * dt * ATTACK_PROGRESS_FRACTION:
+			u.attack_stall_s = 0.0
+			return
+		elif turning:
+			return
+	u.attack_stall_s += dt
+	if u.attack_stall_s >= ATTACK_STALL_S:
+		_end_attack(u, track, "Cannot engage: " + why.to_lower())
+
+
+## How fast she could close the plot on the line of sight at the speed the attack has ordered,
+## against the contact's plotted course and speed: what the chase will come to once she has worked
+## up to it, not the knots she happens to be making as she comes round. INF when the plot gives no
+## motion to judge by.
+static func _plot_closing_kn(u: Unit, track: Track) -> float:
+	if not track.has_kinematics or u.position.distance_to(track.position) < 0.001:
+		return INF
+	var line := (track.position - u.position).normalized()
+	var theirs := Geo.heading_to_vector(track.course_deg) * track.speed_kn
+	return minf(u.ordered_speed_kn, u.effective_max_speed()) - theirs.dot(line)
+
+
+## How fast the range to the plot is closing with the way she is actually making, a contact with
+## no plotted motion taken as still.
+static func _screen_closing_kn(u: Unit, track: Track) -> float:
+	if u.position.distance_to(track.position) < 0.001:
+		return INF
+	var line := (track.position - u.position).normalized()
+	var own := Geo.heading_to_vector(u.heading_deg) * u.speed_kn
+	var theirs := Geo.heading_to_vector(track.course_deg) * track.speed_kn if track.has_kinematics else Vector2.ZERO
+	return (own - theirs).dot(line)
+
+
+## A helicopter in the dip, ordered to attack a contact its own set holds as a bearing with no
+## range: it stays where it is and pings for the range (unless emissions are silenced, when it
+## keeps listening), and fires from the hover once the plot is worth a torpedo. True while it does.
+## The plotted position of such a contact is a guess along the line, often miles beyond a boat
+## that is close aboard; leaving the dip to fly there gives up the contact for nothing.
+func _localise_from_the_dip(u: Unit, track: Track, dt: float) -> bool:
+	if not DippingSonar.holds_bearing(u, track):
+		if u.attack_phase.begins_with("Attack track · localising"):
+			u.attack_stall_s = 0.0
+			u.attack_phase = "Intercept track"
+		return false
+	u.attack_stall_s += dt
+	if u.attack_stall_s >= ATTACK_LOCALISE_S:
+		# No range to be had from here: up dome, and run down the bearing as any other platform would.
 		u.attack_stall_s = 0.0
+		u.attack_phase = "Intercept track"
+		DippingSonar.recover(u)
+		return false
+	if not u.active_sonar_on and u.emcon != Unit.Emcon.SILENT:
+		var ping := Order.active_sonar()
+		ping.origin = "crew"
+		issue_order(u, ping)
+	u.attack_phase = "Attack track · localising, sonar %s" % ("active" if u.active_sonar_on else "passive")
+	return true
 
 
 ## The weapon the attack would fire now: the named one, else the first that can be fired in the
-## order weapons_for_track ranks them (longest reach first, guns last). When none can, the most
-## preferred one's refusal decides what the platform does about it.
+## order weapons_for_track ranks them (the gun at small craft in its reach, else the cheapest round
+## meant for the target that reaches with margin). When none can, the most preferred one's refusal
+## decides what the platform does about it.
 func _attack_solution(u: Unit, track: Track) -> Dictionary:
 	var candidates: Array[WeaponSpec] = []
 	if u.attack_weapon_id != "":
@@ -610,31 +892,155 @@ func _rounds_away(u: Unit, track: Track) -> int:
 	return count
 
 
-## Steer to the standoff distance along the bearing to the plot, or hold there. A fixed-wing
-## aircraft cannot hold a point, so it keeps flying and comes round again on later ticks.
-## `opening` steers out to the standoff from inside it, for a weapon's minimum range.
-func _steer_attack(u: Unit, track: Track, standoff_nm: float, dt: float, opening := false) -> void:
+## Whether this platform stands off from this contact rather than closing over it: a fixed-wing
+## aircraft against a ship or a shore target, whose defences reach up.
+static func _stands_off(u: Unit, track: Track) -> bool:
+	return u.is_aircraft() and not u.spec.can_hover and track.domain in ["surface", "land"]
+
+
+## The speed of a leg flown or sailed to get a shot.
+static func _closing_speed(u: Unit, track: Track) -> float:
+	if u.is_aircraft() and not u.spec.can_hover:
+		# An intercept is flown fast; no attack is flown below the cruise.
+		return u.spec.flight_speed("dash") if track.domain == "air" else maxf(u.attack_speed_kn, u.spec.cruise_speed_kn)
+	return u.attack_speed_kn
+
+
+## The point the platform steers for when land masks its shot. The one it is already making for
+## stands while it still serves, so the search runs when the picture changes and not every tick.
+func _clearing_point(u: Unit, track: Track, standoff_nm: float) -> Vector2:
+	var by_sea := u.needs_sea_room()
+	if u.attack_phase.ends_with("clearing the line of fire") and (u.on_sea_route() or u.waypoints.size() == 1):
+		# The point at the end of the way already laid, whether that is one leg or several.
+		var current: Vector2 = u.waypoints.back()
+		var in_reach := current.distance_to(track.position) <= standoff_nm / ATTACK_STANDOFF_FRACTION
+		if in_reach and Terrain.first_land_contact(current, track.position) < 0.0 and (not by_sea or u.on_sea_route() or Terrain.sea_leg_clear(u.position, current)):
+			return current
+	return Combat.clear_standoff_point(u.position, track.position, standoff_nm, by_sea)
+
+
+## With rounds away, a salvo being assessed or the fire control busy, there is nothing to close
+## for. A platform the attack is already steering keeps its range; one that is not carries on with
+## its own orders, except that a fixed-wing aircraft is turned away before those orders carry it in
+## over the target: one that has released, and one in reach that is waiting to (a launcher, a
+## neutral in the line of fire), which can shoot as well from the hold as from over the ship.
+func _keep_geometry(u: Unit, track: Track, standoff_nm: float, dt: float) -> void:
+	if u.plan_kept:
+		_steer_attack(u, track, standoff_nm, dt)
+	elif _stands_off(u, track):
+		var floor_nm := _hold_off_floor_nm(standoff_nm)
+		if u.position.distance_to(track.position) <= floor_nm + _turn_room_nm(u):
+			u.take_steering()
+			u.attack_holding = true
+			_hold_off(u, track, floor_nm)
+
+
+## Steer to the standoff distance along the bearing to the plot, or keep it once there. Returns
+## the point being steered for, or Vector2.INF when the platform is in the band. A platform that
+## is already in reach and that the attack is not steering is left to its own orders. `opening`
+## steers out to the standoff from inside it, for a weapon's minimum range.
+func _steer_attack(u: Unit, track: Track, standoff_nm: float, dt: float, opening := false) -> Vector2:
 	if u.spec.max_speed_kn <= 0.0:
-		return  # an installation ashore attacks from where it stands
+		return Vector2.INF  # an installation ashore attacks from where it stands
 	var range_nm := u.position.distance_to(track.position)
-	var fixed_wing := u.is_aircraft() and not u.spec.can_hover
 	var arrive := maxf(Movement.ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
 	if opening and range_nm < standoff_nm:
-		u.waypoints.assign([Combat.standoff_point(u.position, track.position, standoff_nm + arrive)])
+		u.take_steering()
+		u.attack_holding = false
+		var out := Combat.standoff_point(u.position, track.position, standoff_nm + arrive)
+		if not u.steer_for(out):
+			u.waypoints.assign([out])  # a short leg outward: the stall guard ends it if the coast does
 		u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn)
-		return
-	if standoff_nm <= 0.0 or range_nm <= standoff_nm + arrive:
-		# Inside the envelope: hold here, as an investigating ship holds at the plot. A
-		# fixed-wing aircraft cannot, so it flies on and comes round again.
+		return out
+	var band := standoff_nm * (ATTACK_HOLD_RELEASE if u.attack_holding else 1.0) + arrive
+	if standoff_nm <= 0.0 or range_nm <= band:
+		if u.plan_kept:
+			u.attack_holding = true
+			_hold_band(u, track, standoff_nm)
+		return Vector2.INF
+	u.take_steering()
+	u.attack_holding = false
+	var goal := Combat.standoff_point(u.position, track.position, standoff_nm)
+	if not u.steer_for(goal):
+		_end_attack(u, track, NO_SEA_ROUTE_TO_FIRE)
+		return Vector2.INF
+	u.ordered_speed_kn = _closing_speed(u, track)
+	return goal
+
+
+## Inside the standoff with the steering: keep the range without stopping. A helicopter hovers. A
+## fixed-wing aircraft holds off a ship or a shore target and otherwise flies on and comes round
+## again. A hull keeps way on: alongside a contact that is moving, round one that is not, turning
+## in or out as the range drifts, so she can still answer her helm, is not a sitting target, and
+## neither creeps in on the contact nor hunts back and forth across the edge of the band.
+func _hold_band(u: Unit, track: Track, standoff_nm: float) -> void:
+	if u.is_aircraft():
+		if _stands_off(u, track):
+			_hold_off(u, track, _hold_off_floor_nm(standoff_nm))
+			return
 		u.waypoints.clear()
 		u.ordered_heading_deg = u.heading_deg
-		u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn) if fixed_wing else 0.0
+		u.ordered_speed_kn = 0.0 if u.spec.can_hover else maxf(u.attack_speed_kn, u.spec.cruise_speed_kn)
 		return
-	var goal := Combat.standoff_point(u.position, track.position, standoff_nm)
-	u.waypoints.assign([goal])
-	u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn) if fixed_wing else u.attack_speed_kn
-	if fixed_wing and track.domain == "air":
-		u.ordered_speed_kn = u.spec.flight_speed("dash")  # an intercept is flown fast
+	var toward := Geo.bearing_deg(u.position, track.position)
+	var range_nm := u.position.distance_to(track.position)
+	# How far outside the standoff, as a fraction of a tenth of it. Inside it there is nothing to
+	# correct: the weapon reaches, and opening out to the edge of its range would gain nothing.
+	var error := clampf((range_nm - standoff_nm) / maxf(standoff_nm * 0.1, 0.5), 0.0, 1.0) if standoff_nm > 0.0 else 0.0
+	var speed := u.attack_speed_kn
+	if not u.attack_speed_ordered:
+		speed = minf(u.spec.cruise_speed_kn, ATTACK_QUIET_KN if u.is_submarine() else u.attack_speed_kn)
+	var course := 0.0
+	if track.domain == "air":
+		# Nothing a hull does keeps station on an aircraft: she holds the course she is on.
+		course = u.ordered_heading_deg
+		error = 0.0
+	elif track.has_kinematics and track.speed_kn >= ATTACK_PARALLEL_MIN_KN:
+		course = track.course_deg
+		if not u.attack_speed_ordered:
+			var ceiling := u.spec.cruise_speed_kn if u.is_submarine() else u.attack_speed_kn
+			speed = clampf(track.speed_kn + error * 5.0, minf(ATTACK_PARALLEL_MIN_KN, ceiling), ceiling)
+	else:
+		# Abeam of the contact, on the side that is the smaller turn from the course already ordered.
+		var to_starboard := absf(Geo.heading_delta(u.ordered_heading_deg, toward + 90.0))
+		var to_port := absf(Geo.heading_delta(u.ordered_heading_deg, toward - 90.0))
+		course = toward + (90.0 if to_starboard <= to_port else -90.0)
+	# Which way, and how far, the contact lies from that course: turn in toward it when too far out.
+	var off := Geo.heading_delta(course, toward)
+	course += signf(off) * minf(absf(off), 60.0 * error)
+	course = Terrain.open_bearing_deg(u.position, fposmod(course, 360.0), maxf(2.0, speed * 0.1))
+	u.waypoints.clear()
+	u.ordered_heading_deg = course
+	u.ordered_speed_kn = speed
+
+
+## How close a fixed-wing aircraft lets itself come to a ship or shore target it is attacking.
+static func _hold_off_floor_nm(standoff_nm: float) -> float:
+	return ATTACK_HOLD_OFF_FRACTION * standoff_nm / ATTACK_STANDOFF_FRACTION
+
+
+## The radius of the turn this aircraft is flying, which is the room it needs to turn away in.
+static func _turn_room_nm(u: Unit) -> float:
+	return Geo.knots_to_nm_per_s(u.speed_kn) / deg_to_rad(maxf(u.spec.turn_rate_deg_s, 0.1))
+
+
+## A racetrack on the aircraft's own side of the contact, its long legs across the bearing and the
+## pattern laid away from the contact, no nearer to it than `floor_nm`. An aircraft already inside
+## that opens out to it. The pattern is laid again when the contact has moved in on it, or when
+## Movement has re-laid it along whatever heading the aircraft arrived on.
+func _hold_off(u: Unit, track: Track, floor_nm: float) -> void:
+	if u.holding():
+		var clear := true
+		for p: Vector2 in u.waypoints:
+			if p.distance_to(track.position) < floor_nm:
+				clear = false
+				break
+		if clear:
+			return
+	var range_nm := u.position.distance_to(track.position)
+	var outward := Geo.bearing_deg(track.position, u.position) if range_nm > 0.001 else fposmod(u.heading_deg + 180.0, 360.0)
+	var centre := track.position + Geo.heading_to_vector(outward) * maxf(range_nm, floor_nm + _turn_room_nm(u))
+	Movement.enter_hold(u, centre, fposmod(outward - 90.0, 360.0))
 
 
 func _end_attack(u: Unit, track: Track, reason: String) -> void:
@@ -643,12 +1049,9 @@ func _end_attack(u: Unit, track: Track, reason: String) -> void:
 	u.attack_phase = ""
 	u.attack_result = reason
 	u.attack_assess_until_s = -1.0
-	u.waypoints.clear()
-	u.ordered_heading_deg = u.heading_deg
-	if u.is_aircraft() and not u.spec.can_hover:
-		u.ordered_speed_kn = maxf(u.attack_speed_kn, u.spec.cruise_speed_kn)
+	u.attack_holding = false
 	attack_ended.emit(u, track, reason)
-	_return_after_task(u, started, reason)
+	_finish_task(u, started, reason)
 
 
 ## The plot does not expire a track just because the ship under it sank, so the attack is ended
@@ -661,12 +1064,16 @@ func _on_unit_destroyed(target: Unit, _killer_faction: String) -> void:
 
 
 ## Validate the entire circuit before changing any standing order. No partial patrol over land.
-static func patrol_rejection(u: Unit, points: Array[Vector2], speed_kn := -1.0) -> String:
+## `approach` also asks for a way by sea from where the platform is to the first corner. A circuit
+## the commander lays needs three corners; one the platform already `standing` holds may be the
+## scenario's line of two, sailed out and back, and going back to it or changing its speed is not
+## refused for that.
+static func patrol_rejection(u: Unit, points: Array[Vector2], speed_kn := -1.0, approach := true, standing := false) -> String:
 	if u == null or not u.alive or not u.is_engageable() or u.spec.max_speed_kn <= 0.0:
 		return "Select a deployed mobile platform"
 	if u.is_aircraft() and (not u.airborne() or u.returning or u.tanking_on != null):
 		return "Aircraft must be airborne and available for tasking"
-	if points.size() < 3 or points.size() > 16:
+	if points.size() < (2 if standing else 3) or points.size() > 16:
 		return "A patrol needs 3 to 16 corners"
 	for p: Vector2 in points:
 		if not p.is_finite():
@@ -679,8 +1086,8 @@ static func patrol_rejection(u: Unit, points: Array[Vector2], speed_kn := -1.0) 
 			return "Patrol legs need %.1f NM for this platform's turning room" % minimum_leg
 		if u.needs_sea_room() and (Terrain.is_land(p) or Terrain.first_land_contact(p, next) >= 0.0):
 			return "Patrol crosses land — choose open water"
-	if u.needs_sea_room() and Terrain.first_land_contact(u.position, points[0]) >= 0.0:
-		return "Land blocks the approach to this patrol"
+	if approach and u.needs_sea_room() and not Terrain.reachable_by_sea(u.position, points[0]):
+		return "No sea route to this patrol"
 	return ""
 
 

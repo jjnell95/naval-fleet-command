@@ -35,7 +35,9 @@ const VERSION := 3
 const UNIT_SKIP := {
 	"bottom_generation": "a validity flag is saved instead; the chart's generation is new after a load",
 }
-const TRACK_SKIP := {}
+const TRACK_SKIP := {
+	"_bearing_latest": "an index of the bearing history's newest report per listener, rebuilt from the history on the next bearing",
+}
 const WEAPON_SKIP := {}
 const MISSION_SKIP := {}
 const BUOY_SKIP := {}
@@ -47,27 +49,32 @@ const GROUP_SKIP := {}
 ## once in Simulation._ready), catalogue data, or recomputed within a single tick.
 const MANAGER_FIELDS := {
 	"UnitManager": ["now_s", "_next_id", "engage_on_hostile_id"],
-	"TrackManager": ["_tracks", "_by_target", "_local_keys", "_track_ids", "_next_number"],
-	"SensorManager": ["_accum", "_last_heading", "_manoeuvre"],
+	"TrackManager": ["_tracks", "_by_target", "_local_keys", "_track_ids", "_dropped_ids", "_next_number"],
+	"SensorManager": ["_accum", "_slice", "_cycle_at", "_plan", "_work"],
 	"ThreatManager": ["_observers", "_detected", "_first_seen"],
 	"WeaponManager": ["in_flight", "_next_id", "_launcher_ready_at", "now_s", "_pending", "_pending_dirty"],
 	"AviationManager": ["_accum", "_next_buoy_id"],
 	"AirMissionManager": ["now_s", "_next_id", "_accum"],
 	"GroupAttackManager": ["now_s", "_next_id", "_accum"],
-	"MissionManager": ["result", "tasking_updates"],
+	"MissionManager": ["result", "tasking_updates", "orders_given", "civilian_incidents", "own_fire_hits", "rounds_spent", "screen_s", "screen_short_s", "screen_last_s"],
 	"OperationDirector": ["events", "fired", "skipped", "variant"],
 	"AIController": ["enabled", "_bb", "_plan_checked"],
 }
 ## Manager variables that are deliberately not saved, and why. SensorManager.reference_path is a
-## development switch between two cycles that produce the same tracks, not engagement state.
+## development switch between two cycles that produce the same tracks, not engagement state, and
+## its two counters measure work. TrackManager.cycle_at is set by the sensor cycle before each of
+## its slices from the SensorManager's own saved cycle time, and SensorManager._jammer_fits is read
+## from the units' fits whenever the unit list changes. An older save that still carries the
+## removed _last_heading and _manoeuvre is restored without them, as restore skips names a manager
+## does not have.
 const MANAGER_TRANSIENT := {
 	"UnitManager": ["units", "weapon_manager"],
-	"TrackManager": ["neutral_factions", "recognition_affiliations"],
-	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path"],
+	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings", "bearing_solutions_worked", "cycle_at"],
+	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path", "sonar_pairs_weighed", "lookout_pairs_weighed", "_jammer_fits", "_jammer_fits_of", "_jammer_fits_last"],
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
 	"AviationManager": ["unit_manager", "sonobuoys", "map_center", "map_extent_nm"],
-	"AirMissionManager": ["unit_manager", "aviation_manager", "track_manager", "missions"],
+	"AirMissionManager": ["unit_manager", "aviation_manager", "track_manager", "threat_manager", "missions"],
 	# The group attack records are saved on their own, below; their rounds' tags are on the
 	# queued shots and the weapons themselves.
 	"GroupAttackManager": ["unit_manager", "track_manager", "weapon_manager", "groups"],
@@ -133,24 +140,34 @@ class Refs:
 				errors.append("cannot save a reference to %s" % v)
 				return null
 			TYPE_ARRAY:
+				# A plain element (a number, a string, a vector) is kept as it is without the call,
+				# as below: a track's bearing history is thousands of them.
 				var out := []
 				for x in v:
-					out.append(enc(x))
+					out.append(x if typeof(x) < TYPE_OBJECT else enc(x))
 				return out
 			TYPE_DICTIONARY:
 				var object_keys := false
+				var plain := not (v as Dictionary).is_typed()
 				for k in v:
 					if typeof(k) == TYPE_OBJECT:
 						object_keys = true
 						break
+					if plain and typeof(v[k]) >= TYPE_OBJECT:
+						plain = false
 				if object_keys:
 					var pairs := []
 					for k in v:
 						pairs.append([enc(k), enc(v[k])])
 					return {"$pairs": pairs}
+				if plain:
+					# Nothing in it to convert or copy deeper: a bearing report, of which a track's
+					# history holds a hundred and more, is copied whole.
+					return (v as Dictionary).duplicate()
 				var d := {}
 				for k in v:
-					d[k] = enc(v[k])
+					var x: Variant = v[k]
+					d[k] = x if typeof(x) < TYPE_OBJECT else enc(x)
 				return d
 		return _copy_packed(v)
 
@@ -295,12 +312,15 @@ static func capture(sim: Simulation) -> Dictionary:
 	}
 
 
-## Every script variable of an entity, less the listed ones, with references as markers.
+## Every script variable of an entity, less the listed ones, with references as markers. A plain
+## value (a number, a string, a vector) is stored as it is, as Refs.enc would return it, without
+## the call: most of an entity's fields are plain, and an autosave writes every unit's.
 static func fields_of(obj: Object, skip: Dictionary, refs: Refs) -> Dictionary:
 	var out := {}
 	for name: String in script_variables(obj):
 		if not skip.has(name):
-			out[name] = refs.enc(obj.get(name))
+			var value: Variant = obj.get(name)
+			out[name] = value if typeof(value) < TYPE_OBJECT else refs.enc(value)
 	return out
 
 
@@ -311,13 +331,22 @@ static func manager_fields(node: Object, refs: Refs) -> Dictionary:
 	return out
 
 
-## Script variables in declaration order.
+## Script variables in declaration order, read once for each script: an object's property list
+## is long, and building it for every unit, track and weapon was most of the cost of a capture.
 static func script_variables(obj: Object) -> PackedStringArray:
+	var script: Variant = obj.get_script()
+	if script != null and _variables_by_script.has(script):
+		return _variables_by_script[script]
 	var out := PackedStringArray()
 	for p: Dictionary in obj.get_property_list():
 		if int(p["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE:
 			out.append(str(p["name"]))
+	if script != null:
+		_variables_by_script[script] = out
 	return out
+
+
+static var _variables_by_script: Dictionary = {}
 
 
 ## Every manager whose fields are saved by name, in a fixed order.

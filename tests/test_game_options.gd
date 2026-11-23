@@ -333,8 +333,9 @@ func _cleanup(h: Array) -> void:
 
 
 func test_a_manual_ship_holds_its_sams_while_the_other_side_still_defends_itself() -> void:
-	var blue := _ship("BLUE", Vector2.ZERO, [_sam("essm", 25.0)])
-	var red := _ship("RED", Vector2(60, 0), [_sam("essm", 25.0)])
+	# An area missile: the point-defence layer is the crew's own to fire, manual defence or not.
+	var blue := _ship("BLUE", Vector2.ZERO, [_sam("sm2", 45.0)])
+	var red := _ship("RED", Vector2(60, 0), [_sam("sm2", 45.0)])
 	var h := _harness([blue, red])
 	assert_true(h[0].issue_order(blue, Order.set_air_defence_mode(false)))
 	assert_true(not blue.auto_air_defence)
@@ -342,26 +343,23 @@ func test_a_manual_ship_holds_its_sams_while_the_other_side_still_defends_itself
 	_incoming(h[2], "RED", Vector2(0, 12), blue, 900)
 	_incoming(h[2], "BLUE", Vector2(60, 12), red, 901)
 	_run(h, 120.0)
-	assert_eq(blue.magazine_count("essm"), 32, "no SAM leaves a manual ship unordered")
+	assert_eq(blue.magazine_count("sm2"), 32, "no area SAM leaves a manual ship unordered")
 	assert_near(blue.health, 60.0, 1e-3, "and the round arrives")
-	assert_true(red.magazine_count("essm") < 32, "an automatic ship still defends itself")
+	assert_true(red.magazine_count("sm2") < 32, "an automatic ship still defends itself")
 	_cleanup(h)
 
 
-func test_close_in_guns_answer_on_manual_but_not_under_weapons_hold() -> void:
+func test_close_in_guns_answer_on_manual_and_under_weapons_hold() -> void:
 	for roe: int in [Unit.Roe.FREE, Unit.Roe.HOLD]:
 		var ciws := _sam("ciws", 1.2, "ciws", 3)
-		var ship := _ship("BLUE", Vector2.ZERO, [_sam("essm", 25.0), ciws])
+		var ship := _ship("BLUE", Vector2.ZERO, [_sam("sm2", 45.0), ciws])
 		var h := _harness([ship])
 		h[0].issue_order(ship, Order.set_air_defence_mode(false))
 		h[0].issue_order(ship, Order.set_roe(roe))
 		_incoming(h[2], "RED", Vector2(0, 10), ship)
 		_run(h, 75.0)
-		assert_eq(ship.magazine_count("essm"), 32, "the SAMs wait for an order")
-		if roe == Unit.Roe.FREE:
-			assert_true(ship.magazine_count("ciws") < 32, "the last-ditch guns stay automatic")
-		else:
-			assert_eq(ship.magazine_count("ciws"), 32, "weapons hold silences even the guns")
+		assert_eq(ship.magazine_count("sm2"), 32, "the area SAMs wait for an order")
+		assert_true(ship.magazine_count("ciws") < 32, "the last-ditch guns stay automatic, weapons hold or not: hold is an order not to attack")
 		_cleanup(h)
 
 
@@ -573,7 +571,12 @@ func test_engagement_after_identification_never_fires_where_it_should_not() -> v
 	for key: String in cases:
 		var r: Dictionary = cases[key]
 		assert_eq(r["unit"].attack_track, null, key)
-		assert_eq(r["unit"].investigation_result, "Contact classified", key)
+		if key == "unknown allegiance":
+			# A class without an allegiance is not an identification: the look goes on, and nothing is fired.
+			assert_true(r["unit"].investigation_track != null, key)
+			assert_eq(r["unit"].investigation_result, "", key)
+		else:
+			assert_eq(r["unit"].investigation_result, "Contact classified", key)
 		r["um"].free()
 
 

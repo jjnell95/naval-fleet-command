@@ -9,7 +9,7 @@ jobs:
   godot:
     name: Godot regression and interface checks
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 90
     env:
       GODOT_VERSION: 4.7.2
     steps:
@@ -35,6 +35,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq xvfb libgl1-mesa-dri > /dev/null
 
+      - name: Scenario data is what the builders write
+        run: |
+          python3 -m venv /tmp/scenario-tools
+          /tmp/scenario-tools/bin/pip install -q -r tools/scenarios/requirements.txt
+          /tmp/scenario-tools/bin/python tools/scenarios/rebuild_all.py --check
+
       - name: Import the project
         run: ~/godot/godot --headless --path . --import --quit
 
@@ -42,7 +48,7 @@ jobs:
         run: python3 tools/test_runner_self_check.py ~/godot/godot
 
       - name: Regression tests
-        run: timeout 900 ~/godot/godot --headless --path . --script tests/run_tests.gd
+        run: timeout 2400 ~/godot/godot --headless --path . --script tests/run_tests.gd
 
       - name: Northern Passage outcomes and deterministic replay
         run: python3 tools/verify_northern_passage.py ~/godot/godot

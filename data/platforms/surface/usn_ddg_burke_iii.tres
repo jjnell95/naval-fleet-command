@@ -36,3 +36,4 @@ service_note = "Flight III / Aegis Baseline 10; Tomahawk in the VLS is the ship'
 default_air_wing = {"usn_helo_mh60r": 2}
 
 weapon_mount_arcs = {"mk45_mod4_gun": [Vector2(0, 145)]}
+acoustic_signature = 0.22

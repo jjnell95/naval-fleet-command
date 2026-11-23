@@ -23,6 +23,7 @@ decoy_count = 0
 fire_control_channels = 0
 role = "Land-based aviation"
 service_note = "Fixed recovery and launch point at a real airfield. No installation layout or actual 1990 deployment is asserted."
+length_m = 2700.0
 aircraft_capacity = 16
 aviation_facility = "airfield"
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

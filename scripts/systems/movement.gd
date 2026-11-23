@@ -10,6 +10,50 @@ const HOLD_WIDTH_NM := 3.0
 const HOLD_TURN_MARGIN := 1.15
 
 
+## A hull held by a coast for this long, making less than COAST_HEADWAY_FRACTION of the way its
+## ordered speed asks for, has run out of water: it stops, gives up the leg and says so, rather
+## than grinding at the beach with its engines turning. GAMEPLAY_ESTIMATE.
+const COAST_BLOCKED_S := 20.0
+const COAST_HEADWAY_FRACTION := 0.25
+## Meeting a coast at less than this off its line, a hull is turned along it; steeper, it is stopped.
+const COAST_TURN_MAX_DEG := 60.0
+## A hull held by a coast can still be worked round with her engines, as fast as she would turn
+## at this speed: without it a ship stopped bows-on to a beach could never be turned off it.
+const COAST_TWIST_KN := 8.0
+## While she is still coming round by more than this she is not counted as blocked.
+const COAST_TURNING_DEG := 5.0
+
+
+## A hull coming round by more than this checks that the circle she will turn on is open water, and
+## turns the other way when the short way would put her on the shore. The circle is taken this much
+## wider than her tactical radius, for the speed she gathers in the turn. GAMEPLAY_ESTIMATE.
+const SEA_ROOM_TURN_DEG := 45.0
+const SEA_ROOM_TURN_MARGIN := 1.5
+const SEA_ROOM_ARC_STEP_DEG := 20.0
+
+
+## Whether coming round by `turn_deg` (positive to starboard) from where she is would take her over
+## land: points along the arc she would steer, at the radius she turns on now or at the speed she
+## is working up to, whichever is wider.
+static func turn_meets_land(u: Unit, turn_deg: float) -> bool:
+	var speed := maxf(u.speed_kn, minf(u.ordered_speed_kn, u.effective_max_speed()))
+	var rate := maxf(u.spec.turn_rate_deg_s, 0.1)
+	var radius := Geo.knots_to_nm_per_s(speed) / deg_to_rad(rate)
+	if u.spec.length_m > 0.0:
+		radius = maxf(radius, u.spec.length_m * (1.5 if u.is_submarine() else 2.5) / 1852.0)
+	radius *= SEA_ROOM_TURN_MARGIN
+	var side := signf(turn_deg)
+	var centre := u.position + Geo.heading_to_vector(u.heading_deg + 90.0 * side) * radius
+	var swept := SEA_ROOM_ARC_STEP_DEG
+	while swept < absf(turn_deg) + SEA_ROOM_ARC_STEP_DEG:
+		var turned := minf(swept, absf(turn_deg))
+		var p := centre + Geo.heading_to_vector(u.heading_deg + side * turned - 90.0 * side) * radius
+		if Terrain.is_land(p):
+			return true
+		swept += SEA_ROOM_ARC_STEP_DEG
+	return false
+
+
 ## Fraction of economical patrol speed below which a fixed-wing aircraft cannot be flown.
 const MIN_FLYING_FRACTION := 0.6  # GAMEPLAY_ESTIMATE
 
@@ -17,12 +61,15 @@ const MIN_FLYING_FRACTION := 0.6  # GAMEPLAY_ESTIMATE
 ## Turn rate actually available now, in degrees a second: the catalogue rate, scaled down at low
 ## speed, and for a hull held to a turning circle proportional to its length.
 static func turn_rate_now(u: Unit) -> float:
-	var rate := u.spec.turn_rate_deg_s * clampf(u.speed_kn / FULL_TURN_SPEED_KN, 0.0, 1.0)
+	var way := u.speed_kn
+	if u.coast_blocked_s > 0.0 and u.needs_sea_room():
+		way = maxf(way, COAST_TWIST_KN)
+	var rate := u.spec.turn_rate_deg_s * clampf(way / FULL_TURN_SPEED_KN, 0.0, 1.0)
 	if u.needs_sea_room() and u.spec.length_m > 0:
 		# GAMEPLAY_ESTIMATE: a displacement hull needs a turning circle proportional to
 		# its length. The catalogue rate is a ceiling, not a pivot rate at every speed.
 		var radius_m := u.spec.length_m * (1.5 if u.is_submarine() else 2.5)
-		rate = minf(rate, rad_to_deg(u.speed_kn * 1852.0 / 3600.0 / radius_m))
+		rate = minf(rate, rad_to_deg(way * 1852.0 / 3600.0 / radius_m))
 	return rate
 
 
@@ -37,6 +84,24 @@ static func _passing_inside_turn(u: Unit, wp: Vector2) -> bool:
 	var abeam := Geo.heading_to_vector(u.heading_deg + 90.0) * radius_nm
 	var inside := radius_nm * 0.95
 	return wp.distance_to(u.position + abeam) < inside or wp.distance_to(u.position - abeam) < inside
+
+
+## A last point inside the turning circle is not an arrival: steering for it she would only circle
+## it. She stands on for a tactical diameter, from where the point lies outside both circles, and
+## comes round to it. A point on the way is simply passed for the next. A fixed-wing aircraft
+## holds through the point instead, and a hull with no sea room ahead counts it as reached.
+static func _open_out(u: Unit, wp: Vector2) -> bool:
+	if must_keep_flying(u):
+		return false
+	var rate := turn_rate_now(u)
+	if rate <= 0.0:
+		return false
+	var diameter := 2.0 * Geo.knots_to_nm_per_s(u.speed_kn) / deg_to_rad(rate)
+	var out := u.position + Geo.heading_to_vector(u.heading_deg) * diameter
+	if u.needs_sea_room() and not Terrain.is_empty() and (Terrain.is_land(out) or not Terrain.sea_leg_clear(u.position, out)):
+		return false
+	u.waypoints.push_front(out)
+	return true
 
 
 ## Clearing baffles. A boat with the habit swings BAFFLE_CLEAR_TURN_DEG off its course for the last
@@ -79,10 +144,12 @@ static func hold_size_nm(spec: PlatformSpec) -> Vector2:
 	return Vector2(width, maxf(HOLD_LEG_NM, width * 2.0))
 
 
-## Puts a fixed-wing aircraft into a hold at `center` at its economical patrol speed.
-static func enter_hold(u: Unit, center: Vector2) -> void:
+## Puts a fixed-wing aircraft into a hold at `center` at its economical patrol speed. The long legs
+## lie along its present heading unless `along_deg` names another; the racetrack is to the right of
+## them, so a caller that must keep the aircraft off something lays the legs with it to port.
+static func enter_hold(u: Unit, center: Vector2, along_deg := NAN) -> void:
 	var hold := hold_size_nm(u.spec)
-	u.waypoints.assign(hold_pattern(center, u.heading_deg, hold.x, hold.y))
+	u.waypoints.assign(hold_pattern(center, u.heading_deg if is_nan(along_deg) else along_deg, hold.x, hold.y))
 	u.ordered_speed_kn = u.spec.flight_speed("patrol")
 	u.hold_active = true
 	u.hold_point = center
@@ -110,9 +177,14 @@ static func step(u: Unit, dt: float) -> void:
 	if not evading and not u.waypoints.is_empty():
 		var wp: Vector2 = u.waypoints[0]
 		var arrive := maxf(ARRIVAL_MIN_NM, Geo.knots_to_nm_per_s(u.speed_kn) * dt * 2.0)
-		if u.position.distance_to(wp) <= arrive or _passing_inside_turn(u, wp):
+		var inside_turn := u.position.distance_to(wp) > arrive and _passing_inside_turn(u, wp)
+		if inside_turn and u.waypoints.size() == 1 and not u.patrol_active and _open_out(u, wp):
+			pass  # the point is kept, and the leg out from it now leads
+		elif u.position.distance_to(wp) <= arrive or inside_turn:
 			u.waypoints.pop_front()
-			if u.patrol_active:
+			# Only the corners of the circuit come round again: the way a hull was given round a
+			# coast to reach its first corner is sailed once.
+			if u.patrol_active and (u.station_route.is_empty() or u.station_route.has(wp)):
 				u.waypoints.append(wp)
 				u.patrol_legs_completed += 1
 			if u.waypoints.is_empty():
@@ -132,7 +204,11 @@ static func step(u: Unit, dt: float) -> void:
 	if not evading:
 		desired += _baffle_clearing_offset(u, dt)
 	var max_turn := turn_rate_now(u) * dt
-	var delta := clampf(Geo.heading_delta(u.heading_deg, desired), -max_turn, max_turn)
+	var off_course := Geo.heading_delta(u.heading_deg, desired)
+	if u.needs_sea_room() and absf(off_course) > SEA_ROOM_TURN_DEG and not Terrain.is_empty() and turn_meets_land(u, off_course) and not turn_meets_land(u, off_course - signf(off_course) * 360.0):
+		# The short way round would put her on the shore: she comes round the other way.
+		off_course -= signf(off_course) * 360.0
+	var delta := clampf(off_course, -max_turn, max_turn)
 	u.heading_deg = fposmod(u.heading_deg + delta, 360.0)
 
 	var target_speed := clampf(u.ordered_speed_kn, 0.0, u.effective_max_speed())
@@ -153,11 +229,56 @@ static func step(u: Unit, dt: float) -> void:
 		# The one guarantee that holds however the heading was chosen: by an order, by station
 		# keeping, by a turn-away under fire. The step is projected along the shore rather than
 		# refused outright, so a ship pressed onto a coast follows it instead of grinding at it.
-		u.position = Terrain.constrain_step(u.position, u.position + advance)
+		_step_in_sea_room(u, advance, target_speed, absf(off_course) > COAST_TURNING_DEG, dt)
 	else:
 		u.position += advance
 	_step_depth(u, dt)
 	_step_altitude(u, dt)
+
+
+## One step of a hull that has to stay in the water. In open water it goes where it was heading.
+## Against a coast the step is taken along the shore, and the hull's read-out follows what it
+## actually did: its speed is the way it made, and meeting the shore at a slant it is turned along
+## it, so a ship following a beach shows the course and speed she is making and one stopped by it
+## shows none. Held without headway for COAST_BLOCKED_S on the heading she was told to steer, she
+## stops and gives up the leg; the mark is left for UnitManager to report once. While she is still
+## `coming_round` to that heading she is being worked off the shore, not blocked by it.
+static func _step_in_sea_room(u: Unit, advance: Vector2, target_speed: float, coming_round: bool, dt: float) -> void:
+	var wanted := u.position + advance
+	var reached := Terrain.constrain_step(u.position, wanted)
+	if reached == wanted:
+		u.position = reached
+		u.coast_blocked_s = 0.0
+		if u.speed_kn >= 1.0:
+			u.coast_blocked = false
+		return
+	var made := u.position.distance_to(reached)
+	var headway := made >= Geo.knots_to_nm_per_s(target_speed) * dt * COAST_HEADWAY_FRACTION
+	# Sliding along the shore with way on, she is laid along it. Held without headway she is not:
+	# her head is being worked round with the engines, and laying it back along the beach every
+	# step would undo the twist and leave her creeping along the shore for good.
+	if made > 1e-9 and headway:
+		var along := Geo.bearing_deg(u.position, reached)
+		if absf(Geo.heading_delta(u.heading_deg, along)) <= COAST_TURN_MAX_DEG:
+			u.heading_deg = along
+	u.speed_kn = minf(u.speed_kn, made / maxf(dt, 1e-6) * 3600.0)
+	u.position = reached
+	if headway:
+		u.coast_blocked_s = 0.0
+		return
+	# Held. The count starts at once, so that she can be twisted round; it runs on only while she
+	# is pointing where she was told to go and the shore will not let her.
+	u.coast_blocked_s = maxf(u.coast_blocked_s, dt) if coming_round else u.coast_blocked_s + dt
+	if u.coast_blocked_s < COAST_BLOCKED_S or u.coast_blocked:
+		return
+	u.coast_blocked = true
+	u.coast_blocked_s = 0.0
+	u.waypoints.clear()
+	u.nav_goal = Vector2.INF
+	u.patrol_active = false
+	u.ordered_heading_deg = u.heading_deg
+	u.ordered_speed_kn = 0.0
+	u.speed_kn = 0.0
 
 
 ## A hull cannot arrive at a waypoint that is on dry land, and without this it would steer at the
@@ -176,6 +297,14 @@ static func _drop_stranded_waypoints(u: Unit) -> void:
 		u.ordered_speed_kn = 0.0
 
 
+## Over land an aircraft keeps at least this much height above the highest ground under it and on
+## the next two minutes of its track, whatever altitude it was ordered: a low run is flown over
+## the sea, not through a hillside. GAMEPLAY_ESTIMATE.
+const TERRAIN_CLEARANCE_FIXED_WING_M := 150.0
+const TERRAIN_CLEARANCE_ROTARY_M := 60.0
+const TERRAIN_LOOKAHEAD_S := 120.0
+
+
 ## Aircraft climb and descend at a fixed rate. Anything that cannot fly stays on the surface.
 static func _step_altitude(u: Unit, dt: float) -> void:
 	if u.spec.altitude_rate_m_s <= 0.0:
@@ -185,8 +314,25 @@ static func _step_altitude(u: Unit, dt: float) -> void:
 		u.altitude_m = 0.0
 		return
 	var target := clampf(u.ordered_altitude_m, 0.0, u.spec.max_altitude_m)
+	var ground := terrain_under(u)
+	if ground > 0.0:
+		var clearance := TERRAIN_CLEARANCE_ROTARY_M if u.spec.can_hover else TERRAIN_CLEARANCE_FIXED_WING_M
+		target = maxf(target, minf(ground + clearance, u.spec.max_altitude_m))
 	var step := u.spec.altitude_rate_m_s * dt
 	u.altitude_m += clampf(target - u.altitude_m, -step, step)
+	# Never below the ground itself, should the rate not have carried her over a crest in time.
+	u.altitude_m = maxf(u.altitude_m, minf(Terrain.elevation_at(u.position), u.spec.max_altitude_m))
+
+
+## The highest ground under an aircraft and anywhere along the next stretch of its track, every
+## cell of it and not a few points on it: a gap of sea between two ridges does not let her down
+## into the second, and the height she has taken for a ridge is kept until she is over and past
+## it. Zero at sea.
+static func terrain_under(u: Unit) -> float:
+	if Terrain.is_empty():
+		return 0.0
+	var along := Geo.heading_to_vector(u.heading_deg) * Geo.knots_to_nm_per_s(u.speed_kn) * TERRAIN_LOOKAHEAD_S
+	return Terrain.highest_ground_along(u.position, u.position + along)
 
 
 ## Boats change depth at a fixed rate. Anything that cannot submerge simply stays at zero. The

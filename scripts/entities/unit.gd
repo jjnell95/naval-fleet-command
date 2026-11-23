@@ -1,7 +1,7 @@
 class_name Unit
 extends RefCounted
 ## Ground-truth simulation entity. Not a Node: owned by UnitManager, rendered by TacticalMap.
-## Enemy units are never shown to the player directly; from Milestone 2 they are perceived via Tracks.
+## Enemy units are never shown to the player directly; they are perceived via Tracks.
 
 const PERISCOPE_DEPTH_M := 20.0
 const HOVER_SPEED_KN := 12.0  # at or below this a helicopter counts as stopped
@@ -17,6 +17,14 @@ enum Emcon { FREE, SILENT }
 enum Roe { HOLD, TIGHT, FREE }
 
 const COMPONENTS := ["propulsion", "sensors", "weapons"]
+## Weapon choice. A shot inside this fraction of a weapon's reach, and beyond this multiple of its
+## minimum range, is one it makes with margin. A surface contact whose reported class is no
+## stronger than SMALL_CRAFT_HEALTH is small craft, for the gun. A missile that strikes ashore from
+## beyond LAND_ATTACK_REACH_NM is a land-attack cruise missile. GAMEPLAY.
+const WEAPON_REACH_MARGIN := 0.9
+const WEAPON_MIN_RANGE_MARGIN := 1.1
+const SMALL_CRAFT_HEALTH := 30.0
+const LAND_ATTACK_REACH_NM := 150.0
 
 var id := -1
 var callsign := ""
@@ -52,6 +60,29 @@ var attack_rounds_fired := 0
 var attack_assess_until_s := -1.0  # a pause between salvos to read the plot again
 var attack_stall_s := 0.0  # time held unable to fire; past UnitManager.ATTACK_STALL_S the task ends
 var attack_stale_s := 0.0  # uninterrupted time without a fresh plot, even while closing
+## The commander gave a speed while the attack ran: it stands for the closing leg and the hold alike.
+var attack_speed_ordered := false
+## Settled in the range band rather than closing. The band is wider to leave than to enter, so a
+## platform at its edge does not hunt between the two.
+var attack_holding := false
+## Where the platform was at the last attack step, to tell a hull that is making way toward its
+## firing point from one that is pressed against a coast with its engines turning.
+var attack_progress_pos := Vector2.INF
+## What a temporary task interrupted, remembered once when the task takes the steering: the route
+## and the ordered speed. Until then an attack fires from wherever the platform's own orders take
+## it. A formation or patrol station is not copied here; the station fields keep it.
+var plan_kept := false
+var plan_waypoints: Array[Vector2] = []
+var plan_speed_kn := 0.0
+## Where the way a task has laid round a coast ends: the firing point or the plot it was planned
+## for. The route stands while the task's goal stays near this, so the search is run again when
+## the picture changes and not every tick. Vector2.INF while the platform steers straight.
+var nav_goal := Vector2.INF
+## How long a hull has been held by a coast without making the way its engines ask for, and
+## whether it has stopped and reported it. The report is made once: the mark clears when the hull
+## is given somewhere else to go or makes way again.
+var coast_blocked_s := 0.0
+var coast_blocked := false
 ## The standing assignment: where this platform belongs when no temporary task holds it. A patrol
 ## circuit (an air station is one too) or a formation station on a guide. Attack, Investigate,
 ## evasion and air-to-air refuelling suspend it; an explicit replacement order from the commander (a
@@ -70,8 +101,9 @@ var station_mission_id := -1
 ## is attacked on the crew's initiative (engagement after identification), even on a look the
 ## commander ordered. Cleared with the station.
 var station_identify_only := false
-## Go back to the station by itself once an identification, interception or attack ends.
-var auto_return := false
+## Go back to the station by itself once an identification, interception or attack ends. Off, the
+## platform carries on from where the task ended until it is ordered back.
+var auto_return := true
 ## Bumped by every order that changes where this platform is going. A temporary task remembers the
 ## generation it started under and hands back to the station only if nothing newer has arrived, so
 ## a task that completes late can never overwrite a newer order.
@@ -108,6 +140,10 @@ var comms_phase := "submerged"
 var comms_pending: Array[Dictionary] = []
 var comms_report: Dictionary = {}
 var comms_note := ""
+## What the crew did on its own initiative while out of touch, held for the next check-in; and the
+## last such report the commander has received.
+var comms_initiative: Array[String] = []
+var comms_initiative_report := ""
 ## The standing emissions policy. The AI follows it; the player sets it directly. Radiating is
 ## what gets you found, so this is a real decision rather than a formality.
 var emcon: Emcon = Emcon.FREE
@@ -369,17 +405,117 @@ func can_engage_domain(domain: String) -> bool:
 	return false
 
 
-## Weapons with rounds left that can engage a given track, best reach first and guns last.
+## Weapons with rounds left that can engage a given track, in the order a captain would reach
+## for them, judged from the plot alone: the reported class (through it the catalogue's hull
+## strength), the domain and the range. A weapon that reaches with margin comes before one that
+## does not; among those, the kind meant for the target comes first, and the cheapest of a kind,
+## which is the shortest-ranged round, before a dearer one. A gun leads against small craft inside
+## its reach. Out of reach, the longest reach leads, so the platform closes for the nearest shot.
+## Against aircraft the outer layer leads, as before, so the inner one keeps a second chance.
 func weapons_for_track(t: Track) -> Array[WeaponSpec]:
 	var out: Array[WeaponSpec] = []
 	for w in weapons:
 		if magazine_count(w.id) > 0 and Combat.suits_track(w, t):
 			out.append(w)
+	if t.domain == "air" or out.size() < 2:
+		out.sort_custom(func(a: WeaponSpec, c: WeaponSpec) -> bool:
+			if a.is_gun() != c.is_gun():
+				return c.is_gun()
+			return a.max_range_nm > c.max_range_nm)
+		return out
+	var range_nm := position.distance_to(t.position) if t.position.is_finite() else INF
+	var small := t.domain == "surface" and TrackManager.assessed_health(t) <= SMALL_CRAFT_HEALTH
+	var keys := {}
+	for w in out:
+		var reaches := weapon_reaches(w, range_nm)
+		var reach := Combat.effective_range_nm(self, w)
+		keys[w] = [0 if reaches else 1, _weapon_tier(w, t.domain, small and reaches), reach if reaches else -reach, w.damage, w.id]
 	out.sort_custom(func(a: WeaponSpec, c: WeaponSpec) -> bool:
-		if a.is_gun() != c.is_gun():
-			return c.is_gun()
-		return a.max_range_nm > c.max_range_nm)
+		var ka: Array = keys[a]
+		var kc: Array = keys[c]
+		for i in ka.size():
+			if ka[i] != kc[i]:
+				return ka[i] < kc[i]
+		return false)
 	return out
+
+
+## Whether a round reaches this range with margin: inside the fraction of its reach a captain
+## trusts and clear of its minimum range.
+func weapon_reaches(w: WeaponSpec, range_nm: float) -> bool:
+	var reach := Combat.effective_range_nm(self, w)
+	return range_nm <= reach * WEAPON_REACH_MARGIN and range_nm >= Combat.minimum_range_nm(w) * WEAPON_MIN_RANGE_MARGIN
+
+
+## How well a kind of weapon suits a kind of target, best first. WeaponSpec carries no role, so it
+## is read from what the data does say: a missile that strikes inland from beyond
+## LAND_ATTACK_REACH_NM is a land-attack cruise missile, which a ship gets only after a ship-killer;
+## a lightweight torpedo and an ASW rocket are anti-submarine weapons, which a ship gets last.
+func _weapon_tier(w: WeaponSpec, domain: String, gun_on_small_craft: bool) -> int:
+	if w.is_gun():
+		return 0 if gun_on_small_craft else 3
+	match domain:
+		"surface":
+			if w.is_anti_radiation():
+				return 2
+			if w.is_torpedo():
+				return 1 if w.is_heavyweight_torpedo() else 4
+			if w.type == "asw_rocket":
+				return 4
+			if w.target_types.has("land") and w.max_range_nm >= LAND_ATTACK_REACH_NM:
+				return 2
+			return 1
+	return 1
+
+
+## The rounds the standing attack sends at a contact with this weapon: enough to finish what the
+## plot says is left of it, never more than the weapon's default salvo or the magazine holds. What
+## is left is the catalogue strength of the reported class (a generic hull when the class is not
+## known) less this side's own damage estimate, so a nearly dead ship gets one more round, not a
+## full salvo. Against aircraft the weapon's own doctrine salvo stands: a miss there is the risk.
+func salvo_for_track(spec: WeaponSpec, t: Track) -> int:
+	var most := mini(maxi(spec.salvo_default, 1), magazine_count(spec.id))
+	if most <= 1 or t.domain == "air":
+		return most
+	var range_nm := position.distance_to(t.position) if t.position.is_finite() else -1.0
+	var per_round := spec.damage * expected_hit_chance(spec, t, range_nm)
+	if per_round <= 0.0:
+		return most
+	var remaining := TrackManager.assessed_health(t, spec.id) * (1.0 - clampf(t.damage_estimate, 0.0, 99.0) / 100.0)
+	return clampi(ceili(remaining / per_round), 1, most)
+
+
+## The chance one round hits, as the shooter can judge it from the plot: the weapon's rated figure;
+## for a missile, times the chance it lives through the close-in defences the reported class is
+## fitted with (none assumed for a contact not yet classified), so a defended ship is still sent
+## rounds enough to get one through; for gunfire, the fall with range and with the plotted speed
+## of the target (Combat's model).
+func expected_hit_chance(spec: WeaponSpec, t: Track, range_nm := -1.0) -> float:
+	if not spec.is_gun():
+		return clampf(spec.base_pk * _reported_defence_leak(spec, t), 0.0, 1.0)
+	var range_factor := 1.0
+	if range_nm >= 0.0 and spec.max_range_nm > 0.0:
+		range_factor = lerpf(1.0, Combat.GUN_PK_AT_MAX_RANGE, clampf(range_nm / spec.max_range_nm, 0.0, 1.0))
+	var speed := t.speed_kn if t.has_kinematics else 0.0
+	return clampf(spec.base_pk * range_factor / (1.0 + maxf(speed, 0.0) / Combat.GUN_SPEED_HALVING_KN), 0.0, 1.0)
+
+
+## The chance a missile is not shot down by the point and area defences in the catalogue fit of
+## the class the plot reports: each layer that engages missiles gets its own chance at it.
+func _reported_defence_leak(spec: WeaponSpec, t: Track) -> float:
+	if spec.is_torpedo() or t.classification < Track.Classification.CLASS_KNOWN or t.known_class == "":
+		return 1.0
+	var platform := DataDB.platform_by_short_name(t.known_class, spec.id)
+	if platform == null:
+		return 1.0
+	var leak := 1.0
+	var ids: Array = platform.weapon_loadout.keys()
+	ids.sort()
+	for wid: String in ids:
+		var defence := DataDB.weapon(wid)
+		if defence != null and defence.is_interceptor() and defence.target_types.has("missile"):
+			leak *= 1.0 - Combat.intercept_probability(defence, spec)
+	return leak
 
 
 ## Interceptors with rounds left, longest reach first, so defence engages in layers.
@@ -475,6 +611,9 @@ const NAVIGATION_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.S
 ## RETURN_TO_BASE reaches here only once UnitManager has checked the landing can be made.
 const STATION_REPLACING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.RETURN_TO_BASE]
 ## Steering orders that take a consort out of its formation: it cannot keep station and go there.
+## They interrupt a formation station rather than end it: an escort sent to look at something on
+## the bow is still part of the screen, and Return to Station takes her back. Only BREAK_FORMATION
+## or a new assignment ends it.
 const DETACHING_ORDERS := [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP]
 
 
@@ -487,6 +626,9 @@ func apply_order(order: Order) -> void:
 		if order.origin != "crew":
 			player_order_generation += 1
 		station_note = ""
+		coast_blocked = false
+		coast_blocked_s = 0.0
+		nav_goal = Vector2.INF
 	# Repeating an attack keeps its rounds and assessment, but the commander's confirmation
 	# takes ownership of a crew-issued pursuit (including the CAP boundary override).
 	if order.type == Order.Type.ATTACK and attack_track != null and attack_track == order.track:
@@ -494,11 +636,17 @@ func apply_order(order: Order) -> void:
 		task_generation = order_generation
 		return
 	var keeping_station := in_formation()
+	# A task that replaces a task hands on the plan the first one interrupted.
+	var carrying := plan_kept and order.type in [Order.Type.INVESTIGATE, Order.Type.ATTACK]
+	# The crew going back to station is the end of a task, not a new instruction: what the task
+	# found stays on the read-out until the commander sends the platform somewhere.
+	var crew_return := order.type == Order.Type.RETURN_TO_STATION and order.origin == "crew"
 	if order.type in DETACHING_ORDERS:
 		formation_leader = null
 	if order.origin != "crew":
 		# Clearing the route of a consort that is keeping station changes nothing; it has none.
-		if order.type in STATION_REPLACING_ORDERS and not (order.type == Order.Type.CLEAR_WAYPOINTS and keeping_station):
+		var interrupts_formation := order.type in DETACHING_ORDERS and station_kind == "formation"
+		if order.type in STATION_REPLACING_ORDERS and not (order.type == Order.Type.CLEAR_WAYPOINTS and keeping_station) and not interrupts_formation:
 			clear_station()
 		elif order.type == Order.Type.BREAK_FORMATION and station_kind == "formation":
 			clear_station()
@@ -508,44 +656,55 @@ func apply_order(order: Order) -> void:
 	# course and takes up the station after it, as RESUME PLAN would.
 	if order.type == Order.Type.RETURN_TO_STATION and order.origin != "crew":
 		evasion_remaining_s = 0.0
-	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
+	# A task leaves the circuit when it takes the steering: an investigation at once, an attack
+	# only when it has to close, which UnitManager decides.
+	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.RETURN_TO_STATION]:
 		patrol_active = false
 	if order.type in [Order.Type.MOVE, Order.Type.SET_COURSE, Order.Type.STOP, Order.Type.CLEAR_WAYPOINTS, Order.Type.FORM_UP, Order.Type.BREAK_FORMATION, Order.Type.PATROL, Order.Type.INVESTIGATE, Order.Type.ATTACK, Order.Type.RETURN_TO_STATION]:
-		clear_investigation()
-		clear_attack()
+		var found := [investigation_track_id, investigation_result, attack_track_id, attack_result]
+		clear_investigation(true)
+		clear_attack(true)
+		if not carrying:
+			forget_plan()
+		if crew_return:
+			investigation_track_id = found[0]
+			investigation_result = found[1]
+			attack_track_id = found[2]
+			attack_result = found[3]
 	match order.type:
 		Order.Type.INVESTIGATE:
-			# A temporary task: the formation or patrol is suspended, not forgotten.
-			formation_leader = null
+			# A temporary task: the route, formation or patrol is suspended, not forgotten.
+			take_steering()
 			task_generation = order_generation
 			investigation_track = order.track
 			investigation_track_id = order.track.id
 			investigation_identify_only = order.identify_only
-			waypoints.assign([order.track.position])
-			if ordered_speed_kn <= 0.0:
-				ordered_speed_kn = spec.cruise_speed_kn
-			investigation_speed_kn = ordered_speed_kn
+			if not steer_for(order.track.position):
+				waypoints.assign([order.track.position])  # UnitManager ends the task on its first step
+			investigation_speed_kn = task_speed_kn(false)
+			ordered_speed_kn = investigation_speed_kn
 		Order.Type.ATTACK:
-			formation_leader = null
 			task_generation = order_generation
 			attack_track = order.track
 			attack_track_id = order.track.id
 			attack_weapon_id = order.weapon_id
 			attack_phase = "Intercept track"
-			if ordered_speed_kn <= 0.0:
-				ordered_speed_kn = spec.cruise_speed_kn
-			attack_speed_kn = ordered_speed_kn
-			# Out of range, the intercept leg is plotted at once, so a paused order already shows
+			attack_speed_kn = task_speed_kn(true)
+			# In reach, nothing else changes: the platform fires from where its orders have it.
+			# Out of reach, the intercept leg is plotted at once, so a paused order already shows
 			# where the platform will go; UnitManager refines it every tick as the plot moves.
-			waypoints.clear()
 			var reach := attack_reach_nm(order.track, order.weapon_id)
-			if reach > 0.0 and position.distance_to(order.track.position) > reach / UnitManager.ATTACK_STANDOFF_FRACTION:
-				waypoints.append(Combat.standoff_point(position, order.track.position, reach))
+			if reach > 0.0 and position.distance_to(order.track.position) > reach / UnitManager.ATTACK_STANDOFF_FRACTION and not DippingSonar.holds_bearing(self, order.track):
+				take_steering()
+				var firing_point := Combat.standoff_point(position, order.track.position, reach)
+				if not steer_for(firing_point):
+					waypoints.assign([firing_point])  # UnitManager ends the task on its first step
+				ordered_speed_kn = attack_speed_kn
 		Order.Type.PATROL:
 			formation_leader = null
 			patrol_active = true
 			patrol_legs_completed = 0
-			waypoints.assign(order.route)
+			waypoints.assign(sea_legs_through(order.route))
 			if ordered_speed_kn <= 0.0:
 				ordered_speed_kn = spec.cruise_speed_kn
 			set_station("patrol", order.station_label if order.station_label != "" else "PATROL")
@@ -560,14 +719,21 @@ func apply_order(order: Order) -> void:
 		Order.Type.SET_READY_ALERT:
 			ready_alert = clampi(order.aircraft_count, 0, AirMissionManager.MAX_READY_ALERT)
 		Order.Type.MOVE:
+			# A hull is given the way round whatever land lies on the straight course; UnitManager
+			# has already refused a destination with no way to it.
+			var leg_from := waypoints.back() as Vector2 if order.append and not waypoints.is_empty() else position
 			if not order.append:
 				waypoints.clear()
-			waypoints.append(order.target_pos)
+			waypoints.append_array(sea_legs(leg_from, order.target_pos))
 			if ordered_speed_kn <= 0.0:
 				ordered_speed_kn = spec.cruise_speed_kn
 		Order.Type.SET_COURSE:
 			waypoints.clear()
 			ordered_heading_deg = fposmod(order.heading_deg, 360.0)
+			# A course is somewhere to go. Lying stopped she has no rudder, so she gets way on to
+			# steer it, as she does for a move.
+			if ordered_speed_kn <= 0.0:
+				ordered_speed_kn = spec.cruise_speed_kn
 		Order.Type.SET_SPEED:
 			ordered_speed_kn = clampf(order.speed_kn, 0.0, effective_max_speed())
 			if patrol_active and station_kind == "patrol":
@@ -576,6 +742,7 @@ func apply_order(order: Order) -> void:
 				investigation_speed_kn = ordered_speed_kn
 			if attack_track != null:
 				attack_speed_kn = ordered_speed_kn
+				attack_speed_ordered = true
 		Order.Type.STOP:
 			waypoints.clear()
 			ordered_speed_kn = 0.0
@@ -611,7 +778,8 @@ func apply_order(order: Order) -> void:
 			# would simply fire again after its assessment. Rounds already away continue.
 			if attack_track != null and (order.track == null or order.track == attack_track):
 				var number := attack_track_id
-				clear_attack()
+				# The interrupted plan is kept: UnitManager hands the platform back to it.
+				clear_attack(true)
 				attack_track_id = number
 				attack_result = "Fire cancelled"
 				order.stopped_attack = true
@@ -637,7 +805,7 @@ func apply_order(order: Order) -> void:
 			else:
 				radar_on = has_radar()
 		Order.Type.SET_ALTITUDE:
-			ordered_altitude_m = clampf(order.altitude_m, 0.0, spec.max_altitude_m)
+			ordered_altitude_m = clampf(order.altitude_m, minf(min_altitude_m(), spec.max_altitude_m), spec.max_altitude_m)
 		Order.Type.LAUNCH_AIRCRAFT, Order.Type.RETURN_TO_BASE, Order.Type.DEPLOY_SONOBUOY:
 			pass  # routed to AviationManager by Simulation
 		Order.Type.AIR_MISSION, Order.Type.CANCEL_AIR_MISSION:
@@ -725,6 +893,17 @@ func station_circuit_from_here() -> Array[Vector2]:
 	return out
 
 
+## A task that stands but has no need of the helm gives it back to the screen: the consort takes
+## up her formation station again while the task waits for its shot. UnitManager has checked the
+## guide is there to keep station on.
+func rejoin_formation_station() -> void:
+	forget_plan()
+	waypoints.clear()
+	nav_goal = Vector2.INF
+	attack_holding = false
+	_resume_station()
+
+
 ## UnitManager has already checked the station is still there to return to.
 func _resume_station() -> void:
 	station_note = ""
@@ -733,7 +912,7 @@ func _resume_station() -> void:
 			formation_leader = null
 			patrol_active = true
 			patrol_legs_completed = 0
-			waypoints.assign(station_circuit_from_here())
+			waypoints.assign(sea_legs_through(station_circuit_from_here()))
 			ordered_speed_kn = station_speed()
 		"formation":
 			formation_leader = station_leader
@@ -742,10 +921,130 @@ func _resume_station() -> void:
 			waypoints.clear()
 
 
+## The legs to steer from `from` to `to`: the point itself for anything that flies, and for a hull
+## the way by sea, round whatever coast lies on the straight course. Never empty: with no way by
+## sea the straight leg is returned, for the callers that have nothing better to do with it.
+func sea_legs(from: Vector2, to: Vector2) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	if needs_sea_room():
+		out.assign(Terrain.sea_route(from, to))
+	if out.is_empty():
+		out.append(to)
+	return out
+
+
+## A route taken up from where the platform is now: the way by sea to its first point, then the
+## rest as given. The points added on the way to a patrol circuit are not corners of it, and
+## Movement drops them once passed instead of sailing them round again.
+func sea_legs_through(route: Array[Vector2]) -> Array[Vector2]:
+	if route.is_empty():
+		return route.duplicate()
+	var out := sea_legs(position, route[0])
+	out.append_array(route.slice(1))
+	return out
+
+
+## Lays the way to where a task wants the platform, for a goal that moves from tick to tick. A
+## straight leg whenever the water is open. With land in the way a hull takes the sea route, and
+## keeps the one it has while the goal has not moved far from where that route ends, so the
+## search is not run again until the picture has changed. False when a hull has no way there.
+const NAV_REPLAN_NM := 1.0
+const NAV_REPLAN_FRACTION := 0.05
+
+
+func steer_for(goal: Vector2) -> bool:
+	if not needs_sea_room() or Terrain.is_empty() or Terrain.sea_leg_clear(position, goal):
+		waypoints.assign([goal])
+		nav_goal = Vector2.INF
+		return true
+	if on_sea_route() and nav_goal.distance_to(goal) <= maxf(NAV_REPLAN_NM, position.distance_to(goal) * NAV_REPLAN_FRACTION):
+		return true
+	var route := Terrain.sea_route(position, goal)
+	if route.is_empty():
+		return false
+	waypoints.assign(route)
+	nav_goal = goal
+	return true
+
+
+## Following a way a task laid round a coast, rather than steering straight for its goal.
+func on_sea_route() -> bool:
+	return nav_goal.is_finite() and not waypoints.is_empty() and waypoints.back() == nav_goal
+
+
+## The speed a task is carried out at. An attack that has to close does not dawdle at convoy
+## speed: a ship goes at most of what her plant will give, a boat at the cruise she can still hear
+## at, and an aircraft never flies either task slower than its cruise (a helicopter ordered off a
+## hover would otherwise creep away at the hover's knot or two). A speed order given while the task
+## runs replaces it.
+func task_speed_kn(attacking: bool) -> float:
+	var speed := ordered_speed_kn if ordered_speed_kn > 0.0 else spec.cruise_speed_kn
+	if is_aircraft() or is_submarine():
+		speed = maxf(speed, spec.cruise_speed_kn)
+	elif attacking:
+		speed = maxf(speed, UnitManager.ATTACK_CLOSING_FRACTION * effective_max_speed())
+	return minf(speed, effective_max_speed())
+
+
+## A temporary task takes the steering. What it interrupts is remembered once, so a task that
+## follows a task still hands back to the first one's plan, and the platform leaves its formation
+## or circuit; whatever is streamed or lowered comes in before it moves off.
+func take_steering() -> void:
+	# A dome cannot be flown off in the water; a towed array is steered with, at its own speed.
+	DippingSonar.recover_announced(self)
+	if not plan_kept:
+		plan_kept = true
+		plan_waypoints.clear()
+		# The station fields already hold a circuit or a formation station, and a hold laid for
+		# want of orders is not a route anyone chose.
+		if not on_station() and not holding():
+			plan_waypoints.assign(waypoints)
+		plan_speed_kn = ordered_speed_kn
+		waypoints.clear()
+		nav_goal = Vector2.INF
+	formation_leader = null
+	patrol_active = false
+	hold_active = false
+
+
+func forget_plan() -> void:
+	plan_kept = false
+	plan_waypoints.clear()
+	plan_speed_kn = 0.0
+
+
+## Back to what the task interrupted, once it is over and UnitManager has found no station to go
+## back to: the route at the speed it was being sailed at. With no route, a hull holds the course
+## the task left her on at the speed she had before it, a helicopter hovers where it is, and a
+## fixed-wing aircraft holds where it is rather than flying on until its fuel runs out.
+func resume_plan() -> void:
+	var route := plan_waypoints.duplicate()
+	var speed := plan_speed_kn
+	forget_plan()
+	hold_active = false
+	nav_goal = Vector2.INF
+	# The task may have ended on the far side of a headland from the route it interrupted.
+	waypoints.assign(sea_legs_through(route))
+	if not waypoints.is_empty():
+		ordered_speed_kn = speed if speed > 0.0 else spec.cruise_speed_kn
+		return
+	ordered_heading_deg = heading_deg
+	if Movement.must_keep_flying(self):
+		Movement.enter_hold(self, position)
+	elif is_aircraft():
+		ordered_speed_kn = 0.0
+	else:
+		ordered_speed_kn = speed
+
+
 ## Other navigation replaces this task; a completed task may keep a readable result until then.
-func clear_investigation() -> void:
+## The interrupted plan goes with it unless the caller is handing the platform back to that plan.
+func clear_investigation(keep_plan := false) -> void:
 	if investigation_track != null:
 		waypoints.clear()
+		nav_goal = Vector2.INF
+	if not keep_plan:
+		forget_plan()
 	investigation_track = null
 	investigation_track_id = ""
 	investigation_result = ""
@@ -769,9 +1068,16 @@ func attack_reach_nm(track: Track, weapon_id := "") -> float:
 
 
 ## Other navigation replaces the attack as well; a finished attack keeps its result readable.
-func clear_attack() -> void:
-	if attack_track != null:
+## Only an attack that took the steering has a route of its own to drop.
+func clear_attack(keep_plan := false) -> void:
+	if attack_track != null and plan_kept:
 		waypoints.clear()
+		nav_goal = Vector2.INF
+	if not keep_plan:
+		forget_plan()
+	attack_speed_ordered = false
+	attack_holding = false
+	attack_progress_pos = Vector2.INF
 	attack_track = null
 	attack_track_id = ""
 	attack_weapon_id = ""
@@ -783,6 +1089,16 @@ func clear_attack() -> void:
 	attack_assess_until_s = -1.0
 	attack_stall_s = 0.0
 	attack_stale_s = 0.0
+
+
+## The lowest altitude over the sea this airframe will be ordered to: a helicopter can work
+## just above the waves, a fixed-wing aircraft needs room to recover from a gust. GAMEPLAY_ESTIMATE.
+const MIN_ALTITUDE_ROTARY_M := 15.0
+const MIN_ALTITUDE_FIXED_WING_M := 30.0
+
+
+func min_altitude_m() -> float:
+	return MIN_ALTITUDE_ROTARY_M if spec.can_hover else MIN_ALTITUDE_FIXED_WING_M
 
 
 func in_formation() -> bool:
@@ -797,3 +1113,27 @@ func status_line() -> String:
 	if is_aircraft():
 		return base + "  ALT %.0f m  FUEL %.0f%%" % [altitude_m, fuel_fraction() * 100.0]
 	return base
+
+
+# --- Missile defence state ------------------------------------------------------------------------
+
+## Manual missile defence: the simulation time until which the commander's clearance to engage the
+## raid stands (AirDefence.order_intercept with no round named), or -1 with none given. While it
+## stands the ship's area missiles engage inbound rounds as they arrive.
+var raid_clearance_until_s := -1.0
+
+
+## When a ship ordered radar silent last held fire at a round it could otherwise have engaged, or
+## -1: it says so once a raid, not every cycle.
+var silent_hold_reported_s := -1.0
+
+
+func cleared_for_raid(now: float) -> bool:
+	return raid_clearance_until_s >= 0.0 and now <= raid_clearance_until_s
+
+
+# --- Radar lit by the crew for self-defence -----------------------------------------------------
+
+## A radar the commander had off that the crew lit to fight a round coming at the ship: the last
+## time a round was still inbound on her, or -1 when the radar is as the commander set it.
+var radar_lit_for_defence_s := -1.0

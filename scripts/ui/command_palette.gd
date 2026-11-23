@@ -72,16 +72,8 @@ func _build_interface() -> void:
 	column.add_theme_constant_override("separation", 12)
 	margin.add_child(column)
 
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 12)
+	var header := UITheme.dialog_header("Actions", close_palette, "Ctrl+K / Esc")
 	column.add_child(header)
-
-	var title := Label.new()
-	title.text = "Actions"
-	title.theme_type_variation = "TitleLabel"
-	title.add_theme_font_size_override("font_size", 24)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
 
 	_count = Label.new()
 	_count.name = "ResultCount"
@@ -89,17 +81,10 @@ func _build_interface() -> void:
 	_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_count.accessibility_name = "Command result count"
 	header.add_child(_count)
-
-	_close_button = Button.new()
-	_close_button.name = "CloseButton"
-	_close_button.theme_type_variation = "QuietButton"
-	_close_button.custom_minimum_size = Vector2(36.0, 36.0)
-	UIIcons.apply(_close_button, "close", 18)
-	_close_button.focus_mode = Control.FOCUS_ALL
+	_close_button = header.get_node("Close")
 	_close_button.accessibility_name = "Close command palette"
-	_close_button.tooltip_text = "Close the command palette (Escape)"
-	_close_button.pressed.connect(close_palette)
-	header.add_child(_close_button)
+	# The count stands between the title and the one CLOSE, which keeps its place at the right.
+	header.move_child(_count, _close_button.get_index())
 
 	_search = LineEdit.new()
 	_search.name = "Search"

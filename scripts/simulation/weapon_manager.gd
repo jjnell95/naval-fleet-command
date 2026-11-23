@@ -14,8 +14,15 @@ signal weapon_defeated(threat: Weapon, reason: String, by_unit: Unit)
 signal weapon_resolved(weapon: Weapon)
 ## A round pulled off its target by decoys that found another ship in its seeker basket.
 signal weapon_seduced(threat: Weapon, from_unit: Unit, to_unit: Unit)
+## Decoys broke a torpedo's lock on `from_unit` and it is searching again. It ends as DECOYED,
+## through weapon_defeated, if it finds nothing.
+signal torpedo_decoyed(threat: Weapon, from_unit: Unit)
 ## Expendable decoys used, chaff or acoustic, whether or not they worked. A towed decoy is not one.
 signal decoys_spent(unit: Unit, count: int)
+## A ship whose only bar to defending against an inbound round was its own radar being off: `lit`
+## true when the crew switched it on to fight, false when it holds fire because it was ordered
+## radar silent (once a raid).
+signal self_defence_emcon(unit: Unit, lit: bool)
 ## An offensive round left its launcher, with its group tag. A group attack counts what it has
 ## spent from this; rounds that later resolve are gone from in_flight but stay spent.
 signal weapon_fired(weapon: Weapon)
@@ -35,6 +42,17 @@ const MAX_SEDUCTIONS := 2
 ## Own units carry no held track, so the firing board's traffic advisory never warns about them.
 ## Capped here so a long minimum range does not clear the line of fire. GAMEPLAY_ESTIMATE.
 const SAFE_SEPARATION_NM := 0.5
+## Seconds of flight a seeker keeps in hand when it puts off a lock to look at the rest of its
+## basket: it commits to a return it would lose from its cone within this time. GAMEPLAY_ESTIMATE.
+const LOCK_LEAD_S := 2.0
+## Seconds between launches from different cells of one vertical launcher. GAMEPLAY_ESTIMATE.
+const VLS_SERVICE_S := 1.0
+## Seconds an interceptor flies on its last solution without guidance before it is lost. A single
+## missed look from the illuminator is not a lost missile. GAMEPLAY_ESTIMATE.
+const INTERCEPT_COAST_S := 3.0
+## How far past a lost target, in its own seeker radii, a round searches on before it is spent: far
+## enough to find the rest of a group, not so far it takes a merchant down range. GAMEPLAY_ESTIMATE.
+const SEARCH_ON_SEEKER_RADII := 3.0
 ## Anti-radiation missiles. A round whose emitter switches off flies on to where it last heard it:
 ## ARM_MEMORY_PK of its ordinary chance if the emitter is still within ARM_MEMORY_NM of that
 ## point, nothing if it has moved away. A hit wrecks antennas before it sinks anything.
@@ -44,7 +62,12 @@ const ARM_MEMORY_NM := 0.25
 const ARM_SENSOR_LOSS := 0.75
 
 var unit_manager: UnitManager
-var track_manager: TrackManager
+## The plot this engagement is fought on. Wiring it also makes it the plot launch discipline is
+## checked against by callers that reach Combat directly.
+var track_manager: TrackManager:
+	set(value):
+		track_manager = value
+		Combat.picture_source = value
 var rng := RandomNumberGenerator.new()
 var in_flight: Array[Weapon] = []
 var revision := 0  # presentation invalidation for launches/cancellations while paused
@@ -92,27 +115,57 @@ static func launcher_key(shooter: Unit, spec: WeaponSpec) -> String:
 	return str(shooter.spec.launcher_groups.get(spec.id, "VLS" if spec.vls_pack > 0 and shooter.spec.vls_cells > 0 else spec.id))
 
 
+## Seconds between two rounds of the same weapon from one platform: the salvo spacing.
 static func launch_spacing(shooter: Unit, spec: WeaponSpec) -> float:
 	return maxf(maxf(spec.launch_interval_s, 0.25), float(shooter.spec.launcher_service_s.get(launcher_key(shooter, spec), 0.0)))
 
 
+## Seconds a launch keeps the weapon's launcher group from launching anything else. A mechanical
+## launcher is busy for its authored reload cycle, whatever it fired. A vertical launcher's cells
+## are independent: the next round can come from another cell after a short sequencing interval,
+## so a slow strike salvo or one anti-submarine rocket does not hold up the ship's own missiles.
+static func service_interval(shooter: Unit, spec: WeaponSpec) -> float:
+	var key := launcher_key(shooter, spec)
+	if shooter.spec.launcher_service_s.has(key):
+		return maxf(float(shooter.spec.launcher_service_s[key]), 0.25)
+	if key == "VLS":
+		return minf(VLS_SERVICE_S, launch_spacing(shooter, spec))
+	return launch_spacing(shooter, spec)
+
+
+## The key a weapon's own salvo spacing is kept under, beside its launcher group's.
+static func _salvo_key(spec: WeaponSpec) -> String:
+	return "salvo:" + spec.id
+
+
+## When this weapon can next leave: its launcher group free and its own salvo spacing run out.
 func _ready_time(shooter: Unit, spec: WeaponSpec) -> float:
-	return float(_launcher_ready_at.get(shooter, {}).get(launcher_key(shooter, spec), 0.0))
+	var ready: Dictionary = _launcher_ready_at.get(shooter, {})
+	return maxf(float(ready.get(launcher_key(shooter, spec), 0.0)), float(ready.get(_salvo_key(spec), 0.0)))
 
 
 func _mark_launched(shooter: Unit, spec: WeaponSpec, now: float) -> void:
 	var ready: Dictionary = _launcher_ready_at.get(shooter, {})
-	ready[launcher_key(shooter, spec)] = now + launch_spacing(shooter, spec)
+	ready[launcher_key(shooter, spec)] = now + service_interval(shooter, spec)
+	ready[_salvo_key(spec)] = now + launch_spacing(shooter, spec)
 	_launcher_ready_at[shooter] = ready
 
 
+## Seconds until the first round of a new salvo of this weapon could leave: behind its own queued
+## rounds at the salvo spacing, and clear of the moments another weapon's queued rounds have the
+## shared launcher.
 func ready_in_s(shooter: Unit, spec: WeaponSpec, now: float) -> float:
 	var at := maxf(now, _ready_time(shooter, spec))
 	var key := launcher_key(shooter, spec)
+	var service := service_interval(shooter, spec)
 	_sort_pending()
 	for p: Dictionary in _pending:
-		if p.shooter == shooter and launcher_key(shooter, p.spec) == key:
-			at = maxf(at, float(p.time)) + launch_spacing(shooter, p.spec)
+		if p.shooter != shooter or launcher_key(shooter, p.spec) != key:
+			continue
+		if p.spec == spec:
+			at = maxf(at, float(p.time)) + launch_spacing(shooter, spec)
+		elif absf(at - float(p.time)) < service:
+			at = float(p.time) + service
 	return maxf(at - now, 0.0)
 
 
@@ -154,7 +207,7 @@ func rounds_committed_by_track_id(faction: String) -> Dictionary:
 
 
 func engagement_check(shooter: Unit, spec: WeaponSpec, track: Track, now: float, reserved_round := false) -> Dictionary:
-	var check := Combat.check_engagement(shooter, spec, track, reserved_round)
+	var check := Combat.check_engagement(shooter, spec, track, reserved_round, track_manager)
 	if not check.ok:
 		return check
 	if not track_guidance_available(shooter, spec, track):
@@ -248,23 +301,12 @@ func faction_commitment(faction: String, track: Track, queued_only := false) -> 
 ## Fires interceptors at a weapon already in flight. Used by the air-defence system: by itself on
 ## automatic defence, or for the rounds a commander's intercept order cleared (AirDefence
 ## order_intercept), through the same layers and checks either way. Returns the rounds launched.
+## Weapons hold does not come into it: this is never an attack, and what a holding ship may defend
+## against is the air-defence system's decision.
 func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds: int, now: float) -> int:
-	if not shooter.alive or not shooter.can_fire() or shooter.roe == Unit.Roe.HOLD or threat.phase == Weapon.Phase.DEAD:
-		return 0
-	if not AirDefence._can_intercept(spec, threat):
-		return 0
-	if not guidance_available(shooter, spec, threat):
+	if interceptor_wait_s(shooter, spec, threat, now) != 0.0:
 		return 0
 	now_s = now
-	if now < _ready_time(shooter, spec):
-		return 0
-	var distance := shooter.position.distance_to(threat.position)
-	if distance < spec.min_range_nm or distance > spec.max_range_nm:
-		return 0
-	if not Combat.firing_arc_check(shooter, spec, threat.position).ok:
-		return 0
-	if spec.requires_fire_control_channel() and not channel_available(shooter, threat):
-		return 0
 	# SAMs leave one at a time at the authored launch interval. A CIWS round count is a
 	# short burst abstraction, so the whole burst is expended in one firing cycle.
 	var available := mini(rounds, shooter.magazine_count(spec.id))
@@ -274,6 +316,7 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		return 0
 	shooter.consume_magazine(spec.id, available)
 	_mark_launched(shooter, spec, now)
+	_preempt_queued(shooter, spec, now)
 	for i in available:
 		var w := Weapon.new()
 		w.id = _next_id
@@ -287,13 +330,8 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 		w.aim_point = threat.position
 		w.phase = Weapon.Phase.TERMINAL
 		in_flight.append(w)
-	if spec.type == "ciws":
-		threat.close_in_bursts_committed += 1
-		threat.close_in_commitments[shooter.id] = int(threat.close_in_commitments.get(shooter.id, 0)) + 1
-	else:
+	if spec.type != "ciws":
 		threat.guided_interceptors_committed += available
-		var layer := AirDefence.layer_key(spec, shooter)
-		threat.defence_commitments[layer] = int(threat.defence_commitments.get(layer, 0)) + available
 	if _channel_batch and spec.requires_fire_control_channel():
 		var held: Dictionary = _channel_cache.get(shooter, {})
 		held[threat] = true
@@ -301,6 +339,39 @@ func launch_interceptor(shooter: Unit, spec: WeaponSpec, threat: Weapon, rounds:
 	revision += 1
 	interceptor_launched.emit(shooter, spec, threat, available)
 	return available
+
+
+## Seconds until this interceptor could leave for this round: zero when it can go now, the rest of
+## the launcher's cycle when that is all it waits for, INF when it cannot engage the round from
+## here at all (out of its envelope or arc, no guidance, no fire-control channel to spare).
+func interceptor_wait_s(shooter: Unit, spec: WeaponSpec, threat: Weapon, now: float) -> float:
+	if not shooter.alive or not shooter.can_fire() or threat.phase == Weapon.Phase.DEAD:
+		return INF
+	if not AirDefence._can_intercept(spec, threat):
+		return INF
+	var distance := shooter.position.distance_to(threat.position)
+	if distance < spec.min_range_nm or distance > spec.max_range_nm:
+		return INF
+	if not guidance_available(shooter, spec, threat):
+		return INF
+	if not Combat.firing_arc_check(shooter, spec, threat.position).ok:
+		return INF
+	if spec.requires_fire_control_channel() and not channel_available(shooter, threat):
+		return INF
+	return maxf(_ready_time(shooter, spec) - now, 0.0)
+
+
+## A defensive round has taken the launcher: strike rounds queued on the same launcher group wait
+## their turn behind it. They are pushed back, never dropped, and keep their order.
+func _preempt_queued(shooter: Unit, spec: WeaponSpec, now: float) -> void:
+	var key := launcher_key(shooter, spec)
+	var free_at := now + service_interval(shooter, spec)
+	# Sorted first: the rounds moved are then the head of the queue, and moving them all to one
+	# time leaves the queue in the order it was.
+	_sort_pending()
+	for p: Dictionary in _pending:
+		if p.shooter == shooter and float(p.time) < free_at and launcher_key(shooter, p.spec) == key:
+			p.time = free_at
 
 
 ## Marks an in-flight weapon as destroyed or decoyed before it reaches its target.
@@ -315,6 +386,8 @@ func defeat_weapon(threat: Weapon, reason: String, by_unit: Unit = null) -> void
 
 func tick(dt: float, now: float) -> void:
 	now_s = now
+	if unit_manager != null and not unit_manager.order_issued.is_connected(_on_order_issued):
+		unit_manager.order_issued.connect(_on_order_issued)
 	_sort_pending()
 	for p: Dictionary in _pending.duplicate():
 		var check := engagement_check(p.shooter, p.spec, p.track, now, true)
@@ -336,6 +409,13 @@ func tick(dt: float, now: float) -> void:
 			in_flight.remove_at(i)
 			revision += 1
 			weapon_resolved.emit(resolved)
+
+
+## A radar or emissions order from the commander settles the radar the crew lit for defence: it
+## stays as ordered, not put out again when the threat has passed (AirDefence).
+func _on_order_issued(u: Unit, order: Order) -> void:
+	if order.origin != "crew" and order.type in [Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR, Order.Type.SET_EMCON]:
+		u.radar_lit_for_defence_s = -1.0
 
 
 func clear() -> void:
@@ -384,14 +464,19 @@ func _step(w: Weapon, dt: float) -> void:
 	if w.phase == Weapon.Phase.DEAD:
 		return
 	w.time_alive_s += dt
-	if w.intercept_target == null and not radar_support_available(w.shooter, w.spec) and network_track_guide(w.shooter, w.spec, w.target_track) == null:
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "GUIDANCE LOST"
-		return
-	if w.intercept_target == null and w.target_track != null and not track_guidance_available(w.shooter, w.spec, w.target_track):
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "GUIDANCE LOST"
-		return
+	if w.intercept_target == null:
+		var guided := (radar_support_available(w.shooter, w.spec) or network_track_guide(w.shooter, w.spec, w.target_track) != null) \
+				and (w.target_track == null or track_guidance_available(w.shooter, w.spec, w.target_track))
+		if guided:
+			w.unguided_s = 0.0
+		else:
+			# A missile fired at an aircraft rides out a moment's break in its guidance on the last
+			# solution, as one fired at a missile does; anything else is lost at once.
+			w.unguided_s += dt
+			if w.spec.type != "sam" or w.unguided_s > INTERCEPT_COAST_S:
+				w.phase = Weapon.Phase.DEAD
+				w.dead_reason = "GUIDANCE LOST"
+				return
 	if w.intercept_target != null:
 		_step_interceptor(w, dt)
 		return
@@ -399,9 +484,15 @@ func _step(w: Weapon, dt: float) -> void:
 		_step_delivery(w, dt)
 		return
 	# Authored update-capable weapons follow only an active report held by a living shooter.
-	# An autonomous launch-and-leave weapon keeps its launch solution until terminal search.
-	if w.spec.supports_midcourse_updates() and w.delivery_spec == null and w.phase == Weapon.Phase.CRUISE and w.shooter != null and w.shooter.alive and w.target_track != null and w.target_track.status == Track.Status.ACTIVE and w.target_track.visible_to(w.shooter):
-		w.aim_point = _aim_for(w)
+	# An autonomous launch-and-leave weapon keeps its launch solution until terminal search. One
+	# already searching on past its aim point has been let go.
+	if w.phase == Weapon.Phase.CRUISE and not w.lost_lock and not w.searching_on and takes_updates(w):
+		var aim := _aim_for(w)
+		# A torpedo circling on the plot carries on while the plot stays inside its search; a plot
+		# that has moved well away sends it there.
+		if w.circle_search_s < 0.0 or aim.distance_to(w.aim_point) > w.spec.acquisition_radius_nm():
+			w.aim_point = aim
+			w.circle_search_s = -1.0
 
 	var goal := w.aim_point
 	# The seeker loses a target that leaves its medium: a helicopter that lands on its deck, a
@@ -415,15 +506,33 @@ func _step(w: Weapon, dt: float) -> void:
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.acquired.alive and can_target(w.spec, w.acquired):
 		goal = w.acquired.position
 	elif w.phase == Weapon.Phase.TERMINAL:
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "TARGET LOST"
-		return
+		# The target sank, dived or landed under it. The round is still flying and its seeker is
+		# still on: it carries on down its heading, not back to the wreck, and takes the next thing
+		# it finds. That is what the rest of a salvo is for once the first round has done the job.
+		# It searches a few seeker radii on, not to the end of its fuel.
+		w.acquired = null
+		w.lost_lock = true
+		w.searching_on = true
+		w.phase = Weapon.Phase.CRUISE
+		w.search_on_end_nm = minf(w.spec.max_range_nm, w.distance_flown_nm + SEARCH_ON_SEEKER_RADII * w.spec.acquisition_radius_nm())
+		w.aim_point = w.position + Geo.heading_to_vector(w.heading_deg) * maxf(w.search_on_end_nm - w.distance_flown_nm, 0.0)
+		goal = w.aim_point
+		revision += 1
 
-	var desired := Geo.bearing_deg(w.position, goal)
-	var max_turn := w.spec.turn_rate_deg_s * dt
-	w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
+	if w.phase == Weapon.Phase.CRUISE and w.circle_search_s >= 0.0:
+		# A turn to starboard, then one to port, and so on: a figure of eight about the aim point,
+		# so the search reaches as far on either side of it.
+		var turn_sign := 1.0 if int(w.circle_search_s / CIRCLE_PERIOD_S) % 2 == 0 else -1.0
+		w.heading_deg = fposmod(w.heading_deg + turn_sign * minf(360.0 / CIRCLE_PERIOD_S, w.spec.turn_rate_deg_s) * dt, 360.0)
+	else:
+		var desired := Geo.bearing_deg(w.position, goal)
+		if w.phase == Weapon.Phase.CRUISE:
+			desired += _snake_offset_deg(w, goal)
+		var max_turn := w.spec.turn_rate_deg_s * dt
+		w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
 
 	var previous := w.position
+	var step_from := w.position
 	var distance_before := w.distance_flown_nm
 	var travel := minf(w.speed_nm_per_s() * dt, maxf(w.spec.max_range_nm - distance_before, 0.0))
 	w.position += Geo.heading_to_vector(w.heading_deg) * travel
@@ -443,6 +552,8 @@ func _step(w: Weapon, dt: float) -> void:
 				var enabled_fraction := clampf((w.spec.run_to_enable_nm - distance_before) / maxf(travel, 1e-9), 0.0, 1.0)
 				previous = previous.lerp(w.position, enabled_fraction)
 				previous = _try_acquire(w, previous)
+				if w.phase == Weapon.Phase.CRUISE and w.circle_search_s < 0.0 and not w.lost_lock and not w.searching_on and w.delivery_spec == null and _aim_astern(w):
+					_start_circle(w)  # it ran past its aim point, or got there before its seeker was on
 		elif w.searching_on or w.spec.is_anti_radiation():
 			# A passive seeker listens from the rail: it needs no aim point to be close to.
 			previous = _try_acquire(w, previous)
@@ -462,11 +573,99 @@ func _step(w: Weapon, dt: float) -> void:
 			else:
 				w.phase = Weapon.Phase.DEAD
 				w.dead_reason = "TARGET LOST"  # it went quiet and moved off the spot
+		elif w.distance_flown_nm >= w.spec.max_range_nm:
+			# Still short of the last place it heard the emitter, with nothing left to fly.
+			w.phase = Weapon.Phase.DEAD
+			w.dead_reason = "RANGE EXHAUSTED"
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and _segment_distance_squared(previous, w.position, w.acquired.position) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
 		_resolve_impact(w)
+	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.spec.is_gun() and w.position.distance_to(w.acquired.position) > step_from.distance_to(w.acquired.position):
+		# A shell is not steered round after what it was laid on: where it passes the target is
+		# where it bursts or goes by, and the gunnery (Combat.hit_probability) decides which. An
+		# aircraft that has moved off the laid point would otherwise be circled until the round
+		# ran out of range.
+		_resolve_impact(w)
+	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.spec.profile == "ballistic" and w.position.distance_to(w.acquired.position) > step_from.distance_to(w.acquired.position):
+		# A ballistic round comes down once. Past its closest point it has no way back: it cannot
+		# pull round at that speed and it has no height left to do it in. It has missed.
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "MISS"
+		weapon_impact.emit(w.faction, w.spec, w.acquired, false)
+	elif w.phase != Weapon.Phase.DEAD and w.lost_lock and w.search_on_end_nm >= 0.0 and w.distance_flown_nm >= w.search_on_end_nm:
+		w.phase = Weapon.Phase.DEAD
+		w.dead_reason = "TARGET LOST"
 	elif w.phase != Weapon.Phase.DEAD and w.distance_flown_nm >= w.spec.max_range_nm:
 		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "NO ACQUISITION" if w.searching_on else "RANGE EXHAUSTED"
+		w.dead_reason = "TARGET LOST" if w.lost_lock else ("NO ACQUISITION" if w.searching_on or w.circle_search_s >= 0.0 else "RANGE EXHAUSTED")
+		_credit_decoy(w)
+	elif w.phase == Weapon.Phase.CRUISE and w.circle_search_s >= 0.0:
+		w.circle_search_s += dt
+		if w.circle_search_s >= CIRCLE_SEARCH_S:
+			w.phase = Weapon.Phase.DEAD
+			w.dead_reason = "NO ACQUISITION"
+			_credit_decoy(w)
+
+
+## A torpedo that decoys pulled off and that never found a hull again was defeated by them.
+func _credit_decoy(w: Weapon) -> void:
+	if w.decoyed_by == null:
+		return
+	var by := w.decoyed_by
+	w.phase = Weapon.Phase.CRUISE  # defeat_weapon ends a live round
+	defeat_weapon(w, "DECOYED", by)
+
+
+## A torpedo that reaches its aim point with nothing in its seeker circles there, the seeker
+## sweeping right round once a turn, for a bounded time, and then shuts down: the range on a
+## sonar plot is the part most often wrong, and the target is most likely close about the point.
+## GAMEPLAY_ESTIMATE.
+const CIRCLE_PERIOD_S := 60.0
+const CIRCLE_SEARCH_S := 150.0
+
+
+func _start_circle(w: Weapon) -> void:
+	w.circle_search_s = 0.0
+	revision += 1
+
+
+## Whether the aim point is close abaft the beam: a torpedo that has run past it.
+static func _aim_astern(w: Weapon) -> bool:
+	var to_aim := w.aim_point - w.position
+	return to_aim.length() <= w.spec.acquisition_radius_nm() and to_aim.dot(Geo.heading_to_vector(w.heading_deg)) < 0.0
+
+
+## Whether this round is being steered on the contact it was fired at: an update-capable weapon,
+## or a torpedo on its wire, while the unit that fired it is afloat and still holds that contact.
+## A wire runs back to a tube, so a torpedo an aircraft dropped or a rocket threw takes none.
+func takes_updates(w: Weapon) -> bool:
+	if w.delivery_spec != null or not w.spec.supports_midcourse_updates():
+		return false
+	if w.shooter == null or not w.shooter.alive or (w.spec.is_torpedo() and w.shooter.is_aircraft()):
+		return false
+	var t := w.target_track
+	return t != null and t.status == Track.Status.ACTIVE and t.visible_to(w.shooter)
+
+
+## A torpedo whose seeker is on and has nothing weaves either side of its course to the aim point,
+## so the cone sweeps a band several times its own width instead of one narrow lane. It runs
+## straight while it is still short of its enable point, when the weave would cost it the range to
+## get there, and on the last stretch into the aim point, which it would otherwise orbit.
+## GAMEPLAY_ESTIMATE, in the shape of the snake search of a modern heavyweight.
+const SNAKE_DEG := 40.0
+const SNAKE_PERIOD_NM := 1.2
+const SNAKE_FADE_NM := 0.5
+## The fraction of a weaving run that is made good along the course.
+const SNAKE_PROGRESS := 0.85
+
+
+func _snake_offset_deg(w: Weapon, goal: Vector2) -> float:
+	if not w.spec.is_torpedo() or w.delivery_spec != null or w.distance_flown_nm < w.spec.run_to_enable_nm:
+		return 0.0
+	var to_go := w.position.distance_to(goal)
+	if (w.spec.max_range_nm - w.distance_flown_nm) * SNAKE_PROGRESS < to_go:
+		return 0.0
+	var weave := sin(TAU * (w.distance_flown_nm - w.spec.run_to_enable_nm) / SNAKE_PERIOD_NM)
+	return SNAKE_DEG * weave * clampf(to_go / SNAKE_FADE_NM - 0.5, 0.0, 1.0)
 
 
 ## Rocket-delivered ASW: fly to the held launch solution, then put a fresh torpedo into the
@@ -532,16 +731,30 @@ func _step_interceptor(w: Weapon, dt: float) -> void:
 		w.phase = Weapon.Phase.DEAD
 		w.dead_reason = "THREAT ALREADY DEFEATED"
 		return
-	if not AirDefence._can_intercept(w.spec, threat) or not guidance_available(w.shooter, w.spec, threat):
-		w.phase = Weapon.Phase.DEAD
-		w.dead_reason = "GUIDANCE LOST"
-		return
-	# Lead a moving inbound. Pointing only at its current position makes crossing shots chase
-	# its wake, and an accurate swept collision check exposes the miss hidden by a wide radius.
-	var aim := Combat.intercept_point(w.position, w.spec.speed_kn, threat.position, threat.heading_deg, threat.spec.speed_kn, true)
-	var desired := Geo.bearing_deg(w.position, aim if aim.is_finite() else threat.position)
-	var max_turn := w.spec.turn_rate_deg_s * dt
-	w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
+	# A round is steered while the threat is inside its envelope and something is guiding it. A
+	# break in the illuminator's line of sight on the way out costs nothing: the round flies its
+	# last solution and needs the beam again only to home. Without guidance in the endgame, or
+	# with its fire control gone or the threat out of its envelope, it coasts a few seconds on the
+	# last solution and is then lost.
+	var in_envelope := AirDefence._can_intercept(w.spec, threat)
+	var guided := in_envelope and guidance_available(w.shooter, w.spec, threat)
+	if guided:
+		w.unguided_s = 0.0
+	else:
+		var endgame := w.position.distance_to(threat.position) <= w.spec.acquisition_radius_nm()
+		if endgame or not in_envelope or not radar_support_available(w.shooter, w.spec):
+			w.unguided_s += dt
+			if w.unguided_s > INTERCEPT_COAST_S:
+				w.phase = Weapon.Phase.DEAD
+				w.dead_reason = "GUIDANCE LOST"
+				return
+	if guided:
+		# Lead a moving inbound. Pointing only at its current position makes crossing shots chase
+		# its wake, and an accurate swept collision check exposes the miss hidden by a wide radius.
+		var aim := Combat.intercept_point(w.position, w.spec.speed_kn, threat.position, threat.heading_deg, threat.spec.speed_kn, true)
+		var desired := Geo.bearing_deg(w.position, aim if aim.is_finite() else threat.position)
+		var max_turn := w.spec.turn_rate_deg_s * dt
+		w.heading_deg = fposmod(w.heading_deg + clampf(Geo.heading_delta(w.heading_deg, desired), -max_turn, max_turn), 360.0)
 	var previous := w.position
 	var travel := minf(w.speed_nm_per_s() * dt, maxf(w.spec.max_range_nm - w.distance_flown_nm, 0.0))
 	w.position += Geo.heading_to_vector(w.heading_deg) * travel
@@ -626,8 +839,13 @@ static func first_seeker_contact_fraction(from: Vector2, to: Vector2, point: Vec
 
 
 ## Return the actual lock point, so an impact cannot use travel completed before acquisition.
-## Terminal search cannot read the commander's identities: friendly and neutral traffic can be
-## acquired just like hostile traffic. The firing platform is excluded from its own seeker.
+## Terminal search cannot read the commander's identities: neutral traffic can be acquired just
+## like hostile traffic, which is why the discipline belongs at launch. It does tell its own side
+## (seeker_sees), and the firing platform is excluded from its own seeker.
+## Of everything in the basket the round takes what it was sent for. One still being steered by
+## radar or datalink at a contact its shooter holds waits for the unit under that contact; any
+## other takes whatever lies nearest its aim point, not whatever crossed the cone first, and
+## looks before it commits (_lock_is_due).
 ## A round still separating from its launcher takes no return alongside it (SAFE_SEPARATION_NM);
 ## a short shot that opens its seeker at launch would otherwise lock the section's wingman.
 ## A rocket-delivered payload enters the water on the held datum and searches around its entry
@@ -637,29 +855,57 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	var around_entry := w.delivery_spec != null
 	var separation := clampf(w.spec.min_range_nm, IMPACT_MIN_NM, SAFE_SEPARATION_NM)
 	var separating := w.shooter != null and not around_entry and w.distance_flown_nm < separation
+	var designated := designated_unit(w)
+	# A round searching on down its heading, or a payload circling its entry point, has no aim
+	# point worth the name: it takes what is nearest itself.
+	var reference := w.position if w.searching_on or around_entry else w.aim_point
+	# A seeker opened on the basket round an aim point, as against one searching its way in.
+	var on_basket := not (w.searching_on or around_entry or w.spec.is_torpedo() or w.spec.is_anti_radiation())
+	# Fired at a ship or a target ashore, such a seeker is gated on the range of its aim point. A
+	# hull closer than that by more than the solution can be wrong (Combat.protected_spread_nm, the
+	# margin the launch check keeps protected traffic out of) lies short of the target; a seeker
+	# that opens on the rail, a shot inside its own seeker range, would otherwise take the first one
+	# crossing its cone near the shooter. An aircraft may be overhauled from astern, so a shot at one
+	# is not gated this way.
+	var range_gate := -INF
+	if on_basket and (w.target_track == null or w.target_track.domain != "air"):
+		var spread := Combat.protected_spread_nm(w.spec, w.target_track, w.launch_range_nm) if w.target_track != null else Combat.PROTECTED_GUARD_NM
+		range_gate = w.position.distance_to(reference) - spread
 	var best: Unit = null
-	var first_fraction := INF
+	var best_fraction := INF
 	var best_d_squared := INF
 	for u in unit_manager.units:
 		if u == w.shooter or not seeker_sees(w, u):
 			continue
 		if separating and u.position.distance_to(w.shooter.position) < separation:
 			continue
+		if u != designated and w.position.distance_to(u.position) < range_gate:
+			continue
 		var fraction := _first_radius_contact_fraction(previous, w.position, u.position, radius) if around_entry else first_seeker_contact_fraction(previous, w.position, u.position, radius, w.heading_deg, w.spec.seeker_half_angle_deg)
 		if not is_finite(fraction):
 			continue
-		var lock_point := previous.lerp(w.position, fraction)
-		var d_squared := lock_point.distance_squared_to(u.position)
-		if fraction < first_fraction or (is_equal_approx(fraction, first_fraction) and d_squared <= best_d_squared):
+		if u == designated:
 			best = u
-			first_fraction = fraction
+			best_fraction = fraction
+			break
+		var d_squared := reference.distance_squared_to(u.position)
+		if d_squared < best_d_squared:
+			best = u
+			best_fraction = fraction
 			best_d_squared = d_squared
+	var at_aim := not w.searching_on and w.circle_search_s < 0.0 and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0
+	if best != null and best != designated and on_basket and not at_aim:
+		# Its own contact is still ahead of it: something else crossing the cone is not the target.
+		if designated != null or not _lock_is_due(w, best, radius):
+			best = null
 	if best != null and w.spec.is_anti_radiation():
 		w.emitter_point = best.position
 		w.emitter_silent = false
 	if best == null:
-		if not w.searching_on and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0:
-			if searches_on(w):
+		if at_aim:
+			if w.spec.is_torpedo() and w.delivery_spec == null:
+				_start_circle(w)
+			elif searches_on(w):
 				# An aircraft that turned after the last update is somewhere ahead: the round holds
 				# its heading with the seeker on rather than dying on an empty patch of sky.
 				w.searching_on = true
@@ -669,25 +915,64 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 				w.dead_reason = "NO ACQUISITION"
 		return previous
 	w.acquired = best
+	w.lost_lock = false
+	w.circle_search_s = -1.0
+	if w.decoyed_by != null:
+		# Come round onto a hull again after decoys broke its lock: that ship's countermeasures
+		# get another try at it.
+		w.decoyed_by = null
+		w.decoy_attempted = false
 	w.phase = Weapon.Phase.TERMINAL
-	return previous.lerp(w.position, first_fraction)
+	return previous.lerp(w.position, best_fraction)
+
+
+## Whether a seeker that has found `u` should take it now or look a little longer. The first
+## return to cross the cone is seldom the one nearest the aim point: the far side of the basket
+## comes into range a moment later. The round commits once everything nearer the aim point than
+## `u` is inside its range, or when flying on would lose `u` out of the cone, or when it is about
+## to arrive.
+func _lock_is_due(w: Weapon, u: Unit, radius: float) -> bool:
+	var to_aim := w.position.distance_to(w.aim_point)
+	if u.position.distance_to(w.aim_point) <= radius - to_aim:
+		return true
+	var lead := w.speed_nm_per_s() * LOCK_LEAD_S
+	if to_aim <= lead:
+		return true
+	var ahead := w.position + Geo.heading_to_vector(w.heading_deg) * lead
+	return not is_finite(first_seeker_contact_fraction(ahead, ahead, u.position, radius, w.heading_deg, w.spec.seeker_half_angle_deg))
+
+
+## The unit a round is being steered at: the one under the contact it was fired at, while the
+## round takes updates (command, semi-active or datalink guidance) and its living shooter still
+## holds that contact. Gunfire counts: the shell is not guided, but the mount is laid by a director
+## that is tracking that contact and no other. Null for a launch-and-leave round, a stale or lost
+## contact, or a target the seeker can no longer see; the round then finds its own target at the
+## aim point.
+func designated_unit(w: Weapon) -> Unit:
+	var t := w.target_track
+	if t == null or w.delivery_spec != null or not (w.spec.supports_midcourse_updates() or w.spec.is_gun()):
+		return null
+	if w.spec.is_torpedo() and not takes_updates(w):
+		return null
+	if w.shooter == null or not w.shooter.alive or t.status != Track.Status.ACTIVE or not t.visible_to(w.shooter):
+		return null
+	var u := t.truth
+	return u if u != null and u != w.shooter and seeker_sees(w, u) else null
 
 
 ## Whether a round that finds nothing at its aim point flies on searching: one fired at an aircraft,
 ## which may have turned since the solution was last updated. A round at a ship or a submarine
-## ends there, as it always has.
+## ends there, as it always has; a torpedo circles there first (_start_circle).
 static func searches_on(w: Weapon) -> bool:
 	if w.spec.is_anti_radiation():
 		return true  # a bearing gives no range: it listens the whole way down it
-	if w.spec.is_torpedo() and w.delivery_spec == null:
-		# The range on a passive contact is a guess. A torpedo that finds nothing there runs on
-		# down the bearing with its seeker on for as long as it has battery or fuel.
-		return true
 	return w.target_track != null and w.target_track.domain == "air" and w.delivery_spec == null and not w.spec.is_torpedo() and not w.is_interceptor()
 
 
 ## Decoys have beaten the lock on `from`. The seeker searches on along its heading; if another
-## ship lies in its cone and basket it may take that instead, otherwise the round is spent.
+## ship lies in its cone and basket it may take that instead. Otherwise a missile is spent, and a
+## torpedo, which has battery left and is still in the water with its target, drops the lock and
+## searches again (_lose_to_decoy).
 func seduce(w: Weapon, from: Unit) -> Unit:
 	if w.phase == Weapon.Phase.DEAD:
 		return null
@@ -696,7 +981,7 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	if w.seductions <= MAX_SEDUCTIONS and rng.randf() < SEDUCED_REACQUIRE_P:
 		var best_d := w.spec.acquisition_radius_nm()
 		for u in unit_manager.units:
-			if u == from or u == w.shooter or not can_target(w.spec, u):
+			if u == from or u == w.shooter or u.faction == w.faction or not can_target(w.spec, u):
 				continue
 			var d := w.position.distance_to(u.position)
 			if d > best_d:
@@ -706,9 +991,13 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 			best = u
 			best_d = d
 	if best == null:
-		defeat_weapon(w, "DECOYED", from)
+		if w.spec.is_torpedo():
+			_lose_to_decoy(w, from)
+		else:
+			defeat_weapon(w, "DECOYED", from)
 		return null
 	w.acquired = best
+	w.lost_lock = false
 	w.phase = Weapon.Phase.TERMINAL
 	w.decoy_attempted = false  # the new target gets its own chance to decoy it; acoustic tries are per ship already
 	revision += 1
@@ -716,15 +1005,35 @@ func seduce(w: Weapon, from: Unit) -> Unit:
 	return best
 
 
-## What this round's seeker can lock. An anti-radiation seeker hears only a radar that is
-## transmitting, and is set against the other side's emitters: it does not take its own force's
-## radars or a neutral's.
+## The chance a torpedo pulled off by decoys can still tell its target from their noise when it
+## comes round again. GAMEPLAY_ESTIMATE.
+const TORPEDO_REATTACK_P := 0.3
+
+
+## A torpedo whose lock the decoys have broken circles where it lost it, as it would at an empty aim
+## point. Mostly it stays fooled by the decoys' noise and will not take that ship again; the rest
+## of the time it can re-attack, and the ship's countermeasures get another try. If it finds
+## nothing it ends as decoyed, to the credit of the ship that fooled it.
+func _lose_to_decoy(w: Weapon, from: Unit) -> void:
+	w.acquired = null
+	w.phase = Weapon.Phase.CRUISE
+	w.decoyed_by = from
+	if rng.randf() >= TORPEDO_REATTACK_P:
+		w.decoy_fooled[from.id] = true
+	_start_circle(w)
+	torpedo_decoyed.emit(w, from)
+
+
+## What this round's seeker can lock. Never a unit of the side that fired it: its own force is
+## the one thing a round is told about before it leaves the rail. An anti-radiation seeker hears
+## only a radar that is transmitting, and is set against the other side's emitters: it does not
+## take a neutral's either.
 func seeker_sees(w: Weapon, u: Unit) -> bool:
-	if not can_target(w.spec, u):
+	if u.faction == w.faction or not can_target(w.spec, u) or w.decoy_fooled.has(u.id):
 		return false
 	if not w.spec.is_anti_radiation():
 		return true
-	if u.faction == w.faction or (track_manager != null and track_manager.neutral_factions.has(u.faction)):
+	if track_manager != null and track_manager.neutral_factions.has(u.faction):
 		return false
 	return u.radar_emitting() or u.jamming()
 
@@ -756,7 +1065,7 @@ static func can_target(spec: WeaponSpec, u: Unit) -> bool:
 func _resolve_impact(w: Weapon) -> void:
 	var target := w.acquired
 	w.phase = Weapon.Phase.DEAD
-	var pk := Combat.hit_probability(w.spec, target)
+	var pk := Combat.hit_probability(w.spec, target, w.distance_flown_nm, running_from(w, target))
 	if w.emitter_silent:
 		pk *= ARM_MEMORY_PK
 	var hit := rng.randf() < pk
@@ -774,6 +1083,18 @@ func _resolve_impact(w: Weapon) -> void:
 			unit_destroyed.emit(target, w.faction)
 	else:
 		weapon_impact.emit(w.faction, w.spec, target, false)
+
+
+## A torpedo's target is running from it: its side heard the torpedo homing on it (TorpedoDefence
+## records that) and it is on a course within TORPEDO_RUN_AWAY_DEG of the torpedo's own, opening.
+## GAMEPLAY_ESTIMATE.
+const TORPEDO_RUN_AWAY_DEG := 60.0
+
+
+static func running_from(w: Weapon, target: Unit) -> bool:
+	if not w.spec.is_torpedo() or not w.heard_by.has(target.id):
+		return false
+	return absf(Geo.heading_delta(w.heading_deg, target.heading_deg)) <= TORPEDO_RUN_AWAY_DEG
 
 
 ## One abstract guidance channel per distinct air target, across manual and automatic shots.

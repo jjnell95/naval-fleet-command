@@ -80,7 +80,7 @@ static func run(main: Main) -> void:
 	main._unhandled_key_input(_key(KEY_A))
 	await main.get_tree().process_frame
 	checks["A opens the status boards without touching the clock"] = main.status_boards.visible and SimClock.paused and main.orders_panel.is_visible_in_tree()
-	checks["status boards carry orders, task group, track file and comms"] = main.status_boards._tabs.get_tab_count() == 4
+	checks["status boards carry orders, task group, track file, comms and assessment"] = main.status_boards._tabs.get_tab_count() == 5
 	main._unhandled_key_input(_key(KEY_ESCAPE))
 	checks["Escape puts the status boards away"] = not main.status_boards.visible
 	if not main.contact_panel.visible_tracks().is_empty():

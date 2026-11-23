@@ -16,7 +16,7 @@ func _ship(id := "rn_ffg_type26") -> Unit:
 
 
 func test_ship_array_must_slow_and_stream_before_it_can_hear_or_ping() -> void:
-	var u := _ship()
+	var u := _ship("usn_ffg_constellation")  # her only sonar is the variable-depth set
 	var um := UnitManager.new()
 	u.speed_kn = 20.0
 	assert_true(um.issue_order(u, Order.active_sonar()))
@@ -35,14 +35,17 @@ func test_ship_array_must_slow_and_stream_before_it_can_hear_or_ping() -> void:
 	um.free()
 
 
-func test_ship_navigation_recovers_before_accelerating_and_keeps_latest_route() -> void:
-	var u := _ship()
+func test_ship_navigation_tows_the_array_and_a_fast_speed_recovers_it_before_accelerating() -> void:
+	var u := _ship("usn_ffg_constellation")
 	var um := UnitManager.new()
 	assert_true(um.issue_order(u, Order.asw_search()))
 	Movement.step(u, TowedArray.STREAM_S)
 	assert_true(um.issue_order(u, Order.move(Vector2(0, 80))))
 	assert_true(um.issue_order(u, Order.move(Vector2(80, 0))))
-	assert_eq(u.array_phase, TowedArray.Phase.RECOVERING)
+	assert_eq(u.array_phase, TowedArray.Phase.LISTENING, "a new route is steered with the array streamed")
+	assert_true(u.array_search_active)
+	assert_true(um.issue_order(u, Order.set_speed(u.spec.max_speed_kn)))
+	assert_eq(u.array_phase, TowedArray.Phase.RECOVERING, "the cable will not take her top speed")
 	assert_true(not u.array_search_active)
 	Movement.step(u, TowedArray.RECOVER_S - 0.25)
 	assert_true(u.speed_kn <= TowedArray.QUIET_SPEED_KN + 0.1)

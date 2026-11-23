@@ -36,11 +36,7 @@ func _ready() -> void:
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 8)
 	dialog.add_child(page)
-	var title := Label.new()
-	title.text = "SAVED ENGAGEMENTS"
-	title.add_theme_font_override("font", UITheme.data_font())
-	title.add_theme_font_size_override("font_size", 14)
-	page.add_child(title)
+	page.add_child(UITheme.dialog_header("Saved engagements", func() -> void: closed.emit(), "Ctrl+Shift+O / Esc"))
 	var hint := Label.new()
 	hint.text = "Quicksave Ctrl+Shift+S, quickload Ctrl+Shift+L. The battle is autosaved every %d minutes of simulated time; the newest %d autosaves are kept." % [int(SaveGame.AUTOSAVE_INTERVAL_S / 60.0), SaveGame.AUTOSAVE_KEEP]
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -77,15 +73,18 @@ func _ready() -> void:
 	_save = _button("SAVE NOW", func() -> void: save_requested.emit())
 	_save.tooltip_text = "Save the running engagement as a new entry"
 	buttons.add_child(_save)
-	_delete = _button("DELETE", func() -> void:
-		var h := _selected()
-		if not h.is_empty():
-			delete_requested.emit(str(h["path"])))
+	_delete = _button("DELETE", _ask_delete)
 	buttons.add_child(_delete)
-	var gap := Control.new()
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	buttons.add_child(gap)
-	buttons.add_child(_button("CLOSE", func() -> void: closed.emit()))
+
+
+## A deleted save cannot be brought back, so DELETE names it and asks first.
+func _ask_delete() -> void:
+	var h := _selected()
+	if h.is_empty():
+		return
+	var path := str(h["path"])
+	var name := "%s, %s at %s" % [str(h.get("label", h.get("slot", "this save"))), str(h.get("scenario_name", "")), str(h.get("clock_text", ""))]
+	ConfirmDiscard.ask(self, "Delete saved engagement", "Delete %s? It cannot be brought back." % name, "Delete", func() -> void: delete_requested.emit(path), "Keep it")
 
 
 func _button(text: String, action: Callable) -> Button:

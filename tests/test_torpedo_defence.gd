@@ -92,7 +92,7 @@ func test_chaff_does_nothing_to_a_torpedo() -> void:
 	var ship := _ship(_hull())
 	var h := _harness([ship])
 	var torp := _homing(h, ship, Vector2(0.0, 1.0))
-	AirDefence._try_decoy(ship, torp, h[2])
+	DefensiveResponse.run_cycle(h[0], h[1], h[2])
 	assert_eq(ship.decoys, 12, "no chaff is spent on a torpedo")
 	assert_eq(torp.phase, Weapon.Phase.TERMINAL, "and the torpedo keeps its lock")
 	_cleanup(h)
@@ -112,8 +112,8 @@ func test_a_towed_decoy_can_pull_a_torpedo_off_and_never_runs_out() -> void:
 	var h := _harness([ship], _lucky_seed())
 	var torp := _homing(h, ship, Vector2(0.0, 1.5))
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
-	assert_eq(torp.phase, Weapon.Phase.DEAD, "decoyed, with no other ship in its cone to find")
-	assert_eq(torp.dead_reason, "DECOYED")
+	assert_true(torp.acquired == null and torp.phase == Weapon.Phase.CRUISE, "decoyed: it has lost its lock and searches again")
+	assert_eq(torp.decoyed_by, ship, "the ship's decoy did it")
 	assert_eq(ship.torpedo_decoys, 0, "a towed body is not a store that runs down")
 	_cleanup(h)
 
@@ -125,7 +125,7 @@ func test_the_towed_decoy_needs_way_on_and_waits_for_the_torpedo_to_close() -> v
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
 	assert_eq(torp.acquired, ship, "a ship lying stopped trails nothing useful")
 	ship.speed_kn = 12.0
-	torp.position = Vector2(0.0, TorpedoDefence.DECOY_RANGE_NM + 1.0)
+	torp.position = Vector2(0.0, DefensiveResponse.ACOUSTIC_RANGE_NM + 1.0)
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
 	assert_true(not torp.acoustic_decoy_tried.has(ship.id), "outside decoy range nothing is tried yet")
 	_cleanup(h)
@@ -172,16 +172,20 @@ func test_automatic_acoustic_launch_waits_for_a_manual_pulse_to_reload() -> void
 	_cleanup(h)
 
 
-func test_a_failed_manual_acoustic_attempt_does_not_trigger_another_automatic_canister() -> void:
+func test_a_failed_manual_acoustic_attempt_holds_the_automatic_canister_until_the_launcher_reloads() -> void:
 	var ship := _ship(_hull(false, 4, 0.0))
 	var h := _harness([ship])
 	var torp := _homing(h, ship, Vector2(0.0, 1.0))
 	assert_true(DefensiveResponse.deploy(ship, "acoustic", h[2]))
 	DefensiveResponse.run_cycle(h[0], h[1], h[2])
 	assert_true(torp.decoy_attempted)
-	DefensiveResponse.tick(ship, DefensiveResponse.RELOAD_SECONDS)
-	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], DefensiveResponse.RELOAD_SECONDS), 0)
-	assert_eq(ship.torpedo_decoys, 3, "manual and automatic responses share the attempt record")
+	DefensiveResponse.tick(ship, DefensiveResponse.RELOAD_SECONDS - 5.0)
+	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], DefensiveResponse.RELOAD_SECONDS - 5.0), 0)
+	assert_eq(ship.torpedo_decoys, 3, "manual and automatic responses share the pulse and its reload")
+	# The torpedo is still running at her: once the launcher has reloaded, the next canister goes.
+	DefensiveResponse.tick(ship, 5.0)
+	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], DefensiveResponse.RELOAD_SECONDS), 1)
+	assert_eq(ship.torpedo_decoys, 2)
 	_cleanup(h)
 
 
@@ -217,13 +221,15 @@ func test_a_seeker_retargeted_during_the_cycle_gets_the_consorts_response_immedi
 	_cleanup(h)
 
 
+## Beyond the reach of the ship's own torpedo-defence fit only her sonar could hear the torpedo,
+## and it did not this cycle: nothing aboard answers it.
 func test_a_torpedo_nobody_hears_gets_no_answer() -> void:
 	var ship := _ship(_hull(true, 4, 10.0))
 	var h := _harness([ship])
-	var torp := _homing(h, ship, Vector2(0.0, 1.0))
+	var torp := _homing(h, ship, Vector2(0.0, TorpedoDefence.TDS_WARNING_NM + 0.5))
 	(h[1] as ThreatManager).begin_cycle()  # heard last cycle, not this one
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
-	assert_true(torp.acoustic_decoy_tried.is_empty(), "countermeasures are cued by sonar, not by truth")
+	assert_true(torp.heard_by.is_empty() and ship.evasion_remaining_s <= 0.0, "countermeasures are cued by sonar, not by truth")
 	_cleanup(h)
 
 
@@ -319,7 +325,7 @@ func test_only_expendable_decoys_count_as_spent() -> void:
 	(h[2] as WeaponManager).decoys_spent.connect(func(_u: Unit, n: int) -> void: spent[0] += n)
 	var torp := _homing(h, ship, Vector2(0.0, 1.5))
 	TorpedoDefence.run_cycle(h[0], h[1], h[2], 0.0)
-	assert_eq(torp.dead_reason, "DECOYED")
+	assert_eq(torp.decoyed_by, ship, "decoyed")
 	assert_eq(spent[0], 0, "the towed body did it, and nothing was used up")
 	var second := _ship(_hull(false, 4, 0.0))
 	var h2 := _harness([second])

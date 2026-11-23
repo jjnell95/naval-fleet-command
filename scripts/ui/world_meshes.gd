@@ -1,6 +1,6 @@
 class_name WorldMeshes
-## Procedural meshes for the world view that need no asset: the ocean disc and the flat ring
-## drawn on the water under a contact.
+## Procedural meshes for the world view that need no asset: the ocean disc, the flat ring
+## drawn on the water under a contact, and the graded platform an installation stands on.
 
 const OCEAN_RINGS := 72
 const OCEAN_SEGMENTS := 96
@@ -67,3 +67,26 @@ static func ring() -> ArrayMesh:
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+
+## A unit square platform, top face at y = 0 spanning -0.5..0.5, whose sides slope out and down to
+## y = -1 like the batters of a cut-and-fill site. Scaled to a footprint and a depth where used.
+static func plinth() -> ArrayMesh:
+	const FLARE := 0.62  # how far out each side reaches at the bottom, beyond the top's half-width
+	var top := [Vector3(-0.5, 0.0, -0.5), Vector3(0.5, 0.0, -0.5), Vector3(0.5, 0.0, 0.5), Vector3(-0.5, 0.0, 0.5)]
+	var bottom := [Vector3(-FLARE, -1.0, -FLARE), Vector3(FLARE, -1.0, -FLARE), Vector3(FLARE, -1.0, FLARE), Vector3(-FLARE, -1.0, FLARE)]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_quad(st, top[0], top[1], top[2], top[3])
+	for i in 4:
+		var j := (i + 1) % 4
+		_quad(st, bottom[i], bottom[j], top[j], top[i])
+	st.generate_normals()
+	return st.commit()
+
+
+## Two triangles of a quad whose corners run clockwise as seen from the side it faces, which is
+## Godot's front.
+static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	for v: Vector3 in [a, b, c, a, c, d]:
+		st.add_vertex(v)

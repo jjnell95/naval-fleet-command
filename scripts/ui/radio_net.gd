@@ -31,6 +31,8 @@ var objective_text := ""
 var last_advice := ""
 ## The current chart message, available to dialogs that cover the chart while issuing orders.
 var latest_text := ""
+## The unit or track heard last on the net, for the key that hooks whoever is talking.
+var last_speaker: RefCounted = null
 
 
 ## Puts a message on the net. `speaker` is the unit or track talking, if any: the line reads
@@ -39,6 +41,8 @@ var latest_text := ""
 func flash(msg: String, severity := "info", speaker: RefCounted = null, reported_position := Vector2.INF) -> void:
 	var line := format_line(msg, speaker)
 	latest_text = line
+	if speaker != null:
+		last_speaker = speaker
 	var stamped := "%s  %s" % [SimClock.datetime_string(), line]
 	history.push_front(stamped)
 	journal.append(stamped)
@@ -105,6 +109,7 @@ func clear() -> void:
 	objective_text = ""
 	last_advice = ""
 	latest_text = ""
+	last_speaker = null
 	if display != null:
 		display.unread_alerts = 0
 		display.threat_text = ""

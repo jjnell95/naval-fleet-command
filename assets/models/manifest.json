@@ -25,11 +25,6 @@
     "triangles": 1424
   },
   {
-    "id": "agm_158b_jassm_er",
-    "kind": "weapon",
-    "triangles": 1424
-  },
-  {
     "id": "agm_158c_lrasm",
     "kind": "weapon",
     "triangles": 492
@@ -48,11 +43,6 @@
     "id": "aim9x_air",
     "kind": "weapon",
     "triangles": 1056
-  },
-  {
-    "id": "aim9x_family",
-    "kind": "weapon",
-    "triangles": 1376
   },
   {
     "id": "ak100_gun",
@@ -655,11 +645,6 @@
     "triangles": 1092
   },
   {
-    "id": "jsm_missile",
-    "kind": "weapon",
-    "triangles": 1424
-  },
-  {
     "id": "kalibr_asm",
     "kind": "weapon",
     "triangles": 1448
@@ -681,11 +666,6 @@
   },
   {
     "id": "kh35_uran",
-    "kind": "weapon",
-    "triangles": 1424
-  },
-  {
-    "id": "kh38_family",
     "kind": "weapon",
     "triangles": 1424
   },

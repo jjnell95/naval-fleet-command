@@ -25,4 +25,5 @@ role = "Littoral missile ambush"
 service_note = "Project 1234.1: six P-120 missiles, Osa-M, AK-176 and AK-630. The corvette's large anti-ship salvo is offset by a small defensive magazine."
 length_m = 59.3
 displacement_t = 730.0
+acoustic_signature = 0.2
 source_status = "PUBLIC: period identity and broad fit, docs/COLD_WAR_1990.md. GAMEPLAY_ESTIMATE: ranges, signatures, hit probability, damage, timings and tactical magazines. A 1990 recognition model, not measured operational performance."

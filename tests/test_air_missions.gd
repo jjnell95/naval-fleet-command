@@ -672,9 +672,11 @@ func test_edit_moves_and_resizes_existing_mission_without_replacing_airframes() 
 	assert_eq(m.station, station)
 	assert_eq(m.radius_nm, 18.0)
 	assert_true(m.relief)
+	var half := AirMissionManager.station_half_nm(AirMission.Kind.CAP, 18.0)
 	for a in original:
 		assert_eq(a.station_mission_id, m.id)
-		assert_true(a.station_route.has(station - Vector2(18, 18)))
+		# The wingman flies its own copy of the circuit a section's spacing along the diagonal.
+		assert_true(a.station_route.any(func(p: Vector2) -> bool: return p.distance_to(station - Vector2(half, half)) < AirMissionManager.SECTION_SPACING_NM * sqrt(2.0) + 0.01), "the circuit is laid round the new station")
 	var before := SimSnapshot.capture(_sim)
 	var refused := Order.revise_air_mission(m, cv.position + Vector2(0, 2000), 20, 2, false, true)
 	assert_true(not _sim.unit_manager.issue_order(cv, refused))
@@ -751,7 +753,8 @@ func test_cap_protects_its_anchor_and_breaks_mission_pursuit_at_boundary() -> vo
 	raid.classification = Track.Classification.CLASS_KNOWN
 	_sim.air_mission_manager._cap_look(m, a, m.tasks[a])
 	assert_eq(a.attack_track, raid)
-	raid.position = m.station + Vector2(40, 0)
+	# Beyond the pursuit and beyond any missile shot from the station, and not closing.
+	raid.position = m.station + Vector2(150, 0)
 	_sim.air_mission_manager._enforce_cap_boundary(m, a, m.tasks[a])
 	assert_eq(a.attack_track, null, "mission pursuit cannot pull the fighter off its defended area")
 	assert_true(a.on_station())
@@ -769,7 +772,7 @@ func test_cap_protects_its_anchor_and_breaks_mission_pursuit_at_boundary() -> vo
 	m = _mission()
 	assert_eq(m.cap_intent, "hold")
 	assert_eq(m.protected_unit, null)
-	assert_eq(m.pursuit_nm, 25.0)
+	assert_eq(m.pursuit_nm, AirMissionManager.COMMIT_MARGIN_NM)
 	assert_true(m.last_report().begins_with("Earlier report"), "legacy history does not invent a timestamp")
 	_done()
 

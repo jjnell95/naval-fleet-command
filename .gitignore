@@ -2,8 +2,5 @@
 /work/
 .DS_Store
 *.tmp
-
-
-docs/play/*.import
 .claude/worktrees/
 __pycache__/

@@ -62,7 +62,9 @@ func test_track_classification_progression() -> void:
 	var tracks: Array = tm.get_tracks("BLUE")
 	assert_eq(tracks.size(), 1, "one track per target")
 	var tr: Track = tracks[0]
-	assert_eq(tr.classification, Track.Classification.UNKNOWN, "unknown early")
+	assert_eq(tr.classification, Track.Classification.SURFACE, "a measured plot says at once what kind of contact it is")
+	assert_eq(tr.domain, "surface")
+	assert_eq(tr.known_class, "", "and nothing more than that")
 	assert_eq(tr.identity, "UNKNOWN")
 	for i in 200:
 		now += 1.0

@@ -79,6 +79,9 @@ const TAG_FONT_SIZE := 11
 const STALE_ALPHA := 0.55
 const UNCERTAINTY_ALPHA := 0.35
 const BEARING_LINE_ALPHA := 0.6
+## Symbols closer than this share one label (see `_merge_coincident_labels`).
+const COINCIDENT_PX := 3.0
+const BEARING_END_PX := 5.0  # half the bar that closes a bearing line, where its number sits
 const SENSOR_RING_ALPHA := 0.45
 ## A sunk or shot-down own platform stays on the plot in grey this long (sim seconds).
 const WRECK_S := 600.0
@@ -148,6 +151,8 @@ const COL_RADIO_ALERT := Color("ff5050")
 ## Interface advice on the radio line (RadioNet.advise): the same face, dimmed, so it reads as the
 ## console talking rather than the crew.
 const COL_RADIO_ADVICE := Color(0.78, 0.8, 0.84, 0.72)
+## The commander's own marks, circles and corridors: a colour no contact or own symbol uses.
+const COL_ANNOTATION := Color(0.96, 0.62, 0.96, 0.9)
 const COL_FIRE := Color(1.0, 0.55, 0.22)
 const DEFAULT_WIND_FROM_DEG := 250.0  # prevailing winter westerlies, when a scenario names none
 
@@ -171,8 +176,9 @@ var _inspecting_track := false
 var show_key := false
 var show_rings := false
 ## Sensor coverage: the chart is lit where the commander's own radars and sonars reach and dark
-## beyond them (SensorCoverage). On by default; the layer is "coverage".
-var show_coverage := true
+## beyond them (SensorCoverage). Off until asked for, because a force's worth of overlapping reach
+## buries the formation it is drawn round; the layer is "coverage".
+var show_coverage := false
 ## This frame's coverage discs, refreshed by _process and read by the chart layers.
 var coverage_discs: Array[Vector4] = []
 ## The live air board in the chart's top-right corner: every air mission and deck alert, updating
@@ -198,6 +204,8 @@ var show_neutrals := true
 var show_unknowns := true
 var symbol_mode := SymbolMode.NTDS
 var range_circle := RangeCircle.OFF
+## The commander's own plotting aids: marks, fixed range circles and corridors.
+var annotations := ChartAnnotations.new()
 
 var _drag_mode := DragMode.NONE
 var _drag_button := MOUSE_BUTTON_NONE
@@ -253,6 +261,13 @@ var _weapon_trail_time := -1.0
 var _weapon_trail_revision := -1
 var _weapon_trail_threat_revision := -1
 var _hit_flash := 0.0
+## The moving marks, drawn every frame above the plot (see ChartMarks), and where this plot draw
+## put the pulsing ring of each round inbound on an own ship.
+var _marks: ChartMarks
+var _threat_ring_points := PackedVector2Array()
+var _marks_shown := false
+var _own_cache: Array[Unit] = []
+var _own_in_draw := false
 var show_range_grid := false
 var _floor: ChartFloor
 var _land: ChartLand
@@ -262,15 +277,24 @@ var _radio := RadioLine.new()
 var _labels := ChartLabels.new()
 var _label_queue: Array = []
 var _chart_captions: Array = []
-var _text_widths: Dictionary = {}  # "text@size" -> px
+## The radio line laid out for this frame (see `radio_layout`), placed before the labels so they
+## can keep out of its band.
+var _radio_layout: Dictionary = {}
+var _text_widths: Dictionary = {}  # font size -> {text -> px}
+var _text_width_count := 0
 ## A status board covers the chart: its readouts and radio line are not drawn under it.
 var overlay_covered := false
 var _coast_runs: Dictionary = {}  # Landmass -> Array[PackedVector2Array], clip edges removed
 var _coast_key := ""
-## The coast projected to the screen for the current view (Landmass -> Array[PackedVector2Array]),
-## kept until the view moves: a still chart does not re-project every vertex of Norway each frame.
+## The coast projected to the screen at one scale (Landmass -> Array[PackedVector2Array]), about
+## `_coast_origin`: a pan only shifts it, and only a zoom or a resize re-projects every vertex of
+## Norway. The strokes are drawn by `_coast_layer` when the view moves, not with every plot draw.
 var _coast_screen: Dictionary = {}
 var _coast_view := PackedFloat32Array()
+var _coast_origin := Vector2.ZERO
+var _coast_layer: ChartCoast
+var _named_land: Array[Landmass] = []
+var _named_land_generation := -1
 
 
 func _ready() -> void:
@@ -306,10 +330,24 @@ func _ready() -> void:
 	_land.map = self
 	add_child(_land)
 	move_child(_land, 1)
+	_coast_layer = ChartCoast.new()
+	_coast_layer.name = "ChartCoast"
+	_coast_layer.map = self
+	add_child(_coast_layer)
+	move_child(_coast_layer, 2)
+	_marks = ChartMarks.new()
+	_marks.name = "ChartMarks"
+	_marks.map = self
+	add_child(_marks)
 
 
 func zoom_at_center(factor: float) -> void:
 	_zoom_at(size * 0.5, factor)
+
+
+## Zooms by `factor` keeping the chart point under `screen_pos` where it is.
+func zoom_at(screen_pos: Vector2, factor: float) -> void:
+	_zoom_at(screen_pos, factor)
 
 
 ## Every switchable chart layer and the member that holds it. One state path serves the
@@ -414,6 +452,52 @@ func _clear_range_circle() -> void:
 	_range_radius_nm = 0.0
 
 
+## What the chart menu needs to offer the plotting aids for a menu opened on `world_pos` (a world
+## point, or anything else when the menu was not opened on the chart).
+func chart_marks_state(world_pos: Variant = null) -> Dictionary:
+	var state := {"marks": annotations.items.size(), "corridor_from": annotations.corridor_from.is_finite()}
+	if world_pos is Vector2 and (world_pos as Vector2).is_finite():
+		state["mark_at"] = world_pos
+		var near := annotations.nearest(world_pos, ChartAnnotations.PICK_PX / maxf(ppn, 0.001))
+		if near >= 0:
+			state["mark_near"] = annotations.items[near].label
+	return state
+
+
+## Carries out a chart menu's plotting-aid action and returns the line that confirms it.
+func chart_mark_action(action: Dictionary) -> String:
+	var at: Variant = action.get("at", Vector2.INF)
+	var here: bool = at is Vector2 and (at as Vector2).is_finite()
+	var op := str(action.get("op", ""))
+	var said := ""
+	match op:
+		"mark":
+			var label := annotations.add_mark(at) if here else ""
+			said = "Mark %s laid at %s" % [label, _position_text(at)] if label != "" else "No mark laid"
+		"circle":
+			var label := annotations.add_circle(at, float(action.get("radius_nm", 0.0))) if here else ""
+			said = "Range circle %s: %s nm about %s" % [label, Geo.format_nm(float(action.get("radius_nm", 0.0))), _position_text(at)] if label != "" else "No range circle laid"
+		"corridor_start":
+			if here:
+				annotations.start_corridor(at)
+			said = "Corridor started: right-click its far end and choose End corridor here" if here else "No corridor started"
+		"corridor_end":
+			var label := annotations.end_corridor(at, float(action.get("width_nm", 0.0))) if here else ""
+			said = "Corridor %s laid, %s nm wide" % [label, Geo.format_nm(float(action.get("width_nm", 0.0)))] if label != "" else "No corridor laid: start it first, then pick a different far end"
+		"corridor_cancel":
+			annotations.corridor_from = Vector2.INF
+			said = "Corridor cancelled"
+		"remove":
+			var label := annotations.remove_near(at, ChartAnnotations.PICK_PX / maxf(ppn, 0.001)) if here else ""
+			said = "%s removed" % label if label != "" else "No mark there"
+		"clear":
+			var n := annotations.items.size()
+			annotations.clear()
+			said = "Chart marks cleared (%d)" % n
+	queue_redraw()
+	return said
+
+
 func set_follow_selection(enabled: bool) -> void:
 	follow_selection = enabled and (selected.size() == 1 or selected_track != null)
 
@@ -504,6 +588,7 @@ func post_message(text: String, severity := "info", speaker = null) -> void:
 
 func _process(delta: float) -> void:
 	_anim += delta
+	_own_in_draw = false  # in case a draw was cut short
 	if is_visible_in_tree():
 		if show_coverage and unit_manager != null:
 			coverage_discs = SensorCoverage.discs(_own_units())
@@ -525,12 +610,44 @@ func _process(delta: float) -> void:
 	_record_wrecks()
 	if (_range_unit != null and not _range_unit.alive) or (_range_track != null and _range_track.status == Track.Status.LOST):
 		_clear_range_circle()
-	# Plotted positions change on simulation ticks. Between ticks Godot retains
-	# the last draw; keep navigation, symbol preparation and animation at display speed.
-	if SimClock.sim_time != _drawn_sim_time or center_nm != _drawn_center or ppn != _drawn_ppn \
-			or _anim - _last_draw_at >= IDLE_REFRESH_S or _awaiting_symbol_art or _hit_flash > 0.0 \
-			or not _effects.is_empty() or not _threats.is_empty() or _radio.is_fading(_anim):
+	_expire_effects()
+	var plot_due := plot_redraw_due()
+	if plot_due:
 		queue_redraw()
+	if _marks != null and (plot_due or marks_redraw_due()):
+		_marks.queue_redraw()
+
+
+## Plotted positions change on simulation ticks. Between ticks Godot retains the last draw; keep
+## navigation and symbol preparation at display speed, and everything else at the idle rate.
+func plot_redraw_due() -> bool:
+	return SimClock.sim_time != _drawn_sim_time or center_nm != _drawn_center or ppn != _drawn_ppn \
+			or _anim - _last_draw_at >= IDLE_REFRESH_S or _awaiting_symbol_art
+
+
+## The moving marks redraw every frame while one is on the chart, and once more to clear the last.
+## A new chart animation belongs here and in `draw_marks`, not in the plot's `_draw`.
+func marks_animating() -> bool:
+	return _hit_flash > 0.0 or not _effects.is_empty() or not _threat_ring_points.is_empty() or _radio.is_fading(_anim)
+
+
+func marks_redraw_due() -> bool:
+	return _marks_shown or marks_animating()
+
+
+## What `plot_redraw_due` compares against: this draw's clock, view and moment.
+func _begin_plot_draw() -> void:
+	_last_draw_at = _anim
+	_drawn_sim_time = SimClock.sim_time
+	_drawn_center = center_nm
+	_drawn_ppn = ppn
+	_threat_ring_points.clear()
+
+
+func _expire_effects() -> void:
+	for i in range(_effects.size() - 1, -1, -1):
+		if _anim - float(_effects[i]["t0"]) > EFFECT_LIFE_S:
+			_effects.remove_at(i)
 
 
 ## Own platforms lost this mission, remembered where they went down so the plot shows them in
@@ -662,6 +779,7 @@ func reset_presentation() -> void:
 	_wrecks.clear()
 	_own_alive.clear()
 	_clear_range_circle()
+	annotations.clear()
 	_weapon_trails.clear()
 	_trail_reference = null
 	_weapon_trail_time = -1.0
@@ -669,6 +787,7 @@ func reset_presentation() -> void:
 	_weapon_trail_threat_revision = -1
 	_effects.clear()
 	_hit_flash = 0.0
+	_threat_ring_points.clear()
 	_trail_last_s = -1.0e9
 
 
@@ -1110,23 +1229,22 @@ func _right_click(e: InputEventMouseButton) -> void:
 				_inspecting_track = false
 				selection_changed.emit(selected)
 		"water", "empty":
-			var world: Vector2 = ctx["world_pos"]
-			if _has_controllable_selection() and int(_move_acceptance(world)["accepted"]) > 0:
-				move_order_requested.emit(world, e.shift_pressed)
+			if request_move(ctx["world_pos"], e.shift_pressed):
 				return
 	ctx["viewport_pos"] = get_global_transform_with_canvas() * e.position if is_inside_tree() else e.position
 	context_menu_requested.emit(e.position, ctx)
 
 
 ## What a bare right-click does to a contact, from the plot alone: "attack" a contact the plot
-## calls hostile, "investigate" one it has not yet classified, "" (the menu) for a neutral or
-## friendly one, a classified contact of unknown allegiance, or a contact already lost.
+## calls hostile, "investigate" one whose allegiance is still unknown (a class from an emitter or a
+## sound is not an identity, so it is still worth closing to look at), "" (the menu) for a neutral
+## or friendly one or a contact already lost.
 static func default_contact_verb(t: Track) -> String:
 	if t == null or t.confirmed_destroyed or t.status == Track.Status.LOST or t.is_bearing_only():
 		return ""
 	if t.identity == "HOSTILE":
 		return "attack"
-	if t.identity == "UNKNOWN" and t.classification < Track.Classification.CLASS_KNOWN:
+	if t.identity == "UNKNOWN":
 		return "investigate"
 	return ""
 
@@ -1241,7 +1359,7 @@ func station_handle_at(at: Vector2) -> Dictionary:
 		return {}
 	if simulation != null and simulation.air_mission_manager != null:
 		for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
-			if m.kind == AirMission.Kind.STRIKE or m.cancelled:
+			if mission_on_contact(m) or m.cancelled:
 				continue
 			var centre := world_to_screen(m.station)
 			var radius := m.radius_nm * ppn
@@ -1286,28 +1404,23 @@ static func own_hover_lines(u: Unit, now: float) -> PackedStringArray:
 func _own_units() -> Array[Unit]:
 	if unit_manager == null:
 		return []
+	# The plot asks for this a dozen times a draw (units, rings, readouts, reference unit), and
+	# nothing changes during one draw, so it builds the list once.
+	if _own_in_draw:
+		return _own_cache
 	return unit_manager.get_engageable_units(player_faction)
 
 
 func _visible_tracks() -> Array:
-	if track_manager == null:
-		return []
-	var ref := reference_unit()
-	# A disconnected boat may hold local bearings; the commander hears them on its next report.
-	return track_manager.tracks_for(ref) if ref != null and SubmarineComms.connected(ref) else track_manager.get_tracks(player_faction)
+	# The force plot, whatever is hooked: a commander with a merchant or a deep boat under the
+	# cursor still has every contact his ships report.
+	return CommanderPicture.tracks(track_manager, unit_manager, player_faction)
 
 
-func _threat_visible(observer: Unit, weapon: Weapon) -> bool:
-	if threat_manager == null or observer == null:
-		return false
-	if SubmarineComms.connected(observer):
-		return threat_manager.visible_to(observer, weapon)
-	# Selecting a silent boat must not reveal its live local torpedo detections. Continue to
-	# show threats actually reported by connected members of the force.
-	for u in _own_units():
-		if SubmarineComms.connected(u) and threat_manager.visible_to(u, weapon):
-			return true
-	return false
+func _threat_visible(_observer: Unit, weapon: Weapon) -> bool:
+	# The hooked unit never decides this. A silent boat's own torpedo detections stay aboard
+	# until it reports, and everything the rest of the force reports is shown regardless.
+	return CommanderPicture.sees_threat(unit_manager, threat_manager, player_faction, weapon)
 
 
 ## Priority navigation keeps a busy watch actionable: confirmed hostiles first, then unknowns,
@@ -1627,17 +1740,19 @@ func track_number_text(item: Variant) -> String:
 	return ""
 
 
-## The unit the display is centred on for bearings and range rings: the selection, otherwise
-## the first surface ship the player owns.
+## The unit the display measures bearings and range rings from: the selection, otherwise the
+## first warship on the link. It decides nothing about which contacts or weapons are shown.
 func reference_unit() -> Unit:
 	for u: Unit in selected:
 		if not u.is_aircraft() or u.in_flight():
 			return u
-	# An airframe on deck has its sensors dark and is off the link. It sees through its ship,
-	# or the picture (and every contact and threat alert keyed to it) would go blank.
+	# An airframe on deck is measured from the ship it stands on.
 	for u: Unit in selected:
 		if u.home != null and u.home.alive:
 			return u.home
+	var flag := CommanderPicture.first_linked_combatant(unit_manager, player_faction)
+	if flag != null:
+		return flag
 	var own := _own_units()
 	for u in own:
 		if not u.is_aircraft():
@@ -1667,10 +1782,9 @@ func _refresh_threats() -> void:
 
 func _draw() -> void:
 	var t0 := Time.get_ticks_usec()
-	_last_draw_at = _anim
-	_drawn_sim_time = SimClock.sim_time
-	_drawn_center = center_nm
-	_drawn_ppn = ppn
+	_begin_plot_draw()
+	_own_cache = _own_units()
+	_own_in_draw = true
 	_refresh_threats()
 	var t1 := Time.get_ticks_usec()
 	_draw_ocean()
@@ -1680,6 +1794,7 @@ func _draw() -> void:
 	if show_range_grid:
 		_draw_range_rings()
 	var t2 := Time.get_ticks_usec()
+	_draw_annotations()
 	_draw_objectives()
 	_draw_air_missions()
 	_draw_move_preview()
@@ -1702,7 +1817,6 @@ func _draw() -> void:
 		Debug.time_add("plot/tracks", tracks_end - plot_start)
 		Debug.time_add("plot/units", units_end - tracks_end)
 		Debug.time_add("plot/weapons", weapons_end - units_end)
-		_draw_effects()
 		_draw_speaker_rings()
 	_draw_range_circle()
 	var label_start := Time.get_ticks_usec()
@@ -1710,26 +1824,19 @@ func _draw() -> void:
 	_draw_labels()
 	Debug.time_add("plot/labels", Time.get_ticks_usec() - label_start)
 	var t4 := Time.get_ticks_usec()
-	if _hit_flash > 0.0:
-		var a := 0.35 * (_hit_flash / 1.2)
-		var clear := Color(1.0, 0.3, 0.25, 0.0)
-		var edge := Color(1.0, 0.3, 0.25, a)
-		var w := 90.0
-		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, w), Vector2(w, size.y - w), Vector2(0, size.y)]), PackedColorArray([edge, clear, clear, edge]))
-		draw_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x - w, size.y - w), Vector2(size.x - w, w)]), PackedColorArray([edge, edge, clear, clear]))
-		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), Vector2(size.x - w, w), Vector2(w, w)]), PackedColorArray([edge, edge, clear, clear]))
-		draw_polygon(PackedVector2Array([Vector2(0, size.y), Vector2(w, size.y - w), Vector2(size.x - w, size.y - w), Vector2(size.x, size.y)]), PackedColorArray([edge, clear, clear, edge]))
 	if _drag_mode == DragMode.BOX and _drag_moved:
 		var r := Rect2(_drag_start, _mouse - _drag_start).abs()
 		draw_rect(r, Color(COL_BOX, 0.08))
 		draw_rect(r, COL_BOX, false, 1.0)
 	if not overlay_covered:
 		_draw_readout()
-		_draw_radio_line()
 		_draw_key()
 		_draw_air_board()
 		_draw_hover_card()
 	_awaiting_symbol_art = MapSymbols.deferred_graphics_frame == Engine.get_process_frames()
+	if _marks != null:
+		_marks.queue_redraw()  # its rings and flashes sit on what this draw placed
+	_own_in_draw = false
 	var t5 := Time.get_ticks_usec()
 	# The whole chart, and where it went (the parts add up to the whole).
 	Debug.time_add("chart", t5 - t0)
@@ -1829,6 +1936,16 @@ func _draw_patrol_preview() -> void:
 	_shadow_text(_mouse + Vector2(17, -10), label, 12, col)
 
 
+## A transit for the hooked platforms to a world point (`append` adds a leg), on the same signal
+## the chart's right-click sends: false, and nothing sent, when the hook cannot be moved or no
+## hooked hull could reach the point. The regional display uses it for its right-click too.
+func request_move(world_pos: Vector2, append: bool) -> bool:
+	if not _has_controllable_selection() or int(_move_acceptance(world_pos)["accepted"]) == 0:
+		return false
+	move_order_requested.emit(world_pos, append)
+	return true
+
+
 func _move_acceptance(target: Vector2) -> Dictionary:
 	var total := 0
 	var accepted := 0
@@ -1880,6 +1997,36 @@ func _draw_land() -> void:
 		var mesh := ChartLand.land_mesh()
 		if mesh != null:
 			draw_mesh(mesh, null, Transform2D(Vector2(ppn, 0), Vector2(0, ppn), world_to_screen(Vector2.ZERO)), COL_LAND)
+	if _coast_layer == null or not _coast_layer.is_inside_tree():
+		draw_coast(self)
+	if _named_land_generation != Terrain.generation:
+		_named_land_generation = Terrain.generation
+		_named_land.clear()
+		for l: Landmass in Terrain.landmasses:
+			if l.name != "":
+				_named_land.append(l)
+	for l: Landmass in _named_land:
+		if l.bounds.intersects(view):
+			_draw_land_name(l, view)
+
+
+## What the coast's strokes depend on: the view, the land and the scenario whose charted box
+## trims them. ChartCoast redraws when it changes.
+func coast_view_key() -> PackedFloat64Array:
+	return PackedFloat64Array([center_nm.x, center_nm.y, ppn, size.x, size.y, Terrain.generation, simulation.get_instance_id() if simulation != null else 0])
+
+
+## The coast is projected about `_coast_origin`; a pan since is a shift of the whole of it.
+func coast_shift() -> Vector2:
+	return Vector2((_coast_origin.x - center_nm.x) * ppn, (center_nm.y - _coast_origin.y) * ppn)
+
+
+## Strokes the coastline on `ci` (the coast layer, or this map outside the tree).
+func draw_coast(ci: CanvasItem) -> void:
+	if Terrain.is_empty():
+		return
+	var t0 := Time.get_ticks_usec()
+	var view := Rect2(screen_to_world(Vector2.ZERO), Vector2.ZERO).expand(screen_to_world(size))
 	var box := ChartFloor.stated_charted_box(simulation)
 	var key := "%d:%s" % [Terrain.generation, box]
 	if key != _coast_key:
@@ -1888,10 +2035,12 @@ func _draw_land() -> void:
 		_coast_screen.clear()
 		for l: Landmass in Terrain.landmasses:
 			_coast_runs[l] = coast_runs(l.points, box)
-	var view_key := PackedFloat32Array([center_nm.x, center_nm.y, ppn, size.x, size.y])
+	var view_key := PackedFloat32Array([ppn, size.x, size.y])
 	if view_key != _coast_view:
 		_coast_view = view_key
 		_coast_screen.clear()
+		_coast_origin = center_nm
+	ci.draw_set_transform(coast_shift())
 	for l: Landmass in Terrain.landmasses:
 		if not l.bounds.intersects(view):
 			continue
@@ -1902,13 +2051,13 @@ func _draw_land() -> void:
 		var lines: Array = _coast_screen.get(l, [])
 		if lines.is_empty():
 			for run: PackedVector2Array in _coast_runs.get(l, []):
-				lines.append(_project_coast(run))
+				lines.append(_project_coast(run, _coast_origin))
 			_coast_screen[l] = lines
 		for line: PackedVector2Array in lines:
 			if line.size() >= 2:
-				draw_polyline(line, COL_COASTLINE, 1.25, true)
-		if l.name != "":
-			_draw_land_name(l, view)
+				ci.draw_polyline(line, COL_COASTLINE, 1.25, true)
+	ci.draw_set_transform(Vector2.ZERO)
+	Debug.time_add("chart/strokes", Time.get_ticks_usec() - t0)
 
 
 ## A coastline as the runs to stroke. Where a polygon runs along the charted box's edge the scenario
@@ -1980,14 +2129,15 @@ func _draw_land_name(l: Landmass, view: Rect2) -> void:
 ## Projects a coastline and throws away detail finer than a pixel or so. A scenario chart is
 ## viewed from a whole ocean down to a single bay, and at the far end most of the vertices in a
 ## coastline land on top of each other.
-func _project_coast(world: PackedVector2Array) -> PackedVector2Array:
+func _project_coast(world: PackedVector2Array, origin: Vector2) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	if world.is_empty():
 		return out
-	var last := world_to_screen(world[0])
+	var half := size * 0.5
+	var last := Vector2(half.x + (world[0].x - origin.x) * ppn, half.y - (world[0].y - origin.y) * ppn)
 	out.append(last)
 	for i in range(1, world.size()):
-		var p := world_to_screen(world[i])
+		var p := Vector2(half.x + (world[i].x - origin.x) * ppn, half.y - (world[i].y - origin.y) * ppn)
 		if p.distance_squared_to(last) < COAST_MIN_STEP_PX * COAST_MIN_STEP_PX and i < world.size() - 1:
 			continue
 		out.append(p)
@@ -2117,17 +2267,27 @@ func _draw_graticule() -> void:
 ## Mission objective areas: a thin white circle with its name over it, no plate.
 ## Own air missions: a station or search area as a ring with its name, or a line from the deck to
 ## a strike's held target. Only the player's own missions are drawn.
+## A strike, and a CAP laid on one hostile air contact (an intercept), go for that contact: no
+## station to hold, so the chart draws a line from the deck to it rather than a ring.
+static func mission_on_contact(m: AirMission) -> bool:
+	return m.kind == AirMission.Kind.STRIKE or m.intercept
+
+
+static func contact_mission_caption(m: AirMission) -> String:
+	return "%s %d" % ["INTERCEPT" if m.intercept else m.kind_name(), m.id]
+
+
 func _draw_air_missions() -> void:
 	if simulation == null or simulation.air_mission_manager == null:
 		return
 	var col := Color(COL_FRIENDLY, 0.7)
 	for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
-		if m.kind == AirMission.Kind.STRIKE:
+		if mission_on_contact(m):
 			if m.target == null or m.base == null or not m.base.alive:
 				continue
 			var tp := world_to_screen(m.target.position)
 			_draw_chart_dashes(world_to_screen(m.base.position), tp, col, 1.0, 8.0)
-			_queue_caption(tp + Vector2(0.0, -18.0), "STRIKE %d" % m.id, 11, COL_READOUT, true)
+			_queue_caption(tp + Vector2(0.0, -18.0), contact_mission_caption(m), 11, COL_READOUT, true)
 			continue
 		var preview := m == _drag_mission and _drag_moved
 		var station := screen_to_world(_mouse) if preview and _drag_mode == DragMode.STATION else m.station
@@ -2141,7 +2301,7 @@ func _draw_air_missions() -> void:
 		var title := "%s %d · %.0f nm" % [m.kind_name(), m.id, radius_nm]
 		if m.kind == AirMission.Kind.CAP:
 			title += " · " + m.intent_label()
-		_queue_caption(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), title, 11, COL_READOUT, true)
+		_queue_ring_title(sp, r, title)
 		if preview:
 			_centred_text(sp + Vector2(0, maxf(r, 8.0) + 18.0), "RELEASE TO APPLY · ESC CANCELS", 11)
 		if m.kind == AirMission.Kind.CAP and (preview or selected.any(func(u: Unit) -> bool: return m.aircraft.has(u))):
@@ -2157,7 +2317,7 @@ func _draw_objectives() -> void:
 		var sp := world_to_screen(mark["center"])
 		var r := float(mark["radius_nm"]) * ppn
 		draw_arc(sp, r, 0.0, TAU, _arc_segments(r), COL_ROUTE, 1.0, true)
-		_queue_caption(sp + Vector2(0.0, -maxf(r, 8.0) - 5.0), mark["text"], 11, COL_READOUT, true)
+		_queue_ring_title(sp, r, mark["text"])
 
 
 ## The areas the chart marks, one circle and one name each: {center, radius_nm, text}. Several
@@ -2191,7 +2351,8 @@ func _draw_sensor_rings() -> void:
 			continue
 		var sp := world_to_screen(SubmarineComms.reported_position(u))
 		if not SubmarineComms.connected(u):
-			_shadow_text(sp + Vector2(12, -18), "SENSOR STATUS · AWAITING CHECK-IN", 11)
+			var waiting := "SENSOR STATUS · AWAITING CHECK-IN"
+			_queue_caption(sp + Vector2(12, -18), waiting, 11, COL_READOUT, false, Vector2.INF, _corner_alts(waiting, 11, 12.0))
 			continue
 		var esm := Detection.nominal_esm_ring_nm(u)
 		if esm > 0.0:
@@ -2250,6 +2411,23 @@ func _draw_convergence_zones(sp: Vector2) -> void:
 
 
 ## A ring's name over its top, in the readout style.
+## An area's name over its ring; when something already prints there, under it, then beside it.
+func _queue_ring_title(c: Vector2, r: float, text: String) -> void:
+	var lift := maxf(r, 8.0) + 5.0
+	var ascent := _readout_font().get_ascent(11)
+	var aside := lift + _text_width(text, 11) * 0.5
+	var level := lift + ascent * 0.5
+	_queue_caption(c + Vector2(0.0, -lift), text, 11, COL_READOUT, true, Vector2.INF, [Vector2(0.0, 2.0 * lift + ascent), Vector2(aside, level), Vector2(-aside, level)])
+
+
+## A caption set up and to the right of a point, `gap` px off, with the other three corners round
+## the same point as its alternative places, nearest first.
+func _corner_alts(text: String, font_size: int, gap: float) -> Array:
+	var across := -(_text_width(text, font_size) + 2.0 * gap)
+	var down := 2.0 * gap + _readout_font().get_ascent(font_size)
+	return [Vector2(0.0, down), Vector2(across, 0.0), Vector2(across, down)]
+
+
 func _ring_label(c: Vector2, r: float, text: String) -> void:
 	_queue_caption(c + Vector2(0.0, -r - 4.0), text, 10, Color(COL_READOUT, 0.8), true)
 
@@ -2304,6 +2482,12 @@ static func _arc_segments(r: float) -> int:
 	return clampi(int(r * 0.35), 32, 360)
 
 
+## A weapon envelope's line in the legend: its role, name and the band it can be fired in, the
+## inner edge where the engagement check refuses as too close (a torpedo's enable run included).
+static func envelope_legend(shooter: Unit, spec: WeaponSpec) -> String:
+	return "%s  %s  %.1f-%s nm" % [WeaponPresentation.role_name(spec), spec.compact_name(), Combat.minimum_range_nm(spec), Geo.format_nm(Combat.effective_range_nm(shooter, spec))]
+
+
 ## The selected weapon's reach from each hooked shooter that carries it: a role-coloured circle, its
 ## minimum range dashed, and the firing solution when the hooked contact can be engaged.
 func _draw_weapon_ring() -> void:
@@ -2322,11 +2506,12 @@ func _draw_weapon_ring() -> void:
 					_draw_dashed_circle(center, radius, Color(col, 0.65), _arc_segments(radius))
 				else:
 					draw_arc(center, radius, 0.0, TAU, _arc_segments(radius), Color(col, 0.65), 1.0, true)
-				if spec.min_range_nm > 0.0:
-					_draw_dashed_circle(center, spec.min_range_nm * ppn, Color(col, 0.3), 32)
+				var inner := Combat.minimum_range_nm(spec)
+				if inner > 0.0:
+					_draw_dashed_circle(center, inner * ppn, Color(col, 0.3), 32)
 				if row < 10:
 					row += 1
-					_shadow_text(legend + Vector2(0, row * 17), "%s  %s  %.1f-%s nm" % [WeaponPresentation.role_name(spec), spec.compact_name(), spec.min_range_nm, Geo.format_nm(Combat.effective_range_nm(ref, spec))], 11, col)
+					_shadow_text(legend + Vector2(0, row * 17), envelope_legend(ref, spec), 11, col)
 	if weapon_ring == null:
 		return
 	var col := WeaponPresentation.color(weapon_ring)
@@ -2337,8 +2522,9 @@ func _draw_weapon_ring() -> void:
 		var reach := Combat.effective_range_nm(u, weapon_ring)
 		var outer := reach * ppn
 		draw_arc(sp, outer, 0.0, TAU, _arc_segments(outer), col, 1.5, true)
-		if weapon_ring.min_range_nm > 0.0:
-			_draw_dashed_circle(sp, weapon_ring.min_range_nm * ppn, Color(col, 0.5), 48)
+		var inner := Combat.minimum_range_nm(weapon_ring)
+		if inner > 0.0:
+			_draw_dashed_circle(sp, inner * ppn, Color(col, 0.5), 48)
 		if u == reference_unit():
 			_queue_caption(sp + Vector2(0.0, maxf(-outer - 5.0, 16.0 - sp.y)), "%s  %s nm" % [weapon_ring.compact_name(), Geo.format_nm(reach)], 11, COL_READOUT, true)
 		if selected_track == null:
@@ -2424,6 +2610,18 @@ static func stale_alpha(t: Track, now: float) -> float:
 	return lerpf(STALE_ALPHA, STALE_FLOOR_ALPHA, clampf(age / STALE_FADE_S, 0.0, 1.0))
 
 
+## Where a bearing-only contact's line starts: the symbol of the unit that took the bearing (for
+## a boat out of touch, where it last reported from), else the place it was taken from. Only a
+## plot with no record of that falls back on the reference unit.
+static func bearing_line_start(t: Track, ref: Unit) -> Vector2:
+	var holder := t.bearing_unit()
+	if holder != null:
+		return SubmarineComms.reported_position(holder)
+	if t.bearing_origin.is_finite():
+		return t.bearing_origin
+	return SubmarineComms.reported_position(ref) if ref != null else Vector2.INF
+
+
 func _draw_tracks() -> void:
 	var ref := reference_unit()
 	var view := Rect2(Vector2.ZERO, size).grow(64.0)
@@ -2432,14 +2630,27 @@ func _draw_tracks() -> void:
 		var col := track_color(t)
 		if t.status == Track.Status.STALE:
 			col.a = stale_alpha(t, SimClock.sim_time)
+		if t.is_bearing_only():
+			# A bearing is all this is: a line from the unit that took it, with the contact's number
+			# at its far end. No symbol and no ellipse, because there is no place to put either.
+			var from := bearing_line_start(t, ref)
+			var end_bar := Vector2.ZERO
+			if from.is_finite():
+				var start := world_to_screen(from)
+				draw_line(start, sp, Color(col, col.a * BEARING_LINE_ALPHA), 1.0, true)
+				end_bar = (sp - start).normalized().orthogonal() * BEARING_END_PX
+			if not view.has_point(sp):
+				continue
+			sp = sp.round()
+			if end_bar != Vector2.ZERO:
+				draw_line(sp - end_bar, sp + end_bar, col, 1.5, true)
+			if selected_track == t:
+				MapSymbols.draw_brackets(self, sp, COL_SELECT if selected.is_empty() else track_color(t), _bracket_box(BEARING_END_PX))
+			_queue_label("t:" + t.id, sp, BEARING_END_PX, MapSymbols.track_number(t.id), t.description(), col.a, selected_track == t)
+			continue
 		_draw_uncertainty(sp, t, col)
 		if show_trails:
 			_draw_track_history(t, col)
-		if t.is_bearing_only() and ref != null:
-			# A bearing line from the listener through the contact: this is all it really is.
-			var from := SubmarineComms.reported_position(ref)
-			var far := from + (t.position - from).normalized() * (from.distance_to(t.position) + t.error_major_nm)
-			draw_line(world_to_screen(from), world_to_screen(far), Color(col, col.a * BEARING_LINE_ALPHA), 1.0, true)
 		if not view.has_point(sp):
 			continue
 		sp = sp.round()
@@ -2497,12 +2708,14 @@ func _queue_label(key: String, sp: Vector2, extent: float, number: String, tag: 
 			height = ascent + font.get_descent(TAG_FONT_SIZE)
 		else:
 			height += TRACK_NUMBER_FONT_SIZE + 1.0
-	_label_queue.append({"key": key, "at": sp, "extent": extent, "size": Vector2(width, height), "ascent": ascent, "priority": priority, "number": number_text, "tag": tag_text, "alpha": alpha})
+	var hook := roundf(_bracket_box(extent) * 0.5) + MapSymbols.STROKE * 0.5 if priority else 0.0
+	_label_queue.append({"key": key, "at": sp, "extent": extent, "size": Vector2(width, height), "ascent": ascent, "priority": priority, "number": number_text, "tag": tag_text, "alpha": alpha, "hook": hook})
 
 
 ## Collect captions before drawing so geographic names and range labels cannot obscure
 ## numbered contacts. A town's cross stays with its name whenever the label is displayed.
-func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, centered := false, marker := Vector2.INF) -> void:
+## `alts` are other places for the caption (offsets from its own), tried in order when it is taken.
+func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, centered := false, marker := Vector2.INF, alts: Array = []) -> void:
 	var width := _text_width(text, font_size)
 	var font := _readout_font()
 	if centered:
@@ -2511,20 +2724,91 @@ func _queue_caption(at: Vector2, text: String, font_size: int, color: Color, cen
 	var rect := Rect2(at - Vector2(0, font.get_ascent(font_size)), Vector2(width, font.get_height(font_size)))
 	if marker.is_finite():
 		rect = rect.merge(Rect2(marker - Vector2(4, 4), Vector2(8, 8)))
-	if Rect2(Vector2.ZERO, size).encloses(rect):
-		_chart_captions.append({"key": _chart_captions.size(), "rect": rect, "at": at, "text": text, "font_size": font_size, "color": color, "marker": marker})
+	var chart := Rect2(Vector2.ZERO, size)
+	var places: Array = []
+	for offset: Vector2 in alts:
+		places.append(offset.round())
+	if not chart.encloses(rect):
+		# Off the chart in its own place, the caption may still fit in one of the others.
+		var inside := places.filter(func(offset: Vector2) -> bool: return chart.encloses(Rect2(rect.position + offset, rect.size)))
+		if inside.is_empty():
+			return
+		var first: Vector2 = inside[0]
+		at += first
+		rect.position += first
+		if marker.is_finite():
+			marker += first
+		places = inside.slice(1).map(func(offset: Vector2) -> Vector2: return offset - first)
+	_chart_captions.append({"key": _chart_captions.size(), "rect": rect, "at": at, "text": text, "font_size": font_size, "color": color, "marker": marker, "alts": places})
+
+
+## Places the queued track numbers and captions clear of each other and of the radio line's band.
+func _place_labels() -> void:
+	_radio_layout = radio_layout() if not overlay_covered else {}
+	var obstacles: Array = []
+	if _radio_layout.has("plate"):
+		obstacles.append(_radio_layout["plate"])
+	_label_queue = _merge_coincident_labels(_label_queue)
+	var count := _label_queue.size() + _chart_captions.size()
+	if _labels.due(_anim, count, obstacles, _chart_captions):
+		_labels.assign(_label_queue, _anim, Rect2(Vector2.ZERO, size), _chart_captions, obstacles)
+
+
+## Symbols on one spot (two emitters heard on one bearing, a ship and the helicopter on its deck)
+## leave no corner for either number: each blocks the other and both went unlabelled. They share
+## one label instead, the hooked one's first: "1003/1004", or "1003 +2" for a bigger pile.
+func _merge_coincident_labels(queue: Array) -> Array:
+	var heads: Dictionary = {}  # cell -> indices in out of the labels heading a spot
+	var members: Dictionary = {}  # index in out -> numbers
+	var out: Array = []
+	for l: Dictionary in queue:
+		var at: Vector2 = l.at
+		var cell := Vector2i((at / COINCIDENT_PX).floor())
+		var head := -1
+		if l.number != "":
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					for i: int in heads.get(cell + Vector2i(dx, dy), []):
+						if head < 0 and (out[i].at as Vector2).distance_to(at) <= COINCIDENT_PX:
+							head = i
+		if head < 0:
+			if l.number != "":
+				heads[cell] = heads.get(cell, []) + [out.size()]
+				members[out.size()] = PackedStringArray([l.number])
+			out.append(l)
+			continue
+		var numbers: PackedStringArray = members[head]
+		if l.priority and not out[head].priority:
+			numbers.insert(0, l.number)
+			var merged: Dictionary = l.duplicate()
+			out[head] = merged
+		else:
+			numbers.append(l.number)
+		members[head] = numbers
+	for head: int in members:
+		var numbers: PackedStringArray = members[head]
+		if numbers.size() < 2:
+			continue
+		var l: Dictionary = (out[head] as Dictionary).duplicate()
+		l.number = "/".join(numbers) if numbers.size() == 2 else "%s +%d" % [numbers[0], numbers.size() - 1]
+		l.tag = ""
+		var font := _readout_font()
+		l.ascent = font.get_ascent(TRACK_NUMBER_FONT_SIZE)
+		l.size = Vector2(_text_width(l.number, TRACK_NUMBER_FONT_SIZE), l.ascent + font.get_descent(TRACK_NUMBER_FONT_SIZE))
+		out[head] = l
+	return out
 
 
 func _draw_labels() -> void:
-	var count := _label_queue.size() + _chart_captions.size()
-	if _labels.due(_anim, count):
-		_labels.assign(_label_queue, _anim, Rect2(Vector2.ZERO, size), _chart_captions)
+	_place_labels()
 	for caption: Dictionary in _chart_captions:
-		if _labels.slot(caption.key) == ChartLabels.HIDDEN:
+		var k := _labels.slot(caption.key)
+		if k == ChartLabels.HIDDEN:
 			continue
+		var shift := ChartLabels.caption_rect(caption, k).position - (caption.rect as Rect2).position
 		if (caption.marker as Vector2).is_finite():
-			_draw_plus(caption.marker, 3.0, COL_READOUT, 1.0, true)
-		_shadow_text(caption.at, caption.text, caption.font_size, caption.color)
+			_draw_plus(caption.marker + shift, 3.0, COL_READOUT, 1.0, true)
+		_shadow_text(caption.at + shift, caption.text, caption.font_size, caption.color)
 	_chart_captions.clear()
 	for l: Dictionary in _label_queue:
 		var k := _labels.slot(l["key"])
@@ -2544,14 +2828,23 @@ func _draw_labels() -> void:
 	_label_queue.clear()
 
 
-## The width of a label's text, measured once per string and size.
+## The width of a label's text, measured once per string and size. Called for every number and
+## caption on every plot draw, so the lookup builds no key string.
 func _text_width(text: String, font_size: int) -> float:
-	var key := "%s@%d" % [text, font_size]
-	if not _text_widths.has(key):
-		if _text_widths.size() >= 2048:
+	var widths: Dictionary = _text_widths.get(font_size, {})
+	if widths.is_empty():
+		_text_widths[font_size] = widths
+	var width: Variant = widths.get(text)
+	if width == null:
+		if _text_width_count >= 2048:
 			_text_widths.clear()
-		_text_widths[key] = _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	return float(_text_widths[key])
+			_text_width_count = 0
+			widths = {}
+			_text_widths[font_size] = widths
+		width = _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		widths[text] = width
+		_text_width_count += 1
+	return float(width)
 
 
 ## F5: the last few plots that built the track, as fading 2 px dots. Reports only, never a line
@@ -2650,7 +2943,25 @@ func _draw_route(u: Unit, sp: Vector2) -> void:
 		prev_world = wp
 	if u.patrol_active and u.waypoints.size() >= 3:
 		_draw_chart_dashes(prev, first, COL_ROUTE, 1.0, 5.0)
-		_shadow_text(first + Vector2(8, -8), u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL", 11, COL_ROUTE)
+		_queue_patrol_caption(u, first)
+
+
+## The name a patrol circuit carries on the chart, or "" for an airframe flying its own side's air
+## mission station: the mission's ring is titled already, and one name per airframe stacked on
+## the circuit's corner only covered it.
+func patrol_caption(u: Unit) -> String:
+	if u.station_kind == "patrol" and u.station_mission_id >= 0 and simulation != null and simulation.air_mission_manager != null:
+		var m := simulation.air_mission_manager.mission_by_id(u.station_mission_id)
+		if m != null and m.active and m.faction == player_faction and m.kind != AirMission.Kind.STRIKE:
+			return ""
+	return u.station_label if u.station_kind == "patrol" and u.station_label != "" else "PATROL"
+
+
+## The circuit's name beside its first corner, placed with the other captions.
+func _queue_patrol_caption(u: Unit, first: Vector2) -> void:
+	var text := patrol_caption(u)
+	if text != "":
+		_queue_caption(first + Vector2(8, -8), text, 11, COL_ROUTE, false, Vector2.INF, _corner_alts(text, 11, 8.0))
 
 
 ## A 2 px dot for trails and plot history: a filled square, which costs a fraction of an
@@ -2689,10 +3000,11 @@ func _draw_threat_marks(u: Unit, sp: Vector2) -> void:
 		if entry["target"] != u:
 			continue
 		var w: Weapon = entry["weapon"]
-		MapSymbols.draw_threat_ring(self, sp, COL_HOSTILE, _anim)
+		_threat_ring_points.append(sp)
 		var wp := world_to_screen(w.position)
 		draw_line(wp, sp, Color(COL_HOSTILE, 0.35), 1.0, true)
-		_queue_caption((wp + sp) * 0.5 + Vector2(4.0, -4.0), "%ds" % int(entry["time_s"]), 11, COL_READOUT)
+		var time_to_go := "%ds" % int(entry["time_s"])
+		_queue_caption((wp + sp) * 0.5 + Vector2(4.0, -4.0), time_to_go, 11, COL_READOUT, false, Vector2.INF, _corner_alts(time_to_go, 11, 4.0))
 
 
 ## The hooked pair's relative motion (the hooked own unit and its target): where each will be at
@@ -2712,7 +3024,8 @@ func _draw_relative_motion() -> void:
 	for endpoint: Vector2 in [own_end, contact_end]:
 		draw_arc(endpoint, 4.0, 0.0, TAU, 16, Color(COL_ROUTE, 0.85), 1.0, true)
 	var middle := own_end.lerp(contact_end, 0.5)
-	_queue_caption(middle + Vector2(4, -4), "%sCPA %.1f nm / %s" % ["LAST REPORT · " if not SubmarineComms.connected(ref) else "", solution.distance_nm, Track._fmt_age(solution.time_s)], 11, COL_READOUT)
+	var cpa := "%sCPA %.1f nm / %s" % ["LAST REPORT · " if not SubmarineComms.connected(ref) else "", solution.distance_nm, Track._fmt_age(solution.time_s)]
+	_queue_caption(middle + Vector2(4, -4), cpa, 11, COL_READOUT, false, Vector2.INF, _corner_alts(cpa, 11, 4.0))
 
 
 ## Rounds in flight: own ones always, an opposing one only while the plot holds it. Each is a small
@@ -2784,6 +3097,70 @@ func _draw_weapons() -> void:
 		draw_multiline(hostile_glyphs, COL_HOSTILE, 1.0, true)
 
 
+## The commander's plotting aids, under the plot so no symbol is hidden by one. Their labels are
+## placed with every other caption.
+func _draw_annotations() -> void:
+	var col := COL_ANNOTATION
+	var view := Rect2(Vector2.ZERO, size)
+	for aid: Dictionary in annotations.items:
+		var c := world_to_screen(aid.at)
+		match str(aid.kind):
+			ChartAnnotations.MARK:
+				if not view.grow(8.0).has_point(c):
+					continue
+				var arm := 5.0
+				draw_polyline(PackedVector2Array([c + Vector2(0, -arm), c + Vector2(arm, 0), c + Vector2(0, arm), c + Vector2(-arm, 0), c + Vector2(0, -arm)]), col, 1.5, true)
+				draw_circle(c, 1.5, col)
+			ChartAnnotations.CIRCLE:
+				var r := float(aid.radius_nm) * ppn
+				if r < 2.0 or not view.grow(r).has_point(c):
+					continue
+				_draw_dashed_circle(c, r, col, clampi(int(r * 0.3), 24, 180))
+				_draw_plus(c, 4.0, col)
+			ChartAnnotations.CORRIDOR:
+				var e := world_to_screen(aid.to)
+				if c.distance_to(e) < 1.0:
+					continue
+				var side := (e - c).normalized().orthogonal() * float(aid.width_nm) * 0.5 * ppn
+				draw_polyline(PackedVector2Array([c + side, e + side, e - side, c - side, c + side]), col, 1.0, true)
+				_draw_chart_dashes(c, e, Color(col, col.a * 0.6), 1.0, 6.0)
+	if annotations.corridor_from.is_finite():
+		var s := world_to_screen(annotations.corridor_from)
+		if view.grow(8.0).has_point(s):
+			_draw_plus(s, 6.0, col, 1.5)
+	_queue_annotation_captions()
+
+
+## Each aid's label, beside its mark, over its circle or at the middle of its corridor.
+func _queue_annotation_captions() -> void:
+	var col := COL_ANNOTATION
+	var view := Rect2(Vector2.ZERO, size)
+	for aid: Dictionary in annotations.items:
+		var c := world_to_screen(aid.at)
+		match str(aid.kind):
+			ChartAnnotations.MARK:
+				if view.has_point(c):
+					_queue_caption(c + Vector2(8, -6), aid.label, 11, col, false, Vector2.INF, _corner_alts(aid.label, 11, 8.0))
+			ChartAnnotations.CIRCLE:
+				var r := float(aid.radius_nm) * ppn
+				if r >= 2.0 and view.grow(r).has_point(c):
+					var text := "%s  %s nm" % [aid.label, Geo.format_nm(float(aid.radius_nm))]
+					# Over the circle; else under it, else beside its upper shoulders.
+					var shoulder := r * 0.7071
+					var half := _text_width(text, 11) * 0.5
+					var alts := [Vector2(0.0, 2.0 * r + 10.0 + _readout_font().get_ascent(11)), Vector2(shoulder + half + 6.0, r - shoulder), Vector2(-shoulder - half - 6.0, r - shoulder)]
+					_queue_caption(c + Vector2(0.0, -r - 5.0), text, 11, col, true, Vector2.INF, alts)
+			ChartAnnotations.CORRIDOR:
+				var middle := (c + world_to_screen(aid.to)) * 0.5
+				if view.has_point(middle):
+					var text := "%s  %s nm" % [aid.label, Geo.format_nm(float(aid.width_nm))]
+					_queue_caption(middle + Vector2(6, -6), text, 11, col, false, Vector2.INF, _corner_alts(text, 11, 6.0))
+	if annotations.corridor_from.is_finite():
+		var s := world_to_screen(annotations.corridor_from)
+		if view.has_point(s):
+			_queue_caption(s + Vector2(8, -6), "CORRIDOR START", 10, col, false, Vector2.INF, _corner_alts("CORRIDOR START", 10, 8.0))
+
+
 ## B: the quick range circle, white, with its radius in nmi over its top.
 func _draw_range_circle() -> void:
 	if range_circle == RangeCircle.OFF:
@@ -2797,12 +3174,33 @@ func _draw_range_circle() -> void:
 	_queue_caption(c + Vector2(0.0, maxf(-r - 5.0, 16.0 - c.y)), ChartReadout.format_range_nmi(nm), READOUT_FONT_SIZE, COL_READOUT, true)
 
 
-func _draw_effects() -> void:
+## Everything on the chart that moves between plot draws, on the marks layer (ChartMarks): the
+## pulsing threat rings, the flashes, the red edge of a hit on one of ours and the radio line.
+func draw_marks(ci: CanvasItem) -> void:
+	var t0 := Time.get_ticks_usec()
+	for sp in _threat_ring_points:
+		MapSymbols.draw_threat_ring(ci, sp, COL_HOSTILE, _anim)
+	_draw_effects(ci)
+	if _hit_flash > 0.0:
+		var a := 0.35 * (_hit_flash / 1.2)
+		var clear := Color(1.0, 0.3, 0.25, 0.0)
+		var edge := Color(1.0, 0.3, 0.25, a)
+		var w := 90.0
+		ci.draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, w), Vector2(w, size.y - w), Vector2(0, size.y)]), PackedColorArray([edge, clear, clear, edge]))
+		ci.draw_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x - w, size.y - w), Vector2(size.x - w, w)]), PackedColorArray([edge, edge, clear, clear]))
+		ci.draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), Vector2(size.x - w, w), Vector2(w, w)]), PackedColorArray([edge, edge, clear, clear]))
+		ci.draw_polygon(PackedVector2Array([Vector2(0, size.y), Vector2(w, size.y - w), Vector2(size.x - w, size.y - w), Vector2(size.x, size.y)]), PackedColorArray([edge, clear, clear, edge]))
+	if not overlay_covered:
+		_draw_radio_line(ci)
+	_marks_shown = marks_animating()
+	Debug.time_add("chart/marks", Time.get_ticks_usec() - t0)
+
+
+func _draw_effects(ci: CanvasItem) -> void:
 	for i in range(_effects.size() - 1, -1, -1):
 		var e: Dictionary = _effects[i]
 		var age: float = _anim - float(e["t0"])
 		if age > EFFECT_LIFE_S:
-			_effects.remove_at(i)
 			continue
 		var f := age / EFFECT_LIFE_S
 		var sp := world_to_screen(e["pos"])
@@ -2810,25 +3208,25 @@ func _draw_effects() -> void:
 		var kind: String = e["kind"]
 		match kind:
 			"hit", "destroyed":
-				draw_circle(sp, 4.0 + 26.0 * f, Color(col, 0.35 * (1.0 - f)))
-				draw_arc(sp, 6.0 + 40.0 * f, 0.0, TAU, 32, Color(col, 0.8 * (1.0 - f)), 2.0, true)
+				ci.draw_circle(sp, 4.0 + 26.0 * f, Color(col, 0.35 * (1.0 - f)))
+				ci.draw_arc(sp, 6.0 + 40.0 * f, 0.0, TAU, 32, Color(col, 0.8 * (1.0 - f)), 2.0, true)
 				if kind == "destroyed":
-					draw_arc(sp, 10.0 + 60.0 * f, 0.0, TAU, 32, Color(col, 0.5 * (1.0 - f)), 1.0, true)
+					ci.draw_arc(sp, 10.0 + 60.0 * f, 0.0, TAU, 32, Color(col, 0.5 * (1.0 - f)), 1.0, true)
 			"intercept", "decoy":
-				draw_arc(sp, 3.0 + 22.0 * f, 0.0, TAU, 24, Color(col, 0.9 * (1.0 - f)), 1.5, true)
+				ci.draw_arc(sp, 3.0 + 22.0 * f, 0.0, TAU, 24, Color(col, 0.9 * (1.0 - f)), 1.5, true)
 				for k in 6:
 					var a := TAU * k / 6.0 + f
-					draw_line(sp + Vector2(cos(a), sin(a)) * (4.0 + 10.0 * f), sp + Vector2(cos(a), sin(a)) * (8.0 + 18.0 * f), Color(col, 0.7 * (1.0 - f)), 1.0)
+					ci.draw_line(sp + Vector2(cos(a), sin(a)) * (4.0 + 10.0 * f), sp + Vector2(cos(a), sin(a)) * (8.0 + 18.0 * f), Color(col, 0.7 * (1.0 - f)), 1.0)
 			"launch":
-				draw_arc(sp, 4.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.6 * (1.0 - f)), 1.0, true)
+				ci.draw_arc(sp, 4.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.6 * (1.0 - f)), 1.0, true)
 			"refused":
 				var r := 16.0 - 8.0 * f
 				var a := Color(col, 0.9 * (1.0 - f))
-				draw_arc(sp, r, 0.0, TAU, 24, a, 1.5, true)
-				draw_line(sp + Vector2(-r, -r) * 0.6, sp + Vector2(r, r) * 0.6, a, 1.5)
-				draw_line(sp + Vector2(-r, r) * 0.6, sp + Vector2(r, -r) * 0.6, a, 1.5)
+				ci.draw_arc(sp, r, 0.0, TAU, 24, a, 1.5, true)
+				ci.draw_line(sp + Vector2(-r, -r) * 0.6, sp + Vector2(r, r) * 0.6, a, 1.5)
+				ci.draw_line(sp + Vector2(-r, r) * 0.6, sp + Vector2(r, -r) * 0.6, a, 1.5)
 			_:
-				draw_arc(sp, 3.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.5 * (1.0 - f)), 1.0, true)
+				ci.draw_arc(sp, 3.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.5 * (1.0 - f)), 1.0, true)
 
 
 # --- Readouts and radio line --------------------------------------------------------------
@@ -2843,10 +3241,11 @@ func _readout_font() -> Font:
 
 
 ## White bold text with a 1 px black drop shadow and no plate, the chart's only text style.
-func _shadow_text(at: Vector2, text: String, font_size: int, col := COL_READOUT, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
+func _shadow_text(at: Vector2, text: String, font_size: int, col := COL_READOUT, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, ci: CanvasItem = null) -> void:
 	var font := _readout_font()
-	draw_string(font, at + Vector2(1.0, 1.0), text, align, width, font_size, Color(COL_READOUT_SHADOW, COL_READOUT_SHADOW.a * col.a))
-	draw_string(font, at, text, align, width, font_size, col)
+	var on: CanvasItem = ci if ci != null else self
+	on.draw_string(font, at + Vector2(1.0, 1.0), text, align, width, font_size, Color(COL_READOUT_SHADOW, COL_READOUT_SHADOW.a * col.a))
+	on.draw_string(font, at, text, align, width, font_size, col)
 
 
 func _draw_text_block(first_baseline: Vector2, lines: PackedStringArray, col := COL_READOUT) -> void:
@@ -2891,12 +3290,16 @@ func _draw_readout() -> void:
 	if line != "":
 		_shadow_text(Vector2(x, baseline), line, READOUT_FONT_SIZE)
 		baseline -= READOUT_LINE_H
+	_shadow_text(Vector2(x, baseline), _position_text(w), READOUT_FONT_SIZE)
+
+
+## A world point as the readout gives it: latitude and longitude where the chart has an anchor.
+func _position_text(w: Vector2) -> String:
 	var m := _geo_map()
-	var position := ChartReadout.format_offset(w)
 	if m.has("anchor_lat"):
 		var ll := Geo.world_to_latlon(w, float(m["anchor_lat"]), float(m["anchor_lon"]))
-		position = ChartReadout.format_position(ll.x, ll.y)
-	_shadow_text(Vector2(x, baseline), position, READOUT_FONT_SIZE)
+		return ChartReadout.format_position(ll.x, ll.y)
+	return ChartReadout.format_offset(w)
 
 
 ## Depth over water, height over land, from the chart's rasters. Inside the charted box the
@@ -2913,6 +3316,11 @@ func _depth_readout(w: Vector2) -> String:
 ## Bottom-centre: the newest radio lines, the latest at the bottom, each fading after its hold.
 ## Width kept clear at each side of the radio line, for the corner readouts.
 const RADIO_SIDE_CLEAR_PX := 230.0
+## The plate behind the radio rows: this much margin round the text, a deep sea blue wash.
+const RADIO_PLATE_PAD := Vector2(10.0, 3.0)
+## Light enough that a symbol under the band keeps more than half its contrast with the sea, dark
+## enough that the shadowed rows still read over a busy plot.
+const COL_RADIO_PLATE := Color(0.02, 0.05, 0.12, 0.45)
 
 
 ## Splits a signal into rows no wider than `width`, breaking between words.
@@ -2931,19 +3339,56 @@ static func wrap_radio_text(font: Font, text: String, font_size: int, width: flo
 	return rows
 
 
-func _draw_radio_line() -> void:
+## The radio line as it will be drawn: {rows: [{text, baseline, color}], plate: Rect2}, the rows
+## bottom-up, or {} with nothing on the air. The plate is the band the rows reserve: chart names
+## and track numbers are placed clear of it and it is shaded behind the rows, so a message never
+## reads through a place name, a symbol or a range ring.
+func radio_layout() -> Dictionary:
 	var lines := _radio.visible(_anim)
+	if lines.is_empty():
+		return {}
+	var font := _readout_font()
 	var baseline := size.y - RADIO_BOTTOM_PX - 3.0
+	var bottom := baseline + font.get_descent(READOUT_FONT_SIZE)
+	var widest := 0.0
+	var strongest := 0.0
+	var out: Array[Dictionary] = []
 	for i in range(lines.size() - 1, -1, -1):
 		var e: Dictionary = lines[i]
 		var alpha := RadioLine.alpha_at(_anim - float(e["t0"]))
+		strongest = maxf(strongest, alpha)
 		var col := COL_RADIO_ALERT if e["severity"] == "alert" else (COL_RADIO_ADVICE if e["severity"] == RadioNet.ADVICE else COL_READOUT)
 		# A long signal wraps inside the middle of the chart: it used to run off both edges and
 		# over the position and scale readout in the corner.
-		var rows := wrap_radio_text(_readout_font(), e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
+		var rows := wrap_radio_text(font, e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
 		for r in range(rows.size() - 1, -1, -1):
-			_shadow_text(Vector2(0.0, baseline), rows[r], READOUT_FONT_SIZE, Color(col, alpha * col.a), HORIZONTAL_ALIGNMENT_CENTER, size.x)
+			widest = maxf(widest, _text_width(rows[r], READOUT_FONT_SIZE))
+			out.append({"text": rows[r], "baseline": baseline, "color": Color(col, alpha * col.a), "tone": col, "t0": float(e["t0"])})
 			baseline -= READOUT_LINE_H
+	var top := baseline + READOUT_LINE_H - font.get_ascent(READOUT_FONT_SIZE)
+	var plate := Rect2(roundf((size.x - widest) * 0.5 - RADIO_PLATE_PAD.x), roundf(top - RADIO_PLATE_PAD.y), roundf(widest + 2.0 * RADIO_PLATE_PAD.x), 0.0)
+	plate.end.y = roundf(bottom + RADIO_PLATE_PAD.y)
+	return {"rows": out, "plate": plate, "alpha": strongest}
+
+
+## Laid out with the plot (the band it keeps clear), drawn with the marks: a line fades by the
+## frame, its rows only reflow when the plot next draws.
+func _draw_radio_line(ci: CanvasItem) -> void:
+	if _radio_layout.is_empty():
+		return
+	var strongest := 0.0
+	var colours: Array[Color] = []
+	for row: Dictionary in _radio_layout["rows"]:
+		var tone: Color = row["tone"]
+		var alpha := RadioLine.alpha_at(_anim - float(row["t0"]))
+		strongest = maxf(strongest, alpha)
+		colours.append(Color(tone, alpha * tone.a))
+	if strongest <= 0.0:
+		return
+	ci.draw_rect(_radio_layout["plate"], Color(COL_RADIO_PLATE, COL_RADIO_PLATE.a * strongest))
+	var rows: Array = _radio_layout["rows"]
+	for i in rows.size():
+		_shadow_text(Vector2(0.0, rows[i]["baseline"]), rows[i]["text"], READOUT_FONT_SIZE, colours[i], HORIZONTAL_ALIGNMENT_CENTER, size.x, ci)
 
 
 ## A white circle round each platform whose message is on the radio line: it is transmitting.
@@ -3114,11 +3559,20 @@ func _draw_hover_card() -> void:
 		lines.append("Masking height %d m (game estimate)" % int(l.elevation_m))
 		_draw_card(lines)
 		return
+	_draw_card(track_hover_lines(t))
+
+
+## The hover card for a contact the plot holds.
+func track_hover_lines(t: Track) -> PackedStringArray:
+	var lines := PackedStringArray()
 	lines.append("%s  %s" % [MapSymbols.track_number(t.id), t.description()])
 	lines.append("%s · %s" % [t.identity, DataDisplay.plot_text(t, SimClock.sim_time)])
 	lines.append("Source %s" % DataDisplay.source_readout(t))
 	if t.has_kinematics and not t.is_bearing_only():
 		lines.append("%sCSE %s  SPD %.0f kts  ·  damage %s" % ["LAST " if t.status != Track.Status.ACTIVE else "", Geo.format_bearing(t.course_deg), t.speed_kn, DataDisplay.damage_text(t)])
+	elif t.mover() == "land":
+		# A site ashore has no course or speed to estimate; "estimating" read as if it might move.
+		lines.append("Fixed site  ·  damage %s" % DataDisplay.damage_text(t))
 	else:
 		lines.append("Kinematics estimating  ·  damage %s" % DataDisplay.damage_text(t))
 	lines.append("Bearing only - range unresolved" if t.is_bearing_only() else "+/-%.1f nm (sensor estimate)" % t.position_error_nm)
@@ -3126,7 +3580,7 @@ func _draw_hover_card() -> void:
 	if ref != null and SubmarineComms.connected(ref) and ref.radar_emitting() and Detection.is_jammed_toward(ref, t.position):
 		lines.append("Radar jammed on this bearing")
 	lines.append(contact_hint(default_contact_verb(t) if _has_controllable_selection() else ""))
-	_draw_card(lines)
+	return lines
 
 
 ## The hover card's last line says what a right-click on this contact will do now.

@@ -157,7 +157,9 @@ func observe(um: UnitManager) -> void:
 		_complete("return")
 
 
-func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Track = null, torpedo := false, manager: MissionManager = null) -> void:
+## `gunfire` says every inbound round is a shell: no interceptor answers it, so the guide does not
+## send the commander to the missile defence keys.
+func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Track = null, torpedo := false, manager: MissionManager = null, gunfire := false) -> void:
 	if lesson_id != "" and manager != null:
 		_refresh_training(manager)
 		return
@@ -169,9 +171,12 @@ func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Trac
 	_action_id = ""
 	if inbound:
 		_title.text = "COMMAND GUIDE · DEFEND THE CONVOY"
-		text = "Inbound reported. Space pauses the watch. " + ("Manual defence: select an escort and press X to engage inbound missiles; Defence shows the threat picture." if options.manual_missile_defence() else "Automatic missile defence is on. Open Defence to review threats and remaining rounds.")
+		var pause_key := "P" if KeyCommands.classic else "Space"
+		text = "Inbound reported. %s pauses the watch. " % pause_key + ("Manual defence: select an escort and press X to engage inbound missiles; Defence shows the threat picture." if options.manual_missile_defence() else "Automatic missile defence is on. Open Defence to review threats and remaining rounds.")
 		if torpedo:
-			text = "Torpedo reported. Space pauses the watch. Open Defence to review the threat and countermeasures. Missile intercept orders do not stop a torpedo."
+			text = "Torpedo reported. %s pauses the watch. Open Defence to review the threat and countermeasures. Missile intercept orders do not stop a torpedo." % pause_key
+		elif gunfire:
+			text = "Under gunfire. %s pauses the watch. Shells cannot be shot down: open the range, turn the threatened ship away or return fire. Defence shows the threat picture." % pause_key
 		action = "Defence"
 		_action_id = "open_defence"
 	elif index == STEPS.size():
@@ -197,11 +202,11 @@ func refresh(um: UnitManager, options: GameOptions, inbound: bool, contact: Trac
 				action = "Next contact"
 				_action_id = "next_contact"
 			3:
-				text += "With Seahawk selected, right-click a positioned UNKNOWN to investigate. Keep the escorts at their convoy stations. If no suitable unknown remains, keep station and skip this step."
+				text += "With Seahawk selected, right-click a positioned UNKNOWN to identify it: the crew closes to look. A class from radar or an emitter is not an identity. Keep the escorts at their convoy stations. If every contact is identified, keep station and skip this step."
 				if contact != null and a != null:
 					var why := UnitManager.investigation_rejection(a, contact)
 					if why != "":
-						text = "%s. %s Keep the aircraft near the convoy; do not chase an unresolved report. You can skip this investigation and practice recovery." % [why, "A bearing gives a direction, not a firing position." if contact.is_bearing_only() else "Investigation needs an available aircraft and an unclassified contact."]
+						text = "%s. %s Keep the aircraft near the convoy; do not chase an unresolved report. You can skip this investigation and practice recovery." % [why, "A bearing gives a direction, not a firing position." if contact.is_bearing_only() else "Identification needs an available aircraft and a contact still held as UNKNOWN."]
 				action = "Select aircraft"
 				_action_id = "guide_aircraft"
 			4:

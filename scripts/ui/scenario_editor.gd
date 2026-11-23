@@ -77,6 +77,10 @@ var _recipe_popup: PopupPanel
 var _recipe := {"seed": 29, "year": 2027, "region": 0, "blue_ships": 6, "red_ships": 6, "blue_carriers": 1, "red_carriers": 0, "blue_subs": 1, "red_subs": 1, "aircraft_per_carrier": 24, "formation": "screen", "sea_state": 2, "coastlines": false}
 var _history: Array[Dictionary] = []
 var _redo: Array[Dictionary] = []
+## Beside each undo and redo step, the file to go back to with it: null keeps the file open now;
+## a path (or "" for an unsaved mission) is the mission NEW put aside.
+var _history_paths: Array = []
+var _redo_paths: Array = []
 var _opened_path := ""
 
 
@@ -101,31 +105,21 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 8)
 	sheet.add_child(v)
 
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 8)
+	var head := UITheme.dialog_header("Mission editor", func() -> void: closed.emit(), "Esc", true)
 	v.add_child(head)
-	var title_box := VBoxContainer.new()
-	title_box.add_theme_constant_override("separation", 0)
-	head.add_child(title_box)
-	var eyebrow := UITheme.caption("Mission editor")
-	title_box.add_child(eyebrow)
-	var title := Label.new()
-	title.text = "Build a mission"
-	title.theme_type_variation = "TitleLabel"
-	title_box.add_child(title)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(spacer)
+	# The drop-down of missions sits beside CLOSE at the height of the editor's other controls.
 	_load_menu = OptionButton.new()
 	_load_menu.focus_mode = Control.FOCUS_ALL
-	_load_menu.custom_minimum_size.x = 230
+	_load_menu.custom_minimum_size = Vector2(230, 30)
+	_load_menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_load_menu.item_selected.connect(_on_load_selected)
 	head.add_child(_load_menu)
+	head.move_child(_load_menu, 1)
 	var tools := HBoxContainer.new()
 	tools.add_theme_constant_override("separation", 6)
 	v.add_child(tools)
 	_button(tools, "FLEET BUILDER", _open_recipe)
-	_button(tools, "NEW", func() -> void: new_scenario())
+	_button(tools, "NEW", _ask_new)
 	_button(tools, "UNDO", undo)
 	_button(tools, "REDO", redo)
 	_button(tools, "SAVE", save)
@@ -133,7 +127,6 @@ func _ready() -> void:
 	_button(tools, "IMPORT JSON", _import_json)
 	var play := _button(tools, "SAVE AND PLAY", _play)
 	play.theme_type_variation = "PrimaryButton"
-	_button(tools, "CLOSE", func() -> void: closed.emit())
 
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 12)
@@ -503,9 +496,19 @@ func _say(text: String, warn: bool) -> void:
 
 # --- Model -------------------------------------------------------------------------------
 
+## NEW asks before it puts a mission aside; an empty one goes without a question.
+func _ask_new() -> void:
+	if scenario.get("units", []).is_empty() and _history.is_empty():
+		new_scenario()
+		return
+	ConfirmDiscard.ask(self, "New mission", "Put \"%s\" aside and start an empty mission? UNDO brings it back." % str(scenario.get("name", "this mission")), "New mission", new_scenario, "Keep editing")
+
+
+## Starts an empty mission. The one it replaces is an undo step, not thrown away.
 func new_scenario() -> void:
-	_history.clear()
-	_redo.clear()
+	if not scenario.is_empty():
+		_push_history(scenario.duplicate(true), _opened_path)
+		_say("New mission. UNDO brings back %s." % str(scenario.get("name", "the last one")), false)
 	_opened_path = ""
 	_task_index = 0
 	scenario = {
@@ -1029,17 +1032,26 @@ func _sync_unit() -> void:
 func _checkpoint() -> void:
 	if _syncing or scenario.is_empty():
 		return
-	_history.append(scenario.duplicate(true))
+	_push_history(scenario.duplicate(true), null)
+
+
+func _push_history(state: Dictionary, path: Variant) -> void:
+	_history.append(state)
+	_history_paths.append(path)
 	if _history.size() > 60:
 		_history.pop_front()
+		_history_paths.pop_front()
 	_redo.clear()
+	_redo_paths.clear()
 
 
 func undo() -> void:
 	if _history.is_empty():
 		return
+	var kept: Variant = _history_paths.pop_back() if not _history_paths.is_empty() else null
 	_redo.append(scenario.duplicate(true))
-	var path := _opened_path
+	_redo_paths.append(null if kept == null else _opened_path)
+	var path: String = _opened_path if kept == null else str(kept)
 	load_dict(_history.pop_back())
 	_opened_path = path
 	_say("Undid the last edit", false)
@@ -1048,8 +1060,10 @@ func undo() -> void:
 func redo() -> void:
 	if _redo.is_empty():
 		return
+	var kept: Variant = _redo_paths.pop_back() if not _redo_paths.is_empty() else null
 	_history.append(scenario.duplicate(true))
-	var path := _opened_path
+	_history_paths.append(null if kept == null else _opened_path)
+	var path: String = _opened_path if kept == null else str(kept)
 	load_dict(_redo.pop_back())
 	_opened_path = path
 	_say("Redid the last edit", false)

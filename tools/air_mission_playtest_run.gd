@@ -71,7 +71,9 @@ func _combat_air_patrol() -> void:
 	checks["assignment waits for a station"] = panel._launch.disabled and panel._launch_hint.text.contains("station")
 	await _click_control(panel._station_button)
 	checks["PICK ON CHART hands the chart over"] = not panel.visible and main.map.interaction_mode == TacticalMap.InteractionMode.PICK and main._air_picking
-	var station := carrier.position + Vector2(8.0, 30.0)
+	# On the far side of the carrier from the Backfire raid: a CAP between the carrier and the raid
+	# would rightly go for it, and this check is about a section settling on its station.
+	var station := carrier.position + Vector2(8.0, -30.0)
 	await _chart_motion(station)
 	await _shot("cap-pick")
 	await _chart_click(station)

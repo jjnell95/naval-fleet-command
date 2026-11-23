@@ -55,6 +55,9 @@ func test_domain_classification_continues_but_known_class_completes_once() -> vo
 	t.classification = Track.Classification.CLASS_KNOWN
 	t.known_class = "Merchant"
 	um.tick(0.25)
+	assert_eq(u.investigation_track, t, "a probable class is not an identity: the look goes on")
+	t.identity = "NEUTRAL"
+	um.tick(0.25)
 	assert_eq(u.investigation_track, null)
 	assert_eq(u.investigation_result, "Contact classified")
 	assert_eq(u.investigation_track_id, t.id)
@@ -101,7 +104,9 @@ func test_invalid_contact_is_rejected_without_replacing_current_navigation() -> 
 			"lost": t.status = Track.Status.LOST
 			"hidden": t.networked = false
 			"bearing": t.bearing_only = true
-			"classified": t.classification = Track.Classification.CLASS_KNOWN
+			"classified":
+				t.classification = Track.Classification.CLASS_KNOWN
+				t.identity = "NEUTRAL"
 			"invalid": t.position = Vector2(NAN, 0)
 		assert_true(not um.issue_order(u, Order.investigate(t)), change)
 		assert_eq(u.waypoints, [course], change)
@@ -195,13 +200,25 @@ func test_land_blocks_surface_investigation_but_aircraft_can_overfly() -> void:
 	var t := _track()
 	t.position = Vector2(5, 0)
 	um.add_unit(u)
-	assert_true(not um.issue_order(u, Order.investigate(t)), "initial route cannot cross land")
+	# A contact behind an island is closed by sea, round it: never across it, and never refused.
+	assert_true(um.issue_order(u, Order.investigate(t)), "a hull is sent round the island")
+	assert_true(u.waypoints.size() > 1, "by more than the one straight leg")
+	var at := u.position
+	for p: Vector2 in u.waypoints:
+		assert_true(Terrain.first_land_contact(at, p) < 0.0, "no leg of the way crosses the island")
+		at = p
+	assert_eq(u.waypoints.back(), t.position)
 	assert_eq(UnitManager.investigation_rejection(_unit(true), t), "")
 	t.position = Vector2(-5, 10)
 	assert_true(um.issue_order(u, Order.investigate(t)))
 	t.position = Vector2(5, 0)
 	um.tick(0.25)
-	assert_eq(u.investigation_track, null, "a fresh plot cannot send a hull across an island")
+	assert_eq(u.investigation_track, t, "a fresh plot behind the island is followed round it")
+	assert_true(u.waypoints.size() > 1 and u.ordered_speed_kn > 0.0)
+	# A plot that falls ashore is still nowhere a hull can go.
+	t.position = Vector2(0, 0)
+	um.tick(0.25)
+	assert_eq(u.investigation_track, null, "a plot ashore cannot send a hull onto the island")
 	assert_true(u.investigation_result.contains("Land blocks"))
 	assert_eq(u.ordered_speed_kn, 0.0)
 	um.free()
@@ -241,6 +258,7 @@ func test_fixed_wing_keeps_flying_at_plot_and_after_classification() -> void:
 	um.tick(0.25)
 	assert_true(a.ordered_speed_kn > 0, "arrival must not make a fixed-wing aircraft hover")
 	t.classification = Track.Classification.CLASS_KNOWN
+	t.identity = "NEUTRAL"
 	um.tick(0.25)
 	assert_eq(a.investigation_track, null)
 	assert_true(a.ordered_speed_kn >= a.spec.flight_speed("patrol") - 0.01, "completed aircraft maintains forward flight")

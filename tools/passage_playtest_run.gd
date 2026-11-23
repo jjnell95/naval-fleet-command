@@ -137,7 +137,7 @@ func _run() -> void:
 	checks["debrief leads with a graded effectiveness"] = main._report._body.text.contains("MISSION EFFECTIVENESS") and main._report._tiles["effectiveness"]["value"].text.ends_with("%")
 	checks["the commander's log records the commanded result"] = graded.get("result", "") == ("VICTORY" if won else "DEFEAT") and int(graded.get("attempts", 0)) == 1
 	checks["a victory grades 60 to 100 and a defeat 0 to 40"] = (int(graded.get("best_percent", -1)) >= 60) if won else (int(graded.get("best_percent", 101)) <= 40)
-	checks["debrief includes civilians and observed timeline"] = main._report._body.text.contains("CIVILIAN INCIDENTS") and main._report._body.text.contains("OBSERVED EVENT TIMELINE")
+	checks["debrief includes civilians and observed timeline"] = main._report._body.text.contains("CIVILIAN INCIDENTS") and main._report._timeline.text.contains("OBSERVED EVENT TIMELINE")
 	if policy == "escort":
 		checks["investigation precedes incoming fire"] = facts.first_red_shot_s > 120
 		checks["real defensive exchange occurred"] = facts.defensive_rounds > 0 and facts.red_rounds > 0
@@ -151,7 +151,7 @@ func _run() -> void:
 		checks["civilian sinking is not an enemy kill"] = not main._civilian_incidents.is_empty() and main._kills.is_empty()
 	var names_observed := true
 	for name: String in ["Stoikiy", "MV Skerry Trader", "MV Coastal Star"]:
-		if main._report._body.text.contains(name) and not observed_names.has(name): names_observed = false
+		if (main._report._body.text.contains(name) or main._report._timeline.text.contains(name)) and not observed_names.has(name): names_observed = false
 	checks["debrief names only observed contacts"] = names_observed
 	if capture:
 		checks["report review button fits viewport"] = _fits(main._report._review)

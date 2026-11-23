@@ -110,7 +110,13 @@ func test_manual_guidance_uses_held_height_not_hidden_truth_and_checks_terrain()
 	assert_true(wm.engagement_check(ship, spec, t, 0).ok, "held high altitude opens horizon")
 	assert_true(wm.launch(ship, spec, t, 1, 0))
 	t.altitude_m = 20
+	# A missed look is ridden out on the last solution; a lasting loss ends the round.
 	wm.tick(0.1, 0.1)
+	assert_eq(wm.in_flight.size(), 1, "a moment's loss of guidance geometry is coasted through")
+	var now := 0.1
+	while now < WeaponManager.INTERCEPT_COAST_S + 0.5:
+		now += 0.25
+		wm.tick(0.25, now)
 	assert_eq(wm.in_flight.size(), 0, "guidance geometry loss ends round")
 	t.position = Vector2(10, 0)
 	Terrain.load_from({"terrain": {"land": [{"name": "Ridge", "elevation_m": 2000, "points_nm": [[4, -2], [6, -2], [6, 2], [4, 2]]}]}})

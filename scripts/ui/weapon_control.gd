@@ -57,16 +57,13 @@ func _ready() -> void:
 	add_child(margin)
 	var panel := PanelContainer.new()
 	panel.theme_type_variation = "JfcDialog"
+	# As tall as its rows, not the window: the chart stays in view above and below it.
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	margin.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
-	var heading := HBoxContainer.new()
-	box.add_child(heading)
-	var title := _label(heading, "WEAPON CONTROL")
-	title.theme_type_variation = "TitleLabel"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_button(heading, "RETURN TO CHART [Shift+E]", func() -> void: closed.emit())
+	box.add_child(UITheme.dialog_header("Weapon control", func() -> void: closed.emit(), "Shift+E / Esc"))
 	var selectors := HBoxContainer.new()
 	box.add_child(selectors)
 	_label(selectors, "CONTACT")
@@ -91,7 +88,7 @@ func _ready() -> void:
 	_tree.hide_root = true
 	_tree.column_titles_visible = true
 	_tree.select_mode = Tree.SELECT_ROW
-	_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tree.size_flags_vertical = Control.SIZE_FILL
 	_tree.add_theme_constant_override("v_separation", 9)
 	var titles := ["PLATFORM / SYSTEM", "ROLE", "LEFT", "QUEUED", "AWAY", "RANGE nm", "TOF", "SOLUTION", "SALVO"]
 	var widths := [185, 110, 45, 60, 45, 90, 55, 160, 65]
@@ -235,7 +232,8 @@ func refresh() -> void:
 			item.set_text(2, "--" if disconnected else str(u.magazine_count(spec.id)))
 			item.set_text(3, "--" if disconnected else str(queued))
 			item.set_text(4, "--" if disconnected else str(wm.committed_rounds(u, spec, target) - queued))
-			item.set_text(5, "%.1f - %s" % [spec.min_range_nm, Geo.format_nm(Combat.effective_range_nm(u, spec))])
+			# The near figure is the range a shot is refused inside: for a torpedo, beyond its enable run.
+			item.set_text(5, "%.1f - %s" % [Combat.minimum_range_nm(spec), Geo.format_nm(Combat.effective_range_nm(u, spec))])
 			item.set_text(6, "%ds" % int(check.get("flight_time_s", 0.0)) if check.has("flight_time_s") else "--")
 			var state: String = str(check.reason)
 			if check.ok:
@@ -251,7 +249,28 @@ func refresh() -> void:
 			item.set_range(8, int(_plan.get(key, 0)))
 	_quality.text = WeaponPresentation.track_quality(target, SimClock.sim_time)
 	_update_plan_summary()
+	_fit_tree()
 	_building = false
+
+
+## The system table stands as tall as its title and its rows, up to half the window; more than that
+## scroll.
+func _fit_tree() -> void:
+	var last: TreeItem = null
+	var item := _tree.get_root().get_first_child() if _tree.get_root() != null else null
+	var rows := 1
+	while item != null:
+		last = item
+		rows += 1
+		item = item.get_next_in_tree()
+	var frame := _tree.get_theme_stylebox("panel").get_minimum_size().y
+	# The tree measures its rows (range cells stand taller than text); before it has, estimate.
+	var content := rows * (_tree.get_theme_font("font").get_height(_tree.get_theme_font_size("font_size")) + _tree.get_theme_constant("v_separation") + 18.0)
+	if last != null:
+		var area := _tree.get_item_area_rect(last)
+		if area.size.y > 0.0:
+			content = area.end.y
+	_tree.custom_minimum_size.y = minf(content + frame + 2.0, get_viewport_rect().size.y * 0.5)
 
 
 func _edit_quantity() -> void:
@@ -379,7 +398,13 @@ func _update_group_status() -> void:
 	var manager := simulation.group_attack_manager
 	var running := _hooked_groups()
 	_group_cancel.disabled = running.is_empty()
-	if not _budget_set:
+	if not running.is_empty():
+		# The box is the running attack's budget while it runs, not a fresh suggestion.
+		var was_building := _building
+		_building = true
+		_budget.value = running[0].budget
+		_building = was_building
+	elif not _budget_set:
 		var was_building := _building
 		_building = true
 		var suggested := _planned_rounds()
@@ -391,13 +416,27 @@ func _update_group_status() -> void:
 	# One attack at a time for the same platforms on a contact; the running one is cancelled first.
 	_group_commit.disabled = target == null or lead == null or manager.overlapping(simulation.player_faction, units, [target]) != null
 	if not running.is_empty():
-		_group_status.text = manager.summary(running[0])
+		_group_status.text = group_line(running[0], manager.status(running[0]))
 	elif target == null:
 		_group_status.text = "Hook a contact for a group attack."
 	else:
 		var preview := manager.preview(lead, _group_order()) if lead != null else ""
 		_group_status.text = ("First volley: " + preview) if preview != "" else "No hooked platform holds a solution."
 	_group_status.tooltip_text = _group_status.text
+
+
+## The running attack on one line, each count said once: the budget, what has left the launchers,
+## what is still on them and what is in the air, then what the group is waiting for.
+static func group_line(g: GroupAttack, status: Dictionary) -> String:
+	var waiting := PackedStringArray()
+	for part: String in str(status["phase"]).split(", ", false):
+		# The phase repeats the queued and airborne counts in words; the columns already hold them.
+		if not (part.ends_with(" queued") or part.ends_with(" away")):
+			waiting.append(part)
+	var line := "Group %d on %s · budget %d · fired %d · %d on the launcher · %d in flight" % [g.id, g.target_label(), g.budget, int(status["fired"]), int(status["queued"]), int(status["airborne"])]
+	if not waiting.is_empty():
+		line += " · " + ", ".join(waiting)
+	return "%s · %d of %d shooters" % [line, g.members_in_attack(), g.members.size()]
 
 
 func _select_weapon() -> void:

@@ -64,7 +64,7 @@ In-mission dialogs are 1999 grey panels with bevelled buttons, navy bold text an
 - An adversarial review of the integrated screen confirmed 20 defects, each reproduced before it was fixed and each fix pinned by a test. Among them: the 3D view drew the kill of a submarine nobody held and cut the Action camera to it; graphic symbols loaded all 139 plan images at once (184 MB and a 0.75 s stall, now 0.2 MB); the regional map made 689 draw calls a frame for Norway's coast (now one); a new hook was ignored for up to 90 seconds while the old ship sank; the sea lost its chop across most of the chart and ignored the weather.
 - The rebuilt browser build boots in headless Chromium and runs the desk, the briefing, the command screen, the status boards, the swap and the full-screen 3D view with no console errors.
 
-The machine-readable record is [validation-m24.json](validation-m24.json).
+The machine-readable record is validation-m24.json.
 
 ## Known limits
 

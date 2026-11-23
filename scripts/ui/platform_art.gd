@@ -1,7 +1,8 @@
 class_name PlatformArt
 ## Original procedural fleet art: colour beauty/plan renders, lightweight thumbnails, and
 ## monochrome fallback profiles. The 3D gallery uses the matching models under assets/models.
-## See assets/README.md and tools/blender/build_presentation_assets.py for the pipeline.
+## The revised models and their pictures are built by tools/art; tools/blender still builds the
+## platforms only it covers. assets/README.md says which is which.
 
 const WATERLINE := 0.80  # fraction of the profile height at which a ship's waterline lies
 const PLAN_MARGIN := 1.10  # the plan render frames the hull with this much slack

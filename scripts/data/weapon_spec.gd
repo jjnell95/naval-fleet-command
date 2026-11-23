@@ -26,6 +26,8 @@ extends Resource
 ## Only authored update-capable weapons receive a new held-track aim point after launch.
 ## Command/semi-active radar guidance also follows its supported fire-control solution.
 @export var midcourse_updates := false
+## Torpedoes: 1 steered by wire, 0 not, -1 inferred from the weapon (wire_guided).
+@export var wire_guidance := -1
 @export var damage := 40.0
 @export var base_pk := 0.8  # hit probability once terminal acquisition succeeds
 @export var salvo_default := 2
@@ -50,6 +52,11 @@ extends Resource
 ## point-defence layer engage a leaker after the outer layer has spent its allowance.
 @export var defence_layer := ""  # area | point; empty derives a conservative range band
 
+## Below either, a torpedo is a lightweight. GAMEPLAY_ESTIMATE, set between the catalogue's two
+## families: lightweights reach 6 nm with 55 to 65, heavyweights 10 nm and more with 70 and up.
+const HEAVYWEIGHT_MIN_RANGE_NM := 10.0
+const HEAVYWEIGHT_MIN_DAMAGE := 70.0
+
 
 ## The short name where there is one, else the full name.
 func compact_name() -> String:
@@ -64,12 +71,37 @@ func defensive_layer() -> String:
 	return "area" if max_range_nm >= 40.0 else "point"
 
 
+## What a crew fires in the ship's own defence without being told: the close-in guns and the
+## point-defence missiles. An area missile is the commander's to release under manual defence.
+func is_self_defence() -> bool:
+	return is_interceptor() and defensive_layer() != "area"
+
+
 func requires_radar_support() -> bool:
 	return type in ["sam", "aam"] and guidance in ["fire_control_directed", "semi_active_radar", "semi_active_radar_homing", "semi_active_abstract", "track_via_missile"]
 
 
 func supports_midcourse_updates() -> bool:
-	return midcourse_updates or requires_radar_support()
+	return midcourse_updates or requires_radar_support() or wire_guided()
+
+
+## Whether this torpedo is steered down a wire from the tube it leaves. `wire_guidance` in the data
+## says so outright (1 or 0); left at -1 it is read from the weapon: one authored to take updates,
+## or an acoustic heavyweight, the class of fish every navy has fired on a wire since the 1970s. A
+## wake-homer runs on its own. The wire itself needs a tube and a living firer that holds the
+## contact (WeaponManager.takes_updates).
+func wire_guided() -> bool:
+	if not is_torpedo():
+		return false
+	if wire_guidance >= 0:
+		return wire_guidance == 1
+	return midcourse_updates or (is_heavyweight_torpedo() and seeker_band() == "acoustic")
+
+
+## A submarine's or a destroyer's tube torpedo, as against an aircraft's or a rocket's lightweight:
+## by its reach and its warhead.
+func is_heavyweight_torpedo() -> bool:
+	return is_torpedo() and max_range_nm >= HEAVYWEIGHT_MIN_RANGE_NM and damage >= HEAVYWEIGHT_MIN_DAMAGE
 
 
 func requires_fire_control_channel() -> bool:

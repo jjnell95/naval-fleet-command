@@ -270,6 +270,8 @@ func refresh() -> void:
 		if ref != null:
 			brg = Geo.format_bearing(Geo.bearing_deg(ref.position, t.position))
 			rng = "?" if t.is_bearing_only() else "~%.0f" % Geo.distance_nm(ref.position, t.position)
+		if t.is_bearing_only() and t.bearing_origin.is_finite():
+			brg = Geo.format_bearing(t.error_axis_deg)  # the bearing as taken, from whoever took it
 		var dom := "·"
 		if t.domain == "air":
 			dom = "A"
@@ -338,10 +340,17 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 		lines.append(_kv("POS", "%s  %s  ±%.1f nm" % [Geo.format_axis(t.position.x, "E", "W"), Geo.format_axis(t.position.y, "N", "S"), t.position_error_nm]))
 	if t.has_kinematics and not t.is_bearing_only():
 		lines.append(_kv("LAST CSE/SPD" if t.status != Track.Status.ACTIVE else "CSE/SPD", "%s / %.0f kn" % [Geo.format_bearing(t.course_deg), t.speed_kn]))
+	elif t.mover() == "land":
+		lines.append(_kv("CSE/SPD", "fixed site"))
 	else:
 		lines.append(_kv("CSE/SPD", "[color=%s]estimating…[/color]" % UITheme.HEX_DIM))
-	if ref != null:
+	if t.is_bearing_only() and t.bearing_origin.is_finite():
+		# A bearing belongs to the unit that took it; from anywhere else it points at nothing.
+		var holder := t.bearing_unit()
+		lines.append(_kv("FROM", "%s: BRG %s" % [holder.callsign if holder != null else (t.source_sensor if t.source_sensor != "" else "the reporting unit"), Geo.format_bearing(t.error_axis_deg)]))
+	elif ref != null:
 		lines.append(_kv("FROM", "%s: BRG %s" % [ref.callsign, Geo.format_bearing(Geo.bearing_deg(ref.position, t.position))]))
+	if ref != null:
 		lines.append(_kv("RANGE", t.range_text_from(ref.position)))
 		var motion := RelativeMotion.solution(ref, t, now)
 		if motion.valid:
@@ -351,9 +360,23 @@ func _detail_text(t: Track, ref: Unit, now: float) -> String:
 			lines.append(_kv("EW", "[color=%s]radar jammed on this bearing[/color]" % UITheme.HEX_EW))
 	lines.append(_kv("OBS TIME", Track._fmt_age(t.observation_time_s)))
 	if t.classification < Track.Classification.CLASS_KNOWN:
-		var next_s := Track.CLASS_TIMES_S[mini(t.classification + 1, Track.CLASS_TIMES_S.size() - 1)]
-		lines.append(_kv("NEXT", "[color=%s]class in ~%s of observation[/color]" % [UITheme.HEX_DIM, Track._fmt_age(maxf(next_s - t.observation_time_s, 0.0))]))
+		lines.append(_kv("NEXT", "[color=%s]%s[/color]" % [UITheme.HEX_DIM, next_evidence(t)]))
 	return "\n".join(lines)
+
+
+## What would classify the contact, from how it is held. Time counts toward a class only while a
+## set that can recognise a signature is listening: a radar plot on a ship never becomes a class
+## by waiting, so it is told what would do it instead.
+static func next_evidence(t: Track) -> String:
+	if t.source in ["esm", "sonar_passive", "sonar_active", "sonar_cz", "sonobuoy"]:
+		if t.status != Track.Status.ACTIVE:
+			return "class when it is heard again"
+		return "class in ~%s of listening" % Track._fmt_age(maxf(Track.CLASS_TIMES_S[2] - t.signature_time_s, 0.0))
+	if t.domain == "air":
+		return "type from radar inside %d nm, or a look" % int(TrackManager.RADAR_RECOGNITION_NM)
+	if t.domain == "subsurface":
+		return "class needs sonar on it"
+	return "class needs its radar heard, sonar or a look"
 
 
 func _choose_row(index: int) -> Track:
