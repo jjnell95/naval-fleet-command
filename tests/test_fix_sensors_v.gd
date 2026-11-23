@@ -294,3 +294,17 @@ func test_the_contact_menu_offers_each_designation_as_an_order() -> void:
 		assert_eq(order.track, t)
 		named.append(order.designation)
 	assert_eq(named, ["HOSTILE", "NEUTRAL", "FRIENDLY", "UNKNOWN"])
+
+
+func test_a_lookout_who_keeps_a_ship_in_sight_reads_her_colours_in_time() -> void:
+	_load([_ship(BURKE, "Burke", "BLUE", [0, 0], false), _ship(GORSHKOV, "Gorshkov", "RED", [4.5, 0], false)], {"sea_state": 2, "visibility_nm": 10, "cloud_cover": 0.1})
+	var frigate := _unit("Gorshkov")
+	_run(2.0)
+	var t := _sim.track_manager.find_track("BLUE", frigate)
+	assert_true(t != null and t.classification >= Track.Classification.CLASS_KNOWN, "a frigate at four and a half miles is recognised by eye")
+	if t != null:
+		assert_eq(t.identity, "UNKNOWN", "but a first look does not read her ensign")
+		_run(25.0)
+		assert_eq(t.identity, "HOSTILE", "kept in the glasses, it does")
+		assert_eq(t.known_callsign, "", "though not her name from there")
+	_free()

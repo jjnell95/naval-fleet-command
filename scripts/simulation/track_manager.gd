@@ -30,6 +30,9 @@ const RANGE_ACCEPT_QUALITY := 0.3
 ## rework every second, and a marginal crossing would otherwise toggle the plot.
 const RANGE_REACCEPT_DWELL_S := 20.0
 const SOLUTION_GAP_S := 2.5
+## How long a lookout must hold a contact in sight, without a break, to read its colours from
+## further off than he could read its name. GAMEPLAY_ESTIMATE.
+const VISUAL_MARKINGS_S := 20.0
 const MIN_BEARING_RANGE_NM := 0.3
 ## A solution this good is plotted at the full bearing blend and feeds the course and speed fit;
 ## a poorer one pulls the plot less and claims no course.
@@ -627,8 +630,13 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 		t.class_is_probable = false
 		t.class_evidence = "Visual recognition"
 		# Markings provide positive affiliation, independently of a library's probable class. They
-		# are read where the name is, close to: at the limit of a look a shape is a class, not a flag.
-		if c.visual_named and not t.identity_designated:
+		# are read where the name is, close to, or by a lookout who has kept the glasses on her a
+		# while: one glance at the limit of a look makes out a shape, which is a class, not a flag.
+		var now := t.last_seen_time
+		if now - t.visual_seen > SOLUTION_GAP_S:
+			t.visual_since = now
+		t.visual_seen = now
+		if (c.visual_named or now - t.visual_since >= VISUAL_MARKINGS_S) and not t.identity_designated:
 			t.identity = "NEUTRAL" if neutral_factions.has(c.target.faction) else ("FRIENDLY" if c.target.faction == faction else "HOSTILE")
 			t.identity_evidence = "Visual markings"
 	if t.domain == "land" and t.has_kinematics:

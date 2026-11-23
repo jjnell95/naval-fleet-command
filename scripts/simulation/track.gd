@@ -104,6 +104,9 @@ var identity_evidence := ""
 ## The commander has declared what this contact is on his own judgement. Nothing a sensor or a
 ## briefing later says changes it; only another designation does.
 var identity_designated := false
+## Since when a lookout has held the contact in sight without a break, and when he last did.
+var visual_since := -1.0e9
+var visual_seen := -1.0e9
 var signature_time_s := 0.0
 var _cycle_signature_gain := 0.0
 ## Close-range radar observation of an aircraft toward a probable type (TrackManager).
