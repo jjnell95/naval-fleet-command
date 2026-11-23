@@ -336,10 +336,10 @@ def catalogue():
              ["civil_nav"], {}, length_m=160.0, displacement_t=17000.0, max_speed_kn=17.0,
              cruise_speed_kn=14.0, health=95.0, fire_control_channels=0, decoy_count=0,
              has_datalink=False, role="Protected cargo vessel", service_note="Generic period cargo ship with a fictional name. It represents convoy traffic; no particular civilian hull is claimed.")
-    # The footprint is a typical main runway at a military air station (modelling value, see
-    # DATA_SOURCES.md), not Keflavik's or any other field's survey.
+    # The footprint (modelling value, see DATA_SOURCES.md) draws the air station's model with a
+    # 2,400 m runway, a common main runway at a military jet base; it is not Keflavik's survey.
     platform("airfield", "Shore air station", "Air station", "", "shore base", [], {},
-             domain="land", max_speed_kn=0.0, cruise_speed_kn=0.0, health=400.0, length_m=3000.0,
+             domain="land", max_speed_kn=0.0, cruise_speed_kn=0.0, health=400.0, length_m=2700.0,
              aircraft_capacity=16, aviation_facility="airfield", fire_control_channels=0,
              decoy_count=0, role="Land-based aviation", service_note="Fixed recovery and launch point at a real airfield. No installation layout or actual 1990 deployment is asserted.")
 

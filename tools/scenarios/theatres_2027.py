@@ -207,11 +207,12 @@ def submarine(key, name, short, nation, sensors, weapons, length, tonnes, speed,
     platform(key, name, short, nation, category, sensors, weapons, **values)
 
 
-# The ground a site of each kind covers, end to end, for the 3D view: the dispersal of launchers,
-# radars and control posts over a hide, not a surveyed layout. No public figure is used; these are
-# modelling values, listed in DATA_SOURCES.md.
-SITE_FOOTPRINT_M = {"coastal missile battery": 600.0, "surface-to-air missile site": 1000.0,
-                    "ballistic missile battery": 500.0, "drone launch site": 300.0}
+# The ground a site of each kind covers, end to end, which the 3D view draws it at: the dispersal
+# of launchers, radars and control posts over a hide, not a surveyed layout. These are modelling
+# values (DATA_SOURCES.md), the length of each kind's site model in tools/art/build_models.py, so
+# its vehicles are drawn at their own size.
+SITE_FOOTPRINT_M = {"coastal missile battery": 560.0, "surface-to-air missile site": 640.0,
+                    "ballistic missile battery": 460.0, "drone launch site": 380.0}
 
 
 def site(key, name, short, nation, category, sensors, weapons, **kw):
