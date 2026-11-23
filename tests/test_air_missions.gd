@@ -675,7 +675,8 @@ func test_edit_moves_and_resizes_existing_mission_without_replacing_airframes() 
 	var half := AirMissionManager.station_half_nm(AirMission.Kind.CAP, 18.0)
 	for a in original:
 		assert_eq(a.station_mission_id, m.id)
-		assert_true(a.station_route.any(func(p: Vector2) -> bool: return p.distance_to(station - Vector2(half, half)) < 0.01), "the circuit is laid round the new station")
+		# The wingman flies its own copy of the circuit a section's spacing along the diagonal.
+		assert_true(a.station_route.any(func(p: Vector2) -> bool: return p.distance_to(station - Vector2(half, half)) < AirMissionManager.SECTION_SPACING_NM * sqrt(2.0) + 0.01), "the circuit is laid round the new station")
 	var before := SimSnapshot.capture(_sim)
 	var refused := Order.revise_air_mission(m, cv.position + Vector2(0, 2000), 20, 2, false, true)
 	assert_true(not _sim.unit_manager.issue_order(cv, refused))
