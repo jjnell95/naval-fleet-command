@@ -12,6 +12,8 @@ const FACILITY_NAMES := {
 	"stobar": "Ski-jump carrier",
 	"catobar": "Catapult carrier"
 }
+## The heading over the platforms that belong to no one navy.
+const SHARED_HEADING := "Shore and shared"
 ## The order the list runs in within a nation, and the words for each kind of weapon, by which
 ## the ordnance list is grouped and its dossier says what a round is for.
 const DOMAIN_ORDER := ["surface", "subsurface", "air", "land"]
@@ -435,11 +437,13 @@ static func count_text(n: int, weapons: bool) -> String:
 	return "%d PLATFORM CLASS%s" % [n, "" if n == 1 else "ES"]
 
 
-## The heading a catalogue entry sits under: its nation, or for ordnance its kind.
+## The heading a catalogue entry sits under: its nation, or for ordnance its kind. A platform of
+## no one navy, such as an air station any side may hold, has a heading of its own.
 static func group_name(entry: Resource, weapons: bool) -> String:
 	if weapons:
 		return WEAPON_TYPES.get((entry as WeaponSpec).type, "Other ordnance")
-	return (entry as PlatformSpec).nation
+	var nation := (entry as PlatformSpec).nation
+	return nation if nation != "" else SHARED_HEADING
 
 
 ## The catalogue in reading order: platforms by nation, then surface, submarine, air and shore,
@@ -474,8 +478,11 @@ static func sorted_catalogue(weapons: bool) -> Array:
 	return out
 
 
-## Nations alphabetically, with merchant and civilian shipping after every navy.
+## Nations alphabetically, with merchant and civilian shipping after every navy and the
+## platforms of no one nation last of all.
 static func _nation_key(nation: String) -> String:
+	if nation == "":
+		return "~~"
 	return ("~" if nation.begins_with("Civil") else "") + nation.to_lower()
 
 
