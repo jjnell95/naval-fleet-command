@@ -134,3 +134,114 @@ func test_the_reference_sheet_fits_the_screen_at_every_interface_size() -> void:
 		else:
 			assert_true(lib._hint.visible, "on a full screen the orbit hint is shown")
 		port.free()
+
+
+# --- The debrief ---------------------------------------------------------------------------
+
+var _save_root := ""
+var _clock_speeds: Array[float] = []
+
+
+## The command screen on an operation with command taken and the clock paused at zero, keeping
+## its saves and commander's log out of the player's own.
+func _open_main(scenario := "res://data/scenarios/northern_passage.json") -> Main:
+	_save_root = SaveGame.root_override
+	_log_path = CommanderLog.path_override
+	_clock_speeds = SimClock.speeds()
+	SaveGame.root_override = "user://test-frontend-one-%d" % Time.get_ticks_usec()
+	CommanderLog.path_override = SaveGame.root_override + "-log.json"
+	var main: Main = preload("res://scenes/main/Main.tscn").instantiate()
+	_root().add_child(main)
+	main._apply_options(GameOptions.normal(), false, false)
+	main.simulation.seed_override = 2
+	main.start_scenario(scenario)
+	main._on_briefing_start()
+	SimClock.set_paused(true)
+	return main
+
+
+func _close_main(main: Main) -> void:
+	main.free()
+	var dir := DirAccess.open(SaveGame.root_override)
+	if dir != null:
+		for file in dir.get_files():
+			dir.remove(file)
+		DirAccess.remove_absolute(SaveGame.root_override)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CommanderLog.path()))
+	SaveGame.root_override = _save_root
+	CommanderLog.path_override = _log_path
+	SimClock.set_speeds(_clock_speeds)
+	SimClock.set_speed_index(0)
+	SimClock.set_paused(true)
+
+
+## Lays out `control` now, as the next frames would: containers sort top down, and a wrapped
+## label's height follows the width it was given, so it is measured again and the sort repeated.
+static func _lay_out(control: Control) -> void:
+	for pass_index in 3:
+		for label: Control in control.find_children("*", "Label", true, false):
+			label.update_minimum_size()
+		control.propagate_notification(Container.NOTIFICATION_SORT_CHILDREN)
+
+
+## The arguments of a debrief at the end of a played Northern Passage, as the audit's walk left it.
+func _played_debrief() -> Array:
+	var main := _open_main()
+	SimClock.set_paused(false)
+	for i in 40:
+		SimClock.advance(1.0)
+	SimClock.set_paused(true)
+	main._stats = {"hostile_rounds": 10, "intercepted": 4, "decoyed": 1, "hits_taken": 1, "launched": 9, "decoys_used": 3, "own_rounds": 14, "hits_scored": 2, "contacts": 5, "classified": 2, "sorties": 1}
+	main._kills = PackedStringArray(["Rassvet"])
+	main._on_mission_ended("VICTORY", "The convoy reached the handover box with its cargo intact.")
+	var args: Array = main._last_report.duplicate()
+	_close_main(main)
+	return args
+
+
+func test_the_debrief_is_sized_from_the_screen_its_results_read_whole_and_its_notes_wrap() -> void:
+	var args := _played_debrief()
+	for screen: Vector2i in [Vector2i(1600, 900), Vector2i(1455, 818), Vector2i(1280, 720)]:
+		var port := SubViewport.new()
+		port.size = screen
+		port.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		_root().add_child(port)
+		var report := AfterAction.new()
+		port.add_child(report)
+		report.callv("show_report", args)
+		_lay_out(report)
+		var card := report._card.get_global_rect()
+		assert_true(card.size.x >= screen.x * 0.6 and card.size.y >= screen.y * 0.75, "%s: the card takes most of the screen, %s" % [screen, card.size])
+		assert_true(card.size.x <= screen.x and card.size.y <= screen.y, "%s: and fits on it, %s" % [screen, card.size])
+		var body := report._body
+		assert_true(body.get_content_height() <= body.size.y + 1.0, "%s: the results need %d px and have %d" % [screen, body.get_content_height(), int(body.size.y)])
+		for key: String in report._tiles:
+			var note: Label = report._tiles[key]["note"]
+			assert_true(not note.clip_text and note.autowrap_mode != TextServer.AUTOWRAP_OFF, "the %s note wraps rather than clips" % key)
+			var font := note.get_theme_font("font")
+			var words_fit: bool = Array(note.text.split(" ")).all(func(w: String) -> bool: return font.get_string_size(w, HORIZONTAL_ALIGNMENT_LEFT, -1, note.get_theme_font_size("font_size")).x <= note.size.x)
+			assert_true(words_fit, "%s: every word of '%s' fits the tile's %d px" % [screen, note.text, int(note.size.x)])
+			assert_true(note.get_visible_line_count() >= note.get_line_count(), "and every line of it is shown")
+		assert_true(report._timeline.text.contains("OBSERVED EVENT TIMELINE"), "the observed events have their own column")
+		port.free()
+
+
+func test_no_button_of_the_debrief_has_the_focus_so_space_cannot_close_it() -> void:
+	var main := _open_main()
+	SimClock.advance(5.0)
+	main.simulation.mission_manager._finish(MissionManager.Result.DEFEAT, "The convoy was lost")
+	assert_true(main._report.visible)
+	# The report gives the focus a frame later; give it now where it will go.
+	var first := main._report.default_focus()
+	assert_true(first != null and not (first is BaseButton), "the results take the focus, not a button: %s" % first)
+	first.grab_focus()
+	var e := InputEventKey.new()
+	e.keycode = KEY_SPACE
+	e.physical_keycode = KEY_SPACE
+	e.pressed = true
+	main.get_viewport().push_input(e)
+	var up := e.duplicate() as InputEventKey
+	up.pressed = false
+	main.get_viewport().push_input(up)
+	assert_true(main._report.visible, "Space leaves the debrief up")
+	_close_main(main)
