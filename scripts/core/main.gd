@@ -159,7 +159,7 @@ func _ready() -> void:
 	add_child(voice)
 	data_display.map = map
 	data_display.simulation = simulation
-	data_display.pause_requested.connect(SimClock.toggle_pause)
+	data_display.pause_requested.connect(_toggle_pause)
 	data_display.scale_step_requested.connect(func(step: int) -> void: _set_time_scale(SimClock.speed_index + step))
 	data_display.messages_requested.connect(_on_message_lamp)
 	status_boards.comms_shown.connect(func() -> void: data_display.unread_alerts = 0)
@@ -1203,7 +1203,7 @@ func _has_visible_modal() -> bool:
 func _restore_modal_pause_if_clear() -> void:
 	if not _modal_pause_captured or _has_visible_modal():
 		return
-	var restore := _modal_was_paused
+	var restore := _modal_was_paused or _mission_over()
 	_modal_pause_captured = false
 	SimClock.set_paused(restore)
 	_set_background_input_enabled(true)
@@ -1764,7 +1764,7 @@ func _run_palette_action(id: String) -> void:
 		"range_circle":
 			map.toggle_range_circle()
 		"toggle_pause":
-			SimClock.toggle_pause()
+			_toggle_pause()
 		"briefing":
 			_show_briefing()
 		"debrief":
@@ -1839,7 +1839,7 @@ func _input(event: InputEvent) -> void:
 		if classic_keys:
 			_hook_speaker()
 		else:
-			SimClock.toggle_pause()
+			_toggle_pause()
 	elif map.is_visible_in_tree() and not map.menu_open and (focus == null or focus == map) and not (k.ctrl_pressed or k.meta_pressed or k.alt_pressed or k.shift_pressed):
 		# Only from the chart: on the status boards Tab still walks the controls.
 		if classic_keys:
@@ -2041,7 +2041,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F7:
 			_open_reference()
 		KEY_SPACE:
-			SimClock.toggle_pause()
+			_toggle_pause()
 		KEY_ESCAPE:
 			if _world_full:
 				_toggle_world_full()
@@ -2114,7 +2114,7 @@ func _classic_key(k: InputEventKey) -> bool:
 		return true
 	match k.keycode:
 		KEY_P:
-			SimClock.toggle_pause()
+			_toggle_pause()
 		KEY_T:
 			_set_time_scale((SimClock.speed_index + 1) % SimClock.speeds().size())
 		KEY_B:
@@ -2198,6 +2198,19 @@ func _height_step(step: int) -> void:
 		radio.advise("Hook an aircraft or a submarine")
 		return
 	_apply_unit_orders(pairs)
+
+
+## Pauses or resumes the watch. A mission that has ended stays stopped: its debrief is the last
+## word on it, and the clock running on would play past the result.
+func _toggle_pause() -> void:
+	if SimClock.paused and _mission_over():
+		radio.advise("The mission has ended: F1 shows the debrief, M the missions")
+		return
+	SimClock.toggle_pause()
+
+
+func _mission_over() -> bool:
+	return not _last_report.is_empty()
 
 
 ## Turns the Classic key layout on or off; the H board follows it. `persist` keeps the choice.
