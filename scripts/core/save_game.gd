@@ -96,8 +96,8 @@ static var _writing: Writing = null
 ## An autosave that never holds up one frame for the whole job. The caller captures the
 ## engagement in its own frame, because a save is one consistent moment; then the encoding, the
 ## compression, the file (in the next autosave slot) and the pruning of old autosaves each take a
-## later frame, or everything after the encoding runs on a worker thread. A run that ends in the
-## middle leaves the previous autosaves whole, as every write goes to a temporary file first.
+## later frame, or all of them run on a worker thread. A run that ends in the middle leaves the
+## previous autosaves whole, as every write goes to a temporary file first.
 class Writing:
 	extends RefCounted
 	signal finished(error: String)
@@ -127,13 +127,18 @@ class Writing:
 			return true
 		match _stage:
 			0:
-				# The engagement's containers are encoded here, on the main thread, so a worker
-				# only ever holds bytes that nothing else can change.
+				if SaveGame.use_worker:
+					# A worker holds only what nothing else can change: the captured engagement is
+					# a copy already, and the presentation, which may share entries with the live
+					# boards, is copied whole here first.
+					if _payload.has("presentation"):
+						_payload["presentation"] = (_payload["presentation"] as Dictionary).duplicate(true)
+					_stage = 1
+					_task = WorkerThreadPool.add_task(_encode_and_rest, false, "Autosave")
+					return false
 				_raw = var_to_bytes(_payload)
 				_payload = {}
 				_stage = 1
-				if SaveGame.use_worker:
-					_task = WorkerThreadPool.add_task(_rest, false, "Autosave")
 				return false
 			1:
 				_pack_stage()
@@ -154,7 +159,9 @@ class Writing:
 				step()
 		return error
 
-	func _rest() -> void:
+	func _encode_and_rest() -> void:
+		_raw = var_to_bytes(_payload)
+		_payload = {}
 		_pack_stage()
 		_store_stage()
 		_prune_stage()

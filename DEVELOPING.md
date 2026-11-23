@@ -58,7 +58,7 @@ Main (Control, main.gd)              theme = UITheme.build(); global keys; route
 │   ├── UnitManager                  the units; issue_order(), movement and tasks each tick
 │   ├── TrackManager                 each side's tracks: observe, classify, age, drop
 │   ├── ThreatManager                each side's picture of detected inbound rounds
-│   ├── SensorManager                the 1 s sensor cycle: Detection to TrackManager.observe
+│   ├── SensorManager                the 1 s sensor cycle, a quarter of the observers a tick
 │   ├── WeaponManager                launches, rounds in flight, seekers, hits, intercepts
 │   ├── AviationManager              decks, fuel, recovery, sonobuoys
 │   ├── AirMissionManager            CAP, reconnaissance, ASW search and strike missions
@@ -158,6 +158,7 @@ python3 tools/smoke_scenarios.py "$GODOT" work/sweep                     # every
 python3 tools/opening_plans.py "$GODOT" --seeds=2,13 --jobs=4            # scripted openings against the AI, tabulated (about 20 minutes on four cores)
 godot --headless --path . --script tools/measure_sensor_cycle.gd -- --paths=reference,optimized --repeats=3
 godot --headless --path . --script tools/autosave_frames.gd -- --autopilot --ff=1500 [--no-worker]   # the longest frame with and without an autosave
+godot --path . -- --scenario=... --run=5 --perf=8 --perf-autosave=3   # the frame budget with an autosave forced three seconds into the sample
 NODE_PATH=/opt/node-tools/node_modules node tools/web/browser_check.cjs  # boot the browser build, save, reload, load, delete
 ```
 

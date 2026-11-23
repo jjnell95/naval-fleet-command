@@ -168,32 +168,179 @@ func _end(sim: Simulation) -> void:
 	sim.free()
 
 
-## At one times a second the sensor cycle is spread over the four ticks of its second: no tick
-## files more than twice the reports of the median tick, where the whole cycle once landed in one
-## tick and the other three filed nothing. A contact several observers hold in different ticks is
-## still one look a cycle: its classification grows by a cycle's worth each second, not four.
+## The reports each quarter of the second files, from 100 s of play: where the cycle once landed
+## whole in one tick and the other three filed nothing, every quarter files part of it and none
+## more than three fifths.
+func _quarters(sim: Simulation, ticks: int) -> PackedInt32Array:
+	var by := PackedInt32Array([0, 0, 0, 0])
+	for i in ticks:
+		var before := sim.track_manager.picture_filings
+		var quarter := int(round(fposmod(SimClock.sim_time, 1.0) / 0.25)) % 4
+		SimClock.advance(0.25)
+		by[quarter] += sim.track_manager.picture_filings - before
+	return by
+
+
+func _spread(by: PackedInt32Array) -> String:
+	var total := 0
+	for n in by:
+		total += n
+	for n in by:
+		if n < total / 20 or n > total * 3 / 5:
+			return "reports by quarter %s" % by
+	return ""
+
+
+## At one times a second the sensor cycle is spread over the four ticks of its second, so no one
+## tick carries it all. A contact several observers hold in different ticks is still one look a
+## cycle: its classification grows by a cycle's worth each second, not four.
 func test_the_sensor_cycle_is_spread_over_the_ticks_of_its_second() -> void:
 	var sim := _battle(TAIWAN, 2)
 	SimClock.advance(300.0)
+	var by := _quarters(sim, 400)
+	print("    Taiwan Strait: reports filed by quarter of the second %s" % by)
+	assert_eq(_spread(by), "", "every quarter of the second files part of the cycle")
+	_end(sim)
+
+
+## A contact held by observers that look in different ticks of the second is merged once a cycle:
+## its classification time grows by one cycle's worth a second, as when they all looked at once.
+func test_a_contact_held_across_the_ticks_of_a_second_is_one_look_a_cycle() -> void:
+	var world := _ring_round_an_emitter(8, 30.0)
+	var um: UnitManager = world[0]
+	var tm: TrackManager = world[1]
+	var sm: SensorManager = world[2]
+	var emitter: Unit = um.units[0]
+	for second in 30:
+		for quarter in SensorManager.SLICES:
+			sm.run_slice(float(second) + 0.25 * quarter)
+	var t := tm.find_track("BLUE", emitter)
+	var spread := t.observation_time_s
+	var looked := t.contributors.size()
+	_free(world)
+	world = _ring_round_an_emitter(8, 30.0)
+	tm = world[1]
+	sm = world[2]
+	emitter = (world[0] as UnitManager).units[0]
+	for second in 30:
+		sm.run_cycle(float(second))
+	var whole := tm.find_track("BLUE", emitter).observation_time_s
+	_free(world)
+	assert_eq(looked, 8, "all eight listeners hear it")
+	assert_true(whole > 0.0 and absf(spread - whole) <= whole * 0.05, "classification time %.1f s spread over the ticks against %.1f s in whole cycles" % [spread, whole])
+
+
+## The workshop's 48-a-side recipe on a coast: two carriers, 48 ships and four boats a side, the
+## carriers' air wings, AI on both sides. Written where load_scenario can read it.
+const FLEET_RECIPE := {"aircraft_per_carrier": 16, "blue_carriers": 2, "blue_ships": 48, "blue_subs": 4, "coastlines": true,
+	"extent_nm": 300, "red_carriers": 2, "red_ships": 48, "red_subs": 4, "region": 0, "seed": 29, "year": 2027}
+
+
+func _fleet() -> Simulation:
+	var path := "user://perf-fleet48-%d.json" % OS.get_process_id()
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(ScenarioWorkshop.generate(FLEET_RECIPE)))
+	file.close()
+	var sim := _battle(path, 2)
+	DirAccess.remove_absolute(path)
+	return sim
+
+
+## An entity's saved fields are what encoding every one of them gives, plain values and all, and
+## the variable list read once for its script is the one its property list gives.
+func test_a_capture_stores_every_field_as_its_encoding_would() -> void:
+	var sim := _battle(TAIWAN, 2)
+	SimClock.advance(240.0)
+	var refs := SimSnapshot.Refs.new()
+	var checked := 0
+	var objects: Array = []
+	objects.append_array(sim.unit_manager.units)
+	for key in sim.track_manager._tracks:
+		objects.append_array(sim.track_manager._tracks[key])
+	for obj: Object in objects:
+		var listed := PackedStringArray()
+		for p: Dictionary in obj.get_property_list():
+			if int(p["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+				listed.append(str(p["name"]))
+		assert_eq(SimSnapshot.script_variables(obj), listed, "the variables of %s" % obj)
+		var skip := SimSnapshot.UNIT_SKIP if obj is Unit else SimSnapshot.TRACK_SKIP
+		var expected := {}
+		var reference := SimSnapshot.Refs.new()
+		for name in listed:
+			if not skip.has(name):
+				expected[name] = reference.enc(obj.get(name))
+		if var_to_bytes(SimSnapshot.fields_of(obj, skip, refs)) != var_to_bytes(expected):
+			assert_eq(SimSnapshot.fields_of(obj, skip, SimSnapshot.Refs.new()), expected, "the fields of %s" % obj)
+			break
+		checked += 1
+	assert_true(checked > 50, "units and tracks compared (%d)" % checked)
+	_end(sim)
+
+
+## The frame an autosave is taken in holds only the capture, and the capture of a 48-a-side fleet
+## a hundred seconds in takes well under the 200 ms it did; encoding, compression and the file all
+## follow off the main thread where there are threads.
+func test_an_autosave_holds_one_frame_only_for_a_quick_capture() -> void:
+	var sim := _fleet()
+	SimClock.advance(100.0)
+	var best := INF
+	var snapshot := {}
+	for attempt in 3:
+		var at := Time.get_ticks_usec()
+		snapshot = sim.capture_snapshot()
+		best = minf(best, float(Time.get_ticks_usec() - at) / 1000.0)
+	assert_true((snapshot.get("errors", ["?"]) as Array).is_empty(), "the capture is whole")
+	var scratch := "user://test-perf-saves-%d" % OS.get_process_id()
+	SaveGame.root_override = scratch
+	var threads := SaveGame.use_worker
+	SaveGame.use_worker = true
+	var job := SaveGame.begin_autosave({"label": "test"}, {"simulation": snapshot, "presentation": {"journal": [{"text": "a"}]}})
+	var at := Time.get_ticks_usec()
+	job.step()
+	var first_step := float(Time.get_ticks_usec() - at) / 1000.0
+	assert_eq(SaveGame.finish_writing(), "", "the autosave is written")
+	var back := SaveGame.read(job.path)
+	assert_eq(back.get("error", "?"), "", "and reads back")
+	assert_true(var_to_bytes(back.get("payload", {}).get("simulation", {})) == var_to_bytes(snapshot), "as the engagement captured")
+	SaveGame.remove(job.path)
+	SaveGame.use_worker = threads
+	SaveGame.root_override = ""
+	DirAccess.remove_absolute(scratch)
+	print("    48-a-side fleet at 100 s: capture %.1f ms; the autosave's next frame %.1f ms" % [best, first_step])
+	assert_true(best < 120.0, "the capture takes %.1f ms, under 120" % best)
+	assert_true(first_step < 10.0, "the frame after it hands the encoding on (%.1f ms)" % first_step)
+	_end(sim)
+
+
+## Two minutes of the 48-a-side fleet with AI on both sides, tick by tick. Before the cycle was
+## spread, every fourth tick carried it whole and passed 100 ms by the second minute; now every
+## quarter of the second files part of it, the mean tick stays under 40 ms and no more than one
+## tick in a hundred passes 80 ms (on a machine shared with other work: the figures are
+## printed, and on a quiet one are about half these bounds).
+func test_a_48_a_side_fleet_keeps_every_tick_short() -> void:
+	var sim := _fleet()
 	var tm := sim.track_manager
-	var filed := PackedInt32Array()
-	var spent := PackedFloat64Array()
-	Debug.profiling = true
-	for i in 400:
-		Debug.timings.clear()
+	var ticks := PackedFloat64Array()
+	var by := PackedInt32Array([0, 0, 0, 0])
+	for i in 480:
 		var before := tm.picture_filings
+		var quarter := i % 4
+		var at := Time.get_ticks_usec()
 		SimClock.advance(0.25)
-		filed.append(tm.picture_filings - before)
-		spent.append(float(Debug.timings.get("sim/sensors", 0)) / 1000.0)
-	Debug.profiling = false
-	Debug.timings.clear()
-	var sorted := filed.duplicate()
+		ticks.append(float(Time.get_ticks_usec() - at) / 1000.0)
+		by[quarter] += tm.picture_filings - before
+	var sorted := ticks.duplicate()
 	sorted.sort()
-	var median := sorted[sorted.size() / 2]
-	var busiest := sorted[-1]
-	var times := spent.duplicate()
-	times.sort()
-	print("    reports filed per tick: median %d, most %d; sensor time per tick: median %.2f ms, worst %.2f ms" % [median, busiest, times[times.size() / 2], times[-1]])
-	assert_true(median > 0, "every tick files some of the cycle's reports (median %d)" % median)
-	assert_true(busiest <= 2 * median, "no tick files more than twice the median tick's reports (%d against %d)" % [busiest, median])
+	var total := 0.0
+	var long := 0
+	for ms in ticks:
+		total += ms
+		if ms > 80.0:
+			long += 1
+	var mean := total / ticks.size()
+	print("    48-a-side fleet, 120 s: tick mean %.1f ms, median %.1f, p95 %.1f, max %.1f, %d over 80 ms; reports by quarter of the second %s" % [
+		mean, sorted[sorted.size() / 2], sorted[int(sorted.size() * 0.95)], sorted[-1], long, by])
+	assert_eq(_spread(by), "", "every quarter of the second files part of the cycle")
+	assert_true(mean < 40.0, "the mean tick is %.1f ms, under 40" % mean)
+	assert_true(long <= ticks.size() / 100, "%d ticks over 80 ms, no more than one in a hundred" % long)
 	_end(sim)

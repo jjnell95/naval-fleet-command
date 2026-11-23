@@ -138,9 +138,11 @@ class Refs:
 				errors.append("cannot save a reference to %s" % v)
 				return null
 			TYPE_ARRAY:
+				# A plain element (a number, a string, a vector) is kept as it is without the call,
+				# as below: a track's bearing history is thousands of them.
 				var out := []
 				for x in v:
-					out.append(enc(x))
+					out.append(x if typeof(x) < TYPE_OBJECT else enc(x))
 				return out
 			TYPE_DICTIONARY:
 				var object_keys := false
@@ -155,7 +157,8 @@ class Refs:
 					return {"$pairs": pairs}
 				var d := {}
 				for k in v:
-					d[k] = enc(v[k])
+					var x: Variant = v[k]
+					d[k] = x if typeof(x) < TYPE_OBJECT else enc(x)
 				return d
 		return _copy_packed(v)
 
@@ -300,12 +303,15 @@ static func capture(sim: Simulation) -> Dictionary:
 	}
 
 
-## Every script variable of an entity, less the listed ones, with references as markers.
+## Every script variable of an entity, less the listed ones, with references as markers. A plain
+## value (a number, a string, a vector) is stored as it is, as Refs.enc would return it, without
+## the call: most of an entity's fields are plain, and an autosave writes every unit's.
 static func fields_of(obj: Object, skip: Dictionary, refs: Refs) -> Dictionary:
 	var out := {}
 	for name: String in script_variables(obj):
 		if not skip.has(name):
-			out[name] = refs.enc(obj.get(name))
+			var value: Variant = obj.get(name)
+			out[name] = value if typeof(value) < TYPE_OBJECT else refs.enc(value)
 	return out
 
 
@@ -316,13 +322,22 @@ static func manager_fields(node: Object, refs: Refs) -> Dictionary:
 	return out
 
 
-## Script variables in declaration order.
+## Script variables in declaration order, read once for each script: an object's property list
+## is long, and building it for every unit, track and weapon was most of the cost of a capture.
 static func script_variables(obj: Object) -> PackedStringArray:
+	var script: Variant = obj.get_script()
+	if script != null and _variables_by_script.has(script):
+		return _variables_by_script[script]
 	var out := PackedStringArray()
 	for p: Dictionary in obj.get_property_list():
 		if int(p["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE:
 			out.append(str(p["name"]))
+	if script != null:
+		_variables_by_script[script] = out
 	return out
+
+
+static var _variables_by_script: Dictionary = {}
 
 
 ## Every manager whose fields are saved by name, in a fixed order.
