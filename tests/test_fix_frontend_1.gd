@@ -102,3 +102,35 @@ func test_the_gameplay_summary_is_read_whole_for_every_preset_at_either_desk_wid
 	assert_true(one_line > ScenarioMenu.SUMMARY_WIDTH, "the classic summary is wider than one line (%d px), so the wrap is what keeps it whole" % int(one_line))
 	assert_eq(label.get_line_count(), 2, "and it does wrap, to two lines")
 	_drop_desk(menu)
+
+
+# --- The Reference at every interface size -------------------------------------------------
+
+## The library in a viewport the size a 1600 x 900 window gives at `percent` interface size.
+func _library_at(percent: int) -> Array:
+	var port := SubViewport.new()
+	port.size = Vector2i(roundi(1600.0 * 100.0 / percent), roundi(900.0 * 100.0 / percent))
+	port.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_root().add_child(port)
+	var lib := PlatformLibrary.new()
+	port.add_child(lib)
+	return [port, lib]
+
+
+func test_the_reference_sheet_fits_the_screen_at_every_interface_size() -> void:
+	for percent: int in InterfaceScale.PERCENTAGES:
+		var made := _library_at(percent)
+		var port: SubViewport = made[0]
+		var lib: PlatformLibrary = made[1]
+		var screen := Vector2(port.size)
+		for weapons in [false, true]:
+			lib._set_mode(weapons)
+			var need := lib.get_combined_minimum_size()
+			assert_true(need.y <= screen.y, "%d%%: the sheet needs %d px of a %d px screen (%s)" % [percent, int(need.y), int(screen.y), "ordnance" if weapons else "platforms"])
+			assert_true(need.x <= screen.x, "%d%%: and %d px of %d across" % [percent, int(need.x), int(screen.x)])
+		if PlatformLibrary.is_compact(screen):
+			assert_true(not lib._hint.visible, "%d%%: the orbit hint is not shown cut short" % percent)
+			assert_true(lib._stage.tooltip_text != "", "it stays on the stage's tooltip")
+		else:
+			assert_true(lib._hint.visible, "on a full screen the orbit hint is shown")
+		port.free()

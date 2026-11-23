@@ -4,6 +4,7 @@ extends PanelContainer
 ## The front end's REFERENCE: the dusk backdrop, a grey-metal panel, a starred-list look for the
 ## catalogue, the 3D stage in the three-line frame and the dossier in a text box.
 signal closed()
+const ORBIT_HINT := "DRAG TO ORBIT  ·  SCROLL TO ZOOM"
 const FACILITY_NAMES := {
 	"airfield": "Airfield",
 	"helicopter": "Helicopter deck",
@@ -28,22 +29,24 @@ var _loadout_title: Label
 var _platform_button: Button
 var _weapon_button: Button
 var _spin_button: Button
+var _margin: MarginContainer
+var _layout: VBoxContainer
+var _kicker: Label
+var _hint: Label
+var _belt: ScrollContainer
 
 func _ready() -> void:
 	theme_type_variation = "OverlayPanel"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(UITheme.backdrop())
 	var margin := MarginContainer.new()
-	for side in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + side, 36)
-	for side in ["top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 24)
+	_margin = margin
 	add_child(margin)
 	var sheet := PanelContainer.new()
 	sheet.theme_type_variation = "MenuPanel"
 	margin.add_child(sheet)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	_layout = v
 	sheet.add_child(v)
 	var masthead := HBoxContainer.new()
 	v.add_child(masthead)
@@ -53,10 +56,10 @@ func _ready() -> void:
 	var brand := UITheme.caption("Reference")
 	brand.add_theme_font_size_override("font_size", 34)
 	heading.add_child(brand)
-	var kicker := Label.new()
-	kicker.text = "Platforms and ordnance: recognition, fit and game envelope"
-	kicker.theme_type_variation = "MenuLabel"
-	heading.add_child(kicker)
+	_kicker = Label.new()
+	_kicker.text = "Platforms and ordnance: recognition, fit and game envelope"
+	_kicker.theme_type_variation = "MenuLabel"
+	heading.add_child(_kicker)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	masthead.add_child(spacer)
@@ -180,18 +183,19 @@ func _ready() -> void:
 	_stage.spin_changed.connect(_spin_button.set_pressed_no_signal)
 	_spin_button.button_pressed = true
 	view_bar.add_child(_spin_button)
-	var hint := Label.new()
-	hint.text = "  DRAG TO ORBIT  ·  SCROLL TO ZOOM"
-	hint.theme_type_variation = "MenuLabel"
-	hint.add_theme_font_size_override("font_size", 11)
-	hint.clip_text = true
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	view_bar.add_child(hint)
+	_hint = Label.new()
+	_hint.text = "  " + ORBIT_HINT
+	_hint.theme_type_variation = "MenuLabel"
+	_hint.add_theme_font_size_override("font_size", 11)
+	_hint.clip_text = true
+	_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	view_bar.add_child(_hint)
+	_stage.tooltip_text = ORBIT_HINT.capitalize()
 	_loadout_title = UITheme.caption("")
 	_loadout_title.add_theme_font_size_override("font_size", 16)
 	center.add_child(_loadout_title)
 	var belt := ScrollContainer.new()
-	belt.custom_minimum_size.y = 116
+	_belt = belt
 	belt.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	center.add_child(belt)
 	_loadout = HBoxContainer.new()
@@ -219,7 +223,32 @@ func _ready() -> void:
 	note.theme_type_variation = "MenuLabel"
 	note.add_theme_font_size_override("font_size", 11)
 	v.add_child(note)
+	resized.connect(_apply_layout)
+	_apply_layout()
 	_filter("")
+
+
+## A short screen (a laptop, or a larger interface size) takes a compact sheet, as the desk and
+## the briefing do: tighter margins, a lower model stage and loadout belt, and the orbit hint left
+## to the stage's tooltip rather than cut short beside the view buttons.
+func _apply_layout() -> void:
+	if _margin == null:
+		return
+	var compact := is_compact(get_viewport_rect().size)
+	for side in ["left", "right"]:
+		_margin.add_theme_constant_override("margin_" + side, 16 if compact else 36)
+	for side in ["top", "bottom"]:
+		_margin.add_theme_constant_override("margin_" + side, 10 if compact else 24)
+	_layout.add_theme_constant_override("separation", 6 if compact else 12)
+	_kicker.visible = not compact
+	_hint.visible = not compact
+	_title.add_theme_font_size_override("font_size", 28 if compact else 40)
+	_stage.custom_minimum_size = Vector2(260, 150 if compact else 240)
+	_belt.custom_minimum_size.y = 100 if compact else 116
+
+
+static func is_compact(viewport_size: Vector2) -> bool:
+	return viewport_size.x < 1300.0 or viewport_size.y < 850.0
 
 
 func focus_default() -> void:
