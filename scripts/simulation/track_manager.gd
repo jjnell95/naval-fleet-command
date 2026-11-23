@@ -310,6 +310,8 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 	if firm:
 		t.last_firm_time = now
 	if ranged:
+		if now - t.range_time > SOLUTION_GAP_S:
+			t.range_since = now
 		t.range_time = now
 	var blend := FIRM_BLEND
 	if c.bearing_only:

@@ -535,6 +535,8 @@ func _pick_engagement(u: Unit, b: Dictionary, hostiles: Array, now: float, task 
 				continue
 			if t.bearing_only and t.tma_quality < MIN_SOLUTION_FOR_SLOW_WEAPON and not _bearing_shot(spec, t, check["range_nm"]):
 				continue
+			if not t.passive_range_credible(now):
+				continue  # a passive range that is stale or has not yet settled is a place to look
 			# Last, the launcher's own test (guidance, fire-control channels), so a shot it would
 			# refuse is passed over for the next weapon instead of being asked for every cycle.
 			if not _launcher_accepts(u, spec, t, now):

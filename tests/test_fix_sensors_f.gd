@@ -162,3 +162,71 @@ func test_a_marginal_crossing_on_an_aircraft_neither_flickers_nor_teleports() ->
 	assert_true(worst_leap < 5.0, "after the first range the plot never leaps (worst %.1f nm in a tick)" % worst_leap)
 	assert_true(worst_drop_shrink <= 0.0, "giving the range up never shrinks the ellipse (by %.1f nm)" % worst_drop_shrink)
 	assert_true(worst_drop_miss <= 0.0, "and the ellipse still covers the aircraft (%.1f nm outside it)" % worst_drop_miss)
+
+
+# --- A passive range worth a torpedo ------------------------------------------------------------
+
+## A boat at 6 kn working a ship five miles off on bearings, legs either side of the line. Returns
+## the track manager and the track after `seconds`, with the second the plot first held a range.
+func _work_contact(seconds: int, quiet_from := -1) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	var tm := TrackManager.new()
+	var u := Unit.new()
+	u.spec = PlatformSpec.new()
+	u.spec.short_name = "TEST"
+	u.faction = "RED"
+	var own := Vector2.ZERO
+	var target := Vector2(1.5, 5.0)
+	var velocity := Geo.heading_to_vector(200.0) * Geo.knots_to_nm_per_s(7.0)
+	var course := 300.0
+	var first := -1
+	var credible_early := false
+	for second in range(1, seconds + 1):
+		if second % 300 == 0:
+			course = 80.0 if course > 180.0 else 300.0
+		own += Geo.heading_to_vector(course) * Geo.knots_to_nm_per_s(6.0)
+		target += velocity
+		if quiet_from < 0 or second < quiet_from:
+			var bearing := Geo.bearing_deg(own, target) + rng.randfn(0.0, 1.6)
+			var c := SensorContact.new()
+			c.target = u
+			c.bearing_only = true
+			c.bearing_key = "boat"
+			c.bearing_origin = own
+			c.bearing_accuracy_deg = 1.6
+			c.bearing_range_limit_nm = 30.0
+			c.error_axis_deg = bearing
+			c.position = own + Geo.heading_to_vector(bearing) * 4.0
+			c.range_nm = 4.0
+			c.error_major_nm = 4.0
+			c.error_minor_nm = 0.3
+			c.source = "sonar_passive"
+			tm.observe_contact("BLUE", c, float(second), 1.0)
+		tm.tick(float(second), 1.0)
+		var t := tm.find_track("BLUE", u)
+		if first < 0 and not t.is_bearing_only():
+			first = second
+		if first > 0 and second - first < 50 and t.passive_range_credible(float(second)):
+			credible_early = true
+	return [tm, tm.find_track("BLUE", u), first, credible_early]
+
+
+## The range a boat's crew has only just worked out, or one carried on after the bearings stopped
+## giving it, is not a firing solution, though the plot still shows an estimated fix; a range that
+## has kept coming for a minute is.
+func test_a_torpedo_waits_for_a_passive_range_that_is_current_and_settled() -> void:
+	var run := _work_contact(1500)
+	var tm: TrackManager = run[0]
+	var t: Track = run[1]
+	var first: int = run[2]
+	assert_true(first > 0, "the legs gave the boat a range")
+	assert_true(not bool(run[3]), "a range less than a minute old is not yet a firing solution")
+	assert_true(not t.is_bearing_only() and t.passive_range_credible(1500.0), "one that has stood since second %d is" % first)
+	tm.free()
+	run = _work_contact(1500, 1490)
+	tm = run[0]
+	t = run[1]
+	assert_true(not t.is_bearing_only(), "ten seconds without a bearing: the plot still carries the range")
+	assert_true(not t.passive_range_credible(1500.0), "but a range no solution has given for ten seconds is not shot on")
+	tm.free()
