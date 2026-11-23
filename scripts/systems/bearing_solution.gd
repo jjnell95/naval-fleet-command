@@ -35,6 +35,11 @@ const LEG_MIN_S := 80.0
 const LEG_MIN_SAMPLES := 5
 const LEG_SAME_KN := 1.5
 const LEG_CHANGE_KN := 2.0
+## A contact's turn shows as this many consecutive looks to one side of a steady-course fit, their
+## misses summing beyond this many of their own standard deviations per root look. One chance run
+## that long in a quarter-hour of looks at a steady contact is a few in a thousand.
+const TURN_RUN_SAMPLES := 8
+const TURN_RUN_LIMIT := 4.5
 
 
 ## Files one bearing and returns the stored report. Besides the latest look, a report carries the
@@ -263,6 +268,8 @@ static func _fit(reports: Array, now: float, motion: bool, speed_limit_kn := -1.
 	var fastest := speed_limit_kn if speed_limit_kn >= 0.0 else float(reports[-1].get("speed_limit", SHIP_SPEED_LIMIT_KN))
 	if not position.is_finite() or velocity.length() * 3600.0 > fastest:
 		return {}  # do not fabricate a fix for physically inconsistent bearing histories
+	if motion and _turned_inside(reports, now, position, velocity):
+		return {}
 	var variance := 0.0
 	var residual := 0.0
 	var mean_range := 0.0
@@ -295,6 +302,30 @@ static func _fit(reports: Array, now: float, motion: bool, speed_limit_kn := -1.
 	var axis_rad := 0.5 * atan2(2.0 * b, a - d)
 	return {"position": position, "velocity": velocity, "major": major, "minor": minor,
 		"axis": Geo.vector_to_heading(Vector2(cos(axis_rad), sin(axis_rad))), "quality": quality}
+
+
+## Whether the contact cannot have held one course and speed through these bearings: a run of
+## consecutive looks all falling to one side of the fitted track by more than chance allows. A
+## nearer, slower contact on a steady course explains almost any turn by a further one about as
+## well, so the fit's own spread says nothing of it, and the range it gives, and the small
+## ellipse that comes with it, are an artefact of the turn. A crew that sees the bearing drift
+## break away from its solution starts the solution again; until the turn has left the window
+## there is none.
+static func _turned_inside(reports: Array, now: float, position: Vector2, velocity: Vector2) -> bool:
+	if reports.size() < TURN_RUN_SAMPLES:
+		return false
+	var misses := PackedFloat64Array()
+	for report: Dictionary in reports:
+		var at := position + velocity * (float(report["time"]) - now)
+		misses.append(Geo.heading_delta(Geo.bearing_deg(report["origin"], at), float(report["bearing"])) / maxf(float(report["sigma"]), 0.1))
+	var run := 0.0
+	for i in misses.size():
+		run += misses[i]
+		if i >= TURN_RUN_SAMPLES:
+			run -= misses[i - TURN_RUN_SAMPLES]
+		if i >= TURN_RUN_SAMPLES - 1 and absf(run) > TURN_RUN_LIMIT * sqrt(float(TURN_RUN_SAMPLES)):
+			return true
+	return false
 
 
 ## Range from the change in bearing rate across the listener's last change of course or speed.

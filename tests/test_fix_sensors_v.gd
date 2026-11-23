@@ -105,3 +105,56 @@ func test_a_range_given_up_or_taken_back_owns_up_to_where_the_plot_may_be() -> v
 	# A 300 kn jet covers 0.08 nm a second; the plot may close on a new answer at three times that.
 	assert_true(worst_step < 0.5, "the plot never leaps to a new answer (worst %.1f nm in a second)" % worst_step)
 	assert_true(worst_over < 1.0, "the jet is always inside what the plot claims (worst %.1f nm outside)" % worst_over)
+
+
+# --- A passive range after the contact turns ----------------------------------------------------
+
+## One boat listening to a submarine, zigzagging to range it. The submarine holds a course for ten
+## minutes, then turns away and sprints. Returns the worst ratio, over the quarter hour after the
+## turn, of how far the plot is from the submarine to the error it claims while it claims a range,
+## and how many seconds it claimed one.
+func _listen_through_a_turn(seed_value: int) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var tm := TrackManager.new()
+	var u := _jet()
+	u.spec.domain = "subsurface"
+	var own := Vector2.ZERO
+	var target := Vector2(2.0, 7.0)
+	var course := 80.0
+	var worst := 0.0
+	var ranged := 0
+	for second in range(1, 1800):
+		if second % 240 == 0:
+			course = 200.0 if course < 180.0 else 80.0
+		own += Geo.heading_to_vector(course) * Geo.knots_to_nm_per_s(6.0)
+		var leg := Geo.heading_to_vector(0.0) * Geo.knots_to_nm_per_s(20.0) if second < 600 else Geo.heading_to_vector(270.0) * Geo.knots_to_nm_per_s(10.0)
+		target += leg
+		var c := SensorContact.new()
+		c.target = u
+		c.bearing_only = true
+		c.bearing_key = "boat"
+		c.bearing_origin = own
+		c.bearing_accuracy_deg = 1.6
+		c.bearing_range_limit_nm = 30.0
+		c.bearing_speed_limit_kn = 70.0
+		c.error_axis_deg = Geo.bearing_deg(own, target) + rng.randfn(0.0, 1.6)
+		c.range_nm = 6.0
+		c.position = own + Geo.heading_to_vector(c.error_axis_deg) * 6.0
+		c.error_major_nm = 6.0
+		c.error_minor_nm = 0.3
+		c.source = "sonar_passive"
+		tm.observe_contact("BLUE", c, float(second), 1.0)
+		tm.tick(float(second), 1.0)
+		var t := tm.find_track("BLUE", u)
+		if second > 660 and not t.is_bearing_only():
+			ranged += 1
+			worst = maxf(worst, t.position.distance_to(target) / maxf(t.position_error_nm, 0.01))
+	tm.free()
+	return [worst, ranged]
+
+
+func test_a_passive_range_after_the_contact_turns_owns_up_to_its_error() -> void:
+	for seed_value in [2, 4, 8]:
+		var result := _listen_through_a_turn(seed_value)
+		assert_true(float(result[0]) <= 3.0, "seed %d: a range held after the turn is never further off than three times the error it claims (worst %.1f times, %d s ranged)" % [seed_value, result[0], result[1]])
