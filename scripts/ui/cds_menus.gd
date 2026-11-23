@@ -496,7 +496,7 @@ static func air_contact_items(air: AirMissionManager, faction: String, target: T
 		return items
 	var wants: Array = []
 	if target.identity == "HOSTILE" and target.domain == "air":
-		wants.append([AirMission.Kind.CAP, "Intercept with fighters", "A CAP over the contact: the fighters close and engage it under your rules of engagement."])
+		wants.append([AirMission.Kind.CAP, "Intercept with fighters", "The fighters go for the contact at dash speed, fire on it under your rules of engagement and come home."])
 	if target.identity == "HOSTILE" and target.domain in ["surface", "land"]:
 		wants.append([AirMission.Kind.STRIKE, "Air strike now", "Launch strike aircraft at the held contact now, without opening Air Operations."])
 	if target.identity == "UNKNOWN" or target.classification < Track.Classification.CLASS_KNOWN:

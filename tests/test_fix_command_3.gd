@@ -607,3 +607,9 @@ func test_the_harness_loads_every_smoke_suite_by_path_and_the_pack_leaves_them_o
 	var excludes := str(config.get_value("preset.0", "exclude_filter", ""))
 	for suite in ["scripts/core/cold_war_smoke.gd", "scripts/core/aviation_smoke.gd"]:
 		assert_true(excludes.contains(suite), "%s is not packed for players" % suite)
+
+
+func test_the_intercept_item_says_what_the_fighters_do() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/ui/cds_menus.gd")
+	assert_true(not source.contains("A CAP over the contact"), "the intercept is not described as a CAP")
+	assert_true(source.contains("go for the contact at dash speed, fire on it"), "it says the fighters dash, fire and come home")
