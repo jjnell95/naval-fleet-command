@@ -77,8 +77,10 @@ var _dropped_ids: Dictionary = {}
 const REMEMBERED_FIELDS: Array[String] = ["classification", "identity", "domain", "known_class", "known_category", "known_callsign",
 	"class_is_probable", "class_evidence", "identity_evidence", "identity_designated", "observation_time_s", "signature_time_s", "radar_recognition_s", "damage_estimate"]
 var _next_number: Dictionary = {}  # faction -> int
-## How many times a report has been filed in a picture, for tests and the measuring tools.
+## How many times a report has been filed in a picture, and a range solution worked from a track's
+## bearings, for tests and the measuring tools.
 var picture_filings := 0
+var bearing_solutions_worked := 0
 ## When the sensor cycle being filed began. SensorManager spreads a cycle over the ticks of its
 ## second and sets this before each slice, so the reports of one cycle are merged as one look
 ## however many ticks they come in over; NAN, or a time outside that second, makes every report
@@ -360,7 +362,10 @@ func _observe_picture(key: String, faction: String, c: SensorContact, now: float
 ## The range solution the crew currently has from this track's bearings, aged to `now`; empty when
 ## they have none. A crew reworks its TMA every ten seconds, and at once when another listener
 ## joins. Something that may be an aircraft is fixed only by lines taken together, so its fix is
-## reworked every cycle and never carried forward on a course it does not have.
+## reworked at every look and never carried forward on a course it does not have: once for all the
+## lines filed at one moment, since a raid heard by a whole force brings in a line per listener
+## each cycle, and crossing every line again for each of them made the picture's cost grow with
+## the square of the listeners.
 func _bearing_solution(t: Track, c: SensorContact, now: float) -> Dictionary:
 	if c.bearing_key == "":
 		return {}
@@ -368,8 +373,9 @@ func _bearing_solution(t: Track, c: SensorContact, now: float) -> Dictionary:
 	var fast := limit > BearingSolution.SHIP_SPEED_LIMIT_KN
 	if fast and t.bearing_observers.size() < 2:
 		return {}  # one listener never crosses its own line
-	var interval := 0.0 if fast else BearingSolution.SAMPLE_INTERVAL_S
-	if now - t.bearing_solution_at >= interval:
+	var due := now > t.bearing_solution_at + 1e-6 if fast else now - t.bearing_solution_at >= BearingSolution.SAMPLE_INTERVAL_S
+	if due:
+		bearing_solutions_worked += 1
 		t.bearing_solution_cache = BearingSolution.estimate(t.bearing_history, now, limit)
 		t.bearing_solution_at = now
 	var cached := t.bearing_solution_cache

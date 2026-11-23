@@ -62,27 +62,30 @@ static func add(history: Array, c: SensorContact, now: float, latest: Variant = 
 	var smooth := c.error_axis_deg
 	if not prev.is_empty():
 		var gap := now - float(prev["time"])
+		# A sample in the full layout has every field: read it straight, as this is the sensor
+		# cycle's commonest filing. An older one is read with the fallbacks it was saved under.
+		var full := prev.has("mean_time")
 		if gap <= SMOOTH_GAP_S:
-			var line := float(prev.get("smooth", prev["bearing"]))
+			var line := float(prev["smooth"] if full else prev.get("smooth", prev["bearing"]))
 			smooth = fposmod(line + SMOOTH_GAIN * Geo.heading_delta(line, c.error_axis_deg), 360.0)
 		# Preserve regular history samples, but carry the latest bearing separately below.
-		if gap < SAMPLE_INTERVAL_S and now - float(prev.get("sample_start", prev["time"])) < SAMPLE_INTERVAL_S:
-			var sample_start: Variant = prev.get("sample_start", prev["time"])
-			var n := int(prev.get("n", 1)) + 1
-			var mean := float(prev.get("mean_bearing", prev["bearing"]))
-			var mean_origin: Vector2 = prev.get("mean_origin", prev["origin"])
-			var mean_time := float(prev.get("mean_time", prev["time"]))
+		var sample_start: Variant = prev.get("sample_start", prev["time"])
+		if gap < SAMPLE_INTERVAL_S and now - float(sample_start) < SAMPLE_INTERVAL_S:
+			var n := int(prev["n"] if full else prev.get("n", 1)) + 1
+			var mean := float(prev["mean_bearing"] if full else prev.get("mean_bearing", prev["bearing"]))
+			var mean_origin: Vector2 = prev["mean_origin"] if full else prev.get("mean_origin", prev["origin"])
+			var mean_time := float(prev["mean_time"] if full else prev.get("mean_time", prev["time"]))
 			var mean_bearing := fposmod(mean + Geo.heading_delta(mean, c.error_axis_deg) / n, 360.0)
 			var merged_origin := mean_origin + (c.bearing_origin - mean_origin) / n
 			var merged_time := mean_time + (now - mean_time) / n
-			if not prev.has("mean_time"):
+			if not full:
 				# A sample saved before the means were kept takes the full layout first, so every
 				# sample in a history has its fields in the one order.
 				var fresh := _report(c, now, smooth)
 				prev.clear()
 				prev.merge(fresh)
 			# The sample takes the new figures where it stands in the history, in place: most looks
-			# land in a sample already open, and this is the sensor cycle's commonest filing.
+			# land in a sample already open.
 			prev["origin"] = c.bearing_origin
 			prev["bearing"] = c.error_axis_deg
 			prev["sigma"] = maxf(c.bearing_accuracy_deg, 0.1)
@@ -136,9 +139,10 @@ static func estimate(history: Array, now: float, speed_limit_kn := -1.0) -> Dict
 	var current := PackedInt32Array()
 	for i in range(history.size() - 1, -1, -1):
 		var report: Dictionary = history[i]
-		if now - float(report.get("sample_start", report["time"])) > SAMPLE_INTERVAL_S * 2.0:
+		var time := float(report["time"])
+		if now - float(report.get("sample_start", time)) > SAMPLE_INTERVAL_S * 2.0:
 			break
-		if now - float(report["time"]) <= 2.0:
+		if now - time <= 2.0:
 			current.append(i)
 	current.reverse()
 	var crossed := _crossed_fix_of(history, current)
@@ -209,7 +213,8 @@ static func _crossed_fix_of(history: Array, current: PackedInt32Array) -> Dictio
 		var report: Dictionary = history[current[k]]
 		keys[k] = report["key"]
 		origins[k] = report["origin"]
-		bearings[k] = float(report.get("smooth", report["bearing"]))
+		var smooth: Variant = report.get("smooth")
+		bearings[k] = float(smooth if smooth != null else report["bearing"])
 	var good_geometry := false
 	for i in count:
 		for j in range(i + 1, count):

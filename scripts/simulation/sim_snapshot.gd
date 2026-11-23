@@ -69,7 +69,7 @@ const MANAGER_FIELDS := {
 ## does not have.
 const MANAGER_TRANSIENT := {
 	"UnitManager": ["units", "weapon_manager"],
-	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings", "cycle_at"],
+	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings", "bearing_solutions_worked", "cycle_at"],
 	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path", "sonar_pairs_weighed", "lookout_pairs_weighed", "_jammer_fits", "_jammer_fits_of", "_jammer_fits_last"],
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
