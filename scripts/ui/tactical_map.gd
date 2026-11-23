@@ -257,6 +257,13 @@ var _weapon_trail_time := -1.0
 var _weapon_trail_revision := -1
 var _weapon_trail_threat_revision := -1
 var _hit_flash := 0.0
+## The moving marks, drawn every frame above the plot (see ChartMarks), and where this plot draw
+## put the pulsing ring of each round inbound on an own ship.
+var _marks: ChartMarks
+var _threat_ring_points := PackedVector2Array()
+var _marks_shown := false
+var _own_cache: Array[Unit] = []
+var _own_in_draw := false
 var show_range_grid := false
 var _floor: ChartFloor
 var _land: ChartLand
@@ -269,15 +276,21 @@ var _chart_captions: Array = []
 ## The radio line laid out for this frame (see `radio_layout`), placed before the labels so they
 ## can keep out of its band.
 var _radio_layout: Dictionary = {}
-var _text_widths: Dictionary = {}  # "text@size" -> px
+var _text_widths: Dictionary = {}  # font size -> {text -> px}
+var _text_width_count := 0
 ## A status board covers the chart: its readouts and radio line are not drawn under it.
 var overlay_covered := false
 var _coast_runs: Dictionary = {}  # Landmass -> Array[PackedVector2Array], clip edges removed
 var _coast_key := ""
-## The coast projected to the screen for the current view (Landmass -> Array[PackedVector2Array]),
-## kept until the view moves: a still chart does not re-project every vertex of Norway each frame.
+## The coast projected to the screen at one scale (Landmass -> Array[PackedVector2Array]), about
+## `_coast_origin`: a pan only shifts it, and only a zoom or a resize re-projects every vertex of
+## Norway. The strokes are drawn by `_coast_layer` when the view moves, not with every plot draw.
 var _coast_screen: Dictionary = {}
 var _coast_view := PackedFloat32Array()
+var _coast_origin := Vector2.ZERO
+var _coast_layer: ChartCoast
+var _named_land: Array[Landmass] = []
+var _named_land_generation := -1
 
 
 func _ready() -> void:
@@ -313,6 +326,15 @@ func _ready() -> void:
 	_land.map = self
 	add_child(_land)
 	move_child(_land, 1)
+	_coast_layer = ChartCoast.new()
+	_coast_layer.name = "ChartCoast"
+	_coast_layer.map = self
+	add_child(_coast_layer)
+	move_child(_coast_layer, 2)
+	_marks = ChartMarks.new()
+	_marks.name = "ChartMarks"
+	_marks.map = self
+	add_child(_marks)
 
 
 func zoom_at_center(factor: float) -> void:
@@ -511,6 +533,7 @@ func post_message(text: String, severity := "info", speaker = null) -> void:
 
 func _process(delta: float) -> void:
 	_anim += delta
+	_own_in_draw = false  # in case a draw was cut short
 	if is_visible_in_tree():
 		if show_coverage and unit_manager != null:
 			coverage_discs = SensorCoverage.discs(_own_units())
@@ -532,12 +555,44 @@ func _process(delta: float) -> void:
 	_record_wrecks()
 	if (_range_unit != null and not _range_unit.alive) or (_range_track != null and _range_track.status == Track.Status.LOST):
 		_clear_range_circle()
-	# Plotted positions change on simulation ticks. Between ticks Godot retains
-	# the last draw; keep navigation, symbol preparation and animation at display speed.
-	if SimClock.sim_time != _drawn_sim_time or center_nm != _drawn_center or ppn != _drawn_ppn \
-			or _anim - _last_draw_at >= IDLE_REFRESH_S or _awaiting_symbol_art or _hit_flash > 0.0 \
-			or not _effects.is_empty() or not _threats.is_empty() or _radio.is_fading(_anim):
+	_expire_effects()
+	var plot_due := plot_redraw_due()
+	if plot_due:
 		queue_redraw()
+	if _marks != null and (plot_due or marks_redraw_due()):
+		_marks.queue_redraw()
+
+
+## Plotted positions change on simulation ticks. Between ticks Godot retains the last draw; keep
+## navigation and symbol preparation at display speed, and everything else at the idle rate.
+func plot_redraw_due() -> bool:
+	return SimClock.sim_time != _drawn_sim_time or center_nm != _drawn_center or ppn != _drawn_ppn \
+			or _anim - _last_draw_at >= IDLE_REFRESH_S or _awaiting_symbol_art
+
+
+## The moving marks redraw every frame while one is on the chart, and once more to clear the last.
+## A new chart animation belongs here and in `draw_marks`, not in the plot's `_draw`.
+func marks_animating() -> bool:
+	return _hit_flash > 0.0 or not _effects.is_empty() or not _threat_ring_points.is_empty() or _radio.is_fading(_anim)
+
+
+func marks_redraw_due() -> bool:
+	return _marks_shown or marks_animating()
+
+
+## What `plot_redraw_due` compares against: this draw's clock, view and moment.
+func _begin_plot_draw() -> void:
+	_last_draw_at = _anim
+	_drawn_sim_time = SimClock.sim_time
+	_drawn_center = center_nm
+	_drawn_ppn = ppn
+	_threat_ring_points.clear()
+
+
+func _expire_effects() -> void:
+	for i in range(_effects.size() - 1, -1, -1):
+		if _anim - float(_effects[i]["t0"]) > EFFECT_LIFE_S:
+			_effects.remove_at(i)
 
 
 ## Own platforms lost this mission, remembered where they went down so the plot shows them in
@@ -676,6 +731,7 @@ func reset_presentation() -> void:
 	_weapon_trail_threat_revision = -1
 	_effects.clear()
 	_hit_flash = 0.0
+	_threat_ring_points.clear()
 	_trail_last_s = -1.0e9
 
 
@@ -1247,7 +1303,7 @@ func station_handle_at(at: Vector2) -> Dictionary:
 		return {}
 	if simulation != null and simulation.air_mission_manager != null:
 		for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
-			if m.kind == AirMission.Kind.STRIKE or m.cancelled:
+			if mission_on_contact(m) or m.cancelled:
 				continue
 			var centre := world_to_screen(m.station)
 			var radius := m.radius_nm * ppn
@@ -1292,6 +1348,10 @@ static func own_hover_lines(u: Unit, now: float) -> PackedStringArray:
 func _own_units() -> Array[Unit]:
 	if unit_manager == null:
 		return []
+	# The plot asks for this a dozen times a draw (units, rings, readouts, reference unit), and
+	# nothing changes during one draw, so it builds the list once.
+	if _own_in_draw:
+		return _own_cache
 	return unit_manager.get_engageable_units(player_faction)
 
 
@@ -1666,10 +1726,9 @@ func _refresh_threats() -> void:
 
 func _draw() -> void:
 	var t0 := Time.get_ticks_usec()
-	_last_draw_at = _anim
-	_drawn_sim_time = SimClock.sim_time
-	_drawn_center = center_nm
-	_drawn_ppn = ppn
+	_begin_plot_draw()
+	_own_cache = _own_units()
+	_own_in_draw = true
 	_refresh_threats()
 	var t1 := Time.get_ticks_usec()
 	_draw_ocean()
@@ -1701,7 +1760,6 @@ func _draw() -> void:
 		Debug.time_add("plot/tracks", tracks_end - plot_start)
 		Debug.time_add("plot/units", units_end - tracks_end)
 		Debug.time_add("plot/weapons", weapons_end - units_end)
-		_draw_effects()
 		_draw_speaker_rings()
 	_draw_range_circle()
 	var label_start := Time.get_ticks_usec()
@@ -1709,26 +1767,19 @@ func _draw() -> void:
 	_draw_labels()
 	Debug.time_add("plot/labels", Time.get_ticks_usec() - label_start)
 	var t4 := Time.get_ticks_usec()
-	if _hit_flash > 0.0:
-		var a := 0.35 * (_hit_flash / 1.2)
-		var clear := Color(1.0, 0.3, 0.25, 0.0)
-		var edge := Color(1.0, 0.3, 0.25, a)
-		var w := 90.0
-		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, w), Vector2(w, size.y - w), Vector2(0, size.y)]), PackedColorArray([edge, clear, clear, edge]))
-		draw_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x - w, size.y - w), Vector2(size.x - w, w)]), PackedColorArray([edge, edge, clear, clear]))
-		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), Vector2(size.x - w, w), Vector2(w, w)]), PackedColorArray([edge, edge, clear, clear]))
-		draw_polygon(PackedVector2Array([Vector2(0, size.y), Vector2(w, size.y - w), Vector2(size.x - w, size.y - w), Vector2(size.x, size.y)]), PackedColorArray([edge, clear, clear, edge]))
 	if _drag_mode == DragMode.BOX and _drag_moved:
 		var r := Rect2(_drag_start, _mouse - _drag_start).abs()
 		draw_rect(r, Color(COL_BOX, 0.08))
 		draw_rect(r, COL_BOX, false, 1.0)
 	if not overlay_covered:
 		_draw_readout()
-		_draw_radio_line()
 		_draw_key()
 		_draw_air_board()
 		_draw_hover_card()
 	_awaiting_symbol_art = MapSymbols.deferred_graphics_frame == Engine.get_process_frames()
+	if _marks != null:
+		_marks.queue_redraw()  # its rings and flashes sit on what this draw placed
+	_own_in_draw = false
 	var t5 := Time.get_ticks_usec()
 	# The whole chart, and where it went (the parts add up to the whole).
 	Debug.time_add("chart", t5 - t0)
@@ -1889,6 +1940,36 @@ func _draw_land() -> void:
 		var mesh := ChartLand.land_mesh()
 		if mesh != null:
 			draw_mesh(mesh, null, Transform2D(Vector2(ppn, 0), Vector2(0, ppn), world_to_screen(Vector2.ZERO)), COL_LAND)
+	if _coast_layer == null or not _coast_layer.is_inside_tree():
+		draw_coast(self)
+	if _named_land_generation != Terrain.generation:
+		_named_land_generation = Terrain.generation
+		_named_land.clear()
+		for l: Landmass in Terrain.landmasses:
+			if l.name != "":
+				_named_land.append(l)
+	for l: Landmass in _named_land:
+		if l.bounds.intersects(view):
+			_draw_land_name(l, view)
+
+
+## What the coast's strokes depend on: the view, the land and the scenario whose charted box
+## trims them. ChartCoast redraws when it changes.
+func coast_view_key() -> PackedFloat64Array:
+	return PackedFloat64Array([center_nm.x, center_nm.y, ppn, size.x, size.y, Terrain.generation, simulation.get_instance_id() if simulation != null else 0])
+
+
+## The coast is projected about `_coast_origin`; a pan since is a shift of the whole of it.
+func coast_shift() -> Vector2:
+	return Vector2((_coast_origin.x - center_nm.x) * ppn, (center_nm.y - _coast_origin.y) * ppn)
+
+
+## Strokes the coastline on `ci` (the coast layer, or this map outside the tree).
+func draw_coast(ci: CanvasItem) -> void:
+	if Terrain.is_empty():
+		return
+	var t0 := Time.get_ticks_usec()
+	var view := Rect2(screen_to_world(Vector2.ZERO), Vector2.ZERO).expand(screen_to_world(size))
 	var box := ChartFloor.stated_charted_box(simulation)
 	var key := "%d:%s" % [Terrain.generation, box]
 	if key != _coast_key:
@@ -1897,10 +1978,12 @@ func _draw_land() -> void:
 		_coast_screen.clear()
 		for l: Landmass in Terrain.landmasses:
 			_coast_runs[l] = coast_runs(l.points, box)
-	var view_key := PackedFloat32Array([center_nm.x, center_nm.y, ppn, size.x, size.y])
+	var view_key := PackedFloat32Array([ppn, size.x, size.y])
 	if view_key != _coast_view:
 		_coast_view = view_key
 		_coast_screen.clear()
+		_coast_origin = center_nm
+	ci.draw_set_transform(coast_shift())
 	for l: Landmass in Terrain.landmasses:
 		if not l.bounds.intersects(view):
 			continue
@@ -1911,13 +1994,13 @@ func _draw_land() -> void:
 		var lines: Array = _coast_screen.get(l, [])
 		if lines.is_empty():
 			for run: PackedVector2Array in _coast_runs.get(l, []):
-				lines.append(_project_coast(run))
+				lines.append(_project_coast(run, _coast_origin))
 			_coast_screen[l] = lines
 		for line: PackedVector2Array in lines:
 			if line.size() >= 2:
-				draw_polyline(line, COL_COASTLINE, 1.25, true)
-		if l.name != "":
-			_draw_land_name(l, view)
+				ci.draw_polyline(line, COL_COASTLINE, 1.25, true)
+	ci.draw_set_transform(Vector2.ZERO)
+	Debug.time_add("chart/strokes", Time.get_ticks_usec() - t0)
 
 
 ## A coastline as the runs to stroke. Where a polygon runs along the charted box's edge the scenario
@@ -1989,14 +2072,15 @@ func _draw_land_name(l: Landmass, view: Rect2) -> void:
 ## Projects a coastline and throws away detail finer than a pixel or so. A scenario chart is
 ## viewed from a whole ocean down to a single bay, and at the far end most of the vertices in a
 ## coastline land on top of each other.
-func _project_coast(world: PackedVector2Array) -> PackedVector2Array:
+func _project_coast(world: PackedVector2Array, origin: Vector2) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	if world.is_empty():
 		return out
-	var last := world_to_screen(world[0])
+	var half := size * 0.5
+	var last := Vector2(half.x + (world[0].x - origin.x) * ppn, half.y - (world[0].y - origin.y) * ppn)
 	out.append(last)
 	for i in range(1, world.size()):
-		var p := world_to_screen(world[i])
+		var p := Vector2(half.x + (world[i].x - origin.x) * ppn, half.y - (world[i].y - origin.y) * ppn)
 		if p.distance_squared_to(last) < COAST_MIN_STEP_PX * COAST_MIN_STEP_PX and i < world.size() - 1:
 			continue
 		out.append(p)
@@ -2126,17 +2210,27 @@ func _draw_graticule() -> void:
 ## Mission objective areas: a thin white circle with its name over it, no plate.
 ## Own air missions: a station or search area as a ring with its name, or a line from the deck to
 ## a strike's held target. Only the player's own missions are drawn.
+## A strike, and a CAP laid on one hostile air contact (an intercept), go for that contact: no
+## station to hold, so the chart draws a line from the deck to it rather than a ring.
+static func mission_on_contact(m: AirMission) -> bool:
+	return m.kind == AirMission.Kind.STRIKE or m.intercept
+
+
+static func contact_mission_caption(m: AirMission) -> String:
+	return "%s %d" % ["INTERCEPT" if m.intercept else m.kind_name(), m.id]
+
+
 func _draw_air_missions() -> void:
 	if simulation == null or simulation.air_mission_manager == null:
 		return
 	var col := Color(COL_FRIENDLY, 0.7)
 	for m: AirMission in simulation.air_mission_manager.active_missions(player_faction):
-		if m.kind == AirMission.Kind.STRIKE:
+		if mission_on_contact(m):
 			if m.target == null or m.base == null or not m.base.alive:
 				continue
 			var tp := world_to_screen(m.target.position)
 			_draw_chart_dashes(world_to_screen(m.base.position), tp, col, 1.0, 8.0)
-			_queue_caption(tp + Vector2(0.0, -18.0), "STRIKE %d" % m.id, 11, COL_READOUT, true)
+			_queue_caption(tp + Vector2(0.0, -18.0), contact_mission_caption(m), 11, COL_READOUT, true)
 			continue
 		var preview := m == _drag_mission and _drag_moved
 		var station := screen_to_world(_mouse) if preview and _drag_mode == DragMode.STATION else m.station
@@ -2330,6 +2424,12 @@ static func _arc_segments(r: float) -> int:
 	return clampi(int(r * 0.35), 32, 360)
 
 
+## A weapon envelope's line in the legend: its role, name and the band it can be fired in, the
+## inner edge where the engagement check refuses as too close (a torpedo's enable run included).
+static func envelope_legend(shooter: Unit, spec: WeaponSpec) -> String:
+	return "%s  %s  %.1f-%s nm" % [WeaponPresentation.role_name(spec), spec.compact_name(), Combat.minimum_range_nm(spec), Geo.format_nm(Combat.effective_range_nm(shooter, spec))]
+
+
 ## The selected weapon's reach from each hooked shooter that carries it: a role-coloured circle, its
 ## minimum range dashed, and the firing solution when the hooked contact can be engaged.
 func _draw_weapon_ring() -> void:
@@ -2348,11 +2448,12 @@ func _draw_weapon_ring() -> void:
 					_draw_dashed_circle(center, radius, Color(col, 0.65), _arc_segments(radius))
 				else:
 					draw_arc(center, radius, 0.0, TAU, _arc_segments(radius), Color(col, 0.65), 1.0, true)
-				if spec.min_range_nm > 0.0:
-					_draw_dashed_circle(center, spec.min_range_nm * ppn, Color(col, 0.3), 32)
+				var inner := Combat.minimum_range_nm(spec)
+				if inner > 0.0:
+					_draw_dashed_circle(center, inner * ppn, Color(col, 0.3), 32)
 				if row < 10:
 					row += 1
-					_shadow_text(legend + Vector2(0, row * 17), "%s  %s  %.1f-%s nm" % [WeaponPresentation.role_name(spec), spec.compact_name(), spec.min_range_nm, Geo.format_nm(Combat.effective_range_nm(ref, spec))], 11, col)
+					_shadow_text(legend + Vector2(0, row * 17), envelope_legend(ref, spec), 11, col)
 	if weapon_ring == null:
 		return
 	var col := WeaponPresentation.color(weapon_ring)
@@ -2363,8 +2464,9 @@ func _draw_weapon_ring() -> void:
 		var reach := Combat.effective_range_nm(u, weapon_ring)
 		var outer := reach * ppn
 		draw_arc(sp, outer, 0.0, TAU, _arc_segments(outer), col, 1.5, true)
-		if weapon_ring.min_range_nm > 0.0:
-			_draw_dashed_circle(sp, weapon_ring.min_range_nm * ppn, Color(col, 0.5), 48)
+		var inner := Combat.minimum_range_nm(weapon_ring)
+		if inner > 0.0:
+			_draw_dashed_circle(sp, inner * ppn, Color(col, 0.5), 48)
 		if u == reference_unit():
 			_queue_caption(sp + Vector2(0.0, maxf(-outer - 5.0, 16.0 - sp.y)), "%s  %s nm" % [weapon_ring.compact_name(), Geo.format_nm(reach)], 11, COL_READOUT, true)
 		if selected_track == null:
@@ -2668,14 +2770,23 @@ func _draw_labels() -> void:
 	_label_queue.clear()
 
 
-## The width of a label's text, measured once per string and size.
+## The width of a label's text, measured once per string and size. Called for every number and
+## caption on every plot draw, so the lookup builds no key string.
 func _text_width(text: String, font_size: int) -> float:
-	var key := "%s@%d" % [text, font_size]
-	if not _text_widths.has(key):
-		if _text_widths.size() >= 2048:
+	var widths: Dictionary = _text_widths.get(font_size, {})
+	if widths.is_empty():
+		_text_widths[font_size] = widths
+	var width: Variant = widths.get(text)
+	if width == null:
+		if _text_width_count >= 2048:
 			_text_widths.clear()
-		_text_widths[key] = _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	return float(_text_widths[key])
+			_text_width_count = 0
+			widths = {}
+			_text_widths[font_size] = widths
+		width = _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		widths[text] = width
+		_text_width_count += 1
+	return float(width)
 
 
 ## F5: the last few plots that built the track, as fading 2 px dots. Reports only, never a line
@@ -2831,7 +2942,7 @@ func _draw_threat_marks(u: Unit, sp: Vector2) -> void:
 		if entry["target"] != u:
 			continue
 		var w: Weapon = entry["weapon"]
-		MapSymbols.draw_threat_ring(self, sp, COL_HOSTILE, _anim)
+		_threat_ring_points.append(sp)
 		var wp := world_to_screen(w.position)
 		draw_line(wp, sp, Color(COL_HOSTILE, 0.35), 1.0, true)
 		var time_to_go := "%ds" % int(entry["time_s"])
@@ -2941,12 +3052,33 @@ func _draw_range_circle() -> void:
 	_queue_caption(c + Vector2(0.0, maxf(-r - 5.0, 16.0 - c.y)), ChartReadout.format_range_nmi(nm), READOUT_FONT_SIZE, COL_READOUT, true)
 
 
-func _draw_effects() -> void:
+## Everything on the chart that moves between plot draws, on the marks layer (ChartMarks): the
+## pulsing threat rings, the flashes, the red edge of a hit on one of ours and the radio line.
+func draw_marks(ci: CanvasItem) -> void:
+	var t0 := Time.get_ticks_usec()
+	for sp in _threat_ring_points:
+		MapSymbols.draw_threat_ring(ci, sp, COL_HOSTILE, _anim)
+	_draw_effects(ci)
+	if _hit_flash > 0.0:
+		var a := 0.35 * (_hit_flash / 1.2)
+		var clear := Color(1.0, 0.3, 0.25, 0.0)
+		var edge := Color(1.0, 0.3, 0.25, a)
+		var w := 90.0
+		ci.draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, w), Vector2(w, size.y - w), Vector2(0, size.y)]), PackedColorArray([edge, clear, clear, edge]))
+		ci.draw_polygon(PackedVector2Array([Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(size.x - w, size.y - w), Vector2(size.x - w, w)]), PackedColorArray([edge, edge, clear, clear]))
+		ci.draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), Vector2(size.x - w, w), Vector2(w, w)]), PackedColorArray([edge, edge, clear, clear]))
+		ci.draw_polygon(PackedVector2Array([Vector2(0, size.y), Vector2(w, size.y - w), Vector2(size.x - w, size.y - w), Vector2(size.x, size.y)]), PackedColorArray([edge, clear, clear, edge]))
+	if not overlay_covered:
+		_draw_radio_line(ci)
+	_marks_shown = marks_animating()
+	Debug.time_add("chart/marks", Time.get_ticks_usec() - t0)
+
+
+func _draw_effects(ci: CanvasItem) -> void:
 	for i in range(_effects.size() - 1, -1, -1):
 		var e: Dictionary = _effects[i]
 		var age: float = _anim - float(e["t0"])
 		if age > EFFECT_LIFE_S:
-			_effects.remove_at(i)
 			continue
 		var f := age / EFFECT_LIFE_S
 		var sp := world_to_screen(e["pos"])
@@ -2954,25 +3086,25 @@ func _draw_effects() -> void:
 		var kind: String = e["kind"]
 		match kind:
 			"hit", "destroyed":
-				draw_circle(sp, 4.0 + 26.0 * f, Color(col, 0.35 * (1.0 - f)))
-				draw_arc(sp, 6.0 + 40.0 * f, 0.0, TAU, 32, Color(col, 0.8 * (1.0 - f)), 2.0, true)
+				ci.draw_circle(sp, 4.0 + 26.0 * f, Color(col, 0.35 * (1.0 - f)))
+				ci.draw_arc(sp, 6.0 + 40.0 * f, 0.0, TAU, 32, Color(col, 0.8 * (1.0 - f)), 2.0, true)
 				if kind == "destroyed":
-					draw_arc(sp, 10.0 + 60.0 * f, 0.0, TAU, 32, Color(col, 0.5 * (1.0 - f)), 1.0, true)
+					ci.draw_arc(sp, 10.0 + 60.0 * f, 0.0, TAU, 32, Color(col, 0.5 * (1.0 - f)), 1.0, true)
 			"intercept", "decoy":
-				draw_arc(sp, 3.0 + 22.0 * f, 0.0, TAU, 24, Color(col, 0.9 * (1.0 - f)), 1.5, true)
+				ci.draw_arc(sp, 3.0 + 22.0 * f, 0.0, TAU, 24, Color(col, 0.9 * (1.0 - f)), 1.5, true)
 				for k in 6:
 					var a := TAU * k / 6.0 + f
-					draw_line(sp + Vector2(cos(a), sin(a)) * (4.0 + 10.0 * f), sp + Vector2(cos(a), sin(a)) * (8.0 + 18.0 * f), Color(col, 0.7 * (1.0 - f)), 1.0)
+					ci.draw_line(sp + Vector2(cos(a), sin(a)) * (4.0 + 10.0 * f), sp + Vector2(cos(a), sin(a)) * (8.0 + 18.0 * f), Color(col, 0.7 * (1.0 - f)), 1.0)
 			"launch":
-				draw_arc(sp, 4.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.6 * (1.0 - f)), 1.0, true)
+				ci.draw_arc(sp, 4.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.6 * (1.0 - f)), 1.0, true)
 			"refused":
 				var r := 16.0 - 8.0 * f
 				var a := Color(col, 0.9 * (1.0 - f))
-				draw_arc(sp, r, 0.0, TAU, 24, a, 1.5, true)
-				draw_line(sp + Vector2(-r, -r) * 0.6, sp + Vector2(r, r) * 0.6, a, 1.5)
-				draw_line(sp + Vector2(-r, r) * 0.6, sp + Vector2(r, -r) * 0.6, a, 1.5)
+				ci.draw_arc(sp, r, 0.0, TAU, 24, a, 1.5, true)
+				ci.draw_line(sp + Vector2(-r, -r) * 0.6, sp + Vector2(r, r) * 0.6, a, 1.5)
+				ci.draw_line(sp + Vector2(-r, r) * 0.6, sp + Vector2(r, -r) * 0.6, a, 1.5)
 			_:
-				draw_arc(sp, 3.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.5 * (1.0 - f)), 1.0, true)
+				ci.draw_arc(sp, 3.0 + 14.0 * f, 0.0, TAU, 20, Color(col, 0.5 * (1.0 - f)), 1.0, true)
 
 
 # --- Readouts and radio line --------------------------------------------------------------
@@ -2987,10 +3119,11 @@ func _readout_font() -> Font:
 
 
 ## White bold text with a 1 px black drop shadow and no plate, the chart's only text style.
-func _shadow_text(at: Vector2, text: String, font_size: int, col := COL_READOUT, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
+func _shadow_text(at: Vector2, text: String, font_size: int, col := COL_READOUT, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, ci: CanvasItem = null) -> void:
 	var font := _readout_font()
-	draw_string(font, at + Vector2(1.0, 1.0), text, align, width, font_size, Color(COL_READOUT_SHADOW, COL_READOUT_SHADOW.a * col.a))
-	draw_string(font, at, text, align, width, font_size, col)
+	var on: CanvasItem = ci if ci != null else self
+	on.draw_string(font, at + Vector2(1.0, 1.0), text, align, width, font_size, Color(COL_READOUT_SHADOW, COL_READOUT_SHADOW.a * col.a))
+	on.draw_string(font, at, text, align, width, font_size, col)
 
 
 func _draw_text_block(first_baseline: Vector2, lines: PackedStringArray, col := COL_READOUT) -> void:
@@ -3102,7 +3235,7 @@ func radio_layout() -> Dictionary:
 		var rows := wrap_radio_text(font, e["text"], READOUT_FONT_SIZE, maxf(size.x - 2.0 * RADIO_SIDE_CLEAR_PX, 240.0))
 		for r in range(rows.size() - 1, -1, -1):
 			widest = maxf(widest, _text_width(rows[r], READOUT_FONT_SIZE))
-			out.append({"text": rows[r], "baseline": baseline, "color": Color(col, alpha * col.a)})
+			out.append({"text": rows[r], "baseline": baseline, "color": Color(col, alpha * col.a), "tone": col, "t0": float(e["t0"])})
 			baseline -= READOUT_LINE_H
 	var top := baseline + READOUT_LINE_H - font.get_ascent(READOUT_FONT_SIZE)
 	var plate := Rect2(roundf((size.x - widest) * 0.5 - RADIO_PLATE_PAD.x), roundf(top - RADIO_PLATE_PAD.y), roundf(widest + 2.0 * RADIO_PLATE_PAD.x), 0.0)
@@ -3110,12 +3243,24 @@ func radio_layout() -> Dictionary:
 	return {"rows": out, "plate": plate, "alpha": strongest}
 
 
-func _draw_radio_line() -> void:
+## Laid out with the plot (the band it keeps clear), drawn with the marks: a line fades by the
+## frame, its rows only reflow when the plot next draws.
+func _draw_radio_line(ci: CanvasItem) -> void:
 	if _radio_layout.is_empty():
 		return
-	draw_rect(_radio_layout["plate"], Color(COL_RADIO_PLATE, COL_RADIO_PLATE.a * float(_radio_layout["alpha"])))
+	var strongest := 0.0
+	var colours: Array[Color] = []
 	for row: Dictionary in _radio_layout["rows"]:
-		_shadow_text(Vector2(0.0, row["baseline"]), row["text"], READOUT_FONT_SIZE, row["color"], HORIZONTAL_ALIGNMENT_CENTER, size.x)
+		var tone: Color = row["tone"]
+		var alpha := RadioLine.alpha_at(_anim - float(row["t0"]))
+		strongest = maxf(strongest, alpha)
+		colours.append(Color(tone, alpha * tone.a))
+	if strongest <= 0.0:
+		return
+	ci.draw_rect(_radio_layout["plate"], Color(COL_RADIO_PLATE, COL_RADIO_PLATE.a * strongest))
+	var rows: Array = _radio_layout["rows"]
+	for i in rows.size():
+		_shadow_text(Vector2(0.0, rows[i]["baseline"]), rows[i]["text"], READOUT_FONT_SIZE, colours[i], HORIZONTAL_ALIGNMENT_CENTER, size.x, ci)
 
 
 ## A white circle round each platform whose message is on the radio line: it is transmitting.

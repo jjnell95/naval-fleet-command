@@ -103,11 +103,13 @@ A review of the whole game after M43, fixed area by area.
 - Command keys are not taken from a focused text field. **Esc** or **F1** returns from the pre-mission briefing to the desk; the debrief stays up under **Space** and reopens with **F1**, the chart menu or Actions.
 - The radio line has a band of its own: chart names and track numbers are placed clear of it, with a plate behind its rows. Patrol, ring, CPA and time-to-go captions are placed with alternatives instead of printed over each other, contacts on one spot share one label, and the hooked platform's number sits beyond its brackets.
 - A right-click on the regional display sends the hooked platforms there, **Shift** adding a leg, and says why when it cannot.
+- An intercept is drawn as a line from the deck to its contact, as a strike is, with no hold ring to drag; a torpedo's minimum-range ring and legend give the range inside which the shot is refused, its enable run included.
 
 ### Speed
 
 - The sensor cycle weighs a sonar or lookout pair only inside some reach, files a linked unit's reports once in the shared plot, finds bearing samples through a per-track index and trims crossed fixes; the profiler shows its set-up and lookout pass.
 - Each per-tick unit step runs only for units it applies to. Seeded state dumps of two scenarios are byte-identical before and after.
+- The chart's moving marks (threat rings, flashes, the red edge of a hit, the radio fade) are drawn on a layer of their own every frame, and the plot under them only on a simulation tick, a view change or the idle rate; the coastline is stroked on its own layer when the view moves, shifted rather than re-projected on a pan.
 
 ### Measured
 
