@@ -313,3 +313,55 @@ func test_an_enemy_gun_shoot_is_called_gunfire_everywhere_the_commander_reads() 
 		assert_eq(kind, "GUN", "%s: the defence board's row is a gun round" % mode)
 		assert_true(guide.contains("gunfire") and not guide.contains("missile"), "%s: the guide does not send the commander to the missile defence: '%s'" % [mode, guide])
 		_close(main)
+
+
+# --- A right-click on a contact in the 3D view opens that contact's menu ----------------------
+
+func test_right_click_on_a_contact_in_the_3d_view_opens_its_menu() -> void:
+	var main := _open("northern_passage.json")
+	var u := _own(main, "Truxtun")
+	main.map.select_units([u])
+	var t := _hostile_track(main)
+	assert_true(t != null, "a hostile contact is held")
+	if t == null:
+		_close(main)
+		return
+	var view := main._world_view
+	main._swap_views()
+	main._toggle_world_full()
+	view.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	view.size = Vector2(640, 360)
+	main.map.select_units([u])
+	main.map.select_track(t)
+	for i in 3:
+		view._process(0.016)
+	var at := Vector2.INF
+	for rec: Dictionary in view._scene._records.values():
+		if rec["entry"].get("track") == t and rec["entry"].get("kind") in ["visual", "plotted"]:
+			var root: Node3D = rec["root"]
+			at = view._scene.camera.unproject_position(root.global_transform * (rec["bounds"] as AABB).get_center())
+	assert_true(at.is_finite(), "the contact is drawn in the 3D view")
+	if not at.is_finite():
+		_close(main)
+		return
+	assert_eq(view._scene.pick_entry(at).get("track"), t, "and lies under the cursor at %s" % at)
+	main.map.select_units([u])
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_RIGHT
+	e.pressed = true
+	e.position = at
+	view._gui_input(e)
+	var up := e.duplicate() as InputEventMouseButton
+	up.pressed = false
+	view._gui_input(up)
+	assert_true(main._cds_menus.is_open(), "the right-click opens a menu")
+	var first: String = main._cds_menus._root.get_item_text(0) if main._cds_menus.is_open() else ""
+	assert_true(first.begins_with("Track %s" % DataDisplay.track_number_for_track(t)), "the contact's own menu, not the hooked ship's: '%s'" % first)
+	var texts := PackedStringArray()
+	if main._cds_menus.is_open():
+		for i in main._cds_menus._root.item_count:
+			texts.append(main._cds_menus._root.get_item_text(i))
+	assert_true(" | ".join(texts).to_lower().contains("attack"), "offering the attack: %s" % " | ".join(texts))
+	assert_eq(main.map.selected, [u], "the hooked ship stays hooked as the shooter")
+	main._cds_menus.close()
+	_close(main)

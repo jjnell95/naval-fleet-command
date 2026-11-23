@@ -194,6 +194,7 @@ func _ready() -> void:
 	_world_view.fullscreen_requested.connect(_toggle_world_full)
 	# The 3D pane's right-click asks for the same menu as the data display's.
 	_world_view.platform_menu_requested.connect(_on_display_menu)
+	_world_view.contact_menu_requested.connect(_on_world_contact_menu)
 	_view_frame.add_child(_world_view)
 	map.context_menu_requested.connect(_on_map_context)
 	contact_panel.track_manager = simulation.track_manager
@@ -2979,6 +2980,14 @@ func _on_map_context(screen_pos: Vector2, context: Dictionary) -> void:
 
 ## Right-click on the data display: the menu of what it is reading out. The contact being
 ## inspected, else the hooked platforms, else the CDS menu.
+## A right-click on a contact in the 3D view: the contact's menu, as a right-click on it on the
+## chart gives, with the hooked platforms as its shooters.
+func _on_world_contact_menu(t: Track, viewport_pos: Vector2) -> void:
+	if _has_visible_modal() or not _commander_sees_track(t):
+		return
+	_on_map_context(Vector2.ZERO, {"kind": "track", "track": t, "viewport_pos": viewport_pos})
+
+
 func _on_display_menu(viewport_pos := Vector2.INF) -> void:
 	if _has_visible_modal():
 		return
