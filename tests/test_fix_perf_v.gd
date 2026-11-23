@@ -206,7 +206,7 @@ func test_the_sensor_cycle_is_spread_over_the_ticks_of_its_second() -> void:
 ## A contact held by observers that look in different ticks of the second is merged once a cycle:
 ## its classification time grows by one cycle's worth a second, as when they all looked at once.
 func test_a_contact_held_across_the_ticks_of_a_second_is_one_look_a_cycle() -> void:
-	var world := _ring_round_an_emitter(8, 30.0)
+	var world := _ring_round_an_emitter(24, 30.0)
 	var um: UnitManager = world[0]
 	var tm: TrackManager = world[1]
 	var sm: SensorManager = world[2]
@@ -217,8 +217,9 @@ func test_a_contact_held_across_the_ticks_of_a_second_is_one_look_a_cycle() -> v
 	var t := tm.find_track("BLUE", emitter)
 	var spread := t.observation_time_s
 	var looked := t.contributors.size()
+	var dealt_over := not (sm._plan[1] as PackedInt32Array).is_empty()
 	_free(world)
-	world = _ring_round_an_emitter(8, 30.0)
+	world = _ring_round_an_emitter(24, 30.0)
 	tm = world[1]
 	sm = world[2]
 	emitter = (world[0] as UnitManager).units[0]
@@ -226,7 +227,8 @@ func test_a_contact_held_across_the_ticks_of_a_second_is_one_look_a_cycle() -> v
 		sm.run_cycle(float(second))
 	var whole := tm.find_track("BLUE", emitter).observation_time_s
 	_free(world)
-	assert_eq(looked, 8, "all eight listeners hear it")
+	assert_eq(looked, 24, "all two dozen listeners hear it")
+	assert_true(dealt_over, "and they look in more than one tick of the second")
 	assert_true(whole > 0.0 and absf(spread - whole) <= whole * 0.05, "classification time %.1f s spread over the ticks against %.1f s in whole cycles" % [spread, whole])
 
 
@@ -344,3 +346,19 @@ func test_a_48_a_side_fleet_keeps_every_tick_short() -> void:
 	assert_eq(_spread(by), "", "every quarter of the second files part of the cycle")
 	assert_true(p95 <= 3.5 * median, "the 95th percentile tick (%.1f ms) is within three and a half times the median (%.1f ms)" % [p95, median])
 	_end(sim)
+
+
+## A cycle with little to do is not spread: each slice works out every unit's figures afresh, which
+## costs more than it saves. A handful of ships runs its whole cycle in the first tick of the second.
+func test_a_small_cycle_runs_whole_in_its_first_slice() -> void:
+	var world := _ring_round_an_emitter(4, 30.0)
+	var tm: TrackManager = world[1]
+	var sm: SensorManager = world[2]
+	var by := PackedInt32Array([0, 0, 0, 0])
+	for second in 10:
+		for quarter in SensorManager.SLICES:
+			var before := tm.picture_filings
+			sm.run_slice(float(second) + 0.25 * quarter)
+			by[quarter] += tm.picture_filings - before
+	_free(world)
+	assert_true(by[0] > 0 and by[1] == 0 and by[2] == 0 and by[3] == 0, "every report in the first slice (%s)" % by)

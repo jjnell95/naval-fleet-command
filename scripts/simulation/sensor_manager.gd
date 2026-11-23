@@ -51,6 +51,9 @@ var _plan: Array = []
 var _work: Dictionary = {}
 ## What an observer's passes cost before it files anything, counted as reports.
 const OBSERVER_WORK := 8
+## A cycle with less work than this runs whole in its first slice: each slice works out every
+## unit's figures afresh, which costs more than spreading a small cycle saves.
+const SPREAD_MIN_WORK := 200
 ## The units fitted with a jammer, the only ones Detection.refresh_jammers can find jamming, and
 ## the size and last unit of the list they were picked from. Read from the fits, never the battle.
 var _jammer_fits: Array[Unit] = []
@@ -199,16 +202,27 @@ func run_cycle(now: float) -> void:
 
 
 ## Deals the cycle's observers to its slices, the heaviest first, each to the slice with the least
-## work so far (the earlier on a tie), so that each tick carries about a quarter of it.
+## work so far (the earlier on a tie), so that each tick carries about a quarter of it; a small
+## cycle all to the first.
 func _deal() -> void:
 	var order: Array = []
 	var work := {}
+	var total := 0
 	for i in unit_manager.units.size():
 		if unit_manager.units[i].is_engageable():
 			var filed := int(_work.get(i, 0))
 			work[i] = filed
 			order.append([filed + OBSERVER_WORK, i])
+			total += filed + OBSERVER_WORK
 	_work = work
+	if total < SPREAD_MIN_WORK:
+		var all := PackedInt32Array()
+		for item: Array in order:
+			all.append(item[1])
+		_plan = [all]
+		for k in range(1, SLICES):
+			_plan.append(PackedInt32Array())
+		return
 	order.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0] or (a[0] == b[0] and a[1] < b[1]))
 	var loads := PackedInt32Array()
 	loads.resize(SLICES)
@@ -232,6 +246,8 @@ func _deal() -> void:
 
 func _run(now: float, cycle: float, observers: Variant, closes: bool) -> void:
 	track_manager.cycle_at = cycle
+	if observers.is_empty() and not closes:
+		return  # a slice a small cycle left with nothing to do
 	var setup := Time.get_ticks_usec()
 	var listed := unit_manager.units
 	if _jammer_fits_of != listed.size() or (not listed.is_empty() and listed[-1] != _jammer_fits_last):
@@ -245,7 +261,7 @@ func _run(now: float, cycle: float, observers: Variant, closes: bool) -> void:
 	Detection.begin_jamming_batch()
 	var spent := [0, 0, 0, 0]  # radar, sonar, ESM and lookout time, in microseconds
 	var reference: GDScript = load(REFERENCE_PASSES) if reference_path else null
-	var facts: CycleFacts = null if reference != null else CycleFacts.new(unit_manager.units)
+	var facts: CycleFacts = null if reference != null or observers.is_empty() else CycleFacts.new(unit_manager.units)
 	var cz_outer := _cz_outer_nm()
 	Debug.time_add("sensors/setup", Time.get_ticks_usec() - setup)
 	for i: int in observers:
