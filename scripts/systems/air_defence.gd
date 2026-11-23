@@ -172,6 +172,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 	var airborne := interceptors_airborne(weapon_manager)
 	for faction: String in by_faction:
 		var inbound := inbound_threats(unit_manager, threat_manager, faction)
+		_douse_defence_radars(by_faction[faction], inbound, unit_manager, now)
 		if inbound.is_empty():
 			continue
 		var ballistic_held := false
@@ -190,8 +191,10 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 					if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
 						continue
 					# Chaff and flares were answered by DefensiveResponse earlier in the same step.
+					# A radar the commander switched off is lit by the crew only for a round coming
+					# at the ship herself, not to cover a consort.
 					if first_pass:
-						if not u.radar_on and not (entry["target"] as Unit).is_aircraft():
+						if not u.radar_on and entry["target"] == u:
 							_light_radar_to_defend(u, w, unit_manager, weapon_manager, now)
 					# Weapons hold is an order not to attack. A ship holding fire still defends itself
 					# and its consorts against a round on its way in.
@@ -240,7 +243,33 @@ static func _light_radar_to_defend(u: Unit, w: Weapon, unit_manager: UnitManager
 	var order := Order.activate_radar()
 	order.origin = "crew"
 	if unit_manager.issue_order(u, order):
+		u.radar_lit_for_defence_s = now
 		weapon_manager.self_defence_emcon.emit(u, true)
+
+
+## How long a radar the crew lit to fight a round stays on once nothing more is coming at the
+## ship, so the next round of the same raid is not met by a dark set. GAMEPLAY_ESTIMATE.
+const DEFENCE_RADAR_QUIET_S := 30.0
+
+
+## A radar the crew lit against a round coming at the ship goes dark again once the threat has
+## passed, as the commander had it, unless the commander has given a radar order since
+## (WeaponManager clears the mark then).
+static func _douse_defence_radars(force: Array, inbound: Array, unit_manager: UnitManager, now: float) -> void:
+	for u: Unit in force:
+		if u.radar_lit_for_defence_s < 0.0:
+			continue
+		for entry: Dictionary in inbound:
+			if entry["target"] == u and (entry["weapon"] as Weapon).phase != Weapon.Phase.DEAD:
+				u.radar_lit_for_defence_s = now
+				break
+		if now - u.radar_lit_for_defence_s < DEFENCE_RADAR_QUIET_S:
+			continue
+		u.radar_lit_for_defence_s = -1.0
+		if u.radar_on:
+			var order := Order.silence_radar()
+			order.origin = "crew"
+			unit_manager.issue_order(u, order)
 
 
 ## Defenders that can reach this round, best placed first: a ship already guiding against it or

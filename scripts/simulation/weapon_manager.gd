@@ -386,6 +386,8 @@ func defeat_weapon(threat: Weapon, reason: String, by_unit: Unit = null) -> void
 
 func tick(dt: float, now: float) -> void:
 	now_s = now
+	if unit_manager != null and not unit_manager.order_issued.is_connected(_on_order_issued):
+		unit_manager.order_issued.connect(_on_order_issued)
 	_sort_pending()
 	for p: Dictionary in _pending.duplicate():
 		var check := engagement_check(p.shooter, p.spec, p.track, now, true)
@@ -407,6 +409,13 @@ func tick(dt: float, now: float) -> void:
 			in_flight.remove_at(i)
 			revision += 1
 			weapon_resolved.emit(resolved)
+
+
+## A radar or emissions order from the commander settles the radar the crew lit for defence: it
+## stays as ordered, not put out again when the threat has passed (AirDefence).
+func _on_order_issued(u: Unit, order: Order) -> void:
+	if order.origin != "crew" and order.type in [Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR, Order.Type.SET_EMCON]:
+		u.radar_lit_for_defence_s = -1.0
 
 
 func clear() -> void:

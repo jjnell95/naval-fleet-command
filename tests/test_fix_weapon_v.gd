@@ -378,3 +378,100 @@ func test_a_group_attack_on_a_nearly_dead_target_fires_a_round_or_two_in_all() -
 	sim.group_attack_manager.clear()
 	sim.unit_manager.clear()
 	sim.free()
+
+
+# --- verify:radar-off-order: the crew lights a radar the commander put out only for its own defence
+
+func _def_ship(callsign: String, pos: Vector2) -> Unit:
+	var u := _unit("BLUE", pos, "surface", 0)
+	u.callsign = callsign
+	u.decoys = 0
+	var radar := SensorSpec.new()
+	radar.kind = "radar"
+	radar.range_surface_nm = 40.0
+	radar.range_air_nm = 200.0
+	radar.antenna_height_m = 20.0
+	u.sensors.append(radar)
+	var sam := WeaponSpec.new()
+	sam.id = "test_sarh"
+	sam.display_name = "Test SARH"
+	sam.type = "sam"
+	sam.guidance = "semi_active_radar"
+	sam.target_types = PackedStringArray(["missile"])
+	sam.max_range_nm = 20.0
+	sam.min_range_nm = 0.5
+	sam.speed_kn = 2400.0
+	sam.turn_rate_deg_s = 120.0
+	sam.base_pk = 0.0
+	sam.salvo_default = 1
+	sam.launch_interval_s = 1.0
+	u.weapons.append(sam)
+	u.magazines[sam.id] = 32
+	return u
+
+
+func _def_round(wm: WeaponManager, pos: Vector2, target: Unit, wid: int) -> Weapon:
+	var w := Weapon.new()
+	w.id = wid
+	w.spec = _strike_spec("test_asm", "asm", ["surface"])
+	w.spec.altitude_m = 10.0
+	w.faction = "RED"
+	w.position = pos
+	w.acquired = target
+	w.aim_point = target.position
+	w.heading_deg = Geo.bearing_deg(pos, target.position)
+	w.phase = Weapon.Phase.TERMINAL
+	wm.in_flight.append(w)
+	return w
+
+
+## The commander switches a ship's radar off with a plain order. A round coming at her consort does
+## not make her crew light it; one coming at her does, and the crew says so. With the threat past,
+## the radar goes dark again as the commander had it. Had the commander ordered it on meanwhile,
+## it stays on.
+func test_a_radar_ordered_off_is_lit_only_for_a_round_at_the_ship_and_put_out_after() -> void:
+	Terrain.clear()
+	for commander_relights: bool in [false, true]:
+		var dark := _def_ship("Dark", Vector2.ZERO)
+		var consort := _def_ship("Consort", Vector2(6.0, 0.0))
+		consort.radar_on = true
+		var um := UnitManager.new()
+		um.add_unit(dark)
+		um.add_unit(consort)
+		var tm := ThreatManager.new()
+		var wm := WeaponManager.new()
+		wm.unit_manager = um
+		um.weapon_manager = wm
+		var lit_lines: Array = []
+		wm.self_defence_emcon.connect(func(u: Unit, lit: bool) -> void:
+			if lit:
+				lit_lines.append(u.callsign))
+		assert_true(um.issue_order(dark, Order.silence_radar()), "the commander's order is taken")
+		assert_true(not dark.radar_on)
+		wm.tick(DT, 0.0)
+		var at_consort := _def_round(wm, Vector2(6.0, 15.0), consort, 901)
+		tm.mark_detected("BLUE", at_consort, 1.0)
+		AirDefence.run_cycle(um, tm, wm, 1.0)
+		assert_true(not dark.radar_on, "a round at the consort leaves her radar as ordered")
+		wm.defeat_weapon(at_consort, "TEST")
+		var at_her := _def_round(wm, Vector2(0.0, 15.0), dark, 902)
+		tm.mark_detected("BLUE", at_her, 2.0)
+		AirDefence.run_cycle(um, tm, wm, 2.0)
+		assert_true(dark.radar_on, "a round coming at her: the crew lights the radar to fight it")
+		assert_true(lit_lines.has("Dark"), "and says so on the radio")
+		if commander_relights:
+			assert_true(um.issue_order(dark, Order.activate_radar()))
+		wm.defeat_weapon(at_her, "TEST")
+		var now := 2.0
+		while now < 2.0 + AirDefence.DEFENCE_RADAR_QUIET_S + 5.0:
+			now += 1.0
+			wm.tick(1.0, now)
+			AirDefence.run_cycle(um, tm, wm, now)
+		if commander_relights:
+			assert_true(dark.radar_on, "the commander ordered it on: it stays on")
+		else:
+			assert_true(not dark.radar_on, "the threat has passed: dark again as the commander had it")
+		wm.clear()
+		tm.free()
+		wm.free()
+		um.free()
