@@ -63,12 +63,14 @@ const MANAGER_FIELDS := {
 ## Manager variables that are deliberately not saved, and why. SensorManager.reference_path is a
 ## development switch between two cycles that produce the same tracks, not engagement state, and
 ## its two counters measure work. TrackManager.cycle_at is set by the sensor cycle before each of
-## its slices from the SensorManager's own saved cycle time. An older save that still carries the removed _last_heading and
-## _manoeuvre is restored without them, as restore skips names a manager does not have.
+## its slices from the SensorManager's own saved cycle time, and SensorManager._jammer_fits is read
+## from the units' fits whenever the unit list changes. An older save that still carries the
+## removed _last_heading and _manoeuvre is restored without them, as restore skips names a manager
+## does not have.
 const MANAGER_TRANSIENT := {
 	"UnitManager": ["units", "weapon_manager"],
 	"TrackManager": ["neutral_factions", "recognition_affiliations", "picture_filings", "cycle_at"],
-	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path", "sonar_pairs_weighed", "lookout_pairs_weighed"],
+	"SensorManager": ["unit_manager", "track_manager", "threat_manager", "weapon_manager", "aviation_manager", "rng", "reference_path", "sonar_pairs_weighed", "lookout_pairs_weighed", "_jammer_fits", "_jammer_fits_of", "_jammer_fits_last"],
 	"ThreatManager": ["revision"],
 	"WeaponManager": ["unit_manager", "track_manager", "rng", "revision", "_channel_batch", "_channel_cache"],
 	"AviationManager": ["unit_manager", "sonobuoys", "map_center", "map_extent_nm"],

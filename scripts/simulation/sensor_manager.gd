@@ -49,6 +49,11 @@ var _plan: Array = []
 var _work: Dictionary = {}
 ## What an observer's passes cost before it files anything, counted as reports.
 const OBSERVER_WORK := 8
+## The units fitted with a jammer, the only ones Detection.refresh_jammers can find jamming, and
+## the size and last unit of the list they were picked from. Read from the fits, never the battle.
+var _jammer_fits: Array[Unit] = []
+var _jammer_fits_of := -1
+var _jammer_fits_last: Unit = null
 ## Development switch: run the original pair-by-pair passes (REFERENCE_PASSES) instead of the
 ## ones that work out each unit's figures once per cycle. Both make the same reports in the same
 ## order with the same random draws, so the tracks come out identical (tests/test_sensor_cycle.gd
@@ -164,6 +169,9 @@ func reset() -> void:
 	_cycle_at = 0.0
 	_plan = []
 	_work = {}
+	_jammer_fits.clear()
+	_jammer_fits_of = -1
+	_jammer_fits_last = null
 
 
 func tick(dt: float) -> void:
@@ -223,7 +231,15 @@ func _deal() -> void:
 func _run(now: float, cycle: float, observers: Variant, closes: bool) -> void:
 	track_manager.cycle_at = cycle
 	var setup := Time.get_ticks_usec()
-	Detection.refresh_jammers(unit_manager.units)
+	var listed := unit_manager.units
+	if _jammer_fits_of != listed.size() or (not listed.is_empty() and listed[-1] != _jammer_fits_last):
+		_jammer_fits.clear()
+		for u in listed:
+			if u.has_jammer():
+				_jammer_fits.append(u)
+		_jammer_fits_of = listed.size()
+		_jammer_fits_last = null if listed.is_empty() else listed[-1]
+	Detection.refresh_jammers(_jammer_fits)
 	Detection.begin_jamming_batch()
 	var spent := [0, 0, 0, 0]  # radar, sonar, ESM and lookout time, in microseconds
 	var reference: GDScript = load(REFERENCE_PASSES) if reference_path else null
