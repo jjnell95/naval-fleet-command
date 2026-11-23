@@ -840,6 +840,18 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	# A round searching on down its heading, or a payload circling its entry point, has no aim
 	# point worth the name: it takes what is nearest itself.
 	var reference := w.position if w.searching_on or around_entry else w.aim_point
+	# A seeker opened on the basket round an aim point, as against one searching its way in.
+	var on_basket := not (w.searching_on or around_entry or w.spec.is_torpedo() or w.spec.is_anti_radiation())
+	# Fired at a ship or a target ashore, such a seeker is gated on the range of its aim point. A
+	# hull closer than that by more than the solution can be wrong (Combat.protected_spread_nm, the
+	# margin the launch check keeps protected traffic out of) lies short of the target; a seeker
+	# that opens on the rail, a shot inside its own seeker range, would otherwise take the first one
+	# crossing its cone near the shooter. An aircraft may be overhauled from astern, so a shot at one
+	# is not gated this way.
+	var range_gate := -INF
+	if on_basket and (w.target_track == null or w.target_track.domain != "air"):
+		var spread := Combat.protected_spread_nm(w.spec, w.target_track, w.launch_range_nm) if w.target_track != null else Combat.PROTECTED_GUARD_NM
+		range_gate = w.position.distance_to(reference) - spread
 	var best: Unit = null
 	var best_fraction := INF
 	var best_d_squared := INF
@@ -847,6 +859,8 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 		if u == w.shooter or not seeker_sees(w, u):
 			continue
 		if separating and u.position.distance_to(w.shooter.position) < separation:
+			continue
+		if u != designated and w.position.distance_to(u.position) < range_gate:
 			continue
 		var fraction := _first_radius_contact_fraction(previous, w.position, u.position, radius) if around_entry else first_seeker_contact_fraction(previous, w.position, u.position, radius, w.heading_deg, w.spec.seeker_half_angle_deg)
 		if not is_finite(fraction):
@@ -861,8 +875,6 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 			best_fraction = fraction
 			best_d_squared = d_squared
 	var at_aim := not w.searching_on and w.circle_search_s < 0.0 and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0
-	# A seeker opened on the basket round an aim point, as against one searching its way in.
-	var on_basket := not (w.searching_on or around_entry or w.spec.is_torpedo() or w.spec.is_anti_radiation())
 	if best != null and best != designated and on_basket and not at_aim:
 		# Its own contact is still ahead of it: something else crossing the cone is not the target.
 		if designated != null or not _lock_is_due(w, best, radius):
