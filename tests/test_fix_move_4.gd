@@ -164,3 +164,36 @@ func test_a_named_weapon_fires_its_own_salvo_whatever_the_target() -> void:
 	assert_eq(shooter.attack_rounds_fired, DataDB.weapon("tomahawk_block_v").salvo_default, "the commander's choice is not second-guessed")
 	h.free_all()
 
+
+# --- CAP pursuit -------------------------------------------------------------------------
+
+func _load_carrier() -> Simulation:
+	SimClock.set_paused(true)
+	var sim := Simulation.new()
+	sim.seed_override = 7
+	(Engine.get_main_loop() as SceneTree).root.add_child(sim)
+	assert_true(sim.load_scenario("res://data/scenarios/cold_war_03_carrier.json"))
+	sim.ai_enabled = false
+	return sim
+
+
+func _free_sim(sim: Simulation) -> void:
+	sim.unit_manager.clear()
+	sim.queue_free()
+	sim.free()
+
+
+func test_a_cap_ordered_without_a_pursuit_may_chase_the_standard_sixty_miles() -> void:
+	var sim := _load_carrier()
+	var cv: Unit = null
+	for u in sim.unit_manager.units:
+		if u.callsign == "USS Dwight D. Eisenhower (CVN 69)":
+			cv = u
+	assert_true(sim.unit_manager.issue_order(cv, Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 2, cv.position + Vector2(0, 20), 10.0)))
+	var m: AirMission = sim.air_mission_manager.active_missions("BLUE")[0]
+	assert_eq(m.pursuit_nm, AirMissionManager.COMMIT_MARGIN_NM, "the CAP chases as far as the dialog's default")
+	assert_true(sim.unit_manager.issue_order(cv, Order.revise_air_mission(m, m.station, 10.0, 2, false, true, "hold", null, 40.0)))
+	assert_eq(m.pursuit_nm, 40.0)
+	assert_true(sim.unit_manager.issue_order(cv, Order.revise_air_mission(m, m.station + Vector2(5, 0), 10.0, 2, false, true)))
+	assert_eq(m.pursuit_nm, 40.0, "a revision that names no pursuit keeps the mission's own")
+	_free_sim(sim)

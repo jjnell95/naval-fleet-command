@@ -48,7 +48,8 @@ var radius_nm := 0.0
 var relief := false
 var cap_intent := "hold"
 var protected_unit: Unit
-var pursuit_nm := 25.0
+## CAP: how far past the station's ring a fighter may chase a contact.
+var pursuit_nm := AirMissionManager.COMMIT_MARGIN_NM
 var formation_axis_deg := -1.0
 var comms_interval_s := 7200.0
 ## What a specialist manager accepted, refused or queued, in words, for the receipt.
@@ -215,12 +216,13 @@ static func air_mission(kind: int, aircraft_type: String, count: int, station :=
 
 
 ## Revise a standing assignment while keeping its aircraft and mission identity.
-static func revise_air_mission(mission: AirMission, station: Vector2, radius: float, count: int, with_relief: bool, return_after_task: bool, intent := "hold", anchor: Unit = null, pursuit := 25.0) -> Order:
+## A revision that names no pursuit keeps the mission's own.
+static func revise_air_mission(mission: AirMission, station: Vector2, radius: float, count: int, with_relief: bool, return_after_task: bool, intent := "hold", anchor: Unit = null, pursuit := -1.0) -> Order:
 	var o := air_mission(mission.kind, mission.platform_id, count, station, radius, mission.target, with_relief, return_after_task)
 	o.mission_id = mission.id
 	o.cap_intent = intent
 	o.protected_unit = anchor
-	o.pursuit_nm = pursuit
+	o.pursuit_nm = pursuit if pursuit >= 0.0 else mission.pursuit_nm
 	return o
 
 
