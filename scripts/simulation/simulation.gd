@@ -108,6 +108,7 @@ func _ready() -> void:
 	director.reinforced.connect(_build_ai.bind(false))
 	director.retasked.connect(_on_retasked)
 	unit_manager.order_issued.connect(_on_order_issued)
+	mission_manager.listen(weapon_manager)  # after _on_order_issued, which settles whether an order was carried out
 	SimClock.tick.connect(_on_tick)
 
 

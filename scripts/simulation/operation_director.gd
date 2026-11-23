@@ -285,7 +285,30 @@ func _retask(item: Dictionary, side: String) -> void:
 			for leg in item["patrol_nm"]:
 				route.append(Vector2(float(leg[0]), float(leg[1])))
 			u.patrol_route = route
+		if item.has("roe"):
+			_set_roe(u, item["roe"])
 		retasked.emit(u)
+
+
+## An event that frees, tightens or holds a side's weapons: "hold", "tight" or "free" (or the
+## Unit.Roe number). It goes through the order path, so holding fire also stands down a salvo
+## already queued; the crew's origin keeps it from ending the unit's standing assignment.
+func _set_roe(u: Unit, value: Variant) -> void:
+	var level := roe_level(value)
+	if level < 0:
+		push_warning("OperationDirector: unknown roe '%s' for %s" % [str(value), u.callsign])
+		return
+	var order := Order.set_roe(level)
+	order.origin = "crew"
+	unit_manager.issue_order(u, order)
+
+
+## "hold", "tight", "free" or a Unit.Roe number as that number, or -1 for anything else.
+static func roe_level(value: Variant) -> int:
+	if typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT:
+		var n := int(value)
+		return n if n >= Unit.Roe.HOLD and n <= Unit.Roe.FREE else -1
+	return {"hold": Unit.Roe.HOLD, "tight": Unit.Roe.TIGHT, "free": Unit.Roe.FREE}.get(str(value).to_lower(), -1)
 
 
 ## Shortens the preparation of a base's reserve airframes: never lengthens it, never touches one
@@ -471,6 +494,8 @@ static func _shape_problem(e: Dictionary, factions: Dictionary, sides: Dictionar
 		for leg in item.get("patrol_nm", []):
 			if typeof(leg) != TYPE_ARRAY or leg.size() != 2:
 				return "a route leg needs two numbers"
+		if item.has("roe") and roe_level(item["roe"]) < 0:
+			return "weapons posture '%s' is not hold, tight or free" % str(item["roe"])
 	for item in e.get("ready", []):
 		if str(factions.get(str(item.get("host", "")), "")) != side:
 			return "'%s' is not one of the %s side's bases" % [item.get("host", ""), side]
