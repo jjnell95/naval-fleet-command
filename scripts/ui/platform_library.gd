@@ -104,30 +104,11 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	_layout = v
 	sheet.add_child(v)
-	var masthead := HBoxContainer.new()
-	v.add_child(masthead)
-	var heading := VBoxContainer.new()
-	heading.add_theme_constant_override("separation", 2)
-	masthead.add_child(heading)
-	var brand := UITheme.caption("Reference")
-	brand.add_theme_font_size_override("font_size", 34)
-	heading.add_child(brand)
+	v.add_child(UITheme.dialog_header("Reference", func() -> void: closed.emit(), "F7 / Esc", true))
 	_kicker = Label.new()
-	_kicker.text = "Platforms and ordnance: recognition, fit and game envelope"
+	_kicker.text = "Platforms and ordnance: recognition, fit and game figures"
 	_kicker.theme_type_variation = "MenuLabel"
-	heading.add_child(_kicker)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	masthead.add_child(spacer)
-	var back := Button.new()
-	back.text = "CLOSE"
-	back.theme_type_variation = "MenuBigButton"
-	back.add_theme_font_size_override("font_size", 18)
-	back.custom_minimum_size = Vector2(140, 40)
-	back.tooltip_text = "Close the reference  [F7 / Esc]"
-	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	back.pressed.connect(func() -> void: closed.emit())
-	masthead.add_child(back)
+	v.add_child(_kicker)
 	var toolbar := HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 12)
 	v.add_child(toolbar)

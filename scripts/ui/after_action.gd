@@ -53,19 +53,18 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 10)
 	margin.add_child(v)
 
-	var head := HBoxContainer.new()
+	# CLOSE in the header is the way back to the final chart, as every dialog closes.
+	var head := UITheme.dialog_header("After-action report", func() -> void: review_pressed.emit(), "Esc / F1")
 	v.add_child(head)
-	var eyebrow := Label.new()
-	eyebrow.text = "AFTER-ACTION REPORT"
-	eyebrow.add_theme_font_override("font", UITheme.data_font())
-	eyebrow.add_theme_font_size_override("font_size", 14)
-	eyebrow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(eyebrow)
+	_review = head.get_node("Close") as Button
+	_review.tooltip_text = "Close the report and look over the final chart  [Esc]  ·  F1 brings it back"
 	_time = Label.new()
 	_time.add_theme_font_override("font", UITheme.data_font())
 	_time.add_theme_font_size_override("font_size", 12)
 	_time.add_theme_color_override("font_color", UITheme.INK_DIM)
+	_time.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(_time)
+	head.move_child(_time, 1)
 	_title = Label.new()
 	_title.add_theme_font_override("font", UITheme.title_font())
 	_title.add_theme_font_size_override("font_size", 52)
@@ -118,14 +117,11 @@ func _ready() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
 	v.add_child(buttons)
-	var focus_buttons: Array[Button] = []
-	for entry in [["REVIEW THE PICTURE", review_pressed, true, "eye", "Close the report and look over the final chart  [Esc]"], ["RESTART", restart_pressed, false, "restart", "Run this operation again  [Ctrl+F10]"], ["ALL OPERATIONS", menu_pressed, false, "menu", "Choose another operation  [M]"]]:
+	var focus_buttons: Array[Button] = [_review]
+	for entry in [["RESTART", restart_pressed, false, "restart", "Run this operation again  [Ctrl+F10]"], ["ALL OPERATIONS", menu_pressed, false, "menu", "Choose another operation  [M]"]]:
 		var b := Button.new()
 		b.text = entry[0]
 		b.tooltip_text = entry[4]
-		if entry[2]:
-			b.theme_type_variation = "PrimaryButton"
-			_review = b
 		b.focus_mode = Control.FOCUS_ALL
 		b.custom_minimum_size.y = 36
 		var sig: Signal = entry[1]

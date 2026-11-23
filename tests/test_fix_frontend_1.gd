@@ -274,7 +274,7 @@ func test_choosing_an_operation_from_the_desk_mid_mission_asks_and_autosaves_fir
 	var dialog := ConfirmDiscard.asking(main)
 	assert_true(dialog != null, "it asks first")
 	if dialog != null:
-		assert_true(dialog.dialog_text.contains("autosaved"), "saying the engagement is kept: " + dialog.dialog_text)
+		assert_true(dialog.question().contains("autosaved"), "saying the engagement is kept: " + dialog.question())
 		assert_true(dialog.get_cancel_button().text != "" and dialog.get_ok_button().text != "", "both answers are worded")
 	_answer(main, false)
 	assert_eq(SimClock.sim_time, running, "keeping it keeps it")
@@ -326,7 +326,7 @@ func test_deleting_a_saved_engagement_asks_first() -> void:
 	main._saves._delete.pressed.emit()
 	assert_true(FileAccess.file_exists(path), "one click on DELETE deletes nothing")
 	var dialog := ConfirmDiscard.asking(main._saves)
-	assert_true(dialog != null and dialog.dialog_text.contains("Before the raid"), "it names the save it would delete")
+	assert_true(dialog != null and dialog.question().contains("Before the raid"), "it names the save it would delete")
 	_answer(main._saves, false)
 	assert_true(FileAccess.file_exists(path), "keeping it keeps it")
 	main._saves._delete.pressed.emit()
@@ -439,3 +439,57 @@ func test_the_reference_runs_by_nation_under_headings_counts_properly_and_opens_
 	assert_true(main._library._detail.text.contains("TOP SPEED"), "with its general block")
 	main._toggle_library()
 	_close_main(main)
+
+
+# --- One dialog header ---------------------------------------------------------------------
+
+func test_the_front_end_dialogs_share_one_header_with_one_close() -> void:
+	var made: Array[Control] = [PlatformLibrary.new(), SavedEngagements.new(), AfterAction.new(), ScenarioEditor.new()]
+	for dialog: Control in made:
+		_root().add_child(dialog)
+		var headers := dialog.find_children("DialogHeader", "HBoxContainer", true, false)
+		assert_eq(headers.size(), 1, "%s has the one header" % dialog.get_class())
+		if headers.is_empty():
+			continue
+		var header: HBoxContainer = headers[0]
+		var title := header.get_node("Title") as Label
+		var close := header.get_node("Close") as Button
+		assert_true(title != null and title.text == title.text.to_upper() and title.text != "", "titled in capitals")
+		assert_eq(header.get_child(0), title, "the title at the left")
+		assert_eq(header.get_child(header.get_child_count() - 1), close, "CLOSE at the right")
+		assert_eq(close.text, UITheme.DIALOG_CLOSE, "the same word")
+		var closes := 0
+		for b: Button in dialog.find_children("*", "Button", true, false):
+			if b.text in ["CLOSE", "BACK", "RETURN", "REVIEW THE PICTURE"] and not b.get_parent() is AcceptDialog:
+				closes += 1
+		var popups_closes := 0
+		for popup: Node in dialog.find_children("*", "Popup", true, false):
+			for b: Button in popup.find_children("*", "Button", true, false):
+				if b.text == "CLOSE":
+					popups_closes += 1
+		assert_eq(closes - popups_closes, 1, "%s closes one way" % dialog.get_class())
+		dialog.free()
+
+
+func test_the_briefing_guide_is_a_tick_box_beside_its_words_and_the_f3_line_names_real_controls() -> void:
+	var b := BriefingPanel.new()
+	_root().add_child(b)
+	assert_true(b._guide is CheckBox, "a tick box, not a switch with its lamp far away")
+	assert_eq(b._guide.size_flags_horizontal, Control.SIZE_SHRINK_BEGIN, "sized to its words")
+	b.free()
+	var air := AirOperations.new()
+	_root().add_child(air)
+	var labels := PackedStringArray()
+	for button: Button in air.find_children("*", "Button", true, false):
+		labels.append(button.text)
+	air.free()
+	var lines := PackedStringArray()
+	var reader := BriefingPanel.new()
+	reader._append_controls(lines)
+	reader.free()
+	var help := "\n".join(lines)
+	assert_true(help.contains("[b]F3[/b]"), "the help has an F3 line")
+	assert_true(not help.contains("LAUNCH lamps") and not help.contains("then Ok"), "with no lamps or Ok that the dialog does not have")
+	for named in ["LAUNCH NOW", "PICK ON CHART", "RETURN & LAND"]:
+		assert_true(help.contains(named), "the F3 line names %s" % named)
+		assert_true(labels.has(named), "and the air operations dialog has a %s button" % named)

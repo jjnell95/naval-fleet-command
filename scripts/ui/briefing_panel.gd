@@ -40,7 +40,7 @@ var _layout: VBoxContainer
 var _backdrop: TextureRect
 var _sheet: PanelContainer
 var _area_caption: Label
-var _guide: CheckButton
+var _guide: CheckBox
 
 
 func _ready() -> void:
@@ -125,7 +125,10 @@ func _ready() -> void:
 	_posture = _label("", 13, UITheme.MENU_INK)
 	_posture.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rail.add_child(_posture)
-	_guide = CheckButton.new()
+	# A plain tick box beside its words: a switch stretched across the sheet put its lamp a
+	# screen's width from what it switched.
+	_guide = CheckBox.new()
+	_guide.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_guide.text = "Command guide · learn while issuing real orders"
 	_guide.tooltip_text = "Optional command practice. Close it at any time; resume here with F1. Practice credit still requires the actual orders and outcomes."
 	_guide.toggled.connect(func(on: bool) -> void: guide_toggled.emit(on))
@@ -373,7 +376,7 @@ func _append_controls(out: PackedStringArray) -> void:
 	out.append(_section("3D VIEW"))
 	out.append("[b]T[/b] cycles the cameras: [b]F9[/b] tether, [b]F11[/b] fly-by, [b]F12[/b] action, [b]F8[/b] detached. [b]G[/b] swaps the chart and the 3D view. [b]F10[/b] gives the 3D view the whole window.\n")
 	out.append(_section("BOARDS, AIR OPERATIONS AND SCREENS"))
-	out.append("[b]A[/b] opens the status boards: orders, task group, track file and comms. [b]F3[/b] opens the launch dialog: light the LAUNCH lamps, then Ok; select an airborne airframe to return it to a carrier or airfield. [b]F7[/b] reference. [b]M[/b] missions, [b]Ctrl-E[/b] editor, [b]Ctrl-F10[/b] twice restarts.\n")
+	out.append("[b]A[/b] opens the status boards: orders, task group, track file and comms. [b]F3[/b] opens air operations: choose the host deck, the aircraft type and how many, then LAUNCH NOW, or pick a mission, place it with PICK ON CHART and ASSIGN it; below, select an airborne airframe and RETURN & LAND it on a carrier or airfield. [b]F7[/b] reference. [b]M[/b] missions, [b]Ctrl-E[/b] editor, [b]Ctrl-F10[/b] twice restarts.\n")
 	out.append(_section("TIME & DISPLAY"))
 	out.append("[b]Space[/b] pauses, or click TIME on the data display. [b]%s[/b] sets acceleration up to %d×, or click SCALE. Use real time when contacts close; accelerate when the force is on station.\n[b]F2[/b] symbol key · [b]F4[/b] sensor rings · [b]F5[/b] trails · [b]F6[/b] relief shading · [b]Ctrl-L / S / W[/b] lat-long, scale, radar coverage · [b]Ctrl-M[/b] sound.\n[b]H[/b] lists every key command. [b]Command-K / Control-K[/b] opens the searchable Actions palette." % ["1–%d" % SimClock.speeds().size() if SimClock.speeds().size() > 1 else "1", int(SimClock.ceiling())])
 

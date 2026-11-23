@@ -105,26 +105,16 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 8)
 	sheet.add_child(v)
 
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 8)
+	var head := UITheme.dialog_header("Mission editor", func() -> void: closed.emit(), "Esc", true)
 	v.add_child(head)
-	var title_box := VBoxContainer.new()
-	title_box.add_theme_constant_override("separation", 0)
-	head.add_child(title_box)
-	var eyebrow := UITheme.caption("Mission editor")
-	title_box.add_child(eyebrow)
-	var title := Label.new()
-	title.text = "Build a mission"
-	title.theme_type_variation = "TitleLabel"
-	title_box.add_child(title)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(spacer)
+	# The drop-down of missions sits beside CLOSE at the height of the editor's other controls.
 	_load_menu = OptionButton.new()
 	_load_menu.focus_mode = Control.FOCUS_ALL
-	_load_menu.custom_minimum_size.x = 230
+	_load_menu.custom_minimum_size = Vector2(230, 30)
+	_load_menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_load_menu.item_selected.connect(_on_load_selected)
 	head.add_child(_load_menu)
+	head.move_child(_load_menu, 1)
 	var tools := HBoxContainer.new()
 	tools.add_theme_constant_override("separation", 6)
 	v.add_child(tools)
@@ -137,7 +127,6 @@ func _ready() -> void:
 	_button(tools, "IMPORT JSON", _import_json)
 	var play := _button(tools, "SAVE AND PLAY", _play)
 	play.theme_type_variation = "PrimaryButton"
-	_button(tools, "CLOSE", func() -> void: closed.emit())
 
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 12)

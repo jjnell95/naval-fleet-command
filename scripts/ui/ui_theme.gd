@@ -129,6 +129,8 @@ const HEX_FLOOD := "#5aa0ff"
 const HEX_CHIP := "#16204a"
 
 # --- Type scale (px at the 1600 × 900 reference canvas) ------------------------------------
+## The one word every dialog's close button carries.
+const DIALOG_CLOSE := "CLOSE"
 const SIZE_EYEBROW := 11
 const SIZE_SMALL := 12
 const SIZE_BODY := 13
@@ -253,6 +255,41 @@ static func caption(text: String) -> Label:
 	l.theme_type_variation = "MenuCaption"
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return l
+
+
+## The one dialog header: the title in the heavy italic face at the left, a single CLOSE button
+## at the right, so every dialog names itself and closes the same way, with the same word, in the
+## same place. `close_keys` goes in the button's tooltip ("Esc", "F7 / Esc"). The children are
+## named Title and Close for callers that want them back.
+static func dialog_header(title: String, on_close: Callable, close_keys := "Esc", front_end := false) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "DialogHeader"
+	row.add_theme_constant_override("separation", 10)
+	var label := Label.new()
+	label.name = "Title"
+	label.text = title.to_upper()
+	if front_end:
+		label.theme_type_variation = "MenuCaption"
+		label.add_theme_font_size_override("font_size", 34)
+	else:
+		label.theme_type_variation = "TitleLabel"
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.clip_text = true
+	row.add_child(label)
+	var close := Button.new()
+	close.name = "Close"
+	close.text = DIALOG_CLOSE
+	close.focus_mode = Control.FOCUS_ALL
+	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	close.custom_minimum_size = Vector2(140, 40) if front_end else Vector2(110, 30)
+	if front_end:
+		close.theme_type_variation = "MenuBigButton"
+		close.add_theme_font_size_override("font_size", 18)
+	close.tooltip_text = "Close  [%s]" % close_keys if close_keys != "" else "Close"
+	close.pressed.connect(on_close)
+	row.add_child(close)
+	return row
 
 
 ## A one-pixel divider in the hairline colour of the navy data surface.

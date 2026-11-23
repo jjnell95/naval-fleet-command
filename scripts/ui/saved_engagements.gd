@@ -36,11 +36,7 @@ func _ready() -> void:
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 8)
 	dialog.add_child(page)
-	var title := Label.new()
-	title.text = "SAVED ENGAGEMENTS"
-	title.add_theme_font_override("font", UITheme.data_font())
-	title.add_theme_font_size_override("font_size", 14)
-	page.add_child(title)
+	page.add_child(UITheme.dialog_header("Saved engagements", func() -> void: closed.emit(), "Ctrl+Shift+O / Esc"))
 	var hint := Label.new()
 	hint.text = "Quicksave Ctrl+Shift+S, quickload Ctrl+Shift+L. The battle is autosaved every %d minutes of simulated time; the newest %d autosaves are kept." % [int(SaveGame.AUTOSAVE_INTERVAL_S / 60.0), SaveGame.AUTOSAVE_KEEP]
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -79,10 +75,6 @@ func _ready() -> void:
 	buttons.add_child(_save)
 	_delete = _button("DELETE", _ask_delete)
 	buttons.add_child(_delete)
-	var gap := Control.new()
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	buttons.add_child(gap)
-	buttons.add_child(_button("CLOSE", func() -> void: closed.emit()))
 
 
 ## A deleted save cannot be brought back, so DELETE names it and asks first.
