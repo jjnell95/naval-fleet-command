@@ -261,3 +261,49 @@ func test_no_missile_or_shell_is_laid_on_a_stale_plot() -> void:
 	t.domain = "land"
 	assert_true(str(Combat.check_engagement(shooter, missile, t).reason) != "NO CURRENT FIX", "a site ashore stays where it was plotted")
 	_cleanup(wm)
+
+
+# --- c-weapons:new1: an anti-radiation round homing on silence ends at the end of its range -----
+
+## Fired at a radar beyond its reach, an anti-radiation missile hears it, and then the radar goes
+## quiet. The round flies on to the last place it heard it, runs out of fuel short of it and ends
+## there. It used to hang at full range, in flight for the rest of the engagement.
+func test_an_anti_radiation_round_homing_on_a_silent_emitter_ends_at_full_range() -> void:
+	Terrain.clear()
+	Detection.set_environment({})
+	var site := _unit("RED", Vector2(0.0, 70.0), "surface", 2)
+	var radar := SensorSpec.new()
+	radar.kind = "radar"
+	radar.range_surface_nm = 40.0
+	radar.range_air_nm = 200.0
+	radar.antenna_height_m = 20.0
+	site.sensors.append(radar)
+	site.radar_on = true
+	var wm := _harness([site])
+	var w := Weapon.new()
+	w.id = 9
+	w.spec = _strike_spec("arm", "asm", ["surface", "land"], "passive_radar_homing")
+	w.spec.max_range_nm = 60.0
+	w.spec.speed_kn = 1200.0
+	w.spec.seeker_range_nm = 25.0
+	w.spec.seeker_half_angle_deg = 45.0
+	w.spec.profile = "high"
+	w.spec.altitude_m = 9000.0
+	w.faction = "BLUE"
+	w.aim_point = site.position
+	w.heading_deg = 0.0
+	wm.in_flight.append(w)
+	var heard := false
+	var now := 0.0
+	while now < 600.0 and w.phase != Weapon.Phase.DEAD:
+		now += DT
+		wm.tick(DT, now)
+		if w.phase == Weapon.Phase.TERMINAL and w.acquired == site and not heard:
+			heard = true
+			site.radar_on = false
+	assert_true(heard, "it heard the radar before it went quiet")
+	assert_eq(w.phase, Weapon.Phase.DEAD, "the round has ended (flown %.1f of %.1f nm)" % [w.distance_flown_nm, w.spec.max_range_nm])
+	assert_eq(w.dead_reason, "RANGE EXHAUSTED")
+	assert_true(not wm.in_flight.has(w), "nothing is left in flight")
+	assert_near(site.health, 100.0, 0.01, "the site is untouched")
+	_cleanup(wm)

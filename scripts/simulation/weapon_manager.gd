@@ -564,6 +564,10 @@ func _step(w: Weapon, dt: float) -> void:
 			else:
 				w.phase = Weapon.Phase.DEAD
 				w.dead_reason = "TARGET LOST"  # it went quiet and moved off the spot
+		elif w.distance_flown_nm >= w.spec.max_range_nm:
+			# Still short of the last place it heard the emitter, with nothing left to fly.
+			w.phase = Weapon.Phase.DEAD
+			w.dead_reason = "RANGE EXHAUSTED"
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and _segment_distance_squared(previous, w.position, w.acquired.position) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
 		_resolve_impact(w)
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.spec.profile == "ballistic" and w.position.distance_to(w.acquired.position) > step_from.distance_to(w.acquired.position):
