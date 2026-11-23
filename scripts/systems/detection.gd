@@ -58,6 +58,20 @@ static func set_sun_elevation(elevation_deg: float) -> void:
 
 
 ## Multiplier on how far a lookout can recognise what he is looking at.
+## Broken cloud or worse hides what is above its base from a lookout below it, and the other way
+## about. The same cover and base the 3D view draws the sky with, and the same defaults.
+const CLOUD_HIDES_COVER := 0.6
+const DEFAULT_CLOUD_COVER := 0.28
+const DEFAULT_CLOUD_BASE_M := 1800.0
+
+
+static func cloud_between(height_a_m: float, height_b_m: float) -> bool:
+	if clampf(float(environment.get("cloud_cover", DEFAULT_CLOUD_COVER)), 0.0, 1.0) < CLOUD_HIDES_COVER:
+		return false
+	var base := maxf(float(environment.get("cloud_base_m", DEFAULT_CLOUD_BASE_M)), 100.0)
+	return (height_a_m >= base) != (height_b_m >= base)
+
+
 static func visual_light_factor() -> float:
 	return lerpf(NIGHT_VISUAL_FACTOR, 1.0, light)
 

@@ -588,10 +588,11 @@ func test_recognition_by_eye_works_along_the_sight_line_and_gives_class_before_n
 		assert_eq(t.classification, Track.Classification.CLASS_KNOWN, "a distant look gives the class")
 		assert_true(t.known_class != "" and not t.class_is_probable, "recognised, not inferred")
 		assert_eq(t.known_callsign, "", "but not the name")
-		assert_eq(t.identity, "HOSTILE", "and the colours she wears")
+		assert_eq(t.identity, "UNKNOWN", "nor the colours she wears")
 		t = _look_from(200.0, limit * 0.3)
 		assert_eq(t.classification, Track.Classification.IDENTIFIED, "close to, the name is read")
 		assert_eq(t.known_callsign, "Burke")
+		assert_eq(t.identity, "HOSTILE", "and her colours with it")
 	_free()
 
 

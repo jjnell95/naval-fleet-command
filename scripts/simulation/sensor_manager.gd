@@ -515,6 +515,8 @@ func _visual_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 			continue
 		if d > Detection.radar_horizon_nm(own_height, height):
 			continue
+		if Detection.cloud_between(own_height, height):
+			continue
 		if facts.masked(oi, ti):
 			continue  # the same sight line, mast to mast, as a radar's: one walk serves both
 		_report_visual(observer, target, d, slant, limit, error, now)

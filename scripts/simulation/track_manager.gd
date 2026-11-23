@@ -70,7 +70,7 @@ var _track_ids: Dictionary = {}
 var _dropped_ids: Dictionary = {}
 ## What a plot remembers of a contact it has dropped, should it turn up again where it was.
 const REMEMBERED_FIELDS: Array[String] = ["classification", "identity", "domain", "known_class", "known_category", "known_callsign",
-	"class_is_probable", "class_evidence", "identity_evidence", "observation_time_s", "signature_time_s", "radar_recognition_s", "damage_estimate"]
+	"class_is_probable", "class_evidence", "identity_evidence", "identity_designated", "observation_time_s", "signature_time_s", "radar_recognition_s", "damage_estimate"]
 var _next_number: Dictionary = {}  # faction -> int
 ## How many times a report has been filed in a picture, for tests and the measuring tools.
 var picture_filings := 0
@@ -597,7 +597,7 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 			t.class_evidence = "Emitter library match" if c.source == "esm" else "Acoustic library match"
 			var brief: Dictionary = recognition_affiliations.get(faction, {})
 			var affiliation := String(brief.get(c.target.spec.id, ""))
-			if t.identity == "UNKNOWN" and affiliation in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
+			if t.identity == "UNKNOWN" and not t.identity_designated and affiliation in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
 				t.identity = affiliation
 				t.identity_evidence = "Scenario recognition brief"
 	# Aircraft only, and only close: a firm radar plot held long enough gives a probable type from
@@ -612,7 +612,7 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 			t.class_is_probable = true
 			t.class_evidence = "Radar recognition"
 			var aff := String(recognition_affiliations.get(faction, {}).get(c.target.spec.id, ""))
-			if t.identity == "UNKNOWN" and aff in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
+			if t.identity == "UNKNOWN" and not t.identity_designated and aff in ["HOSTILE", "NEUTRAL", "FRIENDLY"]:
 				t.identity = aff
 				t.identity_evidence = "Scenario recognition brief"
 	if c.visual_identification:
@@ -626,9 +626,11 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 		t.known_category = c.target.spec.category
 		t.class_is_probable = false
 		t.class_evidence = "Visual recognition"
-		# Markings provide positive affiliation, independently of a library's probable class.
-		t.identity = "NEUTRAL" if neutral_factions.has(c.target.faction) else ("FRIENDLY" if c.target.faction == faction else "HOSTILE")
-		t.identity_evidence = "Visual markings"
+		# Markings provide positive affiliation, independently of a library's probable class. They
+		# are read where the name is, close to: at the limit of a look a shape is a class, not a flag.
+		if c.visual_named and not t.identity_designated:
+			t.identity = "NEUTRAL" if neutral_factions.has(c.target.faction) else ("FRIENDLY" if c.target.faction == faction else "HOSTILE")
+			t.identity_evidence = "Visual markings"
 	if t.domain == "land" and t.has_kinematics:
 		# Known now to stand ashore: whatever motion was fitted before was the scatter of its plots.
 		_reset_kinematics(t)
@@ -652,6 +654,25 @@ static func _plot_domain(c: SensorContact) -> String:
 	return "surface"
 
 
+const DESIGNATIONS: Array[String] = ["HOSTILE", "NEUTRAL", "FRIENDLY", "UNKNOWN"]
+const DESIGNATION_EVIDENCE := "Commander's designation"
+
+
+## The commander's own call on a contact, entered in his side's plot: the identity stands, with his
+## name to it, until he changes it or the contact is seen firing on the side. False, and nothing
+## changed, for a contact this side does not hold or an identity that is not one.
+func designate(faction: String, t: Track, identity: String) -> bool:
+	if t == null or t.owner_faction != faction or t.confirmed_destroyed or t.status == Track.Status.LOST or not DESIGNATIONS.has(identity):
+		return false
+	var changed := t.identity != identity or t.identity_designated != (identity != "UNKNOWN")
+	t.identity = identity
+	t.identity_designated = identity != "UNKNOWN"
+	t.identity_evidence = DESIGNATION_EVIDENCE if identity != "UNKNOWN" else ""
+	if changed:
+		track_classified.emit(faction, t)
+	return true
+
+
 ## Attribute a visibly originating hostile weapon only when the launcher is held locally,
 ## accurately and freshly. Seeing a distant incoming missile does not reveal its hidden source.
 func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
@@ -667,6 +688,7 @@ func observe_hostile_launch(observer: Unit, weapon: Weapon, now: float) -> void:
 		if t != null and t.identity != "HOSTILE":
 			t.identity = "HOSTILE"
 			t.identity_evidence = "Observed hostile launch"
+			t.identity_designated = false
 			if t.networked:
 				track_classified.emit(observer.faction, t)
 			elif not observer.datalink_connected():

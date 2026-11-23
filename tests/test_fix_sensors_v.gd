@@ -158,3 +158,139 @@ func test_a_passive_range_after_the_contact_turns_owns_up_to_its_error() -> void
 	for seed_value in [2, 4, 8]:
 		var result := _listen_through_a_turn(seed_value)
 		assert_true(float(result[0]) <= 3.0, "seed %d: a range held after the turn is never further off than three times the error it claims (worst %.1f times, %d s ranged)" % [seed_value, result[0], result[1]])
+
+
+# --- Identity: a look, the weather and the commander's own word ---------------------------------
+
+const SCENARIO_PATH := "user://test_fix_sensors_v.json"
+const BURKE := "usn_ddg_arleigh_burke_iia"
+const GORSHKOV := "rfn_ffg_admiral_gorshkov"
+const SU34 := "rfn_strike_su34"
+
+var _sim: Simulation
+
+
+func _load(units: Array, environment := {"sea_state": 2, "visibility_nm": 10}) -> Simulation:
+	var scenario := {
+		"id": "fix_sensors_v", "name": "FIXTURE", "seed": 7, "player_faction": "BLUE",
+		"map": {"center_nm": [0, 0], "extent_nm": 300}, "environment": environment,
+		"objectives": {"text": "", "victory": [{"id": "watch", "type": "time_elapsed", "seconds": 90000, "text": "Keep the watch"}], "loss": []},
+		"units": units,
+	}
+	var f := FileAccess.open(SCENARIO_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify(scenario))
+	f.close()
+	SimClock.set_paused(true)
+	_sim = Simulation.new()
+	_sim.seed_override = 7
+	(Engine.get_main_loop() as SceneTree).root.add_child(_sim)
+	assert_true(_sim.load_scenario(SCENARIO_PATH), "the fixture loads")
+	_sim.ai_enabled = false
+	return _sim
+
+
+func _free() -> void:
+	if _sim == null:
+		return
+	_sim.unit_manager.clear()
+	_sim.free()
+	_sim = null
+
+
+func _unit(callsign: String) -> Unit:
+	for u in _sim.unit_manager.units:
+		if u.callsign == callsign:
+			return u
+	return null
+
+
+func _ship(platform: String, callsign: String, faction: String, at: Array, radar: bool) -> Dictionary:
+	return {"platform": platform, "callsign": callsign, "faction": faction, "position_nm": at, "heading_deg": 0, "speed_kn": 0, "radar_on": radar, "air_wing": []}
+
+
+func _run(seconds: float) -> void:
+	for i in int(seconds * 4.0):
+		SimClock.advance(0.25)
+
+
+func test_the_commander_designates_a_contact_and_his_call_stands() -> void:
+	_load([_ship(BURKE, "Burke", "BLUE", [0, 0], true), _ship(GORSHKOV, "Gorshkov", "RED", [20, 0], true)])
+	var burke := _unit("Burke")
+	var frigate := _unit("Gorshkov")
+	_run(3.0)
+	var t := _sim.track_manager.find_track("BLUE", frigate)
+	assert_true(t != null and t.identity == "UNKNOWN", "a radar plot alone says nothing of whose she is")
+	if t == null:
+		_free()
+		return
+	assert_true(_sim.unit_manager.issue_order(burke, Order.designate(t, "NEUTRAL")), "the designation is taken")
+	assert_eq(t.identity, "NEUTRAL")
+	assert_eq(t.identity_evidence, "Commander's designation", "the track file says whose call it was")
+	# A close look would read her colours; the commander's call is not overruled by it.
+	frigate.position = burke.position + Vector2(0.5, 0.0)
+	_run(3.0)
+	assert_eq(t.identity, "NEUTRAL", "nothing a sensor says later changes the commander's call")
+	assert_true(_sim.unit_manager.issue_order(burke, Order.designate(t, "HOSTILE")), "he may change his mind")
+	assert_eq(t.identity, "HOSTILE")
+	assert_true(not _sim.unit_manager.issue_order(burke, Order.designate(t, "PROBABLY")), "an identity that is not one is refused")
+	assert_true(_sim.unit_manager.issue_order(burke, Order.designate(t, "UNKNOWN")), "and he may withdraw it")
+	_run(3.0)
+	assert_eq(t.identity, "HOSTILE", "after which the look alongside says what she is")
+	assert_eq(t.identity_evidence, "Visual markings")
+	var theirs := _sim.track_manager.find_track("RED", burke)
+	if theirs != null:
+		assert_true(not _sim.unit_manager.issue_order(burke, Order.designate(theirs, "FRIENDLY")), "no one designates the other side's contacts")
+	_free()
+
+
+func _sight(environment: Dictionary, altitude_m: float, offset_nm: float) -> Track:
+	_load([_ship(BURKE, "Burke", "BLUE", [0, 0], false),
+		{"platform": SU34, "callsign": "Fullback", "faction": "RED", "position_nm": [60, 0], "heading_deg": 270, "speed_kn": 480, "radar_on": false, "altitude_m": altitude_m}], environment)
+	_run(1.0)
+	var jet := _unit("Fullback")
+	var ship := _unit("Burke")
+	jet.position = ship.position + Vector2(offset_nm, 0.0)
+	jet.altitude_m = altitude_m
+	jet.ordered_altitude_m = altitude_m
+	_sim.sensor_manager.run_cycle(SimClock.sim_time)
+	return _sim.track_manager.find_track("BLUE", jet)
+
+
+func test_a_look_at_the_limit_gives_a_class_and_only_a_close_one_gives_colours() -> void:
+	var clear := {"sea_state": 2, "visibility_nm": 10, "cloud_cover": 0.1}
+	var t := _sight(clear, 1500.0, 2.4)
+	assert_true(t != null and t.classification >= Track.Classification.CLASS_KNOWN, "a jet near the limit of the eye is recognised by type")
+	if t != null:
+		assert_eq(t.identity, "UNKNOWN", "one look at the limit does not read whose she is")
+	_free()
+	t = _sight(clear, 300.0, 0.8)
+	assert_true(t != null and t.identity == "HOSTILE" and t.identity_evidence == "Visual markings", "close to, her markings are read")
+	_free()
+
+
+func test_overcast_hides_an_aircraft_above_the_cloud_from_the_lookout() -> void:
+	var overcast := {"sea_state": 2, "visibility_nm": 10, "cloud_cover": 0.9, "cloud_base_m": 900}
+	var t := _sight(overcast, 1500.0, 0.6)
+	assert_true(t == null or t.classification < Track.Classification.CLASS_KNOWN, "a jet above an overcast at 900 m is not seen from the bridge")
+	_free()
+	t = _sight(overcast, 300.0, 0.6)
+	assert_true(t != null and t.classification >= Track.Classification.CLASS_KNOWN, "one under the cloud is")
+	_free()
+	t = _sight({"sea_state": 2, "visibility_nm": 10, "cloud_cover": 0.2, "cloud_base_m": 900}, 1500.0, 0.6)
+	assert_true(t != null and t.classification >= Track.Classification.CLASS_KNOWN, "scattered cloud hides nothing for long")
+	_free()
+
+
+func test_the_contact_menu_offers_each_designation_as_an_order() -> void:
+	var t := Track.new()
+	t.id = "T1"
+	t.owner_faction = "BLUE"
+	var items := CdsMenus.designate_items(t)
+	assert_eq(items.size(), 4, "hostile, neutral, friendly or unknown")
+	var named := []
+	for entry: Dictionary in items:
+		var order: Order = entry["action"]["order"]
+		assert_eq(order.type, Order.Type.DESIGNATE)
+		assert_eq(order.track, t)
+		named.append(order.designation)
+	assert_eq(named, ["HOSTILE", "NEUTRAL", "FRIENDLY", "UNKNOWN"])

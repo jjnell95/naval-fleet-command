@@ -101,6 +101,9 @@ var known_callsign := ""  # only positive identification, never a timed signatur
 var class_is_probable := false
 var class_evidence := ""
 var identity_evidence := ""
+## The commander has declared what this contact is on his own judgement. Nothing a sensor or a
+## briefing later says changes it; only another designation does.
+var identity_designated := false
 var signature_time_s := 0.0
 var _cycle_signature_gain := 0.0
 ## Close-range radar observation of an aircraft toward a probable type (TrackManager).

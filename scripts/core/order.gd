@@ -3,7 +3,7 @@ extends RefCounted
 ## Command object issued to a Unit. Pure data; UI and AI both create these and hand them to
 ## UnitManager.issue_order(). Never mutate a unit from UI code directly.
 
-enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT, DEPLOY_DIPPING_SONAR, RECOVER_DIPPING_SONAR, SET_SUB_COMMS_INTERVAL, REQUEST_SUB_CHECKIN, ASW_SEARCH, RECOVER_TOWED_ARRAY, SET_READY_ALERT, SNORKEL }
+enum Type { MOVE, SET_COURSE, SET_SPEED, STOP, CLEAR_WAYPOINTS, ACTIVATE_RADAR, SILENCE_RADAR, ENGAGE, SET_DEPTH, ACTIVE_SONAR, PASSIVE_SONAR, SET_ALTITUDE, LAUNCH_AIRCRAFT, RETURN_TO_BASE, DEPLOY_SONOBUOY, SET_EMCON, SET_ROE, FORM_UP, BREAK_FORMATION, DEPLOY_COUNTERMEASURES, EVADE, RESUME_PLAN, SET_DEFENCE_POLICY, SET_AUTO_COUNTERMEASURES, CANCEL_FIRE, PATROL, INVESTIGATE, ATTACK, RETURN_TO_STATION, SET_AUTO_RETURN, AIR_MISSION, CANCEL_AIR_MISSION, GROUP_ATTACK, CANCEL_GROUP_ATTACK, SET_AIR_DEFENCE_MODE, INTERCEPT, DEPLOY_DIPPING_SONAR, RECOVER_DIPPING_SONAR, SET_SUB_COMMS_INTERVAL, REQUEST_SUB_CHECKIN, ASW_SEARCH, RECOVER_TOWED_ARRAY, SET_READY_ALERT, SNORKEL, DESIGNATE }
 
 var type: Type = Type.STOP
 var target_pos := Vector2.ZERO
@@ -38,6 +38,8 @@ var execution_accepted := true
 var origin := "player"
 ## How a PATROL or FORM_UP names the standing assignment it sets ("CAP STATION", "SCREEN STATION").
 var station_label := ""
+## DESIGNATE: the identity the commander declares for `track` (HOSTILE, NEUTRAL, FRIENDLY or UNKNOWN).
+var designation := ""
 ## The air mission a crew PATROL belongs to, or -1. CANCEL_AIR_MISSION names the mission to end.
 var mission_id := -1
 ## AIR_MISSION: AirMission.Kind, the station or search area (target_pos, radius_nm) or the strike
@@ -76,6 +78,15 @@ var threat: Weapon
 ## decides itself what to attack, if anything). PATROL: the station is a reconnaissance one, where
 ## nothing identified is attacked without the commander's own order.
 var identify_only := false
+
+
+## The commander's own call on a contact's allegiance, entered in the side's plot as his.
+static func designate(target: Track, identity: String) -> Order:
+	var o := Order.new()
+	o.type = Type.DESIGNATE
+	o.track = target
+	o.designation = identity
+	return o
 
 
 static func cancel_fire(target: Track = null) -> Order:
@@ -488,6 +499,8 @@ func describe() -> String:
 			return "PATROL %d-POINT CIRCUIT" % route.size()
 		Type.INVESTIGATE:
 			return "INVESTIGATE %s" % (track.id if track != null else "?")
+		Type.DESIGNATE:
+			return "DESIGNATE %s %s" % [track.id if track != null else "?", designation]
 		Type.ATTACK:
 			return "ATTACK %s%s" % [track.id if track != null else "?", " with " + weapon_id if weapon_id != "" else ""]
 		Type.SET_COURSE:

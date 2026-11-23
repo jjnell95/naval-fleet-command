@@ -579,6 +579,7 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 		weapon_choices.append(submenu("Engage with", engage_weapon_items(units, target, weapon_manager), false, "Weapons that suit this contact."))
 		weapon_choices.append(item("Cancel queued fire for this contact", order_action(Order.cancel_fire(target)), false, "Refund unfired rounds for this contact and end any standing attack on it. Weapons already away continue."))
 		items.append(submenu("Weapon selection", weapon_choices, false, "Choose a weapon for a standing attack or a finite salvo; inspect firing limits and cancel queued fire."))
+		items.append(submenu("Designate", designate_items(target), false, "Declare what this contact is on your own judgement. It stands until you change it."))
 		if target.domain in ["surface", "land"] and not target.identity in ["NEUTRAL", "FRIENDLY"]:
 			items.append(item("Air strike...", {"kind": "air_strike", "track": target}, false, "Open Air Operations set to strike this contact from a deck."))
 
@@ -588,6 +589,15 @@ static func engage_items(units: Array, target: Track, controllable: bool, weapon
 	items.append(item("Follow  [F]", {"kind": "palette", "id": "follow_selection"}))
 	items.append(item("Frame shooter and target  [C]", {"kind": "palette", "id": "focus_selection"}))
 	items.append(item("Track file", {"kind": "board", "board": StatusBoards.BOARD_TRACKS}))
+	return items
+
+
+static func designate_items(target: Track) -> Array:
+	var items: Array = []
+	for identity: String in TrackManager.DESIGNATIONS:
+		var current := target.identity == identity and (target.identity_designated or identity == "UNKNOWN")
+		items.append(item(identity.capitalize() + ("  (current)" if current else ""), order_action(Order.designate(target, identity)), current,
+			"Enter the contact in the plot as %s, as your own call." % identity.to_lower() if identity != "UNKNOWN" else "Withdraw your designation; the contact is unknown until a sensor says otherwise."))
 	return items
 
 
