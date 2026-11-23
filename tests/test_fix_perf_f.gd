@@ -66,3 +66,36 @@ func test_lines_filed_together_are_crossed_once_a_look() -> void:
 	assert_true(not track.is_bearing_only() and miss <= maxf(track.position_error_nm, 0.5), "still fixed, %.2f nm off inside %.2f nm" % [miss, track.position_error_nm])
 	assert_true(sliced <= 10 * (SensorManager.SLICES + 2), "ten seconds in slices crossed %d times, about once a tick" % sliced)
 	_free(world)
+
+
+## A measuring run started at a scenario, as the dev harness starts one, never passes the briefing.
+## The autosave its --perf-autosave flag forces is written all the same, into the harness's own
+## folder, so the sample measures the frames an autosave costs; one that cannot be written says why.
+func test_a_forced_autosave_in_a_harness_run_is_written() -> void:
+	var saved_root := SaveGame.root_override
+	var scratch := "user://test-perf-autosave-%d" % Time.get_ticks_usec()
+	var root := (Engine.get_main_loop() as SceneTree).root
+	var main: Main = preload("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	main.simulation.seed_override = 2
+	main.start_scenario("res://data/scenarios/pacific_02_taiwan_strait.json")
+	SimClock.set_paused(true)
+	SimClock.advance(30.0)
+	assert_true(main.save_refusal() != "", "a scenario nobody has taken command of is not saved")
+	var harness := DevHarness.new(main)
+	harness.prepare_forced_autosave(scratch)
+	SaveGame.force_next_autosave = true
+	main._autosave_if_due()
+	assert_eq(harness.forced_autosave_result(), "", "the forced autosave is written")
+	var saves := SaveGame.list_saves()
+	assert_true(saves.size() == 1 and str(saves[0].get("path", "")).begins_with(scratch), "into the harness's folder (%s)" % [saves])
+	# One that cannot be taken is reported with the reason.
+	main.simulation.mission_manager.result = MissionManager.Result.VICTORY
+	SaveGame.force_next_autosave = true
+	main._autosave_if_due()
+	assert_eq(harness.forced_autosave_result(), "The engagement has ended", "the reason it was not written")
+	for save in saves:
+		SaveGame.remove(str(save["path"]))
+	DirAccess.remove_absolute(scratch)
+	SaveGame.root_override = saved_root
+	main.free()

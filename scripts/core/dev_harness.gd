@@ -330,6 +330,28 @@ func handle_flags() -> void:
 		_screenshot_after(shot, arg(args, "--hold=", 3.0))
 
 
+## Readies the screen for an autosave forced by a measuring run, written under `root`. A run started
+## at a scenario never passes the briefing, and an engagement nobody has taken command of is never
+## saved, so the harness takes command as the briefing would, leaving the clock as the other flags
+## set it.
+func prepare_forced_autosave(root: String) -> void:
+	SaveGame.root_override = root
+	if not main._command_taken:
+		main._command_taken = true
+
+
+## Finishes the forced autosave: "" once it is on disk, else why it is not.
+func forced_autosave_result() -> String:
+	var error := SaveGame.finish_writing()
+	if SaveGame.force_next_autosave:
+		# Never taken: say why the screen would not save.
+		SaveGame.force_next_autosave = false
+		error = main.save_refusal()
+		if error == "":
+			error = "the screen took no autosave in the sample"
+	return error
+
+
 ## The frame budget: after a second for the screen to settle, every frame for `seconds` is timed,
 ## with the script time the profiled paths report (Debug.time_add) and the renderer's counts.
 ## Frame times under a software renderer say little; the script times and draw calls carry over.
@@ -337,7 +359,7 @@ func _perf(seconds: float, autosave_at := -1.0) -> void:
 	await main.get_tree().create_timer(1.0).timeout
 	var autosave_forced := false
 	if autosave_at >= 0.0:
-		SaveGame.root_override = "user://dev-perf-saves"
+		prepare_forced_autosave("user://dev-perf-saves")
 	Debug.timings.clear()
 	Debug.profiling = true
 	var frames := 0
@@ -377,8 +399,8 @@ func _perf(seconds: float, autosave_at := -1.0) -> void:
 	print("[Perf] %d frames in %.1f s: %.1f fps, frame avg %.1f ms, p95 %.1f ms, worst %.1f ms; main-loop process step avg %.2f ms (scripts and engine together, not script time alone; the paths below are script time)" % [frames, elapsed, frames / maxf(elapsed, 0.001), total / maxf(frames, 1), p95, worst_ms, process_ms / maxf(frames, 1)])
 	print("[Perf] simulated %.3f s per wall second; the clock reads %s" % [(SimClock.sim_time - sim_start) / maxf(elapsed, 0.001), SimClock.rate_text()])
 	if autosave_forced:
-		var error := SaveGame.finish_writing()
-		print("[Perf] an autosave was forced %.1f s into the sample: %s" % [autosave_at, "written" if error == "" and not SaveGame.force_next_autosave else "NOT written %s" % error])
+		var error := forced_autosave_result()
+		print("[Perf] an autosave was forced %.1f s into the sample: %s" % [autosave_at, "written" if error == "" else "NOT written: %s" % error])
 	var paths := path_ms.keys()
 	paths.sort()
 	for path in paths:
