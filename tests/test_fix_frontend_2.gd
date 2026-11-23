@@ -286,6 +286,10 @@ func test_ctrl_f10_and_the_debrief_restart_ask_while_the_engagement_runs() -> vo
 	main._report.restart_pressed.emit()
 	assert_true(ConfirmDiscard.asking(main) == null, "an ended engagement restarts without a question")
 	assert_eq(SimClock.sim_time, 0.0)
+	for action: Dictionary in main._palette_actions():
+		if str(action["id"]) == "restart":
+			assert_true(not str(action["description"]).contains("twice"), "the actions list no longer asks for a double press")
+			assert_true(str(action["description"]).contains("asks first"))
 	_close_main(main)
 
 

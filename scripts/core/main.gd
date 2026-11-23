@@ -66,8 +66,6 @@ var _scripted_session := false  # a dev-harness run: graded on the debrief, neve
 ## A player's session (no command-line arguments): each start of an operation draws its events
 ## afresh. A driven run or a pinned --seed keeps the scenario's own draw, so it repeats exactly.
 var _fresh_draws := false
-var _restart_armed_ms := -100000
-const RESTART_CONFIRM_MS := 4000
 var _world_view: WorldView
 var command_bar: CommandBar
 var _dev: DevHarness
@@ -190,9 +188,8 @@ func _ready() -> void:
 	_world_view.simulation = simulation
 	_world_view.swap_requested.connect(_swap_views)
 	_world_view.fullscreen_requested.connect(_toggle_world_full)
-	# The 3D pane's right-click asks for the same menu as the data display's, once it emits one.
-	if _world_view.has_signal("platform_menu_requested"):
-		_world_view.connect("platform_menu_requested", _on_display_menu)
+	# The 3D pane's right-click asks for the same menu as the data display's.
+	_world_view.platform_menu_requested.connect(_on_display_menu)
 	_view_frame.add_child(_world_view)
 	map.context_menu_requested.connect(_on_map_context)
 	contact_panel.track_manager = simulation.track_manager
@@ -1567,7 +1564,7 @@ func _palette_actions() -> Array[Dictionary]:
 		{"id": "key_commands", "label": "Key commands", "description": "Every keyboard command on one board.", "shortcut": "H", "enabled": true},
 		{"id": "missions", "label": "Missions", "description": "The operations desk.", "shortcut": "M", "enabled": true},
 		{"id": "editor", "label": "Scenario editor", "description": "Build or change an operation.", "shortcut": "Ctrl+E", "enabled": true},
-		{"id": "restart", "label": "Restart mission", "description": "Start this operation again; press twice to confirm.", "shortcut": "Ctrl+F10", "enabled": true},
+		{"id": "restart", "label": "Restart mission", "description": "Start this operation again (asks first and autosaves the engagement).", "shortcut": "Ctrl+F10", "enabled": true},
 		{"id": "sound", "label": "Sound on or off", "description": "Mute or restore the game's sounds.", "shortcut": "Ctrl+M", "enabled": true, "state": "on" if SoundFx.enabled else "off"},
 		{"id": "voice", "label": "Crew voice", "description": "Short crew reports over the radio.", "shortcut": "", "enabled": true, "state": "on" if voice.enabled else "off"},
 		{"id": "ambient", "label": "Ambient sea and machinery", "description": "Sea wash by sea state and the hooked platform's engine or rotor.", "shortcut": "", "enabled": true, "state": "on" if SoundFx.ambient_enabled else "off"},
