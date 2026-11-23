@@ -172,16 +172,20 @@ func test_automatic_acoustic_launch_waits_for_a_manual_pulse_to_reload() -> void
 	_cleanup(h)
 
 
-func test_a_failed_manual_acoustic_attempt_does_not_trigger_another_automatic_canister() -> void:
+func test_a_failed_manual_acoustic_attempt_holds_the_automatic_canister_until_the_launcher_reloads() -> void:
 	var ship := _ship(_hull(false, 4, 0.0))
 	var h := _harness([ship])
 	var torp := _homing(h, ship, Vector2(0.0, 1.0))
 	assert_true(DefensiveResponse.deploy(ship, "acoustic", h[2]))
 	DefensiveResponse.run_cycle(h[0], h[1], h[2])
 	assert_true(torp.decoy_attempted)
-	DefensiveResponse.tick(ship, DefensiveResponse.RELOAD_SECONDS)
-	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], DefensiveResponse.RELOAD_SECONDS), 0)
-	assert_eq(ship.torpedo_decoys, 3, "manual and automatic responses share the attempt record")
+	DefensiveResponse.tick(ship, DefensiveResponse.RELOAD_SECONDS - 5.0)
+	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], DefensiveResponse.RELOAD_SECONDS - 5.0), 0)
+	assert_eq(ship.torpedo_decoys, 3, "manual and automatic responses share the pulse and its reload")
+	# The torpedo is still running at her: once the launcher has reloaded, the next canister goes.
+	DefensiveResponse.tick(ship, 5.0)
+	assert_eq(TorpedoDefence.run_cycle(h[0], h[1], h[2], DefensiveResponse.RELOAD_SECONDS), 1)
+	assert_eq(ship.torpedo_decoys, 2)
 	_cleanup(h)
 
 

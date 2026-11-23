@@ -475,3 +475,75 @@ func test_a_radar_ordered_off_is_lit_only_for_a_round_at_the_ship_and_put_out_af
 		tm.free()
 		wm.free()
 		um.free()
+
+
+# --- verify:torpedo-evasion: a ship fights a torpedo for as long as it runs --------------------
+
+func _torpedo_ship(expendables: int) -> Unit:
+	var u := _unit("BLUE", Vector2.ZERO, "surface", 1)
+	u.spec.torpedo_decoy = "Test decoy"
+	u.spec.towed_torpedo_decoy = true
+	u.spec.torpedo_decoy_count = expendables
+	u.spec.torpedo_decoy_effectiveness = 0.0  # every decoy fails: what is under test is how many are tried
+	u.torpedo_decoys = expendables
+	u.speed_kn = 15.0
+	u.ordered_speed_kn = 15.0
+	u.heading_deg = 0.0
+	u.ordered_heading_deg = 0.0
+	return u
+
+
+## A torpedo is heard five miles off on the beam, running in but not yet homing. She turns away at
+## once, not when it has her at two miles. Later, homing at under two miles with her single towed
+## try spent, she lays a canister each time the launcher has reloaded, not one and then nothing.
+func test_a_ship_runs_from_a_torpedo_as_soon_as_she_holds_it_and_keeps_laying_decoys() -> void:
+	Terrain.clear()
+	var spec := DataDB.weapon("mk48_adcap")
+	var ship := _torpedo_ship(10)
+	var wm := _harness([ship])
+	var tm := ThreatManager.new()
+	var far := Weapon.new()
+	far.id = 811
+	far.spec = spec
+	far.faction = "RED"
+	far.position = Vector2(5.0, 0.0)
+	far.aim_point = ship.position
+	far.heading_deg = Geo.bearing_deg(far.position, ship.position)
+	far.distance_flown_nm = 3.0
+	far.phase = Weapon.Phase.CRUISE
+	wm.in_flight.append(far)
+	tm.mark_detected("BLUE", far, 0.0, ship)
+	TorpedoDefence.run_cycle(wm.unit_manager, tm, wm, 0.0)
+	assert_true(far.acquired == null, "the torpedo has not found her yet")
+	assert_true(ship.evasion_remaining_s > 0.0, "she turns away the moment she holds it")
+	assert_true(absf(Geo.heading_delta(ship.evasion_course_deg, Geo.bearing_deg(far.position, ship.position))) < 30.0, "away from it (course %03d)" % int(ship.evasion_course_deg))
+	assert_eq(ship.torpedo_decoys, 10, "no canister wasted on a torpedo not yet listening for her")
+	wm.in_flight.clear()
+	# Homing at 1.8 nm and closing slowly on her stern.
+	var near := Weapon.new()
+	near.id = 812
+	near.spec = spec
+	near.faction = "RED"
+	near.position = Vector2(0.0, -1.8)
+	near.acquired = ship
+	near.aim_point = ship.position
+	near.heading_deg = 0.0
+	near.phase = Weapon.Phase.TERMINAL
+	wm.in_flight.append(near)
+	var now := 0.0
+	var laid_at: Array = []
+	var before := ship.torpedo_decoys
+	while now < 150.0:
+		now += 1.0
+		DefensiveResponse.tick(ship, 1.0)
+		near.position = ship.position + Vector2(0.0, -1.5)  # still running at her
+		tm.mark_detected("BLUE", near, now, ship)
+		TorpedoDefence.run_cycle(wm.unit_manager, tm, wm, now)
+		if ship.torpedo_decoys < before:
+			laid_at.append(now)
+			before = ship.torpedo_decoys
+	assert_true(laid_at.size() >= 5, "a canister each reload while it runs: %s" % str(laid_at))
+	for i in range(1, laid_at.size()):
+		assert_true(float(laid_at[i]) - float(laid_at[i - 1]) >= DefensiveResponse.RELOAD_SECONDS - 1.0, "at the launcher's interval: %s" % str(laid_at))
+	tm.free()
+	_cleanup(wm)
