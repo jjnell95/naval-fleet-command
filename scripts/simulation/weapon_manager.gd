@@ -386,6 +386,8 @@ func defeat_weapon(threat: Weapon, reason: String, by_unit: Unit = null) -> void
 
 func tick(dt: float, now: float) -> void:
 	now_s = now
+	if unit_manager != null and not unit_manager.order_issued.is_connected(_on_order_issued):
+		unit_manager.order_issued.connect(_on_order_issued)
 	_sort_pending()
 	for p: Dictionary in _pending.duplicate():
 		var check := engagement_check(p.shooter, p.spec, p.track, now, true)
@@ -407,6 +409,13 @@ func tick(dt: float, now: float) -> void:
 			in_flight.remove_at(i)
 			revision += 1
 			weapon_resolved.emit(resolved)
+
+
+## A radar or emissions order from the commander settles the radar the crew lit for defence: it
+## stays as ordered, not put out again when the threat has passed (AirDefence).
+func _on_order_issued(u: Unit, order: Order) -> void:
+	if order.origin != "crew" and order.type in [Order.Type.ACTIVATE_RADAR, Order.Type.SILENCE_RADAR, Order.Type.SET_EMCON]:
+		u.radar_lit_for_defence_s = -1.0
 
 
 func clear() -> void:
@@ -564,6 +573,10 @@ func _step(w: Weapon, dt: float) -> void:
 			else:
 				w.phase = Weapon.Phase.DEAD
 				w.dead_reason = "TARGET LOST"  # it went quiet and moved off the spot
+		elif w.distance_flown_nm >= w.spec.max_range_nm:
+			# Still short of the last place it heard the emitter, with nothing left to fly.
+			w.phase = Weapon.Phase.DEAD
+			w.dead_reason = "RANGE EXHAUSTED"
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and _segment_distance_squared(previous, w.position, w.acquired.position) <= IMPACT_MIN_NM * IMPACT_MIN_NM:
 		_resolve_impact(w)
 	elif w.phase == Weapon.Phase.TERMINAL and w.acquired != null and w.spec.is_gun() and w.position.distance_to(w.acquired.position) > step_from.distance_to(w.acquired.position):
@@ -846,6 +859,18 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 	# A round searching on down its heading, or a payload circling its entry point, has no aim
 	# point worth the name: it takes what is nearest itself.
 	var reference := w.position if w.searching_on or around_entry else w.aim_point
+	# A seeker opened on the basket round an aim point, as against one searching its way in.
+	var on_basket := not (w.searching_on or around_entry or w.spec.is_torpedo() or w.spec.is_anti_radiation())
+	# Fired at a ship or a target ashore, such a seeker is gated on the range of its aim point. A
+	# hull closer than that by more than the solution can be wrong (Combat.protected_spread_nm, the
+	# margin the launch check keeps protected traffic out of) lies short of the target; a seeker
+	# that opens on the rail, a shot inside its own seeker range, would otherwise take the first one
+	# crossing its cone near the shooter. An aircraft may be overhauled from astern, so a shot at one
+	# is not gated this way.
+	var range_gate := -INF
+	if on_basket and (w.target_track == null or w.target_track.domain != "air"):
+		var spread := Combat.protected_spread_nm(w.spec, w.target_track, w.launch_range_nm) if w.target_track != null else Combat.PROTECTED_GUARD_NM
+		range_gate = w.position.distance_to(reference) - spread
 	var best: Unit = null
 	var best_fraction := INF
 	var best_d_squared := INF
@@ -853,6 +878,8 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 		if u == w.shooter or not seeker_sees(w, u):
 			continue
 		if separating and u.position.distance_to(w.shooter.position) < separation:
+			continue
+		if u != designated and w.position.distance_to(u.position) < range_gate:
 			continue
 		var fraction := _first_radius_contact_fraction(previous, w.position, u.position, radius) if around_entry else first_seeker_contact_fraction(previous, w.position, u.position, radius, w.heading_deg, w.spec.seeker_half_angle_deg)
 		if not is_finite(fraction):
@@ -867,8 +894,6 @@ func _try_acquire(w: Weapon, previous: Vector2) -> Vector2:
 			best_fraction = fraction
 			best_d_squared = d_squared
 	var at_aim := not w.searching_on and w.circle_search_s < 0.0 and _segment_distance_squared(previous, w.position, w.aim_point) <= IMPACT_MIN_NM * IMPACT_MIN_NM * 4.0
-	# A seeker opened on the basket round an aim point, as against one searching its way in.
-	var on_basket := not (w.searching_on or around_entry or w.spec.is_torpedo() or w.spec.is_anti_radiation())
 	if best != null and best != designated and on_basket and not at_aim:
 		# Its own contact is still ahead of it: something else crossing the cone is not the target.
 		if designated != null or not _lock_is_due(w, best, radius):

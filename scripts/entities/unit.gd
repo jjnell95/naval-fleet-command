@@ -1119,3 +1119,10 @@ var silent_hold_reported_s := -1.0
 
 func cleared_for_raid(now: float) -> bool:
 	return raid_clearance_until_s >= 0.0 and now <= raid_clearance_until_s
+
+
+# --- Radar lit by the crew for self-defence -----------------------------------------------------
+
+## A radar the commander had off that the crew lit to fight a round coming at the ship: the last
+## time a round was still inbound on her, or -1 when the radar is as the commander set it.
+var radar_lit_for_defence_s := -1.0

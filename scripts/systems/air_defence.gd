@@ -172,6 +172,7 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 	var airborne := interceptors_airborne(weapon_manager)
 	for faction: String in by_faction:
 		var inbound := inbound_threats(unit_manager, threat_manager, faction)
+		_douse_defence_radars(by_faction[faction], inbound, unit_manager, now)
 		if inbound.is_empty():
 			continue
 		var ballistic_held := false
@@ -190,8 +191,10 @@ static func run_cycle(unit_manager: UnitManager, threat_manager: ThreatManager, 
 					if w.phase == Weapon.Phase.DEAD or not threat_manager.visible_to(u, w):
 						continue
 					# Chaff and flares were answered by DefensiveResponse earlier in the same step.
+					# A radar the commander switched off is lit by the crew only for a round coming
+					# at the ship herself, not to cover a consort.
 					if first_pass:
-						if not u.radar_on and not (entry["target"] as Unit).is_aircraft():
+						if not u.radar_on and entry["target"] == u:
 							_light_radar_to_defend(u, w, unit_manager, weapon_manager, now)
 					# Weapons hold is an order not to attack. A ship holding fire still defends itself
 					# and its consorts against a round on its way in.
@@ -240,7 +243,33 @@ static func _light_radar_to_defend(u: Unit, w: Weapon, unit_manager: UnitManager
 	var order := Order.activate_radar()
 	order.origin = "crew"
 	if unit_manager.issue_order(u, order):
+		u.radar_lit_for_defence_s = now
 		weapon_manager.self_defence_emcon.emit(u, true)
+
+
+## How long a radar the crew lit to fight a round stays on once nothing more is coming at the
+## ship, so the next round of the same raid is not met by a dark set. GAMEPLAY_ESTIMATE.
+const DEFENCE_RADAR_QUIET_S := 30.0
+
+
+## A radar the crew lit against a round coming at the ship goes dark again once the threat has
+## passed, as the commander had it, unless the commander has given a radar order since
+## (WeaponManager clears the mark then).
+static func _douse_defence_radars(force: Array, inbound: Array, unit_manager: UnitManager, now: float) -> void:
+	for u: Unit in force:
+		if u.radar_lit_for_defence_s < 0.0:
+			continue
+		for entry: Dictionary in inbound:
+			if entry["target"] == u and (entry["weapon"] as Weapon).phase != Weapon.Phase.DEAD:
+				u.radar_lit_for_defence_s = now
+				break
+		if now - u.radar_lit_for_defence_s < DEFENCE_RADAR_QUIET_S:
+			continue
+		u.radar_lit_for_defence_s = -1.0
+		if u.radar_on:
+			var order := Order.silence_radar()
+			order.origin = "crew"
+			unit_manager.issue_order(u, order)
 
 
 ## Defenders that can reach this round, best placed first: a ship already guiding against it or
@@ -333,15 +362,24 @@ static func aircraft_salvo(u: Unit, t: Track) -> int:
 	return 2 if Geo.heading_to_vector(t.course_deg).dot(toward_ship) > 0.5 else 1
 
 
+## How far above or below a hostile aircraft's held height an own aircraft is told apart from it
+## on the height-finder, so that the two are not one merge on the scope. GAMEPLAY_ESTIMATE.
+const MERGE_HEIGHT_SEPARATION_M := 1000.0
+
+
 ## An own aircraft close enough to the contact to be inside the round's seeker basket when it
 ## opens. A crew firing on its own initiative holds a shot into a merge it cannot sort out on the
 ## scope; the commander may still order it. The basket is drawn round the plot, widened by the
-## plot's own error.
+## plot's own error. Where the plot holds a height, an own aircraft well clear of it above or below
+## (a helicopter low over the sea under a drone at height) is no merge.
 static func own_aircraft_in_basket(unit_manager: UnitManager, shooter: Unit, spec: WeaponSpec, t: Track) -> bool:
 	var reach := spec.acquisition_radius_nm() + maxf(t.position_error_nm, 0.0)
 	for u: Unit in unit_manager.units:
-		if u != shooter and u.faction == shooter.faction and u.in_flight() and u.position.distance_to(t.position) <= reach:
-			return true
+		if u == shooter or u.faction != shooter.faction or not u.in_flight() or u.position.distance_to(t.position) > reach:
+			continue
+		if t.altitude_m >= 0.0 and absf(u.altitude_m - t.altitude_m) > MERGE_HEIGHT_SEPARATION_M:
+			continue
+		return true
 	return false
 
 
@@ -547,12 +585,6 @@ static func _time_to_enter_s(from: Vector2, range_nm: float, threat: Weapon) -> 
 		return INF
 	var disc := b * b - a * c
 	return (-b - sqrt(disc)) / a if disc >= 0.0 else INF
-
-
-## Distinct rounds each ship currently has interceptors in the air against. Kept for the
-## defence board, which reads it; WeaponManager.channel_loads is the one source.
-static func _channels_in_use(weapon_manager: WeaponManager) -> Dictionary:
-	return weapon_manager.channel_loads()
 
 
 ## Data decides what an interceptor can shoot at. The air-defence layers list "missile" and

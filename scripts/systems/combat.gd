@@ -114,6 +114,14 @@ static func check_engagement(shooter: Unit, spec: WeaponSpec, track: Track, rese
 	if not track.visible_to(shooter):
 		out["reason"] = "TRACK NOT HELD / OFF LINK"
 		return out
+	# A stale plot is where the contact was: a round laid on it finds empty sea, or whatever else
+	# has come into the basket since. A torpedo (thrown or swum) searches about the datum and an
+	# anti-radiation missile listens for the emitter, so neither needs a current fix; nor does a
+	# site ashore, which stays where it was plotted.
+	var searches_datum := spec.is_torpedo() or spec.delivery_payload_id != "" or spec.is_anti_radiation()
+	if track.status == Track.Status.STALE and track.domain != "land" and not searches_datum:
+		out["reason"] = "NO CURRENT FIX"
+		return out
 	if track.identity in ["NEUTRAL", "FRIENDLY"]:
 		out["reason"] = "PROTECTED IDENTITY"
 		return out

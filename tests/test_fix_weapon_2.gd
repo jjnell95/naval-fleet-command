@@ -655,10 +655,11 @@ func test_a_round_whose_seeker_will_never_see_the_ship_is_not_charged_to_it() ->
 	_cleanup(h)
 
 
-# --- An escort with its radar off lights it to defend, unless ordered silent ----------------------
+# --- An escort with its radar off lights it to defend herself, unless ordered silent -------------
 
 ## A thin-skinned ship and an escort beside it with its radar switched off and a missile layer
-## guided by that radar. Returns [harness, ship, escort, round, emcon log].
+## guided by that radar; the round is coming at the escort, the one case in which her crew may
+## light a radar the commander put out. Returns [harness, ship, escort, round, emcon log].
 func _dark_escort() -> Array:
 	var sam := _sam("sm1", 25.0, 1.0)
 	sam.guidance = "semi_active_radar"
@@ -666,22 +667,22 @@ func _dark_escort() -> Array:
 	var escort := _ship("BLUE", Vector2(1.0, 0.0), [sam])
 	escort.radar_on = false
 	var h := _harness([ship, escort])
-	var round := _incoming(h[2], _asm(), Vector2(0, 16), ship)
+	var round := _incoming(h[2], _asm(), Vector2(1.0, 16), escort)
 	var log: Array = []
 	(h[2] as WeaponManager).self_defence_emcon.connect(func(u: Unit, lit: bool) -> void: log.append([u, lit]))
 	return [h, ship, escort, round, log]
 
 
-func test_an_escort_with_its_radar_off_lights_it_and_defends_the_ship_beside_it() -> void:
+func test_an_escort_with_its_radar_off_lights_it_to_defend_herself() -> void:
 	var c := _dark_escort()
 	var h: Array = c[0]
 	var shots := _watch(h[2])
 	_run(h, 120.0)
 	var escort: Unit = c[2]
-	assert_true(escort.radar_on, "the crew switched the radar on to fight")
-	assert_true(_count(shots, "sm1") > 0, "and fired")
+	assert_true(_count(shots, "sm1") > 0, "the crew switched the radar on to fight, and fired")
+	assert_true(not escort.radar_on, "and put it out again once the threat had passed")
 	assert_eq((c[3] as Weapon).dead_reason, "INTERCEPTED")
-	assert_near((c[1] as Unit).health, 100.0, 1e-3)
+	assert_near(escort.health, 100.0, 1e-3)
 	assert_eq(c[4], [[escort, true]], "the commander is told once")
 	_cleanup(h)
 
