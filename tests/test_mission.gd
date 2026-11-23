@@ -180,6 +180,7 @@ func test_effectiveness_grades_task_force_and_attrition() -> void:
 	var raider := _category(_unit("RED", "Raider", Vector2(0.0, 10.0), 100.0), "destroyer")
 	var h := _mission([escort, raider], {"victory": [{"type": "force_destroyed", "faction": "RED", "text": "Destroy the raider"}]})
 	var mm: MissionManager = h[1]
+	mm.record_order(escort, Order.move(Vector2(0.0, 5.0)))  # commanded, so the task is the commander's
 	mm.tick(0.0)
 	var a := mm.assessment()
 	assert_eq(a["task_done"], 0)
@@ -240,6 +241,7 @@ func test_any_mode_victory_is_the_whole_task_and_a_defeat_earns_no_task_share() 
 		{"id": "sink", "type": "all_units_lost", "callsigns": ["Kilo"], "text": "Sink the Kilo"}]})
 	var mm: MissionManager = h[1]
 	mm.victory_mode = "any"
+	mm.record_order(escort, Order.move(Vector2(0.0, 5.0)))  # commanded, so the task is the commander's
 	mm.tick(700.0)
 	assert_eq(mm.result, MissionManager.Result.VICTORY, "holding the watch wins an any-mode mission")
 	var a := mm.assessment()

@@ -56,7 +56,7 @@ const MANAGER_FIELDS := {
 	"AviationManager": ["_accum", "_next_buoy_id"],
 	"AirMissionManager": ["now_s", "_next_id", "_accum"],
 	"GroupAttackManager": ["now_s", "_next_id", "_accum"],
-	"MissionManager": ["result", "tasking_updates"],
+	"MissionManager": ["result", "tasking_updates", "orders_given", "civilian_incidents", "own_fire_hits", "rounds_spent"],
 	"OperationDirector": ["events", "fired", "skipped", "variant"],
 	"AIController": ["enabled", "_bb", "_plan_checked"],
 }

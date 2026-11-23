@@ -16,13 +16,35 @@ enum Result { RUNNING, VICTORY, DEFEAT }
 
 ## Mission effectiveness, 0 to 100, the graded result the late-1990s fleet-command games put
 ## on their debrief and campaign gates. Task accomplishment is most of it, credited only when
-## the mission is won, so before any civilian penalty a victory grades 60 to 100 and a defeat
-## 0 to 40; keeping the force and hurting the enemy are the rest; harming neutrals costs, pro
-## rata for damage, and can pull a victory lower. All of it is GAMEPLAY tuning.
+## the mission is won, so before any penalty a commanded victory grades 60 to 100 and a defeat
+## 0 to 40; keeping the force and hurting the enemy are the rest. Conduct is charged against
+## that: every hit the force's own weapons land on a neutral or on one of its own, a neutral
+## sunk, and rounds spent far beyond what their targets were worth. All of it is GAMEPLAY tuning.
 const TASK_WEIGHT := 60.0
 const FORCE_WEIGHT := 20.0
 const ATTRITION_WEIGHT := 20.0
 const CIVILIAN_PENALTY := 25.0  # per neutral vessel sunk by the player's weapons, pro rata for damage
+## Each hit the player's weapons land on a neutral is a civilian incident, and each on the
+## player's own side is fratricide, whatever the damage: either is the kind of thing a board of
+## inquiry sits for, so it costs as much as a tenth of the scale.
+const NEUTRAL_HIT_PENALTY := 10.0
+const OWN_FIRE_HIT_PENALTY := 10.0
+## A mission won with no order ever given, where there was an enemy at sea to deal with, was
+## won by standing doctrine and the enemy's own choices, not by command: a quarter of the task.
+const UNCOMMANDED_TASK_SHARE := 0.25
+## Ammunition out of proportion. Each offensive round is priced on the platform-points scale by
+## kind; a target may take rounds worth up to AMMUNITION_ALLOWANCE of its own points (a defended
+## frigate a dozen missiles, a patrol boat a few) before the excess counts, and rounds at a
+## neutral, an own unit or a false contact are all excess. ECONOMY_SCALE of excess costs the
+## whole ECONOMY_WEIGHT.
+const ECONOMY_WEIGHT := 10.0
+const ECONOMY_SCALE := 100.0
+const AMMUNITION_ALLOWANCE := 0.5
+const ROUND_POINTS := {"asm": 10.0, "torpedo": 12.0, "asw_rocket": 6.0, "bomb": 3.0, "sam": 6.0, "aam": 5.0, "ciws": 0.05, "gun": 0.3}
+const DEFAULT_ROUND_POINTS := 5.0
+## Standing doctrine the screen issues to every arriving unit on the commander's options: an order
+## in form, not a command decision, so it does not count as taking command.
+const DOCTRINE_ORDERS := [Order.Type.SET_AIR_DEFENCE_MODE]
 ## Bonus tasks are credited on top, up to this in all, unless the mission was lost. GAMEPLAY: big
 ## enough to be worth a risk, small enough that skipping them still leaves a full-marks victory.
 const BONUS_WEIGHT := 10.0
@@ -57,11 +79,25 @@ var neutral_factions := PackedStringArray()
 ## Tasking updates received during this engagement, oldest first, as {"time_s", "text"}: the
 ## briefing lists them under the original orders.
 var tasking_updates: Array = []
+## Orders the player's side gave its own units that direct the force (doctrine excluded).
+var orders_given := 0
+## Hits the player's own weapons landed on neutrals, oldest first, as {"time_s", "callsign",
+## "weapon"}: the debrief lists them.
+var civilian_incidents: Array = []
+## Hits the player's own weapons landed on the player's own units.
+var own_fire_hits := 0
+## Offensive rounds the player's side fired, priced by ROUND_POINTS, by the target unit's id as a
+## string ("" for a contact that was nothing).
+var rounds_spent: Dictionary = {}
 
 
 func configure(scenario: Dictionary) -> void:
 	result = Result.RUNNING
 	tasking_updates.clear()
+	orders_given = 0
+	civilian_incidents.clear()
+	own_fire_hits = 0
+	rounds_spent.clear()
 	victory_mode = str(scenario.get("victory_mode", "all"))
 	neutral_factions = PackedStringArray()
 	for f in scenario.get("neutral_factions", []):
@@ -191,6 +227,39 @@ static func _revise(o: MissionObjective, d: Dictionary) -> void:
 		o.held_seconds = 0.0
 
 
+## The force's conduct, as the referee sees it: the orders the commander gave, and where the
+## force's rounds went. Simulation wires these to the managers that report them.
+func listen(weapons: WeaponManager) -> void:
+	if unit_manager != null:
+		unit_manager.order_issued.connect(record_order)
+	weapons.round_fired.connect(record_round)
+	weapons.weapon_impact.connect(record_impact)
+
+
+func record_order(u: Unit, o: Order) -> void:
+	if result != Result.RUNNING or u == null or u.faction != player_faction:
+		return
+	if o.origin == "player" and o.execution_accepted and not DOCTRINE_ORDERS.has(o.type):
+		orders_given += 1
+
+
+func record_round(shooter: Unit, spec: WeaponSpec, track: Track) -> void:
+	if result != Result.RUNNING or shooter == null or shooter.faction != player_faction or spec == null:
+		return
+	var key := str(track.truth.id) if track != null and track.truth != null else ""
+	rounds_spent[key] = float(rounds_spent.get(key, 0.0)) + float(ROUND_POINTS.get(spec.type, DEFAULT_ROUND_POINTS))
+
+
+func record_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -> void:
+	if result != Result.RUNNING or not hit or target == null or faction != player_faction:
+		return
+	if neutral_factions.has(target.faction):
+		civilian_incidents.append({"time_s": unit_manager.now_s if unit_manager != null else 0.0,
+			"callsign": target.callsign, "weapon": spec.compact_name() if spec != null else ""})
+	elif target.faction == player_faction:
+		own_fire_hits += 1
+
+
 func _finish(r: Result, summary: String) -> void:
 	result = r
 	mission_ended.emit("VICTORY" if r == Result.VICTORY else "DEFEAT", summary)
@@ -214,7 +283,10 @@ static func platform_points(spec: PlatformSpec, authored := 0) -> int:
 func assessment() -> Dictionary:
 	var out := {"task_done": 0, "task_total": 0, "task": 0.0, "force": 0.0, "attrition": 0.0, "civilian": 0.0,
 		"friendly_points": 0, "friendly_lost": 0.0, "hostile_points": 0, "hostile_earned": 0.0, "neutral_hit": 0,
-		"bonus_done": 0, "bonus_total": 0, "bonus": 0.0, "percent": 0}
+		"bonus_done": 0, "bonus_total": 0, "bonus": 0.0, "percent": 0,
+		"orders_given": orders_given, "commanded": true, "civilian_incidents": civilian_incidents.duplicate(true),
+		"neutral_hits": civilian_incidents.size(), "own_fire_hits": own_fire_hits, "own_fire": 0.0,
+		"ammunition_excess": 0.0, "economy": 0.0}
 	for o in victory_objectives:
 		if o.phase_only:
 			continue
@@ -232,9 +304,12 @@ func assessment() -> Dictionary:
 		out["task"] = TASK_WEIGHT  # one way of winning was taken, which is the whole task
 	elif out["task_total"] > 0:
 		out["task"] = TASK_WEIGHT * float(out["task_done"]) / float(out["task_total"])
+	var allowance := {}
 	if unit_manager != null:
 		for u in unit_manager.units:
 			var pts := platform_points(u.spec, u.points)
+			if u.faction != player_faction and not neutral_factions.has(u.faction):
+				allowance[str(u.id)] = AMMUNITION_ALLOWANCE * pts
 			if pts <= 0:
 				continue
 			var harm := 1.0 - Damage.health_fraction(u) if u.alive or u.departed else 1.0
@@ -253,12 +328,26 @@ func assessment() -> Dictionary:
 			else:
 				out["hostile_points"] += pts
 				out["hostile_earned"] += pts * harm
+	if orders_given == 0 and int(out["hostile_points"]) > 0:
+		out["commanded"] = false
+		out["task"] = float(out["task"]) * UNCOMMANDED_TASK_SHARE
+	out["civilian"] = float(out["civilian"]) + NEUTRAL_HIT_PENALTY * civilian_incidents.size()
+	out["own_fire"] = OWN_FIRE_HIT_PENALTY * own_fire_hits
+	var excess := 0.0
+	for key: String in rounds_spent:
+		excess += maxf(float(rounds_spent[key]) - float(allowance.get(key, 0.0)), 0.0)
+	out["ammunition_excess"] = excess
+	out["economy"] = ECONOMY_WEIGHT * clampf(excess / ECONOMY_SCALE, 0.0, 1.0)
 	out["force"] = FORCE_WEIGHT * (1.0 - float(out["friendly_lost"]) / float(out["friendly_points"])) if out["friendly_points"] > 0 else FORCE_WEIGHT
 	out["attrition"] = ATTRITION_WEIGHT * clampf(float(out["hostile_earned"]) / float(out["hostile_points"]), 0.0, 1.0) if out["hostile_points"] > 0 else ATTRITION_WEIGHT
 	# A bonus taken on the way to a defeat bought nothing.
 	if out["bonus_total"] > 0 and result != Result.DEFEAT:
 		out["bonus"] = BONUS_WEIGHT * float(out["bonus_done"]) / float(out["bonus_total"])
-	out["percent"] = clampi(int(round(float(out["task"]) + float(out["force"]) + float(out["attrition"]) + float(out["bonus"]) - float(out["civilian"]))), 0, 100)
+		if not out["commanded"]:
+			out["bonus"] = float(out["bonus"]) * UNCOMMANDED_TASK_SHARE
+	var earned := float(out["task"]) + float(out["force"]) + float(out["attrition"]) + float(out["bonus"])
+	var charged := float(out["civilian"]) + float(out["own_fire"]) + float(out["economy"])
+	out["percent"] = clampi(int(round(earned - charged)), 0, 100)
 	return out
 
 
@@ -266,14 +355,23 @@ func effectiveness() -> int:
 	return int(assessment()["percent"])
 
 
-## One line for the debrief: "Task 60 · Force 17 · Attrition 12 · Civilian −25 = 64%".
+## One line for the debrief: "Task 60/60 · Force 17/20 · Attrition 12/20 · Civilian −25 (1
+## hit on a neutral) = 64%". An assessment from an older build lacks the conduct figures and
+## reads without them.
 static func assessment_text(a: Dictionary) -> String:
 	var parts := PackedStringArray()
-	parts.append("Task %d/%d" % [int(round(float(a["task"]))), int(TASK_WEIGHT)])
+	parts.append("Task %d/%d%s" % [int(round(float(a["task"]))), int(TASK_WEIGHT), "" if bool(a.get("commanded", true)) else " (no orders given)"])
 	parts.append("Force %d/%d" % [int(round(float(a["force"]))), int(FORCE_WEIGHT)])
 	parts.append("Attrition %d/%d" % [int(round(float(a["attrition"]))), int(ATTRITION_WEIGHT)])
 	if int(a.get("bonus_total", 0)) > 0:
 		parts.append("Bonus %d/%d" % [int(round(float(a.get("bonus", 0.0)))), int(BONUS_WEIGHT)])
-	if float(a["civilian"]) > 0.0:
-		parts.append("Civilian −%d" % int(round(float(a["civilian"]))))
+	var neutral_hits := int(a.get("neutral_hits", 0))
+	if float(a["civilian"]) > 0.0 or neutral_hits > 0:
+		var why := " (%d %s on a neutral)" % [neutral_hits, "hit" if neutral_hits == 1 else "hits"] if neutral_hits > 0 else ""
+		parts.append("Civilian −%d%s" % [int(round(float(a["civilian"]))), why])
+	var own_hits := int(a.get("own_fire_hits", 0))
+	if own_hits > 0:
+		parts.append("Own fire −%d (%d %s on your force)" % [int(round(float(a.get("own_fire", 0.0)))), own_hits, "hit" if own_hits == 1 else "hits"])
+	if float(a.get("economy", 0.0)) >= 0.5:
+		parts.append("Ammunition −%d" % int(round(float(a["economy"]))))
 	return "%s = %d%%" % [" · ".join(parts), int(a["percent"])]
