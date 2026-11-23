@@ -50,6 +50,10 @@ const SEARCH_MARGIN_NM := 5.0
 ## harmless: it is the one aircraft on the plot that cannot answer a missile, and its radar and
 ## ESM do their work from here. GAMEPLAY_ESTIMATE, about a ship's area-defence missile reach.
 const SENSOR_STANDOFF_NM := 40.0
+## A circuit moved out of a ship's cover is laid this much further out than it need be, and moved
+## again only when it is no longer clear or twice this from where it would now go. GAMEPLAY_ESTIMATE,
+## above the mile or two a ship's plot wanders between fixes.
+const STANDOFF_SLACK_NM := 3.0
 ## Interceptors sent at one hostile contact; unknown contacts get one look each.
 const INTERCEPTORS_PER_TRACK := 2
 ## An airframe within this of its station centre plus radius counts as on station.
@@ -1168,8 +1172,9 @@ func _step_station(m: AirMission, a: Unit, task: Dictionary) -> void:
 		task["state"] = AirMission.HOLDING
 		_look(m, a, task)
 		return
-	if _keep_standoff(m, a, task):
-		return
+	# A circuit moved out from a ship is the station all the same: whether the airframe is on it is
+	# read from where it is, the same second.
+	_keep_standoff(m, a, task)
 	var half := float(task.get("half", m.radius_nm)) + STATION_ARRIVAL_MARGIN_NM
 	var offset := a.position - (task.get("centre", m.station) as Vector2) - _slot_offset(m, a, task)
 	task["state"] = AirMission.ON_STATION if absf(offset.x) <= half and absf(offset.y) <= half else AirMission.TRANSITING
@@ -1251,29 +1256,37 @@ func _slot_offset(m: AirMission, a: Unit, task: Dictionary) -> Vector2:
 ## An unarmed sensor aircraft flies its circuit no nearer than the stand-off to any ship the plot
 ## does not call friendly or neutral, and any reconnaissance airframe, once its look has told the
 ## plot what a ship is, keeps outside that ship's missile cover: the circuit is moved out along the
-## line from the ship, and back when the ship has gone. Returns true when it was moved this second.
+## line from the ship, and back when the ship has gone. It is laid STANDOFF_SLACK_NM further out
+## than it need be and moved again only when it is no longer clear or that far from where it would
+## now be laid, so that a ship's plot wandering by a mile or two does not move it every few seconds.
+## Returns true when it was moved this second.
 func _keep_standoff(m: AirMission, a: Unit, task: Dictionary) -> bool:
 	if not _unarmed_fixed_wing(a) and m.kind != AirMission.Kind.RECON:
 		return false
 	var half := float(task.get("half", m.radius_nm))
+	var current: Vector2 = task.get("centre", m.station)
 	var centre := m.station
 	var from := ""
 	var kept := 0.0
+	var clear_of_all := true
 	for t: Track in _nearby(m, a, INF):
 		var standoff := _standoff_nm(a, t)
+		if standoff <= 0.0:
+			continue
 		var clear := standoff + half * sqrt(2.0)
-		if standoff <= 0.0 or t.position.distance_to(centre) >= clear:
+		if t.position.distance_to(current) < clear:
+			clear_of_all = false
+		if t.position.distance_to(centre) >= clear:
 			continue
 		var away := centre - t.position
 		if away.length() < 0.01:
 			away = m.base.position - t.position
 		if away.length() < 0.01:
 			away = Vector2(0, -1)
-		centre = t.position + away.normalized() * clear
+		centre = t.position + away.normalized() * (clear + STANDOFF_SLACK_NM)
 		from = t.id
 		kept = standoff
-	var current: Vector2 = task.get("centre", m.station)
-	if centre.distance_to(current) < 2.0:
+	if centre.distance_to(current) < 2.0 or (clear_of_all and centre.distance_to(current) <= 2.0 * STANDOFF_SLACK_NM):
 		return false
 	_assign_station(m, a, task, centre)
 	if from != "" and from != str(task.get("standoff_from", "")):

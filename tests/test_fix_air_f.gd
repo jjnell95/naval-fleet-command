@@ -328,3 +328,56 @@ func _moving(t: Track, course_deg: float, speed_kn: float) -> Track:
 	t.course_deg = fposmod(course_deg, 360.0)
 	t.speed_kn = speed_kn
 	return t
+
+
+# --- A circuit held off a ship stays put while the plot wanders ---------------------------------
+
+## A Hawkeye's circuit moved out of a Slava's missile cover is the station: it is not re-laid every
+## time the cruiser's plot wanders by a mile or so, the Hawkeye reads ON STATION throughout, and the
+## circuit stays clear of the cover.
+func test_a_circuit_held_off_a_ship_does_not_flicker_with_the_plot() -> void:
+	_load(CARRIER_WATCH)
+	var cv: Unit = null
+	for u in _sim.unit_manager.units:
+		if u.callsign == IKE:
+			cv = u
+	var o := Order.air_mission(AirMission.Kind.RECON, "cw90_e2c", 1, cv.position + Vector2(30, 35), 10.0)
+	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
+	var m: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
+	var ship_at := m.station + Vector2(30, 20)
+	var ship := _plot("BLUE", ship_at, "T1970")
+	ship.domain = "surface"
+	ship.altitude_m = 0.0
+	ship.identity = "HOSTILE"
+	ship.classification = Track.Classification.CLASS_KNOWN
+	ship.known_class = "CG Slava"
+	ship.known_category = "cruiser"
+	var a: Unit = null
+	for i in 1800:
+		SimClock.advance(1.0)
+		if not m.aircraft.is_empty():
+			a = m.aircraft[0]
+			if m.tasks[a]["state"] == AirMission.ON_STATION:
+				break
+	assert_true(a != null and m.tasks[a]["state"] == AirMission.ON_STATION, "the Hawkeye reaches its moved circuit")
+	var task: Dictionary = m.tasks[a]
+	var half := float(task["half"])
+	var clear := AirMissionManager._standoff_nm(a, ship) + half * sqrt(2.0)
+	var changes := 0
+	var relaid := 0
+	var last_state: String = task["state"]
+	var last_centre: Vector2 = task["centre"]
+	var wander := [Vector2(1.5, 0), Vector2(-1.0, 1.2), Vector2(0, -1.5), Vector2(-1.4, -0.6), Vector2(0.8, 1.4)]
+	for i in 300:
+		ship.position = ship_at + wander[(i / 4) % wander.size()]
+		SimClock.advance(1.0)
+		if task["state"] != last_state:
+			changes += 1
+			last_state = task["state"]
+		if (task["centre"] as Vector2).distance_to(last_centre) > 0.01:
+			relaid += 1
+			last_centre = task["centre"]
+		assert_true((task["centre"] as Vector2).distance_to(ship.position) >= clear - 0.01, "the circuit stays clear of the cover")
+	assert_eq(changes, 0, "on station throughout")
+	assert_eq(relaid, 0, "the circuit is not moved for a wandering plot")
+	_done()
