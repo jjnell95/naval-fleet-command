@@ -461,13 +461,22 @@ func _process(delta: float) -> void:
 		_entries_threat_revision = threat_revision
 		_entries_datalink = datalink
 		_entries_action_serial = action_serial
-		var entries: Array = WorldPresentation.unit_entries(um, simulation.track_manager, player, env, simulation.track_manager.neutral_factions)
+		var tm := simulation.track_manager
+		var neutrals := tm.neutral_factions if tm != null else PackedStringArray()
 		var rounds := WorldPresentation.weapon_entries(simulation.weapon_manager, simulation.threat_manager, player, reference)
 		_offer_inbound(rounds)
-		entries.append_array(rounds)
-		entries.append_array(WorldPresentation.buoy_entries(simulation.aviation_manager, player, SimClock.sim_time))
+		var others: Array = rounds
+		others.append_array(WorldPresentation.buoy_entries(simulation.aviation_manager, player, SimClock.sim_time))
+		# The origin goes with what Action follows, so that is found first and everything else
+		# is then built only round where the view will actually be.
 		if subject_key != "":
-			_anchor_on(entries, subject_key)
+			var subject: Array = others
+			if subject_key.begins_with("u:") or subject_key.begins_with("t:"):
+				subject = WorldPresentation.unit_entries(um, tm, player, env, neutrals, _origin_nm, -1.0, 0, PackedStringArray([subject_key]))
+			_anchor_on(subject, subject_key)
+		var keep := PackedStringArray([String(_focus.get("key", "")), _focus_key, subject_key])
+		var entries: Array = WorldPresentation.unit_entries(um, tm, player, env, neutrals, _origin_nm, WorldPresentation.MAX_RANGE_NM, WorldPresentation.MAX_ENTITIES, keep)
+		entries.append_array(others)
 		# A subject going down keeps the camera until it has gone, or until something new is hooked.
 		if hooked_anew or not _scene.is_dying(_focus_key):
 			_focus_key = WorldPresentation.resolve_focus_key(entries, _focus)
