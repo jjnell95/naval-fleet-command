@@ -27,12 +27,15 @@ var _slots: Dictionary = {}  # key -> offset index, or HIDDEN
 var _last_s := -INF
 var _last_count := -1
 var _last_obstacles: Array = []
+var _last_captions := PackedStringArray()
 
 
-## True when the assignment should be remade: a quarter second on, a changed number of labels, or
-## an obstacle that came, went or changed size (a radio line arriving clears its band at once).
-func due(now: float, count: int, obstacles: Array = []) -> bool:
-	return now - _last_s >= REPLACE_S or now < _last_s or count != _last_count or obstacles != _last_obstacles
+## True when the assignment should be remade: a quarter second on, a changed number of labels, an
+## obstacle that came, went or changed size (a radio line arriving clears its band at once), or a
+## different caption at some index. Captions are keyed by their place in the frame's queue, so one
+## that takes another's index must not inherit a place it does not have.
+func due(now: float, count: int, obstacles: Array = [], captions: Array = []) -> bool:
+	return now - _last_s >= REPLACE_S or now < _last_s or count != _last_count or obstacles != _last_obstacles or _signature(captions) != _last_captions
 
 
 func assign(labels: Array, now: float, bounds := Rect2(), captions: Array = [], obstacles: Array = []) -> void:
@@ -40,6 +43,7 @@ func assign(labels: Array, now: float, bounds := Rect2(), captions: Array = [], 
 	_last_s = now
 	_last_count = labels.size() + captions.size()
 	_last_obstacles = obstacles.duplicate()
+	_last_captions = _signature(captions)
 
 
 ## The offset index a label was given (the classic place for one not yet assigned), or HIDDEN.
@@ -52,14 +56,24 @@ func clear() -> void:
 	_last_s = -INF
 	_last_count = -1
 	_last_obstacles = []
+	_last_captions = PackedStringArray()
 
 
-## A caption's rect in the place it was given: slot 0 is its own place, slot k its (k-1)th alternative.
+## A caption's rect in the place it was given: slot 0 is its own place, slot k its (k-1)th
+## alternative. A slot it has no alternative for is its own place.
 static func caption_rect(caption: Dictionary, slot_index: int) -> Rect2:
 	var rect: Rect2 = caption.rect
-	if slot_index > 0:
-		rect.position += caption.alts[slot_index - 1] as Vector2
+	var alts: Array = caption.get("alts", [])
+	if slot_index > 0 and slot_index <= alts.size():
+		rect.position += alts[slot_index - 1] as Vector2
 	return rect
+
+
+static func _signature(captions: Array) -> PackedStringArray:
+	var out := PackedStringArray()
+	for caption: Dictionary in captions:
+		out.append("%s|%d" % [caption.get("text", ""), (caption.get("alts", []) as Array).size()])
+	return out
 
 
 ## The text block's box for one offset. `at` is the symbol's centre, `extent` its half-size, `size`

@@ -2692,7 +2692,7 @@ func _place_labels() -> void:
 		obstacles.append(_radio_layout["plate"])
 	_label_queue = _merge_coincident_labels(_label_queue)
 	var count := _label_queue.size() + _chart_captions.size()
-	if _labels.due(_anim, count, obstacles):
+	if _labels.due(_anim, count, obstacles, _chart_captions):
 		_labels.assign(_label_queue, _anim, Rect2(Vector2.ZERO, size), _chart_captions, obstacles)
 
 
