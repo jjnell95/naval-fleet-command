@@ -49,6 +49,7 @@ class CycleFacts:
 	extends RefCounted
 	var units: Array[Unit] = []
 	var others: Dictionary = {}  # faction -> engageable units of every other side, in unit order
+	var emitters: Dictionary = {}  # faction -> those of them with a radar transmitting, in unit order
 	var position := PackedVector2Array()
 	var mast := PackedFloat64Array()  # Detection.mast_or_altitude_m, both ends of a sight line
 	var mast_root := PackedFloat64Array()  # its square root, the target's share of a radar horizon
@@ -115,10 +116,14 @@ class CycleFacts:
 				noise_root[i] = sqrt(maxf(Detection.acoustic_noise(u), 0.0))
 		for faction in factions:
 			var list_for := PackedInt32Array()
+			var emitting_for := PackedInt32Array()
 			for i in engageable:
 				if list[i].faction != faction:
 					list_for.append(i)
+					if emitting[i]:
+						emitting_for.append(i)
 			others[faction] = list_for
+			emitters[faction] = emitting_for
 
 	## Detection.terrain_masks for this ordered pair, walked at most once a cycle.
 	func masked(observer: int, target: int) -> bool:
@@ -199,6 +204,7 @@ func _radar_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 	var air_reach := PackedFloat64Array()
 	var surface_reach := PackedFloat64Array()
 	var height_root := PackedFloat64Array()
+	var highest_root := 0.0
 	for s in observer.sensors:
 		if s.kind == "radar":
 			sets.append(s)
@@ -207,12 +213,18 @@ func _radar_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 			# The radar range functions take a height below zero to mean the antenna's own.
 			var height := Detection.observer_height_m(observer, s)
 			height_root.append(sqrt(maxf(height if height >= 0.0 else s.antenna_height_m, 0.0)))
+			highest_root = maxf(highest_root, height_root[-1])
 	var from := facts.position[oi]
 	for ti: int in facts.others[observer.faction]:
 		var signature := facts.signature[ti]
 		if signature <= 0.0:
 			continue
 		var target_root := facts.mast_root[ti]
+		# Beyond the highest antenna's horizon no set can reach, and clutter and jamming only
+		# shorten a reach: let the pair go before weighing every set.
+		var d := from.distance_to(facts.position[ti])
+		if d > Detection.HORIZON_K * (highest_root + target_root) * efficiency:
+			continue
 		var airborne := facts.in_flight[ti] == 1
 		var reach := air_reach if airborne else surface_reach
 		var best := 0.0
@@ -223,7 +235,6 @@ func _radar_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 				best = r
 				sensor = sets[k]
 		var r := best * efficiency if airborne else best * efficiency * facts.clutter[ti]
-		var d := from.distance_to(facts.position[ti])
 		if r <= 0.0 or d > r:
 			continue
 		r *= Detection.jam_penalty(observer, facts.position[ti])
@@ -388,14 +399,15 @@ func _report_passive(observer: Unit, target: Unit, d: float, reach: float, senso
 
 
 ## `search_range` is how far along the bearing the contact can be: the line's length.
-func _bearing_contact(target: Unit, observer: Unit, bearing: float, accuracy: float, search_range: float, source: String, sensor: SensorSpec) -> SensorContact:
+## `key`, when given, is the listener's bearing key for `source`, worked out once for a pass.
+func _bearing_contact(target: Unit, observer: Unit, bearing: float, accuracy: float, search_range: float, source: String, sensor: SensorSpec, key := "") -> SensorContact:
 	var c := SensorContact.new()
 	var estimate := maxf(search_range * INITIAL_RANGE_FRACTION, 0.3)
 	c.range_nm = estimate
 	c.target = target
 	c.observer = observer
 	c.bearing_origin = observer.position
-	c.bearing_key = "unit:" + TrackManager._unit_key(observer) + ":" + source
+	c.bearing_key = key if key != "" else _bearing_key(observer, source)
 	c.bearing_accuracy_deg = accuracy
 	c.bearing_range_limit_nm = search_range * REACH_MARGIN
 	c.bearing_speed_limit_kn = 1200.0 if source == "esm" else 70.0
@@ -407,6 +419,10 @@ func _bearing_contact(target: Unit, observer: Unit, bearing: float, accuracy: fl
 	c.source = source
 	c.set_sensor(sensor)
 	return c
+
+
+static func _bearing_key(observer: Unit, source: String) -> String:
+	return "unit:" + TrackManager._unit_key(observer) + ":" + source
 
 
 ## A convergence-zone ring contributes its measured propagation band, not an exact range.
@@ -437,21 +453,29 @@ func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 	var sets: Array[SensorSpec] = []
 	var gains := PackedFloat64Array()
 	var height_root := PackedFloat64Array()
+	var lines := PackedFloat64Array()  # each set's nominal reach, the length of the line it reports
 	for s in observer.sensors:
 		if s.kind == "esm":
 			sets.append(s)
 			gains.append(s.esm_gain)
 			height_root.append(sqrt(maxf(Detection.observer_height_m(observer, s), 0.0)))
+			lines.append(Detection.nominal_esm_range_nm(observer, s))
 	if sets.is_empty() or observer.submerged():
 		return
+	var key := _bearing_key(observer, "esm")
 	var efficiency := observer.sensor_efficiency()
+	var highest_root := 0.0
+	for root in height_root:
+		highest_root = maxf(highest_root, root)
 	var from := facts.position[oi]
-	for ti: int in facts.others[observer.faction]:
-		if facts.emitting[ti] == 0:
+	for ti: int in facts.emitters[observer.faction]:
+		# No set hears past the line of sight from its own height to the emitter's.
+		var d := from.distance_to(facts.position[ti])
+		if d > Detection.HORIZON_K * (highest_root + facts.emitter_root[ti]) * efficiency:
 			continue
 		var power := facts.power[ti]
 		var reach := 0.0
-		var sensor: SensorSpec = null
+		var best := -1
 		for k in sets.size():
 			var r := 0.0
 			if power > 0.0:
@@ -459,23 +483,25 @@ func _esm_pass_indexed(facts: CycleFacts, oi: int, now: float) -> void:
 			r *= efficiency
 			if r > reach:
 				reach = r
-				sensor = sets[k]
-		if sensor == null or reach <= 0.0:
+				best = k
+		if best < 0 or reach <= 0.0:
 			continue
-		var d := from.distance_to(facts.position[ti])
 		if d > reach:
 			continue
 		if facts.masked(oi, ti):
 			continue  # the horizon this set already respects is not the only thing in the way
-		_report_esm(observer, facts.units[ti], d, reach, sensor, now)
+		_report_esm(observer, facts.units[ti], d, reach, sets[best], now, lines[best], key)
 
 
 ## The line is as long as the set's nominal reach against a ship's search radar. The reach against
 ## this emitter is not used for it: that follows the emitter's own height, which an intercept does
 ## not measure.
-func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: SensorSpec, now: float) -> void:
+## `line`, when given, is Detection.nominal_esm_range_nm for the set and `key` the listener's ESM
+## bearing key: both are the same for every intercept the listener makes in a cycle.
+func _report_esm(observer: Unit, emitter: Unit, d: float, reach: float, sensor: SensorSpec, now: float, line := -1.0, key := "") -> void:
 	var bearing := Geo.bearing_deg(observer.position, emitter.position) + rng.randfn(0.0, sensor.bearing_accuracy_deg)
-	var c := _bearing_contact(emitter, observer, bearing, sensor.bearing_accuracy_deg, Detection.nominal_esm_range_nm(observer, sensor), "esm", sensor)
+	var length := line if line >= 0.0 else Detection.nominal_esm_range_nm(observer, sensor)
+	var c := _bearing_contact(emitter, observer, bearing, sensor.bearing_accuracy_deg, length, "esm", sensor, key)
 	c.bearing_range_limit_nm = maxf(c.bearing_range_limit_nm, ESM_SOLUTION_LIMIT_NM)
 	c.quality = clampf(1.0 - d / reach, 0.0, 1.0)
 	c.classify_rate = sensor.classify_rate * ESM_CLASSIFY_BONUS
@@ -646,6 +672,22 @@ func _detect_weapons(now: float) -> void:
 		group_indices.append(heights[altitude])
 		radiating.append(1 if seeker_radiating(w) else 0)
 	var sighting := minf(WEAPON_SIGHTING_NM * Detection.visual_light_factor(), float(Detection.environment.get("visibility_nm", 12.0)))
+	# What each group presents, the same for every observer: Detection.weapon_detection_range_nm's
+	# share of the round's height and size, the clutter it rides in, and a torpedo's noise.
+	var group_root := PackedFloat64Array()
+	var group_signature := PackedFloat64Array()
+	var group_clutter := PackedFloat64Array()
+	var group_noise := PackedFloat64Array()
+	var torpedoes := false
+	for group in group_specs.size():
+		var spec := group_specs[group]
+		var altitude := group_altitudes[group]
+		group_root.append(sqrt(maxf(spec.altitude_m if altitude < 0.0 else altitude, 0.0)))
+		group_signature.append(spec.signature_factor)
+		group_clutter.append(Detection.weapon_clutter_factor(spec, altitude))
+		group_noise.append(sqrt(maxf(spec.acoustic_signature, 0.01)))
+		torpedoes = torpedoes or group_torpedoes[group]
+	var water := Detection.sonar_environment_factor()
 	for observer in unit_manager.units:
 		if not observer.is_engageable():
 			continue
@@ -660,16 +702,37 @@ func _detect_weapons(now: float) -> void:
 				if s.kind == "esm":
 					esm_root = maxf(esm_root, sqrt(maxf(Detection.observer_height_m(observer, s), 0.0)))
 		var esm_efficiency := observer.sensor_efficiency()
+		# The observer's sets, once: Detection.best_weapon_detection_nm and torpedo_detection_nm
+		# weigh each of them against every group in the same order with the same arithmetic.
+		var radar_air := PackedFloat64Array()
+		var radar_root := PackedFloat64Array()
+		if radar_up:
+			for s in observer.sensors:
+				if s.kind == "radar":
+					var height := Detection.observer_height_m(observer, s)
+					radar_air.append(s.range_air_nm)
+					radar_root.append(sqrt(maxf(s.antenna_height_m if height < 0.0 else height, 0.0)))
+		var sonar_gain := PackedFloat64Array()
+		if sonar_up and torpedoes:
+			for s in observer.sensors:
+				if s.kind == "sonar" and s.passive_sensitivity_nm > 0.0 and Detection.sonar_sensor_ready(observer, s):
+					sonar_gain.append(s.passive_sensitivity_nm)
+					sonar_gain.append(Detection.self_noise_factor(observer, s))
 		var reaches := PackedFloat64Array()
 		var passive := PackedFloat64Array()  # the eye, and an intercept of a seeker that is transmitting
 		var intercept := PackedFloat64Array()
 		var furthest := 0.0
 		for group in group_specs.size():
-			var spec := group_specs[group]
 			var altitude := group_altitudes[group]
-			var reach := Detection.torpedo_detection_nm(observer, spec) if group_torpedoes[group] and sonar_up else 0.0
+			var reach := 0.0
+			if group_torpedoes[group] and sonar_up:
+				for k in range(0, sonar_gain.size(), 2):
+					reach = maxf(reach, sonar_gain[k] * group_noise[group] * sonar_gain[k + 1])
+				reach = reach * water * esm_efficiency
 			if not group_torpedoes[group] and radar_up:
-				reach = Detection.best_weapon_detection_nm(observer, spec, altitude) * Detection.weapon_clutter_factor(spec, altitude)
+				for k in radar_air.size():
+					reach = maxf(reach, minf(radar_air[k] * group_signature[group], Detection.HORIZON_K * (radar_root[k] + group_root[group])))
+				reach = reach * esm_efficiency * group_clutter[group]
 			reaches.append(reach)
 			var above_water := surfaced and not group_torpedoes[group]
 			passive.append(sighting if above_water else 0.0)

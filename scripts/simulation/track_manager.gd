@@ -43,6 +43,8 @@ const HISTORY_INTERVAL_S := 30.0
 const HISTORY_LENGTH := 48
 ## Damage pool assumed for a contact whose class is not yet known, for battle damage assessment.
 const GENERIC_HEALTH := 100.0  # GAMEPLAY
+## The sources a signature library can match a class from.
+const SIGNATURE_SOURCES: Array[String] = ["esm", "sonar_passive", "sonar_active", "sonar_cz", "sonobuoy"]
 ## A radar plot this close on an aircraft accumulates toward a probable type. GAMEPLAY_ESTIMATE.
 const RADAR_RECOGNITION_NM := 60.0
 const RADAR_RECOGNITION_S := 60.0
@@ -554,7 +556,7 @@ func _update_classification(faction: String, t: Track, c: SensorContact, gain: f
 		t.domain = _plot_domain(c)
 	# Emission/acoustic signature libraries give a probable class, not a hull name or proof of
 	# intent. A generic radar range/velocity plot cannot identify an exact platform by waiting.
-	if c.source in ["esm", "sonar_passive", "sonar_active", "sonar_cz", "sonobuoy"]:
+	if c.source in SIGNATURE_SOURCES:
 		t.signature_time_s += maxf(gain - t._cycle_signature_gain, 0.0)
 		t._cycle_signature_gain = maxf(gain, t._cycle_signature_gain)
 		if t.signature_time_s >= Track.CLASS_TIMES_S[2] and t.classification < Track.Classification.IDENTIFIED:

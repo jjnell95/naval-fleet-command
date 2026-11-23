@@ -47,11 +47,6 @@ const LEG_CHANGE_KN := 2.0
 static func add(history: Array, c: SensorContact, now: float, latest: Variant = null) -> Dictionary:
 	if c.bearing_key == "":
 		return {}
-	var report := {"key": c.bearing_key, "origin": c.bearing_origin,
-		"bearing": c.error_axis_deg, "sigma": maxf(c.bearing_accuracy_deg, 0.1),
-		"limit": c.bearing_range_limit_nm, "speed_limit": c.bearing_speed_limit_kn, "time": now,
-		"smooth": c.error_axis_deg, "n": 1, "mean_bearing": c.error_axis_deg,
-		"mean_origin": c.bearing_origin, "mean_time": now}
 	var index: Dictionary = latest if latest is Dictionary else {}
 	if latest is Dictionary and index.is_empty():
 		for entry: Dictionary in history:
@@ -59,27 +54,44 @@ static func add(history: Array, c: SensorContact, now: float, latest: Variant = 
 	# Replace a recent sample from the same observer: a rapid sensor refresh is not a new
 	# baseline. Keep the window bounded for both simulation cost and saved engagements.
 	var prev: Dictionary = index.get(c.bearing_key, {}) if latest is Dictionary else _newest(history, c.bearing_key)
+	var smooth := c.error_axis_deg
 	if not prev.is_empty():
 		var gap := now - float(prev["time"])
 		if gap <= SMOOTH_GAP_S:
 			var line := float(prev.get("smooth", prev["bearing"]))
-			report["smooth"] = fposmod(line + SMOOTH_GAIN * Geo.heading_delta(line, c.error_axis_deg), 360.0)
-		if gap < SAMPLE_INTERVAL_S:
-			# Preserve regular history samples, but carry the latest bearing separately below.
-			if now - float(prev.get("sample_start", prev["time"])) < SAMPLE_INTERVAL_S:
-				report["sample_start"] = prev.get("sample_start", prev["time"])
-				var n := int(prev.get("n", 1)) + 1
-				var mean := float(prev.get("mean_bearing", prev["bearing"]))
-				var mean_origin: Vector2 = prev.get("mean_origin", prev["origin"])
-				var mean_time := float(prev.get("mean_time", prev["time"]))
-				report["n"] = n
-				report["mean_bearing"] = fposmod(mean + Geo.heading_delta(mean, c.error_axis_deg) / n, 360.0)
-				report["mean_origin"] = mean_origin + (c.bearing_origin - mean_origin) / n
-				report["mean_time"] = mean_time + (now - mean_time) / n
-				# The sample takes the new figures where it stands in the history.
+			smooth = fposmod(line + SMOOTH_GAIN * Geo.heading_delta(line, c.error_axis_deg), 360.0)
+		# Preserve regular history samples, but carry the latest bearing separately below.
+		if gap < SAMPLE_INTERVAL_S and now - float(prev.get("sample_start", prev["time"])) < SAMPLE_INTERVAL_S:
+			var sample_start: Variant = prev.get("sample_start", prev["time"])
+			var n := int(prev.get("n", 1)) + 1
+			var mean := float(prev.get("mean_bearing", prev["bearing"]))
+			var mean_origin: Vector2 = prev.get("mean_origin", prev["origin"])
+			var mean_time := float(prev.get("mean_time", prev["time"]))
+			var mean_bearing := fposmod(mean + Geo.heading_delta(mean, c.error_axis_deg) / n, 360.0)
+			var merged_origin := mean_origin + (c.bearing_origin - mean_origin) / n
+			var merged_time := mean_time + (now - mean_time) / n
+			if not prev.has("mean_time"):
+				# A sample saved before the means were kept takes the full layout first, so every
+				# sample in a history has its fields in the one order.
+				var fresh := _report(c, now, smooth)
 				prev.clear()
-				prev.merge(report)
-				return prev
+				prev.merge(fresh)
+			# The sample takes the new figures where it stands in the history, in place: most looks
+			# land in a sample already open, and this is the sensor cycle's commonest filing.
+			prev["origin"] = c.bearing_origin
+			prev["bearing"] = c.error_axis_deg
+			prev["sigma"] = maxf(c.bearing_accuracy_deg, 0.1)
+			prev["limit"] = c.bearing_range_limit_nm
+			prev["speed_limit"] = c.bearing_speed_limit_kn
+			prev["time"] = now
+			prev["smooth"] = smooth
+			prev["n"] = n
+			prev["mean_bearing"] = mean_bearing
+			prev["mean_origin"] = merged_origin
+			prev["mean_time"] = merged_time
+			prev["sample_start"] = sample_start
+			return prev
+	var report := _report(c, now, smooth)
 	history.append(report)
 	index[c.bearing_key] = report
 	while not history.is_empty() and (now - float(history[0]["time"]) > WINDOW_S or history.size() > MAX_SAMPLES):
@@ -87,6 +99,15 @@ static func add(history: Array, c: SensorContact, now: float, latest: Variant = 
 		if is_same(index.get(gone["key"]), gone):
 			index.erase(gone["key"])
 	return report
+
+
+## A new sample holding one look.
+static func _report(c: SensorContact, now: float, smooth: float) -> Dictionary:
+	return {"key": c.bearing_key, "origin": c.bearing_origin,
+		"bearing": c.error_axis_deg, "sigma": maxf(c.bearing_accuracy_deg, 0.1),
+		"limit": c.bearing_range_limit_nm, "speed_limit": c.bearing_speed_limit_kn, "time": now,
+		"smooth": smooth, "n": 1, "mean_bearing": c.error_axis_deg,
+		"mean_origin": c.bearing_origin, "mean_time": now}
 
 
 ## The newest report from this listener, or an empty dictionary.
@@ -107,16 +128,15 @@ static func estimate(history: Array, now: float, speed_limit_kn := -1.0) -> Dict
 	# a hundred miles off would leap about by more than the contact can move.
 	# Samples are filed in the order they were started, so nothing before the first one started
 	# more than two sample intervals ago can still be current.
-	var current := []
+	var current := PackedInt32Array()
 	for i in range(history.size() - 1, -1, -1):
 		var report: Dictionary = history[i]
 		if now - float(report.get("sample_start", report["time"])) > SAMPLE_INTERVAL_S * 2.0:
 			break
 		if now - float(report["time"]) <= 2.0:
-			# Only what a crossed fix reads, with the line as smoothed.
-			current.push_front({"key": report["key"], "origin": report["origin"], "bearing": report.get("smooth", report["bearing"]),
-				"time": report["time"], "sigma": report["sigma"], "limit": report["limit"], "speed_limit": report.get("speed_limit", SHIP_SPEED_LIMIT_KN)})
-	var crossed := _crossed_fix(current)
+			current.append(i)
+	current.reverse()
+	var crossed := _crossed_fix_of(history, current)
 	if not crossed.is_empty():
 		return crossed
 	var limit := speed_limit_kn if speed_limit_kn >= 0.0 else float(history[-1].get("speed_limit", SHIP_SPEED_LIMIT_KN))
@@ -165,24 +185,121 @@ static func _observer_spread(reports: Array) -> float:
 	return spread
 
 
-static func _crossed_fix(reports: Array) -> Dictionary:
-	if reports.size() < 2:
+## A fix from lines taken together: the history's current reports, picked out by index, each line
+## as smoothed, crossed where at least two listeners apart see it at a useful angle. It is reworked
+## for every look at something that may be an aircraft, so it reads the reports where they stand
+## rather than copying each one, and solves its two unknowns with the same operations, in the same
+## order, as _fit(reports, newest time, false) and _inverse: the same answer to the last bit.
+static func _crossed_fix_of(history: Array, current: PackedInt32Array) -> Dictionary:
+	var count := current.size()
+	if count < 2:
 		return {}
+	var keys: Array = []
+	var origins := PackedVector2Array()
+	var bearings := PackedFloat64Array()
+	keys.resize(count)
+	origins.resize(count)
+	bearings.resize(count)
+	for k in count:
+		var report: Dictionary = history[current[k]]
+		keys[k] = report["key"]
+		origins[k] = report["origin"]
+		bearings[k] = float(report.get("smooth", report["bearing"]))
 	var good_geometry := false
-	for i in reports.size():
-		for j in range(i + 1, reports.size()):
-			var a: Dictionary = reports[i]
-			var b: Dictionary = reports[j]
-			if a["key"] == b["key"] or (a["origin"] as Vector2).distance_to(b["origin"]) < MIN_BASELINE_NM:
+	for i in count:
+		for j in range(i + 1, count):
+			if keys[i] == keys[j] or origins[i].distance_to(origins[j]) < MIN_BASELINE_NM:
 				continue
-			if absf(sin(deg_to_rad(float(a["bearing"]) - float(b["bearing"])))) >= MIN_CROSSING_SINE:
+			if absf(sin(deg_to_rad(bearings[i] - bearings[j]))) >= MIN_CROSSING_SINE:
 				good_geometry = true
 				break
 		if good_geometry:
 			break
 	if not good_geometry:
 		return {}
-	return _fit(reports, float(reports[-1]["time"]), false)
+	# _fit(reports, newest time, false): the normal equations of the lines' perpendiculars.
+	var directions := PackedVector2Array()
+	directions.resize(count)
+	var a00 := 0.0
+	var a01 := 0.0
+	var a10 := 0.0
+	var a11 := 0.0
+	var r0 := 0.0
+	var r1 := 0.0
+	for k in count:
+		var dir := Geo.heading_to_vector(bearings[k])
+		directions[k] = dir
+		var n := Vector2(-dir.y, dir.x)
+		var nx: float = n.x
+		var ny: float = n.y
+		var value: float = n.dot(origins[k])
+		r0 += nx * value
+		a00 += nx * nx
+		a01 += nx * ny
+		r1 += ny * value
+		a10 += ny * nx
+		a11 += ny * ny
+	# _inverse on [[a00, a01 | 1, 0], [a10, a11 | 0, 1]], Gauss-Jordan with partial pivoting.
+	var m := [[a00, a01, 1.0, 0.0], [a10, a11, 0.0, 1.0]]
+	for col in 2:
+		var pivot := col
+		if col == 0 and absf(float(m[1][0])) > absf(float(m[0][0])):
+			pivot = 1
+		if absf(float(m[pivot][col])) < 0.000001:
+			return {}
+		var swap: Array = m[col]
+		m[col] = m[pivot]
+		m[pivot] = swap
+		var divisor: float = m[col][col]
+		var top: Array = m[col]
+		for j in 4:
+			top[j] /= divisor
+		var other: Array = m[1 - col]
+		var scale: float = other[col]
+		for j in 4:
+			other[j] -= scale * float(top[j])
+	var i00: float = m[0][2]
+	var i01: float = m[0][3]
+	var i10: float = m[1][2]
+	var i11: float = m[1][3]
+	var s0 := 0.0
+	s0 += i00 * r0
+	s0 += i01 * r1
+	var s1 := 0.0
+	s1 += i10 * r0
+	s1 += i11 * r1
+	var position := Vector2(s0, s1)
+	var newest: Dictionary = history[current[count - 1]]
+	var fastest := float(newest.get("speed_limit", SHIP_SPEED_LIMIT_KN))
+	if not position.is_finite() or 0.0 > fastest:
+		return {}
+	var variance := 0.0
+	var residual := 0.0
+	var mean_range := 0.0
+	for k in count:
+		var report: Dictionary = history[current[k]]
+		var delta: Vector2 = position - origins[k]
+		var dir := directions[k]
+		var along: float = delta.dot(dir)
+		if along <= 0.1 or along > float(report["limit"]) * 1.5:
+			return {}
+		mean_range += along
+		variance += pow(maxf(along * tan(deg_to_rad(float(report["sigma"]))), 0.01), 2.0)
+		residual += pow(delta.cross(dir), 2.0)
+	mean_range /= count
+	variance = maxf(variance / count, residual / maxf(count - 2, 1)) * 1.0
+	var a := i00 * variance
+	var b := i01 * variance
+	var d := i11 * variance
+	var root := sqrt(maxf(pow(a - d, 2.0) + 4.0 * b * b, 0.0))
+	var major := maxf(maxf(2.0 * sqrt(maxf((a + d + root) * 0.5, 0.0)), 0.2), 0.0)
+	var minor := maxf(2.0 * sqrt(maxf((a + d - root) * 0.5, 0.0)), 0.1)
+	var quality := clampf(1.0 - major / maxf(mean_range * 0.5, 0.5), 0.0, 0.95)
+	if quality < MIN_QUALITY:
+		return {}
+	var axis_rad := 0.5 * atan2(2.0 * b, a - d)
+	return {"position": position, "velocity": Vector2.ZERO, "major": major, "minor": minor,
+		"axis": Geo.vector_to_heading(Vector2(cos(axis_rad), sin(axis_rad))), "quality": quality}
 
 
 static func _observer_manoeuvre(reports: Array) -> float:
