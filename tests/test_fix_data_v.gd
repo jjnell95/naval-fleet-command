@@ -253,3 +253,23 @@ func test_a_gun_at_its_full_reach_hits_fewer_than_one_round_in_five() -> void:
 		plotted.speed_kn = 0.0
 		var judged := burke.expected_hit_chance(spec, plotted, spec.max_range_nm)
 		assert_true(judged < 0.2, "%s: the fire control expects under one in five at full reach too (%.2f)" % [spec.id, judged])
+
+
+# --- Installations ashore -----------------------------------------------------------------------
+
+## Every installation had no length, so the 3D view drew each at its 150 m fallback: an air base's
+## runway 150 m long. Each now has the footprint of its kind: a runway for an air station, a few
+## hundred metres to a kilometre for a battery or a missile site.
+func test_every_installation_ashore_has_the_footprint_of_its_kind() -> void:
+	var seen := 0
+	for p: PlatformSpec in DataDB.all_platforms():
+		if p.domain != "land":
+			continue
+		seen += 1
+		var drawn := WorldPresentation.length_of(p)
+		assert_true(p.length_m > 0.0, "%s has a footprint length of its own" % p.id)
+		if p.flight_facility() == "airfield":
+			assert_true(drawn >= 2000.0, "%s is drawn with a runway's length (%.0f m)" % [p.id, drawn])
+		else:
+			assert_true(drawn >= 200.0 and drawn <= 1500.0, "%s is drawn the size of a battery or a missile site (%.0f m)" % [p.id, drawn])
+	assert_true(seen >= 12, "the catalogue's installations are found (%d)" % seen)

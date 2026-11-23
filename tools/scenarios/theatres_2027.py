@@ -207,12 +207,19 @@ def submarine(key, name, short, nation, sensors, weapons, length, tonnes, speed,
     platform(key, name, short, nation, category, sensors, weapons, **values)
 
 
+# The ground a site of each kind covers, end to end, for the 3D view: the dispersal of launchers,
+# radars and control posts over a hide, not a surveyed layout. No public figure is used; these are
+# modelling values, listed in DATA_SOURCES.md.
+SITE_FOOTPRINT_M = {"coastal missile battery": 600.0, "surface-to-air missile site": 1000.0,
+                    "ballistic missile battery": 500.0, "drone launch site": 300.0}
+
+
 def site(key, name, short, nation, category, sensors, weapons, **kw):
     """A fixed installation ashore: a coastal missile battery, a SAM site, a drone launch site."""
     values = dict(domain="land", max_speed_kn=0.0, cruise_speed_kn=0.0, turn_rate_deg_s=0.0,
                   accel_kn_s=0.0, health=60.0, signature_factor=1.2, mast_height_m=30.0,
                   fire_control_channels=0, decoy_count=0, decoy_effectiveness=0.0, has_datalink=True,
-                  aircraft_capacity=0, aviation_facility="none")
+                  aircraft_capacity=0, aviation_facility="none", length_m=SITE_FOOTPRINT_M[category])
     values.update(kw)
     platform(key, name, short, nation, category, sensors, weapons, **values)
 
