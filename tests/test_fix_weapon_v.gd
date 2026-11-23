@@ -207,3 +207,57 @@ func test_automatic_sam_fire_is_not_held_by_an_own_helicopter_far_below_the_dron
 		assert_true(bool((w["wm"] as WeaponManager).engagement_check(w["ship"], DataDB.weapon("sm2_family"), w["track"], 0.0).ok), "%s: the shot is in the envelope" % c[4])
 		assert_eq(fired, c[3], c[4])
 		_free_sam_world(w)
+
+
+# --- c-sensors#3: a stale plot is no fire-control solution ---------------------------------------
+
+func _strike_spec(id: String, type: String, targets: Array, guidance := "active_radar_homing") -> WeaponSpec:
+	var w := WeaponSpec.new()
+	w.id = id
+	w.display_name = id
+	w.type = type
+	w.guidance = guidance
+	w.profile = "sea_skimming"
+	w.target_types = PackedStringArray(targets)
+	w.max_range_nm = 200.0
+	w.min_range_nm = 1.0
+	w.speed_kn = 500.0
+	w.turn_rate_deg_s = 15.0
+	w.seeker_range_nm = 8.0
+	w.damage = 40.0
+	w.base_pk = 1.0
+	w.run_to_enable_nm = 1.0
+	return w
+
+
+## A Burke loses the frigate it held on radar. Five minutes on the plot is STALE, two miles out,
+## and the Tomahawk check said IN ENVELOPE and launch() fired. The check now refuses it, and the
+## refusal names why; a torpedo that searches about the datum, an anti-radiation round that listens
+## for the emitter and a strike on a site ashore are still allowed.
+func test_no_missile_or_shell_is_laid_on_a_stale_plot() -> void:
+	Terrain.clear()
+	var shooter := _unit("BLUE", Vector2.ZERO, "surface", 1)
+	shooter.roe = Unit.Roe.FREE
+	var ship := _unit("RED", Vector2(0.0, 6.0), "surface", 2)
+	var missile := _strike_spec("strike", "asm", ["surface", "land"])
+	var torpedo := _strike_spec("fish", "torpedo", ["surface", "subsurface"])
+	torpedo.max_range_nm = 20.0
+	var arm := _strike_spec("arm", "asm", ["surface", "land"], "passive_radar_homing")
+	for spec: WeaponSpec in [missile, torpedo, arm]:
+		shooter.weapons.append(spec)
+		shooter.magazines[spec.id] = 8
+	ship.radar_on = true
+	var wm := _harness([shooter, ship])
+	var t := _track(shooter, ship.position)
+	t.truth = ship
+	t.last_esm_time = 0.0
+	assert_true(bool(Combat.check_engagement(shooter, missile, t).ok), "a current plot: %s" % Combat.check_engagement(shooter, missile, t).reason)
+	t.status = Track.Status.STALE
+	t.position_error_nm = 2.2
+	assert_eq(str(Combat.check_engagement(shooter, missile, t).reason), "NO CURRENT FIX", "a missile at a stale ship plot")
+	assert_true(not wm.launch(shooter, missile, t, 1, 0.0) and wm.in_flight.is_empty(), "nothing leaves the rail at a stale plot")
+	assert_true(str(Combat.check_engagement(shooter, torpedo, t).reason) != "NO CURRENT FIX", "a torpedo searches about the datum")
+	assert_true(str(Combat.check_engagement(shooter, arm, t).reason) != "NO CURRENT FIX", "an anti-radiation round listens for the emitter")
+	t.domain = "land"
+	assert_true(str(Combat.check_engagement(shooter, missile, t).reason) != "NO CURRENT FIX", "a site ashore stays where it was plotted")
+	_cleanup(wm)
