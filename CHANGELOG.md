@@ -34,6 +34,7 @@ A review of the whole game after M43, fixed area by area.
 - Right-click investigates any contact of unknown allegiance, and **Identify contact** is offered on all of them, including an unknown of known class. A dipping helicopter localises its own bearing from the dip.
 - Task results stay on the readout after a crew return to station.
 - A consort firing from her station inherits a lost guide's route.
+- The standing attack chooses the gun at small craft inside its reach, else the cheapest round meant for the target that reaches with margin, and sends rounds enough to finish what the plot says is left of the contact, allowing for its class's defences. A CAP's pursuit defaults to 60 nm. A torpedo attack begun too close opens beyond the enable run. A strike aircraft held from firing holds off the target.
 
 ### Weapons and seekers
 
@@ -104,6 +105,9 @@ A review of the whole game after M43, fixed area by area.
 - The radio line has a band of its own: chart names and track numbers are placed clear of it, with a plate behind its rows. Patrol, ring, CPA and time-to-go captions are placed with alternatives instead of printed over each other, contacts on one spot share one label, and the hooked platform's number sits beyond its brackets.
 - A right-click on the regional display sends the hooked platforms there, **Shift** adding a leg, and says why when it cannot.
 - An intercept is drawn as a line from the deck to its contact, as a strike is, with no hold ring to drag; a torpedo's minimum-range ring and legend give the range inside which the shot is refused, its enable run included.
+- Every status board on every tab fits inside the chart at 100, 110 and 125%, scrolling where a page does not fit; the Orders board stands on the chart's bottom edge, the key list fits the window, the weapon-state inks reach 4.5:1 contrast and the COURSE box reads the course steered.
+- The desk's ACCEPT and CANCEL are worded buttons and a locked campaign step names the win that opens it; the Classic summary wraps; the Reference has a compact layout for short screens, a general block for every platform and words for every weapon's speed, warhead and seeker, and opens on the flagship; the debrief card is sized from the screen; front-end dialogs share one header.
+- Leaving or restarting a running engagement from the desk, and deleting a save, ask first, and leaving or restarting autosaves; the editor's NEW asks and is an undo step.
 
 ### Speed
 
