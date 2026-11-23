@@ -262,6 +262,8 @@ var _hit_flash := 0.0
 var _marks: ChartMarks
 var _threat_ring_points := PackedVector2Array()
 var _marks_shown := false
+var _own_cache: Array[Unit] = []
+var _own_in_draw := false
 var show_range_grid := false
 var _floor: ChartFloor
 var _land: ChartLand
@@ -274,7 +276,8 @@ var _chart_captions: Array = []
 ## The radio line laid out for this frame (see `radio_layout`), placed before the labels so they
 ## can keep out of its band.
 var _radio_layout: Dictionary = {}
-var _text_widths: Dictionary = {}  # "text@size" -> px
+var _text_widths: Dictionary = {}  # font size -> {text -> px}
+var _text_width_count := 0
 ## A status board covers the chart: its readouts and radio line are not drawn under it.
 var overlay_covered := false
 var _coast_runs: Dictionary = {}  # Landmass -> Array[PackedVector2Array], clip edges removed
@@ -530,6 +533,7 @@ func post_message(text: String, severity := "info", speaker = null) -> void:
 
 func _process(delta: float) -> void:
 	_anim += delta
+	_own_in_draw = false  # in case a draw was cut short
 	if is_visible_in_tree():
 		if show_coverage and unit_manager != null:
 			coverage_discs = SensorCoverage.discs(_own_units())
@@ -1344,6 +1348,10 @@ static func own_hover_lines(u: Unit, now: float) -> PackedStringArray:
 func _own_units() -> Array[Unit]:
 	if unit_manager == null:
 		return []
+	# The plot asks for this a dozen times a draw (units, rings, readouts, reference unit), and
+	# nothing changes during one draw, so it builds the list once.
+	if _own_in_draw:
+		return _own_cache
 	return unit_manager.get_engageable_units(player_faction)
 
 
@@ -1719,6 +1727,8 @@ func _refresh_threats() -> void:
 func _draw() -> void:
 	var t0 := Time.get_ticks_usec()
 	_begin_plot_draw()
+	_own_cache = _own_units()
+	_own_in_draw = true
 	_refresh_threats()
 	var t1 := Time.get_ticks_usec()
 	_draw_ocean()
@@ -1769,6 +1779,7 @@ func _draw() -> void:
 	_awaiting_symbol_art = MapSymbols.deferred_graphics_frame == Engine.get_process_frames()
 	if _marks != null:
 		_marks.queue_redraw()  # its rings and flashes sit on what this draw placed
+	_own_in_draw = false
 	var t5 := Time.get_ticks_usec()
 	# The whole chart, and where it went (the parts add up to the whole).
 	Debug.time_add("chart", t5 - t0)
@@ -2759,14 +2770,23 @@ func _draw_labels() -> void:
 	_label_queue.clear()
 
 
-## The width of a label's text, measured once per string and size.
+## The width of a label's text, measured once per string and size. Called for every number and
+## caption on every plot draw, so the lookup builds no key string.
 func _text_width(text: String, font_size: int) -> float:
-	var key := "%s@%d" % [text, font_size]
-	if not _text_widths.has(key):
-		if _text_widths.size() >= 2048:
+	var widths: Dictionary = _text_widths.get(font_size, {})
+	if widths.is_empty():
+		_text_widths[font_size] = widths
+	var width: Variant = widths.get(text)
+	if width == null:
+		if _text_width_count >= 2048:
 			_text_widths.clear()
-		_text_widths[key] = _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	return float(_text_widths[key])
+			_text_width_count = 0
+			widths = {}
+			_text_widths[font_size] = widths
+		width = _readout_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		widths[text] = width
+		_text_width_count += 1
+	return float(width)
 
 
 ## F5: the last few plots that built the track, as fading 2 px dots. Reports only, never a line
