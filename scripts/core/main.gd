@@ -2731,7 +2731,8 @@ func _on_weapon_impact(faction: String, spec: WeaponSpec, target: Unit, hit: boo
 		_stats["hits"] += 1
 		if own_target:
 			_stats["hits_taken"] += 1
-		elif faction == simulation.player_faction:
+		elif faction == simulation.player_faction and not simulation.track_manager.neutral_factions.has(target.faction):
+			# A hit on a neutral is a civilian incident in the debrief, never a hit scored.
 			_stats["hits_scored"] += 1
 	_stats["leaked"] += 1
 	# Internal after-action counts keep the result. The live watch receives only reports or
