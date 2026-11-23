@@ -144,6 +144,7 @@ func test_an_intercept_keeps_its_contact_wherever_it_flies() -> void:
 func _cap_on_station(station_offset: Vector2) -> AirMission:
 	var cv := _unit(IKE)
 	var o := Order.air_mission(AirMission.Kind.CAP, "cw90_f14a", 1, cv.position + station_offset, 12.0)
+	o.pursuit_nm = 25.0  # a short pursuit, so only the reach rules below can commit the CAP
 	assert_true(_sim.unit_manager.issue_order(cv, o), o.receipt)
 	_advance(600.0)
 	var m: AirMission = _sim.air_mission_manager.active_missions("BLUE")[0]
@@ -159,7 +160,7 @@ func _raid(at: Vector2, id: String) -> Track:
 	return raid
 
 
-## On the order's own defaults (12 nm ring, 25 nm pursuit) a raid 50 nm out is outside the ring
+## On a 12 nm ring and a 25 nm pursuit a raid 50 nm out is outside the ring
 ## and the pursuit, but well inside the Tomcat's own missile reach: it goes after it.
 func test_a_cap_commits_on_a_raid_inside_its_own_missile_reach() -> void:
 	_load(CARRIER_WATCH)

@@ -622,7 +622,9 @@ func _step_attack(u: Unit, dt: float) -> void:
 		return
 	var check: Dictionary = solution["check"]
 	if bool(check["ok"]):
-		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id))
+		# A weapon the commander named fires its default salvo; one the attack chose is sized to
+		# what the plot says is left of the contact.
+		var salvo := mini(maxi(spec.salvo_default, 1), u.magazine_count(spec.id)) if u.attack_weapon_id != "" else u.salvo_for_track(spec, track)
 		if weapon_manager != null and weapon_manager.launch(u, spec, track, salvo, now_s):
 			u.attack_rounds_fired += salvo
 			u.attack_assess_until_s = -1.0
@@ -654,7 +656,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			# In reach of the plot but not of where the contact will be: it is opening. Keep
 			# closing on it rather than holding at a standoff the lead point never enters.
 			u.attack_phase = "Intercept track"
-			goal = _steer_attack(u, track, maxf(range_nm * 0.5, spec.min_range_nm * 1.5 + 0.5), dt)
+			goal = _steer_attack(u, track, maxf(range_nm * 0.5, Combat.minimum_range_nm(spec) * 1.5 + 0.5), dt)
 		"NO LINE OF FIRE":
 			# Land between the shooter and the round's path: move to water with an open line.
 			goal = _clearing_point(u, track, standoff)
@@ -679,7 +681,7 @@ func _step_attack(u: Unit, dt: float) -> void:
 			return
 		"TOO CLOSE":
 			u.attack_phase = "Opening to range"
-			goal = _steer_attack(u, track, maxf(spec.min_range_nm * 1.5, 1.0), dt, true)
+			goal = _steer_attack(u, track, maxf(Combat.minimum_range_nm(spec) * 1.5, 1.0), dt, true)
 		"MAGAZINE EMPTY":
 			_end_attack(u, track, "Magazines empty")
 			return
@@ -753,8 +755,9 @@ func _localise_from_the_dip(u: Unit, track: Track, dt: float) -> bool:
 
 
 ## The weapon the attack would fire now: the named one, else the first that can be fired in the
-## order weapons_for_track ranks them (longest reach first, guns last). When none can, the most
-## preferred one's refusal decides what the platform does about it.
+## order weapons_for_track ranks them (the gun at small craft in its reach, else the cheapest round
+## meant for the target that reaches with margin). When none can, the most preferred one's refusal
+## decides what the platform does about it.
 func _attack_solution(u: Unit, track: Track) -> Dictionary:
 	var candidates: Array[WeaponSpec] = []
 	if u.attack_weapon_id != "":
@@ -818,12 +821,13 @@ func _clearing_point(u: Unit, track: Track, standoff_nm: float) -> Vector2:
 
 ## With rounds away, a salvo being assessed or the fire control busy, there is nothing to close
 ## for. A platform the attack is already steering keeps its range; one that is not carries on with
-## its own orders, except that a fixed-wing aircraft which has released is turned away before
-## those orders carry it in over the target.
+## its own orders, except that a fixed-wing aircraft is turned away before those orders carry it in
+## over the target: one that has released, and one in reach that is waiting to (a launcher, a
+## neutral in the line of fire), which can shoot as well from the hold as from over the ship.
 func _keep_geometry(u: Unit, track: Track, standoff_nm: float, dt: float) -> void:
 	if u.plan_kept:
 		_steer_attack(u, track, standoff_nm, dt)
-	elif u.attack_rounds_fired > 0 and _stands_off(u, track):
+	elif _stands_off(u, track):
 		var floor_nm := _hold_off_floor_nm(standoff_nm)
 		if u.position.distance_to(track.position) <= floor_nm + _turn_room_nm(u):
 			u.take_steering()
