@@ -345,6 +345,11 @@ func zoom_at_center(factor: float) -> void:
 	_zoom_at(size * 0.5, factor)
 
 
+## Zooms by `factor` keeping the chart point under `screen_pos` where it is.
+func zoom_at(screen_pos: Vector2, factor: float) -> void:
+	_zoom_at(screen_pos, factor)
+
+
 ## Every switchable chart layer and the member that holds it. One state path serves the
 ## shortcuts, the palette and the menus. "terrain" (F6) and "relief" are the same switch, relief
 ## shading (land and water are always drawn); "vectors" is the old name of "leaders"; "threats"
@@ -2346,7 +2351,8 @@ func _draw_sensor_rings() -> void:
 			continue
 		var sp := world_to_screen(SubmarineComms.reported_position(u))
 		if not SubmarineComms.connected(u):
-			_shadow_text(sp + Vector2(12, -18), "SENSOR STATUS · AWAITING CHECK-IN", 11)
+			var waiting := "SENSOR STATUS · AWAITING CHECK-IN"
+			_queue_caption(sp + Vector2(12, -18), waiting, 11, COL_READOUT, false, Vector2.INF, _corner_alts(waiting, 11, 12.0))
 			continue
 		var esm := Detection.nominal_esm_ring_nm(u)
 		if esm > 0.0:

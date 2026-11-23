@@ -198,3 +198,38 @@ func test_the_allied_filter_is_in_the_menu() -> void:
 			assert_eq(it.checked, 1, "shown to start with")
 	assert_true(not map.toggle_layer("allied") and not map.identity_shown("ALLIED"), "and turning it off hides allied contacts")
 	map.free()
+
+
+# --- Chart captions ---------------------------------------------------------------------------------
+
+func test_a_boat_awaiting_check_in_is_captioned_clear_of_track_numbers() -> void:
+	var map := _map()
+	var units := UnitManager.new()
+	map.unit_manager = units
+	var sub := Unit.new()
+	sub.spec = DataDB.platform("cw90_los_angeles")
+	sub.faction = "BLUE"
+	sub.health = sub.spec.health
+	sub.comms_enabled = true
+	sub.depth_m = 200.0
+	sub.position = map.screen_to_world(Vector2(500, 300))
+	sub.comms_report = {"position": sub.position, "heading_deg": 0.0, "speed_kn": 5.0, "depth_m": 200.0, "health": sub.spec.health}
+	map.selected = [sub]
+	map._own_cache = [sub]
+	map._own_in_draw = true
+	var sp := map.world_to_screen(sub.position)
+	# A contact's number right where the caption would first print.
+	map._queue_label("t:T1040", sp + Vector2(30, -30), MapSymbols.RADIUS, "1040", "", 1.0, false)
+	map._draw_sensor_rings()
+	map._own_in_draw = false
+	var texts: Array = map._chart_captions.map(func(c: Dictionary) -> String: return c.text)
+	assert_true(texts.has("SENSOR STATUS · AWAITING CHECK-IN"), "the boat's caption is placed with the other chart text: %s" % [texts])
+	map._place_labels()
+	if not map._chart_captions.is_empty():
+		var caption: Dictionary = map._chart_captions[0]
+		var k := map._labels.slot(caption.key)
+		var number := ChartLabels.slot_box(map._label_queue[0], map._labels.slot("t:T1040"))
+		assert_true(k == ChartLabels.HIDDEN or not ChartLabels.caption_rect(caption, k).intersects(number), "and never prints over a track number")
+		assert_true(map._labels.slot("t:T1040") != ChartLabels.HIDDEN, "the number keeps its place")
+	map.free()
+	units.free()

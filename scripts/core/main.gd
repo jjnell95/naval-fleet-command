@@ -1649,7 +1649,7 @@ func _run_palette_action(id: String) -> void:
 		"intercept_inbound":
 			_apply_order_to_selection(Order.intercept())
 		"chart_zoom_in", "chart_zoom_out":
-			map._zoom_at(map.size * 0.5, TacticalMap.ZOOM_STEP if id == "chart_zoom_in" else 1.0 / TacticalMap.ZOOM_STEP)
+			map.zoom_at(map.size * 0.5, TacticalMap.ZOOM_STEP if id == "chart_zoom_in" else 1.0 / TacticalMap.ZOOM_STEP)
 		"fleet_operations":
 			_toggle_fleet_operations()
 		"deploy_radar_decoys":
@@ -2118,7 +2118,7 @@ func _classic_chart_zoom(mb: InputEventMouseButton) -> void:
 	var at := map.get_global_transform_with_canvas().affine_inverse() * mb.position
 	if not Rect2(Vector2.ZERO, map.size).has_point(at):
 		return
-	map._zoom_at(at, 2.0 if mb.button_index == MOUSE_BUTTON_LEFT else 0.5)
+	map.zoom_at(at, 2.0 if mb.button_index == MOUSE_BUTTON_LEFT else 0.5)
 	map.queue_redraw()
 	_classic_zoom_button = mb.button_index
 	get_viewport().set_input_as_handled()
