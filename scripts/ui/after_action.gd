@@ -306,7 +306,9 @@ static func civilian_text(sunk: PackedStringArray, hits: Array) -> String:
 		var order := PackedStringArray()
 		var by_vessel := {}  # callsign -> [[weapon, minute, count], ...]
 		for h: Dictionary in hits:
-			var name := str(h.get("callsign", ""))
+			# What the plot called her when she was struck; a record from before that was kept
+			# carries only her callsign.
+			var name := str(h.get("name", h.get("callsign", "")))
 			if name == "":
 				name = "unidentified neutral"
 			if not by_vessel.has(name):

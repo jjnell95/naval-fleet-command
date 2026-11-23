@@ -97,7 +97,9 @@ var tasking_updates: Array = []
 ## Orders the player's side gave its own units that direct the force (COMMAND_ORDERS).
 var orders_given := 0
 ## Hits the player's own weapons landed on neutrals, oldest first, as {"time_s", "callsign",
-## "weapon"}: the debrief lists them.
+## "weapon", "name"}: the debrief lists them. "name" is what the side's plot called the vessel when
+## she was struck (Track.label(), or "" with no plot on her), so the debrief names only what the
+## commander knew; "callsign" is the truth, for the grade.
 var civilian_incidents: Array = []
 ## Hits the player's own weapons landed on the player's own units.
 var own_fire_hits := 0
@@ -301,8 +303,10 @@ func record_impact(faction: String, spec: WeaponSpec, target: Unit, hit: bool) -
 	if result != Result.RUNNING or not hit or target == null or faction != player_faction:
 		return
 	if neutral_factions.has(target.faction):
+		var held: Track = track_manager.find_track(player_faction, target) if track_manager != null else null
 		civilian_incidents.append({"time_s": unit_manager.now_s if unit_manager != null else 0.0,
-			"callsign": target.callsign, "weapon": spec.compact_name() if spec != null else ""})
+			"callsign": target.callsign, "weapon": spec.compact_name() if spec != null else "",
+			"name": held.label() if held != null and held.status != Track.Status.LOST else ""})
 	elif target.faction == player_faction:
 		own_fire_hits += 1
 

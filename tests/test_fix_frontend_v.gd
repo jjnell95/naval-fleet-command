@@ -113,6 +113,13 @@ func test_the_debrief_names_every_hit_on_a_neutral_that_the_grade_charges_for() 
 		if mm.neutral_factions.has(u.faction) and u.callsign == "MV Coastal Star":
 			neutral = u
 	assert_true(neutral != null, "the passage has the coaster")
+	# The debrief names her as the plot knew her when she was struck, so the plot has read her name.
+	var tm := main.simulation.track_manager
+	var held := tm.find_track(main.simulation.player_faction, neutral)
+	if held == null:
+		held = tm._new_track(main.simulation.player_faction, main.simulation.player_faction, neutral, neutral.position, 0.0)
+	held.classification = Track.Classification.IDENTIFIED
+	held.known_callsign = neutral.callsign
 	var nsm := WeaponSpec.new()
 	nsm.id = "test_nsm"
 	nsm.short_name = "NSM"
