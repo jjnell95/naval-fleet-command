@@ -150,6 +150,11 @@ async function playAndSave(page, report, out) {
   await page.waitForTimeout(2500);
   // The dialog is a fixed 760 x 470 panel centred in the 1600 x 900 page; DELETE is its third button.
   await page.mouse.click(728, 655);
+  await page.waitForTimeout(1500);
+  await shot(page, report, out, 'browser-delete-question.png');
+  // The game asks before a save is thrown away, with KEEP IT focused; the question's DELETE is
+  // the right-hand of its two buttons.
+  await page.mouse.click(960, 506);
   // The engine writes its file system back to IndexedDB a few seconds after a change, not at once.
   await page.waitForTimeout(10000);
   await shot(page, report, out, 'browser-deleted.png');

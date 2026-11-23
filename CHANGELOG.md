@@ -149,45 +149,47 @@ A review of the whole game after M43, fixed area by area and then in rounds of r
 
 ### Measured
 
-Before (the code ahead of the overhaul) against after, on one otherwise idle 4-core machine, one process at a time, each timing taken twice (run 1 / run 2). The battles are not the same battles: the overhaul changed what ships and the AI do, so where a difference is the simulation doing different work rather than running faster, it says so. The battle counts come from the state dump of the same seeded run.
+Before (the code ahead of the overhaul) against after (the release), on one otherwise idle 4-core machine, one process at a time, each timing taken twice (run 1 / run 2). The battles are not the same battles: the overhaul changed what ships and the AI do, so where a difference is the simulation doing different work rather than running faster, it says so. The battle counts come from the state dump of the same seeded run, and both runs of each tree dumped the same counts.
 
 Headless, an hour from the start of each scenario (seed 2, both sides on the AI, `--fastforward=3600 --dump`), in simulated seconds per wall second:
 
 | Scenario | Before | After | Note |
 |---|---|---|---|
-| aegis_bastion | 34.4 / 37.5 | 77.7 / 76.2 | Not like for like: after, the hour holds 5 weapon commits and 5 own rounds against 29 and 37 before (16 rounds still in flight at the end before, none after). Much of the gain is less fighting. |
-| pacific_02_taiwan_strait | 17.9 / 18.2 | 31.1 / 30.6 | More fighting after (46 commits against 38, 18 missile-defence launches against 0, 30 hostile rounds against 18), so the gain is real. |
-| gulf_01_hormuz | 90.8 / 91.2 | 134.3 / 130.7 | The same 12 commits; after, 26 hostile rounds against 0 and 9 contacts against 0. Real gain. |
-| med_01_tartus | 60.7 / 62.0 | 66.1 / 69.6 | More fighting after (36 commits against 31, 34 hostile rounds against 24); small real gain. |
-| cold_war_03_carrier | 98.4 / 102.1 | 154.8 / 149.9 | A similar battle (10 commits against 7, 54 defence launches against 48). Real gain. |
+| aegis_bastion | 36.7 / 38.5 | 58.8 / 63.0 | Not like for like: after, the hour holds 8 weapon commits, 6 own and 8 hostile rounds against 29, 37 and 16 before (16 rounds still in flight at the end before, 2 after). Much of the gain is less fighting. |
+| pacific_02_taiwan_strait | 17.0 / 18.6 | 24.3 / 27.6 | More fighting after (40 commits against 38, 30 hostile rounds against 18, 31 missile-defence launches against 0; 39 own rounds against 44), so the gain is real. |
+| gulf_01_hormuz | 89.3 / 92.1 | 116.2 / 122.1 | Different work: after, 14 commits against 12, 30 hostile rounds and 10 contacts against none, but 34 defence launches against 46, and the protected tanker is lost (a defeat) where before the mission was still open. Probably a real gain, not a clean one. |
+| med_01_tartus | 57.8 / 62.1 | 58.1 / 58.7 | A similar battle (28 commits against 31, 25 own rounds each, 26 hostile against 24). No measurable change: the difference is inside the run-to-run spread. |
+| cold_war_03_carrier | 99.7 / 106.3 | 136.7 / 142.1 | A similar battle, a little busier after (10 commits against 7, 14 hostile rounds against 13, 50 defence launches against 48). Real gain. |
 
-The sensor cycle late in the Taiwan Strait (`tools/measure_sensor_cycle.gd --paths=optimized --repeats=3`: seed 42, from 2400 s; the median of three, run 1 / run 2). The saves at 2400 s are different battles: after, the side's reports go into 3 shared track pictures (62 tracks) instead of 68 per-unit pictures (501 tracks), RED has 15 engageable units against 10, and 18 weapons are in flight against 1.
+The sensor cycle late in the Taiwan Strait (`tools/measure_sensor_cycle.gd --paths=optimized --repeats=3`: seed 42, from 2400 s; the median of three, run 1 / run 2; the after save rebuilt from the release with `--fresh`). The saves at 2400 s are different battles: after, the side's reports go into 4 shared track pictures (57 tracks) instead of 68 per-unit pictures (501 tracks), RED has 14 engageable units against 10, and 8 weapons are in flight against 1.
 
 | | Before | After |
 |---|---|---|
-| sensor cycle mean, ms | 18.70 / 19.36 | 19.59 / 20.72 |
-| sensor cycle p95, ms | 25.65 / 27.26 | 45.18 / 47.84 |
-| radar / ESM / sonar / tracks / weapons, ms per cycle | 4.10 / 6.05 / 1.69 / 0.92 / 0.20 | 4.60 / 11.53 / 0.63 / 0.12 / 1.36 |
-| tick mean, ms | 16.33 / 16.95 | 9.41 / 10.04 |
-| stepped, 600 s | 15.3x / 14.7x | 26.6x / 24.9x |
-| 60x clock, frame budget on | 14.7x / 14.2x | 17.4x / 16.5x |
-| 60x clock, no budget | 14.5x / 13.6x | 18.4x / 17.4x |
-| order to next frame, budget on, mean ms | 64 / 67 | 68 / 72 |
+| sensor cycle mean, ms | 18.97 / 18.11 | 18.81 / 19.58 |
+| sensor cycle p95, ms | 27.74 / 22.56 | 33.14 / 35.03 |
+| radar / ESM / sonar / tracks / weapons, ms per cycle (run 1) | 4.12 / 6.13 / 1.71 / 0.92 / 0.21 | 3.86 / 9.19 / 0.75 / 0.11 / 1.19 |
+| tick mean, ms | 16.57 / 15.89 | 10.19 / 10.56 |
+| stepped, 600 s | 15.1x / 15.7x | 24.5x / 23.7x |
+| 60x clock, frame budget on | 14.7x / 15.3x | 19.2x / 17.8x |
+| 60x clock, no budget | 15.2x / 15.7x | 20.5x / 19.1x |
+| order to next frame, budget on, mean ms | 68 / 64 | 59 / 61 |
 
-The cycle costs about the same per run and its tail is longer, with ESM at twice the cost in a battle with more emitters and rounds in the air; the tick as a whole takes 0.6 of the time, so the battle steps 1.7 times faster. Every repeat ended in the same state, and every clocked run replayed tick by tick to the same state.
+The cycle costs about the same per run and its tail is longer, with ESM half as dear again in a battle with more emitters and rounds in the air; the tick as a whole takes about 0.65 of the time, so the battle steps about 1.55 times faster. Every repeat ended in the same state, and every clocked run replayed tick by tick to the same state.
 
-With a window (xvfb, software renderer, 1600 x 900, `--fastforward=2400 --run=5 --perf=8`), script time per frame, run 1 / run 2:
+The 48-a-side fleet (`tests/test_fix_perf_v.gd`, after only: the code before has no such test), two minutes tick by tick with the AI on both sides: tick mean 18.0 / 17.6 ms, median 15.7 / 15.2, p95 39.7 / 41.1, worst 65.2 / 57.5; the capture for an autosave at 100 s takes 54.4 / 62.4 ms and the frame after it 0.2 / 0.0 ms.
 
-| | Taiwan Strait before | after | Hormuz before | after |
-|---|---|---|---|---|
-| clock during the sample | 60x | dropped to 1x | 60x | dropped to 1x |
-| chart, ms | 3.72 / 3.96 | 2.89 / 2.95 | 2.46 / 2.50 | 2.23 / 2.44 |
-| data display, ms | 0.80 / 0.86 | 0.75 / 0.79 | 0.53 / 0.54 | 0.85 / 1.00 |
-| 3D view, ms | 2.47 / 2.62 | 1.87 / 1.88 | 2.02 / 2.08 | 1.82 / 2.01 |
-| simulation, ms | 53.5 / 56.8 | 20.1 / 20.5 | 51.4 / 51.1 | 11.0 / 11.8 |
-| draw calls | 434 | 399 | 319 | 332 |
+With a window (xvfb, software renderer, 1600 x 900, `--run=5 --perf=8`; the Taiwan Strait and Hormuz from 2400 s, Northern Passage from 120 s), script time per frame, run 1 / run 2:
 
-After, a combat event early in the sample (at Hormuz a cruise-missile commit) drops the clock to real time, as the game now does; before, it stayed at 60x. The simulation row therefore compares a mostly-1x clock with a 60x one and says nothing about speed. The chart and 3D view rows are like for like and a little cheaper after.
+| | Taiwan Strait before | after | Hormuz before | after | Northern Passage before | after |
+|---|---|---|---|---|---|---|
+| clock during the sample | 60x (10.1 / 10.5 achieved) | 60x, dropped to 1x early (6.5 / 6.5) | 60x (26.0 / 30.9 achieved) | 60x, dropped to 1x early (7.0 / 7.3) | 60x (53.3 / 55.8 achieved) | 60x (59.3 / 59.2 achieved) |
+| chart, ms | 3.47 / 3.31 | 2.15 / 1.91 | 2.59 / 2.27 | 2.55 / 2.44 | 1.99 / 1.87 | 1.48 / 1.53 |
+| data display, ms | 0.79 / 0.76 | 0.69 / 0.64 | 0.54 / 0.50 | 1.50 / 1.43 | 0.96 / 0.86 | 0.85 / 0.94 |
+| 3D view, ms | 2.23 / 2.13 | 1.65 / 1.24 | 2.19 / 1.97 | 2.15 / 2.14 | 1.50 / 1.44 | 1.36 / 1.42 |
+| simulation, ms | 55.3 / 54.5 | 19.2 / 17.4 | 50.9 / 50.8 | 8.0 / 8.7 | 48.7 / 48.3 | 26.4 / 29.2 |
+| draw calls | 434 / 431 | 439 / 439 | 319 / 319 | 409 / 409 | 347 / 347 | 349 / 349 |
+
+In the Taiwan Strait and at Hormuz a combat event early in the sample drops the clock to real time, as the game now does; before, it stayed at 60x. Those simulation figures therefore compare a mostly-1x clock with a 60x one and say nothing about speed, and at Hormuz the after picture holds contacts and rounds the before one never saw, hence its busier data display and extra draw calls. Northern Passage is the like-for-like sample: both clocks stayed at 60x through a quiet opening, the after clock kept up with it, and the simulation cost about 3.6 ms of script per simulated second against 5.6 before. The chart and the 3D view cost about the same or less after in every sample, Hormuz included, where the after chart has more to draw.
 
 ### Repository
 
@@ -197,7 +199,7 @@ After, a combat event early in the sample (at Hormuz a cruise-missile commit) dr
 - Weapon and sensor definitions that nothing carries are deleted, with their models and renders. An older save that names a retired Sidewinder id still loads.
 - The interface suites are kept out of the browser pack, the cold-war and aviation smoke suites among them, loaded by path when their flags ask for them.
 - The art loader and its tests name `tools/art` as the pipeline for the revised models, with `tools/blender` kept for the platforms only it builds.
-- `tools/web/browser_check.cjs` finds whichever Chromium build is installed under the Playwright directory, and `CHROMIUM` still overrides it.
+- `tools/web/browser_check.cjs` finds whichever Chromium build is installed under the Playwright directory, and `CHROMIUM` still overrides it; it answers the question the game now asks before deleting a save.
 - The documentation is three files: README.md, CHANGELOG.md and DEVELOPING.md, beside DATA_SOURCES.md and assets/README.md.
 
 ## Earlier history
