@@ -217,12 +217,12 @@ func test_automatic_anti_air_fire_holds_while_an_own_aircraft_is_in_the_basket()
 	_arm(ship, sam, 20)
 	var drone := _unit("RED", Vector2(0.0, 22.0), "Drone", "air")
 	var helo := _unit("BLUE", Vector2(0.0, 19.5), "Helo", "air")
-	helo.altitude_m = 150.0
+	helo.altitude_m = 2800.0  # in the drone's height band: one merge on the scope
 	var h := _world([ship, drone, helo])
 	var wm: WeaponManager = h[1]
 	var t := _track("BLUE", drone)
 	_hold(h[2], t)
-	assert_eq(AirDefence.engage_hostile_aircraft(h[0], h[2], wm, 0.0, ["BLUE"]), 0, "own helicopter 2.5 nm short of the contact")
+	assert_eq(AirDefence.engage_hostile_aircraft(h[0], h[2], wm, 0.0, ["BLUE"]), 0, "own aircraft 2.5 nm short of the contact at its height")
 	assert_true(wm.in_flight.is_empty())
 	assert_true(bool(wm.engagement_check(ship, sam, t, 0.0).ok), "the commander may still order the shot")
 	helo.position = Vector2(8.0, 19.5)

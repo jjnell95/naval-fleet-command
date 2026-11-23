@@ -333,15 +333,24 @@ static func aircraft_salvo(u: Unit, t: Track) -> int:
 	return 2 if Geo.heading_to_vector(t.course_deg).dot(toward_ship) > 0.5 else 1
 
 
+## How far above or below a hostile aircraft's held height an own aircraft is told apart from it
+## on the height-finder, so that the two are not one merge on the scope. GAMEPLAY_ESTIMATE.
+const MERGE_HEIGHT_SEPARATION_M := 1000.0
+
+
 ## An own aircraft close enough to the contact to be inside the round's seeker basket when it
 ## opens. A crew firing on its own initiative holds a shot into a merge it cannot sort out on the
 ## scope; the commander may still order it. The basket is drawn round the plot, widened by the
-## plot's own error.
+## plot's own error. Where the plot holds a height, an own aircraft well clear of it above or below
+## (a helicopter low over the sea under a drone at height) is no merge.
 static func own_aircraft_in_basket(unit_manager: UnitManager, shooter: Unit, spec: WeaponSpec, t: Track) -> bool:
 	var reach := spec.acquisition_radius_nm() + maxf(t.position_error_nm, 0.0)
 	for u: Unit in unit_manager.units:
-		if u != shooter and u.faction == shooter.faction and u.in_flight() and u.position.distance_to(t.position) <= reach:
-			return true
+		if u == shooter or u.faction != shooter.faction or not u.in_flight() or u.position.distance_to(t.position) > reach:
+			continue
+		if t.altitude_m >= 0.0 and absf(u.altitude_m - t.altitude_m) > MERGE_HEIGHT_SEPARATION_M:
+			continue
+		return true
 	return false
 
 

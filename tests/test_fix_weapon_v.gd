@@ -142,3 +142,68 @@ func test_a_seeker_open_at_launch_takes_the_target_not_the_hull_beside_the_shoot
 			first = round.acquired.callsign
 	assert_eq(first, target.callsign, "the first lock is the ship it was fired at")
 	_cleanup(wm)
+
+
+# --- c-defence#2: an own helicopter low under a drone at height is no merge --------------------
+
+func _sam_world(helo_pos: Vector2, helo_altitude_m: float, plot_height := true) -> Dictionary:
+	var ship := _unit("BLUE", Vector2.ZERO, "surface", 1)
+	var radar := SensorSpec.new()
+	radar.kind = "radar"
+	radar.range_surface_nm = 40.0
+	radar.range_air_nm = 200.0
+	radar.antenna_height_m = 20.0
+	ship.sensors.append(radar)
+	ship.roe = Unit.Roe.FREE
+	var sam := DataDB.weapon("sm2_family")
+	ship.weapons.append(sam)
+	ship.magazines[sam.id] = 20
+	var drone := _unit("RED", Vector2(0.0, 22.0), "air", 2)
+	var helo := _unit("BLUE", helo_pos, "air", 3)
+	for a: Unit in [drone, helo]:
+		a.flight_state = Unit.FlightState.AIRBORNE
+		a.fuel_s = 99999.0
+	drone.altitude_m = 4500.0
+	helo.altitude_m = helo_altitude_m
+	var um := UnitManager.new()
+	for u: Unit in [ship, drone, helo]:
+		um.add_unit(u)
+	var tm := TrackManager.new()
+	var wm := WeaponManager.new()
+	wm.unit_manager = um
+	wm.track_manager = tm
+	um.weapon_manager = wm
+	var t := _track(ship, drone.position, "air")
+	t.truth = drone
+	t.position_error_nm = 0.2
+	t.speed_kn = 90.0
+	t.course_deg = 90.0
+	t.altitude_m = drone.altitude_m if plot_height else -1.0
+	t.classification = Track.Classification.CLASS_KNOWN
+	tm._tracks["BLUE"] = [t]
+	return {"um": um, "tm": tm, "wm": wm, "ship": ship, "track": t}
+
+
+func _free_sam_world(w: Dictionary) -> void:
+	(w["wm"] as WeaponManager).clear()
+	(w["wm"] as WeaponManager).free()
+	(w["tm"] as TrackManager).free()
+	(w["um"] as UnitManager).free()
+
+
+## A Burke on Weapons Free holding a hostile drone at 4,500 m, 22 miles off; its own helicopter
+## hovers at 150 m some four miles from the drone. The crew can see on the height-finder that the two
+## are not one merge, and shoots. An own aircraft at the drone's height there is a merge, and the
+## crew still holds.
+func test_automatic_sam_fire_is_not_held_by_an_own_helicopter_far_below_the_drone() -> void:
+	var cases := [
+		[Vector2(3.0, 19.5), 150.0, true, 1, "helicopter low under the drone"],
+		[Vector2(3.0, 19.5), 4200.0, true, 0, "own aircraft at the drone's height"],
+		[Vector2(12.0, 19.5), 4500.0, true, 1, "own aircraft well clear in plan"],
+	]
+	for c: Array in cases:
+		var w := _sam_world(c[0], c[1], c[2])
+		var fired := AirDefence.engage_hostile_aircraft(w["um"], w["tm"], w["wm"], 0.0, ["BLUE"])
+		assert_true(bool((w["wm"] as WeaponManager).engagement_check(w["ship"], DataDB.weapon("sm2_family"), w["track"], 0.0).ok), "%s: the shot is in the envelope" % c[4])
+		assert_eq(fired, c[3], c[4])
+		_free_sam_world(w)
